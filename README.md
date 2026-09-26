@@ -41,17 +41,55 @@ Most ESPHome media displays are passive screens that only show what is already p
 Import the companion script into Home Assistant (`Settings` → `Automations & Scenes` → `Scripts`):
 * File: [`homeassistant/script.pocket_assistant_browse.yaml`](homeassistant/script.pocket_assistant_browse.yaml)
 
-### 3. Deploy Firmware
-1. Copy `pocket-assistant.yaml` and the `boards/`, `core/`, and `apps/` folders into your Home Assistant `/config/esphome/` directory.
-2. In `pocket-assistant.yaml`, update the `substitutions:` section with your default speaker entity IDs and friendly names:
-   ```yaml
-   substitutions:
-     speaker_1_name: "Pocket Assistant"
-     speaker_1_id: "media_player.pocket_assistant"
-     speaker_2_name: "Garage HiFi"
-     speaker_2_id: "media_player.garage_hifi"
-   ```
-3. Compile and flash via ESPHome.
+### 3. Deploy Firmware (One-Click Remote Git Package)
+In your Home Assistant **ESPHome Device Builder** dashboard, create a new device or edit your configuration with this minimal stub:
+
+```yaml
+substitutions:
+  name: "pocket-assistant"
+  friendly_name: "Pocket Assistant"
+
+  # Target Speakers for Handoff & Remote Control (customize for your home)
+  speaker_1_name: "Pocket Assistant"
+  speaker_1_id: "media_player.pocket_assistant"
+  speaker_2_name: "Garage HiFi"
+  speaker_2_id: "media_player.garage_hifi"
+  speaker_3_name: "Kitchen Speaker"
+  speaker_3_id: "media_player.kitchen_speaker"
+
+  # Quick Presets (Favorite playlists, radio stations, or albums)
+  preset_1_name: "Radio Paradise"
+  preset_1_type: "radio"
+  preset_1_id: "Radio Paradise"
+  preset_2_name: "Daily Favorites"
+  preset_2_type: "playlist"
+  preset_2_id: "Daily Favorites"
+  preset_3_name: "Shoegaze Mix"
+  preset_3_type: "playlist"
+  preset_3_id: "Shoegaze"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+  encryption:
+    key: !secret pocket_assistant_encryption_key
+
+ota:
+  - platform: esphome
+    encryption:
+
+packages:
+  remote_pocket_assistant:
+    url: https://github.com/slampton/esphome-pocket-assistant
+    ref: main
+    refresh: 0s
+    files:
+      - pocket-assistant.yaml
+```
+
+Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `pocket_assistant_encryption_key`.
 
 ---
 
@@ -63,7 +101,10 @@ Import the companion script into Home Assistant (`Settings` → `Automations & S
   * On Clock Face: Quick screen standby.
   * In Music: Toggles between Now Playing and the Library Selection Menu.
   * In Games: Exits active game to menu.
-  * In System: Cycles calibrated brightness presets ($70\% ightarrow 80\% ightarrow 90\% ightarrow 100\%$).
+  * In System: Cycles calibrated brightness presets ($70\% 
+ightarrow 80\% 
+ightarrow 90\% 
+ightarrow 100\%$).
 * **Deep Sleep / Hibernation**: Press and hold the top crown button for $> 1.0	ext{ s}$ to enter deep sleep.
 
 ---
