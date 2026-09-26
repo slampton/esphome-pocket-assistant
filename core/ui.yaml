@@ -509,7 +509,17 @@ interval:
                   id(display_brightness).turn_on().perform();
                 } else {
                   id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = millis() - id(stopwatch_start_time);
+                  // The AXP2101 PMIC PEK short-press IRQ is inherently a key-RELEASE event.
+                  // By the time the release IRQ is raised and polled over I2C, approximately
+                  // 200ms of physical human thumb hold + PMIC debounce qualification has elapsed.
+                  // Compensate for this key-down dwell time so the stopped time reflects when the crown was pressed down!
+                  uint32_t now_stop = millis();
+                  uint32_t press_dwell_compensation = 200; // ms
+                  if (now_stop - id(stopwatch_start_time) > press_dwell_compensation) {
+                    id(stopwatch_elapsed_ms) = (now_stop - id(stopwatch_start_time)) - press_dwell_compensation;
+                  } else {
+                    id(stopwatch_elapsed_ms) = now_stop - id(stopwatch_start_time);
+                  }
                 }
                 id(disp1).update();
               } else if (id(gui_page) == 2) {
@@ -546,7 +556,7 @@ interval:
             }
           }
 
-          // Dynamic display update for Stopwatch (125ms = 8 FPS: authentic high-beat mechanical sweep, zero touch contention)
+          // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
           if (id(display_brightness).current_values.is_on()) {
             if (id(gui_page) == 1 && id(stopwatch_running)) {
               // Priority 0: Touch Interrupt Yielding
@@ -558,7 +568,7 @@ interval:
 
               static uint32_t last_chrono_disp_update = 0;
               uint32_t now_chrono_ms = millis();
-              if (now_chrono_ms - last_chrono_disp_update >= 125) {
+              if (now_chrono_ms - last_chrono_disp_update >= 150) {
                 last_chrono_disp_update = now_chrono_ms;
                 id(disp1).update();
               }
@@ -2987,8 +2997,9 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch bottom buttons (LAP & RESET) - Split Touch Zone (Zero Dead Zones)
+            // Page 1: Stopwatch Screen Tap Controls
             if (id(gui_page) == 1) {
+              // 1. Bottom Control Buttons: LAP & RESET (y: 275..390)
               if (touch.y >= 275 && touch.y <= 390) {
                 if (touch.x < 233) {
                   // LAP Button (Left half, center x=179, y=328, r=38)
@@ -3000,6 +3011,19 @@ touchscreen:
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
                   id(stopwatch_lap_ms) = 0;
+                }
+                id(disp1).update();
+              // 2. Central Chrono Dial & Digital Readout: INSTANT START / STOP (Microsecond Precision Leading-Edge Touch)
+              } else if (touch.x >= 100 && touch.x <= 366 && touch.y >= 70 && touch.y < 275) {
+                uint32_t now_tap = millis();
+                if (!id(stopwatch_running)) {
+                  id(stopwatch_running) = true;
+                  id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
+                  id(sleep_start_time) = 0;
+                  id(display_brightness).turn_on().perform();
+                } else {
+                  id(stopwatch_running) = false;
+                  id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
                 }
                 id(disp1).update();
               }
