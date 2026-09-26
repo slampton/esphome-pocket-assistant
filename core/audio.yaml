@@ -228,10 +228,6 @@ voice_assistant:
           id(va_tts_received) = true;
           id(va_status_text) = "Responding...";
           ESP_LOGI("va", "Status: Responding (TTS)...");
-  on_tts_stream_end:
-    then:
-      - lambda: |-
-          ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
   on_error:
     then:
       - script.execute: route_i2s_to_mic
