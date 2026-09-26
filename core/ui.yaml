@@ -2913,11 +2913,8 @@ touchscreen:
                   }
                 } else if (touch.x >= 207 && touch.x <= 259) {
                   // SOUND Toggle Button (Center, center x=233, r=24)
-                  auto call = id(stopwatch_sound_enabled).make_call();
-                  bool new_snd = !id(stopwatch_sound_enabled).state;
-                  call.set_state(new_snd);
-                  call.perform();
-                  if (new_snd) {
+                  id(stopwatch_sound_enabled).toggle();
+                  if (id(stopwatch_sound_enabled).state) {
                     id(play_mechanical_click).execute();
                   }
                 } else if (touch.x >= 275 && touch.x <= 351) {
