@@ -106,8 +106,46 @@ logger:
   level: INFO
 
 api:
-  encryption:
-    key: !secret api_encryption_key
+  actions:
+    - action: set_browse_slots
+      variables:
+        mode: string
+        page: int
+        total_pages: int
+        has_prev: bool
+        has_next: bool
+        s1_name: string
+        s1_id: string
+        s1_type: string
+        s1_active: bool
+        s2_name: string
+        s2_id: string
+        s2_type: string
+        s2_active: bool
+        s3_name: string
+        s3_id: string
+        s3_type: string
+        s3_active: bool
+      then:
+        - lambda: |-
+            id(music_browse_mode) = mode;
+            id(music_browse_page) = page;
+            id(music_browse_total_pages) = total_pages;
+            id(music_browse_has_prev) = has_prev;
+            id(music_browse_has_next) = has_next;
+            id(slot_1_name) = s1_name;
+            id(slot_1_id) = s1_id;
+            id(slot_1_type) = s1_type;
+            id(slot_1_active) = s1_active;
+            id(slot_2_name) = s2_name;
+            id(slot_2_id) = s2_id;
+            id(slot_2_type) = s2_type;
+            id(slot_2_active) = s2_active;
+            id(slot_3_name) = s3_name;
+            id(slot_3_id) = s3_id;
+            id(slot_3_type) = s3_type;
+            id(slot_3_active) = s3_active;
+            id(disp1).update();
 
 ota:
   - platform: esphome
@@ -135,8 +173,6 @@ ota:
             id(disp1).update();
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
   fast_connect: true
   power_save_mode: NONE
 
