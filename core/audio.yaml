@@ -1,0 +1,286 @@
+# Core Subsystem: Audio & Voice Assistant
+
+i2s_audio:
+  - id: i2s_input_bus
+    i2s_lrclk_pin:
+      number: GPIO45
+      allow_other_uses: true
+    i2s_bclk_pin:
+      number: GPIO9
+      allow_other_uses: true
+    i2s_mclk_pin:
+      number: GPIO16
+      allow_other_uses: true
+
+  - id: i2s_output_bus
+    i2s_lrclk_pin:
+      number: GPIO45
+      allow_other_uses: true
+    i2s_bclk_pin:
+      number: GPIO9
+      allow_other_uses: true
+    i2s_mclk_pin:
+      number: GPIO16
+      allow_other_uses: true
+
+
+audio_adc:
+  - platform: es7210
+    id: es7210_adc
+    i2c_id: bus_internal
+    address: 0x40
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    mic_gain: 37.5dB
+
+
+microphone:
+  - platform: i2s_audio
+    id: pocket_mic
+    adc_type: external
+    i2s_audio_id: i2s_input_bus
+    i2s_din_pin: GPIO10
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: left
+    pdm: false
+
+
+audio:
+  codecs:
+    flac:
+      buffer_memory: psram
+
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    i2c_id: bus_internal
+    address: 0x18
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    use_mclk: true
+
+
+speaker:
+  - platform: i2s_audio
+    id: physical_speaker
+    i2s_audio_id: i2s_output_bus
+    i2s_dout_pin: GPIO8
+    dac_type: external
+    audio_dac: es8311_dac
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: left
+    buffer_duration: 500ms
+    timeout: 500ms
+
+  - id: mixing_speaker
+    platform: mixer
+    output_speaker: physical_speaker
+    num_channels: 1
+    task_stack_in_psram: true
+    source_speakers:
+      - id: announcement_mixing_input
+        timeout: 1500ms
+      - id: media_mixing_input
+        timeout: never
+
+  - platform: resampler
+    id: va_speaker
+    output_speaker: announcement_mixing_input
+    sample_rate: 16000
+    bits_per_sample: 16
+    task_stack_in_psram: true
+
+  - platform: resampler
+    id: music_resampler
+    output_speaker: media_mixing_input
+    sample_rate: 16000
+    bits_per_sample: 16
+    task_stack_in_psram: true
+
+
+sendspin:
+  id: sendspin_hub
+  task_stack_in_psram: false
+
+
+media_source:
+  - platform: sendspin
+    id: sendspin_source
+    task_stack_in_psram: true
+    decode_memory: internal
+
+
+media_player:
+  - platform: sendspin
+    id: sendspin_group_media_player
+
+  - platform: speaker_source
+    id: pocket_music_player
+    name: "Pocket Watch Music"
+    media_pipeline:
+      format: FLAC
+      num_channels: 2
+      sample_rate: 48000
+      speaker: music_resampler
+      sources:
+        - sendspin_source
+    volume_initial: 75%
+    volume_increment: 5%
+    volume_min: 10%
+    volume_max: 95%
+    on_play:
+      then:
+        - lambda: |-
+            id(music_pos_sync_time) = millis();
+            id(gui_page) = 2; // Auto-switch to Music Player screen on playback start
+            id(sleep_start_time) = 0;
+            id(active_game) = 0;
+        - script.stop: mp_idle_debounce
+        - script.stop: screen_sleep_timer
+        - script.execute: route_i2s_to_spk
+        - audio_dac.mute_off: es8311_dac
+        - light.turn_on: display_brightness
+        - delay: 300ms
+        - component.update: disp1
+    on_pause:
+      then:
+        - lambda: |-
+            if (id(music_pos_sync_time) > 0) {
+              id(music_pos_base) += (millis() - id(music_pos_sync_time)) / 1000.0f;
+              id(music_pos_sync_time) = 0;
+            }
+        - script.execute: screen_sleep_timer
+        - script.execute: mp_idle_debounce
+    on_idle:
+      then:
+        - script.execute: mp_idle_debounce
+
+  - platform: speaker
+    name: "Pocket Watch Assist"
+    id: pocket_assist_player
+    announcement_pipeline:
+      speaker: va_speaker
+      num_channels: 1
+      format: FLAC
+    volume_initial: 75%
+    volume_increment: 5%
+    volume_min: 20%
+    volume_max: 88%
+
+
+voice_assistant:
+  id: va
+  microphone: pocket_mic
+  speaker: va_speaker
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  on_listening:
+    then:
+      - script.stop: mp_idle_debounce
+      - script.stop: screen_sleep_timer
+      - script.execute: route_i2s_to_mic
+      - lambda: |-
+          if (!id(va_active)) {
+            id(return_page) = id(gui_page);
+            id(va_active) = true;
+          }
+          id(va_tts_received) = false;
+          id(va_status_text) = "Listening...";
+          ESP_LOGI("va", "Status: Listening...");
+      - light.turn_on: display_brightness
+      - component.update: disp1
+  on_stt_vad_start:
+    then:
+      - script.stop: screen_sleep_timer
+      - lambda: |-
+          id(va_status_text) = "Listening...";
+          ESP_LOGI("va", "Status: Listening (VAD active)...");
+      - component.update: disp1
+  on_stt_vad_end:
+    then:
+      - script.stop: screen_sleep_timer
+      - lambda: |-
+          id(va_status_text) = "Thinking...";
+          ESP_LOGI("va", "Status: Thinking...");
+      - component.update: disp1
+  on_stt_end:
+    then:
+      - script.stop: screen_sleep_timer
+      - lambda: |-
+          id(va_status_text) = "Thinking...";
+          ESP_LOGI("va", "STT End (hidden): %s", x.c_str());
+      - component.update: disp1
+  on_tts_start:
+    then:
+      - script.stop: screen_sleep_timer
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
+      - lambda: |-
+          id(va_tts_received) = true;
+          id(va_status_text) = "Responding...";
+          ESP_LOGI("va", "Status: Responding (TTS)...");
+  on_tts_stream_end:
+    then:
+      - lambda: |-
+          ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
+  on_error:
+    then:
+      - script.execute: route_i2s_to_mic
+      - lambda: |-
+          id(va_tts_received) = false;
+          id(va_active) = false;
+          id(va_status_text) = code.substr(0, 24);
+          ESP_LOGE("va", "Error: %s - %s", code.c_str(), message.c_str());
+      - component.update: disp1
+      - delay: 2s
+      - lambda: |-
+          id(va_status_text) = "";
+          id(gui_page) = id(return_page);
+      - component.update: disp1
+      - if:
+          condition:
+            binary_sensor.is_off: pickup_detected
+          then:
+            - script.execute: screen_sleep_timer
+  on_end:
+    then:
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 0
+          duration: 1.0s
+      - if:
+          condition:
+            lambda: 'return id(va_tts_received);'
+          then:
+            # 1. Wait for audio stream to reach speaker and begin playing
+            - wait_until:
+                condition:
+                  lambda: 'return id(announcement_mixing_input).is_running();'
+                timeout: 5s
+            # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
+            - wait_until:
+                condition:
+                  lambda: 'return !id(announcement_mixing_input).is_running();'
+                timeout: 180s
+            # 3. Clean 400ms settling flush for physical speaker & DAC FIFO drain
+            - delay: 400ms
+      - if:
+          condition:
+            media_player.is_idle: pocket_music_player
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - script.execute: route_i2s_to_mic
+      - lambda: |-
+          id(va_status_text) = "";
+          id(va_tts_received) = false;
+          id(va_active) = false;
+          id(gui_page) = id(return_page);
+      - component.update: disp1
+      - if:
+          condition:
+            binary_sensor.is_off: pickup_detected
+          then:
+            - script.execute: screen_sleep_timer

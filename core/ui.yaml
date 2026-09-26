@@ -1,0 +1,3008 @@
+# Core Subsystem: Display Engine & UI Router
+
+globals:
+  - id: drilldown_artist_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: drilldown_album_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: drilldown_album_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: drilldown_parent_mode
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: is_locked
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: music_overlay_mode
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = Player, 1 = Top Menu, 2 = Library Submenu, 3 = Item Browser
+  - id: pending_tap_slot
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: gesture_swiped
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: music_category_page
+    type: int
+    restore_value: no
+    initial_value: '1' # 1 to 3
+  - id: selected_category_mode
+    type: std::string
+    restore_value: no
+    initial_value: '"speakers"'
+  - id: selected_category_title
+    type: std::string
+    restore_value: no
+    initial_value: '"SPEAKERS"'
+  - id: music_browse_page
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: music_browse_total_pages
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: music_browse_has_prev
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: music_browse_has_next
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: active_speaker_entity
+    type: std::string
+    restore_value: no
+    initial_value: '"media_player.pocket_watch"'
+  - id: active_speaker_name
+    type: std::string
+    restore_value: no
+    initial_value: '"Pocket Watch"'
+  - id: slot_1_name
+    type: std::string
+    restore_value: no
+    initial_value: '"Pocket Watch"'
+  - id: slot_1_id
+    type: std::string
+    restore_value: no
+    initial_value: '"media_player.pocket_watch"'
+  - id: slot_1_type
+    type: std::string
+    restore_value: no
+    initial_value: '"player"'
+  - id: slot_1_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: slot_2_name
+    type: std::string
+    restore_value: no
+    initial_value: '"Garage HiFi"'
+  - id: slot_2_id
+    type: std::string
+    restore_value: no
+    initial_value: '"media_player.garage_hifi"'
+  - id: slot_2_type
+    type: std::string
+    restore_value: no
+    initial_value: '"player"'
+  - id: slot_2_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: slot_3_name
+    type: std::string
+    restore_value: no
+    initial_value: '"Kitchen Speaker"'
+  - id: slot_3_id
+    type: std::string
+    restore_value: no
+    initial_value: '"media_player.kitchen_speaker"'
+  - id: slot_3_type
+    type: std::string
+    restore_value: no
+    initial_value: '"player"'
+  - id: slot_3_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: music_action_feedback
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: music_feedback_timer
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: is_hibernating
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: ota_in_progress
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: ota_progress_pct
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: boot_hold_triggered
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: music_pos_base
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: music_pos_sync_time
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: marble_touch_x
+    type: float
+    restore_value: no
+    initial_value: '-1.0'
+  - id: marble_touch_y
+    type: float
+    restore_value: no
+    initial_value: '-1.0'
+  - id: active_game
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: vol_hud_timer
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: game_btn_pressed
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: gui_page
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: return_page
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: va_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: va_status_text
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: va_tts_received
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: stopwatch_running
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: stopwatch_start_time
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: stopwatch_elapsed_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: stopwatch_lap_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: sleep_start_time
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: abort_boot
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_time
+    size: 77
+  - file: "gfonts://Roboto"
+    id: font_date
+    size: 26
+  - file: "gfonts://Roboto"
+    id: font_digital_time
+    size: 21
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 20
+
+
+color:
+  - id: col_bg
+    hex: "000000"
+  - id: col_black
+    hex: "000000"
+  - id: col_rust
+    hex: "A83828"  # Dark muted brownish-red / warm rust
+  - id: col_gold
+    hex: "FFD600"
+  - id: col_white
+    hex: "FFFFFF"
+  - id: col_slate
+    hex: "9E9E9E"
+  - id: col_cyan
+    hex: "00E5FF"
+  - id: col_light_blue
+    hex: "B3E5FC"
+  - id: col_green
+    hex: "00E676"
+  - id: col_orange
+    hex: "FF9100"
+  - id: col_red
+    hex: "FF5252"
+  - id: col_purple
+    hex: "8A2BE2"
+  - id: col_magenta
+    hex: "E040FB"
+  - id: col_gray
+    hex: "616161"
+  - id: col_dark_gray
+    hex: "212121" 
+
+
+image:
+  - platform: sendspin
+    id: album_slot
+    format: JPEG
+    type: RGB565
+    resize: 200x200
+    source: album
+    current_image:
+      id: album_art
+    on_image_display:
+      - component.update: disp1
+
+
+output:
+  - platform: template
+    id: backlight_brightness
+    type: float
+    write_action:
+      - lambda: |-
+          id(disp1).set_brightness(uint8_t(state * 255.0f));
+
+
+light:
+  - platform: monochromatic
+    id: display_brightness
+    name: "Display"
+    output: backlight_brightness
+    default_transition_length: 0s
+    initial_state:
+      brightness: 90%
+    restore_mode: ALWAYS_ON
+
+
+select:
+  - platform: template
+    name: "Display Brightness Preset"
+    id: display_brightness_preset
+    entity_category: config
+    options:
+      - "70%"
+      - "80%"
+      - "90%"
+      - "100%"
+    initial_option: "90%"
+    restore_value: true
+    optimistic: true
+    set_action:
+      - lambda: |-
+          float b = 0.90f;
+          if (x == "70%") b = 0.70f;
+          else if (x == "80%") b = 0.80f;
+          else if (x == "90%") b = 0.90f;
+          else if (x == "100%") b = 1.00f;
+          id(display_brightness).turn_on().set_brightness(b).perform();
+          id(disp1).update();
+
+
+button:
+  - platform: restart
+    name: "Internal Restart"
+    id: internal_restart
+    internal: true
+
+  - platform: template
+    name: "Restart"
+    id: restart_button
+    entity_category: diagnostic
+    on_press:
+      - light.turn_off: display_brightness
+      - component.update: disp1
+      - delay: 2s
+      - button.press: internal_restart
+
+  - platform: template
+    name: "Enter Deep Sleep"
+    id: enter_deep_sleep_btn
+    icon: "mdi:sleep"
+    entity_category: config
+    on_press:
+      - script.execute: enter_deep_sleep
+
+  - platform: template
+    name: "Trigger Voice Assistant"
+    id: trigger_va_button
+    on_press:
+      - script.stop: screen_sleep_timer
+      - if:
+          condition:
+            lambda: |-
+              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() || (id(pocket_assist_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+          then:
+            - script.execute: cancel_voice_assistant
+          else:
+            - if:
+                condition:
+                  media_player.is_playing: pocket_music_player
+                then:
+                  - media_player.pause: pocket_music_player
+                  - delay: 200ms
+            - script.execute: route_i2s_to_mic
+            - light.turn_on: display_brightness
+            - lambda: 'id(va_tts_received) = false;'
+            - voice_assistant.start:
+
+
+switch:
+  - platform: gpio
+    name: "Speaker Enable"
+    id: speaker_enable
+    pin: GPIO46
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    name: "Prevent Deep Sleep"
+    id: prevent_deep_sleep_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - deep_sleep.prevent: deep_sleep_ctrl
+    turn_off_action:
+      - deep_sleep.allow: deep_sleep_ctrl
+
+
+number:
+  - platform: template
+    name: "Assist Speaking Animation Interval"
+    id: va_speech_anim_interval
+    optimistic: true
+    min_value: 150
+    max_value: 1200
+    step: 50
+    initial_value: 350
+    unit_of_measurement: "ms"
+    entity_category: config
+
+
+interval:
+  - interval: 60min
+    then:
+      - lambda: |-
+          // Priority 1: Periodic thermal drift compensation for RTC slow clock
+          extern uint32_t rtc_clk_cal(int cal_clk, uint32_t slow_clk_cycles) __asm__("rtc_clk_cal");
+          uint32_t cal_val = rtc_clk_cal(0, 1024);
+          ESP_LOGD("rtc_cal", "Periodic RTC slow clock calibration: %lu", (unsigned long)cal_val);
+
+  - interval: 10s
+    then:
+      - lambda: |-
+          uint8_t reg0 = 0x00;
+          uint8_t stat0 = 0;
+          bool vbus = false;
+          if (id(bus_internal).write_readv(0x34, &reg0, 1, &stat0, 1) == esphome::i2c::ERROR_OK) {
+            vbus = (stat0 & 0x20) != 0;
+            id(usb_connected).publish_state(vbus);
+          }
+          uint8_t reg1 = 0x01;
+          uint8_t stat1 = 0;
+          if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
+            uint8_t chg = (stat1 >> 5) & 0x03;
+            id(batt_charging).publish_state(vbus && (chg == 1));
+          }
+
+          // Priority 4: 5-Minute Inactivity Auto-Descent to Deep Sleep
+          if (!id(display_brightness).current_values.is_on() &&
+              !id(usb_connected).state &&
+              (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
+              !id(va).is_running() &&
+              !id(va_tts_received) &&
+              !id(announcement_mixing_input).is_running() &&
+              (id(active_game) == 0) &&
+              id(sleep_start_time) > 0 &&
+              (millis() - id(sleep_start_time) >= 300000)) {
+            ESP_LOGI("power", "5 minutes inactivity with screen off: auto-descending to deep sleep");
+            id(enter_deep_sleep).execute();
+          }
+
+  - interval: 100ms
+    then:
+      - lambda: |-
+          // Read AXP2101 IRQ status for top button (PWR / PEK)
+          uint8_t irq_reg = 0x49;
+          uint8_t irq_val = 0;
+          if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
+            if (irq_val & 0x0C) {
+              bool is_long = (irq_val & 0x04) != 0;
+              uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
+              id(bus_internal).write(0x34, clr, 2);
+
+              // ---------------------------------------------
+              // POCKET LOCK MANAGEMENT (HOLD CROWN 1.5s)
+              // ---------------------------------------------
+              if (id(is_locked)) {
+                if (is_long) {
+                  id(unlock_pocket_watch).execute();
+                }
+                return; // Ignore all short clicks in locked state
+              }
+
+              // Long press (1.5s hold) locks the watch from any screen
+              if (is_long) {
+                id(enter_deep_sleep).execute();
+                return;
+              }
+
+              if (!id(display_brightness).current_values.is_on()) {
+                if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
+                  id(gui_page) = 0;
+                }
+                id(sleep_start_time) = 0;
+                id(display_brightness).turn_on().perform();
+                id(disp1).update();
+                return;
+              }
+
+              id(screen_sleep_timer).execute();
+
+              if (id(gui_page) == 0) {
+                // Main Clock Face -> quick screen off (Tier 2 Screen Standby)
+                id(sleep_start_time) = millis();
+                id(display_brightness).turn_off().perform();
+                return;
+              } else if (id(gui_page) == 1) {
+                if (!id(stopwatch_running)) {
+                  id(stopwatch_running) = true;
+                  id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
+                } else {
+                  id(stopwatch_running) = false;
+                  id(stopwatch_elapsed_ms) = millis() - id(stopwatch_start_time);
+                }
+                id(disp1).update();
+              } else if (id(gui_page) == 2) {
+                // Top Crown Button on Page 2: Toggle Category Menu Overlay
+                if (id(music_overlay_mode) == 0) {
+                  id(music_overlay_mode) = 1; // Open Level 1 Categories Menu
+                } else {
+                  id(music_overlay_mode) = 0; // Close overlay back to Now Playing player
+                }
+                id(disp1).update();
+              } else if (id(gui_page) == 3) {
+                // Page 3: Games -> click top button exits active game or exits menu to Watch Face
+                if (id(active_game) > 0) {
+                  id(active_game) = 0; // Exit game back to Games Menu
+                } else {
+                  id(gui_page) = 0;   // Exit Games Menu to Watch Face
+                }
+                id(disp1).update();
+              } else if (id(gui_page) == 4) {
+                // Page 4: System -> click top button cycles brightness preset
+                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                std::string nxt = "90%";
+                if (cur == "70%") nxt = "80%";
+                else if (cur == "80%") nxt = "90%";
+                else if (cur == "90%") nxt = "100%";
+                else if (cur == "100%") nxt = "70%";
+                auto call = id(display_brightness_preset).make_call();
+                call.set_option(nxt);
+                call.perform();
+              }
+            }
+          }
+
+          // Dynamic display update for Stopwatch & Asymmetric Voice Assistant Animation
+          if (id(display_brightness).current_values.is_on()) {
+            if (id(gui_page) == 1 && id(stopwatch_running)) {
+              id(disp1).update();
+            }
+            // Priority 3: Asymmetric Animation Cadence with Collision Protection
+            // While Listening/Thinking: 150ms (~6.7 FPS) fluid breathing (speaker is silent, zero audio contention)
+            // While Speaking (TTS): throttled to va_speech_anim_interval (default 800ms) to guarantee 100% clean audio
+            if (id(va_active) || !id(va_status_text).empty()) {
+              static uint32_t last_va_anim_time = 0;
+              static bool prev_tts_active = false;
+              uint32_t now_ms = millis();
+
+              // Smooth state transition: When speech starts, reserve quiet bus air for DAC unmute and first syllables
+              if (id(va_tts_received) != prev_tts_active) {
+                prev_tts_active = id(va_tts_received);
+                last_va_anim_time = now_ms; // Resets timer so first speaking frame waits for cadence
+                return; // Do NOT blit immediately; let initial audio packets and DAC soft-ramp stabilize cleanly
+              }
+
+              uint32_t cadence = 150;
+              if (id(va_tts_received)) {
+                cadence = (uint32_t)id(va_speech_anim_interval).state;
+                if (cadence < 150) cadence = 350;
+              }
+              if (now_ms - last_va_anim_time >= cadence) {
+                last_va_anim_time = now_ms;
+                id(disp1).update();
+              }
+            }
+          }
+
+  - interval: 50ms
+    then:
+      - lambda: |-
+          // 20 FPS high-refresh physics loop exclusively for active games
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0) {
+            id(disp1).update();
+          }
+
+
+sensor:
+  - platform: homeassistant
+    id: ha_media_duration
+    entity_id: sensor.pocket_watch_target_duration
+
+  - platform: homeassistant
+    id: ha_media_position
+    entity_id: sensor.pocket_watch_target_position
+    on_value:
+      then:
+        - lambda: |-
+            id(music_pos_base) = x;
+            id(music_pos_sync_time) = millis();
+            id(disp1).update();
+
+  - platform: wifi_signal
+    name: "Wi-Fi Signal"
+    id: pocket_wifi_signal
+    update_interval: 60s
+
+  - platform: template
+    name: "Battery Level"
+    id: batt_level
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    lambda: |-
+      uint8_t reg = 0xA4;
+      uint8_t pct = 0;
+      if (id(bus_internal).write_readv(0x34, &reg, 1, &pct, 1) == esphome::i2c::ERROR_OK) {
+        if (pct <= 100) return pct;
+      }
+      return NAN;
+    update_interval: 15s
+
+  - platform: template
+    name: "Battery Voltage"
+    id: batt_voltage
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    lambda: |-
+      uint8_t reg = 0x34;
+      uint8_t buf[2] = {0};
+      if (id(bus_internal).write_readv(0x34, &reg, 1, buf, 2) == esphome::i2c::ERROR_OK) {
+        uint16_t mv = ((buf[0] & 0x3F) << 8) | buf[1];
+        return mv / 1000.0f;
+      }
+      return NAN;
+    update_interval: 15s
+
+  - platform: motion
+    motion_id: imu
+    type: acceleration_x
+    name: "Accel X"
+    id: accel_x
+  - platform: motion
+    motion_id: imu
+    type: acceleration_y
+    name: "Accel Y"
+    id: accel_y
+  - platform: motion
+    motion_id: imu
+    type: acceleration_z
+    name: "Accel Z"
+    id: accel_z
+  - platform: motion
+    motion_id: imu
+    type: roll
+    name: "Roll"
+    id: imu_roll
+  - platform: motion
+    motion_id: imu
+    type: pitch
+    name: "Pitch"
+    id: imu_pitch
+
+  - platform: qmi8658
+    name: "IMU Temperature"
+    id: imu_temp
+    entity_category: diagnostic
+
+  - platform: template
+    name: "Dynamic Motion Delta"
+    id: motion_mag
+    unit_of_measurement: "g"
+    accuracy_decimals: 3
+    update_interval: 200ms
+    lambda: |-
+      if (id(is_locked)) return 0.0f;
+      float x = id(accel_x).state;
+      float y = id(accel_y).state;
+      float z = id(accel_z).state;
+      if (isnan(x) || isnan(y) || isnan(z)) return NAN;
+
+      static float grav_x = 0.0f;
+      static float grav_y = 0.0f;
+      static float grav_z = 1.0f;
+      const float alpha = 0.08f;
+      grav_x = (1.0f - alpha) * grav_x + alpha * x;
+      grav_y = (1.0f - alpha) * grav_y + alpha * y;
+      grav_z = (1.0f - alpha) * grav_z + alpha * z;
+
+      float dx = x - grav_x;
+      float dy = y - grav_y;
+      float dz = z - grav_z;
+      return sqrtf(dx*dx + dy*dy + dz*dz);
+
+
+binary_sensor:
+  - platform: template
+    name: "Battery Charging"
+    id: batt_charging
+    device_class: battery_charging
+    entity_category: diagnostic
+
+  - platform: template
+    name: "USB Power Connected"
+    id: usb_connected
+    device_class: power
+    entity_category: diagnostic
+
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    name: "Boot Button"
+    id: boot_button
+    on_press:
+      then:
+        - lambda: |-
+            id(boot_hold_triggered) = false;
+            if (id(is_locked)) return;
+            if (!id(display_brightness).current_values.is_on()) {
+              if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
+                id(gui_page) = 0;
+              }
+              id(sleep_start_time) = 0;
+            }
+        - if:
+            condition:
+              lambda: 'return !id(is_locked);'
+            then:
+              - script.stop: screen_sleep_timer
+              - light.turn_on: display_brightness
+              - script.execute: boot_button_hold_timer
+    on_release:
+      then:
+        - script.stop: boot_button_hold_timer
+    on_click:
+      - min_length: 50ms
+        max_length: 990ms
+        then:
+          - if:
+              condition:
+                lambda: 'return !id(is_locked) && !id(boot_hold_triggered);'
+              then:
+                - script.stop: screen_sleep_timer
+                - if:
+                    condition:
+                      lambda: 'return id(active_game) > 0;'
+                    then:
+                      - lambda: 'id(game_btn_pressed) = true;'
+                    else:
+                      - if:
+                          condition:
+                            lambda: |-
+                              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() || (id(pocket_assist_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                          then:
+                            - script.execute: cancel_voice_assistant
+                          else:
+                            - if:
+                                condition:
+                                  media_player.is_playing: pocket_music_player
+                                then:
+                                  - media_player.pause: pocket_music_player
+                                  - delay: 200ms
+                            - script.execute: route_i2s_to_mic
+                            - light.turn_on: display_brightness
+                            - lambda: 'id(va_tts_received) = false;'
+                            - voice_assistant.start:
+
+  - platform: template
+    name: "Pickup Detected"
+    id: pickup_detected
+    device_class: motion
+    lambda: |-
+      float dyn = id(motion_mag).state;
+      if (isnan(dyn)) return false;
+
+      const float thresh = ${pickup_threshold}f;
+      const uint32_t active_ms = (uint32_t)(${active_seconds} * 1000);
+      static uint32_t last_active_time = 0;
+      static uint32_t last_hit_time = 0;
+      static bool is_active = false;
+      uint32_t now_ms = millis();
+
+      if (dyn > thresh) {
+        if (now_ms - last_hit_time < 600) {
+          is_active = true;
+          last_active_time = now_ms;
+        }
+        last_hit_time = now_ms;
+      } else if (is_active) {
+        if (dyn > 0.03f) {
+          last_active_time = now_ms;
+        }
+        if (now_ms - last_active_time >= active_ms) {
+          is_active = false;
+        }
+      }
+      return is_active;
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: 'return !id(is_locked);'
+            then:
+              - script.stop: screen_sleep_timer
+              - lambda: |-
+                  if (!id(display_brightness).current_values.is_on()) {
+                    if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
+                      id(gui_page) = 0;
+                    }
+                    id(sleep_start_time) = 0;
+                  }
+              - light.turn_on: display_brightness
+              - component.update: disp1
+    on_release:
+      then:
+        - script.execute: screen_sleep_timer
+
+text_sensor:
+  - platform: homeassistant
+    id: ha_target_state
+    entity_id: sensor.pocket_watch_target_state
+    on_value:
+      then:
+        - component.update: disp1
+
+  - platform: homeassistant
+    id: ha_track_title
+    entity_id: sensor.pocket_watch_target_title
+    on_value:
+      then:
+        - component.update: disp1
+
+  - platform: homeassistant
+    id: ha_track_artist
+    entity_id: sensor.pocket_watch_target_artist
+    on_value:
+      then:
+        - component.update: disp1
+
+  - platform: homeassistant
+    id: ha_track_album
+    entity_id: sensor.pocket_watch_target_album
+    on_value:
+      then:
+        - component.update: disp1
+
+  - platform: sendspin
+    type: artist
+    name: "Now Playing Artist"
+    id: track_artist
+  - platform: sendspin
+    type: title
+    name: "Now Playing Title"
+    id: track_title
+  - platform: sendspin
+    type: album
+    name: "Now Playing Album"
+    id: track_album
+
+
+script:
+  - id: boot_button_hold_timer
+    mode: restart
+    then:
+      - delay: 1000ms
+      - if:
+          condition:
+            binary_sensor.is_on: boot_button
+          then:
+            - lambda: 'id(boot_hold_triggered) = true;'
+            - script.execute: enter_deep_sleep
+
+  - id: enter_deep_sleep
+    mode: restart
+    then:
+      - lambda: |-
+          id(is_locked) = true;
+          id(active_game) = 0;
+          id(is_hibernating) = true;
+      - voice_assistant.stop:
+      - media_player.pause: pocket_music_player
+      - audio_dac.mute_on: es8311_dac
+      - switch.turn_off: speaker_enable
+      - script.stop: screen_sleep_timer
+      - light.turn_on:
+          id: display_brightness
+          brightness: 90%
+      - component.update: disp1
+      - lambda: |-
+          // Keep "HIBERNATING..." on screen while user is holding button (up to 3.0s)
+          int guard = 0;
+          while (gpio_get_level(GPIO_NUM_0) == 0 && guard < 200) {
+            esp_rom_delay_us(15000); // 15ms * 200 = 3.0s max wait for user to lift finger
+            guard++;
+          }
+          // Clean debounce delay after user releases finger
+          esp_rom_delay_us(150000); // 150ms
+      - delay: 500ms  # Ensure visual confirmation is cleanly perceived
+      - lambda: |-
+          id(is_hibernating) = false;
+      - light.turn_off: display_brightness
+      - component.update: disp1  # Flush all-black frame to AMOLED panel
+      - delay: 250ms  # Ensure QSPI frame buffer and brightness 0 are fully flushed before CPU sleep
+      - deep_sleep.enter: deep_sleep_ctrl
+
+  - id: lock_pocket_watch
+    mode: restart
+    then:
+      - script.execute: enter_deep_sleep
+  - id: unlock_pocket_watch
+    mode: restart
+    then:
+      - lambda: |-
+          id(is_locked) = false;
+          id(gui_page) = 0; // Return cleanly to Clock Face
+          id(sleep_start_time) = 0;
+      - light.turn_on: display_brightness
+      - component.update: disp1
+      - script.execute: screen_sleep_timer
+
+  - id: music_vol_up
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
+          then:
+            - media_player.volume_up: pocket_music_player
+      - homeassistant.action:
+          action: media_player.volume_up
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+
+  - id: music_vol_down
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
+          then:
+            - media_player.volume_down: pocket_music_player
+      - homeassistant.action:
+          action: media_player.volume_down
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+
+  - id: toggle_ha_music
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: media_player.media_play_pause
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+
+  - id: music_next_track
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: media_player.media_next_track
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+
+  - id: music_prev_track
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: media_player.media_previous_track
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+
+  - id: fetch_music_browse
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: script.pocket_watch_browse
+          data:
+            mode: !lambda |-
+              if (id(selected_category_mode) == "speaker_takeover") {
+                return "speakers";
+              }
+              return id(selected_category_mode).c_str();
+            page: !lambda 'return to_string(id(music_browse_page));'
+            page_size: "3"
+            search: !lambda |-
+              if (id(selected_category_mode) == "artist_albums") {
+                return id(drilldown_artist_name).c_str();
+              } else if (id(selected_category_mode) == "album_tracks") {
+                return id(drilldown_album_id).c_str();
+              }
+              return "";
+
+  - id: pending_card_tap
+    mode: restart
+    then:
+      - delay: 130ms
+      - lambda: |-
+          if (!id(gesture_swiped) && id(pending_tap_slot) > 0) {
+            int s = id(pending_tap_slot);
+            id(pending_tap_slot) = 0;
+            if (s == 1) id(select_music_slot_1).execute();
+            else if (s == 2) id(select_music_slot_2).execute();
+            else if (s == 3) id(select_music_slot_3).execute();
+          }
+  - id: play_music_slot_1
+    mode: restart
+    then:
+      - lambda: |-
+          id(music_action_feedback) = "Playing: " + id(slot_1_name);
+          id(music_feedback_timer) = millis();
+      - homeassistant.action:
+          action: music_assistant.play_media
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            media_id: !lambda 'return id(slot_1_id).c_str();'
+            media_type: !lambda |-
+              if (id(selected_category_mode) == "artist") return "artist";
+              if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              return id(slot_1_type).c_str();
+      - delay: 800ms
+      - lambda: |-
+          id(music_overlay_mode) = 0;
+      - component.update: disp1
+
+  - id: play_music_slot_2
+    mode: restart
+    then:
+      - lambda: |-
+          id(music_action_feedback) = "Playing: " + id(slot_2_name);
+          id(music_feedback_timer) = millis();
+      - homeassistant.action:
+          action: music_assistant.play_media
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            media_id: !lambda 'return id(slot_2_id).c_str();'
+            media_type: !lambda |-
+              if (id(selected_category_mode) == "artist") return "artist";
+              if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              return id(slot_2_type).c_str();
+      - delay: 800ms
+      - lambda: |-
+          id(music_overlay_mode) = 0;
+      - component.update: disp1
+
+  - id: play_music_slot_3
+    mode: restart
+    then:
+      - lambda: |-
+          id(music_action_feedback) = "Playing: " + id(slot_3_name);
+          id(music_feedback_timer) = millis();
+      - homeassistant.action:
+          action: music_assistant.play_media
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            media_id: !lambda 'return id(slot_3_id).c_str();'
+            media_type: !lambda |-
+              if (id(selected_category_mode) == "artist") return "artist";
+              if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              return id(slot_3_type).c_str();
+      - delay: 800ms
+      - lambda: |-
+          id(music_overlay_mode) = 0;
+      - component.update: disp1
+
+  - id: select_music_slot_1
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(selected_category_mode) == "speakers";'
+          then:
+            - lambda: |-
+                id(music_action_feedback) = "Transferring -> " + id(slot_1_name);
+                id(music_feedback_timer) = millis();
+            - homeassistant.action:
+                action: music_assistant.transfer_queue
+                data:
+                  entity_id: !lambda 'return id(slot_1_id).c_str();'
+                  source_player: !lambda 'return id(active_speaker_entity).c_str();'
+                  auto_play: "true"
+            - lambda: |-
+                id(active_speaker_entity) = id(slot_1_id);
+                id(active_speaker_name) = id(slot_1_name);
+                id(music_action_feedback) = "Active: " + id(slot_1_name);
+                id(music_feedback_timer) = millis();
+            - homeassistant.action:
+                action: input_text.set_value
+                data:
+                  entity_id: input_text.pocket_watch_active_speaker
+                  value: !lambda 'return id(active_speaker_entity).c_str();'
+            - component.update: disp1
+            - delay: 600ms
+            - lambda: |-
+                id(music_overlay_mode) = 0;
+            - component.update: disp1
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(selected_category_mode) == "speaker_takeover";'
+                then:
+                  - lambda: |-
+                      if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                        auto call = id(pocket_music_player).make_call();
+                        call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                        call.perform();
+                      }
+                      id(active_speaker_entity) = id(slot_1_id);
+                      id(active_speaker_name) = id(slot_1_name);
+                      id(music_action_feedback) = "Controlling: " + id(slot_1_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: input_text.set_value
+                      data:
+                        entity_id: input_text.pocket_watch_active_speaker
+                        value: !lambda 'return id(active_speaker_entity).c_str();'
+                  - component.update: disp1
+                  - delay: 600ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+                else:
+                  - lambda: |-
+                      id(music_action_feedback) = "Playing: " + id(slot_1_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: music_assistant.play_media
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        media_id: !lambda 'return id(slot_1_id).c_str();'
+                        media_type: !lambda |-
+                          if (id(selected_category_mode) == "artist") return "artist";
+                          if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          return id(slot_1_type).c_str();
+                  - delay: 800ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+
+  - id: select_music_slot_2
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(selected_category_mode) == "speakers";'
+          then:
+            - lambda: |-
+                id(music_action_feedback) = "Transferring -> " + id(slot_2_name);
+                id(music_feedback_timer) = millis();
+            - homeassistant.action:
+                action: music_assistant.transfer_queue
+                data:
+                  entity_id: !lambda 'return id(slot_2_id).c_str();'
+                  source_player: !lambda 'return id(active_speaker_entity).c_str();'
+                  auto_play: "true"
+            - lambda: |-
+                id(active_speaker_entity) = id(slot_2_id);
+                id(active_speaker_name) = id(slot_2_name);
+                id(music_action_feedback) = "Active: " + id(slot_2_name);
+                id(music_feedback_timer) = millis();
+            - homeassistant.action:
+                action: input_text.set_value
+                data:
+                  entity_id: input_text.pocket_watch_active_speaker
+                  value: !lambda 'return id(active_speaker_entity).c_str();'
+            - component.update: disp1
+            - delay: 600ms
+            - lambda: |-
+                id(music_overlay_mode) = 0;
+            - component.update: disp1
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(selected_category_mode) == "speaker_takeover";'
+                then:
+                  - lambda: |-
+                      if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                        auto call = id(pocket_music_player).make_call();
+                        call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                        call.perform();
+                      }
+                      id(active_speaker_entity) = id(slot_2_id);
+                      id(active_speaker_name) = id(slot_2_name);
+                      id(music_action_feedback) = "Controlling: " + id(slot_2_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: input_text.set_value
+                      data:
+                        entity_id: input_text.pocket_watch_active_speaker
+                        value: !lambda 'return id(active_speaker_entity).c_str();'
+                  - component.update: disp1
+                  - delay: 600ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+                else:
+                  - lambda: |-
+                      id(music_action_feedback) = "Playing: " + id(slot_2_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: music_assistant.play_media
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        media_id: !lambda 'return id(slot_2_id).c_str();'
+                        media_type: !lambda |-
+                          if (id(selected_category_mode) == "artist") return "artist";
+                          if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          return id(slot_2_type).c_str();
+                  - delay: 800ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+
+  - id: select_music_slot_3
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(selected_category_mode) == "speakers";'
+          then:
+            - lambda: |-
+                id(music_action_feedback) = "Transferring -> " + id(slot_3_name);
+                id(music_feedback_timer) = millis();
+            - homeassistant.action:
+                action: music_assistant.transfer_queue
+                data:
+                  entity_id: !lambda 'return id(slot_3_id).c_str();'
+                  source_player: !lambda 'return id(active_speaker_entity).c_str();'
+                  auto_play: "true"
+            - lambda: |-
+                id(active_speaker_entity) = id(slot_3_id);
+                id(active_speaker_name) = id(slot_3_name);
+                id(music_action_feedback) = "Active: " + id(slot_3_name);
+                id(music_feedback_timer) = millis();
+            - homeassistant.action:
+                action: input_text.set_value
+                data:
+                  entity_id: input_text.pocket_watch_active_speaker
+                  value: !lambda 'return id(active_speaker_entity).c_str();'
+            - component.update: disp1
+            - delay: 600ms
+            - lambda: |-
+                id(music_overlay_mode) = 0;
+            - component.update: disp1
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(selected_category_mode) == "speaker_takeover";'
+                then:
+                  - lambda: |-
+                      if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                        auto call = id(pocket_music_player).make_call();
+                        call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                        call.perform();
+                      }
+                      id(active_speaker_entity) = id(slot_3_id);
+                      id(active_speaker_name) = id(slot_3_name);
+                      id(music_action_feedback) = "Controlling: " + id(slot_3_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: input_text.set_value
+                      data:
+                        entity_id: input_text.pocket_watch_active_speaker
+                        value: !lambda 'return id(active_speaker_entity).c_str();'
+                  - component.update: disp1
+                  - delay: 600ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+                else:
+                  - lambda: |-
+                      id(music_action_feedback) = "Playing: " + id(slot_3_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: music_assistant.play_media
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        media_id: !lambda 'return id(slot_3_id).c_str();'
+                        media_type: !lambda |-
+                          if (id(selected_category_mode) == "artist") return "artist";
+                          if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          return id(slot_3_type).c_str();
+                  - delay: 800ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+
+
+  - id: mp_idle_debounce
+    mode: restart
+    then:
+      - delay: 3s
+      - if:
+          condition:
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_IDLE) && 
+                     !id(va).is_running() && 
+                     !id(va_tts_received) && 
+                     !id(announcement_mixing_input).is_running();
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - script.execute: route_i2s_to_mic
+            - component.update: disp1
+
+  - id: screen_sleep_timer
+    mode: restart
+    then:
+      - delay: 10s
+      - if:
+          condition:
+            lambda: |-
+              return !id(va).is_running() && 
+                     !id(va_tts_received) && 
+                     !id(announcement_mixing_input).is_running() && 
+                     (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) && 
+                     !id(pickup_detected).state &&
+                     (id(active_game) == 0) &&
+                     (id(gui_page) != 3 || !id(usb_connected).state);
+          then:
+            - lambda: 'id(sleep_start_time) = millis();'
+            - light.turn_off: display_brightness
+
+  - id: cancel_voice_assistant
+    then:
+      - audio_dac.mute_on: es8311_dac
+      - lambda: |-
+          esphome::voice_assistant::abort_voice_assistant(id(va));
+          id(va_status_text) = "";
+          id(va_tts_received) = false;
+          id(va_active) = false;
+          id(gui_page) = id(return_page);
+      - voice_assistant.stop:
+      - media_player.stop: pocket_assist_player
+      - speaker.stop: va_speaker
+      - speaker.stop: announcement_mixing_input
+      - component.update: disp1
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 0
+          duration: 0.1s
+      - delay: 100ms
+      - if:
+          condition:
+            media_player.is_idle: pocket_music_player
+          then:
+            - script.execute: route_i2s_to_mic
+      - if:
+          condition:
+            binary_sensor.is_off: pickup_detected
+          then:
+            - script.execute: screen_sleep_timer
+
+  - id: route_i2s_to_mic
+    then:
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
+          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
+          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
+
+  - id: route_i2s_to_spk
+    then:
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
+          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
+          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+
+
+display:
+  - platform: mipi_spi
+    id: disp1
+    model: CO5300
+    spi_id: display_qspi
+    bus_mode: quad
+    reset_pin: GPIO1
+    cs_pin: GPIO12
+    dimensions:
+      height: 466
+      width: 466
+      offset_width: 6
+      offset_height: 0
+    brightness: 200
+    update_interval: 1s
+    lambda: |-
+      const int cx = 233;
+      const int cy = 233;
+
+      // ==========================================
+      // GLOBAL OVERLAY: OTA FIRMWARE UPDATE IN PROGRESS (Always renders even if screen was off)
+      // ==========================================
+      if (id(ota_in_progress)) {
+        it.fill(id(col_bg));
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(col_rust));
+        it.circle(cx, cy, 227, id(col_rust));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        it.print(cx, cy - 50, id(font_date), id(col_rust), TextAlign::CENTER, "FIRMWARE UPDATE");
+        char prog_buf[32];
+        snprintf(prog_buf, sizeof(prog_buf), "%d%%", id(ota_progress_pct));
+        it.print(cx, cy + 10, id(font_time), id(col_white), TextAlign::CENTER, prog_buf);
+        return;
+      }
+
+      if (!id(display_brightness).current_values.is_on()) {
+        it.fill(id(col_bg));
+        return;
+      }
+
+      // ==========================================
+      // GLOBAL OVERLAY: HIBERNATION SHUTDOWN
+      // ==========================================
+      if (id(is_hibernating)) {
+        it.fill(id(col_bg));
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(col_rust));
+        it.circle(cx, cy, 227, id(col_rust));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        it.print(cx, cy - 20, id(font_date), id(col_rust), TextAlign::CENTER, "HIBERNATING...");
+        it.print(cx, cy + 20, id(font_small), id(col_slate), TextAlign::CENTER, "Release button to sleep");
+        return;
+      }
+
+      static constexpr float PI_F = 3.14159265358979323846f;
+      auto now = id(ha_time).now();
+      float batt = id(batt_level).state;
+
+      // ==========================================
+      // GLOBAL OVERLAY: VOICE ASSISTANT TAKEOVER (v3.0.0 LIVING AI ENGINE)
+      // ==========================================
+      if (id(va_active) || !id(va_status_text).empty()) {
+        uint32_t now_ms = millis();
+        bool is_speaking = id(va_tts_received);
+        bool is_thinking = (!is_speaking && id(va_status_text) == "Thinking...");
+
+        // Strict Blue-Purple-Pink Spectral Gradient Helper (Zero yellow, green, or red)
+        auto get_nuanced_radiation_color = [](float t) -> Color {
+          t = t - floorf(t);
+          if (t < 0.333f) {
+            float k = t / 0.333f;
+            return Color((uint8_t)(138.0f * k), (uint8_t)(229.0f * (1.0f - k) + 43.0f * k), (uint8_t)(255.0f * (1.0f - k) + 226.0f * k));
+          } else if (t < 0.667f) {
+            float k = (t - 0.333f) / 0.334f;
+            return Color((uint8_t)(138.0f + 86.0f * k), (uint8_t)(43.0f + 21.0f * k), (uint8_t)(226.0f + 25.0f * k));
+          } else {
+            float k = (t - 0.667f) / 0.333f;
+            return Color((uint8_t)(224.0f * (1.0f - k)), (uint8_t)(64.0f * (1.0f - k) + 229.0f * k), 255);
+          }
+        };
+
+        if (is_speaking) {
+          // ====================================================
+          // STATE 3: SPEAKING (TTS) — RADIATING EXPANDING HARMONIC BANDS
+          // ====================================================
+          // 5 Out-of-phase expanding radiating bands (2000ms cycle) with dynamic thickness and gradient blending
+          // Stripped of secondary echo/ripple artifacts for clean, bold, smooth radiating rings
+          for (int w = 0; w < 5; w++) {
+            uint32_t wave_t = (now_ms + w * 400) % 2000;
+            float progress = (float)wave_t / 2000.0f; // 0.0 -> 1.0 radial expansion
+            int r_center = 36 + (int)(progress * 180.0f);
+
+            // Dynamic Band Width: swells from 4px near core up to 8-12px in mid-burst, tapering near perimeter
+            float width_factor = sinf(progress * PI_F);
+            int base_w = (w % 2 == 0) ? 7 : 4;
+            int band_w = base_w + (int)(5.0f * width_factor);
+            if (band_w < 3) band_w = 3;
+            int half_w = band_w / 2;
+
+            // Spectral phase across the blue-purple-pink loop
+            float wave_color_phase = (float)w * 0.20f + progress * 0.30f + (float)(now_ms % 4000) / 4000.0f;
+
+            // Draw clean gradient-shaded pillowed band
+            for (int d = -half_w; d <= half_w; d++) {
+              int r_curr = r_center + d;
+              if (r_curr < 34 || r_curr > 226) continue;
+
+              float edge_dist = fabsf((float)d) / (float)(half_w + 1);
+              float band_phase = wave_color_phase + (float)d * 0.02f;
+              Color base_col = get_nuanced_radiation_color(band_phase);
+
+              Color stroke_col;
+              if (edge_dist < 0.35f) {
+                // Subtle bright center crest
+                stroke_col = Color(
+                  (uint8_t)(base_col.red * 0.75f + 255.0f * 0.25f),
+                  (uint8_t)(base_col.green * 0.75f + 255.0f * 0.25f),
+                  (uint8_t)(base_col.blue * 0.75f + 255.0f * 0.25f)
+                );
+              } else {
+                stroke_col = base_col;
+              }
+              it.circle(cx, cy, r_curr, stroke_col);
+            }
+          }
+
+          // Pulsing Acoustic Core (800ms rhythmic beat, matte layered depth with subtle shadow, zero white specular spots)
+          float core_pulse = sinf((float)(now_ms % 800) * (2.0f * PI_F / 800.0f));
+          int core_r = 20 + (int)(4.0f * core_pulse);
+
+          Color aura_col = get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f);
+          Color body_col = get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f + 0.33f);
+
+          it.filled_circle(cx, cy + 2, core_r + 3, id(col_dark_gray)); // subtle drop shadow
+          it.circle(cx, cy, core_r + 3, aura_col);
+          it.circle(cx, cy, core_r + 2, aura_col);
+          it.filled_circle(cx, cy, core_r, body_col);
+
+          if (core_r > 6) {
+            Color inner_tone = Color(
+              (uint8_t)(body_col.red * 0.82f + 35),
+              (uint8_t)(body_col.green * 0.82f + 35),
+              (uint8_t)(body_col.blue * 0.82f + 35)
+            );
+            it.circle(cx, cy - 1, core_r - 3, inner_tone);
+          }
+
+        } else if (is_thinking) {
+          // ====================================================
+          // STATE 2: THINKING — THE QUANTUM COGNITIVE ENGINE
+          // ====================================================
+          it.circle(cx, cy, 52, id(col_dark_gray));
+          it.circle(cx, cy, 74, id(col_dark_gray));
+
+          float spin_cw = (float)(now_ms % 900) * (2.0f * PI_F / 900.0f);
+          float spin_ccw = -(float)(now_ms % 900) * (2.0f * PI_F / 900.0f);
+
+          // Inner CW orbit nodes (Cyan)
+          for (int i = 0; i < 3; i++) {
+            float ang = spin_cw + i * (2.0f * PI_F / 3.0f);
+            float s_node, c_node;
+            sincosf(ang, &s_node, &c_node);
+            int nx = cx + (int)(52.0f * c_node);
+            int ny = cy + (int)(52.0f * s_node);
+            it.filled_circle(nx, ny, 4, id(col_cyan));
+            it.filled_circle(nx, ny, 2, id(col_white));
+          }
+
+          // Outer CCW orbit nodes (Magenta / Purple)
+          for (int i = 0; i < 3; i++) {
+            float ang = spin_ccw + i * (2.0f * PI_F / 3.0f);
+            float s_node, c_node;
+            sincosf(ang, &s_node, &c_node);
+            int nx = cx + (int)(74.0f * c_node);
+            int ny = cy + (int)(74.0f * s_node);
+            it.filled_circle(nx, ny, 4, id(col_magenta));
+            it.filled_circle(nx, ny, 2, id(col_purple));
+          }
+
+          // Cognitive Pulse Core - Consistent Matte Layered Depth (NO shiny white specular 3D spot!)
+          float pulse = sinf((float)(now_ms % 600) * (2.0f * PI_F / 600.0f));
+          int core_r = 20 + (int)(4.0f * pulse);
+
+          it.filled_circle(cx, cy + 2, core_r + 3, id(col_dark_gray)); // subtle drop shadow
+          it.circle(cx, cy, core_r + 4, id(col_purple));
+          it.circle(cx, cy, core_r + 3, id(col_purple));
+          it.filled_circle(cx, cy, core_r, id(col_cyan));
+
+          if (core_r > 6) {
+            Color inner_tone = Color(30, 200, 230); // Soft diffuse inner definition
+            it.circle(cx, cy - 1, core_r - 3, inner_tone);
+          }
+
+          it.print(cx, cy + 105, id(font_small), id(col_cyan), TextAlign::CENTER, "Thinking...");
+
+        } else {
+          // ====================================================
+          // STATE 1: LISTENING — THE LIVING ATTENTIVE CORE
+          // ====================================================
+          it.circle(cx, cy, 56, id(col_dark_gray));
+
+          // 3 Orbital Satellites gently revolving at a graceful 3.6s pace
+          float orbit_ang = (float)(now_ms % 3600) * (2.0f * PI_F / 3600.0f);
+          for (int i = 0; i < 3; i++) {
+            float ang = orbit_ang + i * (2.0f * PI_F / 3.0f);
+            float s_node, c_node;
+            sincosf(ang, &s_node, &c_node);
+            int nx = cx + (int)(56.0f * c_node);
+            int ny = cy + (int)(56.0f * s_node);
+            it.filled_circle(nx, ny, 3, id(col_light_blue));
+            it.filled_circle(nx, ny, 1, id(col_white));
+          }
+
+          // Organic 1.6-second Breathing Core and Aura - Consistent Matte Layered Depth (NO shiny white specular 3D spot!)
+          float pulse = sinf((float)(now_ms % 1600) * (2.0f * PI_F / 1600.0f));
+          int core_r = 20 + (int)(5.0f * pulse);
+          int aura_r = 36 + (int)(8.0f * pulse);
+
+          it.circle(cx, cy, aura_r + 2, id(col_dark_gray));
+          it.circle(cx, cy, aura_r, id(col_purple));
+          it.circle(cx, cy, aura_r - 1, id(col_purple));
+
+          it.filled_circle(cx, cy + 2, core_r + 3, id(col_dark_gray)); // subtle drop shadow
+          it.circle(cx, cy, core_r + 3, id(col_light_blue));
+          it.circle(cx, cy, core_r + 2, id(col_light_blue));
+          it.filled_circle(cx, cy, core_r, id(col_cyan));
+
+          if (core_r > 6) {
+            Color inner_tone = Color(30, 200, 230); // Soft diffuse inner definition
+            it.circle(cx, cy - 1, core_r - 3, inner_tone);
+          }
+
+          const char *status_str = id(va_status_text).empty() ? "Listening..." : id(va_status_text).c_str();
+          it.print(cx, cy + 95, id(font_small), id(col_cyan), TextAlign::CENTER, status_str);
+        }
+        return;
+      }
+
+      // ==========================================
+      // PAGE 0: WATCH FACE (HIGH-CONTRAST MODERN DIAL)
+      // ==========================================
+      if (id(gui_page) == 0) {
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(col_slate));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        if (!now.is_valid()) {
+          it.print(cx, cy - 10, id(font_date), id(col_slate), TextAlign::CENTER, "Connecting...");
+          return;
+        }
+
+        int hour = now.hour;
+        int min = now.minute;
+        int sec = now.second;
+
+        // Dial markers: 60 ticks (major 5-min in slate, individual minutes in medium gray)
+        // Priority 2: Precomputed 60-tick sine/cosine LUT - eliminates 120 transcendental float calls/frame
+        static const float DIAL_SIN[60] = {
+          0.000000f, 0.104528f, 0.207912f, 0.309017f, 0.406737f, 0.500000f,
+          0.587785f, 0.669131f, 0.743145f, 0.809017f, 0.866025f, 0.913545f,
+          0.951057f, 0.978148f, 0.994522f, 1.000000f, 0.994522f, 0.978148f,
+          0.951057f, 0.913545f, 0.866025f, 0.809017f, 0.743145f, 0.669131f,
+          0.587785f, 0.500000f, 0.406737f, 0.309017f, 0.207912f, 0.104528f,
+          0.000000f, -0.104528f, -0.207912f, -0.309017f, -0.406737f, -0.500000f,
+          -0.587785f, -0.669131f, -0.743145f, -0.809017f, -0.866025f, -0.913545f,
+          -0.951057f, -0.978148f, -0.994522f, -1.000000f, -0.994522f, -0.978148f,
+          -0.951057f, -0.913545f, -0.866025f, -0.809017f, -0.743145f, -0.669131f,
+          -0.587785f, -0.500000f, -0.406737f, -0.309017f, -0.207912f, -0.104528f
+        };
+        static const float DIAL_COS[60] = {
+          1.000000f, 0.994522f, 0.978148f, 0.951057f, 0.913545f, 0.866025f,
+          0.809017f, 0.743145f, 0.669131f, 0.587785f, 0.500000f, 0.406737f,
+          0.309017f, 0.207912f, 0.104528f, 0.000000f, -0.104528f, -0.207912f,
+          -0.309017f, -0.406737f, -0.500000f, -0.587785f, -0.669131f, -0.743145f,
+          -0.809017f, -0.866025f, -0.913545f, -0.951057f, -0.978148f, -0.994522f,
+          -1.000000f, -0.994522f, -0.978148f, -0.951057f, -0.913545f, -0.866025f,
+          -0.809017f, -0.743145f, -0.669131f, -0.587785f, -0.500000f, -0.406737f,
+          -0.309017f, -0.207912f, -0.104528f, 0.000000f, 0.104528f, 0.207912f,
+          0.309017f, 0.406737f, 0.500000f, 0.587785f, 0.669131f, 0.743145f,
+          0.809017f, 0.866025f, 0.913545f, 0.951057f, 0.978148f, 0.994522f
+        };
+        for (int i = 0; i < 60; i++) {
+          float s = DIAL_SIN[i];
+          float c = DIAL_COS[i];
+
+          if (i % 5 == 0) {
+            int r_in = (i % 15 == 0) ? 198 : 206;
+            it.line(cx + (int)(r_in * s), cy - (int)(r_in * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_slate));
+            it.line(cx + (int)(r_in * s) + 1, cy - (int)(r_in * c), cx + (int)(220 * s) + 1, cy - (int)(220 * c), id(col_slate));
+          } else {
+            it.line(cx + (int)(214 * s), cy - (int)(214 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_gray));
+          }
+        }
+
+        // 12-Hour formatted date and digital time (single-digit hours drop leading zero)
+        it.strftime(cx, 145, id(font_date), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+        int h12 = now.hour % 12;
+        if (h12 == 0) h12 = 12;
+        char time_buf[16];
+        snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
+        it.print(cx, 305, id(font_digital_time), id(col_slate), TextAlign::CENTER, time_buf);
+
+        // Battery percentage in cyan in all states; golden charging bolt appears on left when plugged in
+        if (!isnan(batt)) {
+          char batt_str[16];
+          snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
+          if (id(batt_charging).state) {
+            int text_x = cx + 8;
+            it.print(text_x, 380, id(font_small), id(col_cyan), TextAlign::CENTER, batt_str);
+            int bx = text_x - (batt >= 100.0f ? 36 : 28);
+            int by = 380;
+            it.filled_triangle(bx + 3, by - 8, bx - 3, by, bx + 1, by, id(col_gold));
+            it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 8, id(col_gold));
+          } else {
+            it.print(cx, 380, id(font_small), id(col_cyan), TextAlign::CENTER, batt_str);
+          }
+        }
+
+        float h_angle = ((hour % 12) + min / 60.0f + sec / 3600.0f) * (2.0f * PI_F / 12.0f);
+        float m_angle = (min + sec / 60.0f) * (2.0f * PI_F / 60.0f);
+        float s_angle = sec * (2.0f * PI_F / 60.0f);
+
+        // Hour Hand: Bold White Sword Hand (base width 14px, length 88px)
+        {
+          float sin_h, cos_h;
+          sincosf(h_angle, &sin_h, &cos_h);
+          it.filled_triangle(cx - (int)(7.0f * cos_h), cy - (int)(7.0f * sin_h),
+                             cx + (int)(7.0f * cos_h), cy + (int)(7.0f * sin_h),
+                             cx + (int)(88.0f * sin_h), cy - (int)(88.0f * cos_h),
+                             id(col_white));
+        }
+
+        // Minute Hand: Slender Slate Gray Sword Hand (base width 8px, length 148px)
+        {
+          float sin_m, cos_m;
+          sincosf(m_angle, &sin_m, &cos_m);
+          it.filled_triangle(cx - (int)(4.0f * cos_m), cy - (int)(4.0f * sin_m),
+                             cx + (int)(4.0f * cos_m), cy + (int)(4.0f * sin_m),
+                             cx + (int)(148.0f * sin_m), cy - (int)(148.0f * cos_m),
+                             id(col_slate));
+        }
+
+        // Second Hand: Modern Red Needle (length 168px) with 4px circular red counterweight
+        {
+          float sin_s, cos_s;
+          sincosf(s_angle, &sin_s, &cos_s);
+          int tip_x = cx + (int)(168.0f * sin_s);
+          int tip_y = cy - (int)(168.0f * cos_s);
+          int tail_x = cx - (int)(30.0f * sin_s);
+          int tail_y = cy + (int)(30.0f * cos_s);
+          it.line(tail_x, tail_y, tip_x, tip_y, id(col_red));
+          it.filled_circle(tail_x, tail_y, 4, id(col_red));
+        }
+
+        // Center Pinion Cap (White ring, red center pip)
+        it.filled_circle(cx, cy, 7, id(col_white));
+        it.filled_circle(cx, cy, 4, id(col_red));
+        it.filled_circle(cx, cy, 2, id(col_dark_gray));
+
+      // ==========================================
+      // PAGE 1: STOPWATCH (GOLDEN AMBER BEZEL)
+      // ==========================================
+      } else if (id(gui_page) == 1) {
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(col_gold));
+        it.circle(cx, cy, 227, id(col_gold));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        it.print(cx, 95, id(font_date), id(col_gold), TextAlign::CENTER, "STOPWATCH");
+
+        uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
+        int mins = (total_ms / 60000) % 60;
+        int secs = (total_ms / 1000) % 60;
+        int tenths = (total_ms / 100) % 10;
+
+        char chrono_buf[32];
+        snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
+        it.print(cx, 185, id(font_time), id(col_white), TextAlign::CENTER, chrono_buf);
+
+        // Analog Chrono Second Hand sweep (60 seconds per revolution)
+        float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
+        float s_sin, s_cos;
+        sincosf(chrono_angle, &s_sin, &s_cos);
+        it.line(cx, cy, cx + (int)(150.0f * s_sin), cy - (int)(150.0f * s_cos), id(col_gold));
+        it.filled_circle(cx, cy, 5, id(col_gold));
+
+        // Display lap time if recorded
+        if (id(stopwatch_lap_ms) > 0) {
+          int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
+          int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
+          int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
+          char lap_buf[32];
+          snprintf(lap_buf, sizeof(lap_buf), "LAP %02d:%02d.%d", l_mins, l_secs, l_tenths);
+          it.print(cx, 260, id(font_small), id(col_cyan), TextAlign::CENTER, lap_buf);
+        }
+
+        // On-screen touch button badges
+        it.filled_circle(cx - 75, 335, 28, id(col_dark_gray));
+        it.circle(cx - 75, 335, 28, id(col_cyan));
+        it.print(cx - 75, 335 - 9, id(font_small), id(col_cyan), TextAlign::CENTER, "LAP");
+
+        it.filled_circle(cx + 75, 335, 28, id(col_dark_gray));
+        it.circle(cx + 75, 335, 28, id(col_red));
+        it.print(cx + 75, 335 - 9, id(font_small), id(col_red), TextAlign::CENTER, "RESET");
+
+        it.print(cx, 395, id(font_small), id(stopwatch_running) ? id(col_green) : id(col_gray), TextAlign::CENTER, id(stopwatch_running) ? "RUNNING (CLICK TOP TO STOP)" : "STOPPED (CLICK TOP TO START)");
+
+      // ==========================================
+      // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
+      // ==========================================
+      } else if (id(gui_page) == 2) {
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(col_green));
+        it.circle(cx, cy, 227, id(col_green));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        if (id(music_overlay_mode) == 0) {
+          // --------------------------------------------------
+          // VIEW 0: NOW PLAYING MUSIC PLAYER
+          // --------------------------------------------------
+          // Modern Volume Buttons: Symmetrical Top Caret (VOL ▲) & Bottom Caret (VOL ▼)
+          it.filled_triangle(cx, 30, cx - 8, 40, cx + 8, 40, id(col_gold));
+          it.print(cx, 56, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
+
+          it.print(cx, 82, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC");
+
+          bool is_remote = (id(active_speaker_entity) != "${speaker_1_id}");
+          bool is_playing = false;
+          if (is_remote) {
+            is_playing = (id(ha_target_state).state == "playing");
+          } else {
+            is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+          }
+
+          // Active Speaker Indicator
+          std::string spk_label = "[" + id(active_speaker_name) + "]";
+          it.print(cx, 102, id(font_small), is_remote ? id(col_cyan) : id(col_gray), TextAlign::CENTER, spk_label.c_str());
+
+          bool has_art = (!is_remote && id(album_art).get_width() > 0);
+          if (has_art) {
+            it.image(cx - 100, 122, id(album_art));
+          } else {
+            // High-contrast Vinyl Disc with Remote Audio Badge
+            it.filled_circle(cx, 222, 75, id(col_dark_gray));
+            it.circle(cx, 222, 75, is_remote ? id(col_cyan) : id(col_green));
+            it.circle(cx, 222, 60, id(col_bg));
+            it.circle(cx, 222, 45, id(col_dark_gray));
+            it.circle(cx, 222, 30, id(col_bg));
+            it.filled_circle(cx, 222, 16, is_remote ? id(col_cyan) : id(col_green));
+          }
+
+          // Track Navigation Buttons: Previous Track (◀◀) Left, Next Track (▶▶) Right
+          it.filled_circle(111, 222, 17, id(col_dark_gray));
+          it.filled_triangle(105, 222, 111, 215, 111, 229, id(col_white));
+          it.filled_triangle(112, 222, 118, 215, 118, 229, id(col_white));
+
+          it.filled_circle(355, 222, 17, id(col_dark_gray));
+          it.filled_triangle(354, 222, 348, 215, 348, 229, id(col_white));
+          it.filled_triangle(361, 222, 355, 215, 355, 229, id(col_white));
+
+          // Paused state frosted scrim overlay with borderless bold green Play badge ▶
+          if (!is_playing) {
+            it.filled_circle(cx, 222, 34, id(col_dark_gray));
+            it.filled_triangle(cx - 7, 222 - 15, cx - 7, 222 + 15, cx + 15, 222, id(col_green));
+          }
+
+          // Transient Volume HUD Overlay (appears on vertical swipe, fades after 1.8s)
+          if (millis() - id(vol_hud_timer) < 1800) {
+            int v_pct = (int)(id(pocket_music_player).volume * 100.0f);
+            char v_buf[32];
+            snprintf(v_buf, sizeof(v_buf), "VOL: %d%%", v_pct);
+            it.filled_circle(cx, 160, 24, id(col_dark_gray));
+            it.print(cx, 160 - 9, id(font_small), id(col_cyan), TextAlign::CENTER, v_buf);
+          }
+
+          // Real-time track progress calculation
+          float dur = id(ha_media_duration).state;
+          float current_pos = id(music_pos_base);
+          if (is_playing && id(music_pos_sync_time) > 0) {
+            current_pos += (millis() - id(music_pos_sync_time)) / 1000.0f;
+          }
+          float prog = 0.0f;
+          if (!isnan(dur) && dur > 0.0f) {
+            prog = current_pos / dur;
+            if (prog < 0.0f) prog = 0.0f;
+            if (prog > 1.0f) prog = 1.0f;
+          }
+
+          // Perimeter track position beads (soft light slate gray, non-blooming)
+          float max_angle = prog * 2.0f * PI_F;
+          for (float a = 0.0f; a < max_angle; a += 0.12f) {
+            float sa, ca;
+            sincosf(a, &sa, &ca);
+            int px = cx + (int)(216.0f * sa);
+            int py = cy - (int)(216.0f * ca);
+            it.filled_circle(px, py, 3, id(col_slate));
+          }
+
+          // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
+          std::string title = "";
+          std::string artist = "";
+          std::string album = "";
+
+          if (is_remote) {
+            title = id(ha_track_title).state;
+            artist = id(ha_track_artist).state;
+            album = id(ha_track_album).state;
+          } else {
+            title = id(track_title).state;
+            if (title.empty() || title == "None") title = id(ha_track_title).state;
+            artist = id(track_artist).state;
+            if (artist.empty() || artist == "None") artist = id(ha_track_artist).state;
+            album = id(track_album).state;
+            if (album.empty() || album == "None") album = id(ha_track_album).state;
+          }
+
+          if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
+          if (title.length() > 24) title = title.substr(0, 22) + "...";
+
+          if (has_art) {
+            it.print(cx, 348, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
+            if (!artist.empty() && artist != "None") {
+              if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
+              it.print(cx, 375, id(font_small), id(col_orange), TextAlign::CENTER, artist.c_str());
+            }
+          } else {
+            it.print(cx, 335, id(font_date), id(col_white), TextAlign::CENTER, title.c_str());
+            if (!artist.empty() && artist != "None") {
+              if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
+              it.print(cx, 365, id(font_small), id(col_orange), TextAlign::CENTER, artist.c_str());
+            }
+            if (!album.empty() && album != "None") {
+              if (album.length() > 28) album = album.substr(0, 26) + "...";
+              it.print(cx, 388, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
+            }
+          }
+
+          // Bottom Volume Down Caret Button
+          it.print(cx, 408, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
+          it.filled_triangle(cx, 436, cx - 8, 426, cx + 8, 426, id(col_gold));
+
+        } else if (id(music_overlay_mode) == 1) {
+          // --------------------------------------------------
+          // LEVEL 1: TOP-LEVEL SELECTION MENU (3 Cards, 1 Page)
+          // --------------------------------------------------
+          it.print(cx, 55, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC MENU");
+
+          auto draw_top_pill = [&](int y_mid, const char* label, Color accent_c) {
+            it.filled_circle(140, y_mid, 22, id(col_dark_gray));
+            it.filled_circle(326, y_mid, 22, id(col_dark_gray));
+            it.filled_rectangle(140, y_mid - 22, 186, 44, id(col_dark_gray));
+            it.circle(140, y_mid, 22, accent_c);
+            it.circle(326, y_mid, 22, accent_c);
+            it.line(140, y_mid - 22, 326, y_mid - 22, accent_c);
+            it.line(140, y_mid + 22, 326, y_mid + 22, accent_c);
+            it.filled_circle(136, y_mid, 5, accent_c);
+            it.print(cx + 6, y_mid - 9, id(font_small), id(col_white), TextAlign::CENTER, label);
+          };
+
+          draw_top_pill(135, "SPEAKER HANDOFF", id(col_green));
+          draw_top_pill(205, "SPEAKER TAKEOVER", id(col_cyan));
+          draw_top_pill(275, "BROWSE LIBRARY", id(col_gold));
+
+          // Bottom Back to Player
+          it.filled_circle(180, 405, 18, id(col_dark_gray));
+          it.filled_circle(286, 405, 18, id(col_dark_gray));
+          it.filled_rectangle(180, 387, 106, 36, id(col_dark_gray));
+          it.print(cx, 405 - 9, id(font_small), id(col_slate), TextAlign::CENTER, "[ BACK ]");
+
+        } else if (id(music_overlay_mode) == 2) {
+          // --------------------------------------------------
+          // LEVEL 2: LIBRARY CATEGORIES SUBMENU (3 per page)
+          // --------------------------------------------------
+          it.print(cx, 48, id(font_date), id(col_green), TextAlign::CENTER, "BROWSE LIBRARY");
+
+          // Centered compact < MENU pill button at y = 86 (returns to Top Menu)
+          it.filled_circle(185, 86, 14, id(col_dark_gray));
+          it.filled_circle(281, 86, 14, id(col_dark_gray));
+          it.filled_rectangle(185, 72, 96, 28, id(col_dark_gray));
+          it.print(cx, 86 - 8, id(font_small), id(col_cyan), TextAlign::CENTER, "< MENU");
+
+          auto draw_sub_pill = [&](int y_mid, const char* label, Color accent_c) {
+            it.filled_circle(140, y_mid, 22, id(col_dark_gray));
+            it.filled_circle(326, y_mid, 22, id(col_dark_gray));
+            it.filled_rectangle(140, y_mid - 22, 186, 44, id(col_dark_gray));
+            it.circle(140, y_mid, 22, accent_c);
+            it.circle(326, y_mid, 22, accent_c);
+            it.line(140, y_mid - 22, 326, y_mid - 22, accent_c);
+            it.line(140, y_mid + 22, 326, y_mid + 22, accent_c);
+            it.filled_circle(136, y_mid, 5, accent_c);
+            it.print(cx + 6, y_mid - 9, id(font_small), id(col_white), TextAlign::CENTER, label);
+          };
+
+          if (id(music_category_page) == 1) {
+            // Page 1: Favorites, Playlists, Artists
+            draw_sub_pill(135, "FAVORITES", id(col_gold));
+            draw_sub_pill(205, "PLAYLISTS", id(col_cyan));
+            draw_sub_pill(275, "ARTISTS", id(col_green));
+          } else if (id(music_category_page) == 2) {
+            // Page 2: Albums, Radio, Podcasts & Books
+            draw_sub_pill(135, "ALBUMS", id(col_orange));
+            draw_sub_pill(205, "RADIO STATIONS", id(col_gold));
+            draw_sub_pill(275, "PODCASTS & BOOKS", id(col_green));
+          } else if (id(music_category_page) == 3) {
+            // Page 3: Tracks
+            draw_sub_pill(135, "TRACKS", id(col_cyan));
+          }
+
+          // Category Pagination (y = 345)
+          Color l_arr = (id(music_category_page) > 1) ? id(col_white) : id(col_dark_gray);
+          it.filled_circle(110, 345, 17, id(col_dark_gray));
+          it.filled_triangle(104, 345, 110, 338, 110, 352, l_arr);
+          it.filled_triangle(111, 345, 117, 338, 117, 352, l_arr);
+
+          char cat_pg[32];
+          snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 3", id(music_category_page));
+          it.print(cx, 345 - 9, id(font_small), id(col_slate), TextAlign::CENTER, cat_pg);
+
+          Color r_arr = (id(music_category_page) < 3) ? id(col_white) : id(col_dark_gray);
+          it.filled_circle(356, 345, 17, id(col_dark_gray));
+          it.filled_triangle(355, 345, 349, 338, 349, 352, r_arr);
+          it.filled_triangle(362, 345, 356, 338, 356, 352, r_arr);
+
+          // Bottom Back to Top Menu
+          it.filled_circle(180, 405, 18, id(col_dark_gray));
+          it.filled_circle(286, 405, 18, id(col_dark_gray));
+          it.filled_rectangle(180, 387, 106, 36, id(col_dark_gray));
+          it.print(cx, 405 - 9, id(font_small), id(col_slate), TextAlign::CENTER, "[ BACK ]");
+        } else if (id(music_overlay_mode) == 3) {
+          // --------------------------------------------------
+          // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
+          // --------------------------------------------------
+          bool is_spk = (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover");
+          bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
+
+          // Centered Category Title at y = 48
+          it.print(cx, 48, id(font_date), id(col_green), TextAlign::CENTER, id(selected_category_title).c_str());
+
+          // Centered compact < MENU pill button at y = 86
+          it.filled_circle(185, 86, 14, id(col_dark_gray));
+          it.filled_circle(281, 86, 14, id(col_dark_gray));
+          it.filled_rectangle(185, 72, 96, 28, id(col_dark_gray));
+          it.print(cx, 86 - 8, id(font_small), id(col_cyan), TextAlign::CENTER, "< MENU");
+
+          // Dual-Action or Unified Slot Drawer
+          auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &id_str, const std::string &mtype, bool is_act) {
+            if (name.empty()) return;
+
+            if (is_drill) {
+              // ----------------------------------------------
+              // DRILLABLE ITEM: DUAL INLINE BUTTONS (PLAY ▶ + BROWSE >)
+              // ----------------------------------------------
+              // Left Discrete Circular Play Button (center 98, y_mid, radius 18)
+              it.filled_circle(98, y_mid, 18, id(col_dark_gray));
+              it.circle(98, y_mid, 18, id(col_green));
+              it.filled_triangle(95, y_mid - 6, 95, y_mid + 6, 104, y_mid, id(col_green));
+
+              // Right Card Body with Name and > Drilldown Chevron (x: 132..395)
+              it.filled_circle(154, y_mid, 22, id(col_dark_gray));
+              it.filled_circle(373, y_mid, 22, id(col_dark_gray));
+              it.filled_rectangle(154, y_mid - 22, 219, 44, id(col_dark_gray));
+              it.circle(154, y_mid, 22, id(col_cyan));
+              it.circle(373, y_mid, 22, id(col_cyan));
+              it.line(154, y_mid - 22, 373, y_mid - 22, id(col_cyan));
+              it.line(154, y_mid + 22, 373, y_mid + 22, id(col_cyan));
+
+              std::string disp_name = name;
+              if (disp_name.length() > 18) disp_name = disp_name.substr(0, 16) + "..";
+              it.print(258, y_mid - 9, id(font_small), id(col_white), TextAlign::CENTER, disp_name.c_str());
+
+              // Drilldown Chevron [ > ] on right end
+              it.print(372, y_mid - 9, id(font_small), id(col_cyan), TextAlign::CENTER, ">");
+            } else {
+              // ----------------------------------------------
+              // REGULAR / PLAYABLE ITEM: FULL-WIDTH UNIFIED CARD
+              // ----------------------------------------------
+              Color bg_c = id(col_dark_gray);
+              Color border_c = is_act ? id(col_green) : id(col_dark_gray);
+              Color txt_c = is_act ? id(col_green) : id(col_white);
+
+              it.filled_circle(140, y_mid, 22, bg_c);
+              it.filled_circle(326, y_mid, 22, bg_c);
+              it.filled_rectangle(140, y_mid - 22, 186, 44, bg_c);
+              it.circle(140, y_mid, 22, border_c);
+              it.circle(326, y_mid, 22, border_c);
+              it.line(140, y_mid - 22, 326, y_mid - 22, border_c);
+              it.line(140, y_mid + 22, 326, y_mid + 22, border_c);
+
+              if (is_spk) {
+                if (is_act || id_str == id(active_speaker_entity)) {
+                  it.filled_circle(136, y_mid, 6, id(col_green));
+                } else {
+                  it.circle(136, y_mid, 5, id(col_slate));
+                }
+              } else {
+                Color icon_c = (mtype == "radio") ? id(col_gold) : ((mtype == "playlist") ? id(col_cyan) : id(col_orange));
+                it.filled_triangle(132, y_mid - 6, 132, y_mid + 6, 142, y_mid, icon_c);
+              }
+
+              std::string disp_name = name;
+              if (disp_name.length() > 22) disp_name = disp_name.substr(0, 20) + "..";
+              it.print(cx + 6, y_mid - 9, id(font_small), txt_c, TextAlign::CENTER, disp_name.c_str());
+            }
+          };
+
+          draw_slot_card(135, id(slot_1_name), id(slot_1_id), id(slot_1_type), id(slot_1_active));
+          draw_slot_card(205, id(slot_2_name), id(slot_2_id), id(slot_2_type), id(slot_2_active));
+          draw_slot_card(275, id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active));
+
+          // Pagination Arrows & Status (y = 345)
+          Color l_arr_c = id(music_browse_has_prev) ? id(col_white) : id(col_dark_gray);
+          it.filled_circle(110, 345, 17, id(col_dark_gray));
+          it.filled_triangle(104, 345, 110, 338, 110, 352, l_arr_c);
+          it.filled_triangle(111, 345, 117, 338, 117, 352, l_arr_c);
+
+          if (millis() - id(music_feedback_timer) < 2500 && !id(music_action_feedback).empty()) {
+            it.print(cx, 345 - 9, id(font_small), id(col_gold), TextAlign::CENTER, id(music_action_feedback).c_str());
+          } else {
+            char pg_buf[32];
+            snprintf(pg_buf, sizeof(pg_buf), "PAGE %d / %d", id(music_browse_page), id(music_browse_total_pages));
+            it.print(cx, 345 - 9, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+          }
+
+          Color r_arr_c = id(music_browse_has_next) ? id(col_white) : id(col_dark_gray);
+          it.filled_circle(356, 345, 17, id(col_dark_gray));
+          it.filled_triangle(355, 345, 349, 338, 349, 352, r_arr_c);
+          it.filled_triangle(362, 345, 356, 338, 356, 352, r_arr_c);
+
+          // Bottom Close Button: [ CLOSE ]
+          it.filled_circle(180, 405, 18, id(col_dark_gray));
+          it.filled_circle(286, 405, 18, id(col_dark_gray));
+          it.filled_rectangle(180, 387, 106, 36, id(col_dark_gray));
+          it.print(cx, 405 - 9, id(font_small), id(col_cyan), TextAlign::CENTER, "[ CLOSE ]");
+        }
+
+      // ==========================================
+      // PAGE 3: GAMES SUITE (LAUNCHER & 3 GAMES)
+      // ==========================================
+      } else if (id(gui_page) == 3) {
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(col_cyan));
+        it.circle(cx, cy, 227, id(col_cyan));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        // Read real-time accelerometer / gyroscope tilt angles
+        float roll = id(imu_roll).state;
+        float raw_pitch = id(imu_pitch).state;
+        if (isnan(roll)) roll = 0.0f;
+        if (isnan(raw_pitch)) raw_pitch = 0.0f;
+
+        // Dynamic Tare / Auto-Zero on Game Launch:
+        // Whatever angle the user is holding the device at when launching the game is calibrated as neutral flat.
+        static float zero_pitch = -45.0f;
+        static float zero_roll = 0.0f;
+
+        // Clean Game Reset and Calibration on State Entry
+        static int prev_game_state = 0;
+        bool game_just_entered = false;
+        if (id(active_game) != prev_game_state) {
+          prev_game_state = id(active_game);
+          game_just_entered = true;
+          if (id(active_game) > 0) {
+            zero_pitch = raw_pitch;
+            zero_roll = roll;
+          }
+        }
+
+        // Relative tilt deltas from dynamic calibrated starting posture:
+        float pitch_delta = raw_pitch - zero_pitch;
+        float roll_delta = roll - zero_roll;
+
+        // ----------------------------------------------------
+        // STATE 0: GAMES MENU LAUNCHER
+        // ----------------------------------------------------
+        if (id(active_game) == 0) {
+          it.print(cx, 75, id(font_date), id(col_cyan), TextAlign::CENTER, "GAMES");
+
+          // Card 1: Marbles
+          it.filled_circle(cx, 155, 30, id(col_dark_gray));
+          it.circle(cx, 155, 30, id(col_gold));
+          it.print(cx, 155, id(font_small), id(col_gold), TextAlign::CENTER, "MARBLES");
+
+          // Card 2: Archery
+          it.filled_circle(cx, 235, 30, id(col_dark_gray));
+          it.circle(cx, 235, 30, id(col_red));
+          it.print(cx, 235, id(font_small), id(col_red), TextAlign::CENTER, "ARCHERY");
+
+          // Card 3: Treat Catcher
+          it.filled_circle(cx, 315, 30, id(col_dark_gray));
+          it.circle(cx, 315, 30, id(col_green));
+          it.print(cx, 315, id(font_small), id(col_green), TextAlign::CENTER, "TREAT CATCHER");
+
+        // ----------------------------------------------------
+        // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
+        // ----------------------------------------------------
+        } else if (id(active_game) == 1) {
+          it.print(cx, 65, id(font_small), id(col_gold), TextAlign::CENTER, "MARBLES");
+
+          struct SimBall {
+            float x, y, vx, vy, r;
+            int col_idx;
+            bool sunk;
+          };
+          static SimBall balls[5] = {
+            {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false}, // Gold
+            {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false}, // Cyan
+            {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false}, // Green
+            {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false}, // Red
+            {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false}          // Orange
+          };
+
+          static uint32_t win_timer = 0;
+          static float shockwave_r = -1.0f;
+          static float shockwave_x = 233.0f;
+          static float shockwave_y = 233.0f;
+
+          // Fresh Game Reset when entering from menu
+          if (game_just_entered) {
+            balls[0] = {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false};
+            balls[1] = {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false};
+            balls[2] = {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false};
+            balls[3] = {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false};
+            balls[4] = {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false};
+            win_timer = 0;
+            shockwave_r = -1.0f;
+          }
+
+          // Center Hole Target (Crisp high-contrast double-ring white bezel around deep black pocket)
+          it.circle(cx, cy, 30, id(col_slate));
+          it.circle(cx, cy, 29, id(col_white));
+          it.circle(cx, cy, 28, id(col_white));
+          it.circle(cx, cy, 27, id(col_slate));
+          it.filled_circle(cx, cy, 26, id(col_bg));
+          it.circle(cx, cy, 14, id(col_dark_gray));
+
+          // Touch Scatter Impulse / Button Pop (Robust, Anti-Freeze)
+          if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
+            float tx = (id(marble_touch_x) >= 0.0f) ? id(marble_touch_x) : cx;
+            float ty = (id(marble_touch_y) >= 0.0f) ? id(marble_touch_y) : cy;
+            id(marble_touch_x) = -1.0f;
+            id(game_btn_pressed) = false;
+            shockwave_x = tx; shockwave_y = ty; shockwave_r = 12.0f;
+
+            for (int i = 0; i < 5; i++) {
+              if (balls[i].sunk) continue;
+              float tdx = balls[i].x - tx;
+              float tdy = balls[i].y - ty;
+              float tdist = sqrtf(tdx * tdx + tdy * tdy);
+
+              // If tapped directly on or near the marble, pop it outward with random scatter angle
+              if (tdist < 20.0f) {
+                float rnd_angle = ((float)(i * 72 + (millis() % 360))) * (PI_F / 180.0f);
+                float s_rnd, c_rnd;
+                sincosf(rnd_angle, &s_rnd, &c_rnd);
+                balls[i].vx += c_rnd * 650.0f;
+                balls[i].vy += s_rnd * 650.0f;
+              } else {
+                float blast = 500.0f + (700.0f / (tdist * 0.08f + 1.0f));
+                if (blast > 800.0f) blast = 800.0f;
+                balls[i].vx += (tdx / tdist) * blast;
+                balls[i].vy += (tdy / tdist) * blast;
+              }
+            }
+          }
+
+          if (shockwave_r >= 0.0f) {
+            it.circle((int)shockwave_x, (int)shockwave_y, (int)shockwave_r, id(col_gold));
+            it.circle((int)shockwave_x, (int)shockwave_y, (int)shockwave_r + 2, id(col_cyan));
+            shockwave_r += 26.0f;
+            if (shockwave_r > 190.0f) shockwave_r = -1.0f;
+          }
+
+          const float dt = 0.05f;
+          const float friction = 0.985f;
+          const float bounce = 0.82f;
+          const float arena_r = 208.0f;
+
+          // Dynamic Tare: Symmetrical, responsive motion relative to starting posture
+          float ax = roll_delta * 30.0f;
+          float ay = -pitch_delta * 30.0f;
+          if (ax > 650.0f) ax = 650.0f; if (ax < -650.0f) ax = -650.0f;
+          if (ay > 650.0f) ay = 650.0f; if (ay < -650.0f) ay = -650.0f;
+
+          int sunk_count = 0;
+          for (int i = 0; i < 5; i++) {
+            if (balls[i].sunk) { sunk_count++; continue; }
+
+            float dx = balls[i].x - cx;
+            float dy = balls[i].y - cy;
+            float dist_hole = sqrtf(dx * dx + dy * dy);
+
+            // Sunk cleanly into hole (expanded to full hole radius 26px, moved off-screen)
+            if (dist_hole < 26.0f) {
+              balls[i].sunk = true;
+              balls[i].x = -999.0f;
+              balls[i].y = -999.0f;
+              balls[i].vx = 0.0f;
+              balls[i].vy = 0.0f;
+              sunk_count++;
+              continue;
+            }
+
+            // Gentle suction vortex when approaching hole (26px to 65px)
+            if (dist_hole < 65.0f && dist_hole >= 26.0f) {
+              float vortex = (65.0f - dist_hole) * 9.0f;
+              balls[i].vx -= (dx / dist_hole) * vortex * dt;
+              balls[i].vy -= (dy / dist_hole) * vortex * dt;
+            }
+
+            balls[i].vx = (balls[i].vx + ax * dt) * friction;
+            balls[i].vy = (balls[i].vy + ay * dt) * friction;
+            balls[i].x += balls[i].vx * dt;
+            balls[i].y += balls[i].vy * dt;
+
+            // Arena boundary reflection (recalculates position delta cleanly)
+            float cur_dx = balls[i].x - cx;
+            float cur_dy = balls[i].y - cy;
+            float cur_dist = sqrtf(cur_dx * cur_dx + cur_dy * cur_dy);
+            float max_dist = arena_r - balls[i].r;
+            if (cur_dist > max_dist && cur_dist > 0.001f) {
+              float nx = cur_dx / cur_dist;
+              float ny = cur_dy / cur_dist;
+              balls[i].x = cx + nx * max_dist;
+              balls[i].y = cy + ny * max_dist;
+              float v_dot_n = balls[i].vx * nx + balls[i].vy * ny;
+              if (v_dot_n > 0.0f) {
+                balls[i].vx -= (1.0f + bounce) * v_dot_n * nx;
+                balls[i].vy -= (1.0f + bounce) * v_dot_n * ny;
+              }
+            }
+          }
+
+          // Ball-to-ball collisions for un-sunk marbles
+          for (int i = 0; i < 5; i++) {
+            if (balls[i].sunk) continue;
+            for (int j = i + 1; j < 5; j++) {
+              if (balls[j].sunk) continue;
+              float cdx = balls[j].x - balls[i].x;
+              float cdy = balls[j].y - balls[i].y;
+              float cdist = sqrtf(cdx * cdx + cdy * cdy);
+              float min_dist = balls[i].r + balls[j].r;
+              if (cdist < min_dist && cdist > 0.001f) {
+                float overlap = min_dist - cdist;
+                float cnx = cdx / cdist; float cny = cdy / cdist;
+                balls[i].x -= cnx * overlap * 0.5f; balls[i].y -= cny * overlap * 0.5f;
+                balls[j].x += cnx * overlap * 0.5f; balls[j].y += cny * overlap * 0.5f;
+                float kx = balls[i].vx - balls[j].vx;
+                float ky = balls[i].vy - balls[j].vy;
+                float p = cnx * kx + cny * ky;
+                balls[i].vx -= p * cnx * bounce;
+                balls[i].vy -= p * cny * bounce;
+                balls[j].vx += p * cnx * bounce;
+                balls[j].vy += p * cny * bounce;
+              }
+            }
+          }
+
+          // Render active marbles
+          Color cols[5] = {id(col_gold), id(col_cyan), id(col_green), id(col_red), id(col_orange)};
+          for (int i = 0; i < 5; i++) {
+            if (balls[i].sunk) continue;
+            int bx = (int)balls[i].x; int by = (int)balls[i].y; int br = (int)balls[i].r;
+            it.filled_circle(bx, by, br, cols[balls[i].col_idx]);
+            it.circle(bx, by, br, id(col_white));
+            it.filled_circle(bx - (br / 3), by - (br / 3), br / 3, id(col_white));
+          }
+
+          char status_buf[32];
+          snprintf(status_buf, sizeof(status_buf), "Sunk: %d / 5", sunk_count);
+          it.print(cx, 90, id(font_small), id(col_gold), TextAlign::CENTER, status_buf);
+
+          if (sunk_count >= 5) {
+            if (win_timer == 0) win_timer = millis();
+            it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "SUCCESS! ***");
+            it.print(cx, 300, id(font_small), id(col_cyan), TextAlign::CENTER, "All Marbles Sunk!");
+            // Auto respawn after 2.5 seconds
+            if (millis() - win_timer > 2500) {
+              win_timer = 0;
+              balls[0] = {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false};
+              balls[1] = {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false};
+              balls[2] = {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false};
+              balls[3] = {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false};
+              balls[4] = {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false};
+            }
+          }
+
+          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Roll into Center Hole • Tap Pop");
+          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
+
+        // ----------------------------------------------------
+        // GAME 2: ARCHERY (TILT AIM & TARGET PRACTICE)
+        // ----------------------------------------------------
+        } else if (id(active_game) == 2) {
+          it.print(cx, 65, id(font_small), id(col_red), TextAlign::CENTER, "ARCHERY");
+
+          static int arch_score = 0;
+          static int shots_fired = 0;
+          static float target_x = 233.0f;
+          static float target_step = 0.0f;
+          static float arrow_x = -1.0f;
+          static float arrow_y = -1.0f;
+          static float arrow_target_x = 233.0f;
+          static float arrow_target_y = 165.0f;
+          static std::string hit_feedback = "";
+          static uint32_t feedback_timer = 0;
+
+          // Fresh Game Reset when entering from menu
+          if (game_just_entered) {
+            arch_score = 0;
+            shots_fired = 0;
+            arrow_y = -1.0f;
+            hit_feedback = "";
+          }
+
+          // Target drifts horizontally across upper-middle zone (y = 165px)
+          target_step += 0.04f;
+          target_x = cx + sinf(target_step) * 90.0f;
+          float target_y = 165.0f;
+
+          // Render Target Rings (outer r=36, cyan r=26, red r=16, gold r=8)
+          it.filled_circle((int)target_x, (int)target_y, 36, id(col_white));
+          it.circle((int)target_x, (int)target_y, 36, id(col_dark_gray));
+          it.filled_circle((int)target_x, (int)target_y, 26, id(col_cyan));
+          it.filled_circle((int)target_x, (int)target_y, 16, id(col_red));
+          it.filled_circle((int)target_x, (int)target_y, 8, id(col_gold));
+
+          // Aim Crosshair: Auto-centered on target at start; smooth aiming relative to posture
+          float ax = cx + roll_delta * 6.5f;
+          float ay = 165.0f - pitch_delta * 6.5f;
+          if (ax < 65.0f) ax = 65.0f; if (ax > 401.0f) ax = 401.0f;
+          if (ay < 65.0f) ay = 65.0f; if (ay > 370.0f) ay = 370.0f;
+
+          // Shoot Trigger (Button or Tap)
+          if (id(game_btn_pressed) || id(marble_touch_x) >= 0.0f) {
+            id(game_btn_pressed) = false;
+            id(marble_touch_x) = -1.0f;
+            if (arrow_y < 0.0f) { // only one arrow in flight at a time
+              arrow_x = cx;
+              arrow_y = 370.0f;
+              arrow_target_x = ax;
+              arrow_target_y = ay;
+              shots_fired++;
+            }
+          }
+
+          // Arrow flight simulation
+          if (arrow_y >= 0.0f) {
+            float adx = arrow_target_x - arrow_x;
+            float ady = arrow_target_y - arrow_y;
+            arrow_x += adx * 0.35f;
+            arrow_y += ady * 0.35f;
+
+            // Draw arrow
+            it.line((int)arrow_x, (int)arrow_y, (int)arrow_x, (int)arrow_y + 18, id(col_gold));
+            it.filled_circle((int)arrow_x, (int)arrow_y, 3, id(col_white));
+
+            if (fabsf(arrow_y - arrow_target_y) < 6.0f) {
+              // Arrow arrived at target plane: evaluate hit
+              float dist_hit = sqrtf((arrow_target_x - target_x) * (arrow_target_x - target_x) +
+                                     (arrow_target_y - target_y) * (arrow_target_y - target_y));
+              if (dist_hit < 9.0f) {
+                hit_feedback = "BULLSEYE! +10"; arch_score += 10;
+              } else if (dist_hit < 18.0f) {
+                hit_feedback = "RED RING! +5"; arch_score += 5;
+              } else if (dist_hit < 28.0f) {
+                hit_feedback = "BLUE RING! +3"; arch_score += 3;
+              } else if (dist_hit < 38.0f) {
+                hit_feedback = "WHITE! +1"; arch_score += 1;
+              } else {
+                hit_feedback = "MISS!";
+              }
+              feedback_timer = millis();
+              arrow_y = -1.0f; // Arrow spent
+            }
+          }
+
+          // Draw Reticle
+          it.circle((int)ax, (int)ay, 14, id(col_cyan));
+          it.line((int)ax - 18, (int)ay, (int)ax + 18, (int)ay, id(col_cyan));
+          it.line((int)ax, (int)ay - 18, (int)ax, (int)ay + 18, id(col_cyan));
+
+          char score_buf[32];
+          snprintf(score_buf, sizeof(score_buf), "Score: %d  (Shots: %d)", arch_score, shots_fired);
+          it.print(cx, 90, id(font_small), id(col_gold), TextAlign::CENTER, score_buf);
+
+          if (!hit_feedback.empty() && (millis() - feedback_timer < 1400)) {
+            it.print(cx, 280, id(font_date), id(col_gold), TextAlign::CENTER, hit_feedback.c_str());
+          }
+
+          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt Aim • Tap Screen to Fire");
+          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
+
+        // ----------------------------------------------------
+        // GAME 3: TREAT CATCHER (FEED THE HUNGRY MONSTER)
+        // ----------------------------------------------------
+        } else {
+          it.print(cx, 65, id(font_small), id(col_green), TextAlign::CENTER, "TREAT CATCHER");
+
+          static int treat_score = 0;
+          static float treat_x = cx + 60.0f;
+          static float treat_y = cy - 60.0f;
+          static float treat_vx = 0.0f;
+          static float treat_vy = 0.0f;
+          static uint32_t chomp_timer = 0;
+          static int treat_color_idx = 0;
+
+          // Fresh Game Reset when entering from menu
+          if (game_just_entered) {
+            treat_score = 0;
+            treat_x = cx + 60.0f;
+            treat_y = cy - 60.0f;
+            treat_vx = 0.0f;
+            treat_vy = 0.0f;
+            chomp_timer = 0;
+          }
+
+          // Tap to pop treat
+          if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
+            id(marble_touch_x) = -1.0f;
+            id(game_btn_pressed) = false;
+            treat_vx += (treat_x > cx ? 160.0f : -160.0f);
+            treat_vy -= 220.0f; // pop up!
+          }
+
+          const float dt = 0.05f;
+          // Dynamic Tare: Symmetrical, responsive roll relative to starting posture
+          float ax = roll_delta * 28.0f;
+          float ay = -pitch_delta * 28.0f;
+          if (ax > 650.0f) ax = 650.0f; if (ax < -650.0f) ax = -650.0f;
+          if (ay > 650.0f) ay = 650.0f; if (ay < -650.0f) ay = -650.0f;
+
+          treat_vx = (treat_vx + ax * dt) * 0.98f;
+          treat_vy = (treat_vy + ay * dt) * 0.98f;
+          treat_x += treat_vx * dt;
+          treat_y += treat_vy * dt;
+
+          // Circular Arena Boundary Reflection
+          float t_dx = treat_x - cx;
+          float t_dy = treat_y - cy;
+          float t_dist = sqrtf(t_dx * t_dx + t_dy * t_dy);
+          float max_t_dist = 208.0f - 14.0f;
+          if (t_dist > max_t_dist && t_dist > 0.001f) {
+            float nx = t_dx / t_dist; float ny = t_dy / t_dist;
+            treat_x = cx + nx * max_t_dist;
+            treat_y = cy + ny * max_t_dist;
+            float v_dot_n = treat_vx * nx + treat_vy * ny;
+            if (v_dot_n > 0.0f) {
+              treat_vx -= 1.8f * v_dot_n * nx;
+              treat_vy -= 1.8f * v_dot_n * ny;
+            }
+          }
+
+          // Creature Face at Center (cx, cy)
+          float dist_to_mouth = sqrtf((treat_x - cx) * (treat_x - cx) + (treat_y - cy) * (treat_y - cy));
+          bool mouth_open = (dist_to_mouth < 85.0f);
+
+          // Chomp detection
+          if (dist_to_mouth < 24.0f) {
+            treat_score++;
+            chomp_timer = millis();
+            // Respawn treat on perimeter
+            treat_color_idx = (treat_color_idx + 1) % 4;
+            float spawn_angle = ((treat_score * 77) % 360) * (PI_F / 180.0f);
+            float s_sp, c_sp;
+            sincosf(spawn_angle, &s_sp, &c_sp);
+            treat_x = cx + s_sp * 160.0f;
+            treat_y = cy - c_sp * 160.0f;
+            treat_vx = 0.0f; treat_vy = 0.0f;
+          }
+
+          bool is_chomping = (millis() - chomp_timer < 500);
+
+          // Draw Creature Body
+          it.filled_circle(cx, cy, 32, id(col_green));
+          it.circle(cx, cy, 32, id(col_white));
+
+          // Eyes follow treat
+          float eye_dx = (treat_x - cx) / (dist_to_mouth + 1.0f) * 3.0f;
+          float eye_dy = (treat_y - cy) / (dist_to_mouth + 1.0f) * 3.0f;
+          it.filled_circle(cx - 10, cy - 10, 7, id(col_white));
+          it.filled_circle(cx + 10, cy - 10, 7, id(col_white));
+          it.filled_circle(cx - 10 + (int)eye_dx, cy - 10 + (int)eye_dy, 3, id(col_dark_gray));
+          it.filled_circle(cx + 10 + (int)eye_dx, cy - 10 + (int)eye_dy, 3, id(col_dark_gray));
+
+          // Animated Mouth
+          if (is_chomping) {
+            // Happy closed chomp smile
+            it.line(cx - 14, cy + 12, cx, cy + 18, id(col_white));
+            it.line(cx, cy + 18, cx + 14, cy + 12, id(col_white));
+            it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "CHOMP!");
+          } else if (mouth_open) {
+            // Wide open mouth ready to eat
+            it.filled_circle(cx, cy + 12, 12, id(col_bg));
+            it.circle(cx, cy + 12, 12, id(col_red));
+          } else {
+            // Gentle smiling line
+            it.line(cx - 10, cy + 12, cx, cy + 16, id(col_dark_gray));
+            it.line(cx, cy + 16, cx + 10, cy + 12, id(col_dark_gray));
+          }
+
+          // Draw Treat
+          Color t_cols[4] = {id(col_red), id(col_gold), id(col_cyan), id(col_orange)};
+          it.filled_circle((int)treat_x, (int)treat_y, 14, t_cols[treat_color_idx]);
+          it.circle((int)treat_x, (int)treat_y, 14, id(col_white));
+          it.filled_circle((int)treat_x - 4, (int)treat_y - 4, 4, id(col_white));
+
+          char t_buf[32];
+          snprintf(t_buf, sizeof(t_buf), "Treats Eaten: %d", treat_score);
+          it.print(cx, 90, id(font_small), id(col_gold), TextAlign::CENTER, t_buf);
+
+          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt to Roll Treat into Mouth");
+          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
+        }
+      // ==========================================
+      // PAGE 4: SYSTEM (STATUS & CONTROLS - RUST HIGHLIGHT)
+      // ==========================================
+      } else {
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(col_rust));
+        it.circle(cx, cy, 227, id(col_rust));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        it.print(cx, 82, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
+
+        char buf[64];
+        float v_batt = id(batt_voltage).state;
+        snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
+        it.print(cx, 130, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
+
+        it.print(cx, 162, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
+
+        float sig = id(pocket_wifi_signal).state;
+        snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
+        it.print(cx, 195, id(font_small), id(col_white), TextAlign::CENTER, buf);
+
+        char b_buf[32];
+        std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
+        if (bri_p.empty()) bri_p = "90%";
+        snprintf(b_buf, sizeof(b_buf), "Brightness: %s (Tap)", bri_p.c_str());
+        it.filled_circle(cx, 262, 26, id(col_dark_gray));
+        it.circle(cx, 262, 26, id(col_rust));
+        it.print(cx, 262 - 9, id(font_small), id(col_white), TextAlign::CENTER, b_buf);
+
+        it.filled_circle(cx, 342, 26, id(col_dark_gray));
+        it.circle(cx, 342, 26, id(col_red));
+        it.print(cx, 342 - 9, id(font_small), id(col_white), TextAlign::CENTER, "Restart Device (Tap)");
+
+      }
+
+
+touchscreen:
+  - platform: cst9220
+    id: touch_screen
+    display: disp1
+    i2c_id: bus_internal
+    address: 0x5A
+    interrupt_pin: GPIO11
+    reset_pin: GPIO2
+    transform:
+      mirror_x: true
+      mirror_y: true
+    on_touch:
+      then:
+        - lambda: |-
+            if (id(is_locked)) return; // Block all touch events in pocket
+            id(screen_sleep_timer).execute(); // Activity watchdog reset on every valid touch
+            if (!id(display_brightness).current_values.is_on()) {
+              if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
+                id(gui_page) = 0;
+              }
+              id(sleep_start_time) = 0;
+              id(display_brightness).turn_on().perform();
+              id(disp1).update();
+              return;
+            }
+
+            // When in Music Overlay/Browser (gui_page == 2 && music_overlay_mode > 0),
+            // the left and right sides of the screen turn menu pages instead of exiting to other watch apps!
+            if (id(gui_page) == 2 && id(music_overlay_mode) > 0) {
+              if (touch.x < 65) {
+                // Left side: Previous Page within multi-page menu
+                if (id(music_overlay_mode) == 2) {
+                  if (id(music_category_page) > 1) {
+                    id(music_category_page)--;
+                    id(disp1).update();
+                  }
+                } else if (id(music_overlay_mode) == 3) {
+                  if (id(music_browse_page) > 1) {
+                    id(music_browse_page)--;
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                }
+                return; // Guard overlay: never exit to Stopwatch/Clock from edge touch
+              } else if (touch.x > 401) {
+                // Right side: Next Page within multi-page menu
+                if (id(music_overlay_mode) == 2) {
+                  if (id(music_category_page) < 3) {
+                    id(music_category_page)++;
+                    id(disp1).update();
+                  }
+                } else if (id(music_overlay_mode) == 3) {
+                  if (id(music_browse_page) < id(music_browse_total_pages)) {
+                    id(music_browse_page)++;
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                }
+                return; // Guard overlay: never exit to Games/System from edge touch
+              }
+            } else {
+              // Standard watch page flipping across apps (Clock <-> Stopwatch <-> Music <-> Games <-> System)
+              // Left edge tap / swipe (x < 50): Previous page
+              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x < 50) {
+                id(gui_page) = (id(gui_page) - 1 + 5) % 5;
+                id(music_overlay_mode) = 0; // Reset overlay when switching pages
+                id(disp1).update();
+                return;
+              }
+              // Right edge tap / swipe (x > 416): Next page
+              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x > 416) {
+                id(gui_page) = (id(gui_page) + 1) % 5;
+                id(music_overlay_mode) = 0; // Reset overlay when switching pages
+                id(disp1).update();
+                return;
+              }
+            }
+
+            // Page 1: Stopwatch bottom buttons ONLY (no screen start/stop)
+            if (id(gui_page) == 1) {
+              if (touch.y > 300) {
+                if (touch.x < 233) {
+                  if (id(stopwatch_running)) {
+                    id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
+                  }
+                } else {
+                  id(stopwatch_running) = false;
+                  id(stopwatch_elapsed_ms) = 0;
+                  id(stopwatch_lap_ms) = 0;
+                }
+                id(disp1).update();
+              }
+            // Page 2: Music (Player Controls OR Speaker/Preset Overlay)
+            } else if (id(gui_page) == 2) {
+              if (id(music_overlay_mode) == 0) {
+                // ----------------------------------------------------
+                // Normal Player Mode
+                // ----------------------------------------------------
+                if (touch.y < 85 && touch.x > 140 && touch.x < 326) {
+                  // Top Caret: Volume Up
+                  id(music_vol_up).execute();
+                  id(vol_hud_timer) = millis();
+                  id(disp1).update();
+                } else if (touch.y > 390 && touch.x > 140 && touch.x < 326) {
+                  // Bottom Caret: Volume Down
+                  id(music_vol_down).execute();
+                  id(vol_hud_timer) = millis();
+                  id(disp1).update();
+                } else if (touch.x >= 50 && touch.x <= 132 && touch.y >= 150 && touch.y <= 290) {
+                  // Left Arrow: Previous Track
+                  id(music_prev_track).execute();
+                  id(disp1).update();
+                } else if (touch.x >= 334 && touch.x <= 416 && touch.y >= 150 && touch.y <= 290) {
+                  // Right Arrow: Next Track
+                  id(music_next_track).execute();
+                  id(disp1).update();
+                } else if (touch.y >= 100 && touch.y <= 375 && touch.x > 132 && touch.x < 334) {
+                  // Center Album Art: Play / Pause toggle
+                  if (id(active_speaker_entity) == "${speaker_1_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                    auto call = id(pocket_music_player).make_call();
+                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                    call.perform();
+                    id(toggle_ha_music).execute();
+                  } else {
+                    id(toggle_ha_music).execute();
+                  }
+                  id(disp1).update();
+                }
+              } else if (id(music_overlay_mode) == 1) {
+                // ----------------------------------------------------
+                // LEVEL 1: TOP-LEVEL SELECTION MENU (3 Options, 1 Page)
+                // ----------------------------------------------------
+                // Card 1: SPEAKER HANDOFF (y: 105..165)
+                if (touch.y >= 105 && touch.y <= 165 && touch.x >= 65 && touch.x <= 401) {
+                  id(selected_category_mode) = "speakers";
+                  id(selected_category_title) = "HANDOFF";
+                  id(music_browse_page) = 1;
+                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
+                  id(fetch_music_browse).execute();
+                // Card 2: SPEAKER TAKEOVER (y: 175..235)
+                } else if (touch.y >= 175 && touch.y <= 235 && touch.x >= 65 && touch.x <= 401) {
+                  id(selected_category_mode) = "speaker_takeover";
+                  id(selected_category_title) = "TAKEOVER";
+                  id(music_browse_page) = 1;
+                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
+                  id(fetch_music_browse).execute();
+                // Card 3: BROWSE LIBRARY (y: 245..305)
+                } else if (touch.y >= 245 && touch.y <= 305 && touch.x >= 65 && touch.x <= 401) {
+                  id(music_category_page) = 1;
+                  id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
+                  id(disp1).update();
+                // Bottom Button: Back to Player View (y: 385..435, x: 140..326)
+                } else if (touch.y >= 385 && touch.y <= 435 && touch.x >= 140 && touch.x <= 326) {
+                  id(music_overlay_mode) = 0;
+                  id(disp1).update();
+                }
+              } else if (id(music_overlay_mode) == 2) {
+                // ----------------------------------------------------
+                // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Direct Instant Buttons)
+                // ----------------------------------------------------
+                // Top Centered < MENU pill button (y: 68..104, x: 170..296)
+                if (touch.y >= 68 && touch.y <= 104 && touch.x >= 170 && touch.x <= 296) {
+                  id(music_overlay_mode) = 1; // Return to Top-Level Menu
+                  id(disp1).update();
+                // Card 1 (y: 105..165, x: 65..401)
+                } else if (touch.y >= 105 && touch.y <= 165 && touch.x >= 65 && touch.x <= 401) {
+                  if (id(music_category_page) == 1) {
+                    id(selected_category_mode) = "favorites";
+                    id(selected_category_title) = "FAVORITES";
+                  } else if (id(music_category_page) == 2) {
+                    id(selected_category_mode) = "album";
+                    id(selected_category_title) = "ALBUMS";
+                  } else if (id(music_category_page) == 3) {
+                    id(selected_category_mode) = "track";
+                    id(selected_category_title) = "TRACKS";
+                  }
+                  id(music_browse_page) = 1;
+                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
+                  id(fetch_music_browse).execute();
+                // Card 2 (y: 175..235, x: 65..401)
+                } else if (touch.y >= 175 && touch.y <= 235 && touch.x >= 65 && touch.x <= 401) {
+                  if (id(music_category_page) == 1) {
+                    id(selected_category_mode) = "playlist";
+                    id(selected_category_title) = "PLAYLISTS";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 3;
+                    id(fetch_music_browse).execute();
+                  } else if (id(music_category_page) == 2) {
+                    id(selected_category_mode) = "radio";
+                    id(selected_category_title) = "RADIO";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 3;
+                    id(fetch_music_browse).execute();
+                  }
+                // Card 3 (y: 245..305, x: 65..401)
+                } else if (touch.y >= 245 && touch.y <= 305 && touch.x >= 65 && touch.x <= 401) {
+                  if (id(music_category_page) == 1) {
+                    id(selected_category_mode) = "artist";
+                    id(selected_category_title) = "ARTISTS";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 3;
+                    id(fetch_music_browse).execute();
+                  } else if (id(music_category_page) == 2) {
+                    id(selected_category_mode) = "podcast_audiobook";
+                    id(selected_category_title) = "PODCASTS & BOOKS";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 3;
+                    id(fetch_music_browse).execute();
+                  }
+                // Left Arrow (Prev Category Page): x: 65..155, y: 320..375
+                } else if (touch.x >= 65 && touch.x <= 155 && touch.y >= 320 && touch.y <= 375) {
+                  if (id(music_category_page) > 1) {
+                    id(music_category_page)--;
+                    id(disp1).update();
+                  }
+                // Right Arrow (Next Category Page): x: 311..401, y: 320..375
+                } else if (touch.x >= 311 && touch.x <= 401 && touch.y >= 320 && touch.y <= 375) {
+                  if (id(music_category_page) < 3) {
+                    id(music_category_page)++;
+                    id(disp1).update();
+                  }
+                // Bottom Button: Back to Top-Level Menu (y: 385..435, x: 140..326)
+                } else if (touch.y >= 385 && touch.y <= 435 && touch.x >= 140 && touch.x <= 326) {
+                  id(music_overlay_mode) = 1;
+                  id(disp1).update();
+                }
+              } else if (id(music_overlay_mode) == 3) {
+                // ----------------------------------------------------
+                // LEVEL 3: ITEM BROWSER (Dual Inline Action Cards & Discrete Buttons)
+                // ----------------------------------------------------
+                bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
+
+                // Top Centered < MENU pill button (y: 68..104, x: 170..296)
+                if (touch.y >= 68 && touch.y <= 104 && touch.x >= 170 && touch.x <= 296) {
+                  if (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover") {
+                    id(music_overlay_mode) = 1; // Return to Top-Level Menu
+                  } else if (id(selected_category_mode) == "album_tracks") {
+                    id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
+                    id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
+                    id(music_browse_page) = 1;
+                    id(fetch_music_browse).execute();
+                  } else if (id(selected_category_mode) == "artist_albums") {
+                    id(selected_category_mode) = "artist";
+                    id(selected_category_title) = "ARTISTS";
+                    id(music_browse_page) = 1;
+                    id(fetch_music_browse).execute();
+                  } else {
+                    id(music_overlay_mode) = 2; // Return to Library Categories Submenu
+                  }
+                  id(disp1).update();
+                // Card 1 (y: 105..165, x: 65..405)
+                } else if (touch.y >= 105 && touch.y <= 165 && touch.x >= 65 && touch.x <= 405) {
+                  if (!id(slot_1_id).empty()) {
+                    if (is_drill && touch.x <= 130) {
+                      id(play_music_slot_1).execute();
+                    } else if (is_drill && touch.x > 130) {
+                      if (id(selected_category_mode) == "artist") {
+                        id(drilldown_artist_name) = id(slot_1_name);
+                        id(selected_category_mode) = "artist_albums";
+                        id(selected_category_title) = id(slot_1_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      } else {
+                        id(drilldown_album_id) = id(slot_1_id);
+                        id(drilldown_album_name) = id(slot_1_name);
+                        id(drilldown_parent_mode) = id(selected_category_mode);
+                        id(selected_category_mode) = "album_tracks";
+                        id(selected_category_title) = id(slot_1_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      }
+                    } else {
+                      id(select_music_slot_1).execute();
+                    }
+                  }
+                // Card 2 (y: 175..235, x: 65..405)
+                } else if (touch.y >= 175 && touch.y <= 235 && touch.x >= 65 && touch.x <= 405) {
+                  if (!id(slot_2_id).empty()) {
+                    if (is_drill && touch.x <= 130) {
+                      id(play_music_slot_2).execute();
+                    } else if (is_drill && touch.x > 130) {
+                      if (id(selected_category_mode) == "artist") {
+                        id(drilldown_artist_name) = id(slot_2_name);
+                        id(selected_category_mode) = "artist_albums";
+                        id(selected_category_title) = id(slot_2_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      } else {
+                        id(drilldown_album_id) = id(slot_2_id);
+                        id(drilldown_album_name) = id(slot_2_name);
+                        id(drilldown_parent_mode) = id(selected_category_mode);
+                        id(selected_category_mode) = "album_tracks";
+                        id(selected_category_title) = id(slot_2_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      }
+                    } else {
+                      id(select_music_slot_2).execute();
+                    }
+                  }
+                // Card 3 (y: 245..305, x: 65..405)
+                } else if (touch.y >= 245 && touch.y <= 305 && touch.x >= 65 && touch.x <= 405) {
+                  if (!id(slot_3_id).empty()) {
+                    if (is_drill && touch.x <= 130) {
+                      id(play_music_slot_3).execute();
+                    } else if (is_drill && touch.x > 130) {
+                      if (id(selected_category_mode) == "artist") {
+                        id(drilldown_artist_name) = id(slot_3_name);
+                        id(selected_category_mode) = "artist_albums";
+                        id(selected_category_title) = id(slot_3_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      } else {
+                        id(drilldown_album_id) = id(slot_3_id);
+                        id(drilldown_album_name) = id(slot_3_name);
+                        id(drilldown_parent_mode) = id(selected_category_mode);
+                        id(selected_category_mode) = "album_tracks";
+                        id(selected_category_title) = id(slot_3_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      }
+                    } else {
+                      id(select_music_slot_3).execute();
+                    }
+                  }
+                // Left Arrow (Prev Page): x: 65..155, y: 320..375
+                } else if (touch.x >= 65 && touch.x <= 155 && touch.y >= 320 && touch.y <= 375) {
+                  if (id(music_browse_has_prev) && id(music_browse_page) > 1) {
+                    id(music_browse_page)--;
+                    id(fetch_music_browse).execute();
+                  }
+                // Right Arrow (Next Page): x: 311..401, y: 320..375
+                } else if (touch.x >= 311 && touch.x <= 401 && touch.y >= 320 && touch.y <= 375) {
+                  if (id(music_browse_has_next) && id(music_browse_page) < id(music_browse_total_pages)) {
+                    id(music_browse_page)++;
+                    id(fetch_music_browse).execute();
+                  }
+                // Bottom Button: Back / Close (y: 385..435, x: 140..326)
+                } else if (touch.y >= 385 && touch.y <= 435 && touch.x >= 140 && touch.x <= 326) {
+                  if (id(selected_category_mode) == "album_tracks") {
+                    id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
+                    id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
+                    id(music_browse_page) = 1;
+                    id(fetch_music_browse).execute();
+                  } else if (id(selected_category_mode) == "artist_albums") {
+                    id(selected_category_mode) = "artist";
+                    id(selected_category_title) = "ARTISTS";
+                    id(music_browse_page) = 1;
+                    id(fetch_music_browse).execute();
+                  } else {
+                    id(music_overlay_mode) = 0; // Return cleanly to Now Playing view
+                  }
+                  id(disp1).update();
+                }
+              }
+            // Page 3: Games Menu Launcher or Active Game Touch Action
+            } else if (id(gui_page) == 3) {
+              if (id(active_game) == 0) {
+                // Games Menu card selection
+                if (touch.y >= 120 && touch.y < 195) {
+                  id(active_game) = 1; // Marbles
+                } else if (touch.y >= 200 && touch.y < 275) {
+                  id(active_game) = 2; // Archery
+                } else if (touch.y >= 280 && touch.y < 355) {
+                  id(active_game) = 3; // Treat Catcher
+                }
+                if (id(active_game) > 0) {
+                  // Pause background music and mute DAC for dedicated game resources
+                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                    auto call = id(pocket_music_player).make_call();
+                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                    call.perform();
+                    id(toggle_ha_music).execute();
+                    id(es8311_dac).set_mute_on();
+                  }
+                }
+                id(disp1).update();
+              } else {
+                // Active game touch action (pop marble / fire arrow / pop treat)
+                id(marble_touch_x) = touch.x;
+                id(marble_touch_y) = touch.y;
+                id(game_btn_pressed) = true;
+                id(disp1).update();
+              }
+            // Page 4: System (Brightness & Restart buttons)
+            } else if (id(gui_page) == 4) {
+              if (touch.y >= 232 && touch.y <= 292 && touch.x >= 100 && touch.x <= 366) {
+                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                std::string nxt = "90%";
+                if (cur == "70%") nxt = "80%";
+                else if (cur == "80%") nxt = "90%";
+                else if (cur == "90%") nxt = "100%";
+                else if (cur == "100%") nxt = "70%";
+                auto call = id(display_brightness_preset).make_call();
+                call.set_option(nxt);
+                call.perform();
+              } else if (touch.y >= 312 && touch.y <= 372 && touch.x >= 100 && touch.x <= 366) {
+                id(restart_button).press();
+              }
+            }
+        - script.execute: screen_sleep_timer
+
