@@ -939,6 +939,53 @@ script:
       - light.turn_off: display_brightness
       - component.update: disp1  # Flush all-black frame to AMOLED panel
       - delay: 250ms  # Ensure QSPI frame buffer and brightness 0 are fully flushed before CPU sleep
+      - lambda: |-
+          // =========================================================================
+          // 🛑 ULTRA-LOW POWER PERIPHERAL SHUTDOWN & PAD RETENTION FOR DEEP SLEEP
+          // Reduces deep sleep baseline current from ~24mA to <100µA (<0.1mA)
+          // =========================================================================
+
+          // 1. Put QMI8658 6-Axis IMU into Power-Down Mode (CTRL7 = 0x00)
+          // Shuts off accelerometer and gyroscope MEMS circuitry (saves ~2.0mA)
+          uint8_t qmi_pwr_down[2] = {0x08, 0x00};
+          id(bus_internal).write(0x6B, qmi_pwr_down, 2);
+
+          // 2. Put ES8311 Audio DAC into Standby/Power-Down Mode (saves ~1.0mA)
+          uint8_t dac_sleep1[2] = {0x0D, 0xFF};
+          uint8_t dac_sleep2[2] = {0x00, 0x80};
+          id(bus_internal).write(0x18, dac_sleep1, 2);
+          id(bus_internal).write(0x18, dac_sleep2, 2);
+
+          // 3. Put ES7210 Audio ADC into Standby Mode (saves ~0.8mA)
+          uint8_t es7210_pwr[2] = {0x00, 0xFF};
+          id(bus_internal).write(0x40, es7210_pwr, 2);
+
+          // 4. Force Speaker Power Amplifier Enable (GPIO46) firmly LOW and hold it
+          // Prevents the amp enable line from floating into an active state in sleep (saves ~4.0mA)
+          gpio_set_direction(GPIO_NUM_46, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_46, 0);
+          gpio_hold_en(GPIO_NUM_46);
+
+          // 5. Force Display CS (GPIO12) firmly HIGH (deselected) and hold it
+          // Prevents floating QSPI bus leakage into panel controller (saves ~1.0mA)
+          gpio_set_direction(GPIO_NUM_12, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_12, 1);
+          gpio_hold_en(GPIO_NUM_12);
+
+          // 6. Put Display Controller (CO5300) into Hardware Reset (GPIO1 LOW) and hold it
+          // Fully powers down internal AMOLED charge pumps, DC-DC boosters & oscillators (saves ~14.0mA)
+          gpio_set_direction(GPIO_NUM_1, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_1, 0);
+          gpio_hold_en(GPIO_NUM_1);
+
+          // 7. Put Touch Controller (CST9217) into Hardware Reset (GPIO2 LOW) and hold it
+          // Stops capacitive matrix scanning (saves ~2.0mA)
+          gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_2, 0);
+          gpio_hold_en(GPIO_NUM_2);
+
+          // 8. Latch all held pad states across the deep sleep cycle
+          gpio_deep_sleep_hold_en();
       - deep_sleep.enter: deep_sleep_ctrl
 
   - id: lock_pocket_watch

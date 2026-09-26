@@ -81,6 +81,15 @@ esphome:
               ESP_LOGI("power", "USB power detected on boot: deep sleep abort inhibited.");
             }
           }
+
+          // If deliberate boot confirmed, release all deep sleep pad holds so peripherals initialize
+          if (!id(abort_boot)) {
+            gpio_deep_sleep_hold_dis();
+            gpio_hold_dis(GPIO_NUM_1);
+            gpio_hold_dis(GPIO_NUM_2);
+            gpio_hold_dis(GPIO_NUM_46);
+            gpio_hold_dis(GPIO_NUM_12);
+          }
       - if:
           condition:
             lambda: 'return id(abort_boot);'
@@ -179,7 +188,7 @@ ota:
 
 wifi:
   fast_connect: true
-  power_save_mode: NONE
+  power_save_mode: LIGHT
 
 time:
   - platform: homeassistant

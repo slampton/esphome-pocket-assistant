@@ -1,3 +1,4 @@
+#include <driver/gpio.h>
 #pragma once
 #include "esphome.h"
 
