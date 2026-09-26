@@ -237,6 +237,8 @@ color:
     hex: "000000"
   - id: col_rust
     hex: "A83828"  # Dark muted brownish-red / warm rust
+  - id: col_mustard
+    hex: "C59B27"  # Muted vintage chronograph mustard yellow
   - id: col_gold
     hex: "FFD600"
   - id: col_white
@@ -302,6 +304,9 @@ select:
     id: display_brightness_preset
     entity_category: config
     options:
+      - "40%"
+      - "50%"
+      - "60%"
       - "70%"
       - "80%"
       - "90%"
@@ -312,7 +317,10 @@ select:
     set_action:
       - lambda: |-
           float b = 0.90f;
-          if (x == "70%") b = 0.70f;
+          if (x == "40%") b = 0.40f;
+          else if (x == "50%") b = 0.50f;
+          else if (x == "60%") b = 0.60f;
+          else if (x == "70%") b = 0.70f;
           else if (x == "80%") b = 0.80f;
           else if (x == "90%") b = 0.90f;
           else if (x == "100%") b = 1.00f;
@@ -489,9 +497,21 @@ interval:
                 if (!id(stopwatch_running)) {
                   id(stopwatch_running) = true;
                   id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
+                  if (id(stopwatch_sound_enabled).state) {
+                    // Only pause local on-board speaker playback; remote speakers continue playing uninterrupted
+                    if (id(active_speaker_entity) == "${speaker_1_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                      auto call = id(pocket_music_player).make_call();
+                      call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                      call.perform();
+                    }
+                    id(play_mechanical_click).execute();
+                  }
                 } else {
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = millis() - id(stopwatch_start_time);
+                  if (id(stopwatch_sound_enabled).state) {
+                    id(play_mechanical_click).execute();
+                  }
                 }
                 id(disp1).update();
               } else if (id(gui_page) == 2) {
@@ -514,10 +534,13 @@ interval:
                 // Page 4: System -> click top button cycles brightness preset
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                 std::string nxt = "90%";
-                if (cur == "70%") nxt = "80%";
+                if (cur == "40%") nxt = "50%";
+                else if (cur == "50%") nxt = "60%";
+                else if (cur == "60%") nxt = "70%";
+                else if (cur == "70%") nxt = "80%";
                 else if (cur == "80%") nxt = "90%";
                 else if (cur == "90%") nxt = "100%";
-                else if (cur == "100%") nxt = "70%";
+                else if (cur == "100%") nxt = "40%";
                 auto call = id(display_brightness_preset).make_call();
                 call.set_option(nxt);
                 call.perform();
@@ -848,6 +871,20 @@ text_sensor:
 
 
 script:
+  - id: play_mechanical_click
+    mode: restart
+    then:
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
+      - rtttl.play: "click:d=64,o=7,b=240:16c,32g"
+      - delay: 80ms
+      - if:
+          condition:
+            media_player.is_idle: pocket_music_player
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - script.execute: route_i2s_to_mic
+
   - id: boot_button_hold_timer
     mode: restart
     then:
@@ -1714,15 +1751,26 @@ display:
         it.filled_circle(cx, cy, 2, id(col_dark_gray));
 
       // ==========================================
-      // PAGE 1: STOPWATCH (GOLDEN AMBER BEZEL)
+      // PAGE 1: STOPWATCH (MUTED MUSTARD CHRONOGRAPH)
       // ==========================================
       } else if (id(gui_page) == 1) {
         it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_gold));
-        it.circle(cx, cy, 227, id(col_gold));
+        it.circle(cx, cy, 228, id(col_mustard));
+        it.circle(cx, cy, 227, id(col_mustard));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        it.print(cx, 95, id(font_date), id(col_gold), TextAlign::CENTER, "STOPWATCH");
+        // Precision Perimeter Chapter Ring (60 second ticks)
+        for (int s = 0; s < 60; s++) {
+          float a = s * (2.0f * PI_F / 60.0f);
+          float t_sin, t_cos;
+          sincosf(a, &t_sin, &t_cos);
+          int r_in = (s % 5 == 0) ? 209 : 215;
+          auto c_t = (s % 5 == 0) ? id(col_mustard) : id(col_dark_gray);
+          it.line(cx + (int)(r_in * t_sin), cy - (int)(r_in * t_cos),
+                  cx + (int)(221.0f * t_sin), cy - (int)(221.0f * t_cos), c_t);
+        }
+
+        it.print(cx, 95, id(font_date), id(col_mustard), TextAlign::CENTER, "STOPWATCH");
 
         uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
         int mins = (total_ms / 60000) % 60;
@@ -1733,14 +1781,37 @@ display:
         snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
         it.print(cx, 185, id(font_time), id(col_white), TextAlign::CENTER, chrono_buf);
 
-        // Analog Chrono Second Hand sweep (60 seconds per revolution)
+        // Slow Minute Totalizer Hand (30 minutes per revolution, length 80px)
+        float min_angle = ((total_ms % 1800000) / 1800000.0f) * (2.0f * PI_F);
+        float m_sin, m_cos;
+        sincosf(min_angle, &m_sin, &m_cos);
+        it.line(cx, cy, cx + (int)(80.0f * m_sin), cy - (int)(80.0f * m_cos), id(col_white));
+
+        // Rattrapante / Split-Second Lap Ghost Hand (freezes at captured lap time)
+        if (id(stopwatch_lap_ms) > 0) {
+          float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
+          float l_sin, l_cos;
+          sincosf(lap_angle, &l_sin, &l_cos);
+          it.line(cx, cy, cx + (int)(140.0f * l_sin), cy - (int)(140.0f * l_cos), id(col_cyan));
+          it.circle(cx + (int)(145.0f * l_sin), cy - (int)(145.0f * l_cos), 3, id(col_cyan));
+        }
+
+        // Fast Sweep Seconds Hand (60 seconds per revolution, length 152px with counterweight)
         float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
         float s_sin, s_cos;
         sincosf(chrono_angle, &s_sin, &s_cos);
-        it.line(cx, cy, cx + (int)(150.0f * s_sin), cy - (int)(150.0f * s_cos), id(col_gold));
-        it.filled_circle(cx, cy, 5, id(col_gold));
+        // Slender needle with counterweight tail
+        it.line(cx - (int)(24.0f * s_sin), cy + (int)(24.0f * s_cos),
+                cx + (int)(152.0f * s_sin), cy - (int)(152.0f * s_cos), id(col_mustard));
+        // Counterweight teardrop ring
+        it.circle(cx - (int)(16.0f * s_sin), cy + (int)(16.0f * s_cos), 5, id(col_mustard));
 
-        // Display lap time if recorded
+        // Precision Center Cap Arbor Pin
+        it.filled_circle(cx, cy, 6, id(col_mustard));
+        it.circle(cx, cy, 6, id(col_white));
+        it.filled_circle(cx, cy, 2, id(col_black));
+
+        // Display lap time readout if recorded
         if (id(stopwatch_lap_ms) > 0) {
           int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
           int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
@@ -1750,14 +1821,15 @@ display:
           it.print(cx, 260, id(font_small), id(col_cyan), TextAlign::CENTER, lap_buf);
         }
 
-        // On-screen touch button badges
-        it.filled_circle(cx - 75, 335, 28, id(col_dark_gray));
-        it.circle(cx - 75, 335, 28, id(col_cyan));
-        it.print(cx - 75, 335 - 9, id(font_small), id(col_cyan), TextAlign::CENTER, "LAP");
+        // On-screen touch button badges (lifted to y=328 for perfect vertical text centering)
+        const int btn_y = 328;
+        it.filled_circle(cx - 75, btn_y, 28, id(col_dark_gray));
+        it.circle(cx - 75, btn_y, 28, id(col_cyan));
+        it.print(cx - 75, btn_y, id(font_small), id(col_cyan), TextAlign::CENTER, "LAP");
 
-        it.filled_circle(cx + 75, 335, 28, id(col_dark_gray));
-        it.circle(cx + 75, 335, 28, id(col_red));
-        it.print(cx + 75, 335 - 9, id(font_small), id(col_red), TextAlign::CENTER, "RESET");
+        it.filled_circle(cx + 75, btn_y, 28, id(col_dark_gray));
+        it.circle(cx + 75, btn_y, 28, id(col_red));
+        it.print(cx + 75, btn_y, id(font_small), id(col_red), TextAlign::CENTER, "RESET");
 
         it.print(cx, 395, id(font_small), id(stopwatch_running) ? id(col_green) : id(col_gray), TextAlign::CENTER, id(stopwatch_running) ? "RUNNING (CLICK TOP TO STOP)" : "STOPPED (CLICK TOP TO START)");
 
@@ -2595,11 +2667,11 @@ display:
         snprintf(b_buf, sizeof(b_buf), "Brightness: %s (Tap)", bri_p.c_str());
         it.filled_circle(cx, 262, 26, id(col_dark_gray));
         it.circle(cx, 262, 26, id(col_rust));
-        it.print(cx, 262 - 9, id(font_small), id(col_white), TextAlign::CENTER, b_buf);
+        it.print(cx, 262, id(font_small), id(col_white), TextAlign::CENTER, b_buf);
 
         it.filled_circle(cx, 342, 26, id(col_dark_gray));
         it.circle(cx, 342, 26, id(col_red));
-        it.print(cx, 342 - 9, id(font_small), id(col_white), TextAlign::CENTER, "Restart Device (Tap)");
+        it.print(cx, 342, id(font_small), id(col_white), TextAlign::CENTER, "Restart Device (Tap)");
 
       }
 
@@ -2684,15 +2756,21 @@ touchscreen:
 
             // Page 1: Stopwatch bottom buttons ONLY (no screen start/stop)
             if (id(gui_page) == 1) {
-              if (touch.y > 300) {
-                if (touch.x < 233) {
+              if (touch.y > 295 && touch.y < 365) {
+                if (touch.x < 233 && touch.x > 100) {
                   if (id(stopwatch_running)) {
                     id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
+                    if (id(stopwatch_sound_enabled).state) {
+                      id(play_mechanical_click).execute();
+                    }
                   }
-                } else {
+                } else if (touch.x >= 233 && touch.x < 366) {
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
                   id(stopwatch_lap_ms) = 0;
+                  if (id(stopwatch_sound_enabled).state) {
+                    id(play_mechanical_click).execute();
+                  }
                 }
                 id(disp1).update();
               }
@@ -2993,10 +3071,13 @@ touchscreen:
               if (touch.y >= 232 && touch.y <= 292 && touch.x >= 100 && touch.x <= 366) {
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                 std::string nxt = "90%";
-                if (cur == "70%") nxt = "80%";
+                if (cur == "40%") nxt = "50%";
+                else if (cur == "50%") nxt = "60%";
+                else if (cur == "60%") nxt = "70%";
+                else if (cur == "70%") nxt = "80%";
                 else if (cur == "80%") nxt = "90%";
                 else if (cur == "90%") nxt = "100%";
-                else if (cur == "100%") nxt = "70%";
+                else if (cur == "100%") nxt = "40%";
                 auto call = id(display_brightness_preset).make_call();
                 call.set_option(nxt);
                 call.perform();
