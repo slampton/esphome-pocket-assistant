@@ -553,10 +553,15 @@ interval:
             }
           }
 
-          // Dynamic display update for Stopwatch & Asymmetric Voice Assistant Animation
+          // Dynamic display update for Stopwatch (80ms = 12.5 FPS: fluid mechanical sweep, 40% CPU savings)
           if (id(display_brightness).current_values.is_on()) {
             if (id(gui_page) == 1 && id(stopwatch_running)) {
-              id(disp1).update();
+              static uint32_t last_chrono_disp_update = 0;
+              uint32_t now_chrono_ms = millis();
+              if (now_chrono_ms - last_chrono_disp_update >= 80) {
+                last_chrono_disp_update = now_chrono_ms;
+                id(disp1).update();
+              }
             }
             // Priority 3: Asymmetric Animation Cadence with Collision Protection
             // While Listening/Thinking: 150ms (~6.7 FPS) fluid breathing (speaker is silent, zero audio contention)
@@ -882,14 +887,8 @@ script:
       - switch.turn_on: speaker_enable
       - script.execute: route_i2s_to_spk
       - audio_dac.mute_off: es8311_dac
-      - rtttl.play: "click:d=32,o=6,b=200:16c,32e,16g"
-      - delay: 350ms
-      - if:
-          condition:
-            media_player.is_idle: pocket_music_player
-          then:
-            - audio_dac.mute_on: es8311_dac
-            - script.execute: route_i2s_to_mic
+      - rtttl.play: "click:d=16,o=5,b=180:32c,32e,32g"
+      - delay: 180ms
 
   - id: boot_button_hold_timer
     mode: restart
@@ -1772,45 +1771,56 @@ display:
         it.circle(cx, cy, 224, id(col_silver));
         it.circle(cx, cy, 223, id(col_silver));
 
-        // Authentic Vintage Porcelain White Dial Face
-        it.filled_circle(cx, cy, 222, Color(248, 248, 248));
+        // Authentic 1970s Vintage Aged Parchment / Warm Opaline Off-White Dial
+        it.filled_circle(cx, cy, 222, Color(232, 227, 216));
 
-        // Outer Chapter Track Ring
-        it.circle(cx, cy, 218, id(col_black));
-        it.circle(cx, cy, 196, id(col_dark_gray));
+        // Outer Chapter Track Boundaries (Bold double ring)
+        it.circle(cx, cy, 220, id(col_black));
+        it.circle(cx, cy, 219, id(col_black));
+        it.circle(cx, cy, 192, id(col_black));
+        it.circle(cx, cy, 191, id(col_black));
 
-        // Precision Perimeter Chapter Ring (60 major seconds + 1/5s ticks)
+        // Precision Perimeter Chapter Ring (Bold 3px Major 5s bars, 2px Minor 1s ticks)
         for (int s = 0; s < 60; s++) {
           float a = s * (2.0f * PI_F / 60.0f);
           float t_sin, t_cos;
           sincosf(a, &t_sin, &t_cos);
           
           if (s % 5 == 0) {
-            // Major 5-Second Bar
-            it.line(cx + (int)(196.0f * t_sin), cy - (int)(196.0f * t_cos),
-                    cx + (int)(218.0f * t_sin), cy - (int)(218.0f * t_cos), id(col_black));
-            it.line(cx + (int)(196.0f * t_sin) + 1, cy - (int)(196.0f * t_cos),
-                    cx + (int)(218.0f * t_sin) + 1, cy - (int)(218.0f * t_cos), id(col_black));
+            // Major 5-Second Bar: 3px wide, prominent solid black
+            float perp_x = -t_cos;
+            float perp_y = t_sin;
+            int x1 = cx + (int)(191.0f * t_sin);
+            int y1 = cy - (int)(191.0f * t_cos);
+            int x2 = cx + (int)(220.0f * t_sin);
+            int y2 = cy - (int)(220.0f * t_cos);
+            it.line(x1, y1, x2, y2, id(col_black));
+            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_black));
+            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_black));
           } else {
-            // Standard 1-Second Tick
-            it.line(cx + (int)(206.0f * t_sin), cy - (int)(206.0f * t_cos),
-                    cx + (int)(218.0f * t_sin), cy - (int)(218.0f * t_cos), id(col_black));
+            // Standard 1-Second Tick: 2px wide from r=204 to r=220
+            int x1 = cx + (int)(204.0f * t_sin);
+            int y1 = cy - (int)(204.0f * t_cos);
+            int x2 = cx + (int)(220.0f * t_sin);
+            int y2 = cy - (int)(220.0f * t_cos);
+            it.line(x1, y1, x2, y2, id(col_black));
+            it.line(x1 + 1, y1, x2 + 1, y2, id(col_black));
           }
         }
 
-        // Numerals: 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60 around perimeter
+        // Bold Perimeter Numerals (5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
         for (int s = 5; s <= 60; s += 5) {
           float a = s * (2.0f * PI_F / 60.0f);
           float t_sin, t_cos;
           sincosf(a, &t_sin, &t_cos);
           char num_str[8];
           snprintf(num_str, sizeof(num_str), "%d", s);
-          it.print(cx + (int)(182.0f * t_sin), cy - (int)(182.0f * t_cos),
-                   id(font_micro), id(col_black), TextAlign::CENTER, num_str);
+          it.print(cx + (int)(170.0f * t_sin), cy - (int)(170.0f * t_cos),
+                   id(font_digital_time), id(col_black), TextAlign::CENTER, num_str);
         }
 
-        // Vintage Typography (Under 60 mark)
-        it.print(cx, 76, id(font_small), id(col_black), TextAlign::CENTER, "HEUER");
+        // Vintage Title at Top: STOPWATCH
+        it.print(cx, 68, id(font_small), id(col_black), TextAlign::CENTER, "STOPWATCH");
 
         uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
         int mins = (total_ms / 60000) % 60;
@@ -1818,49 +1828,57 @@ display:
         int tenths = (total_ms / 100) % 10;
 
         // ----------------------------------------------------
-        // 12 O'CLOCK SUB-DIAL: 1/10-SECOND HIGH-SPEED SPINNER
+        // 12 O'CLOCK SUB-DIAL: 1/10-SECOND HIGH-SPEED SPINNER (ENLARGED r=50)
         // ----------------------------------------------------
         const int sub_cx = cx;
-        const int sub_cy = 138;
-        const int sub_r = 40;
+        const int sub_cy = 140;
+        const int sub_r = 50;
 
-        // Recessed subdial border
+        // Recessed subdial with subtle authentic mechanical depth shading
+        it.filled_circle(sub_cx, sub_cy, sub_r - 2, Color(224, 219, 208));
         it.circle(sub_cx, sub_cy, sub_r, id(col_black));
-        it.circle(sub_cx, sub_cy, sub_r - 1, id(col_slate));
+        it.circle(sub_cx, sub_cy, sub_r - 1, id(col_black));
+        it.circle(sub_cx, sub_cy, sub_r - 2, id(col_silver));
 
-        // 10 Tenths Ticks (0..9)
+        // 10 Tenths Ticks (0..9) with bold major bars
         for (int i = 0; i < 10; i++) {
           float a = i * (2.0f * PI_F / 10.0f);
           float s_i, c_i;
           sincosf(a, &s_i, &c_i);
-          int r_in = (i % 2 == 0) ? (sub_r - 7) : (sub_r - 4);
+          int r_in = (i % 2 == 0) ? (sub_r - 10) : (sub_r - 6);
           it.line(sub_cx + (int)(r_in * s_i), sub_cy - (int)(r_in * c_i),
-                  sub_cx + (int)((sub_r - 1) * s_i), sub_cy - (int)((sub_r - 1) * c_i), id(col_black));
+                  sub_cx + (int)((sub_r - 2) * s_i), sub_cy - (int)((sub_r - 2) * c_i), id(col_black));
+          if (i % 2 == 0) {
+            it.line(sub_cx + (int)(r_in * s_i) + 1, sub_cy - (int)(r_in * c_i),
+                    sub_cx + (int)((sub_r - 2) * s_i) + 1, sub_cy - (int)((sub_r - 2) * c_i), id(col_black));
+          }
         }
 
-        // Subdial Markings: 0, 2, 4, 6, 8
+        // Subdial Markings: 0, 2, 4, 6, 8 (Bold font_small size 20)
         for (int i = 0; i < 10; i += 2) {
           float a = i * (2.0f * PI_F / 10.0f);
           float s_i, c_i;
           sincosf(a, &s_i, &c_i);
           char sub_num[4];
           snprintf(sub_num, sizeof(sub_num), "%d", i);
-          it.print(sub_cx + (int)(25.0f * s_i), sub_cy - (int)(25.0f * c_i),
-                   id(font_micro), id(col_dark_gray), TextAlign::CENTER, sub_num);
+          it.print(sub_cx + (int)(28.0f * s_i), sub_cy - (int)(28.0f * c_i),
+                   id(font_small), id(col_black), TextAlign::CENTER, sub_num);
         }
 
-        it.print(sub_cx, sub_cy + 13, id(font_micro), id(col_slate), TextAlign::CENTER, "1/10 SEC");
+        it.print(sub_cx, sub_cy + 14, id(font_micro), id(col_slate), TextAlign::CENTER, "1/10 SEC");
 
-        // High-Speed 1/10s Spinning Needle (1 full revolution every 1000ms!)
+        // High-Speed 1/10s Spinning Needle (2px bold racing red, 1 revolution per 1000ms!)
         float sub_angle = ((total_ms % 1000) / 1000.0f) * (2.0f * PI_F);
         float sub_sin, sub_cos;
         sincosf(sub_angle, &sub_sin, &sub_cos);
-        int sub_tip_x = sub_cx + (int)(30.0f * sub_sin);
-        int sub_tip_y = sub_cy - (int)(30.0f * sub_cos);
-        int sub_tail_x = sub_cx - (int)(7.0f * sub_sin);
-        int sub_tail_y = sub_cy + (int)(7.0f * sub_cos);
+        int sub_tip_x = sub_cx + (int)(38.0f * sub_sin);
+        int sub_tip_y = sub_cy - (int)(38.0f * sub_cos);
+        int sub_tail_x = sub_cx - (int)(9.0f * sub_sin);
+        int sub_tail_y = sub_cy + (int)(9.0f * sub_cos);
         it.line(sub_tail_x, sub_tail_y, sub_tip_x, sub_tip_y, id(col_red));
-        it.filled_circle(sub_cx, sub_cy, 3, id(col_black));
+        it.line(sub_tail_x + 1, sub_tail_y, sub_tip_x + 1, sub_tip_y, id(col_red));
+        it.filled_circle(sub_cx, sub_cy, 4, id(col_black));
+        it.filled_circle(sub_cx, sub_cy, 2, id(col_silver));
 
         // ----------------------------------------------------
         // CHRONOMETER DIGITAL READOUT (Classic Swiss Window)
@@ -1893,42 +1911,45 @@ display:
         }
 
         // ----------------------------------------------------
-        // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER CHRONOGRAPH)
+        // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
         // ----------------------------------------------------
         float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
         float s_sin, s_cos;
         sincosf(chrono_angle, &s_sin, &s_cos);
 
-        int tip_x = cx + (int)(170.0f * s_sin);
-        int tip_y = cy - (int)(170.0f * s_cos);
-        int arr_base_x = cx + (int)(150.0f * s_sin);
-        int arr_base_y = cy - (int)(150.0f * s_cos);
-        int tail_x = cx - (int)(32.0f * s_sin);
-        int tail_y = cy + (int)(32.0f * s_cos);
+        int tip_x = cx + (int)(174.0f * s_sin);
+        int tip_y = cy - (int)(174.0f * s_cos);
+        int arr_base_x = cx + (int)(148.0f * s_sin);
+        int arr_base_y = cy - (int)(148.0f * s_cos);
+        int tail_x = cx - (int)(36.0f * s_sin);
+        int tail_y = cy + (int)(36.0f * s_cos);
 
-        // Arrowhead geometry
+        // Arrowhead geometry: 20px wide base, 26px long spearhead
         float perp_x = -s_cos;
         float perp_y = s_sin;
-        int left_x = arr_base_x + (int)(7.0f * perp_x);
-        int left_y = arr_base_y + (int)(7.0f * perp_y);
-        int right_x = arr_base_x - (int)(7.0f * perp_x);
-        int right_y = arr_base_y - (int)(7.0f * perp_y);
+        int left_x = arr_base_x + (int)(10.0f * perp_x);
+        int left_y = arr_base_y + (int)(10.0f * perp_y);
+        int right_x = arr_base_x - (int)(10.0f * perp_x);
+        int right_y = arr_base_y - (int)(10.0f * perp_y);
 
-        // Main shaft
+        // Main shaft: 4px bold solid black
         it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_black));
-        it.line(tail_x + 1, tail_y, arr_base_x + 1, arr_base_y, id(col_black));
+        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_black));
+        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_black));
+        it.line(tail_x + (int)(2.0f * perp_x), tail_y + (int)(2.0f * perp_y), arr_base_x + (int)(2.0f * perp_x), arr_base_y + (int)(2.0f * perp_y), id(col_black));
 
         // Classic bold arrowhead
         it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_black));
 
-        // Teardrop counter-weight tail
-        it.filled_circle(tail_x, tail_y, 6, id(col_black));
-        it.circle(tail_x, tail_y, 6, id(col_silver));
+        // Teardrop counter-weight tail: 8px radius
+        it.filled_circle(tail_x, tail_y, 8, id(col_black));
+        it.circle(tail_x, tail_y, 8, id(col_silver));
+        it.filled_circle(tail_x, tail_y, 3, id(col_silver));
 
         // Multi-tier Center Pinion Arbor Cap
-        it.filled_circle(cx, cy, 7, id(col_silver));
-        it.circle(cx, cy, 7, id(col_black));
-        it.filled_circle(cx, cy, 4, id(col_black));
+        it.filled_circle(cx, cy, 9, id(col_silver));
+        it.circle(cx, cy, 9, id(col_black));
+        it.filled_circle(cx, cy, 6, id(col_black));
         it.filled_circle(cx, cy, 2, id(col_silver));
 
         // ----------------------------------------------------
@@ -1945,28 +1966,28 @@ display:
         it.circle(btn_lap_x, btn_y, 37, id(col_silver));
         it.print(btn_lap_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "LAP");
 
-        // SOUND Toggle Button (Center radius 24px)
-        it.filled_circle(btn_snd_x, btn_y, 24, id(col_dark_gray));
-        it.circle(btn_snd_x, btn_y, 24, id(col_black));
-        it.circle(btn_snd_x, btn_y, 23, id(stopwatch_sound_enabled).state ? id(col_silver) : id(col_slate));
+        // SOUND Toggle Button (Center radius 26px)
+        it.filled_circle(btn_snd_x, btn_y, 26, id(col_dark_gray));
+        it.circle(btn_snd_x, btn_y, 26, id(col_black));
+        it.circle(btn_snd_x, btn_y, 25, id(stopwatch_sound_enabled).state ? id(col_silver) : id(col_slate));
 
         // Speaker Icon: speaker cone + sound waves / mute slash
         if (id(stopwatch_sound_enabled).state) {
           // Sound Active: Speaker cone
-          it.filled_rectangle(btn_snd_x - 9, btn_y - 4, 4, 8, id(col_white));
-          it.filled_triangle(btn_snd_x - 5, btn_y - 7, btn_snd_x - 5, btn_y + 7, btn_snd_x, btn_y, id(col_white));
+          it.filled_rectangle(btn_snd_x - 10, btn_y - 4, 5, 8, id(col_white));
+          it.filled_triangle(btn_snd_x - 5, btn_y - 8, btn_snd_x - 5, btn_y + 8, btn_snd_x + 1, btn_y, id(col_white));
           // Sound waves
-          it.line(btn_snd_x + 3, btn_y - 5, btn_snd_x + 5, btn_y, id(col_silver));
-          it.line(btn_snd_x + 5, btn_y, btn_snd_x + 3, btn_y + 5, id(col_silver));
-          it.line(btn_snd_x + 6, btn_y - 7, btn_snd_x + 8, btn_y, id(col_white));
-          it.line(btn_snd_x + 8, btn_y, btn_snd_x + 6, btn_y + 7, id(col_white));
+          it.line(btn_snd_x + 4, btn_y - 6, btn_snd_x + 7, btn_y, id(col_silver));
+          it.line(btn_snd_x + 7, btn_y, btn_snd_x + 4, btn_y + 6, id(col_silver));
+          it.line(btn_snd_x + 8, btn_y - 8, btn_snd_x + 11, btn_y, id(col_white));
+          it.line(btn_snd_x + 11, btn_y, btn_snd_x + 8, btn_y + 8, id(col_white));
         } else {
           // Sound Muted: Speaker cone + slash
-          it.filled_rectangle(btn_snd_x - 7, btn_y - 4, 3, 8, id(col_slate));
-          it.filled_triangle(btn_snd_x - 4, btn_y - 7, btn_snd_x - 4, btn_y + 7, btn_snd_x, btn_y, id(col_slate));
+          it.filled_rectangle(btn_snd_x - 8, btn_y - 4, 4, 8, id(col_slate));
+          it.filled_triangle(btn_snd_x - 4, btn_y - 8, btn_snd_x - 4, btn_y + 8, btn_snd_x + 1, btn_y, id(col_slate));
           // Red / slate diagonal mute slash
-          it.line(btn_snd_x - 7, btn_y + 7, btn_snd_x + 7, btn_y - 7, id(col_red));
-          it.line(btn_snd_x - 6, btn_y + 7, btn_snd_x + 8, btn_y - 7, id(col_red));
+          it.line(btn_snd_x - 8, btn_y + 8, btn_snd_x + 8, btn_y - 8, id(col_red));
+          it.line(btn_snd_x - 7, btn_y + 8, btn_snd_x + 9, btn_y - 8, id(col_red));
         }
 
         // RESET Button (Enlarged radius 38px, diameter 76px)
@@ -2900,25 +2921,25 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch bottom buttons (LAP, SOUND TOGGLE, RESET)
+            // Page 1: Stopwatch bottom buttons (LAP, SOUND TOGGLE, RESET) - Zero Dead Zones
             if (id(gui_page) == 1) {
-              if (touch.y > 295 && touch.y < 380) {
-                if (touch.x >= 115 && touch.x <= 191) {
-                  // LAP Button (Left, center x=153, r=38)
+              if (touch.y >= 280 && touch.y <= 395) {
+                if (touch.x <= 195) {
+                  // LAP Button (Left half, center x=153, r=38)
                   if (id(stopwatch_running)) {
                     id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
                     if (id(stopwatch_sound_enabled).state) {
                       id(play_mechanical_click).execute();
                     }
                   }
-                } else if (touch.x >= 207 && touch.x <= 259) {
-                  // SOUND Toggle Button (Center, center x=233, r=24)
+                } else if (touch.x > 195 && touch.x < 270) {
+                  // SOUND Toggle Button (Center zone, center x=233, r=26)
                   id(stopwatch_sound_enabled).toggle();
                   if (id(stopwatch_sound_enabled).state) {
                     id(play_mechanical_click).execute();
                   }
-                } else if (touch.x >= 275 && touch.x <= 351) {
-                  // RESET Button (Right, center x=313, r=38)
+                } else if (touch.x >= 270) {
+                  // RESET Button (Right half, center x=313, r=38)
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
                   id(stopwatch_lap_ms) = 0;
