@@ -2939,8 +2939,13 @@ touchscreen:
               }
             } else {
               // Dynamic watch page flipping across apps (skips any app toggled OFF)
-              // Left edge tap / swipe (x < 50): Previous page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x < 50) {
+              // Page 2 (Music) uses tighter 50px margins to preserve Previous/Next track arrow hitboxes (50..132 and 334..416).
+              // Clock, Stopwatch, Games Menu, and System have generous 100px margins for effortless one-handed edge paging.
+              const int left_flip_thresh = (id(gui_page) == 2 ? 50 : 100);
+              const int right_flip_thresh = (id(gui_page) == 2 ? 416 : 366);
+
+              // Left edge tap / swipe: Previous page
+              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
                 for (int i = 1; i <= 5; i++) {
                   int prev_p = (id(gui_page) - i + 5) % 5;
                   bool ok = (prev_p == 0 ? id(show_clock_switch).state :
@@ -2956,8 +2961,8 @@ touchscreen:
                 }
                 return;
               }
-              // Right edge tap / swipe (x > 416): Next page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x > 416) {
+              // Right edge tap / swipe: Next page
+              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
                 for (int i = 1; i <= 5; i++) {
                   int next_p = (id(gui_page) + i) % 5;
                   bool ok = (next_p == 0 ? id(show_clock_switch).state :
