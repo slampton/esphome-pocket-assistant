@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant with native Voice Assistant and a first-of-its-kind custom Music Assistant library browser & controller.**
 
-[![Version](https://img.shields.io/badge/Version-v3.4.2-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.4.4-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
@@ -50,11 +50,12 @@ Deploying a multi-function, pocket-sized smart device with full-duplex voice ass
   * **Multi-Room Handoff & Speaker Takeover**: Move playback queues dynamically between household speakers (e.g., from the watch to a living room amplifier or kitchen speaker) or remotely control audio on other players directly on-device from the palm of your hand.
   * **Optimized Payload Windows**: Communicates with Home Assistant via lightweight, bounded RPC calls (`set_browse_slots`) that bypass heavy client-side JSON parsing and keep PSRAM usage minimal.
 
-### 3. Single-Authority Audio Architecture, Configurable Volume Step & FreeRTOS Mixer Ducking
-* **The Challenge**: Earlier iterations ran two separate media players—one for Music and one for Voice Assistant. Because both players ultimately commanded the same physical ES8311 DAC, adjusting the volume on one media player inadvertently overwrote the hardware gain register of the other, leading to cross-wired volume sliders. Furthermore, on boot the ES8311 chip initializes at raw 0 dB (100% volume), causing sudden loud blasts until a slider was nudged, and fixed 5% hardware steps clashed with Home Assistant's 2% steps to cause visual rubber-banding.
+### 3. Single-Authority Audio Architecture, Configurable Volume Controls & Ergonomic HUD
+* **The Challenge**: Earlier iterations ran two separate media players—one for Music and one for Voice Assistant. Because both players ultimately commanded the same physical ES8311 DAC, adjusting the volume on one media player inadvertently overwrote the hardware gain register of the other, leading to cross-wired volume sliders. Furthermore, on boot the ES8311 chip initializes at raw 0 dB (100% volume), causing sudden loud blasts until a slider was nudged, and rapid double-I2C writes with network RPC loops caused audible micro-stutters during playback.
 * **The Architectural Redesign**:
-  * **Single Media Player Authority**: `pocket_music_player` serves as the sole master media player entity in Home Assistant, directly governing the physical listening volume of the watch.
-  * **Configurable Volume Step Size Entity**: Exposes a persistent `number.pocket_assistant_volume_step_size` configuration slider in Home Assistant (range: 1% to 10%, step: 1%, default: 2%). When tapping on-screen volume carets, the firmware calculates the exact target (`current ± step`) and commands Home Assistant via explicit `media_player.volume_set`, ensuring 100% lockstep synchronization with zero rubber-banding.
+  * **Single Media Player Authority & Glitch-Free Local Volume**: `pocket_music_player` serves as the sole master media player entity in Home Assistant. When adjusting local volume, the firmware updates the ES8311 hardware DAC gain directly in 50µs and lets ESPHome's native state stream update Home Assistant/Music Assistant. Eliminating the redundant network RPC round-trip and doubling the I2S speaker buffer to 1000ms ensures completely glitch-free playback during volume adjustments.
+  * **Configurable Volume Step Size Entity**: Exposes a persistent `number.pocket_assistant_volume_step_size` configuration slider in Home Assistant (range: 1% to 10%, step: 1%, default: 2%). When tapping on-screen volume carets, the firmware calculates the exact target (`current ± step`) smoothly with zero rubber-banding.
+  * **Ergonomic Volume Display Position Entity**: Exposes a `select.pocket_assistant_volume_display_position` entity with options `Left` (default), `Right`, and `Hidden`. Placing the volume display to the left of the carets by default prevents a right-handed user's thumb from physically blocking the readout while pressing the buttons, rendered in high-contrast pure white text in the empty black bezel space outside the album art area.
   * **Direct-to-Mixer Voice Pipeline**: Voice Assistant streams audio natively through `speaker: va_speaker` into the FreeRTOS software `mixing_speaker`, bypassing duplicate media player layers.
   * **Dynamic 20 dB Software Ducking**: When Voice Assistant listens or speaks, the mixer dynamically applies software ducking (`mixer_speaker.apply_ducking: -20 dB`) to active music playback, creating an unobtrusive background bed and smoothly recovering music over 1.0 second once speech finishes.
   * **Boot Volume Synchronization**: Codec initialization is anchored at `priority: -100` (strictly after hardware driver setup at priority 500). This guarantees that register `0x32` on the DAC is set to a comfortable 70% level before any audio stream can start, eliminating the power-on 100% volume spike.
@@ -233,7 +234,17 @@ esphome-pocket-assistant/
 
 ## 📜 Version History & Changelog
 
-### v3.4.2 (Current)
+### v3.4.4 (Current)
+* **Ergonomic Volume Display Position Entity**: Added `select.pocket_assistant_volume_display_position` (`Left`, `Right`, `Hidden` — default: `Left`). Defaults to the left side of the volume carets so right-handed users' thumbs do not block the readout during button presses.
+* **Glitch-Free Audio Volume Pipeline**: Eliminated redundant network RPC echo loops during local volume adjustment and expanded I2S physical speaker buffer duration to 1000ms, completely resolving playback clicks/micro-stutters during volume changes.
+* **High-Contrast Unobstructed Volume HUD**: Removed the volume overlay circle from on top of the album art. Placed clean, high-contrast white text (`74%`) in empty black bezel space beside the active volume caret.
+* **Cold-Start Connection Status**: Added instant `"Connecting to stream..."` visual feedback when tapping Play from an idle state, reassuring the user while Music Assistant establishes the Sendspin audio and album art pipeline.
+
+### v3.4.3
+* **Glitch-Free Audio Volume Pipeline**: Eliminated redundant network RPC echo loops during local volume adjustment and expanded I2S physical speaker buffer duration to 1000ms.
+* **Cold-Start Connection Status**: Added instant `"Connecting to stream..."` visual feedback when tapping Play from an idle state.
+
+### v3.4.2
 * **Configurable Volume Step Size Entity**: Added `number.pocket_assistant_volume_step_size` configuration slider (1%–10%, default 2%, NVS restored).
 * **Absolute Target Volume Synchronization**: Replaced generic `volume_up`/`volume_down` RPC calls for local playback with explicit `media_player.volume_set` targeting, completely eliminating visual rubber-banding and step-size conflicts between ESPHome and Home Assistant.
 * **Floating-Point Rounding Fix**: Updated HUD volume percentage display from truncation `(int)` to mathematical `(int)std::round()` to prevent off-by-one display artifacts.

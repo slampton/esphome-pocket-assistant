@@ -165,6 +165,10 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  - id: vol_hud_direction
+    type: int
+    restore_value: no
+    initial_value: '0'
   - id: game_btn_pressed
     type: bool
     restore_value: no
@@ -320,6 +324,18 @@ select:
       - "90%"
       - "100%"
     initial_option: "90%"
+    restore_value: true
+    optimistic: true
+  - platform: template
+    name: "Volume Display Position"
+    id: vol_display_position
+    entity_category: config
+    icon: "mdi:dock-left"
+    options:
+      - "Left"
+      - "Right"
+      - "Hidden"
+    initial_option: "Left"
     restore_value: true
     optimistic: true
     set_action:
@@ -1035,14 +1051,6 @@ script:
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
                 float new_vol = std::min(0.90f, cur + step);
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
-            - homeassistant.action:
-                action: media_player.volume_set
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                  volume_level: !lambda |-
-                    char buf[16];
-                    snprintf(buf, sizeof(buf), "%.2f", id(pocket_music_player).volume);
-                    return std::string(buf);
           else:
             - homeassistant.action:
                 action: media_player.volume_up
@@ -1063,14 +1071,6 @@ script:
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
                 float new_vol = std::max(0.10f, cur - step);
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
-            - homeassistant.action:
-                action: media_player.volume_set
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                  volume_level: !lambda |-
-                    char buf[16];
-                    snprintf(buf, sizeof(buf), "%.2f", id(pocket_music_player).volume);
-                    return std::string(buf);
           else:
             - homeassistant.action:
                 action: media_player.volume_down
@@ -2134,13 +2134,22 @@ display:
             it.filled_triangle(cx - 7, 222 - 15, cx - 7, 222 + 15, cx + 15, 222, id(col_green));
           }
 
-          // Transient Volume HUD Overlay (appears on vertical swipe, fades after 1.8s)
-          if (millis() - id(vol_hud_timer) < 1800) {
+          // High-contrast Volume HUD (Configurable Position: Left, Right, or Hidden)
+          std::string v_pos = id(vol_display_position).current_option();
+          if (v_pos != "Hidden" && (millis() - id(vol_hud_timer) < 1800)) {
             int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
-            char v_buf[32];
-            snprintf(v_buf, sizeof(v_buf), "VOL: %d%%", v_pct);
-            it.filled_circle(cx, 160, 24, id(col_dark_gray));
-            it.print(cx, 160 - 9, id(font_small), id(col_cyan), TextAlign::CENTER, v_buf);
+            char v_buf[16];
+            snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
+            bool on_left = (v_pos != "Right");
+            int hud_x = on_left ? (cx - 32) : (cx + 32);
+            TextAlign align = on_left ? TextAlign::CENTER_RIGHT : TextAlign::CENTER_LEFT;
+            if (id(vol_hud_direction) >= 0) {
+              // Top Caret (VOL ▲): y = 35
+              it.print(hud_x, 35, id(font_digital_time), id(col_white), align, v_buf);
+            } else {
+              // Bottom Caret (VOL ▼): y = 431
+              it.print(hud_x, 431, id(font_digital_time), id(col_white), align, v_buf);
+            }
           }
 
           // Real-time track progress calculation
@@ -3067,13 +3076,15 @@ touchscreen:
                 // ----------------------------------------------------
                 if (touch.y < 85 && touch.x > 140 && touch.x < 326) {
                   // Top Caret: Volume Up
-                  id(music_vol_up).execute();
+                  id(vol_hud_direction) = 1;
                   id(vol_hud_timer) = millis();
+                  id(music_vol_up).execute();
                   id(disp1).update();
                 } else if (touch.y > 390 && touch.x > 140 && touch.x < 326) {
                   // Bottom Caret: Volume Down
-                  id(music_vol_down).execute();
+                  id(vol_hud_direction) = -1;
                   id(vol_hud_timer) = millis();
+                  id(music_vol_down).execute();
                   id(disp1).update();
                 } else if (touch.x >= 50 && touch.x <= 132 && touch.y >= 150 && touch.y <= 290) {
                   // Left Arrow: Previous Track
@@ -3091,6 +3102,10 @@ touchscreen:
                     call.perform();
                     id(toggle_ha_music).execute();
                   } else {
+                    if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                      id(music_action_feedback) = "Connecting to stream...";
+                      id(music_feedback_timer) = millis();
+                    }
                     id(toggle_ha_music).execute();
                   }
                   id(disp1).update();
