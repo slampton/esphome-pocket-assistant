@@ -39,8 +39,8 @@ esphome:
   includes:
     - va_cancel_helper.h
   on_boot:
-    priority: -100
-    then:
+    - priority: 800
+      then:
       - lambda: |-
           // Calibrate internal RTC slow clock against 40MHz crystal
           extern uint32_t rtc_clk_cal(int cal_clk, uint32_t slow_clk_cycles) __asm__("rtc_clk_cal");
@@ -116,6 +116,12 @@ esphome:
             - audio_dac.set_volume:
                 id: es8311_dac
                 volume: 85%
+
+    - priority: -100
+      then:
+        - audio_dac.set_volume:
+            id: es8311_dac
+            volume: 85%
 
 logger:
   level: INFO
