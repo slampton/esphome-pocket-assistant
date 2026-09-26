@@ -546,12 +546,19 @@ interval:
             }
           }
 
-          // Dynamic display update for Stopwatch (80ms = 12.5 FPS: fluid mechanical sweep, 40% CPU savings)
+          // Dynamic display update for Stopwatch (125ms = 8 FPS: authentic high-beat mechanical sweep, zero touch contention)
           if (id(display_brightness).current_values.is_on()) {
             if (id(gui_page) == 1 && id(stopwatch_running)) {
+              // Priority 0: Touch Interrupt Yielding
+              // If user is currently touching the screen (GPIO11 active LOW), yield immediately!
+              // This guarantees the touch controller and gesture processing get instantaneous priority without display lag.
+              if (gpio_get_level(GPIO_NUM_11) == 0) {
+                return;
+              }
+
               static uint32_t last_chrono_disp_update = 0;
               uint32_t now_chrono_ms = millis();
-              if (now_chrono_ms - last_chrono_disp_update >= 80) {
+              if (now_chrono_ms - last_chrono_disp_update >= 125) {
                 last_chrono_disp_update = now_chrono_ms;
                 id(disp1).update();
               }
