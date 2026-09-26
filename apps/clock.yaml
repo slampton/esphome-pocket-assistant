@@ -10,3 +10,20 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 0) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (0 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }

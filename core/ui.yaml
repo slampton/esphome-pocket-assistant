@@ -486,7 +486,7 @@ interval:
 
               if (!id(display_brightness).current_values.is_on()) {
                 if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-                  id(gui_page) = 0;
+                  id(apply_default_start_page).execute();
                 }
                 id(sleep_start_time) = 0;
                 id(display_brightness).turn_on().perform();
@@ -525,7 +525,7 @@ interval:
                 if (id(active_game) > 0) {
                   id(active_game) = 0; // Exit game back to Games Menu
                 } else {
-                  id(gui_page) = 0;   // Exit Games Menu to Watch Face
+                  id(apply_default_start_page).execute();
                 }
                 id(disp1).update();
               } else if (id(gui_page) == 4) {
@@ -733,7 +733,7 @@ binary_sensor:
             if (id(is_locked)) return;
             if (!id(display_brightness).current_values.is_on()) {
               if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-                id(gui_page) = 0;
+                id(apply_default_start_page).execute();
               }
               id(sleep_start_time) = 0;
             }
@@ -820,7 +820,7 @@ binary_sensor:
               - lambda: |-
                   if (!id(display_brightness).current_values.is_on()) {
                     if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-                      id(gui_page) = 0;
+                      id(apply_default_start_page).execute();
                     }
                     id(sleep_start_time) = 0;
                   }
@@ -874,6 +874,29 @@ text_sensor:
 
 
 script:
+  - id: apply_default_start_page
+    then:
+      - lambda: |-
+          std::string def_app = std::string(id(default_start_app).current_option().c_str());
+          int init_p = 0;
+          if (def_app == "Stopwatch") init_p = 1;
+          else if (def_app == "Music") init_p = 2;
+          else if (def_app == "Games") init_p = 3;
+          else if (def_app == "System") init_p = 4;
+          bool ok = (init_p == 0 ? id(show_clock_switch).state :
+                    (init_p == 1 ? id(show_stopwatch_switch).state :
+                    (init_p == 2 ? id(show_music_switch).state :
+                    (init_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+          if (!ok) {
+            for (int p = 0; p < 5; p++) {
+              bool en = (p == 0 ? id(show_clock_switch).state :
+                        (p == 1 ? id(show_stopwatch_switch).state :
+                        (p == 2 ? id(show_music_switch).state :
+                        (p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+              if (en) { init_p = p; break; }
+            }
+          }
+          id(gui_page) = init_p;
   - id: play_mechanical_click
     mode: restart
     then:
@@ -936,7 +959,7 @@ script:
     then:
       - lambda: |-
           id(is_locked) = false;
-          id(gui_page) = 0; // Return cleanly to Clock Face
+          id(apply_default_start_page).execute();
           id(sleep_start_time) = 0;
       - light.turn_on: display_brightness
       - component.update: disp1
@@ -2797,13 +2820,21 @@ display:
         std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
         if (bri_p.empty()) bri_p = "90%";
         snprintf(b_buf, sizeof(b_buf), "Brightness: %s (Tap)", bri_p.c_str());
-        it.filled_circle(cx, 262, 26, id(col_dark_gray));
-        it.circle(cx, 262, 26, id(col_rust));
-        it.print(cx, 262, id(font_small), id(col_white), TextAlign::CENTER, b_buf);
+        it.filled_circle(cx, 245, 23, id(col_dark_gray));
+        it.circle(cx, 245, 23, id(col_rust));
+        it.print(cx, 245, id(font_small), id(col_white), TextAlign::CENTER, b_buf);
 
-        it.filled_circle(cx, 342, 26, id(col_dark_gray));
-        it.circle(cx, 342, 26, id(col_red));
-        it.print(cx, 342, id(font_small), id(col_white), TextAlign::CENTER, "Restart Device (Tap)");
+        char def_buf[32];
+        std::string def_p = std::string(id(default_start_app).current_option().c_str());
+        if (def_p.empty()) def_p = "Clock";
+        snprintf(def_buf, sizeof(def_buf), "Start App: %s (Tap)", def_p.c_str());
+        it.filled_circle(cx, 305, 23, id(col_dark_gray));
+        it.circle(cx, 305, 23, id(col_rust));
+        it.print(cx, 305, id(font_small), id(col_white), TextAlign::CENTER, def_buf);
+
+        it.filled_circle(cx, 365, 23, id(col_dark_gray));
+        it.circle(cx, 365, 23, id(col_red));
+        it.print(cx, 365, id(font_small), id(col_white), TextAlign::CENTER, "Restart Device (Tap)");
 
       }
 
@@ -2826,7 +2857,7 @@ touchscreen:
             id(screen_sleep_timer).execute(); // Activity watchdog reset on every valid touch
             if (!id(display_brightness).current_values.is_on()) {
               if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-                id(gui_page) = 0;
+                id(apply_default_start_page).execute();
               }
               id(sleep_start_time) = 0;
               id(display_brightness).turn_on().perform();
@@ -2869,19 +2900,39 @@ touchscreen:
                 return; // Guard overlay: never exit to Games/System from edge touch
               }
             } else {
-              // Standard watch page flipping across apps (Clock <-> Stopwatch <-> Music <-> Games <-> System)
+              // Dynamic watch page flipping across apps (skips any app toggled OFF)
               // Left edge tap / swipe (x < 50): Previous page
               if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x < 50) {
-                id(gui_page) = (id(gui_page) - 1 + 5) % 5;
-                id(music_overlay_mode) = 0; // Reset overlay when switching pages
-                id(disp1).update();
+                for (int i = 1; i <= 5; i++) {
+                  int prev_p = (id(gui_page) - i + 5) % 5;
+                  bool ok = (prev_p == 0 ? id(show_clock_switch).state :
+                            (prev_p == 1 ? id(show_stopwatch_switch).state :
+                            (prev_p == 2 ? id(show_music_switch).state :
+                            (prev_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                  if (ok) {
+                    id(gui_page) = prev_p;
+                    id(music_overlay_mode) = 0; // Reset overlay when switching pages
+                    id(disp1).update();
+                    return;
+                  }
+                }
                 return;
               }
               // Right edge tap / swipe (x > 416): Next page
               if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x > 416) {
-                id(gui_page) = (id(gui_page) + 1) % 5;
-                id(music_overlay_mode) = 0; // Reset overlay when switching pages
-                id(disp1).update();
+                for (int i = 1; i <= 5; i++) {
+                  int next_p = (id(gui_page) + i) % 5;
+                  bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                            (next_p == 1 ? id(show_stopwatch_switch).state :
+                            (next_p == 2 ? id(show_music_switch).state :
+                            (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                  if (ok) {
+                    id(gui_page) = next_p;
+                    id(music_overlay_mode) = 0; // Reset overlay when switching pages
+                    id(disp1).update();
+                    return;
+                  }
+                }
                 return;
               }
             }
@@ -3196,7 +3247,8 @@ touchscreen:
               }
             // Page 4: System (Brightness & Restart buttons)
             } else if (id(gui_page) == 4) {
-              if (touch.y >= 232 && touch.y <= 292 && touch.x >= 100 && touch.x <= 366) {
+              if (touch.y >= 222 && touch.y <= 268 && touch.x >= 100 && touch.x <= 366) {
+                // Brightness preset cycler (40% -> 50% -> 60% -> 70% -> 80% -> 90% -> 100% -> 40%)
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                 std::string nxt = "90%";
                 if (cur == "40%") nxt = "50%";
@@ -3209,7 +3261,19 @@ touchscreen:
                 auto call = id(display_brightness_preset).make_call();
                 call.set_option(nxt);
                 call.perform();
-              } else if (touch.y >= 312 && touch.y <= 372 && touch.x >= 100 && touch.x <= 366) {
+              } else if (touch.y >= 282 && touch.y <= 328 && touch.x >= 100 && touch.x <= 366) {
+                // Default Start App cycler (Clock -> Stopwatch -> Music -> Games -> System -> Clock)
+                std::string cur = std::string(id(default_start_app).current_option().c_str());
+                std::string nxt = "Clock";
+                if (cur == "Clock") nxt = "Stopwatch";
+                else if (cur == "Stopwatch") nxt = "Music";
+                else if (cur == "Music") nxt = "Games";
+                else if (cur == "Games") nxt = "System";
+                else if (cur == "System") nxt = "Clock";
+                auto call = id(default_start_app).make_call();
+                call.set_option(nxt);
+                call.perform();
+              } else if (touch.y >= 342 && touch.y <= 388 && touch.x >= 100 && touch.x <= 366) {
                 id(restart_button).press();
               }
             }

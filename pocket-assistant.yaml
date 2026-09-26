@@ -11,6 +11,7 @@ substitutions:
   version: "3.3.0"
   pickup_threshold: "0.22"
   active_seconds: "8" 
+  default_start_app: "Clock" 
 
   # Default Music Assistant Targets (customize for your home)
   speaker_1_name: "Pocket Assistant"
@@ -86,11 +87,11 @@ esphome:
           then:
             - deep_sleep.enter: deep_sleep_ctrl
           else:
+            - script.execute: apply_default_start_page
             - lambda: |-
                 id(sleep_start_time) = millis();
                 id(is_locked) = false;
                 id(is_hibernating) = false;
-                id(gui_page) = 0;
                 float b = 0.90f;
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                 if (cur == "40%") b = 0.40f;
