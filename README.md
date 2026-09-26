@@ -32,7 +32,7 @@ Most ESPHome media displays are passive screens that only show what is already p
 
 ## ⚡ Technical Challenges Solved
 
-Deploying a multi-function smart wearable with full-duplex voice assistance, high-speed graphics, and interactive streaming media on a single ESP32-S3 microcontroller required solving several architectural roadblocks that have traditionally limited ESP32-based devices.
+Deploying a multi-function, pocket-sized smart device with full-duplex voice assistance, high-speed graphics, and interactive streaming media on a single ESP32-S3 microcontroller required solving several architectural roadblocks that have traditionally limited ESP32-based devices.
 
 ### 1. The Shared I2S Clock Contention & Dynamic GPIO Matrix Fix
 * **The Challenge**: The Waveshare 1.8" AMOLED architecture routes both the ES7210 microphone ADC (input) and ES8311 speaker DAC (output) through shared clock lines: **GPIO9 (BCLK)**, **GPIO45 (WS/LRCLK)**, and **GPIO16 (MCLK)**. In standard ESPHome configurations, attempting to run full-duplex I2S audio with shared clocks causes severe clock jitter, buffer underruns, microphone corruption, or complete DAC lockup.
@@ -41,11 +41,11 @@ Deploying a multi-function smart wearable with full-duplex voice assistance, hig
   * When media playback, TTS, or tactile feedback begins, the clock lines dynamically switch to I2S1 peripheral signals (`signal 28`, `signal 29`, `signal 21`).
   * This eliminates physical clock collision and allows the single ESP32-S3 to drive high-fidelity microphone input and speaker output without dedicated external multiplexer ICs.
 
-### 2. First-of-its-Kind Music Assistant Wearable Integration
-* **The Challenge**: Most smart home displays are passive dashboards that simply reflect what an external media player is already playing. Native library browsing on microcontrollers has historically been avoided due to memory constraints, slow JSON parsing, and complex state management.
+### 2. First-of-its-Kind Music Assistant ESPHome Integration
+* **The Challenge**: Most smart home displays in ESPHome are passive dashboards that simply reflect what an external media player is already playing. Full native library browsing on an ESPHome device has historically never been done due to microcontroller memory constraints, slow JSON parsing, and complex state management.
 * **The Solution**: Pocket Assistant features a custom-engineered client interface for **Music Assistant** and **Sendspin**:
   * **Interactive Hierarchical Browser**: Directly drill down from Artists $\rightarrow$ Albums $\rightarrow$ Tracks, or browse Playlists and Radios with dual-action play (`▶`) and browse (`>`) cards.
-  * **Multi-Room Handoff & Speaker Takeover**: Move playback queues dynamically between household speakers (e.g., from the watch to a living room amplifier or kitchen speaker) or remotely control audio on other players directly from your wrist.
+  * **Multi-Room Handoff & Speaker Takeover**: Move playback queues dynamically between household speakers (e.g., from the watch to a living room amplifier or kitchen speaker) or remotely control audio on other players directly on-device from the palm of your hand.
   * **Optimized Payload Windows**: Communicates with Home Assistant via lightweight, bounded RPC calls (`set_browse_slots`) that bypass heavy client-side JSON parsing and keep PSRAM usage minimal.
 
 ---
@@ -142,14 +142,17 @@ Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `p
 * **Switch Apps**: Tap or swipe the **left edge** ($x < 14\%$) or **right edge** ($x > 86\%$) of the display to flip through your active app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ System).
 * **Music Menus**: When inside music submenus or library browsers, edge touches turn list pages forward and back, completely guarding against accidental exits to other apps.
 * **Top Crown Button**:
-  * On Clock Face: Quick screen standby.
-  * In Music: Toggles between Now Playing and the Library Selection Menu.
-  * In Games: Exits active game to menu.
-  * In System: Cycles calibrated brightness presets ($70\% 
-ightarrow 80\% 
-ightarrow 90\% 
-ightarrow 100\%$).
-* **Deep Sleep / Hibernation**: Press and hold the top crown button for $> 1.0	ext{ s}$ to enter deep sleep.
+  * **On Clock Face**: Quick screen standby.
+  * **In Stopwatch**: Starts and stops the chronometer timer.
+  * **In Music**: Toggles between Now Playing and the Library Selection Menu.
+  * **In Games**: Exits active game to menu.
+  * **In System**: Cycles calibrated brightness presets (40% → 50% → 60% → 70% → 80% → 90% → 100%).
+* **Voice Assistant (Activation & Dismissal)**:
+  * **To Activate**: Press the **Side Button (GPIO0 / Boot Button)**. Local music automatically pauses, the display turns on, and Assist begins listening with dynamic kinetic visual feedback on the screen. (Can also be triggered remotely from Home Assistant via the `Trigger Voice Assistant` button).
+  * **To Dismiss / Cancel**: While Voice Assistant is active (listening, thinking, or speaking TTS responses), press the **Side Button (GPIO0)** again to instantly abort the assistant pipeline, mute audio, and return directly to your previous watch screen. (Voice Assistant also automatically dismisses and restores your previous app once speech completes).
+* **Deep Sleep & Wakeup**:
+  * **To Enter Deep Sleep**: Press and hold the **top crown button** for $> 1.0\text{ s}$ from any screen. The display shows a brief hibernation confirmation and powers down into ultra-low-power deep sleep.
+  * **To Wake Up**: Press and hold the **top crown button** for approximately **$0.5\text{ s}$ (at least $200\text{ ms}$)**, then **release it**. The release confirms a deliberate wake action (filtering out accidental transient pocket bumps), powers on the display, and immediately returns you to your clock face.
 
 ---
 
