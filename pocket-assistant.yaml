@@ -128,7 +128,6 @@ api:
         s3_active: bool
       then:
         - lambda: |-
-            id(music_browse_mode) = mode;
             id(music_browse_page) = page;
             id(music_browse_total_pages) = total_pages;
             id(music_browse_has_prev) = has_prev;
@@ -155,7 +154,7 @@ ota:
         - script.stop: screen_sleep_timer
         - lambda: |-
             id(ota_in_progress) = true;
-            id(ota_progress_percent) = 0;
+            id(ota_progress_pct) = 0;
             id(disp1).set_brightness(230);
         - light.turn_on:
             id: display_brightness
@@ -164,7 +163,7 @@ ota:
     on_progress:
       then:
         - lambda: |-
-            id(ota_progress_percent) = (uint8_t)x;
+            id(ota_progress_pct) = (uint8_t)x;
             id(disp1).update();
     on_end:
       then:
