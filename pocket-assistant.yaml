@@ -170,6 +170,13 @@ ota:
         - lambda: |-
             id(ota_in_progress) = true;
             id(ota_progress_pct) = 0;
+            id(sleep_start_time) = 0; // Inhibit auto-deep sleep during OTA!
+            // Ensure hardware pads are unheld and display is awake for OTA progress
+            gpio_deep_sleep_hold_dis();
+            gpio_hold_dis(GPIO_NUM_1);
+            gpio_hold_dis(GPIO_NUM_2);
+            gpio_hold_dis(GPIO_NUM_46);
+            gpio_hold_dis(GPIO_NUM_12);
             id(disp1).set_brightness(230);
         - light.turn_on:
             id: display_brightness

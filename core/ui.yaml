@@ -445,6 +445,7 @@ interval:
           // Priority 4: 5-Minute Inactivity Auto-Descent to Deep Sleep
           if (!id(display_brightness).current_values.is_on() &&
               !id(usb_connected).state &&
+              !id(ota_in_progress) &&
               (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
               !id(va).is_running() &&
               !id(va_tts_received) &&
@@ -1473,6 +1474,7 @@ display:
     model: CO5300
     spi_id: display_qspi
     bus_mode: quad
+    data_rate: 40MHz
     reset_pin: GPIO1
     cs_pin: GPIO12
     dimensions:
@@ -1995,19 +1997,20 @@ display:
         int tail_x = cx - (int)(36.0f * s_sin);
         int tail_y = cy + (int)(36.0f * s_cos);
 
-        // Arrowhead geometry: 20px wide base, 26px long spearhead
-        float perp_x = -s_cos;
+        // True perpendicular vector (Rotated 90 deg clockwise from radial vector)
+        // v = (s_sin, -s_cos) -> perp = (s_cos, s_sin). Dot product = 0.00 at all 360 degrees!
+        float perp_x = s_cos;
         float perp_y = s_sin;
-        int left_x = arr_base_x + (int)(10.0f * perp_x);
-        int left_y = arr_base_y + (int)(10.0f * perp_y);
-        int right_x = arr_base_x - (int)(10.0f * perp_x);
-        int right_y = arr_base_y - (int)(10.0f * perp_y);
+        // Constant 16px wide arrowhead base (8px each side), 24px long spearhead
+        int left_x = arr_base_x + (int)(8.0f * perp_x);
+        int left_y = arr_base_y + (int)(8.0f * perp_y);
+        int right_x = arr_base_x - (int)(8.0f * perp_x);
+        int right_y = arr_base_y - (int)(8.0f * perp_y);
 
-        // Main shaft: 4px bold solid black
+        // Main shaft: 3px solid black chronometer pointer
         it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_black));
         it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_black));
         it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_black));
-        it.line(tail_x + (int)(2.0f * perp_x), tail_y + (int)(2.0f * perp_y), arr_base_x + (int)(2.0f * perp_x), arr_base_y + (int)(2.0f * perp_y), id(col_black));
 
         // Classic bold arrowhead
         it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_black));
@@ -3013,8 +3016,8 @@ touchscreen:
                   id(stopwatch_lap_ms) = 0;
                 }
                 id(disp1).update();
-              // 2. Central Chrono Dial & Digital Readout: INSTANT START / STOP (Microsecond Precision Leading-Edge Touch)
-              } else if (touch.x >= 100 && touch.x <= 366 && touch.y >= 70 && touch.y < 275) {
+              // 2. Central Chrono Dial Face (Zero Dead Zones: entire central column outside LAP/RESET is START/STOP)
+              } else if (touch.x >= 100 && touch.x <= 366) {
                 uint32_t now_tap = millis();
                 if (!id(stopwatch_running)) {
                   id(stopwatch_running) = true;
