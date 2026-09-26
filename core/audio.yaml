@@ -127,10 +127,10 @@ media_player:
       speaker: music_resampler
       sources:
         - sendspin_source
-    volume_initial: 85%
+    volume_initial: 70%
     volume_increment: 5%
     volume_min: 10%
-    volume_max: 95%
+    volume_max: 90%
     on_play:
       then:
         - lambda: |-
@@ -142,9 +142,6 @@ media_player:
         - script.stop: screen_sleep_timer
         - script.execute: route_i2s_to_spk
         - audio_dac.mute_off: es8311_dac
-        - audio_dac.set_volume:
-            id: es8311_dac
-            volume: 85%
         - light.turn_on: display_brightness
         - delay: 300ms
         - component.update: disp1
@@ -161,23 +158,10 @@ media_player:
       then:
         - script.execute: mp_idle_debounce
 
-  - platform: speaker
-    name: "Assist"
-    id: pocket_assist_player
-    announcement_pipeline:
-      speaker: va_speaker
-      num_channels: 1
-      format: FLAC
-    volume_initial: 85%
-    volume_increment: 5%
-    volume_min: 20%
-    volume_max: 88%
-
-
 voice_assistant:
   id: va
   microphone: pocket_mic
-  media_player: pocket_assist_player
+  speaker: va_speaker
   noise_suppression_level: 2
   auto_gain: 31dBFS
   on_listening:
@@ -221,13 +205,14 @@ voice_assistant:
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
       - audio_dac.mute_off: es8311_dac
-      - audio_dac.set_volume:
-          id: es8311_dac
-          volume: 85%
       - lambda: |-
           id(va_tts_received) = true;
           id(va_status_text) = "Responding...";
           ESP_LOGI("va", "Status: Responding (TTS)...");
+  on_tts_stream_end:
+    then:
+      - lambda: |-
+          ESP_LOGI(\"va\", \"TTS stream received from server, waiting for audio hardware playback to complete\");
   on_error:
     then:
       - script.execute: route_i2s_to_mic

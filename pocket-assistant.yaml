@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🧭 Pocket Assistant (v3.3.0 Modular Architecture)
+# 🧭 Pocket Assistant (v3.4.1 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
 # Framework: ESPHome 2026.9.0+ (ESP-IDF 5.5+)
 # Repository: https://github.com/slampton/esphome-pocket-assistant
@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.3.0"
+  version: "3.4.1"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock" 
@@ -113,15 +113,13 @@ esphome:
                 id(display_brightness).turn_on().set_brightness(b).perform();
             - script.execute: route_i2s_to_mic
             - switch.turn_on: speaker_enable
-            - audio_dac.set_volume:
-                id: es8311_dac
-                volume: 85%
 
     - priority: -100
       then:
         - audio_dac.set_volume:
             id: es8311_dac
-            volume: 85%
+            volume: 70%
+        - audio_dac.mute_on: es8311_dac
 
 logger:
   level: INFO

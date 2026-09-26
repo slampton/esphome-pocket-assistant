@@ -368,7 +368,7 @@ button:
       - if:
           condition:
             lambda: |-
-              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() || (id(pocket_assist_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() ;
           then:
             - script.execute: cancel_voice_assistant
           else:
@@ -783,7 +783,7 @@ binary_sensor:
                       - if:
                           condition:
                             lambda: |-
-                              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() || (id(pocket_assist_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() ;
                           then:
                             - script.execute: cancel_voice_assistant
                           else:
@@ -1433,7 +1433,6 @@ script:
           id(va_active) = false;
           id(gui_page) = id(return_page);
       - voice_assistant.stop:
-      - media_player.stop: pocket_assist_player
       - speaker.stop: va_speaker
       - speaker.stop: announcement_mixing_input
       - component.update: disp1
