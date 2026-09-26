@@ -1336,6 +1336,7 @@ script:
                      !id(announcement_mixing_input).is_running() && 
                      (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) && 
                      !id(stopwatch_running) &&
+                     (id(gui_page) != 1) &&
                      !id(pickup_detected).state &&
                      (id(active_game) == 0) &&
                      (id(gui_page) != 3 || !id(usb_connected).state);
@@ -1881,14 +1882,14 @@ display:
         snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
         it.print(cx, 248, id(font_chrono_time), id(col_black), TextAlign::CENTER, chrono_buf);
 
-        // Display lap time readout if recorded (compactly placed under digital time)
+        // Display lap time readout if recorded (centered at y=272, well clear of pushers)
         if (id(stopwatch_lap_ms) > 0) {
           int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
           int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
           int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
           char lap_buf[32];
           snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
-          it.print(cx, 274, id(font_small), id(col_rust), TextAlign::CENTER, lap_buf);
+          it.print(cx, 272, id(font_small), id(col_rust), TextAlign::CENTER, lap_buf);
         }
 
         // ----------------------------------------------------
@@ -1945,11 +1946,12 @@ display:
         it.filled_circle(cx, cy, 2, id(col_silver));
 
         // ----------------------------------------------------
-        // ENLARGED DUAL PUSHERS: LAP & RESET (Lifted to y=320, clear of 25 & 35)
+        // ENLARGED DUAL PUSHERS: LAP & RESET (Optimized: y=328, x=179 & 287)
+        // 22px clear of 25 & 35, and 18px clear of SPLIT readout
         // ----------------------------------------------------
-        const int btn_y = 320;
-        const int btn_lap_x = 177;
-        const int btn_rst_x = 289;
+        const int btn_y = 328;
+        const int btn_lap_x = 179;
+        const int btn_rst_x = 287;
 
         // LAP Button (Inboard radius 38px, diameter 76px)
         it.filled_circle(btn_lap_x, btn_y, 38, id(col_dark_gray));
@@ -2884,16 +2886,16 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch bottom buttons (LAP & RESET) - Lifted & Centered (Zero Dead Zones)
+            // Page 1: Stopwatch bottom buttons (LAP & RESET) - Split Touch Zone (Zero Dead Zones)
             if (id(gui_page) == 1) {
-              if (touch.y >= 268 && touch.y <= 385) {
+              if (touch.y >= 275 && touch.y <= 390) {
                 if (touch.x < 233) {
-                  // LAP Button (Left half, center x=177, y=320, r=38)
+                  // LAP Button (Left half, center x=179, y=328, r=38)
                   if (id(stopwatch_running)) {
                     id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
                   }
                 } else {
-                  // RESET Button (Right half, center x=289, y=320, r=38)
+                  // RESET Button (Right half, center x=287, y=328, r=38)
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
                   id(stopwatch_lap_ms) = 0;
