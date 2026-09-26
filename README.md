@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant with native Voice Assistant and a first-of-its-kind custom Music Assistant library browser & controller.**
 
-[![Version](https://img.shields.io/badge/Version-v3.4.4-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.4.5-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
@@ -234,11 +234,20 @@ esphome-pocket-assistant/
 
 ## 📜 Version History & Changelog
 
-### v3.4.4 (Current)
+### v3.4.5 (Current)
+* **Prominent Track Navigation Controls**: Enlarged Previous and Next track buttons from 34px to 44px with scaled dual directional chevrons and tactile border styling.
+* **Artifact-Free Pill Button Geometry**: Overhauled button rendering across Music, Games, and System menus using concentric filled shapes, completely eliminating inner circle line artifacts and achieving smooth, uniform 2px stadium outlines.
+* **Vertically Centered Pill Typography**: Corrected text vertical alignment across all menus, perfectly centering labels on the pill centerline (`y_mid`).
+* **Unified Menu Aesthetics**: Migrated Games launcher (Marbles, Archery, Treat Catcher) and System controls (Brightness, Start App, Restart Device) to the standardized pill card design.
+* **Harmonized Antique Red/Rust Palette**: Desaturated `col_rust` (`#855047`, 30% sat) and `col_red` (`#8A4D43`, 34% sat) to match the perceptual luminance and saturation of `col_green` (28%) and `col_cyan` (33%), eliminating chromostereopsis and subpixel blooming where the red ring appeared thicker or larger than other pages.
+* **Synchronized Title Alignment**: Aligned the Games page title to `y = 82` to match Music and System, ensuring rock-solid vertical title stability when swiping between apps.
+* **Green Wi-Fi Readout**: Updated Wi-Fi signal telemetry on the System page to `col_green`.
+
+### v3.4.4
 * **Ergonomic Volume Display Position Entity**: Added `select.pocket_assistant_volume_display_position` (`Left`, `Right`, `Hidden` — default: `Left`). Defaults to the left side of the volume carets so right-handed users' thumbs do not block the readout during button presses.
-* **Glitch-Free Audio Volume Pipeline**: Eliminated redundant network RPC echo loops during local volume adjustment and expanded I2S physical speaker buffer duration to 1000ms, completely resolving playback clicks/micro-stutters during volume changes.
+* **Glitch-Free Audio Volume Pipeline**: Eliminated redundant network RPC echo loops during local volume adjustment and expanded I2S physical speaker buffer duration to 1000ms.
 * **High-Contrast Unobstructed Volume HUD**: Removed the volume overlay circle from on top of the album art. Placed clean, high-contrast white text (`74%`) in empty black bezel space beside the active volume caret.
-* **Cold-Start Connection Status**: Added instant `"Connecting to stream..."` visual feedback when tapping Play from an idle state, reassuring the user while Music Assistant establishes the Sendspin audio and album art pipeline.
+* **Cold-Start Connection Status**: Added instant `"Connecting to stream..."` visual feedback when tapping Play from an idle state.
 
 ### v3.4.3
 * **Glitch-Free Audio Volume Pipeline**: Eliminated redundant network RPC echo loops during local volume adjustment and expanded I2S physical speaker buffer duration to 1000ms.

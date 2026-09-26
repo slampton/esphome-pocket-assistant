@@ -248,7 +248,7 @@ color:
   - id: col_black
     hex: "000000"
   - id: col_rust
-    hex: "A83828"  # Dark muted brownish-red / warm rust
+    hex: "855047"  # Muted antique brick rust (desaturated, calibrated to match col_green & col_cyan)
   - id: col_mustard
     hex: "C59B27"  # Muted vintage chronograph mustard yellow
   - id: col_gold
@@ -266,7 +266,7 @@ color:
   - id: col_orange
     hex: "B85C24"  # Muted earthy terracotta orange
   - id: col_red
-    hex: "B83E32"  # Muted deep vermilion crimson red
+    hex: "8A4D43"  # Muted antique Venetian crimson (desaturated, calibrated to match col_green & col_cyan)
   - id: col_purple
     hex: "6D4B7D"  # Muted vintage plum amethyst
   - id: col_magenta
@@ -1517,6 +1517,27 @@ display:
       const int cx = 233;
       const int cy = 233;
 
+      // Reusable Clean Pill / Stadium Button Helper (Artifact-Free Outer/Inner Geometry)
+      auto draw_pill_button = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, Color text_c, bool has_bullet) {
+        // Outer filled pill in border color
+        it.filled_circle(x1, y_mid, r, border_c);
+        it.filled_circle(x2, y_mid, r, border_c);
+        it.filled_rectangle(x1, y_mid - r, x2 - x1, 2 * r + 1, border_c);
+
+        // Inner filled pill in background color (2px inset)
+        it.filled_circle(x1, y_mid, r - 2, bg_c);
+        it.filled_circle(x2, y_mid, r - 2, bg_c);
+        it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
+
+        // Optional bullet point on left
+        if (has_bullet) {
+          it.filled_circle(x1 - 4, y_mid, 5, border_c);
+        }
+
+        // Vertically centered text exactly on y_mid
+        it.print(cx + (has_bullet ? 6 : 0), y_mid, id(font_small), text_c, TextAlign::CENTER, label);
+      };
+
       // ==========================================
       // GLOBAL OVERLAY: OTA FIRMWARE UPDATE IN PROGRESS (Always renders even if screen was off)
       // ==========================================
@@ -2119,14 +2140,16 @@ display:
             it.filled_circle(cx, 222, 16, is_remote ? id(col_cyan) : id(col_green));
           }
 
-          // Track Navigation Buttons: Previous Track (◀◀) Left, Next Track (▶▶) Right
-          it.filled_circle(111, 222, 17, id(col_dark_gray));
-          it.filled_triangle(105, 222, 111, 215, 111, 229, id(col_white));
-          it.filled_triangle(112, 222, 118, 215, 118, 229, id(col_white));
+          // Track Navigation Buttons: Previous Track (◀◀) Left, Next Track (▶▶) Right (Prominent 44px Buttons)
+          it.filled_circle(111, 222, 22, id(col_dark_gray));
+          it.circle(111, 222, 22, id(col_slate));
+          it.filled_triangle(103, 222, 111, 213, 111, 231, id(col_white));
+          it.filled_triangle(111, 222, 119, 213, 119, 231, id(col_white));
 
-          it.filled_circle(355, 222, 17, id(col_dark_gray));
-          it.filled_triangle(354, 222, 348, 215, 348, 229, id(col_white));
-          it.filled_triangle(361, 222, 355, 215, 355, 229, id(col_white));
+          it.filled_circle(355, 222, 22, id(col_dark_gray));
+          it.circle(355, 222, 22, id(col_slate));
+          it.filled_triangle(351, 222, 343, 213, 343, 231, id(col_white));
+          it.filled_triangle(359, 222, 351, 213, 351, 231, id(col_white));
 
           // Paused state frosted scrim overlay with borderless bold green Play badge ▶
           if (!is_playing) {
@@ -2224,27 +2247,12 @@ display:
           // --------------------------------------------------
           it.print(cx, 55, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC MENU");
 
-          auto draw_top_pill = [&](int y_mid, const char* label, Color accent_c) {
-            it.filled_circle(140, y_mid, 22, id(col_dark_gray));
-            it.filled_circle(326, y_mid, 22, id(col_dark_gray));
-            it.filled_rectangle(140, y_mid - 22, 186, 44, id(col_dark_gray));
-            it.circle(140, y_mid, 22, accent_c);
-            it.circle(326, y_mid, 22, accent_c);
-            it.line(140, y_mid - 22, 326, y_mid - 22, accent_c);
-            it.line(140, y_mid + 22, 326, y_mid + 22, accent_c);
-            it.filled_circle(136, y_mid, 5, accent_c);
-            it.print(cx + 6, y_mid - 9, id(font_small), id(col_white), TextAlign::CENTER, label);
-          };
-
-          draw_top_pill(135, "SPEAKER HANDOFF", id(col_green));
-          draw_top_pill(205, "SPEAKER TAKEOVER", id(col_cyan));
-          draw_top_pill(275, "BROWSE LIBRARY", id(col_gold));
+          draw_pill_button(140, 326, 135, 22, id(col_green), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), true);
+          draw_pill_button(140, 326, 205, 22, id(col_cyan), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), true);
+          draw_pill_button(140, 326, 275, 22, id(col_gold), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
 
           // Bottom Back to Player
-          it.filled_circle(180, 405, 18, id(col_dark_gray));
-          it.filled_circle(286, 405, 18, id(col_dark_gray));
-          it.filled_rectangle(180, 387, 106, 36, id(col_dark_gray));
-          it.print(cx, 405 - 9, id(font_small), id(col_slate), TextAlign::CENTER, "[ BACK ]");
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "[ BACK ]", id(col_slate), false);
 
         } else if (id(music_overlay_mode) == 2) {
           // --------------------------------------------------
@@ -2253,36 +2261,21 @@ display:
           it.print(cx, 48, id(font_date), id(col_green), TextAlign::CENTER, "BROWSE LIBRARY");
 
           // Centered compact < MENU pill button at y = 86 (returns to Top Menu)
-          it.filled_circle(185, 86, 14, id(col_dark_gray));
-          it.filled_circle(281, 86, 14, id(col_dark_gray));
-          it.filled_rectangle(185, 72, 96, 28, id(col_dark_gray));
-          it.print(cx, 86 - 8, id(font_small), id(col_cyan), TextAlign::CENTER, "< MENU");
-
-          auto draw_sub_pill = [&](int y_mid, const char* label, Color accent_c) {
-            it.filled_circle(140, y_mid, 22, id(col_dark_gray));
-            it.filled_circle(326, y_mid, 22, id(col_dark_gray));
-            it.filled_rectangle(140, y_mid - 22, 186, 44, id(col_dark_gray));
-            it.circle(140, y_mid, 22, accent_c);
-            it.circle(326, y_mid, 22, accent_c);
-            it.line(140, y_mid - 22, 326, y_mid - 22, accent_c);
-            it.line(140, y_mid + 22, 326, y_mid + 22, accent_c);
-            it.filled_circle(136, y_mid, 5, accent_c);
-            it.print(cx + 6, y_mid - 9, id(font_small), id(col_white), TextAlign::CENTER, label);
-          };
+          draw_pill_button(185, 281, 86, 14, id(col_cyan), id(col_dark_gray), "< MENU", id(col_cyan), false);
 
           if (id(music_category_page) == 1) {
             // Page 1: Favorites, Playlists, Artists
-            draw_sub_pill(135, "FAVORITES", id(col_gold));
-            draw_sub_pill(205, "PLAYLISTS", id(col_cyan));
-            draw_sub_pill(275, "ARTISTS", id(col_green));
+            draw_pill_button(140, 326, 135, 22, id(col_gold), id(col_dark_gray), "FAVORITES", id(col_white), true);
+            draw_pill_button(140, 326, 205, 22, id(col_cyan), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
+            draw_pill_button(140, 326, 275, 22, id(col_green), id(col_dark_gray), "ARTISTS", id(col_white), true);
           } else if (id(music_category_page) == 2) {
             // Page 2: Albums, Radio, Podcasts & Books
-            draw_sub_pill(135, "ALBUMS", id(col_orange));
-            draw_sub_pill(205, "RADIO STATIONS", id(col_gold));
-            draw_sub_pill(275, "PODCASTS & BOOKS", id(col_green));
+            draw_pill_button(140, 326, 135, 22, id(col_orange), id(col_dark_gray), "ALBUMS", id(col_white), true);
+            draw_pill_button(140, 326, 205, 22, id(col_gold), id(col_dark_gray), "RADIO STATIONS", id(col_white), true);
+            draw_pill_button(140, 326, 275, 22, id(col_green), id(col_dark_gray), "PODCASTS & BOOKS", id(col_white), true);
           } else if (id(music_category_page) == 3) {
             // Page 3: Tracks
-            draw_sub_pill(135, "TRACKS", id(col_cyan));
+            draw_pill_button(140, 326, 135, 22, id(col_cyan), id(col_dark_gray), "TRACKS", id(col_white), true);
           }
 
           // Category Pagination (y = 345)
@@ -2293,7 +2286,7 @@ display:
 
           char cat_pg[32];
           snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 3", id(music_category_page));
-          it.print(cx, 345 - 9, id(font_small), id(col_slate), TextAlign::CENTER, cat_pg);
+          it.print(cx, 345, id(font_small), id(col_slate), TextAlign::CENTER, cat_pg);
 
           Color r_arr = (id(music_category_page) < 3) ? id(col_white) : id(col_dark_gray);
           it.filled_circle(356, 345, 17, id(col_dark_gray));
@@ -2301,10 +2294,7 @@ display:
           it.filled_triangle(362, 345, 356, 338, 356, 352, r_arr);
 
           // Bottom Back to Top Menu
-          it.filled_circle(180, 405, 18, id(col_dark_gray));
-          it.filled_circle(286, 405, 18, id(col_dark_gray));
-          it.filled_rectangle(180, 387, 106, 36, id(col_dark_gray));
-          it.print(cx, 405 - 9, id(font_small), id(col_slate), TextAlign::CENTER, "[ BACK ]");
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "[ BACK ]", id(col_slate), false);
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
@@ -2335,20 +2325,20 @@ display:
               it.filled_triangle(95, y_mid - 6, 95, y_mid + 6, 104, y_mid, id(col_green));
 
               // Right Card Body with Name and > Drilldown Chevron (x: 132..395)
-              it.filled_circle(154, y_mid, 22, id(col_dark_gray));
-              it.filled_circle(373, y_mid, 22, id(col_dark_gray));
-              it.filled_rectangle(154, y_mid - 22, 219, 44, id(col_dark_gray));
-              it.circle(154, y_mid, 22, id(col_cyan));
-              it.circle(373, y_mid, 22, id(col_cyan));
-              it.line(154, y_mid - 22, 373, y_mid - 22, id(col_cyan));
-              it.line(154, y_mid + 22, 373, y_mid + 22, id(col_cyan));
+              it.filled_circle(154, y_mid, 22, id(col_cyan));
+              it.filled_circle(373, y_mid, 22, id(col_cyan));
+              it.filled_rectangle(154, y_mid - 22, 219, 45, id(col_cyan));
+
+              it.filled_circle(154, y_mid, 20, id(col_dark_gray));
+              it.filled_circle(373, y_mid, 20, id(col_dark_gray));
+              it.filled_rectangle(154, y_mid - 20, 219, 41, id(col_dark_gray));
 
               std::string disp_name = name;
               if (disp_name.length() > 18) disp_name = disp_name.substr(0, 16) + "..";
-              it.print(258, y_mid - 9, id(font_small), id(col_white), TextAlign::CENTER, disp_name.c_str());
+              it.print(258, y_mid, id(font_small), id(col_white), TextAlign::CENTER, disp_name.c_str());
 
               // Drilldown Chevron [ > ] on right end
-              it.print(372, y_mid - 9, id(font_small), id(col_cyan), TextAlign::CENTER, ">");
+              it.print(372, y_mid, id(font_small), id(col_cyan), TextAlign::CENTER, ">");
             } else {
               // ----------------------------------------------
               // REGULAR / PLAYABLE ITEM: FULL-WIDTH UNIFIED CARD
@@ -2357,13 +2347,13 @@ display:
               Color border_c = is_act ? id(col_green) : id(col_dark_gray);
               Color txt_c = is_act ? id(col_green) : id(col_white);
 
-              it.filled_circle(140, y_mid, 22, bg_c);
-              it.filled_circle(326, y_mid, 22, bg_c);
-              it.filled_rectangle(140, y_mid - 22, 186, 44, bg_c);
-              it.circle(140, y_mid, 22, border_c);
-              it.circle(326, y_mid, 22, border_c);
-              it.line(140, y_mid - 22, 326, y_mid - 22, border_c);
-              it.line(140, y_mid + 22, 326, y_mid + 22, border_c);
+              it.filled_circle(140, y_mid, 22, border_c);
+              it.filled_circle(326, y_mid, 22, border_c);
+              it.filled_rectangle(140, y_mid - 22, 186, 45, border_c);
+
+              it.filled_circle(140, y_mid, 20, bg_c);
+              it.filled_circle(326, y_mid, 20, bg_c);
+              it.filled_rectangle(140, y_mid - 20, 186, 41, bg_c);
 
               if (is_spk) {
                 if (is_act || id_str == id(active_speaker_entity)) {
@@ -2378,7 +2368,7 @@ display:
 
               std::string disp_name = name;
               if (disp_name.length() > 22) disp_name = disp_name.substr(0, 20) + "..";
-              it.print(cx + 6, y_mid - 9, id(font_small), txt_c, TextAlign::CENTER, disp_name.c_str());
+              it.print(cx + 6, y_mid, id(font_small), txt_c, TextAlign::CENTER, disp_name.c_str());
             }
           };
 
@@ -2452,22 +2442,17 @@ display:
         // STATE 0: GAMES MENU LAUNCHER
         // ----------------------------------------------------
         if (id(active_game) == 0) {
-          it.print(cx, 75, id(font_date), id(col_cyan), TextAlign::CENTER, "GAMES");
+          // Centered Title aligned with Music & System at y = 82
+          it.print(cx, 82, id(font_date), id(col_cyan), TextAlign::CENTER, "GAMES");
 
           // Card 1: Marbles
-          it.filled_circle(cx, 155, 30, id(col_dark_gray));
-          it.circle(cx, 155, 30, id(col_gold));
-          it.print(cx, 155, id(font_small), id(col_gold), TextAlign::CENTER, "MARBLES");
+          draw_pill_button(140, 326, 155, 22, id(col_gold), id(col_dark_gray), "MARBLES", id(col_white), true);
 
           // Card 2: Archery
-          it.filled_circle(cx, 235, 30, id(col_dark_gray));
-          it.circle(cx, 235, 30, id(col_red));
-          it.print(cx, 235, id(font_small), id(col_red), TextAlign::CENTER, "ARCHERY");
+          draw_pill_button(140, 326, 235, 22, id(col_rust), id(col_dark_gray), "ARCHERY", id(col_white), true);
 
           // Card 3: Treat Catcher
-          it.filled_circle(cx, 315, 30, id(col_dark_gray));
-          it.circle(cx, 315, 30, id(col_green));
-          it.print(cx, 315, id(font_small), id(col_green), TextAlign::CENTER, "TREAT CATCHER");
+          draw_pill_button(140, 326, 315, 22, id(col_green), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
@@ -2910,27 +2895,21 @@ display:
 
         float sig = id(pocket_wifi_signal).state;
         snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
-        it.print(cx, 195, id(font_small), id(col_white), TextAlign::CENTER, buf);
+        it.print(cx, 195, id(font_small), id(col_green), TextAlign::CENTER, buf);
 
         char b_buf[32];
         std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
         if (bri_p.empty()) bri_p = "90%";
         snprintf(b_buf, sizeof(b_buf), "Brightness: %s (Tap)", bri_p.c_str());
-        it.filled_circle(cx, 245, 23, id(col_dark_gray));
-        it.circle(cx, 245, 23, id(col_rust));
-        it.print(cx, 245, id(font_small), id(col_white), TextAlign::CENTER, b_buf);
+        draw_pill_button(140, 326, 245, 22, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
 
         char def_buf[32];
         std::string def_p = std::string(id(default_start_app).current_option().c_str());
         if (def_p.empty()) def_p = "Clock";
         snprintf(def_buf, sizeof(def_buf), "Start App: %s (Tap)", def_p.c_str());
-        it.filled_circle(cx, 305, 23, id(col_dark_gray));
-        it.circle(cx, 305, 23, id(col_rust));
-        it.print(cx, 305, id(font_small), id(col_white), TextAlign::CENTER, def_buf);
+        draw_pill_button(140, 326, 305, 22, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
 
-        it.filled_circle(cx, 365, 23, id(col_dark_gray));
-        it.circle(cx, 365, 23, id(col_red));
-        it.print(cx, 365, id(font_small), id(col_white), TextAlign::CENTER, "Restart Device (Tap)");
+        draw_pill_button(140, 326, 365, 22, id(col_rust), id(col_dark_gray), "Restart Device (Tap)", id(col_white), true);
 
       }
 
