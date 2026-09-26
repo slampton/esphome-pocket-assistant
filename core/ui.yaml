@@ -897,15 +897,6 @@ script:
             }
           }
           id(gui_page) = init_p;
-  - id: play_mechanical_click
-    mode: restart
-    then:
-      - switch.turn_on: speaker_enable
-      - script.execute: route_i2s_to_spk
-      - audio_dac.mute_off: es8311_dac
-      - rtttl.play: "click:d=16,o=5,b=180:32c,32e,32g"
-      - delay: 180ms
-
   - id: boot_button_hold_timer
     mode: restart
     then:
