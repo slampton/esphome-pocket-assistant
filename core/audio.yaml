@@ -128,7 +128,7 @@ media_player:
       sources:
         - sendspin_source
     volume_initial: 70%
-    volume_increment: 5%
+    volume_increment: 2%
     volume_min: 10%
     volume_max: 90%
     on_play:
@@ -272,4 +272,17 @@ voice_assistant:
           then:
             - script.execute: screen_sleep_timer
 
-
+number:
+  - platform: template
+    name: "Volume Step Size"
+    id: volume_step_size
+    optimistic: true
+    min_value: 1
+    max_value: 10
+    step: 1
+    initial_value: 2
+    restore_value: true
+    unit_of_measurement: "%"
+    mode: slider
+    icon: "mdi:volume-step"
+    entity_category: config

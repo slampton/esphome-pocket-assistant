@@ -1028,11 +1028,26 @@ script:
           condition:
             lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
           then:
-            - media_player.volume_up: pocket_music_player
-      - homeassistant.action:
-          action: media_player.volume_up
-          data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - lambda: |-
+                float step = id(volume_step_size).state / 100.0f;
+                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                float cur = id(pocket_music_player).volume;
+                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+                float new_vol = std::min(0.90f, cur + step);
+                id(pocket_music_player).make_call().set_volume(new_vol).perform();
+            - homeassistant.action:
+                action: media_player.volume_set
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  volume_level: !lambda |-
+                    char buf[16];
+                    snprintf(buf, sizeof(buf), "%.2f", id(pocket_music_player).volume);
+                    return std::string(buf);
+          else:
+            - homeassistant.action:
+                action: media_player.volume_up
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_vol_down
     mode: restart
@@ -1041,11 +1056,26 @@ script:
           condition:
             lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
           then:
-            - media_player.volume_down: pocket_music_player
-      - homeassistant.action:
-          action: media_player.volume_down
-          data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - lambda: |-
+                float step = id(volume_step_size).state / 100.0f;
+                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                float cur = id(pocket_music_player).volume;
+                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+                float new_vol = std::max(0.10f, cur - step);
+                id(pocket_music_player).make_call().set_volume(new_vol).perform();
+            - homeassistant.action:
+                action: media_player.volume_set
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  volume_level: !lambda |-
+                    char buf[16];
+                    snprintf(buf, sizeof(buf), "%.2f", id(pocket_music_player).volume);
+                    return std::string(buf);
+          else:
+            - homeassistant.action:
+                action: media_player.volume_down
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: toggle_ha_music
     mode: restart
@@ -2106,7 +2136,7 @@ display:
 
           // Transient Volume HUD Overlay (appears on vertical swipe, fades after 1.8s)
           if (millis() - id(vol_hud_timer) < 1800) {
-            int v_pct = (int)(id(pocket_music_player).volume * 100.0f);
+            int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
             char v_buf[32];
             snprintf(v_buf, sizeof(v_buf), "VOL: %d%%", v_pct);
             it.filled_circle(cx, 160, 24, id(col_dark_gray));
