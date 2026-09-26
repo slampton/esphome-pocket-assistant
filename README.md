@@ -22,12 +22,11 @@ Most ESPHome media displays are passive screens that only show what is already p
 
 ---
 
-## 🛠️ Supported Hardware
+## 🛠️ Hardware Platform
 
 | Hardware | Display | Audio | IMU | PMU | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Waveshare ESP32-S3-Touch-AMOLED-1.75C** | 1.75" Circular AMOLED (466×466, CO5300) | Dual I2S Master (ES8311 DAC + ES7210 Mic) | QMI8658 | AXP2101 | **Primary (Verified)** |
-| **Waveshare ESP32-S3-Touch-LCD-1.85C** | 1.85" Circular LCD (360×360) | Onboard I2S DAC/Mic | QMI8658 | AXP2101 | *Target Roadmap* |
+| **Waveshare ESP32-S3-Touch-AMOLED-1.75C** | 1.75" Circular AMOLED (466×466, CO5300) | Dual I2S Master (ES8311 DAC + ES7210 Mic) | QMI8658 | AXP2101 | **Verified** |
 
 ---
 
