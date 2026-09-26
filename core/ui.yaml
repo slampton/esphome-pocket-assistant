@@ -217,6 +217,9 @@ globals:
 
 font:
   - file: "gfonts://Roboto"
+    id: font_chrono_time
+    size: 38
+  - file: "gfonts://Roboto"
     id: font_micro
     size: 14
   - file: "gfonts://Roboto"
@@ -502,21 +505,11 @@ interval:
                 if (!id(stopwatch_running)) {
                   id(stopwatch_running) = true;
                   id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
-                  if (id(stopwatch_sound_enabled).state) {
-                    // Only pause local on-board speaker playback; remote speakers continue playing uninterrupted
-                    if (id(active_speaker_entity) == "${speaker_1_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                      auto call = id(pocket_music_player).make_call();
-                      call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                      call.perform();
-                    }
-                    id(play_mechanical_click).execute();
-                  }
+                  id(sleep_start_time) = 0;
+                  id(display_brightness).turn_on().perform();
                 } else {
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = millis() - id(stopwatch_start_time);
-                  if (id(stopwatch_sound_enabled).state) {
-                    id(play_mechanical_click).execute();
-                  }
                 }
                 id(disp1).update();
               } else if (id(gui_page) == 2) {
@@ -1342,6 +1335,7 @@ script:
                      !id(va_tts_received) && 
                      !id(announcement_mixing_input).is_running() && 
                      (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) && 
+                     !id(stopwatch_running) &&
                      !id(pickup_detected).state &&
                      (id(active_game) == 0) &&
                      (id(gui_page) != 3 || !id(usb_connected).state);
@@ -1757,8 +1751,8 @@ display:
 
       // ==========================================
       // PAGE 1: VINTAGE 1970 HEUER SWISS CHRONOMETER
-      // High-Contrast Porcelain Dial, Dual Silver & Black Bezels,
-      // 1/10s High-Speed Spinning Subdial & Classic Arrow Hand
+      // High-Contrast Aged Parchment Dial, Dual Silver & Black Bezels,
+      // 1/10s High-Speed Spinning Subdial, Bold Arrow Hand & Large Digital Readout
       // ==========================================
       } else if (id(gui_page) == 1) {
         // Outer Triple Bezel: Silver Outer Ring -> Black Band -> Inner Silver Accent Ring
@@ -1772,7 +1766,7 @@ display:
         it.circle(cx, cy, 223, id(col_silver));
 
         // Authentic 1970s Vintage Aged Parchment / Warm Opaline Off-White Dial
-        it.filled_circle(cx, cy, 222, Color(232, 227, 216));
+        it.filled_circle(cx, cy, 222, Color(216, 206, 184));
 
         // Outer Chapter Track Boundaries (Bold double ring)
         it.circle(cx, cy, 220, id(col_black));
@@ -1808,8 +1802,8 @@ display:
           }
         }
 
-        // Bold Perimeter Numerals (5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
-        for (int s = 5; s <= 60; s += 5) {
+        // Bold Perimeter Numerals (5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55 - 60 omitted for STOPWATCH)
+        for (int s = 5; s <= 55; s += 5) {
           float a = s * (2.0f * PI_F / 60.0f);
           float t_sin, t_cos;
           sincosf(a, &t_sin, &t_cos);
@@ -1819,8 +1813,8 @@ display:
                    id(font_digital_time), id(col_black), TextAlign::CENTER, num_str);
         }
 
-        // Vintage Title at Top: STOPWATCH
-        it.print(cx, 68, id(font_small), id(col_black), TextAlign::CENTER, "STOPWATCH");
+        // Vintage Title at Top: STOPWATCH (clean, non-overlapping)
+        it.print(cx, 66, id(font_small), id(col_black), TextAlign::CENTER, "STOPWATCH");
 
         uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
         int mins = (total_ms / 60000) % 60;
@@ -1835,7 +1829,7 @@ display:
         const int sub_r = 50;
 
         // Recessed subdial with subtle authentic mechanical depth shading
-        it.filled_circle(sub_cx, sub_cy, sub_r - 2, Color(224, 219, 208));
+        it.filled_circle(sub_cx, sub_cy, sub_r - 2, Color(208, 198, 176));
         it.circle(sub_cx, sub_cy, sub_r, id(col_black));
         it.circle(sub_cx, sub_cy, sub_r - 1, id(col_black));
         it.circle(sub_cx, sub_cy, sub_r - 2, id(col_silver));
@@ -1881,11 +1875,11 @@ display:
         it.filled_circle(sub_cx, sub_cy, 2, id(col_silver));
 
         // ----------------------------------------------------
-        // CHRONOMETER DIGITAL READOUT (Classic Swiss Window)
+        // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility)
         // ----------------------------------------------------
         char chrono_buf[32];
         snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
-        it.print(cx, 252, id(font_date), id(col_black), TextAlign::CENTER, chrono_buf);
+        it.print(cx, 248, id(font_chrono_time), id(col_black), TextAlign::CENTER, chrono_buf);
 
         // Display lap time readout if recorded
         if (id(stopwatch_lap_ms) > 0) {
@@ -1953,52 +1947,23 @@ display:
         it.filled_circle(cx, cy, 2, id(col_silver));
 
         // ----------------------------------------------------
-        // ENLARGED BUTTONS: LAP, SOUND TOGGLE, RESET
+        // ENLARGED DUAL PUSHERS: LAP & RESET (Inboard, balanced layout)
         // ----------------------------------------------------
         const int btn_y = 338;
-        const int btn_lap_x = 153;
-        const int btn_snd_x = 233;
-        const int btn_rst_x = 313;
+        const int btn_lap_x = 169;
+        const int btn_rst_x = 297;
 
-        // LAP Button (Enlarged radius 38px, diameter 76px)
+        // LAP Button (Inboard radius 38px, diameter 76px)
         it.filled_circle(btn_lap_x, btn_y, 38, id(col_dark_gray));
         it.circle(btn_lap_x, btn_y, 38, id(col_black));
         it.circle(btn_lap_x, btn_y, 37, id(col_silver));
         it.print(btn_lap_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "LAP");
 
-        // SOUND Toggle Button (Center radius 26px)
-        it.filled_circle(btn_snd_x, btn_y, 26, id(col_dark_gray));
-        it.circle(btn_snd_x, btn_y, 26, id(col_black));
-        it.circle(btn_snd_x, btn_y, 25, id(stopwatch_sound_enabled).state ? id(col_silver) : id(col_slate));
-
-        // Speaker Icon: speaker cone + sound waves / mute slash
-        if (id(stopwatch_sound_enabled).state) {
-          // Sound Active: Speaker cone
-          it.filled_rectangle(btn_snd_x - 10, btn_y - 4, 5, 8, id(col_white));
-          it.filled_triangle(btn_snd_x - 5, btn_y - 8, btn_snd_x - 5, btn_y + 8, btn_snd_x + 1, btn_y, id(col_white));
-          // Sound waves
-          it.line(btn_snd_x + 4, btn_y - 6, btn_snd_x + 7, btn_y, id(col_silver));
-          it.line(btn_snd_x + 7, btn_y, btn_snd_x + 4, btn_y + 6, id(col_silver));
-          it.line(btn_snd_x + 8, btn_y - 8, btn_snd_x + 11, btn_y, id(col_white));
-          it.line(btn_snd_x + 11, btn_y, btn_snd_x + 8, btn_y + 8, id(col_white));
-        } else {
-          // Sound Muted: Speaker cone + slash
-          it.filled_rectangle(btn_snd_x - 8, btn_y - 4, 4, 8, id(col_slate));
-          it.filled_triangle(btn_snd_x - 4, btn_y - 8, btn_snd_x - 4, btn_y + 8, btn_snd_x + 1, btn_y, id(col_slate));
-          // Red / slate diagonal mute slash
-          it.line(btn_snd_x - 8, btn_y + 8, btn_snd_x + 8, btn_y - 8, id(col_red));
-          it.line(btn_snd_x - 7, btn_y + 8, btn_snd_x + 9, btn_y - 8, id(col_red));
-        }
-
-        // RESET Button (Enlarged radius 38px, diameter 76px)
+        // RESET Button (Inboard radius 38px, diameter 76px)
         it.filled_circle(btn_rst_x, btn_y, 38, id(col_dark_gray));
         it.circle(btn_rst_x, btn_y, 38, id(col_black));
         it.circle(btn_rst_x, btn_y, 37, id(col_rust));
         it.print(btn_rst_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "RESET");
-
-        // Running / Stopped Status Badge
-        it.print(cx, 398, id(font_micro), id(stopwatch_running) ? id(col_black) : id(col_slate),
-                 TextAlign::CENTER, id(stopwatch_running) ? "RUNNING (CLICK TOP TO STOP)" : "STOPPED (CLICK TOP TO START)");
 
       // ==========================================
       // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
@@ -2921,31 +2886,19 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch bottom buttons (LAP, SOUND TOGGLE, RESET) - Zero Dead Zones
+            // Page 1: Stopwatch bottom buttons (LAP & RESET) - Full Split Touch Zone
             if (id(gui_page) == 1) {
-              if (touch.y >= 280 && touch.y <= 395) {
-                if (touch.x <= 195) {
-                  // LAP Button (Left half, center x=153, r=38)
+              if (touch.y >= 280 && touch.y <= 405) {
+                if (touch.x < 233) {
+                  // LAP Button (Left half, center x=169, r=38)
                   if (id(stopwatch_running)) {
                     id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
-                    if (id(stopwatch_sound_enabled).state) {
-                      id(play_mechanical_click).execute();
-                    }
                   }
-                } else if (touch.x > 195 && touch.x < 270) {
-                  // SOUND Toggle Button (Center zone, center x=233, r=26)
-                  id(stopwatch_sound_enabled).toggle();
-                  if (id(stopwatch_sound_enabled).state) {
-                    id(play_mechanical_click).execute();
-                  }
-                } else if (touch.x >= 270) {
-                  // RESET Button (Right half, center x=313, r=38)
+                } else {
+                  // RESET Button (Right half, center x=297, r=38)
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
                   id(stopwatch_lap_ms) = 0;
-                  if (id(stopwatch_sound_enabled).state) {
-                    id(play_mechanical_click).execute();
-                  }
                 }
                 id(disp1).update();
               }
