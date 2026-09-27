@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🧭 Home Assistant Companion Package: Music Assistant ESPHome Mirror
+# 🪞 Home Assistant Companion Package: Music Assistant ESPHome Mirror Sensors
 # Place in /config/packages/ to enable remote speaker metadata mirroring
 # on your ESPHome Pocket Assistant.
 # ==============================================================================
@@ -12,62 +12,76 @@ input_text:
 template:
   - sensor:
       - name: "Pocket Assistant Target Title"
+        unique_id: pocket_assistant_target_title
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
           {% if not target or target in ['unknown', 'unavailable', ''] %}
-            {% set target = 'media_player.pocket_assistant' %}
+            Idle
+          {% else %}
+            {{ state_attr(target, 'media_title') | default('Idle', true) }}
           {% endif %}
-          {{ state_attr(target, 'media_title') | default('', true) }}
 
       - name: "Pocket Assistant Target Artist"
+        unique_id: pocket_assistant_target_artist
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
           {% if not target or target in ['unknown', 'unavailable', ''] %}
-            {% set target = 'media_player.pocket_assistant' %}
+            None
+          {% else %}
+            {{ state_attr(target, 'media_artist') | default('None', true) }}
           {% endif %}
-          {{ state_attr(target, 'media_artist') | default('', true) }}
 
       - name: "Pocket Assistant Target Album"
+        unique_id: pocket_assistant_target_album
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
           {% if not target or target in ['unknown', 'unavailable', ''] %}
-            {% set target = 'media_player.pocket_assistant' %}
+            None
+          {% else %}
+            {{ state_attr(target, 'media_album_name') | default('None', true) }}
           {% endif %}
-          {{ state_attr(target, 'media_album_name') | default('', true) }}
 
       - name: "Pocket Assistant Target Duration"
+        unique_id: pocket_assistant_target_duration
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
           {% if not target or target in ['unknown', 'unavailable', ''] %}
-            {% set target = 'media_player.pocket_assistant' %}
+            0
+          {% else %}
+            {{ state_attr(target, 'media_duration') | default(0, true) }}
           {% endif %}
-          {{ state_attr(target, 'media_duration') | default(0, true) }}
 
       - name: "Pocket Assistant Target Position"
+        unique_id: pocket_assistant_target_position
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
           {% if not target or target in ['unknown', 'unavailable', ''] %}
-            {% set target = 'media_player.pocket_assistant' %}
+            0
+          {% else %}
+            {{ state_attr(target, 'media_position') | default(0, true) }}
           {% endif %}
-          {{ state_attr(target, 'media_position') | default(0, true) }}
 
       - name: "Pocket Assistant Target State"
+        unique_id: pocket_assistant_target_state
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
           {% if not target or target in ['unknown', 'unavailable', ''] %}
-            {% set target = 'media_player.pocket_assistant' %}
+            idle
+          {% else %}
+            {{ states(target) | default('idle', true) }}
           {% endif %}
-          {{ states(target) | default('idle', true) }}
 
       - name: "Pocket Assistant Target Art URL"
+        unique_id: pocket_assistant_target_art_url
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            {% set target = 'media_player.pocket_assistant' %}
-          {% endif %}
-          {% set pic = state_attr(target, 'entity_picture') %}
-          {% if pic and 'http' in pic %}
-            {{ pic | replace('size=512', 'size=200') }}
-          {% else %}
+          {% if not target or target in ['unknown', 'unavailable', '', 'media_player.pocket_assistant'] %}
             none
+          {% else %}
+            {% set pic = state_attr(target, 'entity_picture') %}
+            {% if pic and 'http' in pic %}
+              {{ pic | replace('size=512', 'size=200') }}
+            {% else %}
+              none
+            {% endif %}
           {% endif %}
