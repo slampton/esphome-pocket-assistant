@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant with native Voice Assistant and a first-of-its-kind custom Music Assistant library browser & controller.**
 
-[![Version](https://img.shields.io/badge/Version-v3.4.7-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.4.8-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
@@ -129,9 +129,28 @@ Pocket Assistant organizes on-device functionality into focused, modular applica
 * Home Assistant with the **ESPHome** and **Music Assistant** add-ons/integrations installed.
 * Supported ESP32-S3 hardware (Waveshare ESP32-S3-Touch-AMOLED-1.75C).
 
-### 2. Home Assistant Companion Script
-Import the companion script into Home Assistant (`Settings` -> `Automations & Scenes` -> `Scripts`):
-* File: [`homeassistant/script.pocket_assistant_browse.yaml`](homeassistant/script.pocket_assistant_browse.yaml)
+### 2. Home Assistant Setup (Blueprint & Helpers)
+
+To connect Pocket Assistant to Music Assistant and enable library browsing, speaker handoff, and remote metadata mirroring, set up the Home Assistant side:
+
+#### A. Install the Browse Script Blueprint
+Pocket Assistant uses a native Home Assistant Script Blueprint to dynamically fetch and paginate library data directly from Music Assistant without hardcoding entity IDs:
+1. Copy [`homeassistant/blueprints/script/music_assistant_browse.yaml`](homeassistant/blueprints/script/music_assistant_browse.yaml) to your Home Assistant configuration directory under:
+   `/config/blueprints/script/esphome/music_assistant_browse.yaml`
+   *(Or import it via **Settings** -> **Automations & Scenes** -> **Blueprints**).*
+2. Click **Create Script** from the Blueprint:
+   * **Target ESPHome Device Name**: Leave as default (`pocket-assistant`), or enter your custom node name.
+   * **Active Speaker Helper**: Leave as default (`input_text.pocket_assistant_active_speaker`).
+3. Save the script with Entity ID: `script.music_assistant_browse` (or your custom entity ID matching `${browse_script}` in your ESPHome substitutions).
+
+#### B. Configure the Active Speaker Helper & Metadata Sensors
+Pocket Assistant mirrors playback metadata (title, artist, album, duration, progress) from whichever household speaker is currently active. You can set this up in two ways:
+
+* **Option 1 (Fastest — Drop-in Package)**: Copy [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) to your `/config/packages/` folder. This automatically creates `input_text.pocket_assistant_active_speaker` and the 6 mirror template sensors (`sensor.pocket_assistant_target_*`).
+* **Option 2 (Manual UI Setup)**:
+  * Go to **Settings** -> **Devices & Services** -> **Helpers** -> **Create Helper** -> **Text**.
+  * Name: `Pocket Assistant Active Speaker` (Entity ID: `input_text.pocket_assistant_active_speaker`).
+  * Add the template sensors to your `configuration.yaml` if you want remote playback progress and metadata mirrored on-screen when controlling other speakers.
 
 ### 3. Deploy Firmware (One-Click Remote Git Package)
 In your Home Assistant **ESPHome Device Builder** dashboard, create a new device or edit your configuration with this minimal stub:
@@ -227,14 +246,25 @@ esphome-pocket-assistant/
 │   ├── games.yaml                 # 3 motion physics games
 │   └── system.yaml                # System dashboard, brightness presets, diagnostic restart
 └── homeassistant/
-    └── script.pocket_assistant_browse.yaml # HA companion script
+    ├── blueprints/
+    │   └── script/
+    │       └── music_assistant_browse.yaml    # Script Blueprint for MA library browsing
+    └── packages/
+        └── music_assistant_esphome_mirror.yaml # Drop-in HA helper & sensor package
 ```
 
 ---
 
 ## 📜 Version History & Changelog
 
-### v3.4.7 (Current)
+### v3.4.8 (Current)
+* **Home Assistant Script Blueprint Architecture**: Decoupled the music browsing engine into a reusable Home Assistant Script Blueprint (`homeassistant/blueprints/script/music_assistant_browse.yaml`), allowing any ESPHome device to generate its own browsing script with automatic RPC target resolution.
+* **Complete Eradication of Legacy Names**: Standardized all entities, substitutions, and helper names to `pocket_assistant` / `pocket-assistant`, purging all legacy nomenclature.
+* **ESPHome YAML Generalization**: Extracted all external Home Assistant sensor and helper dependencies in `core/ui.yaml` into top-level customizable substitutions in `pocket-assistant.yaml` (`browse_script`, `active_speaker_helper`, `target_*_sensor`).
+* **Drop-in Companion Package**: Bundled `homeassistant/packages/music_assistant_esphome_mirror.yaml` for instant zero-friction creation of the active speaker helper and remote metadata template sensors.
+* **Streamlined Repository & Clean Package**: Removed legacy static YAML scripts in favor of native blueprints and clean modular structure.
+
+### v3.4.7
 * **Standardized Bottom Navigation Hierarchy**: Moved `< MENU` to the bottom across all library browsing overlays, eliminating redundant top menu buttons and obsolete on-screen `[ CLOSE ]` buttons (since the physical crown button exits to player).
 * **Dynamic Breadcrumb Navigation**: Bottom pill cleanly handles tier-by-tier navigation (`< MENU` returns to parent menu; `< BACK` steps up drilldowns like Tracks → Albums → Artists).
 * **Reclaimed Screen Header & Centered Titles**: Lowered library and category titles from cramped $y = 48$ down to standardized $y = 80$ (matching $y = 82$ across Clock, Stopwatch, Music, Games, and System).

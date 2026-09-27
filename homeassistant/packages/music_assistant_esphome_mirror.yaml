@@ -1,0 +1,60 @@
+# ==============================================================================
+# 🧭 Home Assistant Companion Package: Music Assistant ESPHome Mirror
+# Place in /config/packages/ to enable remote speaker metadata mirroring
+# on your ESPHome Pocket Assistant.
+# ==============================================================================
+
+input_text:
+  pocket_assistant_active_speaker:
+    name: "Pocket Assistant Active Speaker"
+    icon: mdi:speaker
+
+template:
+  - sensor:
+      - name: "Pocket Assistant Target Title"
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            {% set target = 'media_player.pocket_assistant' %}
+          {% endif %}
+          {{ state_attr(target, 'media_title') | default('', true) }}
+
+      - name: "Pocket Assistant Target Artist"
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            {% set target = 'media_player.pocket_assistant' %}
+          {% endif %}
+          {{ state_attr(target, 'media_artist') | default('', true) }}
+
+      - name: "Pocket Assistant Target Album"
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            {% set target = 'media_player.pocket_assistant' %}
+          {% endif %}
+          {{ state_attr(target, 'media_album_name') | default('', true) }}
+
+      - name: "Pocket Assistant Target Duration"
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            {% set target = 'media_player.pocket_assistant' %}
+          {% endif %}
+          {{ state_attr(target, 'media_duration') | default(0, true) }}
+
+      - name: "Pocket Assistant Target Position"
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            {% set target = 'media_player.pocket_assistant' %}
+          {% endif %}
+          {{ state_attr(target, 'media_position') | default(0, true) }}
+
+      - name: "Pocket Assistant Target State"
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            {% set target = 'media_player.pocket_assistant' %}
+          {% endif %}
+          {{ states(target) | default('idle', true) }}
