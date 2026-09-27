@@ -6,7 +6,7 @@ mode: restart
 fields:
   mode:
     description: 'Category mode: speakers, favorites, playlist, artist, album, radio,
-      podcast_audiobook, track'
+      podcast, audiobook, track'
     example: speakers
     required: true
     selector:
@@ -145,7 +145,7 @@ sequence:
           {% endfor %} {{ ns.items }}\n"
   - conditions:
     - condition: template
-      value_template: '{{ mode == ''podcast_audiobook'' }}'
+      value_template: '{{ mode == ''podcast, audiobook'' }}'
     sequence:
     - action: music_assistant.get_library
       data:

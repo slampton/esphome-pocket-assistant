@@ -1948,11 +1948,11 @@ display:
             it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
             it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
           } else {
-            // Crisp Green Battery Icon
-            it.rectangle(bx - 8, by - 5, 14, 11, id(col_green));
-            it.filled_rectangle(bx + 6, by - 2, 2, 5, id(col_green)); // Terminal pip
-            int fill_w = (int)std::max(1.0f, std::min(10.0f, (batt / 100.0f) * 10.0f));
-            it.filled_rectangle(bx - 6, by - 3, fill_w, 7, id(col_green)); // Fill level
+            // Crisp Green Vertical Battery Icon (18px total height, centered at bx, by)
+            it.filled_rectangle(bx - 2, by - 9, 4, 2, id(col_green)); // Positive terminal pip at top
+            it.rectangle(bx - 5, by - 7, 10, 16, id(col_green)); // Battery body outline
+            int fill_h = (int)std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f));
+            it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, id(col_green)); // Bottom-up charge level fill
           }
         }
 
@@ -2390,23 +2390,26 @@ display:
             draw_pill_button(140, 326, 215, 22, id(col_cyan), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
             draw_pill_button(140, 326, 290, 22, id(col_green), id(col_dark_gray), "ARTISTS", id(col_white), true);
           } else if (id(music_category_page) == 2) {
-            // Page 2: Albums, Radio, Podcasts & Books (expanded pitch = 75px, 31px gaps)
+            // Page 2: Albums, Radio, Podcasts (expanded pitch = 75px, 31px gaps)
             draw_pill_button(140, 326, 140, 22, id(col_orange), id(col_dark_gray), "ALBUMS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_gold), id(col_dark_gray), "RADIO STATIONS", id(col_white), true);
-            draw_pill_button(140, 326, 290, 22, id(col_green), id(col_dark_gray), "PODCASTS & BOOKS", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(col_gold), id(col_dark_gray), "RADIO", id(col_white), true);
+            draw_pill_button(140, 326, 290, 22, id(col_cyan), id(col_dark_gray), "PODCASTS", id(col_white), true);
+          } else if (id(music_category_page) == 3) {
+            // Page 3: Audiobooks (expanded pitch = 75px)
+            draw_pill_button(140, 326, 140, 22, id(col_green), id(col_dark_gray), "AUDIOBOOKS", id(col_white), true);
           }
 
-          // Category Pagination (y = 352, 2 clean pages)
-          Color l_arr = (id(music_category_page) > 1) ? id(col_white) : id(col_dark_gray);
+          // Category Pagination (y = 352, 3 clean pages with carousel wrap)
+          Color l_arr = id(col_white);
           it.filled_circle(110, 352, 17, id(col_dark_gray));
           it.filled_triangle(104, 352, 110, 345, 110, 359, l_arr);
           it.filled_triangle(111, 352, 117, 345, 117, 359, l_arr);
 
           char cat_pg[32];
-          snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 2", id(music_category_page));
+          snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 3", id(music_category_page));
           it.print(cx, 352, id(font_small), id(col_slate), TextAlign::CENTER, cat_pg);
 
-          Color r_arr = (id(music_category_page) < 2) ? id(col_white) : id(col_dark_gray);
+          Color r_arr = id(col_white);
           it.filled_circle(356, 352, 17, id(col_dark_gray));
           it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr);
           it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr);
@@ -3001,13 +3004,13 @@ display:
         char buf[64];
         float v_batt = id(batt_voltage).state;
         snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
-        it.print(cx, 130, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
+        it.print(cx, 120, id(font_digital_time), id(col_cyan), TextAlign::CENTER, buf);
 
-        it.print(cx, 162, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
+        it.print(cx, 153, id(font_digital_time), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
 
         float sig = id(pocket_wifi_signal).state;
         snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
-        it.print(cx, 195, id(font_small), id(col_green), TextAlign::CENTER, buf);
+        it.print(cx, 186, id(font_digital_time), id(col_green), TextAlign::CENTER, buf);
 
         char b_buf[32];
         std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
@@ -3058,7 +3061,7 @@ touchscreen:
               if (touch.x < 65) {
                 // Left side: Previous Page within multi-page menu (Carousel Wrap)
                 if (id(music_overlay_mode) == 2) {
-                  id(music_category_page) = (id(music_category_page) == 1) ? 2 : 1;
+                  id(music_category_page) = (id(music_category_page) == 1) ? 3 : (id(music_category_page) - 1);
                   id(disp1).update();
                 } else if (id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
@@ -3075,7 +3078,7 @@ touchscreen:
               } else if (touch.x > 401) {
                 // Right side: Next Page within multi-page menu (Carousel Wrap)
                 if (id(music_overlay_mode) == 2) {
-                  id(music_category_page) = (id(music_category_page) == 2) ? 1 : 2;
+                  id(music_category_page) = (id(music_category_page) >= 3) ? 1 : (id(music_category_page) + 1);
                   id(disp1).update();
                 } else if (id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
@@ -3255,9 +3258,22 @@ touchscreen:
                   } else if (id(music_category_page) == 2) {
                     id(selected_category_mode) = "album";
                     id(selected_category_title) = "ALBUMS";
+                  } else if (id(music_category_page) == 3) {
+                    id(selected_category_mode) = "audiobook";
+                    id(selected_category_title) = "AUDIOBOOKS";
                   }
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                   id(fetch_music_browse).execute();
                 // Card 2 (y: 175..250, x: 65..401)
                 } else if (touch.y >= 175 && touch.y < 250 && touch.x >= 65 && touch.x <= 401) {
@@ -3266,32 +3282,32 @@ touchscreen:
                     id(selected_category_title) = "PLAYLISTS";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
+                    id(slot_1_name) = "Loading...";
+                    id(slot_1_id) = "";
+                    id(slot_2_name) = "";
+                    id(slot_2_id) = "";
+                    id(slot_3_name) = "";
+                    id(slot_3_id) = "";
+                    id(music_browse_total_pages) = 1;
+                    id(music_browse_has_prev) = false;
+                    id(music_browse_has_next) = false;
+                    id(disp1).update();
                     id(fetch_music_browse).execute();
                   } else if (id(music_category_page) == 2) {
                     id(selected_category_mode) = "radio";
                     id(selected_category_title) = "RADIO";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
+                    id(slot_1_name) = "Loading...";
+                    id(slot_1_id) = "";
+                    id(slot_2_name) = "";
+                    id(slot_2_id) = "";
+                    id(slot_3_name) = "";
+                    id(slot_3_id) = "";
+                    id(music_browse_total_pages) = 1;
+                    id(music_browse_has_prev) = false;
+                    id(music_browse_has_next) = false;
+                    id(disp1).update();
                     id(fetch_music_browse).execute();
                   }
                 // Card 3 (y: 250..325, x: 65..401)
@@ -3301,46 +3317,50 @@ touchscreen:
                     id(selected_category_title) = "ARTISTS";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
+                    id(slot_1_name) = "Loading...";
+                    id(slot_1_id) = "";
+                    id(slot_2_name) = "";
+                    id(slot_2_id) = "";
+                    id(slot_3_name) = "";
+                    id(slot_3_id) = "";
+                    id(music_browse_total_pages) = 1;
+                    id(music_browse_has_prev) = false;
+                    id(music_browse_has_next) = false;
+                    id(disp1).update();
                     id(fetch_music_browse).execute();
                   } else if (id(music_category_page) == 2) {
-                    id(selected_category_mode) = "podcast_audiobook";
-                    id(selected_category_title) = "PODCASTS & BOOKS";
+                    id(selected_category_mode) = "podcast";
+                    id(selected_category_title) = "PODCASTS";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
+                    id(slot_1_name) = "Loading...";
+                    id(slot_1_id) = "";
+                    id(slot_2_name) = "";
+                    id(slot_2_id) = "";
+                    id(slot_3_name) = "";
+                    id(slot_3_id) = "";
+                    id(music_browse_total_pages) = 1;
+                    id(music_browse_has_prev) = false;
+                    id(music_browse_has_next) = false;
+                    id(disp1).update();
                     id(fetch_music_browse).execute();
                   }
-                // Left Arrow (Prev Category Page): x: 65..155, y: 325..380
+                // Left Arrow (Prev Category Page - Carousel Wrap): x: 65..155, y: 325..380
                 } else if (touch.x >= 65 && touch.x <= 155 && touch.y >= 325 && touch.y <= 380) {
                   if (id(music_category_page) > 1) {
                     id(music_category_page)--;
-                    id(disp1).update();
+                  } else {
+                    id(music_category_page) = 3;
                   }
-                // Right Arrow (Next Category Page): x: 311..401, y: 325..380
+                  id(disp1).update();
+                // Right Arrow (Next Category Page - Carousel Wrap): x: 311..401, y: 325..380
                 } else if (touch.x >= 311 && touch.x <= 401 && touch.y >= 325 && touch.y <= 380) {
-                  if (id(music_category_page) < 2) {
+                  if (id(music_category_page) < 3) {
                     id(music_category_page)++;
-                    id(disp1).update();
+                  } else {
+                    id(music_category_page) = 1;
                   }
+                  id(disp1).update();
                 // Standardized Bottom Navigation: < MENU (y: 380..435, x: 140..326)
                 } else if (touch.y >= 380 && touch.y <= 435 && touch.x >= 140 && touch.x <= 326) {
                   id(music_overlay_mode) = 1; // Return to Level 1 Menu
