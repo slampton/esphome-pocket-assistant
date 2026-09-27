@@ -265,6 +265,12 @@ esphome-pocket-assistant/
 ## 📜 Version History & Changelog
 
 ### v3.4.9 (Current)
+* **Volume HUD Dial Ring Deconfliction**: Repositioned the Music Player volume percentage readout from the top/bottom caret tips ($y = 35$ and $y = 431$, which clipped the outer circular bezel) to align horizontally with the "VOL" labels ($y = 56$ for Volume Up and $y = 408$ for Volume Down), providing over 50px of radial bezel clearance while preserving user-selected left/right placement.
+* **Display Brightness Control & Persistence Restoration**:
+  * Restored the missing `set_action:` percentage handler to `display_brightness_preset`, restoring instant brightness cycling via the Page 4 on-screen button, the physical top crown pusher, and the Home Assistant entity.
+  * Added boot initialization at `priority: -100` to re-assert the user's NVS-restored brightness preset after all hardware drivers initialize, preventing default resets on reboot.
+  * Removed the hardcoded 90% override in `enter_deep_sleep`, ensuring the user's custom brightness setting is preserved through sleep cycles.
+* **Remote Album Art Delivery Pipeline Fix**: Resolved stalled remote artwork loading during speaker handoffs (e.g., Pocket Assistant $ightarrow$ Garage HiFi). Added an explicit `id(remote_album_art).update();` call when `ha_target_art_url` publishes a valid URL and immediately upon handoff execution, kicking off the HTTP JPEG download while keeping local playback on Sendspin completely isolated.
 * **Incomplete Page Out-of-Bounds Glitch Resolution**: Hardened bounds checks in `music_assistant_browse.yaml` (`length > 1` for Slot 2, `length > 2` for Slot 3), eliminating `UndefinedError` crashes on partial pages (such as Artist page 21 with 2 items, Radio with 2 stations, or Audiobooks with 1 book).
 * **Native Library Categories & 3-Page Submenu**:
   * Renamed "RADIO STATIONS" to "RADIO" to align with native Music Assistant conventions.

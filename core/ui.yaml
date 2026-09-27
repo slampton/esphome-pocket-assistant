@@ -346,6 +346,18 @@ select:
     initial_option: "90%"
     restore_value: true
     optimistic: true
+    set_action:
+      - lambda: |-
+          float b = 0.90f;
+          if (x == "40%") b = 0.40f;
+          else if (x == "50%") b = 0.50f;
+          else if (x == "60%") b = 0.60f;
+          else if (x == "70%") b = 0.70f;
+          else if (x == "80%") b = 0.80f;
+          else if (x == "90%") b = 0.90f;
+          else if (x == "100%") b = 1.00f;
+          id(display_brightness).turn_on().set_brightness(b).perform();
+          id(disp1).update();
   - platform: template
     name: "Volume Display Position"
     id: vol_display_position
@@ -360,15 +372,6 @@ select:
     optimistic: true
     set_action:
       - lambda: |-
-          float b = 0.90f;
-          if (x == "40%") b = 0.40f;
-          else if (x == "50%") b = 0.50f;
-          else if (x == "60%") b = 0.60f;
-          else if (x == "70%") b = 0.70f;
-          else if (x == "80%") b = 0.80f;
-          else if (x == "90%") b = 0.90f;
-          else if (x == "100%") b = 1.00f;
-          id(display_brightness).turn_on().set_brightness(b).perform();
           id(disp1).update();
 
 
@@ -945,6 +948,7 @@ text_sensor:
               id(disp1).update();
             } else {
               id(remote_album_art).set_url(x);
+              id(remote_album_art).update();
             }
 
   - platform: sendspin
@@ -1008,9 +1012,7 @@ script:
       - audio_dac.mute_on: es8311_dac
       - switch.turn_off: speaker_enable
       - script.stop: screen_sleep_timer
-      - light.turn_on:
-          id: display_brightness
-          brightness: 90%
+      - light.turn_on: display_brightness
       - component.update: disp1
       - lambda: |-
           // Keep "HIBERNATING..." on screen while user is holding button (up to 3.0s)
@@ -1271,6 +1273,11 @@ script:
                 // When transferring TO local Pocket Assistant, immediately free remote art buffer
                 if (id(slot_1_id) == "${local_player_id}") {
                   id(remote_album_art).release();
+                } else {
+                  if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
+                    id(remote_album_art).set_url(id(ha_target_art_url).state);
+                    id(remote_album_art).update();
+                  }
                 }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
@@ -1355,6 +1362,11 @@ script:
                 }
                 if (id(slot_2_id) == "${local_player_id}") {
                   id(remote_album_art).release();
+                } else {
+                  if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
+                    id(remote_album_art).set_url(id(ha_target_art_url).state);
+                    id(remote_album_art).update();
+                  }
                 }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
@@ -1439,6 +1451,11 @@ script:
                 }
                 if (id(slot_3_id) == "${local_player_id}") {
                   id(remote_album_art).release();
+                } else {
+                  if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
+                    id(remote_album_art).set_url(id(ha_target_art_url).state);
+                    id(remote_album_art).update();
+                  }
                 }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
@@ -2268,11 +2285,11 @@ display:
             int hud_x = on_left ? (cx - 32) : (cx + 32);
             TextAlign align = on_left ? TextAlign::CENTER_RIGHT : TextAlign::CENTER_LEFT;
             if (id(vol_hud_direction) >= 0) {
-              // Top Caret (VOL ▲): y = 35
-              it.print(hud_x, 35, id(font_digital_time), id(col_white), align, v_buf);
+              // Volume Up (aligned horizontally with top VOL label at y = 56, ~40px bezel clearance)
+              it.print(hud_x, 56, id(font_digital_time), id(col_white), align, v_buf);
             } else {
-              // Bottom Caret (VOL ▼): y = 431
-              it.print(hud_x, 431, id(font_digital_time), id(col_white), align, v_buf);
+              // Volume Down (aligned horizontally with bottom VOL label at y = 408, ~40px bezel clearance)
+              it.print(hud_x, 408, id(font_digital_time), id(col_white), align, v_buf);
             }
           }
 
