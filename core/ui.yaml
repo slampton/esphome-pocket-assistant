@@ -17,6 +17,14 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: drilldown_artist_page
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: drilldown_album_page
+    type: int
+    restore_value: no
+    initial_value: '1'
   - id: is_locked
     type: bool
     restore_value: no
@@ -64,23 +72,19 @@ globals:
   - id: active_speaker_entity
     type: std::string
     restore_value: no
-    initial_value: '"${local_player_id}"'
+    initial_value: '"${speaker_1_id}"'
   - id: active_speaker_name
     type: std::string
     restore_value: no
-    initial_value: '"${friendly_name}"'
-  - id: last_speaker_entity
-    type: std::string
-    restore_value: no
-    initial_value: '""'
+    initial_value: '"${speaker_1_name}"'
   - id: slot_1_name
     type: std::string
     restore_value: no
-    initial_value: '"${friendly_name}"'
+    initial_value: '"${speaker_1_name}"'
   - id: slot_1_id
     type: std::string
     restore_value: no
-    initial_value: '"${local_player_id}"'
+    initial_value: '"${speaker_1_id}"'
   - id: slot_1_type
     type: std::string
     restore_value: no
@@ -92,11 +96,11 @@ globals:
   - id: slot_2_name
     type: std::string
     restore_value: no
-    initial_value: '""'
+    initial_value: '"${speaker_2_name}"'
   - id: slot_2_id
     type: std::string
     restore_value: no
-    initial_value: '""'
+    initial_value: '"${speaker_2_id}"'
   - id: slot_2_type
     type: std::string
     restore_value: no
@@ -108,11 +112,11 @@ globals:
   - id: slot_3_name
     type: std::string
     restore_value: no
-    initial_value: '""'
+    initial_value: '"${speaker_3_name}"'
   - id: slot_3_id
     type: std::string
     restore_value: no
-    initial_value: '""'
+    initial_value: '"${speaker_3_id}"'
   - id: slot_3_type
     type: std::string
     restore_value: no
@@ -281,11 +285,6 @@ color:
     hex: "212121" 
 
 
-http_request:
-  id: http_client
-  verify_ssl: false
-  timeout: 5s
-
 image:
   - platform: sendspin
     id: album_slot
@@ -300,15 +299,19 @@ image:
 
   - platform: online_image
     id: remote_album_art
-    url: "http://10.0.20.10:8123/static/icons/favicon.ico"
-    format: JPEG
+    format: AUTO
     type: RGB565
     resize: 200x200
-    update_interval: never
+    url: "http://10.0.20.10:8123/static/icons/favicon.ico"
     on_download_finished:
-      then:
-        - component.update: disp1
+      - component.update: disp1
 
+
+
+http_request:
+  id: http_client
+  verify_ssl: false
+  timeout: 5s
 
 output:
   - platform: template
@@ -346,6 +349,19 @@ select:
     initial_option: "90%"
     restore_value: true
     optimistic: true
+    set_action:
+      - lambda: |-
+          float b = 0.90f;
+          if (x == "40%") b = 0.40f;
+          else if (x == "50%") b = 0.50f;
+          else if (x == "60%") b = 0.60f;
+          else if (x == "70%") b = 0.70f;
+          else if (x == "80%") b = 0.80f;
+          else if (x == "90%") b = 0.90f;
+          else if (x == "100%") b = 1.00f;
+          id(display_brightness).turn_on().set_brightness(b).perform();
+          id(disp1).update();
+
   - platform: template
     name: "Volume Display Position"
     id: vol_display_position
@@ -360,15 +376,6 @@ select:
     optimistic: true
     set_action:
       - lambda: |-
-          float b = 0.90f;
-          if (x == "40%") b = 0.40f;
-          else if (x == "50%") b = 0.50f;
-          else if (x == "60%") b = 0.60f;
-          else if (x == "70%") b = 0.70f;
-          else if (x == "80%") b = 0.80f;
-          else if (x == "90%") b = 0.90f;
-          else if (x == "100%") b = 1.00f;
-          id(display_brightness).turn_on().set_brightness(b).perform();
           id(disp1).update();
 
 
@@ -425,7 +432,7 @@ switch:
     name: "Speaker Enable"
     id: speaker_enable
     pin: GPIO46
-    restore_mode: ALWAYS_ON
+    restore_mode: RESTORE_DEFAULT_ON
 
   - platform: template
     name: "Prevent Deep Sleep"
@@ -894,44 +901,68 @@ text_sensor:
             if (!x.empty() && x != "unknown" && x != "unavailable") {
               id(active_speaker_entity) = x;
             }
+        - if:
+            condition:
+              lambda: 'return (x != "${speaker_1_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+            then:
+              - online_image.set_url:
+                  id: remote_album_art
+                  url: !lambda 'return id(ha_target_art_url).state;'
 
   - platform: homeassistant
     id: ha_target_state
     entity_id: ${target_state_sensor}
+    on_value:
+      then:
+        - component.update: disp1
 
   - platform: homeassistant
     id: ha_track_title
     entity_id: ${target_title_sensor}
     on_value:
       then:
+        - if:
+            condition:
+              lambda: 'return (id(active_speaker_entity) != "${speaker_1_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+            then:
+              - online_image.set_url:
+                  id: remote_album_art
+                  url: !lambda 'return id(ha_target_art_url).state;'
         - component.update: disp1
-
-  - platform: homeassistant
-    id: ha_track_artist
-    entity_id: ${target_artist_sensor}
-
-  - platform: homeassistant
-    id: ha_track_album
-    entity_id: ${target_album_sensor}
 
   - platform: homeassistant
     id: ha_target_art_url
     entity_id: ${target_art_url_sensor}
     on_value:
       then:
-        - lambda: |-
-            bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-            if (!is_remote) {
-              // Local playback uses native Sendspin stream. Zero HTTP requests!
-              id(remote_album_art).release();
-              return;
-            }
-            if (x.empty() || x == "none" || x == "unknown" || x == "unavailable") {
-              id(remote_album_art).release();
-              id(disp1).update();
-            } else {
-              id(remote_album_art).set_url(x);
-            }
+        - if:
+            condition:
+              lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
+            then:
+              - online_image.release: remote_album_art
+              - component.update: disp1
+            else:
+              - if:
+                  condition:
+                    lambda: 'return (id(active_speaker_entity) != "${speaker_1_id}");'
+                  then:
+                    - online_image.set_url:
+                        id: remote_album_art
+                        url: !lambda 'return x;'
+
+  - platform: homeassistant
+    id: ha_track_artist
+    entity_id: ${target_artist_sensor}
+    on_value:
+      then:
+        - component.update: disp1
+
+  - platform: homeassistant
+    id: ha_track_album
+    entity_id: ${target_album_sensor}
+    on_value:
+      then:
+        - component.update: disp1
 
   - platform: sendspin
     type: artist
@@ -994,9 +1025,7 @@ script:
       - audio_dac.mute_on: es8311_dac
       - switch.turn_off: speaker_enable
       - script.stop: screen_sleep_timer
-      - light.turn_on:
-          id: display_brightness
-          brightness: 90%
+      - light.turn_on: display_brightness
       - component.update: disp1
       - lambda: |-
           // Keep "HIBERNATING..." on screen while user is holding button (up to 3.0s)
@@ -1082,7 +1111,7 @@ script:
     then:
       - if:
           condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+            lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
           then:
             - lambda: |-
                 float step = id(volume_step_size).state / 100.0f;
@@ -1102,7 +1131,7 @@ script:
     then:
       - if:
           condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+            lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
           then:
             - lambda: |-
                 float step = id(volume_step_size).state / 100.0f;
@@ -1145,7 +1174,7 @@ script:
     mode: restart
     then:
       - homeassistant.action:
-          action: ${browse_script}
+          action: 
           data:
             mode: !lambda |-
               if (id(selected_category_mode) == "speaker_takeover") {
@@ -1162,7 +1191,7 @@ script:
               }
               return "";
             speaker: !lambda 'return id(active_speaker_entity).c_str();'
-            last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
+            device: !lambda 'return "";'
 
   - id: pending_card_tap
     mode: restart
@@ -1246,18 +1275,6 @@ script:
             - lambda: |-
                 id(music_action_feedback) = "Transferring -> " + id(slot_1_name);
                 id(music_feedback_timer) = millis();
-                // Pause local playback before transferring away to prevent Sendspin buffer collisions
-                if (id(active_speaker_entity) == "${local_player_id}" && id(slot_1_id) != "${local_player_id}") {
-                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                    auto call = id(pocket_music_player).make_call();
-                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                    call.perform();
-                  }
-                }
-                // When transferring TO local Pocket Assistant, immediately free remote art buffer
-                if (id(slot_1_id) == "${local_player_id}") {
-                  id(remote_album_art).release();
-                }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1265,7 +1282,7 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_1_id);
+                id(active_speaker_entity) = id(slot_1_id);
                 id(active_speaker_name) = id(slot_1_name);
                 id(music_action_feedback) = "Active: " + id(slot_1_name);
                 id(music_feedback_timer) = millis();
@@ -1274,6 +1291,18 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${speaker_1_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+                then:
+                  - online_image.set_url:
+                      id: remote_album_art
+                      url: !lambda 'return id(ha_target_art_url).state;'
+            - if:
+                condition:
+                  lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
+                then:
+                  - online_image.release: remote_album_art
             - component.update: disp1
             - delay: 600ms
             - lambda: |-
@@ -1290,7 +1319,7 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_1_id);
+                      id(active_speaker_entity) = id(slot_1_id);
                       id(active_speaker_name) = id(slot_1_name);
                       id(music_action_feedback) = "Controlling: " + id(slot_1_name);
                       id(music_feedback_timer) = millis();
@@ -1332,16 +1361,6 @@ script:
             - lambda: |-
                 id(music_action_feedback) = "Transferring -> " + id(slot_2_name);
                 id(music_feedback_timer) = millis();
-                if (id(active_speaker_entity) == "${local_player_id}" && id(slot_2_id) != "${local_player_id}") {
-                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                    auto call = id(pocket_music_player).make_call();
-                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                    call.perform();
-                  }
-                }
-                if (id(slot_2_id) == "${local_player_id}") {
-                  id(remote_album_art).release();
-                }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1349,7 +1368,7 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_2_id);
+                id(active_speaker_entity) = id(slot_2_id);
                 id(active_speaker_name) = id(slot_2_name);
                 id(music_action_feedback) = "Active: " + id(slot_2_name);
                 id(music_feedback_timer) = millis();
@@ -1358,6 +1377,18 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${speaker_1_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+                then:
+                  - online_image.set_url:
+                      id: remote_album_art
+                      url: !lambda 'return id(ha_target_art_url).state;'
+            - if:
+                condition:
+                  lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
+                then:
+                  - online_image.release: remote_album_art
             - component.update: disp1
             - delay: 600ms
             - lambda: |-
@@ -1374,7 +1405,7 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_2_id);
+                      id(active_speaker_entity) = id(slot_2_id);
                       id(active_speaker_name) = id(slot_2_name);
                       id(music_action_feedback) = "Controlling: " + id(slot_2_name);
                       id(music_feedback_timer) = millis();
@@ -1416,16 +1447,6 @@ script:
             - lambda: |-
                 id(music_action_feedback) = "Transferring -> " + id(slot_3_name);
                 id(music_feedback_timer) = millis();
-                if (id(active_speaker_entity) == "${local_player_id}" && id(slot_3_id) != "${local_player_id}") {
-                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                    auto call = id(pocket_music_player).make_call();
-                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                    call.perform();
-                  }
-                }
-                if (id(slot_3_id) == "${local_player_id}") {
-                  id(remote_album_art).release();
-                }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1433,7 +1454,7 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_3_id);
+                id(active_speaker_entity) = id(slot_3_id);
                 id(active_speaker_name) = id(slot_3_name);
                 id(music_action_feedback) = "Active: " + id(slot_3_name);
                 id(music_feedback_timer) = millis();
@@ -1442,6 +1463,18 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${speaker_1_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+                then:
+                  - online_image.set_url:
+                      id: remote_album_art
+                      url: !lambda 'return id(ha_target_art_url).state;'
+            - if:
+                condition:
+                  lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
+                then:
+                  - online_image.release: remote_album_art
             - component.update: disp1
             - delay: 600ms
             - lambda: |-
@@ -1458,7 +1491,7 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_3_id);
+                      id(active_speaker_entity) = id(slot_3_id);
                       id(active_speaker_name) = id(slot_3_name);
                       id(music_action_feedback) = "Controlling: " + id(slot_3_name);
                       id(music_feedback_timer) = millis();
@@ -1569,8 +1602,6 @@ script:
           esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
           esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
           esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
-      - switch.turn_on: speaker_enable
-      - audio_dac.mute_off: es8311_dac
 
 
 display:
@@ -2191,7 +2222,7 @@ display:
 
           it.print(cx, 82, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC");
 
-          bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+          bool is_remote = (id(active_speaker_entity) != "${speaker_1_id}");
           bool is_playing = false;
           if (is_remote) {
             is_playing = (id(ha_target_state).state == "playing");
@@ -2206,17 +2237,17 @@ display:
           bool has_art = false;
           if (is_remote) {
             has_art = (id(remote_album_art).get_width() > 0);
-          } else {
-            has_art = (id(album_art).get_width() > 0);
-          }
-
-          if (has_art) {
-            if (is_remote) {
+            if (has_art) {
               it.image(cx - 100, 122, id(remote_album_art));
-            } else {
-              it.image(cx - 100, 122, id(album_art));
             }
           } else {
+            has_art = (id(album_art).get_width() > 0);
+            if (has_art) {
+              it.image(cx - 100, 122, id(album_art));
+            }
+          }
+
+          if (!has_art) {
             // High-contrast Vinyl Disc with Remote Audio Badge
             it.filled_circle(cx, 222, 75, id(col_dark_gray));
             it.circle(cx, 222, 75, is_remote ? id(col_cyan) : id(col_green));
@@ -2249,11 +2280,11 @@ display:
             int hud_x = on_left ? (cx - 32) : (cx + 32);
             TextAlign align = on_left ? TextAlign::CENTER_RIGHT : TextAlign::CENTER_LEFT;
             if (id(vol_hud_direction) >= 0) {
-              // Top Caret (VOL ▲): y = 35
-              it.print(hud_x, 35, id(font_digital_time), id(col_white), align, v_buf);
+              // Symmetrically aligned with top VOL label (y = 56) just below top arrow
+              it.print(hud_x, 56, id(font_digital_time), id(col_white), align, v_buf);
             } else {
-              // Bottom Caret (VOL ▼): y = 431
-              it.print(hud_x, 431, id(font_digital_time), id(col_white), align, v_buf);
+              // Symmetrically aligned with bottom VOL label (y = 408) just above bottom arrow
+              it.print(hud_x, 408, id(font_digital_time), id(col_white), align, v_buf);
             }
           }
 
@@ -2334,7 +2365,7 @@ display:
           draw_pill_button(140, 326, 315, 22, id(col_gold), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
 
           // Bottom Back to Player
-          draw_pill_button(180, 286, 395, 18, id(col_dark_gray), id(col_dark_gray), "[ RETURN ]", id(col_slate), false);
+          draw_pill_button(180, 286, 395, 18, id(col_dark_gray), id(col_dark_gray), "[ BACK ]", id(col_slate), false);
 
         } else if (id(music_overlay_mode) == 2) {
           // --------------------------------------------------
@@ -2349,33 +2380,29 @@ display:
             draw_pill_button(140, 326, 215, 22, id(col_cyan), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
             draw_pill_button(140, 326, 290, 22, id(col_green), id(col_dark_gray), "ARTISTS", id(col_white), true);
           } else if (id(music_category_page) == 2) {
-            // Page 2: Albums, Tracks, Radio (expanded pitch = 75px, 31px gaps)
+            // Page 2: Albums, Radio, Podcasts & Books (expanded pitch = 75px, 31px gaps)
             draw_pill_button(140, 326, 140, 22, id(col_orange), id(col_dark_gray), "ALBUMS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_cyan), id(col_dark_gray), "TRACKS", id(col_white), true);
-            draw_pill_button(140, 326, 290, 22, id(col_gold), id(col_dark_gray), "RADIO", id(col_white), true);
-          } else if (id(music_category_page) == 3) {
-            // Page 3: Podcasts, Audiobooks (expanded pitch = 75px, 31px gaps)
-            draw_pill_button(140, 326, 140, 22, id(col_green), id(col_dark_gray), "PODCASTS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_rust), id(col_dark_gray), "AUDIOBOOKS", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(col_gold), id(col_dark_gray), "RADIO STATIONS", id(col_white), true);
+            draw_pill_button(140, 326, 290, 22, id(col_green), id(col_dark_gray), "PODCASTS & BOOKS", id(col_white), true);
           }
 
-          // Category Pagination (y = 352, 3 clean pages)
+          // Category Pagination (y = 352, 2 clean pages)
           Color l_arr = (id(music_category_page) > 1) ? id(col_white) : id(col_dark_gray);
           it.filled_circle(110, 352, 17, id(col_dark_gray));
           it.filled_triangle(104, 352, 110, 345, 110, 359, l_arr);
           it.filled_triangle(111, 352, 117, 345, 117, 359, l_arr);
 
           char cat_pg[32];
-          snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 3", id(music_category_page));
+          snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 2", id(music_category_page));
           it.print(cx, 352, id(font_small), id(col_slate), TextAlign::CENTER, cat_pg);
 
-          Color r_arr = (id(music_category_page) < 3) ? id(col_white) : id(col_dark_gray);
+          Color r_arr = (id(music_category_page) < 2) ? id(col_white) : id(col_dark_gray);
           it.filled_circle(356, 352, 17, id(col_dark_gray));
           it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr);
           it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr);
 
           // Standardized Bottom Navigation: < MENU (returns to Level 1 Menu)
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(col_cyan), false);
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< MENU", id(col_cyan), false);
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
@@ -2471,8 +2498,10 @@ display:
           it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr_c);
           it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr_c);
 
-          // Standardized Bottom Navigation: < BACK
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(col_cyan), false);
+          // Standardized Bottom Navigation: < BACK (for drilldowns) or < MENU (for root categories)
+          bool is_sub_drill = (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "artist_albums");
+          const char *btn_txt = is_sub_drill ? "< BACK" : "< MENU";
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), btn_txt, id(col_cyan), false);
         }
 
       // ==========================================
@@ -2973,16 +3002,16 @@ display:
         char b_buf[32];
         std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
         if (bri_p.empty()) bri_p = "90%";
-        snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
+        snprintf(b_buf, sizeof(b_buf), "Brightness: %s (Tap)", bri_p.c_str());
         draw_pill_button(140, 326, 245, 22, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
 
         char def_buf[32];
         std::string def_p = std::string(id(default_start_app).current_option().c_str());
         if (def_p.empty()) def_p = "Clock";
-        snprintf(def_buf, sizeof(def_buf), "Start App: %s", def_p.c_str());
+        snprintf(def_buf, sizeof(def_buf), "Start App: %s (Tap)", def_p.c_str());
         draw_pill_button(140, 326, 320, 22, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
 
-        draw_pill_button(140, 326, 395, 22, id(col_rust), id(col_dark_gray), "Restart Device", id(col_white), true);
+        draw_pill_button(140, 326, 395, 22, id(col_rust), id(col_dark_gray), "Restart Device (Tap)", id(col_white), true);
 
       }
 
@@ -3034,7 +3063,7 @@ touchscreen:
               } else if (touch.x > 401) {
                 // Right side: Next Page within multi-page menu
                 if (id(music_overlay_mode) == 2) {
-                  if (id(music_category_page) < 3) {
+                  if (id(music_category_page) < 2) {
                     id(music_category_page)++;
                     id(disp1).update();
                   }
@@ -3148,7 +3177,7 @@ touchscreen:
                   id(disp1).update();
                 } else if (touch.y >= 100 && touch.y <= 375 && touch.x > 132 && touch.x < 334) {
                   // Center Album Art: Play / Pause toggle
-                  if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                  if (id(active_speaker_entity) == "${speaker_1_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
                     call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                     call.perform();
@@ -3172,6 +3201,16 @@ touchscreen:
                   id(selected_category_title) = "HANDOFF";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                   id(fetch_music_browse).execute();
                 // Card 2: SPEAKER TAKEOVER (y: 200..275)
                 } else if (touch.y >= 200 && touch.y < 275 && touch.x >= 65 && touch.x <= 401) {
@@ -3202,9 +3241,6 @@ touchscreen:
                   } else if (id(music_category_page) == 2) {
                     id(selected_category_mode) = "album";
                     id(selected_category_title) = "ALBUMS";
-                  } else if (id(music_category_page) == 3) {
-                    id(selected_category_mode) = "podcast";
-                    id(selected_category_title) = "PODCASTS";
                   }
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
@@ -3216,18 +3252,32 @@ touchscreen:
                     id(selected_category_title) = "PLAYLISTS";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                     id(fetch_music_browse).execute();
                   } else if (id(music_category_page) == 2) {
-                    id(selected_category_mode) = "track";
-                    id(selected_category_title) = "TRACKS";
+                    id(selected_category_mode) = "radio";
+                    id(selected_category_title) = "RADIO";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
-                  } else if (id(music_category_page) == 3) {
-                    id(selected_category_mode) = "audiobook";
-                    id(selected_category_title) = "AUDIOBOOKS";
-                    id(music_browse_page) = 1;
-                    id(music_overlay_mode) = 3;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                     id(fetch_music_browse).execute();
                   }
                 // Card 3 (y: 250..325, x: 65..401)
@@ -3237,12 +3287,32 @@ touchscreen:
                     id(selected_category_title) = "ARTISTS";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                     id(fetch_music_browse).execute();
                   } else if (id(music_category_page) == 2) {
-                    id(selected_category_mode) = "radio";
-                    id(selected_category_title) = "RADIO";
+                    id(selected_category_mode) = "podcast_audiobook";
+                    id(selected_category_title) = "PODCASTS & BOOKS";
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                     id(fetch_music_browse).execute();
                   }
                 // Left Arrow (Prev Category Page): x: 65..155, y: 325..380
@@ -3253,7 +3323,7 @@ touchscreen:
                   }
                 // Right Arrow (Next Category Page): x: 311..401, y: 325..380
                 } else if (touch.x >= 311 && touch.x <= 401 && touch.y >= 325 && touch.y <= 380) {
-                  if (id(music_category_page) < 3) {
+                  if (id(music_category_page) < 2) {
                     id(music_category_page)++;
                     id(disp1).update();
                   }
@@ -3276,17 +3346,39 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_1_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_1_name);
                         id(music_browse_page) = 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                         id(fetch_music_browse).execute();
                       } else {
                         id(drilldown_album_id) = id(slot_1_id);
                         id(drilldown_album_name) = id(slot_1_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_1_name);
                         id(music_browse_page) = 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                         id(fetch_music_browse).execute();
                       }
                     } else {
@@ -3301,17 +3393,39 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_2_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_2_name);
                         id(music_browse_page) = 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                         id(fetch_music_browse).execute();
                       } else {
                         id(drilldown_album_id) = id(slot_2_id);
                         id(drilldown_album_name) = id(slot_2_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_2_name);
                         id(music_browse_page) = 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                         id(fetch_music_browse).execute();
                       }
                     } else {
@@ -3326,17 +3440,39 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_3_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_3_name);
                         id(music_browse_page) = 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                         id(fetch_music_browse).execute();
                       } else {
                         id(drilldown_album_id) = id(slot_3_id);
                         id(drilldown_album_name) = id(slot_3_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_3_name);
                         id(music_browse_page) = 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                         id(fetch_music_browse).execute();
                       }
                     } else {
@@ -3360,19 +3496,40 @@ touchscreen:
                   if (id(selected_category_mode) == "album_tracks") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
-                    id(music_browse_page) = 1;
+                    id(music_browse_page) = id(drilldown_album_page) > 0 ? id(drilldown_album_page) : 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                     id(fetch_music_browse).execute();
                   } else if (id(selected_category_mode) == "artist_albums") {
                     id(selected_category_mode) = "artist";
                     id(selected_category_title) = "ARTISTS";
-                    id(music_browse_page) = 1;
+                    id(music_browse_page) = id(drilldown_artist_page) > 0 ? id(drilldown_artist_page) : 1;
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                     id(fetch_music_browse).execute();
                   } else if (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover") {
                     id(music_overlay_mode) = 1; // Return to Top-Level Menu
+                    id(disp1).update();
                   } else {
                     id(music_overlay_mode) = 2; // Return to Library Categories Submenu
+                    id(disp1).update();
                   }
-                  id(disp1).update();
                 }
               }
             // Page 3: Games Menu Launcher or Active Game Touch Action

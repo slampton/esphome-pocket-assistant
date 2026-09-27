@@ -22,8 +22,24 @@ substitutions:
   target_dur_sensor: "sensor.pocket_assistant_target_duration"
   target_art_url_sensor: "sensor.pocket_assistant_target_art_url"
 
-  # Local Media Player Identity
-  local_player_id: "media_player.pocket_assistant"
+  # Default Music Assistant Targets (customize for your home)
+  speaker_1_name: "Pocket Assistant"
+  speaker_1_id: "media_player.pocket_assistant"
+  speaker_2_name: "Garage HiFi"
+  speaker_2_id: "media_player.garage_hifi"
+  speaker_3_name: "Kitchen Speaker"
+  speaker_3_id: "media_player.kitchen_speaker"
+
+  # Quick Presets (customize with your favorite playlists or radio streams)
+  preset_1_name: "Radio Paradise"
+  preset_1_type: "radio"
+  preset_1_id: "Radio Paradise"
+  preset_2_name: "Daily Favorites"
+  preset_2_type: "playlist"
+  preset_2_id: "Daily Favorites"
+  preset_3_name: "Shoegaze Mix"
+  preset_3_type: "playlist"
+  preset_3_id: "Shoegaze"
 
 esphome:
   name: ${name}
@@ -113,6 +129,17 @@ esphome:
             id: es8311_dac
             volume: 70%
         - audio_dac.mute_on: es8311_dac
+        - lambda: |-
+            float b = 0.90f;
+            std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+            if (cur == "40%") b = 0.40f;
+            else if (cur == "50%") b = 0.50f;
+            else if (cur == "60%") b = 0.60f;
+            else if (cur == "70%") b = 0.70f;
+            else if (cur == "80%") b = 0.80f;
+            else if (cur == "90%") b = 0.90f;
+            else if (cur == "100%") b = 1.00f;
+            id(display_brightness).turn_on().set_brightness(b).perform();
 
 logger:
   level: INFO
