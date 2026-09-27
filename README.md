@@ -176,8 +176,134 @@ Pocket Assistant uses a native Home Assistant Script Blueprint to dynamically fe
 3. Save the script with Entity ID: `script.music_assistant_browse` (matching `${browse_script}` in your ESPHome substitutions).
 
 #### B. Configure the Active Speaker Helper & Metadata Sensors
-Pocket Assistant mirrors playback metadata (title, artist, album, duration, progress, artwork) from whichever household speaker is currently active:
-* Copy [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) to your `/config/packages/` folder. This automatically creates `input_text.pocket_assistant_active_speaker` and the 7 mirror template sensors (`sensor.pocket_assistant_target_*`).
+Pocket Assistant mirrors playback metadata (title, artist, album, duration, progress, artwork) from whichever household speaker is currently active using companion Home Assistant template entities.
+
+##### Option 1: Using Home Assistant Packages (Recommended)
+Packages allow you to bundle the helper and sensors in a single, clean file without cluttering `configuration.yaml`:
+
+1. **Locate your Home Assistant Configuration Directory (`/config`)**:
+   * Access your Home Assistant files using the **Studio Code Server** or **File Editor** add-on (from the Home Assistant sidebar), or via **Samba / SSH**.
+   * The `/config` folder (labeled `homeassistant/` in some file editors) is the root folder where your `configuration.yaml`, `secrets.yaml`, and `automations.yaml` reside.
+2. **Enable Packages in `configuration.yaml` (One-Time Prerequisite)**:
+   * Home Assistant does not enable packages by default. Open `/config/configuration.yaml` and add:
+     ```yaml
+     homeassistant:
+       packages: !include_dir_named packages
+     ```
+3. **Create the `packages/` Directory**:
+   * If it doesn't already exist, create a folder named `packages` directly inside `/config` (e.g. `/config/packages/`).
+4. **Copy the Package File**:
+   * Copy [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) into your `/config/packages/` directory.
+5. **Reload Home Assistant**:
+   * Navigate to **Developer Tools** -> **YAML** -> **Template Entities** and click **Reload** (or restart Home Assistant).
+   * This automatically instantiates `input_text.pocket_assistant_active_speaker` and the 7 mirror sensors (`sensor.pocket_assistant_target_*`).
+
+##### Option 2: Dedicated Template File (`template: !include templates.yaml`) (Modern Split Standard)
+If your `configuration.yaml` already delegates templates via `template: !include templates.yaml`:
+
+1. **Add Helper to `configuration.yaml`** (or create it via **Settings -> Devices & Services -> Helpers**):
+   ```yaml
+   input_text:
+     pocket_assistant_active_speaker:
+       name: "Pocket Assistant Active Speaker"
+       icon: mdi:speaker
+   ```
+2. **Append to `/config/templates.yaml`** (do not include the top-level `template:` header):
+   ```yaml
+   - trigger:
+       - platform: state
+         entity_id: input_text.pocket_assistant_active_speaker
+       - platform: time_pattern
+         seconds: "/2"
+     sensor:
+       - name: "Pocket Assistant Target Title"
+         unique_id: pocket_assistant_target_title
+         state: >-
+           {% set target = states('input_text.pocket_assistant_active_speaker') %}
+           {% if not target or target in ['unknown', 'unavailable', ''] %}
+             Idle
+           {% else %}
+             {{ state_attr(target, 'media_title') | default('Idle', true) }}
+           {% endif %}
+
+       - name: "Pocket Assistant Target Artist"
+         unique_id: pocket_assistant_target_artist
+         state: >-
+           {% set target = states('input_text.pocket_assistant_active_speaker') %}
+           {% if not target or target in ['unknown', 'unavailable', ''] %}
+             None
+           {% else %}
+             {{ state_attr(target, 'media_artist') | default('None', true) }}
+           {% endif %}
+
+       - name: "Pocket Assistant Target Album"
+         unique_id: pocket_assistant_target_album
+         state: >-
+           {% set target = states('input_text.pocket_assistant_active_speaker') %}
+           {% if not target or target in ['unknown', 'unavailable', ''] %}
+             None
+           {% else %}
+             {{ state_attr(target, 'media_album_name') | default('None', true) }}
+           {% endif %}
+
+       - name: "Pocket Assistant Target Duration"
+         unique_id: pocket_assistant_target_duration
+         state: >-
+           {% set target = states('input_text.pocket_assistant_active_speaker') %}
+           {% if not target or target in ['unknown', 'unavailable', ''] %}
+             0
+           {% else %}
+             {{ state_attr(target, 'media_duration') | default(0, true) }}
+           {% endif %}
+
+       - name: "Pocket Assistant Target Position"
+         unique_id: pocket_assistant_target_position
+         state: >-
+           {% set target = states('input_text.pocket_assistant_active_speaker') %}
+           {% if not target or target in ['unknown', 'unavailable', ''] %}
+             0
+           {% else %}
+             {{ state_attr(target, 'media_position') | default(0, true) }}
+           {% endif %}
+
+       - name: "Pocket Assistant Target State"
+         unique_id: pocket_assistant_target_state
+         state: >-
+           {% set target = states('input_text.pocket_assistant_active_speaker') %}
+           {% if not target or target in ['unknown', 'unavailable', ''] %}
+             idle
+           {% else %}
+             {{ states(target) | default('idle', true) }}
+           {% endif %}
+
+       - name: "Pocket Assistant Target Art URL"
+         unique_id: pocket_assistant_target_art_url
+         state: >-
+           {% set target = states('input_text.pocket_assistant_active_speaker') %}
+           {% if not target or target in ['unknown', 'unavailable', '', 'media_player.pocket_assistant'] %}
+             none
+           {% else %}
+             {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
+             {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
+               {% if pic.startswith('http') %}
+                 {{ pic }}
+               {% elif pic.startswith('/') %}
+                 {{ 'http://10.0.20.10:8123' ~ pic }}
+               {% else %}
+                 none
+               {% endif %}
+             {% else %}
+               none
+             {% endif %}
+           {% endif %}
+   ```
+3. Navigate to **Developer Tools** -> **YAML** -> **Template Entities** and click **Reload**.
+
+##### Option 3: Direct Addition to `configuration.yaml` (Monolithic Setup)
+If your `configuration.yaml` does not use split include files:
+1. Open `/config/configuration.yaml` in your editor.
+2. Open [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) and copy its entire text contents directly into `configuration.yaml` (merging under existing `input_text:` or `template:` keys).
+3. Go to **Developer Tools** -> **YAML** -> **Template Entities** and click **Reload**.
 
 ### 3. Deploy Firmware (One-Click Remote Git Package)
 In your Home Assistant **ESPHome Device Builder** dashboard, create a new device or edit your configuration with this clean, minimal stub:
