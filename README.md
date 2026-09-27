@@ -1,20 +1,22 @@
 # 🧭 Pocket Assistant
 
-> **A pocket-sized smart companion for Home Assistant with native Voice Assistant and a first-of-its-kind Music Assistant library browser & controller.**
+> **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
 [![Version](https://img.shields.io/badge/Version-v3.4.8-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
+[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-Most ESPHome media displays are passive screens that only reflect what an external player is already playing. **Pocket Assistant** transforms a handheld microcontroller into an interactive, local-first smart terminal bridging Home Assistant, Music Assistant, and Voice Assistant.
+Most ESPHome media controllers are passive displays that only reflect what an external speaker is already playing. **Pocket Assistant** transforms an ultra-compact circular AMOLED microcontroller into an interactive, local-first handheld console bridging Home Assistant, Music Assistant, and Voice Assistant.
 
 ---
 
 ## ✨ Key Features
 
 * 🎵 **Hierarchical Music Library Browsing**: Browse Artists, Albums, Tracks, Playlists, Radio, Podcasts, and Audiobooks directly on-device with dual-action play (`▶`) and drill-down (`>`) touch cards.
-* 🔊 **Smart Speaker Handoff**: Transfer active queues between household speakers (e.g., Living Room, Office, or Whole-House audio). The active speaker always floats to the top, followed by the handheld device for instant return.
+* 🖼️ **Universal Active Album Art**: Displays crisp, full-color 200×200 album art whether playing locally through the handheld speaker or handed off to any external household speaker (Sonos, AirPlay, Chromecast, DLNA, Marantz receivers).
+* 🔊 **Smart Speaker Handoff & Takeover**: Transfer active playback queues between rooms with intelligent priority sorting: the active speaker floats to Slot 1 (highlighted green), the handheld device sits at Slot 2 for 1-tap return, and previously used speakers remain pinned at Slot 3.
 * 🎙️ **Voice Assistant with Software Mixer Ducking**: Direct Assist satellite pipeline with dynamic 20 dB music ducking, kinetic AMOLED visual feedback, and instant push-to-talk/side-button cancellation.
 * 🎚️ **Single-Authority Audio & Glitch-Free Volume**: Unified physical DAC control with priority-synchronized boot gain (no 100% startup blasts) and a configurable **Volume Step Size** entity (1%–10%) to eliminate slider rubber-banding.
 * ⏱️ **Vintage Chronograph & Lap Stopwatch**: Precision chronometer featuring a classic dual-subdial dial, center sweep seconds, and crown button controls with hardware release-dwell latency compensation.
@@ -24,27 +26,83 @@ Most ESPHome media displays are passive screens that only reflect what an extern
 
 ---
 
+## 🌟 What Makes It Unique
+
+1. **Standalone Speaker & Universal Remote in One**: Pocket Assistant can stream high-fidelity audio directly to its own onboard speaker via Music Assistant's native Sendspin protocol, or act as an ultra-responsive roving touchscreen remote for every other speaker in your home.
+2. **Zero-Compilation Media Browsing**: Adding new playlists, albums, radio stations, or smart speakers never requires modifying YAML or recompiling firmware. All catalog queries are executed dynamically against Music Assistant's live database.
+3. **Decoupled Architecture**: All media orchestration, sorting, and pagination live inside a reusable Home Assistant Script Blueprint. The ESPHome device operates as a pure, lightweight presentation client.
+
+---
+
+## 🌐 Community Spotlight: Reusable Music Assistant Script Blueprint
+
+A major breakthrough of this project is the **Music Assistant Browse Script Blueprint** (`homeassistant/blueprints/script/music_assistant_browse.yaml`). 
+
+### Why This Matters for the ESPHome & Home Assistant Community
+Microcontrollers (ESP32, ESP8266, RP2040) historically struggle with interactive media browsing:
+* Parsing massive JSON payloads on-chip quickly exhausts RAM and causes watchdog resets.
+* Hardcoding media IDs into device YAML requires a firmware recompile every time a playlist changes.
+* Home Assistant's `media_player` attributes (title, artist, album art) cannot be dynamically subscribed to by an ESP32 when the target speaker changes at runtime.
+
+### How the Blueprint Solves It
+The blueprint acts as a **universal API gateway** between Music Assistant and any ESPHome display:
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                 ESPHome Display (Client)                    │
+│   • Round AMOLED, M5Dial, LilyGO, e-Paper, or Wall Panel    │
+│   • Calls script with: {mode: "artist", page: 1}           │
+│   • Receives 3 clean slots via set_browse_slots action      │
+└──────────────────────────────▲──────────────────────────────┘
+                               │ Native HA API RPC
+┌──────────────────────────────▼──────────────────────────────┐
+│       Home Assistant Script Blueprint (Universal Engine)    │
+│   • Queries Music Assistant library (get_library, browse)   │
+│   • Sorts alphabetically via database (order_by: "name")    │
+│   • Dynamically discovers all active players via registry   │
+│   • Calculates pagination math and slices items in memory   │
+│   • Pushes standardized 3-slot payload to target device     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Reusability Across Any Hardware
+This blueprint is **completely device-agnostic**. Whether you are building:
+* An **M5Stack M5Dial** rotary media controller
+* A **LilyGO T-Display** desktop companion
+* A **Waveshare AMOLED** handheld watch/terminal
+* A **Waveshare e-Paper** bedside now-playing frame
+
+You can drop this identical Blueprint into Home Assistant and immediately give your hardware full, dynamic library browsing, search drilldowns, and speaker handoff with zero custom Python code!
+
+---
+
 ## 🛠️ Hardware Platform
 
 | Hardware | Display | Audio | IMU | PMU | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Waveshare ESP32-S3-Touch-AMOLED-1.75C** | 1.75\" Circular AMOLED (466×466, CO5300) | Dual I2S Master (ES8311 DAC + ES7210 Mic) | QMI8658 | AXP2101 | **Verified** |
+| **Waveshare ESP32-S3-Touch-AMOLED-1.75C** | 1.75" Circular AMOLED (466×466, CO5300) | Dual I2S Master (ES8311 DAC + ES7210 Mic) | QMI8658 | AXP2101 | **Verified** |
 
 ---
 
-## ⚡ Technical Highlights & Architectural Solutions
+## ⚡ Technical Challenges & Engineering Solutions
 
-Building an interactive, pocket-sized smart device with voice assistance, smooth graphics, and streaming media on a single ESP32-S3 required solving several microcontroller hurdles:
+Building an interactive, pocket-sized smart device with voice assistance, smooth graphics, and streaming media on a single ESP32-S3 required solving several complex microcontroller hurdles:
 
 ### 1. Dynamic GPIO Matrix I2S Clock Multiplexing
 * **The Challenge**: The board routes both the ES7210 microphone ADC (input) and ES8311 speaker DAC (output) through shared clock lines: **GPIO9 (BCLK)**, **GPIO45 (WS/LRCLK)**, and **GPIO16 (MCLK)**. Standard configurations risk bus collisions, clock jitter, and driver lockup.
 * **The Solution**: Pocket Assistant uses **runtime GPIO Matrix multiplexing** via Espressif ROM routing (`esp_rom_gpio_connect_out_signal`). When Voice Assistant listens, clock lines route to the I2S0 peripheral; when media or TTS plays, they instantly route to I2S1. This enables independent master clocking without dedicated external multiplexer hardware.
 
-### 2. Native Dynamic Music Assistant Browsing
-* **The Challenge**: Full library browsing on microcontrollers is typically bottlenecked by RAM limits and heavy JSON parsing.
-* **The Solution**: Rather than parsing large API payloads on-chip, Pocket Assistant pairs with a lightweight **Home Assistant Script Blueprint**. Home Assistant handles pagination and filtering, dispatching compact, 3-slot RPC payloads (`set_browse_slots`) directly into ESPHome display memory with near-zero latency and minimal PSRAM overhead.
+### 2. Universal Active Album Art Across Speaker Transfers
+* **The Challenge**: Local album art streams directly inside the Sendspin audio pipe. When audio was transferred to another speaker, Sendspin on the handheld went silent, freezing stale artwork from the previous song.
+* **The Solution**: Pocket Assistant combines two native streaming conduits:
+  1. **Local Playback**: Uses zero-latency Sendspin stream decoding directly into memory.
+  2. **Remote Playback**: Leverages Music Assistant's built-in local HTTP image proxy on port 8095 (`/imageproxy/?size=200&fmt=jpg`). Music Assistant resizes and compresses the JPEG server-side. The ESP32 downloads the tiny ~8 KB payload in ~80 ms via ESPHome's native `online_image` component, decodes it into PSRAM, and renders it seamlessly.
+  3. **Stale Art Prevention**: When a radio stream or track without artwork plays, `online_image.release` instantly frees the buffer, allowing the display to gracefully render a high-contrast vinyl record disc.
 
-### 3. Single-Authority Audio & Software Mixer Ducking
+### 3. Dynamic Roving Speaker Metadata Synchronization
+* **The Challenge**: In Home Assistant, media metadata lives in entity *attributes*, not states. ESPHome's native `homeassistant` platform can read attributes, but its `entity_id` must be fixed at compile time. It cannot natively follow a roving speaker selection that changes from room to room.
+* **The Solution**: A lightweight companion package (`music_assistant_esphome_mirror.yaml`) maintains mirror template sensors in Home Assistant that dynamically track `input_text.pocket_assistant_active_speaker`. ESPHome subscribes to these mirror entities, ensuring real-time Title, Artist, Album, Progress, and Art URL updates regardless of which room is playing.
+
+### 4. Single-Authority Audio & Software Mixer Ducking
 * **Single Master Player**: A single master media player entity controls the ES8311 DAC gain directly in hardware (50µs), eliminating redundant network echo loops and volume slider rubber-banding.
 * **Dynamic 20 dB Voice Ducking**: Voice Assistant streams into a FreeRTOS software `mixing_speaker`, automatically ducking active background music by 20 dB while listening or speaking, then recovering smoothly over 1.0 second.
 * **Boot Volume Normalization**: Hardware DAC initialization is anchored at `priority: -100` (after hardware setup), guaranteeing a calibrated 70% level before any audio stream starts and eliminating power-on 0 dB volume spikes.
@@ -81,7 +139,8 @@ Pocket Assistant organizes functionality into focused, modular applications swit
 ### 🎵 Music Assistant Client & Multi-Room Remote (`apps/music.yaml`)
 * **100% Dynamic Database Polling**: Directly queries your live Music Assistant library without hardcoded presets or speaker lists.
 * **3-Page Library Carousel**: Dedicated browser for Favorites, Playlists, Artists, Albums, Tracks, Radio, Podcasts, and Audiobooks.
-* **Smart Speaker Handoff**: The currently active speaker automatically floats to the top (highlighted in green), followed by the handheld device and remaining household speakers alphabetically.
+* **Universal Active Album Art**: Displays full-color 200×200 artwork locally or remotely across speaker handoffs.
+* **Smart Speaker Handoff**: The active speaker floats to Slot 1 (green highlight), handheld Pocket Assistant to Slot 2, and previous room speaker to Slot 3.
 * **Dual-Action Touch Cards**: Play immediately (`▶`) or drill down (`>`) into artists, albums, and tracks. Full player controls with volume HUD carets and track progress bar.
 
 ### 🎮 Motion Physics Games (`apps/games.yaml`)
@@ -117,7 +176,7 @@ Pocket Assistant uses a native Home Assistant Script Blueprint to fetch and pagi
 #### B. Configure the Active Speaker Helper & Metadata Sensors
 Pocket Assistant mirrors playback metadata from whichever household speaker is currently active. You can set this up in two ways:
 
-* **Option 1 (Fastest — Drop-in Package)**: Copy [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) into your `/config/packages/` folder. This automatically creates `input_text.pocket_assistant_active_speaker` and the 6 mirror template sensors (`sensor.pocket_assistant_target_*`).
+* **Option 1 (Fastest — Drop-in Package)**: Copy [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) into your `/config/packages/` folder. This automatically creates `input_text.pocket_assistant_active_speaker` and the 7 mirror template sensors (`sensor.pocket_assistant_target_*`).
 * **Option 2 (Manual UI Setup)**:
   * Go to **Settings** -> **Devices & Services** -> **Helpers** -> **Create Helper** -> **Text**.
   * Name: `Pocket Assistant Active Speaker` (Entity ID: `input_text.pocket_assistant_active_speaker`).
@@ -163,6 +222,9 @@ Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `p
 
 * **Switch Apps**: Tap or swipe the **left edge** ($x < 14\%$) or **right edge** ($x > 86\%$) of the display to flip through the active app deck (Clock <-> Stopwatch <-> Music <-> Games <-> System).
 * **Music Menus**: Inside library menus and browsers, edge touches paginate list views forward and back without exiting to other apps.
+* **Bottom Navigation**: 
+  * The top Music Menu features **`[ RETURN ]`** in slate gray to return directly to the Now Playing player screen.
+  * All submenus and library browser pages feature a unified **`< BACK`** button in cyan to step back up one level.
 * **Top Crown Button (AXP2101 PEK)**:
   * **On Clock Face**: Quick screen standby (Tier 2).
   * **In Stopwatch**: Starts and stops the chronometer with release-dwell latency compensation.
@@ -183,7 +245,7 @@ Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `p
 
 ```text
 esphome-pocket-assistant/
-├── README.md                      # Comprehensive Documentation
+├── README.md                      # Comprehensive Documentation & Architecture Guide
 ├── LICENSE                        # Apache 2.0 License
 ├── .gitignore                     # Git ignore rules
 ├── pocket-assistant.yaml          # Master entry point (Substitutions & package includes)
@@ -213,7 +275,11 @@ esphome-pocket-assistant/
 ## 📜 Version History & Changelog
 
 ### v3.4.8 (Current)
-* **Smart-Sorted Dynamic Speaker Handoff**: Priority-ranks the active speaker at Slot 1 (highlighted green), followed by the handheld device at Slot 2 for instant return, and remaining household speakers alphabetically.
+* **Universal Active Album Art**: Integrated dual local/remote album art rendering. Streams local artwork via Sendspin and remote artwork via native Music Assistant port 8095 HTTP image proxy downscaled to 200×200 JPEG with ESPHome `online_image`.
+* **Smart-Sorted Dynamic Speaker Handoff**: Priority-ranks the active speaker at Slot 1 (highlighted green), followed by the handheld device at Slot 2 for instant return, previously used speaker at Slot 3, and remaining household speakers alphabetically.
+* **Two-Way Helper Synchronization**: Added `ha_active_speaker_sync` to automatically restore active speaker state on boot or wake from Home Assistant's helper.
+* **Native Database Ordering**: Updated the library browse blueprint to query Music Assistant with `order_by: "name"` (and `order_by: "year_desc"` for artist discographies) for optimal backend performance.
+* **Unified Bottom Navigation**: Replaced confusing menu buttons with `[ RETURN ]` on the top Music Menu and `< BACK` across all submenus and drilldowns.
 * **Dedicated Podcasts & Audiobooks Categories**: Split spoken-word audio into separate native categories (`podcasts`, `audiobooks`) alongside `radio`, `albums`, `artists`, `playlists`, and `favorites` across a clean 3-page carousel.
 * **Purged Legacy Substitutions**: Removed hardcoded presets (`preset_*`) and fixed speaker targets (`speaker_2_*`, `speaker_3_*`). All media lists and speaker targets are now 100% dynamically discovered from Music Assistant.
 * **Home Assistant Script Blueprint Architecture**: Decoupled the music browsing engine into a reusable Home Assistant Script Blueprint (`homeassistant/blueprints/script/music_assistant_browse.yaml`).

@@ -58,3 +58,16 @@ template:
             {% set target = 'media_player.pocket_assistant' %}
           {% endif %}
           {{ states(target) | default('idle', true) }}
+
+      - name: "Pocket Assistant Target Art URL"
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            {% set target = 'media_player.pocket_assistant' %}
+          {% endif %}
+          {% set pic = state_attr(target, 'entity_picture') %}
+          {% if pic and 'http' in pic %}
+            {{ pic | replace('size=512', 'size=200') }}
+          {% else %}
+            none
+          {% endif %}

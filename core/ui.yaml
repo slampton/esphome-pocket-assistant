@@ -69,6 +69,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '"${friendly_name}"'
+  - id: last_speaker_entity
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: slot_1_name
     type: std::string
     restore_value: no
@@ -277,6 +281,11 @@ color:
     hex: "212121" 
 
 
+http_request:
+  id: http_client
+  verify_ssl: false
+  timeout: 5s
+
 image:
   - platform: sendspin
     id: album_slot
@@ -288,6 +297,17 @@ image:
       id: album_art
     on_image_display:
       - component.update: disp1
+
+  - platform: online_image
+    id: remote_album_art
+    url: "http://10.0.20.10:8095/favicon.ico"
+    format: JPEG
+    type: RGB565
+    resize: 200x200
+    update_interval: never
+    on_download_finished:
+      then:
+        - component.update: disp1
 
 
 output:
@@ -866,6 +886,16 @@ binary_sensor:
 
 text_sensor:
   - platform: homeassistant
+    id: ha_active_speaker_sync
+    entity_id: ${active_speaker_helper}
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(active_speaker_entity) = x;
+            }
+
+  - platform: homeassistant
     id: ha_target_state
     entity_id: ${target_state_sensor}
     on_value:
@@ -892,6 +922,22 @@ text_sensor:
     on_value:
       then:
         - component.update: disp1
+
+  - platform: homeassistant
+    id: ha_target_art_url
+    entity_id: ${target_art_url_sensor}
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
+            then:
+              - online_image.release: remote_album_art
+              - component.update: disp1
+            else:
+              - online_image.set_url:
+                  id: remote_album_art
+                  url: !lambda 'return x;'
 
   - platform: sendspin
     type: artist
@@ -1121,6 +1167,8 @@ script:
                 return id(drilldown_album_id).c_str();
               }
               return "";
+            speaker: !lambda 'return id(active_speaker_entity).c_str();'
+            last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
 
   - id: pending_card_tap
     mode: restart
@@ -1211,7 +1259,7 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                id(active_speaker_entity) = id(slot_1_id);
+                if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_1_id);
                 id(active_speaker_name) = id(slot_1_name);
                 id(music_action_feedback) = "Active: " + id(slot_1_name);
                 id(music_feedback_timer) = millis();
@@ -1236,7 +1284,7 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      id(active_speaker_entity) = id(slot_1_id);
+                      if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_1_id);
                       id(active_speaker_name) = id(slot_1_name);
                       id(music_action_feedback) = "Controlling: " + id(slot_1_name);
                       id(music_feedback_timer) = millis();
@@ -1285,7 +1333,7 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                id(active_speaker_entity) = id(slot_2_id);
+                if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_2_id);
                 id(active_speaker_name) = id(slot_2_name);
                 id(music_action_feedback) = "Active: " + id(slot_2_name);
                 id(music_feedback_timer) = millis();
@@ -1310,7 +1358,7 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      id(active_speaker_entity) = id(slot_2_id);
+                      if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_2_id);
                       id(active_speaker_name) = id(slot_2_name);
                       id(music_action_feedback) = "Controlling: " + id(slot_2_name);
                       id(music_feedback_timer) = millis();
@@ -1359,7 +1407,7 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                id(active_speaker_entity) = id(slot_3_id);
+                if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_3_id);
                 id(active_speaker_name) = id(slot_3_name);
                 id(music_action_feedback) = "Active: " + id(slot_3_name);
                 id(music_feedback_timer) = millis();
@@ -1384,7 +1432,7 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      id(active_speaker_entity) = id(slot_3_id);
+                      if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_3_id);
                       id(active_speaker_name) = id(slot_3_name);
                       id(music_action_feedback) = "Controlling: " + id(slot_3_name);
                       id(music_feedback_timer) = millis();
@@ -2127,9 +2175,19 @@ display:
           std::string spk_label = "[" + id(active_speaker_name) + "]";
           it.print(cx, 102, id(font_small), is_remote ? id(col_cyan) : id(col_gray), TextAlign::CENTER, spk_label.c_str());
 
-          bool has_art = (!is_remote && id(album_art).get_width() > 0);
+          bool has_art = false;
+          if (is_remote) {
+            has_art = (id(remote_album_art).get_width() > 0);
+          } else {
+            has_art = (id(album_art).get_width() > 0);
+          }
+
           if (has_art) {
-            it.image(cx - 100, 122, id(album_art));
+            if (is_remote) {
+              it.image(cx - 100, 122, id(remote_album_art));
+            } else {
+              it.image(cx - 100, 122, id(album_art));
+            }
           } else {
             // High-contrast Vinyl Disc with Remote Audio Badge
             it.filled_circle(cx, 222, 75, id(col_dark_gray));
@@ -2248,7 +2306,7 @@ display:
           draw_pill_button(140, 326, 315, 22, id(col_gold), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
 
           // Bottom Back to Player
-          draw_pill_button(180, 286, 395, 18, id(col_dark_gray), id(col_dark_gray), "[ BACK ]", id(col_slate), false);
+          draw_pill_button(180, 286, 395, 18, id(col_dark_gray), id(col_dark_gray), "[ RETURN ]", id(col_slate), false);
 
         } else if (id(music_overlay_mode) == 2) {
           // --------------------------------------------------
@@ -2289,7 +2347,7 @@ display:
           it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr);
 
           // Standardized Bottom Navigation: < MENU (returns to Level 1 Menu)
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< MENU", id(col_cyan), false);
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(col_cyan), false);
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
@@ -2385,10 +2443,8 @@ display:
           it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr_c);
           it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr_c);
 
-          // Standardized Bottom Navigation: < BACK (for drilldowns) or < MENU (for root categories)
-          bool is_sub_drill = (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "artist_albums");
-          const char *btn_txt = is_sub_drill ? "< BACK" : "< MENU";
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), btn_txt, id(col_cyan), false);
+          // Standardized Bottom Navigation: < BACK
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(col_cyan), false);
         }
 
       // ==========================================

@@ -54,6 +54,12 @@ fields:
     default: ""
     selector:
       text:
+  last_speaker:
+    description: "Previously used speaker entity ID (optional)"
+    example: "media_player.garage_hifi"
+    default: ""
+    selector:
+      text:
 
 sequence:
   - choose:
@@ -76,6 +82,9 @@ sequence:
                 {% endif %}
                 {% if local_spk in all_mass_players and local_spk not in mut.ordered %}
                   {% set mut.ordered = mut.ordered + [local_spk] %}
+                {% endif %}
+                {% if last_speaker | default('') != '' and last_speaker in all_mass_players and last_speaker not in mut.ordered %}
+                  {% set mut.ordered = mut.ordered + [last_speaker] %}
                 {% endif %}
                 {% if mobile_spk in all_mass_players and mobile_spk not in mut.ordered %}
                   {% set mut.ordered = mut.ordered + [mobile_spk] %}
@@ -153,6 +162,7 @@ sequence:
               search: "{{ search }}"
               favorite: false
               limit: 1000
+              order_by: "year_desc"
             response_variable: artist_albums_resp
           - variables:
               raw_items: >-
@@ -242,6 +252,7 @@ sequence:
               media_type: "{{ mode }}"
               favorite: false
               limit: 1000
+              order_by: "name"
             response_variable: lib_resp
           - variables:
               raw_items: >-
