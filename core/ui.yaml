@@ -300,7 +300,7 @@ image:
 
   - platform: online_image
     id: remote_album_art
-    url: "http://10.0.20.10:8095/favicon.ico"
+    url: "http://10.0.20.10:8123/static/icons/favicon.ico"
     format: JPEG
     type: RGB565
     resize: 200x200
@@ -898,9 +898,6 @@ text_sensor:
   - platform: homeassistant
     id: ha_target_state
     entity_id: ${target_state_sensor}
-    on_value:
-      then:
-        - component.update: disp1
 
   - platform: homeassistant
     id: ha_track_title
@@ -912,32 +909,29 @@ text_sensor:
   - platform: homeassistant
     id: ha_track_artist
     entity_id: ${target_artist_sensor}
-    on_value:
-      then:
-        - component.update: disp1
 
   - platform: homeassistant
     id: ha_track_album
     entity_id: ${target_album_sensor}
-    on_value:
-      then:
-        - component.update: disp1
 
   - platform: homeassistant
     id: ha_target_art_url
     entity_id: ${target_art_url_sensor}
     on_value:
       then:
-        - if:
-            condition:
-              lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
-            then:
-              - online_image.release: remote_album_art
-              - component.update: disp1
-            else:
-              - online_image.set_url:
-                  id: remote_album_art
-                  url: !lambda 'return x;'
+        - lambda: |-
+            bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+            if (!is_remote) {
+              // Local playback uses native Sendspin stream. Zero HTTP requests!
+              id(remote_album_art).release();
+              return;
+            }
+            if (x.empty() || x == "none" || x == "unknown" || x == "unavailable") {
+              id(remote_album_art).release();
+              id(disp1).update();
+            } else {
+              id(remote_album_art).set_url(x);
+            }
 
   - platform: sendspin
     type: artist
@@ -1252,6 +1246,18 @@ script:
             - lambda: |-
                 id(music_action_feedback) = "Transferring -> " + id(slot_1_name);
                 id(music_feedback_timer) = millis();
+                // Pause local playback before transferring away to prevent Sendspin buffer collisions
+                if (id(active_speaker_entity) == "${local_player_id}" && id(slot_1_id) != "${local_player_id}") {
+                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                    auto call = id(pocket_music_player).make_call();
+                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                    call.perform();
+                  }
+                }
+                // When transferring TO local Pocket Assistant, immediately free remote art buffer
+                if (id(slot_1_id) == "${local_player_id}") {
+                  id(remote_album_art).release();
+                }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1326,6 +1332,16 @@ script:
             - lambda: |-
                 id(music_action_feedback) = "Transferring -> " + id(slot_2_name);
                 id(music_feedback_timer) = millis();
+                if (id(active_speaker_entity) == "${local_player_id}" && id(slot_2_id) != "${local_player_id}") {
+                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                    auto call = id(pocket_music_player).make_call();
+                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                    call.perform();
+                  }
+                }
+                if (id(slot_2_id) == "${local_player_id}") {
+                  id(remote_album_art).release();
+                }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1400,6 +1416,16 @@ script:
             - lambda: |-
                 id(music_action_feedback) = "Transferring -> " + id(slot_3_name);
                 id(music_feedback_timer) = millis();
+                if (id(active_speaker_entity) == "${local_player_id}" && id(slot_3_id) != "${local_player_id}") {
+                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                    auto call = id(pocket_music_player).make_call();
+                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                    call.perform();
+                  }
+                }
+                if (id(slot_3_id) == "${local_player_id}") {
+                  id(remote_album_art).release();
+                }
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
