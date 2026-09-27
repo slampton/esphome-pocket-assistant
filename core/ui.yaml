@@ -121,6 +121,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: current_loaded_art_url
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: music_action_feedback
     type: std::string
     restore_value: no
@@ -257,6 +261,8 @@ color:
     hex: "C59B27"  # Muted vintage chronograph mustard yellow
   - id: col_gold
     hex: "C59B27"  # Muted vintage chronograph mustard gold
+  - id: col_warm_gold
+    hex: "A88424"  # Calibrated muted brass gold (anti-glare, crisp non-blooming on AMOLED)
   - id: col_white
     hex: "FFFFFF"
   - id: col_slate
@@ -284,7 +290,7 @@ color:
 http_request:
   id: http_client
   verify_ssl: false
-  timeout: 5s
+  timeout: 15s
 
 image:
   - platform: sendspin
@@ -917,8 +923,13 @@ text_sensor:
       then:
         - if:
             condition:
-              lambda: 'return (id(active_speaker_entity) != "${local_player_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+              lambda: |-
+                return (id(active_speaker_entity) != "${local_player_id}") &&
+                       !id(ha_target_art_url).state.empty() &&
+                       (id(ha_target_art_url).state != "none") &&
+                       (id(ha_target_art_url).state != id(current_loaded_art_url) || id(remote_album_art).get_width() == 0);
             then:
+              - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
               - online_image.set_url:
                   id: remote_album_art
                   url: !lambda 'return id(ha_target_art_url).state;'
@@ -947,13 +958,17 @@ text_sensor:
             condition:
               lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
             then:
+              - lambda: 'id(current_loaded_art_url) = "";'
               - online_image.release: remote_album_art
               - component.update: disp1
             else:
               - if:
                   condition:
-                    lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+                    lambda: |-
+                      return (id(active_speaker_entity) != "${local_player_id}") &&
+                             (x != id(current_loaded_art_url) || id(remote_album_art).get_width() == 0);
                   then:
+                    - lambda: 'id(current_loaded_art_url) = x;'
                     - online_image.set_url:
                         id: remote_album_art
                         url: !lambda 'return x;'
@@ -2293,14 +2308,12 @@ display:
             it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(col_green));
           }
 
-          // Prominent Center Volume HUD Overlay: Over center of album art (font_chrono_time 38pt)
+          // Prominent Center Volume HUD Overlay: Borderless solid black circle over center of album art
           if (millis() - id(vol_hud_timer) < 1800) {
             int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
             char v_buf[16];
             snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
             it.filled_circle(cx, art_center_y, 44, id(col_black));
-            it.circle(cx, art_center_y, 44, id(col_gold));
-            it.circle(cx, art_center_y, 43, id(col_gold));
             it.print(cx, art_center_y, id(font_chrono_time), id(col_white), TextAlign::CENTER, v_buf);
           }
 
@@ -2359,10 +2372,10 @@ display:
           }
 
           // Consolidated Bottom Volume Controls: ▼ [Down]  VOL  ▲ [Up] at y = 422
-          // Down arrow to left (x = cx - 45), VOL center (cx), Up arrow to right (x = cx + 45)
+          // Crisp 18x14px anti-glare brass gold carets with 17px uniform padding to VOL
           it.print(cx, 422, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
-          it.filled_triangle(cx - 45, 427, cx - 52, 417, cx - 38, 417, id(col_gold));
-          it.filled_triangle(cx + 45, 417, cx + 38, 427, cx + 52, 427, id(col_gold));
+          it.filled_triangle(cx - 45, 429, cx - 54, 415, cx - 36, 415, id(col_warm_gold));
+          it.filled_triangle(cx + 45, 415, cx + 36, 429, cx + 54, 429, id(col_warm_gold));
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------

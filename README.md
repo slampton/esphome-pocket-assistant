@@ -265,21 +265,21 @@ esphome-pocket-assistant/
 ## 📜 Version History & Changelog
 
 ### v3.4.9 (Current)
-* **Consolidated Bottom Volume Controls & Prominent Center HUD Overlay**:
-  * Relocated all volume controls to the bottom baseline ($y = 422$), removing the upper volume carets and labels to reclaim top-of-screen vertical space.
-  * Formatted the bottom volume cluster symmetrically: `"VOL"` centered at $cx = 233$, flanked by Down Caret (▼) to the left ($x = 188$) and Up Caret (▲) to the right ($x = 278$) with doubled spacing ($45\text{ px}$) between text and arrows.
-  * Added generous, intuitive bottom touch zones ($touch.y > 385$): tapping the left half activates Volume Down, while the right half activates Volume Up.
-  * Transformed the Volume HUD into a prominent 38pt (`font_chrono_time`) high-contrast gold-rimmed circular badge overlaid directly over the center of the album art.
-* **Unified Elevated Title Baseline ($y = 54$) & Expanded Album Art**:
-  * Elevated the header titles across all apps to $y = 54$ (Music, Games, System), creating a unified visual baseline and relieving layout congestion.
+* **Single-Flight Protected Album Art Download Engine**:
+  * Resolved the remote speaker artwork loading failure (e.g. transfer to Garage HiFi) caused by download cancellation cascades: in previous builds, multi-source triggers (`ha_target_art_url`, `ha_track_title`, active speaker sync, and rapid template sensor updates) repeatedly invoked `online_image.set_url`, aborting HTTP downloads mid-stream before large covers could complete.
+  * Implemented strict URL de-duplication via `current_loaded_art_url` and buffer status guards: `online_image.set_url` now fires **only** when the target URL changes to a new resource or if the existing buffer is empty, allowing active downloads to finish uninterrupted.
+  * Extended `http_request` client timeout from 5s to **15s** to safely accommodate high-resolution remote art downloads over congested networks without socket timeouts.
+  * Paced Home Assistant companion mirror sensor updates to a steady 4-second cadence (`/4s`) with support for relative proxy URLs (`/api/media_player_proxy/...`).
+* **Crisp Anti-Glare Volume Carets & Consolidated Bottom Controls**:
+  * Resized bottom volume arrows to $18\times 14\text{ px}$ (from $14\times 10\text{ px}$) with clean $17\text{ px}$ uniform margins on either side of `"VOL"` at $y = 422$.
+  * Calibrated arrow color to anti-glare muted brass gold (`col_warm_gold: #A88424`), dropping peak luminance by 18% to eliminate subpixel bloom and blur against the deep black AMOLED background while maintaining sharp geometric edges.
+  * Preserved full split-screen bottom touch targets: left half ($touch.x \in [100, 233]$) for Volume Down, right half ($touch.x \in [233, 366]$) for Volume Up.
+* **Unified Elevated Header Baseline ($y = 54$) & Expanded Album Art**:
+  * Standardized the app header title across all applications at **$y = 54$** (Music, Games, System), creating a unified visual baseline and relieving layout congestion.
   * Expanded album art to $216\times 216\text{ px}$ centered at $(cx, 204)$ (spanning $y = 96$ to $312$).
-  * Shifted Previous/Next track chevrons outward to $x = 91\text{–}113$ and $x = 353\text{–}375$, maintaining $12\text{ px}$ of art margin and preserving generous touch zones ($[50, 125]$ for Prev, $[341, 416]$ for Next, and $[125, 341]$ for Play/Pause).
+  * Shifted Previous/Next track chevrons outward to $x = 91\text{–}113$ and $x = 353\text{–}375$, maintaining $12\text{ px}$ of clearance from the enlarged artwork while preserving generous touch zones ($[50, 125]$ for Prev, $[341, 416]$ for Next, and $[125, 341]$ for center Play/Pause).
   * Shifted System telemetry ($y = 92, 125, 158$) and buttons ($y = 217, 282, 347$) upward, providing over $70\text{ px}$ of clearance at the bottom of the System page.
-* **Purge of Bloat & Restoration of Native Remote Album Art Pipeline**:
-  * Conducted deep audit against clean v3.4.7 baseline and purged all ad-hoc workaround bloat (removed manual C++ `.update()` triggers, artificial delays, and forced entity updates that collided on ESPHome's single-threaded HTTP client).
-  * Re-enabled native `format: AUTO` on `remote_album_art`, ensuring seamless on-the-fly decoding of both PNG and JPEG images from Music Assistant.
-  * Restored native ESPHome `online_image.set_url` and `online_image.release` actions across active speaker sync, track title changes, and speaker handoffs.
-  * Hardened Home Assistant mirror companion sensor (`music_assistant_esphome_mirror.yaml`) using standard `platform: state` and `platform: time_pattern` triggers with support for relative `/api/media_player_proxy` paths and `media_image_url` fallbacks.
+* **Prominent Center Volume HUD Overlay**: Transformed the Volume HUD into a prominent 38pt (`font_chrono_time`) high-contrast borderless solid black circular badge overlaid directly over the center of the album art during volume adjustments, providing clean readability without visual distraction.
 * **Incomplete Page Out-of-Bounds Glitch Resolution**: Hardened bounds checks in `music_assistant_browse.yaml` (`length > 1` for Slot 2, `length > 2` for Slot 3), eliminating `UndefinedError` crashes on partial pages.
 * **Native Library Categories & 3-Page Submenu**:
   * Renamed "RADIO STATIONS" to "RADIO" to align with native Music Assistant conventions.
