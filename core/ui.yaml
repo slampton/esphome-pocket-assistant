@@ -1329,14 +1329,8 @@ script:
                   }
                 }
                 // When transferring TO local Pocket Assistant, immediately free remote art buffer
-                if (id(slot_1_id) == "${local_player_id}") {
-                  id(remote_album_art).release();
-                } else {
-                  if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
-                    id(remote_album_art).set_url(id(ha_target_art_url).state);
-                    id(remote_album_art).update();
-                  }
-                }
+                // Release remote album art buffer so previous artwork never lingers
+                id(remote_album_art).release();
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1353,12 +1347,11 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - delay: 800ms
             - homeassistant.action:
                 action: homeassistant.update_entity
                 data:
                   entity_id: ${target_art_url_sensor}
-            - component.update: disp1
-            - delay: 600ms
             - lambda: |-
                 id(music_overlay_mode) = 0;
             - component.update: disp1
@@ -1422,14 +1415,8 @@ script:
                     call.perform();
                   }
                 }
-                if (id(slot_2_id) == "${local_player_id}") {
-                  id(remote_album_art).release();
-                } else {
-                  if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
-                    id(remote_album_art).set_url(id(ha_target_art_url).state);
-                    id(remote_album_art).update();
-                  }
-                }
+                // Release remote album art buffer so previous artwork never lingers
+                id(remote_album_art).release();
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1446,12 +1433,11 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - delay: 800ms
             - homeassistant.action:
                 action: homeassistant.update_entity
                 data:
                   entity_id: ${target_art_url_sensor}
-            - component.update: disp1
-            - delay: 600ms
             - lambda: |-
                 id(music_overlay_mode) = 0;
             - component.update: disp1
@@ -1515,14 +1501,8 @@ script:
                     call.perform();
                   }
                 }
-                if (id(slot_3_id) == "${local_player_id}") {
-                  id(remote_album_art).release();
-                } else {
-                  if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
-                    id(remote_album_art).set_url(id(ha_target_art_url).state);
-                    id(remote_album_art).update();
-                  }
-                }
+                // Release remote album art buffer so previous artwork never lingers
+                id(remote_album_art).release();
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1539,12 +1519,11 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - delay: 800ms
             - homeassistant.action:
                 action: homeassistant.update_entity
                 data:
                   entity_id: ${target_art_url_sensor}
-            - component.update: disp1
-            - delay: 600ms
             - lambda: |-
                 id(music_overlay_mode) = 0;
             - component.update: disp1

@@ -11,9 +11,9 @@ input_text:
 
 template:
   - trigger:
-      - trigger: state
+      - platform: state
         entity_id: input_text.pocket_assistant_active_speaker
-      - trigger: time_pattern
+      - platform: time_pattern
         seconds: "/2"
     sensor:
       - name: "Pocket Assistant Target Title"
@@ -83,9 +83,19 @@ template:
           {% if not target or target in ['unknown', 'unavailable', '', 'media_player.pocket_assistant'] %}
             none
           {% else %}
-            {% set pic = state_attr(target, 'entity_picture') %}
-            {% if pic and 'http' in pic %}
-              {{ pic | replace('size=512', 'size=200') }}
+            {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
+            {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
+              {% if pic.startswith('http') %}
+                {% if 'size=' in pic %}
+                  {{ pic | replace('size=512', 'size=200') }}
+                {% else %}
+                  {{ pic }}
+                {% endif %}
+              {% elif pic.startswith('/') %}
+                {{ 'http://10.0.20.10:8123' ~ pic }}
+              {% else %}
+                none
+              {% endif %}
             {% else %}
               none
             {% endif %}
