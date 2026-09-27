@@ -265,12 +265,18 @@ esphome-pocket-assistant/
 ## 📜 Version History & Changelog
 
 ### v3.4.9 (Current)
-* **Volume HUD Dial Ring Deconfliction**: Repositioned the Music Player volume percentage readout from the top/bottom caret tips ($y = 35$ and $y = 431$, which clipped the outer circular bezel) to align horizontally with the "VOL" labels ($y = 56$ for Volume Up and $y = 408$ for Volume Down), providing over 50px of radial bezel clearance while preserving user-selected left/right placement.
+* **Consolidated Inline Volume Controls & Left HUD Baseline**:
+  * Consolidated the vertically stacked arrows and "VOL" text into single horizontal lines positioned symmetrically at $y = 46$ (top) and $y = 420$ (bottom), halfway between the previous carets and labels ($187\text{ px}$ from center, providing $35\text{ px}$ of radial clearance from the outer dial ring).
+  * Rendered crisp gold filled triangles inline directly following the label (`VOL ▲` for Volume Up, `VOL ▼` for Volume Down).
+  * Standardized the volume percentage HUD to permanently dock on the left side on the exact same horizontal baseline ($y = 46$ / $y = 420$), cleanly eliminating the deprecated `vol_display_position` configuration entity while opening vertical screen buffer space.
+* **Remote Album Art Continuous Refresh & Speed Optimization**:
+  * Upgraded `homeassistant/packages/music_assistant_esphome_mirror.yaml` to trigger-based template sensors with periodic `/2s` evaluation and state triggers, resolving the issue where Home Assistant failed to track dynamic `entity_picture` updates when playing new tracks on remote speakers (e.g., Garage HiFi).
+  * Implemented instant frame buffer flushing (`id(remote_album_art).release();`) upon track selection (`play_music_slot_1/2/3`) and track skipping (`music_next_track`, `music_prev_track`), eliminating stale artwork lingering while new artwork loads.
+  * Added automated `homeassistant.update_entity` calls and track title listeners to immediately trigger remote image downloads upon speaker handoffs and library playback.
 * **Display Brightness Control & Persistence Restoration**:
   * Restored the missing `set_action:` percentage handler to `display_brightness_preset`, restoring instant brightness cycling via the Page 4 on-screen button, the physical top crown pusher, and the Home Assistant entity.
   * Added boot initialization at `priority: -100` to re-assert the user's NVS-restored brightness preset after all hardware drivers initialize, preventing default resets on reboot.
   * Removed the hardcoded 90% override in `enter_deep_sleep`, ensuring the user's custom brightness setting is preserved through sleep cycles.
-* **Remote Album Art Delivery Pipeline Fix**: Resolved stalled remote artwork loading during speaker handoffs (e.g., Pocket Assistant $ightarrow$ Garage HiFi). Added an explicit `id(remote_album_art).update();` call when `ha_target_art_url` publishes a valid URL and immediately upon handoff execution, kicking off the HTTP JPEG download while keeping local playback on Sendspin completely isolated.
 * **Incomplete Page Out-of-Bounds Glitch Resolution**: Hardened bounds checks in `music_assistant_browse.yaml` (`length > 1` for Slot 2, `length > 2` for Slot 3), eliminating `UndefinedError` crashes on partial pages (such as Artist page 21 with 2 items, Radio with 2 stations, or Audiobooks with 1 book).
 * **Native Library Categories & 3-Page Submenu**:
   * Renamed "RADIO STATIONS" to "RADIO" to align with native Music Assistant conventions.

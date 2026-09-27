@@ -358,21 +358,7 @@ select:
           else if (x == "100%") b = 1.00f;
           id(display_brightness).turn_on().set_brightness(b).perform();
           id(disp1).update();
-  - platform: template
-    name: "Volume Display Position"
-    id: vol_display_position
-    entity_category: config
-    icon: "mdi:dock-left"
-    options:
-      - "Left"
-      - "Right"
-      - "Hidden"
-    initial_option: "Left"
-    restore_value: true
-    optimistic: true
-    set_action:
-      - lambda: |-
-          id(disp1).update();
+
 
 
 button:
@@ -921,6 +907,14 @@ text_sensor:
     entity_id: ${target_title_sensor}
     on_value:
       then:
+        - lambda: |-
+            bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+            if (is_remote) {
+              if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
+                id(remote_album_art).set_url(id(ha_target_art_url).state);
+                id(remote_album_art).update();
+              }
+            }
         - component.update: disp1
 
   - platform: homeassistant
@@ -1144,18 +1138,46 @@ script:
   - id: music_next_track
     mode: restart
     then:
+      - lambda: |-
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(remote_album_art).release();
+            id(disp1).update();
+          }
       - homeassistant.action:
           action: media_player.media_next_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
+          then:
+            - delay: 300ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
 
   - id: music_prev_track
     mode: restart
     then:
+      - lambda: |-
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(remote_album_art).release();
+            id(disp1).update();
+          }
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
+          then:
+            - delay: 300ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
 
   - id: fetch_music_browse
     mode: restart
@@ -1198,6 +1220,9 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_1_name);
           id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(remote_album_art).release();
+          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1207,7 +1232,16 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_1_type).c_str();
-      - delay: 800ms
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
+          then:
+            - delay: 200ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
+      - delay: 600ms
       - lambda: |-
           id(music_overlay_mode) = 0;
       - component.update: disp1
@@ -1218,6 +1252,9 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_2_name);
           id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(remote_album_art).release();
+          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1227,7 +1264,16 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_2_type).c_str();
-      - delay: 800ms
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
+          then:
+            - delay: 200ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
+      - delay: 600ms
       - lambda: |-
           id(music_overlay_mode) = 0;
       - component.update: disp1
@@ -1238,6 +1284,9 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_3_name);
           id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(remote_album_art).release();
+          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1247,7 +1296,16 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_3_type).c_str();
-      - delay: 800ms
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
+          then:
+            - delay: 200ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
+      - delay: 600ms
       - lambda: |-
           id(music_overlay_mode) = 0;
       - component.update: disp1
@@ -1295,6 +1353,10 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
             - component.update: disp1
             - delay: 600ms
             - lambda: |-
@@ -1384,6 +1446,10 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
             - component.update: disp1
             - delay: 600ms
             - lambda: |-
@@ -1473,6 +1539,10 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
             - component.update: disp1
             - delay: 600ms
             - lambda: |-
@@ -2221,9 +2291,9 @@ display:
           // --------------------------------------------------
           // VIEW 0: NOW PLAYING MUSIC PLAYER
           // --------------------------------------------------
-          // Modern Volume Buttons: Symmetrical Top Caret (VOL ▲) & Bottom Caret (VOL ▼)
-          it.filled_triangle(cx, 30, cx - 8, 40, cx + 8, 40, id(col_gold));
-          it.print(cx, 56, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
+          // Consolidated Top Volume Up Control: Inline VOL + Gold Caret ▲ (y = 46)
+          it.print(cx + 6, 46, id(font_small), id(col_slate), TextAlign::CENTER_RIGHT, "VOL");
+          it.filled_triangle(cx + 18, 41, cx + 12, 51, cx + 24, 51, id(col_gold));
 
           it.print(cx, 82, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC");
 
@@ -2275,22 +2345,13 @@ display:
             it.filled_triangle(cx - 7, 222 - 15, cx - 7, 222 + 15, cx + 15, 222, id(col_green));
           }
 
-          // High-contrast Volume HUD (Configurable Position: Left, Right, or Hidden)
-          std::string v_pos = id(vol_display_position).current_option();
-          if (v_pos != "Hidden" && (millis() - id(vol_hud_timer) < 1800)) {
+          // High-contrast Volume HUD: Left-docked inline on volume baseline (y = 46 for Up, y = 420 for Down)
+          if (millis() - id(vol_hud_timer) < 1800) {
             int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
             char v_buf[16];
             snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
-            bool on_left = (v_pos != "Right");
-            int hud_x = on_left ? (cx - 32) : (cx + 32);
-            TextAlign align = on_left ? TextAlign::CENTER_RIGHT : TextAlign::CENTER_LEFT;
-            if (id(vol_hud_direction) >= 0) {
-              // Volume Up (aligned horizontally with top VOL label at y = 56, ~40px bezel clearance)
-              it.print(hud_x, 56, id(font_digital_time), id(col_white), align, v_buf);
-            } else {
-              // Volume Down (aligned horizontally with bottom VOL label at y = 408, ~40px bezel clearance)
-              it.print(hud_x, 408, id(font_digital_time), id(col_white), align, v_buf);
-            }
+            int hud_y = (id(vol_hud_direction) >= 0) ? 46 : 420;
+            it.print(185, hud_y, id(font_digital_time), id(col_white), TextAlign::CENTER_RIGHT, v_buf);
           }
 
           // Real-time track progress calculation
@@ -2355,9 +2416,9 @@ display:
             }
           }
 
-          // Bottom Volume Down Caret Button
-          it.print(cx, 408, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
-          it.filled_triangle(cx, 436, cx - 8, 426, cx + 8, 426, id(col_gold));
+          // Consolidated Bottom Volume Down Control: Inline VOL + Gold Caret ▼ (y = 420)
+          it.print(cx + 6, 420, id(font_small), id(col_slate), TextAlign::CENTER_RIGHT, "VOL");
+          it.filled_triangle(cx + 18, 426, cx + 12, 415, cx + 24, 415, id(col_gold));
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------

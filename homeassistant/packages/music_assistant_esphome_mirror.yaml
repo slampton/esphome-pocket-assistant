@@ -10,7 +10,12 @@ input_text:
     icon: mdi:speaker
 
 template:
-  - sensor:
+  - trigger:
+      - trigger: state
+        entity_id: input_text.pocket_assistant_active_speaker
+      - trigger: time_pattern
+        seconds: "/2"
+    sensor:
       - name: "Pocket Assistant Target Title"
         unique_id: pocket_assistant_target_title
         state: >-
