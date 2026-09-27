@@ -265,9 +265,10 @@ esphome-pocket-assistant/
 ## 📜 Version History & Changelog
 
 ### v3.4.9 (Current)
-* **Progressive JPEG Resolution via Server-Side `fmt=png` Normalization**:
-  * Resolved the `Progressive JPEG image not supported` decode failure occurring when streaming music from external services (e.g. Spotify, Tidal, or YouTube Music). ESPHome's embedded `TJpgDec` decompressor on the ESP32-S3 strictly requires Baseline JPEGs.
-  * In `music_assistant_esphome_mirror.yaml`, configured `sensor.pocket_assistant_target_art_url` to request `fmt=png` at `size=216` through Music Assistant's image proxy. The host server decodes any incoming format (including Progressive JPEGs, WebP, and AVIF) and delivers a compact, normalized 216x216 PNG stream (~25KB) that ESPHome decodes cleanly into PSRAM.
+* **Zero-JPEG Architecture & Universal PNG Normalization Pipeline**:
+  * **Complete TJpgDec Elimination**: Replaced all ESPHome image decoding pipelines (`platform: sendspin` and `platform: online_image`) with explicit `format: PNG`. The ESP32-S3 firmware no longer invokes or compiles the baseline-only `TJpgDec` decompressor, eliminating any possibility of `Progressive JPEG image not supported` decode aborts.
+  * **Universal Server-Side PNG Normalization**: Updated `sensor.pocket_assistant_target_art_url` in `music_assistant_esphome_mirror.yaml` to route **all** artwork sources—including Music Assistant native image proxy, Home Assistant Ingress endpoints, Home Assistant `/api/media_player_proxy/`, and external cloud CDNs—through Music Assistant's port 8095 image proxy with `size=216&fmt=png`. The Home Assistant server decodes progressive JPEGs and streams lightweight (~25KB) standardized PNGs directly to ESPHome.
+  * **Home Assistant Template Reload Workflow**: Documented the critical Home Assistant operational distinction: modifying package sensors in `/config/packages/` requires reloading Template Entities (**Developer Tools -> YAML -> Template Entities** or HA restart), whereas Blueprint script updates only reload scripts.
 * **Single-Flight Protected Album Art Download Engine**:
   * Resolved the remote speaker artwork loading failure (e.g. transfer to Garage HiFi) caused by download cancellation cascades: multi-source triggers previously invoked `online_image.set_url` repeatedly, resetting connections mid-stream.
   * Implemented strict URL de-duplication via `current_loaded_art_url` and frame buffer status guards: `online_image.set_url` fires **only** when the target URL changes to a new resource or if the existing buffer is empty, allowing active downloads to finish uninterrupted.

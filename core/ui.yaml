@@ -306,10 +306,10 @@ image:
 
   - platform: online_image
     id: remote_album_art
-    format: AUTO
+    format: PNG
     type: RGB565
     resize: 216x216
-    url: "http://10.0.20.10:8123/static/icons/favicon.ico"
+    url: "http://10.0.20.10:8123/static/icons/favicon-192x192.png"
     on_download_finished:
       - component.update: disp1
 
@@ -903,8 +903,13 @@ text_sensor:
             }
         - if:
             condition:
-              lambda: 'return (x != "${local_player_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+              lambda: |-
+                return (x != "${local_player_id}") &&
+                       !id(ha_target_art_url).state.empty() &&
+                       (id(ha_target_art_url).state != "none") &&
+                       (id(ha_target_art_url).state != id(current_loaded_art_url) || id(remote_album_art).get_width() == 0);
             then:
+              - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
               - online_image.set_url:
                   id: remote_album_art
                   url: !lambda 'return id(ha_target_art_url).state;'
