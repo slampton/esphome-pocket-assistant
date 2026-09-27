@@ -84,14 +84,16 @@ template:
           {% else %}
             {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
             {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
-              {% if pic.startswith('http') %}
-                {% if 'size=' in pic %}
-                  {{ pic | replace('size=512', 'size=216') }}
-                {% else %}
-                  {{ pic }}
-                {% endif %}
-              {% elif pic.startswith('/') %}
-                {{ 'http://10.0.20.10:8123' ~ pic }}
+              {% set url = pic | replace('size=512', 'size=216') %}
+              {% if 'fmt=jpg' in url %}
+                {% set url = url | replace('fmt=jpg', 'fmt=png') %}
+              {% elif 'imageproxy' in url and 'fmt=' not in url %}
+                {% set url = url ~ ('&fmt=png' if '?' in url else '?fmt=png') %}
+              {% endif %}
+              {% if url.startswith('http') %}
+                {{ url }}
+              {% elif url.startswith('/') %}
+                {{ 'http://10.0.20.10:8123' ~ url }}
               {% else %}
                 none
               {% endif %}
