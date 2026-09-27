@@ -72,19 +72,19 @@ globals:
   - id: active_speaker_entity
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_1_id}"'
+    initial_value: '"${local_player_id}"'
   - id: active_speaker_name
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_1_name}"'
+    initial_value: '"${friendly_name}"'
   - id: slot_1_name
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_1_name}"'
+    initial_value: '"${friendly_name}"'
   - id: slot_1_id
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_1_id}"'
+    initial_value: '"${local_player_id}"'
   - id: slot_1_type
     type: std::string
     restore_value: no
@@ -96,11 +96,11 @@ globals:
   - id: slot_2_name
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_2_name}"'
+    initial_value: '""'
   - id: slot_2_id
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_2_id}"'
+    initial_value: '""'
   - id: slot_2_type
     type: std::string
     restore_value: no
@@ -112,11 +112,11 @@ globals:
   - id: slot_3_name
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_3_name}"'
+    initial_value: '""'
   - id: slot_3_id
     type: std::string
     restore_value: no
-    initial_value: '"${speaker_3_id}"'
+    initial_value: '""'
   - id: slot_3_type
     type: std::string
     restore_value: no
@@ -1050,7 +1050,7 @@ script:
     then:
       - if:
           condition:
-            lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
           then:
             - lambda: |-
                 float step = id(volume_step_size).state / 100.0f;
@@ -1070,7 +1070,7 @@ script:
     then:
       - if:
           condition:
-            lambda: 'return id(active_speaker_entity) == "${speaker_1_id}";'
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
           then:
             - lambda: |-
                 float step = id(volume_step_size).state / 100.0f;
@@ -2125,7 +2125,7 @@ display:
 
           it.print(cx, 82, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC");
 
-          bool is_remote = (id(active_speaker_entity) != "${speaker_1_id}");
+          bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
           bool is_playing = false;
           if (is_remote) {
             is_playing = (id(ha_target_state).state == "playing");
@@ -2263,869 +2263,6 @@ display:
         } else if (id(music_overlay_mode) == 2) {
           // --------------------------------------------------
           // LEVEL 2: LIBRARY CATEGORIES SUBMENU (3 per page)
-          // --------------------------------------------------
-          // Standardized Title at y = 80 (aligned with Music/Games/System)
-          it.print(cx, 80, id(font_date), id(col_green), TextAlign::CENTER, "BROWSE LIBRARY");
-
-          if (id(music_category_page) == 1) {
-            // Page 1: Favorites, Playlists, Artists (expanded pitch = 75px, 31px gaps)
-            draw_pill_button(140, 326, 140, 22, id(col_gold), id(col_dark_gray), "FAVORITES", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_cyan), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
-            draw_pill_button(140, 326, 290, 22, id(col_green), id(col_dark_gray), "ARTISTS", id(col_white), true);
-          } else if (id(music_category_page) == 2) {
-            // Page 2: Albums, Radio, Podcasts & Books (expanded pitch = 75px, 31px gaps)
-            draw_pill_button(140, 326, 140, 22, id(col_orange), id(col_dark_gray), "ALBUMS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_gold), id(col_dark_gray), "RADIO STATIONS", id(col_white), true);
-            draw_pill_button(140, 326, 290, 22, id(col_green), id(col_dark_gray), "PODCASTS & BOOKS", id(col_white), true);
-          }
-
-          // Category Pagination (y = 352, 2 clean pages)
-          Color l_arr = (id(music_category_page) > 1) ? id(col_white) : id(col_dark_gray);
-          it.filled_circle(110, 352, 17, id(col_dark_gray));
-          it.filled_triangle(104, 352, 110, 345, 110, 359, l_arr);
-          it.filled_triangle(111, 352, 117, 345, 117, 359, l_arr);
-
-          char cat_pg[32];
-          snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 2", id(music_category_page));
-          it.print(cx, 352, id(font_small), id(col_slate), TextAlign::CENTER, cat_pg);
-
-          Color r_arr = (id(music_category_page) < 2) ? id(col_white) : id(col_dark_gray);
-          it.filled_circle(356, 352, 17, id(col_dark_gray));
-          it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr);
-          it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr);
-
-          // Standardized Bottom Navigation: < MENU (returns to Level 1 Menu)
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< MENU", id(col_cyan), false);
-        } else if (id(music_overlay_mode) == 3) {
-          // --------------------------------------------------
-          // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
-          // --------------------------------------------------
-          bool is_spk = (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover");
-          bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
-
-          // Standardized Centered Category/Item Title at y = 80
-          it.print(cx, 80, id(font_date), id(col_green), TextAlign::CENTER, id(selected_category_title).c_str());
-
-          // Dual-Action or Unified Slot Drawer
-          auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &id_str, const std::string &mtype, bool is_act) {
-            if (name.empty()) return;
-
-            if (is_drill) {
-              // ----------------------------------------------
-              // DRILLABLE ITEM: DUAL INLINE BUTTONS (PLAY ▶ + BROWSE >)
-              // ----------------------------------------------
-              // Left Discrete Circular Play Button (center 98, y_mid, radius 18)
-              it.filled_circle(98, y_mid, 18, id(col_dark_gray));
-              it.circle(98, y_mid, 18, id(col_green));
-              it.filled_triangle(95, y_mid - 6, 95, y_mid + 6, 104, y_mid, id(col_green));
-
-              // Right Card Body with Name and > Drilldown Chevron (x: 132..395)
-              it.filled_circle(154, y_mid, 22, id(col_cyan));
-              it.filled_circle(373, y_mid, 22, id(col_cyan));
-              it.filled_rectangle(154, y_mid - 22, 219, 45, id(col_cyan));
-
-              it.filled_circle(154, y_mid, 20, id(col_dark_gray));
-              it.filled_circle(373, y_mid, 20, id(col_dark_gray));
-              it.filled_rectangle(154, y_mid - 20, 219, 41, id(col_dark_gray));
-
-              std::string disp_name = name;
-              if (disp_name.length() > 18) disp_name = disp_name.substr(0, 16) + "..";
-              it.print(258, y_mid, id(font_small), id(col_white), TextAlign::CENTER, disp_name.c_str());
-
-              // Drilldown Chevron [ > ] on right end
-              it.print(372, y_mid, id(font_small), id(col_cyan), TextAlign::CENTER, ">");
-            } else {
-              // ----------------------------------------------
-              // REGULAR / PLAYABLE ITEM: FULL-WIDTH UNIFIED CARD
-              // ----------------------------------------------
-              Color bg_c = id(col_dark_gray);
-              Color border_c = is_act ? id(col_green) : id(col_dark_gray);
-              Color txt_c = is_act ? id(col_green) : id(col_white);
-
-              it.filled_circle(140, y_mid, 22, border_c);
-              it.filled_circle(326, y_mid, 22, border_c);
-              it.filled_rectangle(140, y_mid - 22, 186, 45, border_c);
-
-              it.filled_circle(140, y_mid, 20, bg_c);
-              it.filled_circle(326, y_mid, 20, bg_c);
-              it.filled_rectangle(140, y_mid - 20, 186, 41, bg_c);
-
-              if (is_spk) {
-                if (is_act || id_str == id(active_speaker_entity)) {
-                  it.filled_circle(136, y_mid, 6, id(col_green));
-                } else {
-                  it.circle(136, y_mid, 5, id(col_slate));
-                }
-              } else {
-                Color icon_c = (mtype == "radio") ? id(col_gold) : ((mtype == "playlist") ? id(col_cyan) : id(col_orange));
-                it.filled_triangle(132, y_mid - 6, 132, y_mid + 6, 142, y_mid, icon_c);
-              }
-
-              std::string disp_name = name;
-              if (disp_name.length() > 22) disp_name = disp_name.substr(0, 20) + "..";
-              it.print(cx + 6, y_mid, id(font_small), txt_c, TextAlign::CENTER, disp_name.c_str());
-            }
-          };
-
-          // Expanded Card Pitch = 75px (y = 140, 215, 290, 31px gaps)
-          draw_slot_card(140, id(slot_1_name), id(slot_1_id), id(slot_1_type), id(slot_1_active));
-          draw_slot_card(215, id(slot_2_name), id(slot_2_id), id(slot_2_type), id(slot_2_active));
-          draw_slot_card(290, id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active));
-
-          // Pagination Arrows & Status (y = 352)
-          Color l_arr_c = id(music_browse_has_prev) ? id(col_white) : id(col_dark_gray);
-          it.filled_circle(110, 352, 17, id(col_dark_gray));
-          it.filled_triangle(104, 352, 110, 345, 110, 359, l_arr_c);
-          it.filled_triangle(111, 352, 117, 345, 117, 359, l_arr_c);
-
-          if (millis() - id(music_feedback_timer) < 2500 && !id(music_action_feedback).empty()) {
-            it.print(cx, 352 - 9, id(font_small), id(col_gold), TextAlign::CENTER, id(music_action_feedback).c_str());
-          } else {
-            char pg_buf[32];
-            snprintf(pg_buf, sizeof(pg_buf), "PAGE %d / %d", id(music_browse_page), id(music_browse_total_pages));
-            it.print(cx, 352 - 9, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
-          }
-
-          Color r_arr_c = id(music_browse_has_next) ? id(col_white) : id(col_dark_gray);
-          it.filled_circle(356, 352, 17, id(col_dark_gray));
-          it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr_c);
-          it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr_c);
-
-          // Standardized Bottom Navigation: < BACK (for drilldowns) or < MENU (for root categories)
-          bool is_sub_drill = (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "artist_albums");
-          const char *btn_txt = is_sub_drill ? "< BACK" : "< MENU";
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), btn_txt, id(col_cyan), false);
-        }
-
-      // ==========================================
-      // PAGE 3: GAMES SUITE (LAUNCHER & 3 GAMES)
-      // ==========================================
-      } else if (id(gui_page) == 3) {
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_cyan));
-        it.circle(cx, cy, 227, id(col_cyan));
-        it.circle(cx, cy, 222, id(col_dark_gray));
-
-        // Read real-time accelerometer / gyroscope tilt angles
-        float roll = id(imu_roll).state;
-        float raw_pitch = id(imu_pitch).state;
-        if (isnan(roll)) roll = 0.0f;
-        if (isnan(raw_pitch)) raw_pitch = 0.0f;
-
-        // Dynamic Tare / Auto-Zero on Game Launch:
-        // Whatever angle the user is holding the device at when launching the game is calibrated as neutral flat.
-        static float zero_pitch = -45.0f;
-        static float zero_roll = 0.0f;
-
-        // Clean Game Reset and Calibration on State Entry
-        static int prev_game_state = 0;
-        bool game_just_entered = false;
-        if (id(active_game) != prev_game_state) {
-          prev_game_state = id(active_game);
-          game_just_entered = true;
-          if (id(active_game) > 0) {
-            zero_pitch = raw_pitch;
-            zero_roll = roll;
-          }
-        }
-
-        // Relative tilt deltas from dynamic calibrated starting posture:
-        float pitch_delta = raw_pitch - zero_pitch;
-        float roll_delta = roll - zero_roll;
-
-        // ----------------------------------------------------
-        // STATE 0: GAMES MENU LAUNCHER
-        // ----------------------------------------------------
-        if (id(active_game) == 0) {
-          // Centered Title aligned with Music & System at y = 82
-          it.print(cx, 82, id(font_date), id(col_cyan), TextAlign::CENTER, "GAMES");
-
-          // Card 1: Marbles
-          draw_pill_button(140, 326, 155, 22, id(col_gold), id(col_dark_gray), "MARBLES", id(col_white), true);
-
-          // Card 2: Archery
-          draw_pill_button(140, 326, 235, 22, id(col_rust), id(col_dark_gray), "ARCHERY", id(col_white), true);
-
-          // Card 3: Treat Catcher
-          draw_pill_button(140, 326, 315, 22, id(col_green), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
-
-        // ----------------------------------------------------
-        // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
-        // ----------------------------------------------------
-        } else if (id(active_game) == 1) {
-          it.print(cx, 65, id(font_small), id(col_gold), TextAlign::CENTER, "MARBLES");
-
-          struct SimBall {
-            float x, y, vx, vy, r;
-            int col_idx;
-            bool sunk;
-          };
-          static SimBall balls[5] = {
-            {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false}, // Gold
-            {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false}, // Cyan
-            {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false}, // Green
-            {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false}, // Red
-            {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false}          // Orange
-          };
-
-          static uint32_t win_timer = 0;
-          static float shockwave_r = -1.0f;
-          static float shockwave_x = 233.0f;
-          static float shockwave_y = 233.0f;
-
-          // Fresh Game Reset when entering from menu
-          if (game_just_entered) {
-            balls[0] = {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false};
-            balls[1] = {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false};
-            balls[2] = {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false};
-            balls[3] = {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false};
-            balls[4] = {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false};
-            win_timer = 0;
-            shockwave_r = -1.0f;
-          }
-
-          // Center Hole Target (Crisp high-contrast double-ring white bezel around deep black pocket)
-          it.circle(cx, cy, 30, id(col_slate));
-          it.circle(cx, cy, 29, id(col_white));
-          it.circle(cx, cy, 28, id(col_white));
-          it.circle(cx, cy, 27, id(col_slate));
-          it.filled_circle(cx, cy, 26, id(col_bg));
-          it.circle(cx, cy, 14, id(col_dark_gray));
-
-          // Touch Scatter Impulse / Button Pop (Robust, Anti-Freeze)
-          if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
-            float tx = (id(marble_touch_x) >= 0.0f) ? id(marble_touch_x) : cx;
-            float ty = (id(marble_touch_y) >= 0.0f) ? id(marble_touch_y) : cy;
-            id(marble_touch_x) = -1.0f;
-            id(game_btn_pressed) = false;
-            shockwave_x = tx; shockwave_y = ty; shockwave_r = 12.0f;
-
-            for (int i = 0; i < 5; i++) {
-              if (balls[i].sunk) continue;
-              float tdx = balls[i].x - tx;
-              float tdy = balls[i].y - ty;
-              float tdist = sqrtf(tdx * tdx + tdy * tdy);
-
-              // If tapped directly on or near the marble, pop it outward with random scatter angle
-              if (tdist < 20.0f) {
-                float rnd_angle = ((float)(i * 72 + (millis() % 360))) * (PI_F / 180.0f);
-                float s_rnd, c_rnd;
-                sincosf(rnd_angle, &s_rnd, &c_rnd);
-                balls[i].vx += c_rnd * 650.0f;
-                balls[i].vy += s_rnd * 650.0f;
-              } else {
-                float blast = 500.0f + (700.0f / (tdist * 0.08f + 1.0f));
-                if (blast > 800.0f) blast = 800.0f;
-                balls[i].vx += (tdx / tdist) * blast;
-                balls[i].vy += (tdy / tdist) * blast;
-              }
-            }
-          }
-
-          if (shockwave_r >= 0.0f) {
-            it.circle((int)shockwave_x, (int)shockwave_y, (int)shockwave_r, id(col_gold));
-            it.circle((int)shockwave_x, (int)shockwave_y, (int)shockwave_r + 2, id(col_cyan));
-            shockwave_r += 26.0f;
-            if (shockwave_r > 190.0f) shockwave_r = -1.0f;
-          }
-
-          const float dt = 0.05f;
-          const float friction = 0.985f;
-          const float bounce = 0.82f;
-          const float arena_r = 208.0f;
-
-          // Dynamic Tare: Symmetrical, responsive motion relative to starting posture
-          float ax = roll_delta * 30.0f;
-          float ay = -pitch_delta * 30.0f;
-          if (ax > 650.0f) ax = 650.0f; if (ax < -650.0f) ax = -650.0f;
-          if (ay > 650.0f) ay = 650.0f; if (ay < -650.0f) ay = -650.0f;
-
-          int sunk_count = 0;
-          for (int i = 0; i < 5; i++) {
-            if (balls[i].sunk) { sunk_count++; continue; }
-
-            float dx = balls[i].x - cx;
-            float dy = balls[i].y - cy;
-            float dist_hole = sqrtf(dx * dx + dy * dy);
-
-            // Sunk cleanly into hole (expanded to full hole radius 26px, moved off-screen)
-            if (dist_hole < 26.0f) {
-              balls[i].sunk = true;
-              balls[i].x = -999.0f;
-              balls[i].y = -999.0f;
-              balls[i].vx = 0.0f;
-              balls[i].vy = 0.0f;
-              sunk_count++;
-              continue;
-            }
-
-            // Gentle suction vortex when approaching hole (26px to 65px)
-            if (dist_hole < 65.0f && dist_hole >= 26.0f) {
-              float vortex = (65.0f - dist_hole) * 9.0f;
-              balls[i].vx -= (dx / dist_hole) * vortex * dt;
-              balls[i].vy -= (dy / dist_hole) * vortex * dt;
-            }
-
-            balls[i].vx = (balls[i].vx + ax * dt) * friction;
-            balls[i].vy = (balls[i].vy + ay * dt) * friction;
-            balls[i].x += balls[i].vx * dt;
-            balls[i].y += balls[i].vy * dt;
-
-            // Arena boundary reflection (recalculates position delta cleanly)
-            float cur_dx = balls[i].x - cx;
-            float cur_dy = balls[i].y - cy;
-            float cur_dist = sqrtf(cur_dx * cur_dx + cur_dy * cur_dy);
-            float max_dist = arena_r - balls[i].r;
-            if (cur_dist > max_dist && cur_dist > 0.001f) {
-              float nx = cur_dx / cur_dist;
-              float ny = cur_dy / cur_dist;
-              balls[i].x = cx + nx * max_dist;
-              balls[i].y = cy + ny * max_dist;
-              float v_dot_n = balls[i].vx * nx + balls[i].vy * ny;
-              if (v_dot_n > 0.0f) {
-                balls[i].vx -= (1.0f + bounce) * v_dot_n * nx;
-                balls[i].vy -= (1.0f + bounce) * v_dot_n * ny;
-              }
-            }
-          }
-
-          // Ball-to-ball collisions for un-sunk marbles
-          for (int i = 0; i < 5; i++) {
-            if (balls[i].sunk) continue;
-            for (int j = i + 1; j < 5; j++) {
-              if (balls[j].sunk) continue;
-              float cdx = balls[j].x - balls[i].x;
-              float cdy = balls[j].y - balls[i].y;
-              float cdist = sqrtf(cdx * cdx + cdy * cdy);
-              float min_dist = balls[i].r + balls[j].r;
-              if (cdist < min_dist && cdist > 0.001f) {
-                float overlap = min_dist - cdist;
-                float cnx = cdx / cdist; float cny = cdy / cdist;
-                balls[i].x -= cnx * overlap * 0.5f; balls[i].y -= cny * overlap * 0.5f;
-                balls[j].x += cnx * overlap * 0.5f; balls[j].y += cny * overlap * 0.5f;
-                float kx = balls[i].vx - balls[j].vx;
-                float ky = balls[i].vy - balls[j].vy;
-                float p = cnx * kx + cny * ky;
-                balls[i].vx -= p * cnx * bounce;
-                balls[i].vy -= p * cny * bounce;
-                balls[j].vx += p * cnx * bounce;
-                balls[j].vy += p * cny * bounce;
-              }
-            }
-          }
-
-          // Render active marbles
-          Color cols[5] = {id(col_gold), id(col_cyan), id(col_green), id(col_red), id(col_orange)};
-          for (int i = 0; i < 5; i++) {
-            if (balls[i].sunk) continue;
-            int bx = (int)balls[i].x; int by = (int)balls[i].y; int br = (int)balls[i].r;
-            it.filled_circle(bx, by, br, cols[balls[i].col_idx]);
-            it.circle(bx, by, br, id(col_white));
-            it.filled_circle(bx - (br / 3), by - (br / 3), br / 3, id(col_white));
-          }
-
-          char status_buf[32];
-          snprintf(status_buf, sizeof(status_buf), "Sunk: %d / 5", sunk_count);
-          it.print(cx, 90, id(font_small), id(col_gold), TextAlign::CENTER, status_buf);
-
-          if (sunk_count >= 5) {
-            if (win_timer == 0) win_timer = millis();
-            it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "SUCCESS! ***");
-            it.print(cx, 300, id(font_small), id(col_cyan), TextAlign::CENTER, "All Marbles Sunk!");
-            // Auto respawn after 2.5 seconds
-            if (millis() - win_timer > 2500) {
-              win_timer = 0;
-              balls[0] = {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false};
-              balls[1] = {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false};
-              balls[2] = {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false};
-              balls[3] = {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false};
-              balls[4] = {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false};
-            }
-          }
-
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Roll into Center Hole • Tap Pop");
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
-
-        // ----------------------------------------------------
-        // GAME 2: ARCHERY (TILT AIM & TARGET PRACTICE)
-        // ----------------------------------------------------
-        } else if (id(active_game) == 2) {
-          it.print(cx, 65, id(font_small), id(col_red), TextAlign::CENTER, "ARCHERY");
-
-          static int arch_score = 0;
-          static int shots_fired = 0;
-          static float target_x = 233.0f;
-          static float target_step = 0.0f;
-          static float arrow_x = -1.0f;
-          static float arrow_y = -1.0f;
-          static float arrow_target_x = 233.0f;
-          static float arrow_target_y = 165.0f;
-          static std::string hit_feedback = "";
-          static uint32_t feedback_timer = 0;
-
-          // Fresh Game Reset when entering from menu
-          if (game_just_entered) {
-            arch_score = 0;
-            shots_fired = 0;
-            arrow_y = -1.0f;
-            hit_feedback = "";
-          }
-
-          // Target drifts horizontally across upper-middle zone (y = 165px)
-          target_step += 0.04f;
-          target_x = cx + sinf(target_step) * 90.0f;
-          float target_y = 165.0f;
-
-          // Render Target Rings (outer r=36, cyan r=26, red r=16, gold r=8)
-          it.filled_circle((int)target_x, (int)target_y, 36, id(col_white));
-          it.circle((int)target_x, (int)target_y, 36, id(col_dark_gray));
-          it.filled_circle((int)target_x, (int)target_y, 26, id(col_cyan));
-          it.filled_circle((int)target_x, (int)target_y, 16, id(col_red));
-          it.filled_circle((int)target_x, (int)target_y, 8, id(col_gold));
-
-          // Aim Crosshair: Auto-centered on target at start; smooth aiming relative to posture
-          float ax = cx + roll_delta * 6.5f;
-          float ay = 165.0f - pitch_delta * 6.5f;
-          if (ax < 65.0f) ax = 65.0f; if (ax > 401.0f) ax = 401.0f;
-          if (ay < 65.0f) ay = 65.0f; if (ay > 370.0f) ay = 370.0f;
-
-          // Shoot Trigger (Button or Tap)
-          if (id(game_btn_pressed) || id(marble_touch_x) >= 0.0f) {
-            id(game_btn_pressed) = false;
-            id(marble_touch_x) = -1.0f;
-            if (arrow_y < 0.0f) { // only one arrow in flight at a time
-              arrow_x = cx;
-              arrow_y = 370.0f;
-              arrow_target_x = ax;
-              arrow_target_y = ay;
-              shots_fired++;
-            }
-          }
-
-          // Arrow flight simulation
-          if (arrow_y >= 0.0f) {
-            float adx = arrow_target_x - arrow_x;
-            float ady = arrow_target_y - arrow_y;
-            arrow_x += adx * 0.35f;
-            arrow_y += ady * 0.35f;
-
-            // Draw arrow
-            it.line((int)arrow_x, (int)arrow_y, (int)arrow_x, (int)arrow_y + 18, id(col_gold));
-            it.filled_circle((int)arrow_x, (int)arrow_y, 3, id(col_white));
-
-            if (fabsf(arrow_y - arrow_target_y) < 6.0f) {
-              // Arrow arrived at target plane: evaluate hit
-              float dist_hit = sqrtf((arrow_target_x - target_x) * (arrow_target_x - target_x) +
-                                     (arrow_target_y - target_y) * (arrow_target_y - target_y));
-              if (dist_hit < 9.0f) {
-                hit_feedback = "BULLSEYE! +10"; arch_score += 10;
-              } else if (dist_hit < 18.0f) {
-                hit_feedback = "RED RING! +5"; arch_score += 5;
-              } else if (dist_hit < 28.0f) {
-                hit_feedback = "BLUE RING! +3"; arch_score += 3;
-              } else if (dist_hit < 38.0f) {
-                hit_feedback = "WHITE! +1"; arch_score += 1;
-              } else {
-                hit_feedback = "MISS!";
-              }
-              feedback_timer = millis();
-              arrow_y = -1.0f; // Arrow spent
-            }
-          }
-
-          // Draw Reticle
-          it.circle((int)ax, (int)ay, 14, id(col_cyan));
-          it.line((int)ax - 18, (int)ay, (int)ax + 18, (int)ay, id(col_cyan));
-          it.line((int)ax, (int)ay - 18, (int)ax, (int)ay + 18, id(col_cyan));
-
-          char score_buf[32];
-          snprintf(score_buf, sizeof(score_buf), "Score: %d  (Shots: %d)", arch_score, shots_fired);
-          it.print(cx, 90, id(font_small), id(col_gold), TextAlign::CENTER, score_buf);
-
-          if (!hit_feedback.empty() && (millis() - feedback_timer < 1400)) {
-            it.print(cx, 280, id(font_date), id(col_gold), TextAlign::CENTER, hit_feedback.c_str());
-          }
-
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt Aim • Tap Screen to Fire");
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
-
-        // ----------------------------------------------------
-        // GAME 3: TREAT CATCHER (FEED THE HUNGRY MONSTER)
-        // ----------------------------------------------------
-        } else {
-          it.print(cx, 65, id(font_small), id(col_green), TextAlign::CENTER, "TREAT CATCHER");
-
-          static int treat_score = 0;
-          static float treat_x = cx + 60.0f;
-          static float treat_y = cy - 60.0f;
-          static float treat_vx = 0.0f;
-          static float treat_vy = 0.0f;
-          static uint32_t chomp_timer = 0;
-          static int treat_color_idx = 0;
-
-          // Fresh Game Reset when entering from menu
-          if (game_just_entered) {
-            treat_score = 0;
-            treat_x = cx + 60.0f;
-            treat_y = cy - 60.0f;
-            treat_vx = 0.0f;
-            treat_vy = 0.0f;
-            chomp_timer = 0;
-          }
-
-          // Tap to pop treat
-          if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
-            id(marble_touch_x) = -1.0f;
-            id(game_btn_pressed) = false;
-            treat_vx += (treat_x > cx ? 160.0f : -160.0f);
-            treat_vy -= 220.0f; // pop up!
-          }
-
-          const float dt = 0.05f;
-          // Dynamic Tare: Symmetrical, responsive roll relative to starting posture
-          float ax = roll_delta * 28.0f;
-          float ay = -pitch_delta * 28.0f;
-          if (ax > 650.0f) ax = 650.0f; if (ax < -650.0f) ax = -650.0f;
-          if (ay > 650.0f) ay = 650.0f; if (ay < -650.0f) ay = -650.0f;
-
-          treat_vx = (treat_vx + ax * dt) * 0.98f;
-          treat_vy = (treat_vy + ay * dt) * 0.98f;
-          treat_x += treat_vx * dt;
-          treat_y += treat_vy * dt;
-
-          // Circular Arena Boundary Reflection
-          float t_dx = treat_x - cx;
-          float t_dy = treat_y - cy;
-          float t_dist = sqrtf(t_dx * t_dx + t_dy * t_dy);
-          float max_t_dist = 208.0f - 14.0f;
-          if (t_dist > max_t_dist && t_dist > 0.001f) {
-            float nx = t_dx / t_dist; float ny = t_dy / t_dist;
-            treat_x = cx + nx * max_t_dist;
-            treat_y = cy + ny * max_t_dist;
-            float v_dot_n = treat_vx * nx + treat_vy * ny;
-            if (v_dot_n > 0.0f) {
-              treat_vx -= 1.8f * v_dot_n * nx;
-              treat_vy -= 1.8f * v_dot_n * ny;
-            }
-          }
-
-          // Creature Face at Center (cx, cy)
-          float dist_to_mouth = sqrtf((treat_x - cx) * (treat_x - cx) + (treat_y - cy) * (treat_y - cy));
-          bool mouth_open = (dist_to_mouth < 85.0f);
-
-          // Chomp detection
-          if (dist_to_mouth < 24.0f) {
-            treat_score++;
-            chomp_timer = millis();
-            // Respawn treat on perimeter
-            treat_color_idx = (treat_color_idx + 1) % 4;
-            float spawn_angle = ((treat_score * 77) % 360) * (PI_F / 180.0f);
-            float s_sp, c_sp;
-            sincosf(spawn_angle, &s_sp, &c_sp);
-            treat_x = cx + s_sp * 160.0f;
-            treat_y = cy - c_sp * 160.0f;
-            treat_vx = 0.0f; treat_vy = 0.0f;
-          }
-
-          bool is_chomping = (millis() - chomp_timer < 500);
-
-          // Draw Creature Body
-          it.filled_circle(cx, cy, 32, id(col_green));
-          it.circle(cx, cy, 32, id(col_white));
-
-          // Eyes follow treat
-          float eye_dx = (treat_x - cx) / (dist_to_mouth + 1.0f) * 3.0f;
-          float eye_dy = (treat_y - cy) / (dist_to_mouth + 1.0f) * 3.0f;
-          it.filled_circle(cx - 10, cy - 10, 7, id(col_white));
-          it.filled_circle(cx + 10, cy - 10, 7, id(col_white));
-          it.filled_circle(cx - 10 + (int)eye_dx, cy - 10 + (int)eye_dy, 3, id(col_dark_gray));
-          it.filled_circle(cx + 10 + (int)eye_dx, cy - 10 + (int)eye_dy, 3, id(col_dark_gray));
-
-          // Animated Mouth
-          if (is_chomping) {
-            // Happy closed chomp smile
-            it.line(cx - 14, cy + 12, cx, cy + 18, id(col_white));
-            it.line(cx, cy + 18, cx + 14, cy + 12, id(col_white));
-            it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "CHOMP!");
-          } else if (mouth_open) {
-            // Wide open mouth ready to eat
-            it.filled_circle(cx, cy + 12, 12, id(col_bg));
-            it.circle(cx, cy + 12, 12, id(col_red));
-          } else {
-            // Gentle smiling line
-            it.line(cx - 10, cy + 12, cx, cy + 16, id(col_dark_gray));
-            it.line(cx, cy + 16, cx + 10, cy + 12, id(col_dark_gray));
-          }
-
-          // Draw Treat
-          Color t_cols[4] = {id(col_red), id(col_gold), id(col_cyan), id(col_orange)};
-          it.filled_circle((int)treat_x, (int)treat_y, 14, t_cols[treat_color_idx]);
-          it.circle((int)treat_x, (int)treat_y, 14, id(col_white));
-          it.filled_circle((int)treat_x - 4, (int)treat_y - 4, 4, id(col_white));
-
-          char t_buf[32];
-          snprintf(t_buf, sizeof(t_buf), "Treats Eaten: %d", treat_score);
-          it.print(cx, 90, id(font_small), id(col_gold), TextAlign::CENTER, t_buf);
-
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt to Roll Treat into Mouth");
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
-        }
-      // ==========================================
-      // PAGE 4: SYSTEM (STATUS & CONTROLS - RUST HIGHLIGHT)
-      // ==========================================
-      } else {
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_rust));
-        it.circle(cx, cy, 227, id(col_rust));
-        it.circle(cx, cy, 222, id(col_dark_gray));
-
-        it.print(cx, 82, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
-
-        char buf[64];
-        float v_batt = id(batt_voltage).state;
-        snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
-        it.print(cx, 130, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
-
-        it.print(cx, 162, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
-
-        float sig = id(pocket_wifi_signal).state;
-        snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
-        it.print(cx, 195, id(font_small), id(col_green), TextAlign::CENTER, buf);
-
-        char b_buf[32];
-        std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
-        if (bri_p.empty()) bri_p = "90%";
-        snprintf(b_buf, sizeof(b_buf), "Brightness: %s (Tap)", bri_p.c_str());
-        draw_pill_button(140, 326, 245, 22, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
-
-        char def_buf[32];
-        std::string def_p = std::string(id(default_start_app).current_option().c_str());
-        if (def_p.empty()) def_p = "Clock";
-        snprintf(def_buf, sizeof(def_buf), "Start App: %s (Tap)", def_p.c_str());
-        draw_pill_button(140, 326, 320, 22, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
-
-        draw_pill_button(140, 326, 395, 22, id(col_rust), id(col_dark_gray), "Restart Device (Tap)", id(col_white), true);
-
-      }
-
-
-touchscreen:
-  - platform: cst9220
-    id: touch_screen
-    display: disp1
-    i2c_id: bus_internal
-    address: 0x5A
-    interrupt_pin: GPIO11
-    reset_pin: GPIO2
-    transform:
-      mirror_x: true
-      mirror_y: true
-    on_touch:
-      then:
-        - lambda: |-
-            if (id(is_locked)) return; // Block all touch events in pocket
-            id(screen_sleep_timer).execute(); // Activity watchdog reset on every valid touch
-            if (!id(display_brightness).current_values.is_on()) {
-              if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-                id(apply_default_start_page).execute();
-              }
-              id(sleep_start_time) = 0;
-              id(display_brightness).turn_on().perform();
-              id(disp1).update();
-              return;
-            }
-
-            // When in Music Overlay/Browser (gui_page == 2 && music_overlay_mode > 0),
-            // the left and right sides of the screen turn menu pages instead of exiting to other watch apps!
-            if (id(gui_page) == 2 && id(music_overlay_mode) > 0) {
-              if (touch.x < 65) {
-                // Left side: Previous Page within multi-page menu
-                if (id(music_overlay_mode) == 2) {
-                  if (id(music_category_page) > 1) {
-                    id(music_category_page)--;
-                    id(disp1).update();
-                  }
-                } else if (id(music_overlay_mode) == 3) {
-                  if (id(music_browse_page) > 1) {
-                    id(music_browse_page)--;
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                }
-                return; // Guard overlay: never exit to Stopwatch/Clock from edge touch
-              } else if (touch.x > 401) {
-                // Right side: Next Page within multi-page menu
-                if (id(music_overlay_mode) == 2) {
-                  if (id(music_category_page) < 2) {
-                    id(music_category_page)++;
-                    id(disp1).update();
-                  }
-                } else if (id(music_overlay_mode) == 3) {
-                  if (id(music_browse_page) < id(music_browse_total_pages)) {
-                    id(music_browse_page)++;
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                }
-                return; // Guard overlay: never exit to Games/System from edge touch
-              }
-            } else {
-              // Dynamic watch page flipping across apps (skips any app toggled OFF)
-              // Page 2 (Music) uses tighter 50px margins to preserve Previous/Next track arrow hitboxes (50..132 and 334..416).
-              // Clock, Stopwatch, Games Menu, and System have generous 100px margins for effortless one-handed edge paging.
-              const int left_flip_thresh = (id(gui_page) == 2 ? 50 : 100);
-              const int right_flip_thresh = (id(gui_page) == 2 ? 416 : 366);
-
-              // Left edge tap / swipe: Previous page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
-                for (int i = 1; i <= 5; i++) {
-                  int prev_p = (id(gui_page) - i + 5) % 5;
-                  bool ok = (prev_p == 0 ? id(show_clock_switch).state :
-                            (prev_p == 1 ? id(show_stopwatch_switch).state :
-                            (prev_p == 2 ? id(show_music_switch).state :
-                            (prev_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                  if (ok) {
-                    id(gui_page) = prev_p;
-                    id(music_overlay_mode) = 0; // Reset overlay when switching pages
-                    id(disp1).update();
-                    return;
-                  }
-                }
-                return;
-              }
-              // Right edge tap / swipe: Next page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
-                for (int i = 1; i <= 5; i++) {
-                  int next_p = (id(gui_page) + i) % 5;
-                  bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                            (next_p == 1 ? id(show_stopwatch_switch).state :
-                            (next_p == 2 ? id(show_music_switch).state :
-                            (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                  if (ok) {
-                    id(gui_page) = next_p;
-                    id(music_overlay_mode) = 0; // Reset overlay when switching pages
-                    id(disp1).update();
-                    return;
-                  }
-                }
-                return;
-              }
-            }
-
-            // Page 1: Stopwatch Screen Tap Controls
-            if (id(gui_page) == 1) {
-              // 1. Bottom Control Buttons: LAP & RESET (y: 275..390)
-              if (touch.y >= 275 && touch.y <= 390) {
-                if (touch.x < 233) {
-                  // LAP Button (Left half, center x=179, y=328, r=38)
-                  if (id(stopwatch_running)) {
-                    id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
-                  }
-                } else {
-                  // RESET Button (Right half, center x=287, y=328, r=38)
-                  id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = 0;
-                  id(stopwatch_lap_ms) = 0;
-                }
-                id(disp1).update();
-              // 2. Central Chrono Dial Face (Zero Dead Zones: entire central column outside LAP/RESET is START/STOP)
-              } else if (touch.x >= 100 && touch.x <= 366) {
-                uint32_t now_tap = millis();
-                if (!id(stopwatch_running)) {
-                  id(stopwatch_running) = true;
-                  id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
-                  id(sleep_start_time) = 0;
-                  id(display_brightness).turn_on().perform();
-                } else {
-                  id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
-                }
-                id(disp1).update();
-              }
-            // Page 2: Music (Player Controls OR Speaker/Preset Overlay)
-            } else if (id(gui_page) == 2) {
-              if (id(music_overlay_mode) == 0) {
-                // ----------------------------------------------------
-                // Normal Player Mode
-                // ----------------------------------------------------
-                if (touch.y < 85 && touch.x > 140 && touch.x < 326) {
-                  // Top Caret: Volume Up
-                  id(vol_hud_direction) = 1;
-                  id(vol_hud_timer) = millis();
-                  id(music_vol_up).execute();
-                  id(disp1).update();
-                } else if (touch.y > 390 && touch.x > 140 && touch.x < 326) {
-                  // Bottom Caret: Volume Down
-                  id(vol_hud_direction) = -1;
-                  id(vol_hud_timer) = millis();
-                  id(music_vol_down).execute();
-                  id(disp1).update();
-                } else if (touch.x >= 50 && touch.x <= 132 && touch.y >= 150 && touch.y <= 290) {
-                  // Left Arrow: Previous Track
-                  id(music_prev_track).execute();
-                  id(disp1).update();
-                } else if (touch.x >= 334 && touch.x <= 416 && touch.y >= 150 && touch.y <= 290) {
-                  // Right Arrow: Next Track
-                  id(music_next_track).execute();
-                  id(disp1).update();
-                } else if (touch.y >= 100 && touch.y <= 375 && touch.x > 132 && touch.x < 334) {
-                  // Center Album Art: Play / Pause toggle
-                  if (id(active_speaker_entity) == "${speaker_1_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                    auto call = id(pocket_music_player).make_call();
-                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                    call.perform();
-                    id(toggle_ha_music).execute();
-                  } else {
-                    if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                      id(music_action_feedback) = "Connecting to stream...";
-                      id(music_feedback_timer) = millis();
-                    }
-                    id(toggle_ha_music).execute();
-                  }
-                  id(disp1).update();
-                }
-              } else if (id(music_overlay_mode) == 1) {
-                // ----------------------------------------------------
-                // LEVEL 1: TOP-LEVEL SELECTION MENU (3 Options, 1 Page)
-                // ----------------------------------------------------
-                // Card 1: SPEAKER HANDOFF (y: 105..165)
-                if (touch.y >= 120 && touch.y < 195 && touch.x >= 65 && touch.x <= 401) {
-                  id(selected_category_mode) = "speakers";
-                  id(selected_category_title) = "HANDOFF";
-                  id(music_browse_page) = 1;
-                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
-                  id(fetch_music_browse).execute();
-                // Card 2: SPEAKER TAKEOVER (y: 200..275)
-                } else if (touch.y >= 200 && touch.y < 275 && touch.x >= 65 && touch.x <= 401) {
-                  id(selected_category_mode) = "speaker_takeover";
-                  id(selected_category_title) = "TAKEOVER";
-                  id(music_browse_page) = 1;
-                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
-                  id(fetch_music_browse).execute();
-                // Card 3: BROWSE LIBRARY (y: 280..355)
-                } else if (touch.y >= 280 && touch.y < 355 && touch.x >= 65 && touch.x <= 401) {
-                  id(music_category_page) = 1;
-                  id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
-                  id(disp1).update();
-                // Bottom Button: Back to Player View (y: 370..425, x: 140..326)
-                } else if (touch.y >= 370 && touch.y <= 425 && touch.x >= 140 && touch.x <= 326) {
-                  id(music_overlay_mode) = 0;
-                  id(disp1).update();
-                }
-              } else if (id(music_overlay_mode) == 2) {
-                // ----------------------------------------------------
-                // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Expanded Pitch = 75px)
-                // ----------------------------------------------------
                 // Card 1 (y: 105..175, x: 65..401)
                 if (touch.y >= 105 && touch.y < 175 && touch.x >= 65 && touch.x <= 401) {
                   if (id(music_category_page) == 1) {
@@ -3134,33 +2271,37 @@ touchscreen:
                   } else if (id(music_category_page) == 2) {
                     id(selected_category_mode) = "album";
                     id(selected_category_title) = "ALBUMS";
+                  } else if (id(music_category_page) == 3) {
+                    id(selected_category_mode) = "podcast";
+                    id(selected_category_title) = "PODCASTS";
                   }
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
+                  id(slot_1_name) = "Loading...";
+                  id(slot_1_id) = "";
+                  id(slot_2_name) = "";
+                  id(slot_2_id) = "";
+                  id(slot_3_name) = "";
+                  id(slot_3_id) = "";
+                  id(music_browse_total_pages) = 1;
+                  id(music_browse_has_prev) = false;
+                  id(music_browse_has_next) = false;
+                  id(disp1).update();
                   id(fetch_music_browse).execute();
                 // Card 2 (y: 175..250, x: 65..401)
                 } else if (touch.y >= 175 && touch.y < 250 && touch.x >= 65 && touch.x <= 401) {
                   if (id(music_category_page) == 1) {
                     id(selected_category_mode) = "playlist";
                     id(selected_category_title) = "PLAYLISTS";
-                    id(music_browse_page) = 1;
-                    id(music_overlay_mode) = 3;
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
-                    id(fetch_music_browse).execute();
                   } else if (id(music_category_page) == 2) {
-                    id(selected_category_mode) = "radio";
-                    id(selected_category_title) = "RADIO";
-                    id(music_browse_page) = 1;
-                    id(music_overlay_mode) = 3;
+                    id(selected_category_mode) = "track";
+                    id(selected_category_title) = "TRACKS";
+                  } else if (id(music_category_page) == 3) {
+                    id(selected_category_mode) = "audiobook";
+                    id(selected_category_title) = "AUDIOBOOKS";
+                  }
+                  id(music_browse_page) = 1;
+                  id(music_overlay_mode) = 3;
                   id(slot_1_name) = "Loading...";
                   id(slot_1_id) = "";
                   id(slot_2_name) = "";
@@ -3171,41 +2312,29 @@ touchscreen:
                   id(music_browse_has_prev) = false;
                   id(music_browse_has_next) = false;
                   id(disp1).update();
-                    id(fetch_music_browse).execute();
-                  }
+                  id(fetch_music_browse).execute();
                 // Card 3 (y: 250..325, x: 65..401)
                 } else if (touch.y >= 250 && touch.y < 325 && touch.x >= 65 && touch.x <= 401) {
                   if (id(music_category_page) == 1) {
                     id(selected_category_mode) = "artist";
                     id(selected_category_title) = "ARTISTS";
-                    id(music_browse_page) = 1;
-                    id(music_overlay_mode) = 3;
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
-                    id(fetch_music_browse).execute();
                   } else if (id(music_category_page) == 2) {
-                    id(selected_category_mode) = "podcast_audiobook";
-                    id(selected_category_title) = "PODCASTS & BOOKS";
+                    id(selected_category_mode) = "radio";
+                    id(selected_category_title) = "RADIO";
+                  }
+                  if (id(music_category_page) <= 2) {
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 3;
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = "";
-                  id(slot_2_name) = "";
-                  id(slot_2_id) = "";
-                  id(slot_3_name) = "";
-                  id(slot_3_id) = "";
-                  id(music_browse_total_pages) = 1;
-                  id(music_browse_has_prev) = false;
-                  id(music_browse_has_next) = false;
-                  id(disp1).update();
+                    id(slot_1_name) = "Loading...";
+                    id(slot_1_id) = "";
+                    id(slot_2_name) = "";
+                    id(slot_2_id) = "";
+                    id(slot_3_name) = "";
+                    id(slot_3_id) = "";
+                    id(music_browse_total_pages) = 1;
+                    id(music_browse_has_prev) = false;
+                    id(music_browse_has_next) = false;
+                    id(disp1).update();
                     id(fetch_music_browse).execute();
                   }
                 // Left Arrow (Prev Category Page): x: 65..155, y: 325..380
@@ -3216,10 +2345,11 @@ touchscreen:
                   }
                 // Right Arrow (Next Category Page): x: 311..401, y: 325..380
                 } else if (touch.x >= 311 && touch.x <= 401 && touch.y >= 325 && touch.y <= 380) {
-                  if (id(music_category_page) < 2) {
+                  if (id(music_category_page) < 3) {
                     id(music_category_page)++;
                     id(disp1).update();
                   }
+                }
                 // Standardized Bottom Navigation: < MENU (y: 380..435, x: 140..326)
                 } else if (touch.y >= 380 && touch.y <= 435 && touch.x >= 140 && touch.x <= 326) {
                   id(music_overlay_mode) = 1; // Return to Level 1 Menu

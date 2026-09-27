@@ -21,7 +21,7 @@ mode: restart
 
 fields:
   mode:
-    description: "Category mode: speakers, favorites, playlist, artist, album, radio, podcast_audiobook, track, artist_albums, album_tracks"
+    description: "Category mode: speakers, favorites, playlist, artist, album, radio, podcast, audiobook, podcast_audiobook, track, artist_albums, album_tracks"
     example: "speakers"
     required: true
     selector:
@@ -57,7 +57,7 @@ fields:
 
 sequence:
   - choose:
-      # 1. SPEAKERS
+      # 1. SPEAKERS (Smart-Sorted: Active on top, Mobile/Local next, then alphabetical)
       - conditions:
           - condition: template
             value_template: "{{ mode == 'speakers' }}"
@@ -67,10 +67,30 @@ sequence:
                 {% set all_mass_players = integration_entities('music_assistant') | select("match", "^media_player") | reject('match', '.*_tablet$') | reject('match', '.*_announcement$') | list %}
                 {% set helper_entity = '!input active_speaker_helper' %}
                 {% set act_spk = speaker if speaker | default('') != '' else (states(helper_entity) if states(helper_entity) not in ['unknown', 'unavailable', ''] else '') %}
+                {% set dev_input = '!input target_esphome_device' %}
+                {% set local_spk = 'media_player.' ~ (dev_input | replace('-', '_')) %}
+                {% set mobile_spk = 'media_player.mobile_speaker' %}
+                {% set mut = namespace(ordered=[]) %}
+                {% if act_spk in all_mass_players %}
+                  {% set mut.ordered = mut.ordered + [act_spk] %}
+                {% endif %}
+                {% if local_spk in all_mass_players and local_spk not in mut.ordered %}
+                  {% set mut.ordered = mut.ordered + [local_spk] %}
+                {% endif %}
+                {% if mobile_spk in all_mass_players and mobile_spk not in mut.ordered %}
+                  {% set mut.ordered = mut.ordered + [mobile_spk] %}
+                {% endif %}
+                {% set rem = namespace(items=[]) %}
+                {% for entity in all_mass_players %}
+                  {% if entity not in mut.ordered %}
+                    {% set rem.items = rem.items + [entity] %}
+                  {% endif %}
+                {% endfor %}
+                {% set final_list = mut.ordered + (rem.items | sort) %}
                 {% set ns = namespace(items=[]) %}
-                {% for entity in (all_mass_players | sort) %}
+                {% for entity in final_list %}
                   {% set fname = state_attr(entity, 'friendly_name') | default(entity.split('.')[1] | replace('_', ' ') | title, true) %}
-                  {% set is_active = (entity == act_spk or is_state(entity, 'playing')) %}
+                  {% set is_active = (entity == act_spk) %}
                   {% set ns.items = ns.items + [{
                     'name': fname,
                     'id': entity,
@@ -179,7 +199,7 @@ sequence:
       # 5. PODCASTS & AUDIOBOOKS
       - conditions:
           - condition: template
-            value_template: "{{ mode in ['podcast_audiobook', 'podcast', 'audiobook'] }}"
+            value_template: "{{ mode == 'podcast_audiobook' }}"
         sequence:
           - action: music_assistant.get_library
             data:
@@ -214,7 +234,7 @@ sequence:
       # 6. GENERAL LIBRARY: PLAYLIST, ARTIST, ALBUM, RADIO, TRACK
       - conditions:
           - condition: template
-            value_template: "{{ mode in ['playlist', 'artist', 'album', 'radio', 'track'] }}"
+            value_template: "{{ mode in ['playlist', 'artist', 'album', 'radio', 'track', 'podcast', 'audiobook'] }}"
         sequence:
           - action: music_assistant.get_library
             data:
@@ -279,4 +299,3 @@ sequence:
       s3_id: "{{ page_items[2].id if page_items | length > 2 else '' }}"
       s3_type: "{{ page_items[2].type if page_items | length > 2 else '' }}"
       s3_active: "{{ page_items[2].active if page_items | length > 2 else false }}"
-      total_pages: "{{ total_pages }}"
