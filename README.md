@@ -1,6 +1,6 @@
 # 🧭 Pocket Assistant
 
-> **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
+> **A pocket-sized companion for Home Assistant featuring native Voice Assistant, universal active album art, and dynamic Music Assistant library browsing & multi-room control.**
 
 [![Version](https://img.shields.io/badge/Version-v3.4.8-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
@@ -8,7 +8,7 @@
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-Most ESPHome media controllers are passive displays that only reflect what an external speaker is already playing. **Pocket Assistant** transforms an ultra-compact circular AMOLED microcontroller into an interactive, local-first handheld console bridging Home Assistant, Music Assistant, and Voice Assistant.
+**Pocket Assistant** combines local media playback, Voice Assistant, and multi-room Music Assistant control onto an ultra-compact circular AMOLED ESP32-S3.
 
 ---
 
@@ -26,26 +26,30 @@ Most ESPHome media controllers are passive displays that only reflect what an ex
 
 ---
 
-## 🌟 What Makes It Unique
+## 💡 Design Goals & Architecture
 
-1. **Standalone Speaker & Universal Remote in One**: Pocket Assistant can stream high-fidelity audio directly to its own onboard speaker via Music Assistant's native Sendspin protocol, or act as an ultra-responsive roving touchscreen remote for every other speaker in your home.
-2. **Zero-Compilation Media Browsing**: Adding new playlists, albums, radio stations, or smart speakers never requires modifying YAML or recompiling firmware. All catalog queries are executed dynamically against Music Assistant's live database.
-3. **Decoupled Architecture**: All media orchestration, sorting, and pagination live inside a reusable Home Assistant Script Blueprint. The ESPHome device operates as a pure, lightweight presentation client.
+1. **Standalone Speaker & Portable Remote**: Pocket Assistant can stream audio directly to its onboard speaker via Music Assistant's native Sendspin protocol, or act as a portable remote control for other speakers throughout the house.
+2. **Dynamic Media Browsing**: Playlists, albums, radio stations, and speaker targets are queried dynamically against Music Assistant's live database, so changing favorites doesn't require modifying device YAML or recompiling firmware.
+3. **Decoupled Architecture**: Media orchestration, sorting, and pagination live inside a reusable Home Assistant Script Blueprint, keeping the ESPHome firmware lightweight and straightforward.
 
 ---
 
-## 🌐 Community Spotlight: Reusable Music Assistant Script Blueprint
+## 🌐 Reusable Music Assistant Script Blueprint
 
-A major breakthrough of this project is the **Music Assistant Browse Script Blueprint** (`homeassistant/blueprints/script/music_assistant_browse.yaml`). 
+A core part of this project that may be helpful for other DIY builds is the **Music Assistant Browse Script Blueprint** (`homeassistant/blueprints/script/music_assistant_browse.yaml`).
 
-### Why This Matters for the ESPHome & Home Assistant Community
-Microcontrollers (ESP32, ESP8266, RP2040) historically struggle with interactive media browsing:
-* Parsing massive JSON payloads on-chip quickly exhausts RAM and causes watchdog resets.
-* Hardcoding media IDs into device YAML requires a firmware recompile every time a playlist changes.
-* Home Assistant's `media_player` attributes (title, artist, album art) cannot be dynamically subscribed to by an ESP32 when the target speaker changes at runtime.
+### The Problem It Helps Solve
+Building interactive media browsing on microcontrollers (ESP32, ESP8266, etc.) can be tricky:
+* Fetching large JSON payloads and parsing them directly on the microcontroller can quickly eat up memory and cause timeouts.
+* Hardcoding media IDs into device YAML means reflashing or recompiling firmware every time a favorite playlist or station changes.
+* Microcontrollers often have trouble following a dynamic "roving" speaker when you transfer playback between rooms.
 
-### How the Blueprint Solves It
-The blueprint acts as a **universal API gateway** between Music Assistant and any ESPHome display:
+### How It Works
+Rather than handling catalog queries or pagination on the ESP32, this blueprint lets Home Assistant do what it does best:
+1. It queries Music Assistant directly using native integration calls (`music_assistant.get_library` and `media_player.browse_media`).
+2. It handles sorting, pagination, and active speaker discovery on the host machine.
+3. It dispatches a clean, standardized 3-slot payload (`set_browse_slots`) directly back to the ESPHome device over the native API.
+
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                 ESPHome Display (Client)                    │
@@ -55,23 +59,18 @@ The blueprint acts as a **universal API gateway** between Music Assistant and an
 └──────────────────────────────▲──────────────────────────────┘
                                │ Native HA API RPC
 ┌──────────────────────────────▼──────────────────────────────┐
-│       Home Assistant Script Blueprint (Universal Engine)    │
+│       Home Assistant Script Blueprint (Shared Engine)       │
 │   • Queries Music Assistant library (get_library, browse)   │
-│   • Sorts alphabetically via database (order_by: "name")    │
-│   • Dynamically discovers all active players via registry   │
-│   • Calculates pagination math and slices items in memory   │
-│   • Pushes standardized 3-slot payload to target device     │
+│   • Sorts via native database query (order_by: "name")      │
+│   • Discovers active players and formats speaker lists      │
+│   • Slices paged items and dispatches back to the device    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Reusability Across Any Hardware
-This blueprint is **completely device-agnostic**. Whether you are building:
-* An **M5Stack M5Dial** rotary media controller
-* A **LilyGO T-Display** desktop companion
-* A **Waveshare AMOLED** handheld watch/terminal
-* A **Waveshare e-Paper** bedside now-playing frame
+### Using It in Other Projects
+The script blueprint is **device-agnostic**. If you're building a different ESPHome project—such as an **M5Stack M5Dial**, a **LilyGO T-Display**, or an e-paper desktop display—you can use this blueprint to handle library browsing and speaker handoff without needing custom backend integration code.
 
-You can drop this identical Blueprint into Home Assistant and immediately give your hardware full, dynamic library browsing, search drilldowns, and speaker handoff with zero custom Python code!
+We're sharing this in the hope that it saves other makers time on their own setups. Feedback, suggestions, and improvements are always welcome!
 
 ---
 
@@ -83,9 +82,9 @@ You can drop this identical Blueprint into Home Assistant and immediately give y
 
 ---
 
-## ⚡ Technical Challenges & Engineering Solutions
+## ⚡ Hardware & Implementation Details
 
-Building an interactive, pocket-sized smart device with voice assistance, smooth graphics, and streaming media on a single ESP32-S3 required solving several complex microcontroller hurdles:
+Integrating voice assistance, display rendering, and streaming media onto a single ESP32-S3 involves a few hardware and timing considerations:
 
 ### 1. Dynamic GPIO Matrix I2S Clock Multiplexing
 * **The Challenge**: The board routes both the ES7210 microphone ADC (input) and ES8311 speaker DAC (output) through shared clock lines: **GPIO9 (BCLK)**, **GPIO45 (WS/LRCLK)**, and **GPIO16 (MCLK)**. Standard configurations risk bus collisions, clock jitter, and driver lockup.
