@@ -425,7 +425,7 @@ switch:
     name: "Speaker Enable"
     id: speaker_enable
     pin: GPIO46
-    restore_mode: RESTORE_DEFAULT_ON
+    restore_mode: ALWAYS_ON
 
   - platform: template
     name: "Prevent Deep Sleep"
@@ -1543,6 +1543,8 @@ script:
           esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
           esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
           esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+      - switch.turn_on: speaker_enable
+      - audio_dac.mute_off: es8311_dac
 
 
 display:

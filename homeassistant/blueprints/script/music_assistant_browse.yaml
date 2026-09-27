@@ -109,7 +109,7 @@ sequence:
                 {% endfor %}
                 {{ ns.items }}
 
-      # 2. FAVORITES
+      # 2. FAVORITES (Favorited tracks first, then favorited playlists, then favorited radio)
       - conditions:
           - condition: template
             value_template: "{{ mode == 'favorites' }}"
@@ -120,6 +120,7 @@ sequence:
               media_type: track
               favorite: true
               limit: 500
+              order_by: "name"
             response_variable: fav_tracks_resp
           - action: music_assistant.get_library
             data:
@@ -127,17 +128,19 @@ sequence:
               media_type: playlist
               favorite: true
               limit: 500
+              order_by: "name"
             response_variable: fav_playlists_resp
           - action: music_assistant.get_library
             data:
               config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
               media_type: radio
-              favorite: false
+              favorite: true
               limit: 500
+              order_by: "name"
             response_variable: fav_radios_resp
           - variables:
               raw_items: >-
-                {% set all_favs = (fav_radios_resp['items'] | default([])) + (fav_playlists_resp['items'] | default([])) + (fav_tracks_resp['items'] | default([])) %}
+                {% set all_favs = (fav_tracks_resp['items'] | default([])) + (fav_playlists_resp['items'] | default([])) + (fav_radios_resp['items'] | default([])) %}
                 {% set ns = namespace(items=[]) %}
                 {% for item in all_favs %}
                   {% set mtype = item.media_type.value if item.media_type is mapping and item.media_type.value is defined else (item.media_type ~ '') %}
