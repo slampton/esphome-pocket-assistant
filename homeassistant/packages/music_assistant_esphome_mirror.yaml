@@ -84,22 +84,10 @@ template:
           {% else %}
             {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
             {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
-              {% if 'imageproxy' in pic %}
-                {% set url = pic | replace('size=512', 'size=216') | replace('size=1024', 'size=216') %}
-                {% if 'fmt=jpg' in url %}
-                  {% set url = url | replace('fmt=jpg', 'fmt=png') %}
-                {% elif 'fmt=' not in url %}
-                  {% set url = url ~ ('&fmt=png' if '?' in url else '?fmt=png') %}
-                {% endif %}
-                {% if url.startswith('/') %}
-                  {{ 'http://10.0.20.10:8123' ~ url }}
-                {% else %}
-                  {{ url }}
-                {% endif %}
+              {% if pic.startswith('http') %}
+                {{ pic }}
               {% elif pic.startswith('/') %}
-                {{ 'http://10.0.20.10:8095/imageproxy?size=216&fmt=png&url=' ~ (('http://10.0.20.10:8123' ~ pic) | urlencode) }}
-              {% elif pic.startswith('http') %}
-                {{ 'http://10.0.20.10:8095/imageproxy?size=216&fmt=png&url=' ~ (pic | urlencode) }}
+                {{ 'http://10.0.20.10:8123' ~ pic }}
               {% else %}
                 none
               {% endif %}
