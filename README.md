@@ -266,20 +266,23 @@ esphome-pocket-assistant/
 
 ### v3.4.9 (Current)
 * **Single-Flight Protected Album Art Download Engine**:
-  * Resolved the remote speaker artwork loading failure (e.g. transfer to Garage HiFi) caused by download cancellation cascades: in previous builds, multi-source triggers (`ha_target_art_url`, `ha_track_title`, active speaker sync, and rapid template sensor updates) repeatedly invoked `online_image.set_url`, aborting HTTP downloads mid-stream before large covers could complete.
-  * Implemented strict URL de-duplication via `current_loaded_art_url` and buffer status guards: `online_image.set_url` now fires **only** when the target URL changes to a new resource or if the existing buffer is empty, allowing active downloads to finish uninterrupted.
+  * Resolved the remote speaker artwork loading failure (e.g. transfer to Garage HiFi) caused by download cancellation cascades: multi-source triggers previously invoked `online_image.set_url` repeatedly, resetting connections mid-stream.
+  * Implemented strict URL de-duplication via `current_loaded_art_url` and frame buffer status guards: `online_image.set_url` fires **only** when the target URL changes to a new resource or if the existing buffer is empty, allowing active downloads to finish uninterrupted.
   * Extended `http_request` client timeout from 5s to **15s** to safely accommodate high-resolution remote art downloads over congested networks without socket timeouts.
-  * Paced Home Assistant companion mirror sensor updates to a steady 4-second cadence (`/4s`) with support for relative proxy URLs (`/api/media_player_proxy/...`).
+  * **Continuous Track-Change Synchronization**: Integrated automated Home Assistant entity updates (`homeassistant.update_entity: sensor.pocket_assistant_target_art_url`) and buffer clearing directly into `play_music_slot_1/2/3`, `music_next_track`, `music_prev_track`, and `ha_track_title.on_value`, ensuring that browsing new tracks or skipping songs immediately pulls fresh artwork without delay.
+* **Balanced Vertical Layout & Header Buffer**:
+  * Added a comfortable vertical buffer between `"MUSIC"` ($y = 54$) and the active speaker indicator ($y = 80$, $26\text{ px}$ spacing).
+  * Notched album art ($216\times 216\text{ px}$) to span $y = 104$ to $320$ (centered at $y = 212$), creating a balanced $24\text{ px}$ clearance below the speaker indicator.
+  * Vertically aligned Previous/Next track chevrons, paused play badge, vinyl disc, and borderless black Volume HUD overlay to the new $y = 212$ center axis.
+  * Notched track metadata downward ($y = 338$ Title, $y = 364$ Artist, $y = 386$ Album), leaving a generous $36\text{ px}$ clearance above the bottom volume baseline ($y = 422$).
 * **Crisp Anti-Glare Volume Carets & Consolidated Bottom Controls**:
-  * Resized bottom volume arrows to $18\times 14\text{ px}$ (from $14\times 10\text{ px}$) with clean $17\text{ px}$ uniform margins on either side of `"VOL"` at $y = 422$.
+  * Resized bottom volume arrows to $18\times 14\text{ px}$ with clean $17\text{ px}$ uniform margins on either side of `"VOL"` at $y = 422$.
   * Calibrated arrow color to anti-glare muted brass gold (`col_warm_gold: #A88424`), dropping peak luminance by 18% to eliminate subpixel bloom and blur against the deep black AMOLED background while maintaining sharp geometric edges.
   * Preserved full split-screen bottom touch targets: left half ($touch.x \in [100, 233]$) for Volume Down, right half ($touch.x \in [233, 366]$) for Volume Up.
-* **Unified Elevated Header Baseline ($y = 54$) & Expanded Album Art**:
+* **Unified Elevated Header Baseline ($y = 54$) Across Apps**:
   * Standardized the app header title across all applications at **$y = 54$** (Music, Games, System), creating a unified visual baseline and relieving layout congestion.
-  * Expanded album art to $216\times 216\text{ px}$ centered at $(cx, 204)$ (spanning $y = 96$ to $312$).
-  * Shifted Previous/Next track chevrons outward to $x = 91\text{–}113$ and $x = 353\text{–}375$, maintaining $12\text{ px}$ of clearance from the enlarged artwork while preserving generous touch zones ($[50, 125]$ for Prev, $[341, 416]$ for Next, and $[125, 341]$ for center Play/Pause).
-  * Shifted System telemetry ($y = 92, 125, 158$) and buttons ($y = 217, 282, 347$) upward, providing over $70\text{ px}$ of clearance at the bottom of the System page.
-* **Prominent Center Volume HUD Overlay**: Transformed the Volume HUD into a prominent 38pt (`font_chrono_time`) high-contrast borderless solid black circular badge overlaid directly over the center of the album art during volume adjustments, providing clean readability without visual distraction.
+  * Shifted Games cards ($y = 127, 207, 287$) and System telemetry ($y = 92, 125, 158$) / buttons ($y = 217, 282, 347$) upward, providing over $70\text{ px}$ of clearance at the bottom of the System page.
+* **Borderless Center Volume HUD Overlay**: Transformed the Volume HUD into a prominent 38pt (`font_chrono_time`) high-contrast borderless solid black circular badge overlaid directly over the center of the album art during volume adjustments.
 * **Incomplete Page Out-of-Bounds Glitch Resolution**: Hardened bounds checks in `music_assistant_browse.yaml` (`length > 1` for Slot 2, `length > 2` for Slot 3), eliminating `UndefinedError` crashes on partial pages.
 * **Native Library Categories & 3-Page Submenu**:
   * Renamed "RADIO STATIONS" to "RADIO" to align with native Music Assistant conventions.
