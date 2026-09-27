@@ -265,26 +265,28 @@ esphome-pocket-assistant/
 ## 📜 Version History & Changelog
 
 ### v3.4.9 (Current)
-* **Consolidated Inline Volume Controls & Left HUD Baseline**:
-  * Consolidated the vertically stacked arrows and "VOL" text into single horizontal lines positioned symmetrically at $y = 46$ (top) and $y = 420$ (bottom), halfway between the previous carets and labels ($187\text{ px}$ from center, providing $35\text{ px}$ of radial clearance from the outer dial ring).
-  * Rendered crisp gold filled triangles inline directly following the label (`VOL ▲` for Volume Up, `VOL ▼` for Volume Down).
-  * Standardized the volume percentage HUD to permanently dock on the left side on the exact same horizontal baseline ($y = 46$ / $y = 420$), cleanly eliminating the deprecated `vol_display_position` configuration entity while opening vertical screen buffer space.
-* **Remote Album Art Continuous Refresh & Speed Optimization**:
-  * Upgraded `homeassistant/packages/music_assistant_esphome_mirror.yaml` to trigger-based template sensors with periodic `/2s` evaluation and state triggers, resolving the issue where Home Assistant failed to track dynamic `entity_picture` updates when playing new tracks on remote speakers (e.g., Garage HiFi).
-  * Implemented instant frame buffer flushing (`id(remote_album_art).release();`) upon track selection (`play_music_slot_1/2/3`) and track skipping (`music_next_track`, `music_prev_track`), eliminating stale artwork lingering while new artwork loads.
-  * Added automated `homeassistant.update_entity` calls and track title listeners to immediately trigger remote image downloads upon speaker handoffs and library playback.
-* **Display Brightness Control & Persistence Restoration**:
-  * Restored the missing `set_action:` percentage handler to `display_brightness_preset`, restoring instant brightness cycling via the Page 4 on-screen button, the physical top crown pusher, and the Home Assistant entity.
-  * Added boot initialization at `priority: -100` to re-assert the user's NVS-restored brightness preset after all hardware drivers initialize, preventing default resets on reboot.
-  * Removed the hardcoded 90% override in `enter_deep_sleep`, ensuring the user's custom brightness setting is preserved through sleep cycles.
-* **Incomplete Page Out-of-Bounds Glitch Resolution**: Hardened bounds checks in `music_assistant_browse.yaml` (`length > 1` for Slot 2, `length > 2` for Slot 3), eliminating `UndefinedError` crashes on partial pages (such as Artist page 21 with 2 items, Radio with 2 stations, or Audiobooks with 1 book).
+* **Consolidated Bottom Volume Controls & Prominent Center HUD Overlay**:
+  * Relocated all volume controls to the bottom baseline ($y = 422$), removing the upper volume carets and labels to reclaim top-of-screen vertical space.
+  * Formatted the bottom volume cluster symmetrically: `"VOL"` centered at $cx = 233$, flanked by Down Caret (▼) to the left ($x = 188$) and Up Caret (▲) to the right ($x = 278$) with doubled spacing ($45\text{ px}$) between text and arrows.
+  * Added generous, intuitive bottom touch zones ($touch.y > 385$): tapping the left half activates Volume Down, while the right half activates Volume Up.
+  * Transformed the Volume HUD into a prominent 38pt (`font_chrono_time`) high-contrast gold-rimmed circular badge overlaid directly over the center of the album art.
+* **Unified Elevated Title Baseline ($y = 54$) & Expanded Album Art**:
+  * Elevated the header titles across all apps to $y = 54$ (Music, Games, System), creating a unified visual baseline and relieving layout congestion.
+  * Expanded album art to $216\times 216\text{ px}$ centered at $(cx, 204)$ (spanning $y = 96$ to $312$).
+  * Shifted Previous/Next track chevrons outward to $x = 91\text{–}113$ and $x = 353\text{–}375$, maintaining $12\text{ px}$ of art margin and preserving generous touch zones ($[50, 125]$ for Prev, $[341, 416]$ for Next, and $[125, 341]$ for Play/Pause).
+  * Shifted System telemetry ($y = 92, 125, 158$) and buttons ($y = 217, 282, 347$) upward, providing over $70\text{ px}$ of clearance at the bottom of the System page.
+* **Purge of Bloat & Restoration of Native Remote Album Art Pipeline**:
+  * Conducted deep audit against clean v3.4.7 baseline and purged all ad-hoc workaround bloat (removed manual C++ `.update()` triggers, artificial delays, and forced entity updates that collided on ESPHome's single-threaded HTTP client).
+  * Re-enabled native `format: AUTO` on `remote_album_art`, ensuring seamless on-the-fly decoding of both PNG and JPEG images from Music Assistant.
+  * Restored native ESPHome `online_image.set_url` and `online_image.release` actions across active speaker sync, track title changes, and speaker handoffs.
+  * Hardened Home Assistant mirror companion sensor (`music_assistant_esphome_mirror.yaml`) using standard `platform: state` and `platform: time_pattern` triggers with support for relative `/api/media_player_proxy` paths and `media_image_url` fallbacks.
+* **Incomplete Page Out-of-Bounds Glitch Resolution**: Hardened bounds checks in `music_assistant_browse.yaml` (`length > 1` for Slot 2, `length > 2` for Slot 3), eliminating `UndefinedError` crashes on partial pages.
 * **Native Library Categories & 3-Page Submenu**:
   * Renamed "RADIO STATIONS" to "RADIO" to align with native Music Assistant conventions.
   * Separated "PODCASTS & BOOKS" into two distinct native categories: "PODCASTS" (`media_type: podcast`) and "AUDIOBOOKS" (`media_type: audiobook`).
-  * Expanded Level 2 library menu to 3 clean pages (Page 1: Favorites/Playlists/Artists, Page 2: Albums/Tracks/Radio, Page 3: Podcasts/Audiobooks) with bidirectional carousel wrap-around (Page 1 <-> Page 3).
+  * Expanded Level 2 library menu to 3 clean pages with bidirectional carousel wrap-around (Page 1 <-> Page 3).
 * **Clock Face Vertical Battery Gauge**: Replaced the horizontal battery icon on Page 0 with an 18px vertical battery gauge featuring a top terminal pip and dynamic bottom-up charge level fill.
-* **System Telemetry Typography & Baseline Elevation**: Increased live data font size for battery, status, and Wi-Fi signal to 22pt (`font_digital_time`) and shifted vertical baseline coordinates upward ($y = 120, 153, 186$) for comfortable clearance above control buttons.
-* **Dynamic Active Speaker Name Sync**: Upgraded `ha_active_speaker_sync` in `core/ui.yaml` to dynamically parse and format the friendly name for any household speaker entity on boot without hardcoded substitution tables.
+* **Display Brightness Control & Persistence Restoration**: Restored `set_action:` percentage handler to `display_brightness_preset`, re-asserted NVS brightness at boot priority -100, and eliminated sleep overrides.
 
 ### v3.4.8
 * **Home Assistant Script Blueprint Architecture**: Decoupled the music browsing engine into a reusable Home Assistant Script Blueprint (`homeassistant/blueprints/script/music_assistant_browse.yaml`), allowing any ESPHome device to generate its own browsing script with automatic RPC target resolution.

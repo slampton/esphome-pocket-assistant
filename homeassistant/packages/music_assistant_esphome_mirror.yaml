@@ -1,7 +1,6 @@
 # ==============================================================================
 # 🪞 Home Assistant Companion Package: Music Assistant ESPHome Mirror Sensors
-# Place in /config/packages/ to enable remote speaker metadata mirroring
-# on your ESPHome Pocket Assistant.
+# Mirror active speaker metadata, playback state, and album art for Pocket Assistant
 # ==============================================================================
 
 input_text:
@@ -87,7 +86,7 @@ template:
             {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
               {% if pic.startswith('http') %}
                 {% if 'size=' in pic %}
-                  {{ pic | replace('size=512', 'size=200') }}
+                  {{ pic | replace('size=512', 'size=216') }}
                 {% else %}
                   {{ pic }}
                 {% endif %}

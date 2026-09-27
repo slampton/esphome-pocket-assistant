@@ -291,7 +291,7 @@ image:
     id: album_slot
     format: JPEG
     type: RGB565
-    resize: 200x200
+    resize: 216x216
     source: album
     current_image:
       id: album_art
@@ -300,14 +300,12 @@ image:
 
   - platform: online_image
     id: remote_album_art
-    url: "http://10.0.20.10:8123/static/icons/favicon.ico"
-    format: JPEG
+    format: AUTO
     type: RGB565
-    resize: 200x200
-    update_interval: never
+    resize: 216x216
+    url: "http://10.0.20.10:8123/static/icons/favicon.ico"
     on_download_finished:
-      then:
-        - component.update: disp1
+      - component.update: disp1
 
 
 output:
@@ -897,53 +895,68 @@ text_sensor:
               }
               id(disp1).update();
             }
+        - if:
+            condition:
+              lambda: 'return (x != "${local_player_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+            then:
+              - online_image.set_url:
+                  id: remote_album_art
+                  url: !lambda 'return id(ha_target_art_url).state;'
 
   - platform: homeassistant
     id: ha_target_state
     entity_id: ${target_state_sensor}
+    on_value:
+      then:
+        - component.update: disp1
 
   - platform: homeassistant
     id: ha_track_title
     entity_id: ${target_title_sensor}
     on_value:
       then:
-        - lambda: |-
-            bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-            if (is_remote) {
-              if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(ha_target_art_url).state != "unknown") {
-                id(remote_album_art).set_url(id(ha_target_art_url).state);
-                id(remote_album_art).update();
-              }
-            }
+        - if:
+            condition:
+              lambda: 'return (id(active_speaker_entity) != "${local_player_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+            then:
+              - online_image.set_url:
+                  id: remote_album_art
+                  url: !lambda 'return id(ha_target_art_url).state;'
         - component.update: disp1
 
   - platform: homeassistant
     id: ha_track_artist
     entity_id: ${target_artist_sensor}
+    on_value:
+      then:
+        - component.update: disp1
 
   - platform: homeassistant
     id: ha_track_album
     entity_id: ${target_album_sensor}
+    on_value:
+      then:
+        - component.update: disp1
 
   - platform: homeassistant
     id: ha_target_art_url
     entity_id: ${target_art_url_sensor}
     on_value:
       then:
-        - lambda: |-
-            bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-            if (!is_remote) {
-              // Local playback uses native Sendspin stream. Zero HTTP requests!
-              id(remote_album_art).release();
-              return;
-            }
-            if (x.empty() || x == "none" || x == "unknown" || x == "unavailable") {
-              id(remote_album_art).release();
-              id(disp1).update();
-            } else {
-              id(remote_album_art).set_url(x);
-              id(remote_album_art).update();
-            }
+        - if:
+            condition:
+              lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
+            then:
+              - online_image.release: remote_album_art
+              - component.update: disp1
+            else:
+              - if:
+                  condition:
+                    lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+                  then:
+                    - online_image.set_url:
+                        id: remote_album_art
+                        url: !lambda 'return x;'
 
   - platform: sendspin
     type: artist
@@ -1138,46 +1151,18 @@ script:
   - id: music_next_track
     mode: restart
     then:
-      - lambda: |-
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(remote_album_art).release();
-            id(disp1).update();
-          }
       - homeassistant.action:
           action: media_player.media_next_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
-          then:
-            - delay: 300ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
 
   - id: music_prev_track
     mode: restart
     then:
-      - lambda: |-
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(remote_album_art).release();
-            id(disp1).update();
-          }
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
-          then:
-            - delay: 300ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
 
   - id: fetch_music_browse
     mode: restart
@@ -1220,9 +1205,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_1_name);
           id(music_feedback_timer) = millis();
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(remote_album_art).release();
-          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1232,16 +1214,7 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_1_type).c_str();
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
-          then:
-            - delay: 200ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
-      - delay: 600ms
+      - delay: 800ms
       - lambda: |-
           id(music_overlay_mode) = 0;
       - component.update: disp1
@@ -1252,9 +1225,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_2_name);
           id(music_feedback_timer) = millis();
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(remote_album_art).release();
-          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1264,16 +1234,7 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_2_type).c_str();
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
-          then:
-            - delay: 200ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
-      - delay: 600ms
+      - delay: 800ms
       - lambda: |-
           id(music_overlay_mode) = 0;
       - component.update: disp1
@@ -1284,9 +1245,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_3_name);
           id(music_feedback_timer) = millis();
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(remote_album_art).release();
-          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1296,16 +1254,7 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_3_type).c_str();
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) != "${local_player_id}";'
-          then:
-            - delay: 200ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
-      - delay: 600ms
+      - delay: 800ms
       - lambda: |-
           id(music_overlay_mode) = 0;
       - component.update: disp1
@@ -1320,7 +1269,6 @@ script:
             - lambda: |-
                 id(music_action_feedback) = "Transferring -> " + id(slot_1_name);
                 id(music_feedback_timer) = millis();
-                // Pause local playback before transferring away to prevent Sendspin buffer collisions
                 if (id(active_speaker_entity) == "${local_player_id}" && id(slot_1_id) != "${local_player_id}") {
                   if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
@@ -1328,9 +1276,6 @@ script:
                     call.perform();
                   }
                 }
-                // When transferring TO local Pocket Assistant, immediately free remote art buffer
-                // Release remote album art buffer so previous artwork never lingers
-                id(remote_album_art).release();
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1347,11 +1292,20 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+                then:
+                  - online_image.set_url:
+                      id: remote_album_art
+                      url: !lambda 'return id(ha_target_art_url).state;'
+            - if:
+                condition:
+                  lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+                then:
+                  - online_image.release: remote_album_art
+            - component.update: disp1
+            - delay: 600ms
             - lambda: |-
                 id(music_overlay_mode) = 0;
             - component.update: disp1
@@ -1415,8 +1369,6 @@ script:
                     call.perform();
                   }
                 }
-                // Release remote album art buffer so previous artwork never lingers
-                id(remote_album_art).release();
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1433,11 +1385,20 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+                then:
+                  - online_image.set_url:
+                      id: remote_album_art
+                      url: !lambda 'return id(ha_target_art_url).state;'
+            - if:
+                condition:
+                  lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+                then:
+                  - online_image.release: remote_album_art
+            - component.update: disp1
+            - delay: 600ms
             - lambda: |-
                 id(music_overlay_mode) = 0;
             - component.update: disp1
@@ -1501,8 +1462,6 @@ script:
                     call.perform();
                   }
                 }
-                // Release remote album art buffer so previous artwork never lingers
-                id(remote_album_art).release();
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
@@ -1519,11 +1478,20 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}") && !id(ha_target_art_url).state.empty() && (id(ha_target_art_url).state != "none");'
+                then:
+                  - online_image.set_url:
+                      id: remote_album_art
+                      url: !lambda 'return id(ha_target_art_url).state;'
+            - if:
+                condition:
+                  lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+                then:
+                  - online_image.release: remote_album_art
+            - component.update: disp1
+            - delay: 600ms
             - lambda: |-
                 id(music_overlay_mode) = 0;
             - component.update: disp1
@@ -2270,11 +2238,8 @@ display:
           // --------------------------------------------------
           // VIEW 0: NOW PLAYING MUSIC PLAYER
           // --------------------------------------------------
-          // Consolidated Top Volume Up Control: Inline VOL + Gold Caret ▲ (y = 46)
-          it.print(cx + 6, 46, id(font_small), id(col_slate), TextAlign::CENTER_RIGHT, "VOL");
-          it.filled_triangle(cx + 18, 41, cx + 12, 51, cx + 24, 51, id(col_gold));
-
-          it.print(cx, 82, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC");
+          // Elevated Title baseline (y = 54) & Active Speaker Indicator (y = 74)
+          it.print(cx, 54, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC");
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
           bool is_playing = false;
@@ -2284,9 +2249,13 @@ display:
             is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
           }
 
-          // Active Speaker Indicator
           std::string spk_label = "[" + id(active_speaker_name) + "]";
-          it.print(cx, 102, id(font_small), is_remote ? id(col_cyan) : id(col_gray), TextAlign::CENTER, spk_label.c_str());
+          it.print(cx, 74, id(font_small), is_remote ? id(col_cyan) : id(col_gray), TextAlign::CENTER, spk_label.c_str());
+
+          // Expanded Album Art: 216x216 centered at (cx = 233, y = 204), spans y = 96 to 312
+          const int art_center_y = 204;
+          const int art_top_y = 96;
+          const int art_w = 216;
 
           bool has_art = false;
           if (is_remote) {
@@ -2297,40 +2266,42 @@ display:
 
           if (has_art) {
             if (is_remote) {
-              it.image(cx - 100, 122, id(remote_album_art));
+              it.image(cx - art_w / 2, art_top_y, id(remote_album_art));
             } else {
-              it.image(cx - 100, 122, id(album_art));
+              it.image(cx - art_w / 2, art_top_y, id(album_art));
             }
           } else {
-            // High-contrast Vinyl Disc with Remote Audio Badge
-            it.filled_circle(cx, 222, 75, id(col_dark_gray));
-            it.circle(cx, 222, 75, is_remote ? id(col_cyan) : id(col_green));
-            it.circle(cx, 222, 60, id(col_bg));
-            it.circle(cx, 222, 45, id(col_dark_gray));
-            it.circle(cx, 222, 30, id(col_bg));
-            it.filled_circle(cx, 222, 16, is_remote ? id(col_cyan) : id(col_green));
+            // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 204)
+            it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
+            it.circle(cx, art_center_y, 80, is_remote ? id(col_cyan) : id(col_green));
+            it.circle(cx, art_center_y, 64, id(col_bg));
+            it.circle(cx, art_center_y, 48, id(col_dark_gray));
+            it.circle(cx, art_center_y, 32, id(col_bg));
+            it.filled_circle(cx, art_center_y, 16, is_remote ? id(col_cyan) : id(col_green));
           }
 
-          // Track Navigation Buttons: Previous Track (◀◀) Left, Next Track (▶▶) Right (Naked Enlarged Double Chevrons)
-          it.filled_triangle(101, 222, 111, 211, 111, 233, id(col_white));
-          it.filled_triangle(113, 222, 123, 211, 123, 233, id(col_white));
+          // Track Navigation Buttons: Previous (◀◀) Left (x=91-113), Next (▶▶) Right (x=353-375)
+          it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
+          it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
-          it.filled_triangle(353, 222, 343, 211, 343, 233, id(col_white));
-          it.filled_triangle(365, 222, 355, 211, 355, 233, id(col_white));
+          it.filled_triangle(353, art_center_y, 343, art_center_y - 11, 343, art_center_y + 11, id(col_white));
+          it.filled_triangle(365, art_center_y, 355, art_center_y - 11, 355, art_center_y + 11, id(col_white));
 
           // Paused state frosted scrim overlay with borderless bold green Play badge ▶
           if (!is_playing) {
-            it.filled_circle(cx, 222, 34, id(col_dark_gray));
-            it.filled_triangle(cx - 7, 222 - 15, cx - 7, 222 + 15, cx + 15, 222, id(col_green));
+            it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
+            it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(col_green));
           }
 
-          // High-contrast Volume HUD: Left-docked inline on volume baseline (y = 46 for Up, y = 420 for Down)
+          // Prominent Center Volume HUD Overlay: Over center of album art (font_chrono_time 38pt)
           if (millis() - id(vol_hud_timer) < 1800) {
             int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
             char v_buf[16];
             snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
-            int hud_y = (id(vol_hud_direction) >= 0) ? 46 : 420;
-            it.print(185, hud_y, id(font_digital_time), id(col_white), TextAlign::CENTER_RIGHT, v_buf);
+            it.filled_circle(cx, art_center_y, 44, id(col_black));
+            it.circle(cx, art_center_y, 44, id(col_gold));
+            it.circle(cx, art_center_y, 43, id(col_gold));
+            it.print(cx, art_center_y, id(font_chrono_time), id(col_white), TextAlign::CENTER, v_buf);
           }
 
           // Real-time track progress calculation
@@ -2377,27 +2348,21 @@ display:
           if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
           if (title.length() > 24) title = title.substr(0, 22) + "...";
 
-          if (has_art) {
-            it.print(cx, 348, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
-            if (!artist.empty() && artist != "None") {
-              if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
-              it.print(cx, 375, id(font_small), id(col_orange), TextAlign::CENTER, artist.c_str());
-            }
-          } else {
-            it.print(cx, 335, id(font_date), id(col_white), TextAlign::CENTER, title.c_str());
-            if (!artist.empty() && artist != "None") {
-              if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
-              it.print(cx, 365, id(font_small), id(col_orange), TextAlign::CENTER, artist.c_str());
-            }
-            if (!album.empty() && album != "None") {
-              if (album.length() > 28) album = album.substr(0, 26) + "...";
-              it.print(cx, 388, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
-            }
+          it.print(cx, 332, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
+          if (!artist.empty() && artist != "None") {
+            if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
+            it.print(cx, 358, id(font_small), id(col_orange), TextAlign::CENTER, artist.c_str());
+          }
+          if (!album.empty() && album != "None") {
+            if (album.length() > 28) album = album.substr(0, 26) + "...";
+            it.print(cx, 380, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
           }
 
-          // Consolidated Bottom Volume Down Control: Inline VOL + Gold Caret ▼ (y = 420)
-          it.print(cx + 6, 420, id(font_small), id(col_slate), TextAlign::CENTER_RIGHT, "VOL");
-          it.filled_triangle(cx + 18, 426, cx + 12, 415, cx + 24, 415, id(col_gold));
+          // Consolidated Bottom Volume Controls: ▼ [Down]  VOL  ▲ [Up] at y = 422
+          // Down arrow to left (x = cx - 45), VOL center (cx), Up arrow to right (x = cx + 45)
+          it.print(cx, 422, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
+          it.filled_triangle(cx - 45, 427, cx - 52, 417, cx - 38, 417, id(col_gold));
+          it.filled_triangle(cx + 45, 417, cx + 38, 427, cx + 52, 427, id(col_gold));
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
@@ -2591,17 +2556,17 @@ display:
         // STATE 0: GAMES MENU LAUNCHER
         // ----------------------------------------------------
         if (id(active_game) == 0) {
-          // Centered Title aligned with Music & System at y = 82
-          it.print(cx, 82, id(font_date), id(col_cyan), TextAlign::CENTER, "GAMES");
+          // Elevated Title aligned with Music & System at y = 54
+          it.print(cx, 54, id(font_date), id(col_cyan), TextAlign::CENTER, "GAMES");
 
           // Card 1: Marbles
-          draw_pill_button(140, 326, 155, 22, id(col_gold), id(col_dark_gray), "MARBLES", id(col_white), true);
+          draw_pill_button(140, 326, 127, 22, id(col_gold), id(col_dark_gray), "MARBLES", id(col_white), true);
 
           // Card 2: Archery
-          draw_pill_button(140, 326, 235, 22, id(col_rust), id(col_dark_gray), "ARCHERY", id(col_white), true);
+          draw_pill_button(140, 326, 207, 22, id(col_rust), id(col_dark_gray), "ARCHERY", id(col_white), true);
 
           // Card 3: Treat Catcher
-          draw_pill_button(140, 326, 315, 22, id(col_green), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
+          draw_pill_button(140, 326, 287, 22, id(col_green), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
@@ -3033,32 +2998,33 @@ display:
         it.circle(cx, cy, 227, id(col_rust));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        it.print(cx, 82, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
+        // Elevated Title aligned with Music & Games at y = 54
+        it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
 
         char buf[64];
         float v_batt = id(batt_voltage).state;
         snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
-        it.print(cx, 120, id(font_digital_time), id(col_cyan), TextAlign::CENTER, buf);
+        it.print(cx, 92, id(font_digital_time), id(col_cyan), TextAlign::CENTER, buf);
 
-        it.print(cx, 153, id(font_digital_time), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
+        it.print(cx, 125, id(font_digital_time), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
 
         float sig = id(pocket_wifi_signal).state;
         snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
-        it.print(cx, 186, id(font_digital_time), id(col_green), TextAlign::CENTER, buf);
+        it.print(cx, 158, id(font_digital_time), id(col_green), TextAlign::CENTER, buf);
 
         char b_buf[32];
         std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
         if (bri_p.empty()) bri_p = "90%";
         snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-        draw_pill_button(140, 326, 245, 22, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
+        draw_pill_button(140, 326, 217, 22, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
 
         char def_buf[32];
         std::string def_p = std::string(id(default_start_app).current_option().c_str());
         if (def_p.empty()) def_p = "Clock";
         snprintf(def_buf, sizeof(def_buf), "Start App: %s", def_p.c_str());
-        draw_pill_button(140, 326, 320, 22, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
+        draw_pill_button(140, 326, 282, 22, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
 
-        draw_pill_button(140, 326, 395, 22, id(col_rust), id(col_dark_gray), "Restart Device", id(col_white), true);
+        draw_pill_button(140, 326, 347, 22, id(col_rust), id(col_dark_gray), "Restart Device", id(col_white), true);
 
       }
 
@@ -3206,28 +3172,28 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                if (touch.y < 85 && touch.x > 140 && touch.x < 326) {
-                  // Top Caret: Volume Up
-                  id(vol_hud_direction) = 1;
-                  id(vol_hud_timer) = millis();
-                  id(music_vol_up).execute();
+                if (touch.y > 385 && touch.x >= 100 && touch.x <= 366) {
+                  // Consolidated Bottom Volume Controls: Left side is Down (▼), Right side is Up (▲)
+                  if (touch.x < 233) {
+                    id(vol_hud_direction) = -1;
+                    id(vol_hud_timer) = millis();
+                    id(music_vol_down).execute();
+                  } else {
+                    id(vol_hud_direction) = 1;
+                    id(vol_hud_timer) = millis();
+                    id(music_vol_up).execute();
+                  }
                   id(disp1).update();
-                } else if (touch.y > 390 && touch.x > 140 && touch.x < 326) {
-                  // Bottom Caret: Volume Down
-                  id(vol_hud_direction) = -1;
-                  id(vol_hud_timer) = millis();
-                  id(music_vol_down).execute();
-                  id(disp1).update();
-                } else if (touch.x >= 50 && touch.x <= 132 && touch.y >= 150 && touch.y <= 290) {
+                } else if (touch.x >= 50 && touch.x <= 125 && touch.y >= 135 && touch.y <= 275) {
                   // Left Arrow: Previous Track
                   id(music_prev_track).execute();
                   id(disp1).update();
-                } else if (touch.x >= 334 && touch.x <= 416 && touch.y >= 150 && touch.y <= 290) {
+                } else if (touch.x >= 341 && touch.x <= 416 && touch.y >= 135 && touch.y <= 275) {
                   // Right Arrow: Next Track
                   id(music_next_track).execute();
                   id(disp1).update();
-                } else if (touch.y >= 100 && touch.y <= 375 && touch.x > 132 && touch.x < 334) {
-                  // Center Album Art: Play / Pause toggle
+                } else if (touch.y >= 96 && touch.y <= 312 && touch.x >= 125 && touch.x <= 341) {
+                  // Center Album Art (216x216): Play / Pause toggle
                   if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
                     call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
@@ -3472,12 +3438,12 @@ touchscreen:
             // Page 3: Games Menu Launcher or Active Game Touch Action
             } else if (id(gui_page) == 3) {
               if (id(active_game) == 0) {
-                // Games Menu card selection
-                if (touch.y >= 120 && touch.y < 195) {
+                // Games Menu card selection (aligned with elevated positions)
+                if (touch.y >= 95 && touch.y < 170) {
                   id(active_game) = 1; // Marbles
-                } else if (touch.y >= 200 && touch.y < 275) {
+                } else if (touch.y >= 175 && touch.y < 250) {
                   id(active_game) = 2; // Archery
-                } else if (touch.y >= 280 && touch.y < 355) {
+                } else if (touch.y >= 255 && touch.y < 330) {
                   id(active_game) = 3; // Treat Catcher
                 }
                 if (id(active_game) > 0) {
@@ -3500,7 +3466,7 @@ touchscreen:
               }
             // Page 4: System (Brightness & Restart buttons)
             } else if (id(gui_page) == 4) {
-              if (touch.y >= 220 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
+              if (touch.y >= 192 && touch.y <= 242 && touch.x >= 100 && touch.x <= 366) {
                 // Brightness preset cycler (40% -> 50% -> 60% -> 70% -> 80% -> 90% -> 100% -> 40%)
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                 std::string nxt = "90%";
@@ -3514,7 +3480,7 @@ touchscreen:
                 auto call = id(display_brightness_preset).make_call();
                 call.set_option(nxt);
                 call.perform();
-              } else if (touch.y >= 295 && touch.y <= 345 && touch.x >= 100 && touch.x <= 366) {
+              } else if (touch.y >= 257 && touch.y <= 307 && touch.x >= 100 && touch.x <= 366) {
                 // Default Start App cycler (Clock -> Stopwatch -> Music -> Games -> System -> Clock)
                 std::string cur = std::string(id(default_start_app).current_option().c_str());
                 std::string nxt = "Clock";
@@ -3526,7 +3492,7 @@ touchscreen:
                 auto call = id(default_start_app).make_call();
                 call.set_option(nxt);
                 call.perform();
-              } else if (touch.y >= 370 && touch.y <= 420 && touch.x >= 100 && touch.x <= 366) {
+              } else if (touch.y >= 322 && touch.y <= 372 && touch.x >= 100 && touch.x <= 366) {
                 id(restart_button).press();
               }
             }
