@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant with native Voice Assistant and a first-of-its-kind custom Music Assistant library browser & controller.**
 
-[![Version](https://img.shields.io/badge/Version-v3.4.5-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.4.7-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
@@ -234,14 +234,23 @@ esphome-pocket-assistant/
 
 ## 📜 Version History & Changelog
 
-### v3.4.5 (Current)
-* **Prominent Track Navigation Controls**: Enlarged Previous and Next track buttons from 34px to 44px with scaled dual directional chevrons and tactile border styling.
-* **Artifact-Free Pill Button Geometry**: Overhauled button rendering across Music, Games, and System menus using concentric filled shapes, completely eliminating inner circle line artifacts and achieving smooth, uniform 2px stadium outlines.
+### v3.4.7 (Current)
+* **Standardized Bottom Navigation Hierarchy**: Moved `< MENU` to the bottom across all library browsing overlays, eliminating redundant top menu buttons and obsolete on-screen `[ CLOSE ]` buttons (since the physical crown button exits to player).
+* **Dynamic Breadcrumb Navigation**: Bottom pill cleanly handles tier-by-tier navigation (`< MENU` returns to parent menu; `< BACK` steps up drilldowns like Tracks → Albums → Artists).
+* **Reclaimed Screen Header & Centered Titles**: Lowered library and category titles from cramped $y = 48$ down to standardized $y = 80$ (matching $y = 82$ across Clock, Stopwatch, Music, Games, and System).
+* **Expanded Card Pitch (75px / 31px Gaps)**: Reclaimed vertical real estate to expand card pitch from 70px to 75px ($y = 140, 215, 290$), providing generous 31px gaps between content pills and zero-dead-zone touch hitboxes.
+
+### v3.4.6
+* **Naked Enlarged Track Navigation Chevrons**: Replaced enclosed circular buttons with prominent, naked 22px-tall white double chevrons (`◀◀` and `▶▶`) on the Music Player.
+* **Rich Antique Crimson Palette**: Recalibrated `col_rust` (`#9E453B`, 45% sat) and `col_red` (`#A84338`, 50% sat) to restore warm, rich, vibrant antique red tones without drifting into brown or causing neon subpixel blooming.
+* **Expanded System Page Card Spacing**: Increased card pitch on the System dashboard from 60px to 75px ($y = 245, 320, 395$), providing generous 31px vertical separation.
+* **Harmonized Music Menu Layout**: Aligned the Music Menu title to $y = 82$ and positioned the top cards at $y = 155, 235, 315$.
+* **Streamlined Library Categories**: Replaced the 3-page categories carousel with 2 balanced pages of 3 items each by deprecating standalone "TRACKS" (preserving album track drilldown).
+
+### v3.4.5
+* **Artifact-Free Pill Button Geometry**: Overhauled button rendering across Music, Games, and System menus using concentric filled shapes.
 * **Vertically Centered Pill Typography**: Corrected text vertical alignment across all menus, perfectly centering labels on the pill centerline (`y_mid`).
-* **Unified Menu Aesthetics**: Migrated Games launcher (Marbles, Archery, Treat Catcher) and System controls (Brightness, Start App, Restart Device) to the standardized pill card design.
-* **Harmonized Antique Red/Rust Palette**: Desaturated `col_rust` (`#855047`, 30% sat) and `col_red` (`#8A4D43`, 34% sat) to match the perceptual luminance and saturation of `col_green` (28%) and `col_cyan` (33%), eliminating chromostereopsis and subpixel blooming where the red ring appeared thicker or larger than other pages.
-* **Synchronized Title Alignment**: Aligned the Games page title to `y = 82` to match Music and System, ensuring rock-solid vertical title stability when swiping between apps.
-* **Green Wi-Fi Readout**: Updated Wi-Fi signal telemetry on the System page to `col_green`.
+* **Synchronized Title Alignment**: Aligned Games page title to `y = 82` to match Music and System.
 
 ### v3.4.4
 * **Ergonomic Volume Display Position Entity**: Added `select.pocket_assistant_volume_display_position` (`Left`, `Right`, `Hidden` — default: `Left`). Defaults to the left side of the volume carets so right-handed users' thumbs do not block the readout during button presses.
