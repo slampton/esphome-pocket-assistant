@@ -1,19 +1,24 @@
-name: Build & Deploy Web Installer
+name: ESPHome Build & Release
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main, dev ]
-    tags: [ v* ]
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build & Release Firmware
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target:
-          - file: pocket-assistant-1.75c.yaml
-            name: pocket-assistant-175c
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,36 +27,14 @@ jobs:
         id: esphome-build
         uses: esphome/build-action@v8.1.0
         with:
-          yaml-file: ${{ matrix.target.file }}
-          version: "2026.9.0"
-          complete-manifest: true
+          yaml-file: pocket-assistant-1.75c.yaml
 
-      - name: Stage Web Files
-        run: |
-          mkdir -p public
-          OUTPUT_DIR="${{ steps.esphome-build.outputs.name }}"
-          if [ -d "$OUTPUT_DIR" ]; then
-            cp -r "$OUTPUT_DIR"/* public/
-          else
-            cp -r pocket-assistant*/* public/ || true
-          fi
-          cp index.html public/ || true
-
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload Binaries to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
         with:
-          path: public
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          files: |
+            ${{ steps.esphome-build.outputs.name }}/*.bin
+            ${{ steps.esphome-build.outputs.name }}/manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
