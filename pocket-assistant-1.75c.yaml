@@ -29,6 +29,10 @@ esphome:
   name: ${name}
   friendly_name: ${friendly_name}
   min_version: 2026.9.0
+  name_add_mac_suffix: false
+  project:
+    name: "slampton.pocket-assistant-175c"
+    version: "${version}"
   includes:
     - va_cancel_helper.h
   on_boot:
@@ -202,9 +206,19 @@ ota:
             id(ota_in_progress) = false;
             id(disp1).update();
 
+dashboard_import:
+  package_import_url: github://slampton/esphome-pocket-assistant/pocket-assistant-1.75c.yaml@main
+  import_full_config: false
+
+improv_serial:
+
+captive_portal:
+
 wifi:
   fast_connect: true
   power_save_mode: LIGHT
+  ap:
+    ssid: "Pocket-Assistant-Setup"
 
 time:
   - platform: homeassistant
