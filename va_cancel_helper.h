@@ -7,7 +7,7 @@ namespace voice_assistant {
 
 inline void abort_voice_assistant(VoiceAssistant *va) {
   if (va != nullptr) {
-    va->request_stop();
+    va->signal_stop();
   }
 }
 
