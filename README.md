@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v3.5.3-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.5.4-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -22,7 +22,8 @@ Most ESPHome media controllers are passive displays that only reflect what an ex
 * ⏱️ **Vintage Chronograph & Lap Stopwatch**: Precision chronometer featuring an aged parchment Heuer-inspired dual-subdial dial, center sweep seconds, and crown button controls with hardware release-dwell latency compensation.
 * 🎮 **Interactive Motion Games**: Real-time 20 FPS physics games (Marble Maze, Archery Target, Treat Catcher) powered by the onboard 6-axis IMU.
 * 🔋 **Intelligent Multi-Tier Power Management**: Instant AMOLED screen standby with modular pickup wake modes (Always On, Docked Only, or Button Only), selective Tap-to-Wake gating (`select.tap_wake_mode`), configurable standby auto-sleep timeout (5m, 10m, 15m, 30m, Disabled), physical pocket lock, 5-second abortable hibernation countdown, hardware deep sleep with accidental-bump rejection, and USB dock stay-awake override.
-* 🛡️ **2-Tier Hierarchical System Submenu Hub**: Clean separation of Mode 0 observational telemetry (battery %, voltage, Wi-Fi RSSI/IP, IMU temp/orientation, firmware version, wake settings, live brightness, and sleep timeout) from an interactive 2-tier menu: Mode 1 (System Hub router), Mode 2 (Device Settings cyclers for Brightness, Start App, Motion Wake, Tap Wake), Mode 3 (Power Options for Hibernate Now, Auto-Sleep cycler, and Restart), and Mode 4 (Protected Restart confirmation dialog).
+* 🛡️ **2-Tier Hierarchical System Submenu Hub with Software Updates**: Clean separation of Mode 0 observational telemetry (battery %, voltage, Wi-Fi RSSI/IP, IMU temp/orientation, firmware version, wake settings, live brightness, and sleep timeout) from an interactive menu hierarchy: Mode 1 (System Hub router), Mode 2 (Device Settings cyclers for Brightness, Start App, Motion Wake, Tap Wake), Mode 3 (Power Options for Hibernate Now, Auto-Sleep cycler, and Restart), Mode 4 (Protected Restart confirmation dialog), Mode 5 (On-Device Software Update management screen), and Mode 6 (Update confirmation dialog).
+* 🔄 **Overhauled Radial OTA In-Progress Overlay**: A watchOS-grade 360° circular progress arc with 10 FPS smooth linear interpolation (`lerp`) and an orbiting illuminated pip that eliminates chunky multi-second jumps and displays real-time stage cues (`"Writing flash memory..."`, `"Verifying image..."`).
 * 💡 **Live Display Brightness Readout**: Real-time on-screen telemetry on the System Dashboard updating instantaneously when cycling brightness via the physical top crown button.
 * 🔄 **Native Home Assistant Firmware Updates**: Full compliance with the *Made for ESPHome* standard (`project` and `dashboard_import` metadata), automatically generating an `update` entity in Home Assistant with 1-click OTA update support.
 * 🕒 **Modern Dial Clock Face**: High-contrast watch dial with Roman indices, polished polygon hands, 12-hour digital readout, and a sleek vertical battery level gauge with a golden charging lightning bolt.
@@ -151,13 +152,16 @@ Interactive accelerometer-driven games running at 20 FPS:
 * **Archery Target**: Steady your aim against synthetic wind drift.
 * **Treat Catcher**: Tilt to roll treats into the animated cat's mouth.
 
-### ⚙️ System Dashboard & Hierarchical Submenu Hub (`apps/system.yaml`)
-Consolidated hardware status, settings, and power controls organized into a clean 2-tier hierarchy:
-* **Mode 0 (Telemetry Dashboard)**: 100% observational display with zero risk of accidental setting toggles. Shows real-time battery % and voltage, USB charging status, Wi-Fi RSSI and IP address, IMU temperature and orientation, firmware version, Motion & Tap Wake modes, live screen brightness, and standby sleep timeout.
-* **Mode 1 (System Hub Router)**: High-level category menu dividing controls into **Device Settings** and **Power Options**.
+### ⚙️ System Dashboard & Hierarchical Submenu Hub (`apps/system.yaml` / `core/ui.yaml`)
+Consolidated hardware status, settings, software updates, and power controls organized into a clean 2-tier hierarchy:
+* **Mode 0 (Telemetry Dashboard)**: 100% observational display with zero risk of accidental setting toggles. Shows real-time battery % and voltage, USB charging status, Wi-Fi RSSI and IP address, IMU temperature and orientation, firmware version (with live "Update Ready: vX.X.X" highlight and 1-tap shortcut to updates), Motion & Tap Wake modes, live screen brightness, and standby sleep timeout.
+* **Mode 1 (System Hub Router)**: High-level category menu dividing controls into **Device Settings**, **Software Update**, and **Power Options**.
 * **Mode 2 (Device Settings Submenu)**: Interactive cycler pills for **Brightness Preset** (40%–100%), **Default Start App** (Clock, Stopwatch, Music, Games, System), **Motion Wake Mode** (Always On, Docked Only, Disabled), and **Tap Wake Mode** (Always On, Docked Only, Disabled).
 * **Mode 3 (Power Options Submenu)**: Instant **Hibernate Now**, one-touch **Auto-Sleep Timeout** cycler (5 min, 10 min, 15 min, 30 min, Disabled), and **Restart Device**.
 * **Mode 4 (Restart Confirmation Modal)**: Protected dialog requiring deliberate confirmation (`Cancel` vs. `Restart`) to eliminate accidental restarts.
+* **Mode 5 (Software Update Screen)**: Dedicated on-device firmware management displaying currently installed version vs. latest available release from Home Assistant / GitHub, changelog summary highlights, and an interactive **Update Now** (or **Check for Updates**) pill button.
+* **Mode 6 (Update Confirmation Modal)**: Safety dialog requiring explicit confirmation (`Cancel` vs. `Install`) before triggering Home Assistant OTA downloads and flash execution.
+* **Overhauled Radial OTA In-Progress Overlay**: A watchOS-grade 360° circular progress arc with 10 FPS smooth linear interpolation (`lerp`) and an orbiting illuminated pip that eliminates chunky multi-second jumps and displays real-time stage cues (`"Writing flash memory..."`, `"Verifying image..."`).
 
 ---
 
@@ -185,7 +189,7 @@ If you manage your devices via the Home Assistant ESPHome add-on:
    substitutions:
      name: "pocket-assistant"
      friendly_name: "Pocket Assistant"
-     version: "v3.5.3"
+     version: "v3.5.4"
      local_player_id: "media_player.pocket_assistant"
 
    wifi:
@@ -395,7 +399,24 @@ esphome-pocket-assistant/
 
 ## 📜 Version History & Changelog
 
-### v3.5.3 (Current)
+### v3.5.4 (Current)
+* **On-Device Software Update Screen (System Mode 5)**:
+  * Added dedicated on-device firmware update screen in the System Application (`system_menu_mode == 5`), displaying currently installed version vs. latest available release version from Home Assistant (`update.pocket_assistant_firmware`).
+  * Features live release highlights and changelog summary display.
+  * Interactive **"Update Now"** (or **"Check for Updates"**) pill button with live state feedback.
+  * System Hub router (`system_menu_mode == 1`) updated with dedicated **"Software Update"** pill button that dynamically illuminates in `col_gold` when a new version is available.
+  * 1-Tap shortcut directly from the Telemetry Dashboard (`system_menu_mode == 0`) by tapping the version line.
+* **Protected 2-Step Update Confirmation Dialog (System Mode 6)**:
+  * Eliminates accidental OTA flashes with a dedicated confirmation modal (`system_menu_mode == 6`) requiring explicit touch confirmation (`[ Cancel ]` vs `[ Install ]`).
+  * Displays pre-flash safety warnings ("Download & flash firmware", "Keep device powered on").
+  * Automatically invokes Home Assistant `update.install` action and arms the on-device progress overlay.
+* **Overhauled Radial OTA In-Progress Overlay**:
+  * Replaced static text with a full-screen circular progress arc ($R = 210	ext{--}218	ext{ px}$) wrapping around the AMOLED bezel from $0^\circ$ to $360^\circ$ in `col_cyan` over a recessed track in `col_dark_gray`.
+  * **Continuous 10 FPS Smooth Linear Interpolation (`lerp`)**: Interpolates progress between ESPHome's internal 1-second backend OTA ticks, eliminating chunky $5\%	ext{--}8\%$ visual jumps and providing fluid, watchOS-grade animation.
+  * **Leading-Edge Orbiting Illuminated Pip**: A high-luminance glowing dot (white core with cyan aura) orbits smoothly at the head of the progress arc, providing instant visual confirmation of active data reception.
+  * **Dynamic Real-Time Stage Status**: Contextual stage progression cues below the percentage readout (`"Connecting & preparing..."`, `"Writing flash memory..."`, `"Verifying image..."`, `"Flash complete. Rebooting..."`).
+
+### v3.5.3
 * **Live Display Brightness Readout**:
   * Added real-time on-screen brightness telemetry (`Brightness: XX% | Sleep: XX`) at line $y = 260$ on the Mode 0 Observational Dashboard.
   * Updates instantaneously upon physical crown button clicks, providing clear feedback when cycling brightness presets without opening submenus.
@@ -490,18 +511,6 @@ esphome-pocket-assistant/
 * Music Assistant hierarchical browser with dual-action play/drill cards.
 * Multi-room speaker handoff and takeover queue switching.
 * Dynamic I2S clock line GPIO matrix multiplexing.
-
----
-
-## 🤖 Development & AI Transparency
-
-AI tools were used during the development and documentation of this project.
-
-* **Human-Directed & Hardware-Verified**: Every schematic, bus architecture, GPIO matrix route, and register map is validated directly on physical Waveshare ESP32-S3-Touch-AMOLED-1.75C hardware. No unverified code is committed.
-* **How AI Was Utilized**: AI assistance was used for rapid prototyping, mathematical modeling (such as trigonometric vector math for the mechanical chronometer dial and UI layout geometry), automated AST schema validation, and technical documentation.
-* **Local-First & Open Standards**: All firmware architecture adheres strictly to native ESPHome standards, local-first principles, and official Home Assistant design patterns.
-
-Feedback, peer review, and pull requests from the community are always welcome.
 
 ---
 

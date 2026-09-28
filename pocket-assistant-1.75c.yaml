@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.5.3"
+  version: "3.5.4"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -27,6 +27,9 @@ substitutions:
 
   # Local Media Player Identity
   local_player_id: "media_player.pocket_assistant"
+
+  # Firmware Update Entity (Home Assistant update entity for ESPHome)
+  firmware_update_entity: "update.pocket_assistant_firmware"
 
 dashboard_import:
   package_import_url: github://slampton/esphome-pocket-assistant/pocket-assistant-1.75c.yaml@main
@@ -188,6 +191,7 @@ ota:
         - lambda: |-
             id(ota_in_progress) = true;
             id(ota_progress_pct) = 0;
+            id(ota_display_pct) = 0.0f;
             id(sleep_start_time) = 0; // Inhibit auto-deep sleep during OTA!
             // Ensure hardware pads are unheld and display is awake for OTA progress
             gpio_deep_sleep_hold_dis();

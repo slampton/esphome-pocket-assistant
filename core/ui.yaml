@@ -145,6 +145,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: ota_display_pct
+    type: float
+    restore_value: no
+    initial_value: '0.0'
   - id: boot_hold_triggered
     type: bool
     restore_value: no
@@ -674,6 +678,12 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
+          // Continuous smooth OTA progress animation & lerp interpolation
+          if (id(ota_in_progress)) {
+            id(disp1).update();
+            return;
+          }
+
           // Read AXP2101 IRQ status for top button (PWR / PEK)
           uint8_t irq_reg = 0x49;
           uint8_t irq_val = 0;
@@ -1089,6 +1099,29 @@ text_sensor:
     icon: "mdi:tag-outline"
     entity_category: diagnostic
     lambda: 'return std::string("${version}");'
+  - platform: homeassistant
+    id: ha_firmware_update_status
+    entity_id: ${firmware_update_entity}
+    internal: true
+    on_value:
+      then:
+        - component.update: disp1
+  - platform: homeassistant
+    id: ha_firmware_latest_version
+    entity_id: ${firmware_update_entity}
+    attribute: latest_version
+    internal: true
+    on_value:
+      then:
+        - component.update: disp1
+  - platform: homeassistant
+    id: ha_firmware_release_summary
+    entity_id: ${firmware_update_entity}
+    attribute: release_summary
+    internal: true
+    on_value:
+      then:
+        - component.update: disp1
   - platform: homeassistant
     id: ha_active_speaker_sync
     entity_id: ${active_speaker_helper}
@@ -1955,6 +1988,27 @@ script:
       - switch.turn_on: speaker_enable
       - audio_dac.mute_off: es8311_dac
 
+  - id: trigger_firmware_update
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: update.install
+          data:
+            entity_id: ${firmware_update_entity}
+      - lambda: |-
+          id(ota_in_progress) = true;
+          id(ota_progress_pct) = 0;
+          id(ota_display_pct) = 0.0f;
+          id(disp1).update();
+
+  - id: check_firmware_update
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: homeassistant.update_entity
+          data:
+            entity_id: ${firmware_update_entity}
+
 
 display:
   - platform: mipi_spi
@@ -2003,15 +2057,66 @@ display:
       // ==========================================
       if (id(ota_in_progress)) {
         it.fill(id(col_bg));
+
+        // Outer bezel accent rings (recessed track)
         it.circle(cx, cy, 230, id(col_dark_gray));
         it.circle(cx, cy, 228, id(col_rust));
         it.circle(cx, cy, 227, id(col_rust));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        it.print(cx, cy - 50, id(font_date), id(col_rust), TextAlign::CENTER, "FIRMWARE UPDATE");
+        // Smooth Lerp Interpolation
+        float target_pct = (float)id(ota_progress_pct);
+        if (id(ota_display_pct) < target_pct) {
+          float diff = target_pct - id(ota_display_pct);
+          // Glides smoothly at 10 FPS towards the target
+          id(ota_display_pct) += std::max(0.2f, diff * 0.20f);
+          if (id(ota_display_pct) > target_pct) {
+            id(ota_display_pct) = target_pct;
+          }
+        } else if (id(ota_display_pct) > target_pct) {
+          id(ota_display_pct) = target_pct;
+        }
+
+        // Circular Progress Arc (Radius 215)
+        // Background track
+        it.circle(cx, cy, 215, id(col_dark_gray));
+        it.circle(cx, cy, 214, id(col_dark_gray));
+
+        // Draw radial arc segments up to current progress percentage
+        int steps = (int)id(ota_display_pct);
+        if (steps > 100) steps = 100;
+        for (int i = 0; i <= steps; i++) {
+          float rad = ((float)i / 100.0f) * 2.0f * 3.14159265f - 1.5707963f; // 12 o'clock top is -pi/2
+          float c = cosf(rad);
+          float s = sinf(rad);
+          it.line(cx + (int)(210 * c), cy + (int)(210 * s), cx + (int)(218 * c), cy + (int)(218 * s), id(col_cyan));
+        }
+
+        // Leading-edge illuminated glowing pip
+        if (id(ota_display_pct) > 0.0f) {
+          float tip_rad = (id(ota_display_pct) / 100.0f) * 2.0f * 3.14159265f - 1.5707963f;
+          float tc = cosf(tip_rad);
+          float ts = sinf(tip_rad);
+          it.filled_circle(cx + (int)(214 * tc), cy + (int)(214 * ts), 4, id(col_white));
+          it.circle(cx + (int)(214 * tc), cy + (int)(214 * ts), 6, id(col_cyan));
+        }
+
+        it.print(cx, cy - 65, id(font_date), id(col_rust), TextAlign::CENTER, "FIRMWARE UPDATE");
+
         char prog_buf[32];
-        snprintf(prog_buf, sizeof(prog_buf), "%d%%", id(ota_progress_pct));
-        it.print(cx, cy + 10, id(font_time), id(col_white), TextAlign::CENTER, prog_buf);
+        snprintf(prog_buf, sizeof(prog_buf), "%.0f%%", id(ota_display_pct));
+        it.print(cx, cy + 5, id(font_time), id(col_white), TextAlign::CENTER, prog_buf);
+
+        // Dynamic stage messaging
+        const char* status_msg = "Preparing flash...";
+        if (id(ota_display_pct) >= 99.0f) {
+          status_msg = "Rebooting device...";
+        } else if (id(ota_display_pct) >= 85.0f) {
+          status_msg = "Verifying image...";
+        } else if (id(ota_display_pct) >= 15.0f) {
+          status_msg = "Writing flash memory...";
+        }
+        it.print(cx, cy + 65, id(font_small), id(col_slate), TextAlign::CENTER, status_msg);
         return;
       }
 
@@ -3369,7 +3474,18 @@ display:
           snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
           it.print(cx, 176, id(font_small), id(col_slate), TextAlign::CENTER, buf);
 
-          it.print(cx, 204, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
+          bool has_update = (id(ha_firmware_update_status).state == "on");
+          std::string lat_v = id(ha_firmware_latest_version).state;
+          if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
+            has_update = true;
+          }
+
+          if (has_update) {
+            snprintf(buf, sizeof(buf), "Update Ready: v%s", lat_v.empty() ? "3.5.x" : lat_v.c_str());
+            it.print(cx, 204, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+          } else {
+            it.print(cx, 204, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
+          }
 
           std::string mw = std::string(id(pickup_wake_mode).current_option().c_str());
           std::string tw = std::string(id(tap_wake_mode).current_option().c_str());
@@ -3394,14 +3510,24 @@ display:
           // --------------------------------------------------
           it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM MENU");
 
-          // Card 1: Device Settings
-          draw_pill_button(110, 356, 140, 24, id(col_rust), id(col_dark_gray), "Device Settings", id(col_white), true);
+          // Card 1: Device Settings (y_mid = 115, r = 18)
+          draw_pill_button(110, 356, 115, 18, id(col_rust), id(col_dark_gray), "Device Settings", id(col_white), true);
 
-          // Card 2: Power Options
-          draw_pill_button(110, 356, 215, 24, id(col_rust), id(col_dark_gray), "Power Options", id(col_gold), true);
+          // Card 2: Software Update (y_mid = 165, r = 18)
+          bool has_update = (id(ha_firmware_update_status).state == "on");
+          std::string lat_v = id(ha_firmware_latest_version).state;
+          if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
+            has_update = true;
+          }
+          draw_pill_button(110, 356, 165, 18, has_update ? id(col_gold) : id(col_rust), id(col_dark_gray), 
+                           has_update ? "Update Available!" : "Software Update", 
+                           has_update ? id(col_gold) : id(col_white), true);
 
-          // Card 3: Back to Telemetry Dashboard
-          draw_pill_button(130, 336, 295, 20, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
+          // Card 3: Power Options (y_mid = 215, r = 18)
+          draw_pill_button(110, 356, 215, 18, id(col_rust), id(col_dark_gray), "Power Options", id(col_gold), true);
+
+          // Card 4: Back to Telemetry Dashboard (y_mid = 285, r = 18)
+          draw_pill_button(130, 336, 285, 18, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
@@ -3471,6 +3597,67 @@ display:
 
           // Confirm Restart Button (Right, Red Pill - compact 110px width, spans x: 251..361)
           draw_pill_button(271, 341, 230, 20, id(col_red), id(col_dark_gray), "Restart", id(col_white), false);
+
+        } else if (id(system_menu_mode) == 5) {
+          // --------------------------------------------------
+          // VIEW 5: SOFTWARE UPDATE SCREEN
+          // --------------------------------------------------
+          it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "UPDATE");
+
+          // Version Information
+          char cur_buf[32];
+          snprintf(cur_buf, sizeof(cur_buf), "Installed: v%s", "${version}");
+          it.print(cx, 95, id(font_small), id(col_slate), TextAlign::CENTER, cur_buf);
+
+          bool has_update = (id(ha_firmware_update_status).state == "on");
+          std::string lat_v = id(ha_firmware_latest_version).state;
+          if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
+            has_update = true;
+          }
+
+          if (has_update) {
+            char lat_buf[32];
+            snprintf(lat_buf, sizeof(lat_buf), "Available: v%s", lat_v.empty() ? "3.5.x" : lat_v.c_str());
+            it.print(cx, 125, id(font_small), id(col_gold), TextAlign::CENTER, lat_buf);
+
+            // Summary / Changelog highlight
+            std::string summ = id(ha_firmware_release_summary).state;
+            if (summ.empty() || summ == "unavailable" || summ == "unknown") {
+              summ = "Firmware update ready.";
+            }
+            if (summ.length() > 32) summ = summ.substr(0, 29) + "...";
+            it.print(cx, 160, id(font_small), id(col_white), TextAlign::CENTER, summ.c_str());
+
+            // Action Button: Update Now (y_mid = 215, r = 20)
+            draw_pill_button(110, 356, 215, 20, id(col_gold), id(col_dark_gray), "Update Now", id(col_gold), true);
+          } else {
+            char lat_buf[32];
+            snprintf(lat_buf, sizeof(lat_buf), "Latest: v%s", "${version}");
+            it.print(cx, 125, id(font_small), id(col_green), TextAlign::CENTER, lat_buf);
+
+            it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, "Firmware is up to date");
+
+            // Action Button: Check for Updates (y_mid = 215, r = 20)
+            draw_pill_button(110, 356, 215, 20, id(col_slate), id(col_dark_gray), "Check for Updates", id(col_white), true);
+          }
+
+          // Back Button (y_mid = 285, r = 18)
+          draw_pill_button(135, 331, 285, 18, id(col_slate), id(col_dark_gray), "< Back", id(col_slate), false);
+
+        } else if (id(system_menu_mode) == 6) {
+          // --------------------------------------------------
+          // VIEW 6: UPDATE CONFIRMATION DIALOG
+          // --------------------------------------------------
+          it.print(cx, 100, id(font_date), id(col_rust), TextAlign::CENTER, "INSTALL UPDATE?");
+
+          it.print(cx, 145, id(font_small), id(col_white), TextAlign::CENTER, "Download & flash firmware");
+          it.print(cx, 175, id(font_small), id(col_gold), TextAlign::CENTER, "Keep device powered on");
+
+          // Cancel Button (Left, Gray Pill, spans x: 105..215, y_mid = 240, r = 20)
+          draw_pill_button(125, 195, 240, 20, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
+
+          // Confirm Install Button (Right, Green/Rust Pill, spans x: 251..361, y_mid = 240, r = 20)
+          draw_pill_button(271, 341, 240, 20, id(col_green), id(col_dark_gray), "Install", id(col_white), false);
         }
       }
 
@@ -3943,26 +4130,34 @@ touchscreen:
                 id(game_btn_pressed) = true;
                 id(disp1).update();
               }
-            // Page 4: System (Telemetry Dashboard vs Settings vs Confirmation)
+            // Page 4: System (Telemetry Dashboard vs Settings vs Confirmation vs Update)
             } else if (id(gui_page) == 4) {
               if (id(system_menu_mode) == 0) {
+                // Main Telemetry View: tap Version line to open Software Update directly
+                if (touch.y >= 190 && touch.y <= 220 && touch.x >= 100 && touch.x <= 366) {
+                  id(system_menu_mode) = 5; // Open Software Update Screen
+                  id(disp1).update();
                 // Main Telemetry View: tap "Settings & Power" button
-                if (touch.y >= 290 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
+                } else if (touch.y >= 290 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 1; // Open System Hub
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
                 // Mode 1: System Hub (Categories)
-                // Card 1: Device Settings (y: 115..165, x: 100..366)
-                if (touch.y >= 115 && touch.y <= 165 && touch.x >= 100 && touch.x <= 366) {
+                // Card 1: Device Settings (y: 95..135, x: 100..366)
+                if (touch.y >= 95 && touch.y <= 135 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 2; // Open Device Settings Submenu
                   id(disp1).update();
-                // Card 2: Power Options (y: 190..240, x: 100..366)
-                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Software Update (y: 145..185, x: 100..366)
+                } else if (touch.y >= 145 && touch.y <= 185 && touch.x >= 100 && touch.x <= 366) {
+                  id(system_menu_mode) = 5; // Open Software Update Screen
+                  id(disp1).update();
+                // Card 3: Power Options (y: 195..235, x: 100..366)
+                } else if (touch.y >= 195 && touch.y <= 235 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 3; // Open Power Options Submenu
                   id(disp1).update();
-                // Card 3: < Dashboard (y: 270..320, x: 120..346)
-                } else if (touch.y >= 270 && touch.y <= 320 && touch.x >= 120 && touch.x <= 346) {
+                // Card 4: < Dashboard (y: 265..305, x: 120..346)
+                } else if (touch.y >= 265 && touch.y <= 305 && touch.x >= 120 && touch.x <= 346) {
                   id(system_menu_mode) = 0; // Return to Telemetry Dashboard
                   id(disp1).update();
                 }
@@ -4069,6 +4264,39 @@ touchscreen:
                   } else if (touch.x >= 240 && touch.x <= 375) {
                     // Confirm Restart
                     id(restart_button).press();
+                  }
+                }
+              } else if (id(system_menu_mode) == 5) {
+                // Mode 5: Software Update Screen
+                // Action Button: Update Now or Check for Updates (y: 190..240, x: 100..366)
+                if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
+                  bool has_update = (id(ha_firmware_update_status).state == "on");
+                  std::string lat_v = id(ha_firmware_latest_version).state;
+                  if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
+                    has_update = true;
+                  }
+                  if (has_update) {
+                    id(system_menu_mode) = 6; // Open Update Confirmation Dialog
+                    id(disp1).update();
+                  } else {
+                    id(check_firmware_update).execute();
+                    id(disp1).update();
+                  }
+                // Back Button: < Back (y: 265..315, x: 125..341)
+                } else if (touch.y >= 265 && touch.y <= 315 && touch.x >= 125 && touch.x <= 341) {
+                  id(system_menu_mode) = 1; // Return to System Hub
+                  id(disp1).update();
+                }
+              } else if (id(system_menu_mode) == 6) {
+                // Mode 6: Update Confirmation Dialog
+                if (touch.y >= 210 && touch.y <= 270) {
+                  if (touch.x >= 90 && touch.x <= 225) {
+                    // Cancel -> return to Software Update Screen
+                    id(system_menu_mode) = 5;
+                    id(disp1).update();
+                  } else if (touch.x >= 240 && touch.x <= 375) {
+                    // Confirm Install -> trigger update and arm OTA overlay
+                    id(trigger_firmware_update).execute();
                   }
                 }
               }
