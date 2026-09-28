@@ -386,6 +386,10 @@ select:
       - "Docked Only"
       - "Disabled"
 
+
+
+
+
   - platform: template
     name: "Tap Wake Mode"
     id: tap_wake_mode
@@ -397,10 +401,6 @@ select:
       - "Always On"
       - "Docked Only"
       - "Disabled"
-
-
-
-
 button:
   - platform: restart
     name: "Internal Restart"
@@ -739,123 +739,317 @@ interval:
                 }
                 id(disp1).update();
               } else if (id(gui_page) == 4) {
-                // Page 4: System (Telemetry Dashboard vs Hierarchical Submenus vs Confirmation)
-            } else if (id(gui_page) == 4) {
-              if (id(system_menu_mode) == 0) {
-                // Main Telemetry View: tap "Settings & Power" button
-                if (touch.y >= 290 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
-                  id(system_menu_mode) = 1; // Open System Hub
-                  id(disp1).update();
-                }
-              } else if (id(system_menu_mode) == 1) {
-                // Mode 1: System Hub (Categories)
-                // Card 1: Device Settings (y: 115..165, x: 100..366)
-                if (touch.y >= 115 && touch.y <= 165 && touch.x >= 100 && touch.x <= 366) {
-                  id(system_menu_mode) = 2; // Open Device Settings Submenu
-                  id(disp1).update();
-                // Card 2: Power Options (y: 190..240, x: 100..366)
-                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
-                  id(system_menu_mode) = 3; // Open Power Options Submenu
-                  id(disp1).update();
-                // Card 3: < Dashboard (y: 270..320, x: 120..346)
-                } else if (touch.y >= 270 && touch.y <= 320 && touch.x >= 120 && touch.x <= 346) {
-                  id(system_menu_mode) = 0; // Return to Telemetry Dashboard
-                  id(disp1).update();
-                }
-              } else if (id(system_menu_mode) == 2) {
-                // Mode 2: Device Settings Submenu
-                // Button 1: Brightness Preset Cycler (y: 85..125, x: 100..366)
-                if (touch.y >= 85 && touch.y <= 125 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                  std::string nxt = "90%";
-                  if (cur == "40%") nxt = "50%";
-                  else if (cur == "50%") nxt = "60%";
-                  else if (cur == "60%") nxt = "70%";
-                  else if (cur == "70%") nxt = "80%";
-                  else if (cur == "80%") nxt = "90%";
-                  else if (cur == "90%") nxt = "100%";
-                  else if (cur == "100%") nxt = "40%";
-                  auto call = id(display_brightness_preset).make_call();
-                  call.set_option(nxt);
-                  call.perform();
-                  float b = 0.90f;
-                  if (nxt == "40%") b = 0.40f;
-                  else if (nxt == "50%") b = 0.50f;
-                  else if (nxt == "60%") b = 0.60f;
-                  else if (nxt == "70%") b = 0.70f;
-                  else if (nxt == "80%") b = 0.80f;
-                  else if (nxt == "90%") b = 0.90f;
-                  else if (nxt == "100%") b = 1.00f;
-                  id(display_brightness).turn_on().set_brightness(b).perform();
-                  id(disp1).update();
-                // Button 2: Default Start App Cycler (y: 135..175, x: 100..366)
-                } else if (touch.y >= 135 && touch.y <= 175 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur = std::string(id(default_start_app).current_option().c_str());
-                  std::string nxt = "Clock";
-                  if (cur == "Clock") nxt = "Stopwatch";
-                  else if (cur == "Stopwatch") nxt = "Music";
-                  else if (cur == "Music") nxt = "Games";
-                  else if (cur == "Games") nxt = "System";
-                  else if (cur == "System") nxt = "Clock";
-                  auto call = id(default_start_app).make_call();
-                  call.set_option(nxt);
-                  call.perform();
-                  id(disp1).update();
-                // Button 3: Motion Wake Cycler (y: 185..225, x: 100..366)
-                } else if (touch.y >= 185 && touch.y <= 225 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
-                  std::string nxt = "Always On";
-                  if (cur == "Always On") nxt = "Docked Only";
-                  else if (cur == "Docked Only") nxt = "Disabled";
-                  else if (cur == "Disabled") nxt = "Always On";
-                  auto call = id(pickup_wake_mode).make_call();
-                  call.set_option(nxt);
-                  call.perform();
-                  id(disp1).update();
-                // Button 4: Tap Wake Cycler (y: 235..275, x: 100..366)
-                } else if (touch.y >= 235 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
-                  std::string nxt = "Always On";
-                  if (cur == "Always On") nxt = "Docked Only";
-                  else if (cur == "Docked Only") nxt = "Disabled";
-                  else if (cur == "Disabled") nxt = "Always On";
-                  auto call = id(tap_wake_mode).make_call();
-                  call.set_option(nxt);
-                  call.perform();
-                  id(disp1).update();
-                // Button 5: Back to System Hub (y: 295..335, x: 125..341)
-                } else if (touch.y >= 295 && touch.y <= 335 && touch.x >= 125 && touch.x <= 341) {
-                  id(system_menu_mode) = 1; // Return to System Hub
-                  id(disp1).update();
-                }
-              } else if (id(system_menu_mode) == 3) {
-                // Mode 3: Power Options Submenu
-                // Button 1: Hibernate Now (y: 120..170, x: 100..366)
-                if (touch.y >= 120 && touch.y <= 170 && touch.x >= 100 && touch.x <= 366) {
-                  id(start_hibernation_countdown).execute();
-                // Button 2: Restart Device (y: 190..240, x: 100..366)
-                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
-                  id(system_menu_mode) = 4; // Open Confirmation Dialog
-                  id(disp1).update();
-                // Button 3: Back to System Hub (y: 275..325, x: 125..341)
-                } else if (touch.y >= 275 && touch.y <= 325 && touch.x >= 125 && touch.x <= 341) {
-                  id(system_menu_mode) = 1; // Return to System Hub
-                  id(disp1).update();
-                }
-              } else if (id(system_menu_mode) == 4) {
-                // Mode 4: Restart Confirmation Dialog
-                if (touch.y >= 195 && touch.y <= 265) {
-                  if (touch.x >= 90 && touch.x <= 225) {
-                    // Cancel -> return to Power Options
-                    id(system_menu_mode) = 3;
-                    id(disp1).update();
-                  } else if (touch.x >= 240 && touch.x <= 375) {
-                    // Confirm Restart
-                    id(restart_button).press();
-                  }
-                }
+                // Page 4: System -> click top button cycles brightness preset
+                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                std::string nxt = "90%";
+                if (cur == "40%") nxt = "50%";
+                else if (cur == "50%") nxt = "60%";
+                else if (cur == "60%") nxt = "70%";
+                else if (cur == "70%") nxt = "80%";
+                else if (cur == "80%") nxt = "90%";
+                else if (cur == "90%") nxt = "100%";
+                else if (cur == "100%") nxt = "40%";
+                auto call = id(display_brightness_preset).make_call();
+                call.set_option(nxt);
+                call.perform();
               }
             }
+          }
+
+          // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
+          if (id(display_brightness).current_values.is_on()) {
+            if (id(gui_page) == 1 && id(stopwatch_running)) {
+              // Priority 0: Touch Interrupt Yielding
+              // If user is currently touching the screen (GPIO11 active LOW), yield immediately!
+              // This guarantees the touch controller and gesture processing get instantaneous priority without display lag.
+              if (gpio_get_level(GPIO_NUM_11) == 0) {
+                return;
+              }
+
+              static uint32_t last_chrono_disp_update = 0;
+              uint32_t now_chrono_ms = millis();
+              if (now_chrono_ms - last_chrono_disp_update >= 150) {
+                last_chrono_disp_update = now_chrono_ms;
+                id(disp1).update();
+              }
+            }
+            // Priority 3: Asymmetric Animation Cadence with Collision Protection
+            // While Listening/Thinking: 150ms (~6.7 FPS) fluid breathing (speaker is silent, zero audio contention)
+            // While Speaking (TTS): throttled to va_speech_anim_interval (default 800ms) to guarantee 100% clean audio
+            if (id(va_active) || !id(va_status_text).empty()) {
+              static uint32_t last_va_anim_time = 0;
+              static bool prev_tts_active = false;
+              uint32_t now_ms = millis();
+
+              // Smooth state transition: When speech starts, reserve quiet bus air for DAC unmute and first syllables
+              if (id(va_tts_received) != prev_tts_active) {
+                prev_tts_active = id(va_tts_received);
+                last_va_anim_time = now_ms; // Resets timer so first speaking frame waits for cadence
+                return; // Do NOT blit immediately; let initial audio packets and DAC soft-ramp stabilize cleanly
+              }
+
+              uint32_t cadence = 150;
+              if (id(va_tts_received)) {
+                cadence = (uint32_t)id(va_speech_anim_interval).state;
+                if (cadence < 150) cadence = 350;
+              }
+              if (now_ms - last_va_anim_time >= cadence) {
+                last_va_anim_time = now_ms;
+                id(disp1).update();
+              }
+            }
+          }
+
+  - interval: 50ms
+    then:
+      - lambda: |-
+          // 20 FPS high-refresh physics loop exclusively for active games
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0) {
+            id(disp1).update();
+          }
+
+
+sensor:
+  - platform: homeassistant
+    id: ha_media_duration
+    entity_id: ${target_dur_sensor}
+
+  - platform: homeassistant
+    id: ha_media_position
+    entity_id: ${target_pos_sensor}
+    on_value:
+      then:
+        - lambda: |-
+            id(music_pos_base) = x;
+            id(music_pos_sync_time) = millis();
+            id(disp1).update();
+
+  - platform: wifi_signal
+    name: "Wi-Fi Signal"
+    id: pocket_wifi_signal
+    update_interval: 60s
+
+  - platform: template
+    name: "Battery Level"
+    id: batt_level
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    lambda: |-
+      uint8_t reg = 0xA4;
+      uint8_t pct = 0;
+      if (id(bus_internal).write_readv(0x34, &reg, 1, &pct, 1) == esphome::i2c::ERROR_OK) {
+        if (pct <= 100) return pct;
+      }
+      return NAN;
+    update_interval: 15s
+
+  - platform: template
+    name: "Battery Voltage"
+    id: batt_voltage
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    lambda: |-
+      uint8_t reg = 0x34;
+      uint8_t buf[2] = {0};
+      if (id(bus_internal).write_readv(0x34, &reg, 1, buf, 2) == esphome::i2c::ERROR_OK) {
+        uint16_t mv = ((buf[0] & 0x3F) << 8) | buf[1];
+        return mv / 1000.0f;
+      }
+      return NAN;
+    update_interval: 15s
+
+  - platform: motion
+    motion_id: imu
+    type: acceleration_x
+    name: "Accel X"
+    id: accel_x
+  - platform: motion
+    motion_id: imu
+    type: acceleration_y
+    name: "Accel Y"
+    id: accel_y
+  - platform: motion
+    motion_id: imu
+    type: acceleration_z
+    name: "Accel Z"
+    id: accel_z
+  - platform: motion
+    motion_id: imu
+    type: roll
+    name: "Roll"
+    id: imu_roll
+  - platform: motion
+    motion_id: imu
+    type: pitch
+    name: "Pitch"
+    id: imu_pitch
+
+  - platform: qmi8658
+    name: "IMU Temperature"
+    id: imu_temp
+    entity_category: diagnostic
+
+  - platform: template
+    name: "Dynamic Motion Delta"
+    id: motion_mag
+    unit_of_measurement: "g"
+    accuracy_decimals: 3
+    update_interval: 200ms
+    lambda: |-
+      if (id(is_locked)) return 0.0f;
+      float x = id(accel_x).state;
+      float y = id(accel_y).state;
+      float z = id(accel_z).state;
+      if (isnan(x) || isnan(y) || isnan(z)) return NAN;
+
+      static float grav_x = 0.0f;
+      static float grav_y = 0.0f;
+      static float grav_z = 1.0f;
+      const float alpha = 0.08f;
+      grav_x = (1.0f - alpha) * grav_x + alpha * x;
+      grav_y = (1.0f - alpha) * grav_y + alpha * y;
+      grav_z = (1.0f - alpha) * grav_z + alpha * z;
+
+      float dx = x - grav_x;
+      float dy = y - grav_y;
+      float dz = z - grav_z;
+      return sqrtf(dx*dx + dy*dy + dz*dz);
+
+
+binary_sensor:
+  - platform: template
+    name: "Battery Charging"
+    id: batt_charging
+    device_class: battery_charging
+    entity_category: diagnostic
+
+  - platform: template
+    name: "USB Power Connected"
+    id: usb_connected
+    device_class: power
+    entity_category: diagnostic
+
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    name: "Boot Button"
+    id: boot_button
+    on_press:
+      then:
+        - lambda: |-
+            id(boot_hold_triggered) = false;
+            if (id(is_locked)) return;
+            if (!id(display_brightness).current_values.is_on()) {
+              if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
+                id(apply_default_start_page).execute();
+              }
+              id(sleep_start_time) = 0;
+            }
+        - if:
+            condition:
+              lambda: 'return !id(is_locked);'
+            then:
+              - script.stop: screen_sleep_timer
+              - light.turn_on: display_brightness
+              - script.execute: boot_button_hold_timer
+    on_release:
+      then:
+        - script.stop: boot_button_hold_timer
+    on_click:
+      - min_length: 50ms
+        max_length: 990ms
+        then:
+          - if:
+              condition:
+                lambda: 'return !id(is_locked) && !id(boot_hold_triggered);'
+              then:
+                - script.stop: screen_sleep_timer
+                - if:
+                    condition:
+                      lambda: 'return id(active_game) > 0;'
+                    then:
+                      - lambda: 'id(game_btn_pressed) = true;'
+                    else:
+                      - if:
+                          condition:
+                            lambda: |-
+                              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() ;
+                          then:
+                            - script.execute: cancel_voice_assistant
+                          else:
+                            - if:
+                                condition:
+                                  media_player.is_playing: pocket_music_player
+                                then:
+                                  - media_player.pause: pocket_music_player
+                                  - delay: 200ms
+                            - script.execute: route_i2s_to_mic
+                            - light.turn_on: display_brightness
+                            - lambda: 'id(va_tts_received) = false;'
+                            - voice_assistant.start:
+
+  - platform: template
+    name: "Pickup Detected"
+    id: pickup_detected
+    device_class: motion
+    lambda: |-
+      float dyn = id(motion_mag).state;
+      if (isnan(dyn)) return false;
+
+      const float thresh = 0.22f;
+      const uint32_t active_ms = 8000;
+      static uint32_t last_active_time = 0;
+      static uint32_t last_hit_time = 0;
+      static bool is_active = false;
+      uint32_t now_ms = millis();
+
+      if (dyn > thresh) {
+        if (now_ms - last_hit_time < 600) {
+          is_active = true;
+          last_active_time = now_ms;
+        }
+        last_hit_time = now_ms;
+      } else if (is_active) {
+        if (dyn > 0.03f) {
+          last_active_time = now_ms;
+        }
+        if (now_ms - last_active_time >= active_ms) {
+          is_active = false;
+        }
+      }
+      return is_active;
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                if (id(is_locked)) return false;
+                std::string mode = std::string(id(pickup_wake_mode).current_option().c_str());
+                if (mode == "Disabled") return false;
+                if (mode == "Docked Only" && !id(usb_connected).state) return false;
+                return true;
+            then:
+              - script.stop: screen_sleep_timer
+              - lambda: |-
+                  if (!id(display_brightness).current_values.is_on()) {
+                    if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
+                      id(apply_default_start_page).execute();
+                    }
+                    id(sleep_start_time) = 0;
+                  }
+              - light.turn_on: display_brightness
+              - component.update: disp1
+    on_release:
+      then:
         - script.execute: screen_sleep_timer
 
 text_sensor:
@@ -3239,6 +3433,7 @@ display:
           draw_pill_button(271, 341, 230, 20, id(col_red), id(col_dark_gray), "Restart", id(col_white), false);
         }
       }
+      }
 
 
 touchscreen:
@@ -3265,6 +3460,7 @@ touchscreen:
               id(disp1).update();
               return;
             }
+            id(screen_sleep_timer).execute(); // Activity watchdog reset on every valid touch
             // Screen Standby Wake Handling: Guarded by tap_wake_mode (Always On, Docked Only, Disabled)
             if (!id(display_brightness).current_values.is_on()) {
               std::string tw_mode = std::string(id(tap_wake_mode).current_option().c_str());
@@ -3281,10 +3477,8 @@ touchscreen:
               return;
             }
 
-            id(screen_sleep_timer).execute(); // Activity watchdog reset on every valid touch
-
             // Voice Assistant Modal Takeover Interception & Tap to Cancel
-            // Completely blocks touch events from leaking through to the underlying page (e.g. music play/pause)
+            // Completely blocks touch events from leaking through to underlying page (e.g. media play/pause)
             if (id(va_active) || !id(va_status_text).empty()) {
               id(cancel_voice_assistant).execute();
               return;
@@ -3715,13 +3909,28 @@ touchscreen:
               if (id(system_menu_mode) == 0) {
                 // Main Telemetry View: tap "Settings & Power" button
                 if (touch.y >= 290 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
-                  id(system_menu_mode) = 1;
+                  id(system_menu_mode) = 1; // Open System Hub
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
-                // Settings Submenu:
-                if (touch.y >= 75 && touch.y <= 120 && touch.x >= 100 && touch.x <= 366) {
-                  // Button 1: Brightness Preset Cycler
+                // Mode 1: System Hub (Categories)
+                // Card 1: Device Settings (y: 115..165, x: 100..366)
+                if (touch.y >= 115 && touch.y <= 165 && touch.x >= 100 && touch.x <= 366) {
+                  id(system_menu_mode) = 2; // Open Device Settings Submenu
+                  id(disp1).update();
+                // Card 2: Power Options (y: 190..240, x: 100..366)
+                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
+                  id(system_menu_mode) = 3; // Open Power Options Submenu
+                  id(disp1).update();
+                // Card 3: < Dashboard (y: 270..320, x: 120..346)
+                } else if (touch.y >= 270 && touch.y <= 320 && touch.x >= 120 && touch.x <= 346) {
+                  id(system_menu_mode) = 0; // Return to Telemetry Dashboard
+                  id(disp1).update();
+                }
+              } else if (id(system_menu_mode) == 2) {
+                // Mode 2: Device Settings Submenu
+                // Button 1: Brightness Preset Cycler (y: 85..125, x: 100..366)
+                if (touch.y >= 85 && touch.y <= 125 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                   std::string nxt = "90%";
                   if (cur == "40%") nxt = "50%";
@@ -3744,8 +3953,8 @@ touchscreen:
                   else if (nxt == "100%") b = 1.00f;
                   id(display_brightness).turn_on().set_brightness(b).perform();
                   id(disp1).update();
-                } else if (touch.y >= 127 && touch.y <= 172 && touch.x >= 100 && touch.x <= 366) {
-                  // Button 2: Default Start App Cycler
+                // Button 2: Default Start App Cycler (y: 135..175, x: 100..366)
+                } else if (touch.y >= 135 && touch.y <= 175 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(default_start_app).current_option().c_str());
                   std::string nxt = "Clock";
                   if (cur == "Clock") nxt = "Stopwatch";
@@ -3757,8 +3966,8 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                } else if (touch.y >= 179 && touch.y <= 224 && touch.x >= 100 && touch.x <= 366) {
-                  // Button 3: Pickup Wake Mode Cycler (Always On -> Docked Only -> Disabled -> Always On)
+                // Button 3: Motion Wake Cycler (y: 185..225, x: 100..366)
+                } else if (touch.y >= 185 && touch.y <= 225 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
                   std::string nxt = "Always On";
                   if (cur == "Always On") nxt = "Docked Only";
@@ -3768,24 +3977,42 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                } else if (touch.y >= 231 && touch.y <= 276 && touch.x >= 100 && touch.x <= 366) {
-                  // Button 4: Restart Device -> open confirmation dialog
-                  id(system_menu_mode) = 2;
+                // Button 4: Tap Wake Cycler (y: 235..275, x: 100..366)
+                } else if (touch.y >= 235 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                  std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
+                  std::string nxt = "Always On";
+                  if (cur == "Always On") nxt = "Docked Only";
+                  else if (cur == "Docked Only") nxt = "Disabled";
+                  else if (cur == "Disabled") nxt = "Always On";
+                  auto call = id(tap_wake_mode).make_call();
+                  call.set_option(nxt);
+                  call.perform();
                   id(disp1).update();
-                } else if (touch.y >= 283 && touch.y <= 328 && touch.x >= 100 && touch.x <= 366) {
-                  // Button 5: Manual Hibernate
-                  id(start_hibernation_countdown).execute();
-                } else if (touch.y >= 338 && touch.y <= 385 && touch.x >= 100 && touch.x <= 366) {
-                  // Button 6: Back to Telemetry Dashboard
-                  id(system_menu_mode) = 0;
+                // Button 5: Back to System Hub (y: 295..335, x: 125..341)
+                } else if (touch.y >= 295 && touch.y <= 335 && touch.x >= 125 && touch.x <= 341) {
+                  id(system_menu_mode) = 1; // Return to System Hub
                   id(disp1).update();
                 }
-              } else if (id(system_menu_mode) == 2) {
-                // Restart Confirmation Dialog:
+              } else if (id(system_menu_mode) == 3) {
+                // Mode 3: Power Options Submenu
+                // Button 1: Hibernate Now (y: 120..170, x: 100..366)
+                if (touch.y >= 120 && touch.y <= 170 && touch.x >= 100 && touch.x <= 366) {
+                  id(start_hibernation_countdown).execute();
+                // Button 2: Restart Device (y: 190..240, x: 100..366)
+                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
+                  id(system_menu_mode) = 4; // Open Confirmation Dialog
+                  id(disp1).update();
+                // Button 3: Back to System Hub (y: 275..325, x: 125..341)
+                } else if (touch.y >= 275 && touch.y <= 325 && touch.x >= 125 && touch.x <= 341) {
+                  id(system_menu_mode) = 1; // Return to System Hub
+                  id(disp1).update();
+                }
+              } else if (id(system_menu_mode) == 4) {
+                // Mode 4: Restart Confirmation Dialog
                 if (touch.y >= 195 && touch.y <= 265) {
                   if (touch.x >= 90 && touch.x <= 225) {
-                    // Cancel -> return to settings
-                    id(system_menu_mode) = 1;
+                    // Cancel -> return to Power Options
+                    id(system_menu_mode) = 3;
                     id(disp1).update();
                   } else if (touch.x >= 240 && touch.x <= 375) {
                     // Confirm Restart
