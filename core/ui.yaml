@@ -25,14 +25,6 @@ globals:
     type: int
     restore_value: no
     initial_value: '0' # 0 = Player, 1 = Top Menu, 2 = Library Submenu, 3 = Item Browser
-  - id: pending_tap_slot
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: gesture_swiped
-    type: bool
-    restore_value: no
-    initial_value: 'false'
   - id: music_category_page
     type: int
     restore_value: no
@@ -137,6 +129,14 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: hibernate_countdown_val
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: system_menu_mode
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = Telemetry Dashboard, 1 = Settings Submenu, 2 = Restart Confirmation
   - id: ota_in_progress
     type: bool
     restore_value: no
@@ -241,9 +241,6 @@ font:
     id: font_date
     size: 27
   - file: "gfonts://Roboto"
-    id: font_digital_time
-    size: 22
-  - file: "gfonts://Roboto"
     id: font_small
     size: 21
 
@@ -257,8 +254,6 @@ color:
     hex: "000000"
   - id: col_rust
     hex: "9E453B"  # Rich antique brick rust (warm, unmistakably red, calibrated antique tone)
-  - id: col_mustard
-    hex: "C59B27"  # Muted vintage chronograph mustard yellow
   - id: col_gold
     hex: "C59B27"  # Muted vintage chronograph mustard gold
   - id: col_warm_gold
@@ -309,7 +304,7 @@ image:
     format: AUTO
     type: RGB565
     resize: 216x216
-    url: "http://10.0.20.10:8123/static/icons/favicon-192x192.png"
+    url: "${initial_art_url}"
     on_download_finished:
       - component.update: disp1
 
@@ -362,6 +357,35 @@ select:
           else if (x == "100%") b = 1.00f;
           id(display_brightness).turn_on().set_brightness(b).perform();
           id(disp1).update();
+  # --------------------------------------------------------------------------
+  # ⚙️ Application Preferences & Power Management Selectors
+  # --------------------------------------------------------------------------
+  - platform: template
+    name: "Default Start App"
+    id: default_start_app
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: ${default_start_app}
+    options:
+      - "Clock"
+      - "Stopwatch"
+      - "Music"
+      - "Games"
+      - "System"
+
+  - platform: template
+    name: "Pickup Wake Mode"
+    id: pickup_wake_mode
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Always On"
+    options:
+      - "Always On"
+      - "Docked Only"
+      - "Disabled"
+
 
 
 
@@ -419,6 +443,129 @@ switch:
     id: speaker_enable
     pin: GPIO46
     restore_mode: ALWAYS_ON
+  # --------------------------------------------------------------------------
+  # 📱 Active App Deck Switches (Dynamic Skip-Routing)
+  # --------------------------------------------------------------------------
+  - platform: template
+    name: "Show Clock App"
+    id: show_clock_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 0) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (0 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show Stopwatch App"
+    id: show_stopwatch_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 1) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (1 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show Music App"
+    id: show_music_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 2) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (2 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show Games App"
+    id: show_games_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 3) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (3 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show System App"
+    id: show_system_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 4) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (4 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
 
   - platform: template
     name: "Prevent Deep Sleep"
@@ -482,8 +629,8 @@ interval:
               (id(active_game) == 0) &&
               id(sleep_start_time) > 0 &&
               (millis() - id(sleep_start_time) >= 300000)) {
-            ESP_LOGI("power", "5 minutes inactivity with screen off: auto-descending to deep sleep");
-            id(enter_deep_sleep).execute();
+            ESP_LOGI("power", "5 minutes inactivity with screen off: starting hibernation countdown");
+            id(start_hibernation_countdown).execute();
           }
 
   - interval: 100ms
@@ -494,6 +641,17 @@ interval:
           uint8_t irq_val = 0;
           if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
             if (irq_val & 0x0C) {
+              if (id(is_hibernating)) {
+                // Crown press aborts hibernation countdown immediately!
+                id(is_hibernating) = false;
+                id(hibernate_countdown_val) = 0;
+                id(sleep_start_time) = millis();
+                id(screen_sleep_timer).execute();
+                id(disp1).update();
+                uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
+                id(bus_internal).write(0x34, clr, 2);
+                return;
+              }
               bool is_long = (irq_val & 0x04) != 0;
               uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
               id(bus_internal).write(0x34, clr, 2);
@@ -508,9 +666,9 @@ interval:
                 return; // Ignore all short clicks in locked state
               }
 
-              // Long press (1.5s hold) locks the watch from any screen
+              // Long press (1.5s hold) initiates hibernation countdown
               if (is_long) {
-                id(enter_deep_sleep).execute();
+                id(start_hibernation_countdown).execute();
                 return;
               }
 
@@ -861,7 +1019,12 @@ binary_sensor:
       then:
         - if:
             condition:
-              lambda: 'return !id(is_locked);'
+              lambda: |-
+                if (id(is_locked)) return false;
+                std::string mode = std::string(id(pickup_wake_mode).current_option().c_str());
+                if (mode == "Disabled") return false;
+                if (mode == "Docked Only" && !id(usb_connected).state) return false;
+                return true;
             then:
               - script.stop: screen_sleep_timer
               - lambda: |-
@@ -878,6 +1041,16 @@ binary_sensor:
         - script.execute: screen_sleep_timer
 
 text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      id: pocket_ip_address
+  - platform: template
+    name: "Firmware Version"
+    id: pocket_assistant_firmware_version
+    icon: "mdi:tag-outline"
+    entity_category: diagnostic
+    lambda: 'return std::string("${version}");'
   - platform: homeassistant
     id: ha_active_speaker_sync
     entity_id: ${active_speaker_helper}
@@ -926,18 +1099,20 @@ text_sensor:
     entity_id: ${target_title_sensor}
     on_value:
       then:
+        - lambda: |-
+            bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+            if (is_remote) {
+              id(current_loaded_art_url) = "";
+            }
         - if:
             condition:
-              lambda: |-
-                return (id(active_speaker_entity) != "${local_player_id}") &&
-                       !id(ha_target_art_url).state.empty() &&
-                       (id(ha_target_art_url).state != "none") &&
-                       (id(remote_album_art).get_width() == 0 || id(ha_target_art_url).state != id(current_loaded_art_url));
+              lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
             then:
-              - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
-              - online_image.set_url:
-                  id: remote_album_art
-                  url: !lambda 'return id(ha_target_art_url).state;'
+              - delay: 300ms
+              - homeassistant.action:
+                  action: homeassistant.update_entity
+                  data:
+                    entity_id: ${target_art_url_sensor}
         - component.update: disp1
 
   - platform: homeassistant
@@ -1027,6 +1202,44 @@ script:
             - lambda: 'id(boot_hold_triggered) = true;'
             - script.execute: enter_deep_sleep
 
+  - id: start_hibernation_countdown
+    mode: restart
+    then:
+      - lambda: |-
+          id(hibernate_countdown_val) = 5;
+          id(is_hibernating) = true;
+          id(active_game) = 0;
+      - voice_assistant.stop:
+      - media_player.pause: pocket_music_player
+      - audio_dac.mute_on: es8311_dac
+      - switch.turn_off: speaker_enable
+      - script.stop: screen_sleep_timer
+      - light.turn_on: display_brightness
+      - component.update: disp1
+      - repeat:
+          count: 5
+          then:
+            - delay: 1000ms
+            - if:
+                condition:
+                  lambda: 'return id(is_hibernating);'
+                then:
+                  - lambda: |-
+                      if (id(hibernate_countdown_val) > 1) {
+                        id(hibernate_countdown_val)--;
+                        id(disp1).update();
+                      }
+            - if:
+                condition:
+                  lambda: 'return !id(is_hibernating);'
+                then:
+                  - script.stop: start_hibernation_countdown
+      - if:
+          condition:
+            lambda: 'return id(is_hibernating);'
+          then:
+            - script.execute: enter_deep_sleep
+
   - id: enter_deep_sleep
     mode: restart
     then:
@@ -1105,10 +1318,6 @@ script:
           gpio_deep_sleep_hold_en();
       - deep_sleep.enter: deep_sleep_ctrl
 
-  - id: lock_device
-    mode: restart
-    then:
-      - script.execute: enter_deep_sleep
   - id: unlock_device
     mode: restart
     then:
@@ -1171,18 +1380,48 @@ script:
   - id: music_next_track
     mode: restart
     then:
+      - lambda: |-
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(current_loaded_art_url) = "";
+            id(remote_album_art).release();
+            id(disp1).update();
+          }
       - homeassistant.action:
           action: media_player.media_next_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - delay: 800ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
 
   - id: music_prev_track
     mode: restart
     then:
+      - lambda: |-
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(current_loaded_art_url) = "";
+            id(remote_album_art).release();
+            id(disp1).update();
+          }
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - delay: 800ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
 
   - id: fetch_music_browse
     mode: restart
@@ -1207,24 +1446,16 @@ script:
             speaker: !lambda 'return id(active_speaker_entity).c_str();'
             last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
 
-  - id: pending_card_tap
-    mode: restart
-    then:
-      - delay: 130ms
-      - lambda: |-
-          if (!id(gesture_swiped) && id(pending_tap_slot) > 0) {
-            int s = id(pending_tap_slot);
-            id(pending_tap_slot) = 0;
-            if (s == 1) id(select_music_slot_1).execute();
-            else if (s == 2) id(select_music_slot_2).execute();
-            else if (s == 3) id(select_music_slot_3).execute();
-          }
   - id: play_music_slot_1
     mode: restart
     then:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_1_name);
           id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(current_loaded_art_url) = "";
+            id(remote_album_art).release();
+          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1234,6 +1465,15 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_1_type).c_str();
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - delay: 800ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -1245,6 +1485,10 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_2_name);
           id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(current_loaded_art_url) = "";
+            id(remote_album_art).release();
+          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1254,6 +1498,15 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_2_type).c_str();
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - delay: 800ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -1265,6 +1518,10 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_3_name);
           id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(current_loaded_art_url) = "";
+            id(remote_album_art).release();
+          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1274,6 +1531,15 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_3_type).c_str();
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - delay: 800ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -1312,7 +1578,16 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+                then:
+                  - lambda: 'id(current_loaded_art_url) = "";'
+                  - delay: 800ms
+                  - homeassistant.action:
+                      action: homeassistant.update_entity
+                      data:
+                        entity_id: ${target_art_url_sensor}
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -1400,7 +1675,16 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+                then:
+                  - lambda: 'id(current_loaded_art_url) = "";'
+                  - delay: 800ms
+                  - homeassistant.action:
+                      action: homeassistant.update_entity
+                      data:
+                        entity_id: ${target_art_url_sensor}
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -1488,7 +1772,16 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+                then:
+                  - lambda: 'id(current_loaded_art_url) = "";'
+                  - delay: 800ms
+                  - homeassistant.action:
+                      action: homeassistant.update_entity
+                      data:
+                        entity_id: ${target_art_url_sensor}
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -1663,8 +1956,9 @@ display:
           it.filled_circle(x1 - 4, y_mid, 5, border_c);
         }
 
-        // Vertically centered text exactly on y_mid
-        it.print(cx + (has_bullet ? 6 : 0), y_mid, id(font_small), text_c, TextAlign::CENTER, label);
+        // Vertically centered text exactly on midpoint of pill (x1 + x2) / 2
+        int btn_cx = (x1 + x2) / 2;
+        it.print(btn_cx + (has_bullet ? 6 : 0), y_mid, id(font_small), text_c, TextAlign::CENTER, label);
       };
 
       // ==========================================
@@ -1699,8 +1993,16 @@ display:
         it.circle(cx, cy, 227, id(col_rust));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        it.print(cx, cy - 20, id(font_date), id(col_rust), TextAlign::CENTER, "HIBERNATING...");
-        it.print(cx, cy + 20, id(font_small), id(col_slate), TextAlign::CENTER, "Release button to sleep");
+        it.print(cx, cy - 65, id(font_date), id(col_rust), TextAlign::CENTER, "HIBERNATING");
+
+        char c_buf[16];
+        if (id(hibernate_countdown_val) > 0) {
+          snprintf(c_buf, sizeof(c_buf), "%d", id(hibernate_countdown_val));
+          it.print(cx, cy + 5, id(font_chrono_time), id(col_white), TextAlign::CENTER, c_buf);
+          it.print(cx, cy + 65, id(font_small), id(col_slate), TextAlign::CENTER, "Tap screen to stay awake");
+        } else {
+          it.print(cx, cy + 20, id(font_small), id(col_slate), TextAlign::CENTER, "Shutting down...");
+        }
         return;
       }
 
@@ -1950,7 +2252,7 @@ display:
         if (h12 == 0) h12 = 12;
         char time_buf[16];
         snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
-        it.print(cx, 305, id(font_digital_time), id(col_slate), TextAlign::CENTER, time_buf);
+        it.print(cx, 305, id(font_small), id(col_slate), TextAlign::CENTER, time_buf);
 
         // Battery percentage in cyan in all states; golden charging bolt appears on left when plugged in
         if (!isnan(batt)) {
@@ -2075,7 +2377,7 @@ display:
           char num_str[8];
           snprintf(num_str, sizeof(num_str), "%d", s);
           it.print(cx + (int)(170.0f * t_sin), cy - (int)(170.0f * t_cos),
-                   id(font_digital_time), id(col_black), TextAlign::CENTER, num_str);
+                   id(font_small), id(col_black), TextAlign::CENTER, num_str);
         }
 
         // Vintage Title at Top: STOPWATCH (clean, non-overlapping)
@@ -2286,6 +2588,7 @@ display:
           }
 
           // Track Navigation Buttons: Previous (◀◀) Left (x=91-113), Next (▶▶) Right (x=353-375) at y = 212
+          // Symmetric 12px black margins between album art edges (125, 341) and arrow bases (113, 353)
           it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
           it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
@@ -2362,10 +2665,10 @@ display:
           }
 
           // Consolidated Bottom Volume Controls: ▼ [Down]  VOL  ▲ [Up] at y = 422
-          // Crisp 18x14px anti-glare brass gold carets with 17px uniform padding to VOL
+          // Optically balanced anti-glare brass gold carets with uniform visual weight and padding
           it.print(cx, 422, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
           it.filled_triangle(cx - 45, 429, cx - 54, 415, cx - 36, 415, id(col_warm_gold));
-          it.filled_triangle(cx + 45, 415, cx + 36, 429, cx + 54, 429, id(col_warm_gold));
+          it.filled_triangle(cx + 45, 414, cx + 35, 429, cx + 55, 429, id(col_warm_gold));
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
@@ -3001,34 +3304,92 @@ display:
         it.circle(cx, cy, 227, id(col_rust));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        // Elevated Title aligned with Music & Games at y = 54
-        it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
-
         char buf[64];
-        float v_batt = id(batt_voltage).state;
-        snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
-        it.print(cx, 92, id(font_digital_time), id(col_cyan), TextAlign::CENTER, buf);
 
-        it.print(cx, 125, id(font_digital_time), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
+        if (id(system_menu_mode) == 0) {
+          // --------------------------------------------------
+          // VIEW 0: 100% OBSERVATIONAL TELEMETRY DASHBOARD
+          // --------------------------------------------------
+          // Standardized Page Title baseline at y = 54 (matching Music & Games gold standard)
+          it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
 
-        float sig = id(pocket_wifi_signal).state;
-        snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
-        it.print(cx, 158, id(font_digital_time), id(col_green), TextAlign::CENTER, buf);
+          // Natural 38px buffer between title and telemetry content for spacious breathing room
+          float v_batt = id(batt_voltage).state;
+          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
+          it.print(cx, 92, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
 
-        char b_buf[32];
-        std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
-        if (bri_p.empty()) bri_p = "90%";
-        snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-        draw_pill_button(140, 326, 217, 22, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
+          it.print(cx, 120, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
 
-        char def_buf[32];
-        std::string def_p = std::string(id(default_start_app).current_option().c_str());
-        if (def_p.empty()) def_p = "Clock";
-        snprintf(def_buf, sizeof(def_buf), "Start App: %s", def_p.c_str());
-        draw_pill_button(140, 326, 282, 22, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
+          float sig = id(pocket_wifi_signal).state;
+          std::string ip_str = id(pocket_ip_address).state;
+          if (ip_str.empty()) ip_str = "Connecting...";
+          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
+          it.print(cx, 148, id(font_small), id(col_green), TextAlign::CENTER, buf);
 
-        draw_pill_button(140, 326, 347, 22, id(col_rust), id(col_dark_gray), "Restart Device", id(col_white), true);
+          float temp_c = id(imu_temp).state;
+          float r_val = id(imu_roll).state;
+          float p_val = id(imu_pitch).state;
+          snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
+          it.print(cx, 176, id(font_small), id(col_slate), TextAlign::CENTER, buf);
 
+          it.print(cx, 204, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
+
+          std::string cur_wake = std::string(id(pickup_wake_mode).current_option().c_str());
+          snprintf(buf, sizeof(buf), "Pickup Wake: %s", cur_wake.c_str());
+          it.print(cx, 232, id(font_small), id(col_gray), TextAlign::CENTER, buf);
+
+          // Protected Settings & Power Access Button (dropped to y_mid = 320 for 64px separation)
+          draw_pill_button(120, 346, 320, 24, id(col_rust), id(col_dark_gray), "Settings & Power", id(col_white), true);
+
+        } else if (id(system_menu_mode) == 1) {
+          // --------------------------------------------------
+          // VIEW 1: PROTECTED SETTINGS & POWER SUBMENU
+          // --------------------------------------------------
+          // Standardized Page Title baseline at y = 54 (matching Music & Games gold standard)
+          it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SETTINGS");
+
+          // Button 1: Brightness Preset
+          char b_buf[32];
+          std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
+          if (bri_p.empty()) bri_p = "90%";
+          snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
+          draw_pill_button(110, 356, 95, 20, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
+
+          // Button 2: Default Start App
+          char def_buf[32];
+          std::string def_p = std::string(id(default_start_app).current_option().c_str());
+          if (def_p.empty()) def_p = "Clock";
+          snprintf(def_buf, sizeof(def_buf), "Start App: %s", def_p.c_str());
+          draw_pill_button(110, 356, 147, 20, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
+
+          // Button 3: Pickup Wake Mode Cycler
+          char wake_buf[32];
+          std::string cur_w = std::string(id(pickup_wake_mode).current_option().c_str());
+          snprintf(wake_buf, sizeof(wake_buf), "Wake: %s", cur_w.c_str());
+          draw_pill_button(110, 356, 199, 20, id(col_rust), id(col_dark_gray), wake_buf, id(col_white), true);
+
+          // Button 4: Restart Device (Protected confirmation)
+          draw_pill_button(110, 356, 251, 20, id(col_rust), id(col_dark_gray), "Restart Device", id(col_white), true);
+
+          // Button 5: Manual Hibernate
+          draw_pill_button(110, 356, 303, 20, id(col_rust), id(col_dark_gray), "Hibernate Now", id(col_gold), true);
+
+          // Button 6: Back to Dashboard
+          draw_pill_button(130, 336, 360, 20, id(col_slate), id(col_dark_gray), "Back to Dashboard", id(col_slate), true);
+
+        } else if (id(system_menu_mode) == 2) {
+          // --------------------------------------------------
+          // VIEW 2: RESTART CONFIRMATION DIALOG
+          // --------------------------------------------------
+          // Clean, focused confirmation header without redundant subtext
+          it.print(cx, 130, id(font_date), id(col_rust), TextAlign::CENTER, "RESTART?");
+
+          // Cancel Button (Left, Gray Pill - compact 110px width, spans x: 105..215)
+          draw_pill_button(125, 195, 230, 20, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
+
+          // Confirm Restart Button (Right, Red Pill - compact 110px width, spans x: 251..361)
+          draw_pill_button(271, 341, 230, 20, id(col_red), id(col_dark_gray), "Restart", id(col_white), false);
+        }
       }
 
 
@@ -3047,6 +3408,15 @@ touchscreen:
       then:
         - lambda: |-
             if (id(is_locked)) return; // Block all touch events in pocket
+            if (id(is_hibernating)) {
+              // Touch on glass immediately aborts hibernation countdown
+              id(is_hibernating) = false;
+              id(hibernate_countdown_val) = 0;
+              id(sleep_start_time) = millis();
+              id(screen_sleep_timer).execute();
+              id(disp1).update();
+              return;
+            }
             id(screen_sleep_timer).execute(); // Activity watchdog reset on every valid touch
             if (!id(display_brightness).current_values.is_on()) {
               if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
@@ -3103,8 +3473,11 @@ touchscreen:
               const int left_flip_thresh = (id(gui_page) == 2 ? 50 : 100);
               const int right_flip_thresh = (id(gui_page) == 2 ? 416 : 366);
 
+              // In Settings or Confirmation submenu on System page, guard edge flips so button taps pass through
+              bool allow_edge_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0);
+
               // Left edge tap / swipe: Previous page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
+              if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
                 for (int i = 1; i <= 5; i++) {
                   int prev_p = (id(gui_page) - i + 5) % 5;
                   bool ok = (prev_p == 0 ? id(show_clock_switch).state :
@@ -3113,7 +3486,7 @@ touchscreen:
                             (prev_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
                   if (ok) {
                     id(gui_page) = prev_p;
-                    id(music_overlay_mode) = 0; // Reset overlay when switching pages
+                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; // Reset submenus when switching pages
                     id(disp1).update();
                     return;
                   }
@@ -3121,7 +3494,7 @@ touchscreen:
                 return;
               }
               // Right edge tap / swipe: Next page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
+              if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
                 for (int i = 1; i <= 5; i++) {
                   int next_p = (id(gui_page) + i) % 5;
                   bool ok = (next_p == 0 ? id(show_clock_switch).state :
@@ -3130,7 +3503,7 @@ touchscreen:
                             (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
                   if (ok) {
                     id(gui_page) = next_p;
-                    id(music_overlay_mode) = 0; // Reset overlay when switching pages
+                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; // Reset submenus when switching pages
                     id(disp1).update();
                     return;
                   }
@@ -3195,6 +3568,10 @@ touchscreen:
                   // Right Arrow: Next Track
                   id(music_next_track).execute();
                   id(disp1).update();
+                } else if (touch.y >= 30 && touch.y <= 100 && touch.x >= 120 && touch.x <= 346) {
+                  // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu
+                  id(music_overlay_mode) = 1;
+                  id(disp1).update();
                 } else if (touch.y >= 104 && touch.y <= 320 && touch.x >= 125 && touch.x <= 341) {
                   // Center Album Art (216x216): Play / Pause toggle
                   if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
@@ -3233,6 +3610,10 @@ touchscreen:
                 } else if (touch.y >= 280 && touch.y < 355 && touch.x >= 65 && touch.x <= 401) {
                   id(music_category_page) = 1;
                   id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
+                  id(disp1).update();
+                // Top Header area tap: Return to Player View
+                } else if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
+                  id(music_overlay_mode) = 0;
                   id(disp1).update();
                 // Bottom Button: Back to Player View (y: 370..425, x: 140..326)
                 } else if (touch.y >= 370 && touch.y <= 425 && touch.x >= 140 && touch.x <= 326) {
@@ -3467,36 +3848,88 @@ touchscreen:
                 id(game_btn_pressed) = true;
                 id(disp1).update();
               }
-            // Page 4: System (Brightness & Restart buttons)
+            // Page 4: System (Telemetry Dashboard vs Settings vs Confirmation)
             } else if (id(gui_page) == 4) {
-              if (touch.y >= 192 && touch.y <= 242 && touch.x >= 100 && touch.x <= 366) {
-                // Brightness preset cycler (40% -> 50% -> 60% -> 70% -> 80% -> 90% -> 100% -> 40%)
-                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                std::string nxt = "90%";
-                if (cur == "40%") nxt = "50%";
-                else if (cur == "50%") nxt = "60%";
-                else if (cur == "60%") nxt = "70%";
-                else if (cur == "70%") nxt = "80%";
-                else if (cur == "80%") nxt = "90%";
-                else if (cur == "90%") nxt = "100%";
-                else if (cur == "100%") nxt = "40%";
-                auto call = id(display_brightness_preset).make_call();
-                call.set_option(nxt);
-                call.perform();
-              } else if (touch.y >= 257 && touch.y <= 307 && touch.x >= 100 && touch.x <= 366) {
-                // Default Start App cycler (Clock -> Stopwatch -> Music -> Games -> System -> Clock)
-                std::string cur = std::string(id(default_start_app).current_option().c_str());
-                std::string nxt = "Clock";
-                if (cur == "Clock") nxt = "Stopwatch";
-                else if (cur == "Stopwatch") nxt = "Music";
-                else if (cur == "Music") nxt = "Games";
-                else if (cur == "Games") nxt = "System";
-                else if (cur == "System") nxt = "Clock";
-                auto call = id(default_start_app).make_call();
-                call.set_option(nxt);
-                call.perform();
-              } else if (touch.y >= 322 && touch.y <= 372 && touch.x >= 100 && touch.x <= 366) {
-                id(restart_button).press();
+              if (id(system_menu_mode) == 0) {
+                // Main Telemetry View: tap "Settings & Power" button
+                if (touch.y >= 290 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
+                  id(system_menu_mode) = 1;
+                  id(disp1).update();
+                }
+              } else if (id(system_menu_mode) == 1) {
+                // Settings Submenu:
+                if (touch.y >= 75 && touch.y <= 120 && touch.x >= 100 && touch.x <= 366) {
+                  // Button 1: Brightness Preset Cycler
+                  std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                  std::string nxt = "90%";
+                  if (cur == "40%") nxt = "50%";
+                  else if (cur == "50%") nxt = "60%";
+                  else if (cur == "60%") nxt = "70%";
+                  else if (cur == "70%") nxt = "80%";
+                  else if (cur == "80%") nxt = "90%";
+                  else if (cur == "90%") nxt = "100%";
+                  else if (cur == "100%") nxt = "40%";
+                  auto call = id(display_brightness_preset).make_call();
+                  call.set_option(nxt);
+                  call.perform();
+                  float b = 0.90f;
+                  if (nxt == "40%") b = 0.40f;
+                  else if (nxt == "50%") b = 0.50f;
+                  else if (nxt == "60%") b = 0.60f;
+                  else if (nxt == "70%") b = 0.70f;
+                  else if (nxt == "80%") b = 0.80f;
+                  else if (nxt == "90%") b = 0.90f;
+                  else if (nxt == "100%") b = 1.00f;
+                  id(display_brightness).turn_on().set_brightness(b).perform();
+                  id(disp1).update();
+                } else if (touch.y >= 127 && touch.y <= 172 && touch.x >= 100 && touch.x <= 366) {
+                  // Button 2: Default Start App Cycler
+                  std::string cur = std::string(id(default_start_app).current_option().c_str());
+                  std::string nxt = "Clock";
+                  if (cur == "Clock") nxt = "Stopwatch";
+                  else if (cur == "Stopwatch") nxt = "Music";
+                  else if (cur == "Music") nxt = "Games";
+                  else if (cur == "Games") nxt = "System";
+                  else if (cur == "System") nxt = "Clock";
+                  auto call = id(default_start_app).make_call();
+                  call.set_option(nxt);
+                  call.perform();
+                  id(disp1).update();
+                } else if (touch.y >= 179 && touch.y <= 224 && touch.x >= 100 && touch.x <= 366) {
+                  // Button 3: Pickup Wake Mode Cycler (Always On -> Docked Only -> Disabled -> Always On)
+                  std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
+                  std::string nxt = "Always On";
+                  if (cur == "Always On") nxt = "Docked Only";
+                  else if (cur == "Docked Only") nxt = "Disabled";
+                  else if (cur == "Disabled") nxt = "Always On";
+                  auto call = id(pickup_wake_mode).make_call();
+                  call.set_option(nxt);
+                  call.perform();
+                  id(disp1).update();
+                } else if (touch.y >= 231 && touch.y <= 276 && touch.x >= 100 && touch.x <= 366) {
+                  // Button 4: Restart Device -> open confirmation dialog
+                  id(system_menu_mode) = 2;
+                  id(disp1).update();
+                } else if (touch.y >= 283 && touch.y <= 328 && touch.x >= 100 && touch.x <= 366) {
+                  // Button 5: Manual Hibernate
+                  id(start_hibernation_countdown).execute();
+                } else if (touch.y >= 338 && touch.y <= 385 && touch.x >= 100 && touch.x <= 366) {
+                  // Button 6: Back to Telemetry Dashboard
+                  id(system_menu_mode) = 0;
+                  id(disp1).update();
+                }
+              } else if (id(system_menu_mode) == 2) {
+                // Restart Confirmation Dialog:
+                if (touch.y >= 195 && touch.y <= 265) {
+                  if (touch.x >= 90 && touch.x <= 225) {
+                    // Cancel -> return to settings
+                    id(system_menu_mode) = 1;
+                    id(disp1).update();
+                  } else if (touch.x >= 240 && touch.x <= 375) {
+                    // Confirm Restart
+                    id(restart_button).press();
+                  }
+                }
               }
             }
         - script.execute: screen_sleep_timer
