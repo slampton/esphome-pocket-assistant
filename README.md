@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v3.5.4-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.5.5-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -189,7 +189,7 @@ If you manage your devices via the Home Assistant ESPHome add-on:
    substitutions:
      name: "pocket-assistant"
      friendly_name: "Pocket Assistant"
-     version: "v3.5.4"
+     version: "v3.5.5"
      local_player_id: "media_player.pocket_assistant"
 
    wifi:
@@ -399,7 +399,7 @@ esphome-pocket-assistant/
 
 ## 📜 Version History & Changelog
 
-### v3.5.4 (Current)
+### v3.5.5 (Current)
 * **On-Device Software Update Screen (System Mode 5)**:
   * Added dedicated on-device firmware update screen in the System Application (`system_menu_mode == 5`), displaying currently installed version vs. latest available release version from Home Assistant (`update.pocket_assistant_firmware`).
   * Features live release highlights and changelog summary display.
