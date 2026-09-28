@@ -493,5 +493,17 @@ esphome-pocket-assistant/
 
 ---
 
+## 🤖 Development & AI Transparency
+
+AI tools were used during the development and documentation of this project.
+
+* **Human-Directed & Hardware-Verified**: Every schematic, bus architecture, GPIO matrix route, and register map is validated directly on physical Waveshare ESP32-S3-Touch-AMOLED-1.75C hardware. No unverified code is committed.
+* **How AI Was Utilized**: AI assistance was used for rapid prototyping, mathematical modeling (such as trigonometric vector math for the mechanical chronometer dial and UI layout geometry), automated AST schema validation, and technical documentation.
+* **Local-First & Open Standards**: All firmware architecture adheres strictly to native ESPHome standards, local-first principles, and official Home Assistant design patterns.
+
+Feedback, peer review, and pull requests from the community are always welcome.
+
+---
+
 ## 📜 License
 Distributed under the Apache 2.0 License. See [`LICENSE`](LICENSE) for details.
