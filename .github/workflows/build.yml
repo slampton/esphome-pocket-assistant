@@ -19,6 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build firmware with ESPHome
+        id: esphome-build
         uses: esphome/build-action@v8.1.0
         with:
           yaml-file: ${{ matrix.target.file }}
@@ -28,7 +29,12 @@ jobs:
       - name: Stage Web Files
         run: |
           mkdir -p public
-          cp -r output/* public/
+          OUTPUT_DIR="${{ steps.esphome-build.outputs.name }}"
+          if [ -d "$OUTPUT_DIR" ]; then
+            cp -r "$OUTPUT_DIR"/* public/
+          else
+            cp -r pocket-assistant*/* public/ || true
+          fi
           cp index.html public/ || true
 
       - name: Upload GitHub Pages Artifact
