@@ -2587,11 +2587,12 @@ display:
           }
 
           // Track Navigation Buttons: Previous (◀◀) Left (x=91-113), Next (▶▶) Right (x=353-375) at y = 212
+          // Symmetric 12px black margins between album art edges (125, 341) and arrow bases (113, 353)
           it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
           it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
-          it.filled_triangle(353, art_center_y, 343, art_center_y - 11, 343, art_center_y + 11, id(col_white));
-          it.filled_triangle(365, art_center_y, 355, art_center_y - 11, 355, art_center_y + 11, id(col_white));
+          it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
+          it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
 
           // Paused state frosted scrim overlay with borderless bold green Play badge ▶
           if (!is_playing) {
@@ -2663,10 +2664,10 @@ display:
           }
 
           // Consolidated Bottom Volume Controls: ▼ [Down]  VOL  ▲ [Up] at y = 422
-          // Crisp 18x14px anti-glare brass gold carets with 17px uniform padding to VOL
+          // Optically balanced anti-glare brass gold carets with uniform visual weight and padding
           it.print(cx, 422, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
           it.filled_triangle(cx - 45, 429, cx - 54, 415, cx - 36, 415, id(col_warm_gold));
-          it.filled_triangle(cx + 45, 415, cx + 36, 429, cx + 54, 429, id(col_warm_gold));
+          it.filled_triangle(cx + 45, 414, cx + 35, 429, cx + 55, 429, id(col_warm_gold));
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
@@ -3308,7 +3309,8 @@ display:
           // --------------------------------------------------
           // VIEW 0: 100% OBSERVATIONAL TELEMETRY DASHBOARD
           // --------------------------------------------------
-          it.print(cx, 46, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
+          // Standardized Page Title baseline at y = 54 (matching Music & Games gold standard)
+          it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
 
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
@@ -3341,7 +3343,8 @@ display:
           // --------------------------------------------------
           // VIEW 1: PROTECTED SETTINGS & POWER SUBMENU
           // --------------------------------------------------
-          it.print(cx, 46, id(font_date), id(col_rust), TextAlign::CENTER, "SETTINGS");
+          // Standardized Page Title baseline at y = 54 (matching Music & Games gold standard)
+          it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SETTINGS");
 
           // Button 1: Brightness Preset
           char b_buf[32];
@@ -3468,11 +3471,11 @@ touchscreen:
               const int left_flip_thresh = (id(gui_page) == 2 ? 50 : 100);
               const int right_flip_thresh = (id(gui_page) == 2 ? 416 : 366);
 
-              // In Settings or Confirmation submenu on System page, guard edge flips
-              if (id(gui_page) == 4 && id(system_menu_mode) > 0) return;
+              // In Settings or Confirmation submenu on System page, guard edge flips so button taps pass through
+              bool allow_edge_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0);
 
               // Left edge tap / swipe: Previous page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
+              if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
                 for (int i = 1; i <= 5; i++) {
                   int prev_p = (id(gui_page) - i + 5) % 5;
                   bool ok = (prev_p == 0 ? id(show_clock_switch).state :
@@ -3489,7 +3492,7 @@ touchscreen:
                 return;
               }
               // Right edge tap / swipe: Next page
-              if (!(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
+              if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
                 for (int i = 1; i <= 5; i++) {
                   int next_p = (id(gui_page) + i) % 5;
                   bool ok = (next_p == 0 ? id(show_clock_switch).state :
@@ -3867,6 +3870,16 @@ touchscreen:
                   auto call = id(display_brightness_preset).make_call();
                   call.set_option(nxt);
                   call.perform();
+                  float b = 0.90f;
+                  if (nxt == "40%") b = 0.40f;
+                  else if (nxt == "50%") b = 0.50f;
+                  else if (nxt == "60%") b = 0.60f;
+                  else if (nxt == "70%") b = 0.70f;
+                  else if (nxt == "80%") b = 0.80f;
+                  else if (nxt == "90%") b = 0.90f;
+                  else if (nxt == "100%") b = 1.00f;
+                  id(display_brightness).turn_on().set_brightness(b).perform();
+                  id(disp1).update();
                 } else if (touch.y >= 127 && touch.y <= 172 && touch.x >= 100 && touch.x <= 366) {
                   // Button 2: Default Start App Cycler
                   std::string cur = std::string(id(default_start_app).current_option().c_str());
@@ -3879,6 +3892,7 @@ touchscreen:
                   auto call = id(default_start_app).make_call();
                   call.set_option(nxt);
                   call.perform();
+                  id(disp1).update();
                 } else if (touch.y >= 179 && touch.y <= 224 && touch.x >= 100 && touch.x <= 366) {
                   // Button 3: Pickup Wake Mode Cycler (Always On -> Docked Only -> Disabled -> Always On)
                   std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
