@@ -686,12 +686,6 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          // Continuous OTA progress animation
-          if (id(ota_in_progress)) {
-            id(disp1).update();
-            return;
-          }
-
           // Active Update Check animation refresh
           if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0) {
             id(disp1).update();
@@ -1114,14 +1108,14 @@ text_sensor:
     lambda: 'return std::string("${version}");'
   - platform: homeassistant
     id: ha_firmware_update_status
-    entity_id: ${firmware_update_entity}
+    entity_id: update.pocket_assistant_pocket_assistant_firmware
     internal: true
     on_value:
       then:
         - component.update: disp1
   - platform: homeassistant
     id: ha_firmware_latest_version
-    entity_id: ${firmware_update_entity}
+    entity_id: update.pocket_assistant_pocket_assistant_firmware
     attribute: latest_version
     internal: true
     on_value:
@@ -1129,7 +1123,7 @@ text_sensor:
         - component.update: disp1
   - platform: homeassistant
     id: ha_firmware_release_summary
-    entity_id: ${firmware_update_entity}
+    entity_id: update.pocket_assistant_pocket_assistant_firmware
     attribute: release_summary
     internal: true
     on_value:
@@ -2004,22 +1998,17 @@ script:
   - id: trigger_firmware_update
     mode: restart
     then:
-      - homeassistant.action:
-          action: update.install
-          data:
-            entity_id: ${firmware_update_entity}
+      - update.perform:
+          id: update_pocket_assistant
       - lambda: |-
-          // Return to update screen with status feedback; real OTA overlay triggers on ota.on_begin
           id(system_menu_mode) = 5;
           id(disp1).update();
 
   - id: check_firmware_update
     mode: restart
     then:
-      - homeassistant.action:
-          action: homeassistant.update_entity
-          data:
-            entity_id: ${firmware_update_entity}
+      - update.check:
+          id: update_pocket_assistant
 
 
 display:

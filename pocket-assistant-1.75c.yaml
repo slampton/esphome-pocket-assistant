@@ -28,8 +28,6 @@ substitutions:
   # Local Media Player Identity
   local_player_id: "media_player.pocket_assistant"
 
-  # Firmware Update Entity (Home Assistant update entity for ESPHome)
-  firmware_update_entity: "update.pocket_assistant_firmware"
 
 dashboard_import:
   package_import_url: github://slampton/esphome-pocket-assistant/pocket-assistant-1.75c.yaml@main
@@ -214,6 +212,16 @@ ota:
         - lambda: |-
             id(ota_in_progress) = false;
             id(disp1).update();
+
+  - platform: http_request
+    id: ota_http
+
+update:
+  - platform: http_request
+    id: update_pocket_assistant
+    name: "Pocket Assistant Firmware"
+    source: "https://slampton.github.io/esphome-pocket-assistant/manifest.json"
+    update_interval: 6h
 
 wifi:
   fast_connect: true
