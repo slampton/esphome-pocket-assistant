@@ -1996,9 +1996,8 @@ script:
           data:
             entity_id: ${firmware_update_entity}
       - lambda: |-
-          id(ota_in_progress) = true;
-          id(ota_progress_pct) = 0;
-          id(ota_display_pct) = 0.0f;
+          // Return to update screen with status feedback; real OTA overlay triggers on ota.on_begin
+          id(system_menu_mode) = 5;
           id(disp1).update();
 
   - id: check_firmware_update
@@ -3474,11 +3473,26 @@ display:
           snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
           it.print(cx, 176, id(font_small), id(col_slate), TextAlign::CENTER, buf);
 
-          bool has_update = (id(ha_firmware_update_status).state == "on");
+          auto is_newer_semver = [](const std::string& lat_str, const std::string& cur_str) -> bool {
+            if (lat_str.empty() || lat_str == "unavailable" || lat_str == "unknown") return false;
+            std::string l = lat_str;
+            if (!l.empty() && (l[0] == 'v' || l[0] == 'V')) l = l.substr(1);
+            std::string c = cur_str;
+            if (!c.empty() && (c[0] == 'v' || c[0] == 'V')) c = c.substr(1);
+            if (l.rfind("202", 0) == 0) return false; // Reject ESPHome CalVer (2026.x)
+            int l_maj = 0, l_min = 0, l_pat = 0;
+            int c_maj = 0, c_min = 0, c_pat = 0;
+            if (sscanf(l.c_str(), "%d.%d.%d", &l_maj, &l_min, &l_pat) < 2) return false;
+            if (sscanf(c.c_str(), "%d.%d.%d", &c_maj, &c_min, &c_pat) < 2) return false;
+            if (l_maj > c_maj) return true;
+            if (l_maj < c_maj) return false;
+            if (l_min > c_min) return true;
+            if (l_min < c_min) return false;
+            return l_pat > c_pat;
+          };
+
           std::string lat_v = id(ha_firmware_latest_version).state;
-          if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
-            has_update = true;
-          }
+          bool has_update = is_newer_semver(lat_v, "${version}");
 
           if (has_update) {
             snprintf(buf, sizeof(buf), "Update Ready: v%s", lat_v.empty() ? "3.5.x" : lat_v.c_str());
@@ -3514,11 +3528,8 @@ display:
           draw_pill_button(110, 356, 115, 18, id(col_rust), id(col_dark_gray), "Device Settings", id(col_white), true);
 
           // Card 2: Software Update (y_mid = 165, r = 18)
-          bool has_update = (id(ha_firmware_update_status).state == "on");
           std::string lat_v = id(ha_firmware_latest_version).state;
-          if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
-            has_update = true;
-          }
+          bool has_update = is_newer_semver(lat_v, "${version}");
           draw_pill_button(110, 356, 165, 18, has_update ? id(col_gold) : id(col_rust), id(col_dark_gray), 
                            has_update ? "Update Available!" : "Software Update", 
                            has_update ? id(col_gold) : id(col_white), true);
@@ -3609,11 +3620,8 @@ display:
           snprintf(cur_buf, sizeof(cur_buf), "Installed: v%s", "${version}");
           it.print(cx, 95, id(font_small), id(col_slate), TextAlign::CENTER, cur_buf);
 
-          bool has_update = (id(ha_firmware_update_status).state == "on");
           std::string lat_v = id(ha_firmware_latest_version).state;
-          if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
-            has_update = true;
-          }
+          bool has_update = is_newer_semver(lat_v, "${version}");
 
           if (has_update) {
             char lat_buf[32];
@@ -4270,11 +4278,25 @@ touchscreen:
                 // Mode 5: Software Update Screen
                 // Action Button: Update Now or Check for Updates (y: 190..240, x: 100..366)
                 if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
-                  bool has_update = (id(ha_firmware_update_status).state == "on");
+                  auto is_newer_semver = [](const std::string& lat_str, const std::string& cur_str) -> bool {
+                    if (lat_str.empty() || lat_str == "unavailable" || lat_str == "unknown") return false;
+                    std::string l = lat_str;
+                    if (!l.empty() && (l[0] == 'v' || l[0] == 'V')) l = l.substr(1);
+                    std::string c = cur_str;
+                    if (!c.empty() && (c[0] == 'v' || c[0] == 'V')) c = c.substr(1);
+                    if (l.rfind("202", 0) == 0) return false;
+                    int l_maj = 0, l_min = 0, l_pat = 0;
+                    int c_maj = 0, c_min = 0, c_pat = 0;
+                    if (sscanf(l.c_str(), "%d.%d.%d", &l_maj, &l_min, &l_pat) < 2) return false;
+                    if (sscanf(c.c_str(), "%d.%d.%d", &c_maj, &c_min, &c_pat) < 2) return false;
+                    if (l_maj > c_maj) return true;
+                    if (l_maj < c_maj) return false;
+                    if (l_min > c_min) return true;
+                    if (l_min < c_min) return false;
+                    return l_pat > c_pat;
+                  };
                   std::string lat_v = id(ha_firmware_latest_version).state;
-                  if (!has_update && !lat_v.empty() && lat_v != "unavailable" && lat_v != "unknown" && lat_v != "${version}") {
-                    has_update = true;
-                  }
+                  bool has_update = is_newer_semver(lat_v, "${version}");
                   if (has_update) {
                     id(system_menu_mode) = 6; // Open Update Confirmation Dialog
                     id(disp1).update();
