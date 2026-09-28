@@ -25,14 +25,6 @@ globals:
     type: int
     restore_value: no
     initial_value: '0' # 0 = Player, 1 = Top Menu, 2 = Library Submenu, 3 = Item Browser
-  - id: pending_tap_slot
-    type: int
-    restore_value: no
-    initial_value: '0'
-  - id: gesture_swiped
-    type: bool
-    restore_value: no
-    initial_value: 'false'
   - id: music_category_page
     type: int
     restore_value: no
@@ -249,9 +241,6 @@ font:
     id: font_date
     size: 27
   - file: "gfonts://Roboto"
-    id: font_digital_time
-    size: 22
-  - file: "gfonts://Roboto"
     id: font_small
     size: 21
 
@@ -265,8 +254,6 @@ color:
     hex: "000000"
   - id: col_rust
     hex: "9E453B"  # Rich antique brick rust (warm, unmistakably red, calibrated antique tone)
-  - id: col_mustard
-    hex: "C59B27"  # Muted vintage chronograph mustard yellow
   - id: col_gold
     hex: "C59B27"  # Muted vintage chronograph mustard gold
   - id: col_warm_gold
@@ -317,7 +304,7 @@ image:
     format: AUTO
     type: RGB565
     resize: 216x216
-    url: "http://10.0.20.10:8123/static/icons/favicon-192x192.png"
+    url: "${initial_art_url}"
     on_download_finished:
       - component.update: disp1
 
@@ -370,6 +357,35 @@ select:
           else if (x == "100%") b = 1.00f;
           id(display_brightness).turn_on().set_brightness(b).perform();
           id(disp1).update();
+  # --------------------------------------------------------------------------
+  # ⚙️ Application Preferences & Power Management Selectors
+  # --------------------------------------------------------------------------
+  - platform: template
+    name: "Default Start App"
+    id: default_start_app
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: ${default_start_app}
+    options:
+      - "Clock"
+      - "Stopwatch"
+      - "Music"
+      - "Games"
+      - "System"
+
+  - platform: template
+    name: "Pickup Wake Mode"
+    id: pickup_wake_mode
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Always On"
+    options:
+      - "Always On"
+      - "Docked Only"
+      - "Disabled"
+
 
 
 
@@ -427,6 +443,129 @@ switch:
     id: speaker_enable
     pin: GPIO46
     restore_mode: ALWAYS_ON
+  # --------------------------------------------------------------------------
+  # 📱 Active App Deck Switches (Dynamic Skip-Routing)
+  # --------------------------------------------------------------------------
+  - platform: template
+    name: "Show Clock App"
+    id: show_clock_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 0) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (0 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show Stopwatch App"
+    id: show_stopwatch_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 1) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (1 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show Music App"
+    id: show_music_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 2) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (2 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show Games App"
+    id: show_games_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 3) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (3 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
+  - platform: template
+    name: "Show System App"
+    id: show_system_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(gui_page) == 4) {
+              for (int i = 1; i <= 5; i++) {
+                int next_p = (4 + i) % 5;
+                bool ok = (next_p == 0 ? id(show_clock_switch).state :
+                          (next_p == 1 ? id(show_stopwatch_switch).state :
+                          (next_p == 2 ? id(show_music_switch).state :
+                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
+                if (ok) {
+                  id(gui_page) = next_p;
+                  id(disp1).update();
+                  break;
+                }
+              }
+            }
+
 
   - platform: template
     name: "Prevent Deep Sleep"
@@ -1179,10 +1318,6 @@ script:
           gpio_deep_sleep_hold_en();
       - deep_sleep.enter: deep_sleep_ctrl
 
-  - id: lock_device
-    mode: restart
-    then:
-      - script.execute: enter_deep_sleep
   - id: unlock_device
     mode: restart
     then:
@@ -1311,18 +1446,6 @@ script:
             speaker: !lambda 'return id(active_speaker_entity).c_str();'
             last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
 
-  - id: pending_card_tap
-    mode: restart
-    then:
-      - delay: 130ms
-      - lambda: |-
-          if (!id(gesture_swiped) && id(pending_tap_slot) > 0) {
-            int s = id(pending_tap_slot);
-            id(pending_tap_slot) = 0;
-            if (s == 1) id(select_music_slot_1).execute();
-            else if (s == 2) id(select_music_slot_2).execute();
-            else if (s == 3) id(select_music_slot_3).execute();
-          }
   - id: play_music_slot_1
     mode: restart
     then:
@@ -2128,7 +2251,7 @@ display:
         if (h12 == 0) h12 = 12;
         char time_buf[16];
         snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
-        it.print(cx, 305, id(font_digital_time), id(col_slate), TextAlign::CENTER, time_buf);
+        it.print(cx, 305, id(font_small), id(col_slate), TextAlign::CENTER, time_buf);
 
         // Battery percentage in cyan in all states; golden charging bolt appears on left when plugged in
         if (!isnan(batt)) {
@@ -2253,7 +2376,7 @@ display:
           char num_str[8];
           snprintf(num_str, sizeof(num_str), "%d", s);
           it.print(cx + (int)(170.0f * t_sin), cy - (int)(170.0f * t_cos),
-                   id(font_digital_time), id(col_black), TextAlign::CENTER, num_str);
+                   id(font_small), id(col_black), TextAlign::CENTER, num_str);
         }
 
         // Vintage Title at Top: STOPWATCH (clean, non-overlapping)
@@ -3189,7 +3312,7 @@ display:
 
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
-          it.print(cx, 80, id(font_digital_time), id(col_cyan), TextAlign::CENTER, buf);
+          it.print(cx, 80, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
 
           it.print(cx, 110, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
 
@@ -3205,7 +3328,7 @@ display:
           snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
           it.print(cx, 166, id(font_small), id(col_slate), TextAlign::CENTER, buf);
 
-          it.print(cx, 194, id(font_small), id(col_mustard), TextAlign::CENTER, "Pocket Assistant v${version}");
+          it.print(cx, 194, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
 
           std::string cur_wake = std::string(id(pickup_wake_mode).current_option().c_str());
           snprintf(buf, sizeof(buf), "Pickup Wake: %s", cur_wake.c_str());
@@ -3254,7 +3377,7 @@ display:
           // VIEW 2: RESTART CONFIRMATION DIALOG
           // --------------------------------------------------
           it.print(cx, 80, id(font_date), id(col_rust), TextAlign::CENTER, "RESTART?");
-          it.print(cx, 130, id(font_digital_time), id(col_slate), TextAlign::CENTER, "Reboot device now?");
+          it.print(cx, 130, id(font_small), id(col_slate), TextAlign::CENTER, "Reboot device now?");
 
           // Cancel Button (Left)
           draw_pill_button(80, 215, 230, 26, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), true);

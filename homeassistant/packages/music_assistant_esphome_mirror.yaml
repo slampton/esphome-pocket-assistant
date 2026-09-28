@@ -7,6 +7,10 @@ input_text:
   pocket_assistant_active_speaker:
     name: "Pocket Assistant Active Speaker"
     icon: mdi:speaker
+  pocket_assistant_base_url:
+    name: "Pocket Assistant Home Assistant Base URL"
+    icon: mdi:web
+    initial: "" # Optional override for custom ports (e.g. http://homeassistant.local or http://192.168.1.10). Defaults to http://homeassistant.local:8123 if blank.
 
 template:
   - trigger:
@@ -87,7 +91,9 @@ template:
               {% if pic.startswith('http') %}
                 {{ pic }}
               {% elif pic.startswith('/') %}
-                {{ 'http://10.0.20.10:8123' ~ pic }}
+                {% set custom_base = states('input_text.pocket_assistant_base_url') %}
+                {% set base = custom_base if custom_base and custom_base not in ['unknown', 'unavailable', ''] else 'http://homeassistant.local:8123' %}
+                {{ base.rstrip('/') ~ pic }}
               {% else %}
                 none
               {% endif %}

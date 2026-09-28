@@ -290,7 +290,7 @@ If your `configuration.yaml` already delegates templates via `template: !include
                {% if pic.startswith('http') %}
                  {{ pic }}
                {% elif pic.startswith('/') %}
-                 {{ 'http://10.0.20.10:8123' ~ pic }}
+                 {{ 'http://homeassistant.local:8123' ~ pic }}
                {% else %}
                  none
                {% endif %}
@@ -337,7 +337,7 @@ packages:
     ref: main
     refresh: 0s
     files:
-      - pocket-assistant.yaml
+      - pocket-assistant-1.75c.yaml
 ```
 
 Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `pocket_assistant_encryption_key`.
@@ -364,7 +364,7 @@ Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `p
 
 ```text
 esphome-pocket-assistant/
-├── pocket-assistant.yaml          # Master node configuration & substitutions
+├── pocket-assistant-1.75c.yaml          # Master node configuration & substitutions
 ├── va_cancel_helper.h             # C++ side-button Assist cancellation hook
 ├── LICENSE                        # Apache 2.0 open-source license
 ├── README.md                      # Architecture guide & documentation
@@ -395,7 +395,7 @@ esphome-pocket-assistant/
 ### v3.5.0 (Current)
 * **Standardized Active Album Art Pipeline & Decoder Alignment**:
   * **Clean Multi-Format Image Decoding (`format: AUTO`)**: Configured `platform: online_image` to `format: AUTO` with a valid static boot image (`/static/icons/favicon-192x192.png`). Automatically decodes JPEG and PNG based on server `Content-Type` headers, eliminating `Incorrect PNG signature` mismatches when receiving Home Assistant media player streams.
-  * **Clean Entity Picture Pass-Through**: Standardized `sensor.pocket_assistant_target_art_url` in `music_assistant_esphome_mirror.yaml` to cleanly route the active speaker's authentic `entity_picture` (or `media_image_url`) through Home Assistant (`http://10.0.20.10:8123`) without brittle string-replacement hacks (e.g. injecting `size=200` or `fmt=jpg`), preventing Music Assistant HTTP 400 Bad Request rejections.
+  * **Clean Entity Picture Pass-Through**: Standardized `sensor.pocket_assistant_target_art_url` in `music_assistant_esphome_mirror.yaml` to cleanly route the active speaker's authentic `entity_picture` (or `media_image_url`) through Home Assistant (`http://homeassistant.local:8123`) without brittle string-replacement hacks (e.g. injecting `size=200` or `fmt=jpg`), preventing Music Assistant HTTP 400 Bad Request rejections.
   * **Graceful Progressive JPEG Fallback**: For tracks sourced with progressive JPEGs (which ESP32-S3 MCU decoders cannot decompress), ESPHome safely leaves the image width at 0, cleanly displaying the styled high-contrast vinyl record disc without crashing. Baseline JPEGs and local Sendspin streams display in full 216x216 color.
   * **Home Assistant Template Reload Protocol**: Clarified that package sensors in `/config/packages/` are reloaded exclusively via **Developer Tools -> YAML -> Template Entities** (or full HA restart), completely distinct from Blueprint scripts.
 * **Single-Flight Protected Album Art Download Engine**:
@@ -426,7 +426,7 @@ esphome-pocket-assistant/
 
 ### v3.4.8
 * **Home Assistant Script Blueprint Architecture**: Decoupled the music browsing engine into a reusable Home Assistant Script Blueprint (`homeassistant/blueprints/script/music_assistant_browse.yaml`), allowing any ESPHome device to generate its own browsing script with automatic RPC target resolution.
-* **Purge of Vestigial Substitutions**: Completely removed legacy presets (`preset_1_*`, `preset_2_*`, `preset_3_*`) and hardcoded speaker slots (`speaker_2_*`, `speaker_3_*`) from `pocket-assistant.yaml` and `core/ui.yaml`. Replaced with single `local_player_id: "media_player.pocket_assistant"`.
+* **Purge of Vestigial Substitutions**: Completely removed legacy presets (`preset_1_*`, `preset_2_*`, `preset_3_*`) and hardcoded speaker slots (`speaker_2_*`, `speaker_3_*`) from `pocket-assistant-1.75c.yaml` and `core/ui.yaml`. Replaced with single `local_player_id: "media_player.pocket_assistant"`.
 * **Universal Active Album Art Pipeline**: Integrated dual local/remote album art rendering. Local playback streams via Sendspin, while remote speaker handoffs leverage Music Assistant's native local HTTP image proxy on port 8095 (`?size=200&fmt=jpg`) paired with ESPHome's native `online_image` and `http_request` components.
 * **Smart-Sorted Dynamic Speaker Handoff**: Script Blueprint intelligently sorts the currently active speaker to Slot 1 (highlighted green), followed by Pocket Assistant at Slot 2 for 1-tap return, and all remaining household speakers alphabetically.
 * **Audio Output Hardware Fix**: Resolved silent playback on waking from sleep by adding explicit `switch.turn_on: speaker_enable` in `pocket_music_player.on_play` and asserting `ALWAYS_ON` restore mode.
