@@ -3384,11 +3384,11 @@ display:
           // Clean, focused confirmation header without redundant subtext
           it.print(cx, 130, id(font_date), id(col_rust), TextAlign::CENTER, "RESTART?");
 
-          // Cancel Button (Left, Gray Pill)
-          draw_pill_button(80, 215, 230, 26, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
+          // Cancel Button (Left, Gray Pill - compact 110px width, spans x: 105..215)
+          draw_pill_button(125, 195, 230, 20, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
 
-          // Confirm Restart Button (Right, Red Pill)
-          draw_pill_button(251, 386, 230, 26, id(col_red), id(col_dark_gray), "Restart", id(col_white), false);
+          // Confirm Restart Button (Right, Red Pill - compact 110px width, spans x: 251..361)
+          draw_pill_button(271, 341, 230, 20, id(col_red), id(col_dark_gray), "Restart", id(col_white), false);
         }
       }
 
@@ -3920,12 +3920,12 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 2) {
                 // Restart Confirmation Dialog:
-                if (touch.y >= 200 && touch.y <= 265) {
-                  if (touch.x >= 80 && touch.x <= 215) {
+                if (touch.y >= 195 && touch.y <= 265) {
+                  if (touch.x >= 90 && touch.x <= 225) {
                     // Cancel -> return to settings
                     id(system_menu_mode) = 1;
                     id(disp1).update();
-                  } else if (touch.x >= 251 && touch.x <= 386) {
+                  } else if (touch.x >= 240 && touch.x <= 375) {
                     // Confirm Restart
                     id(restart_button).press();
                   }
