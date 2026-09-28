@@ -1956,8 +1956,9 @@ display:
           it.filled_circle(x1 - 4, y_mid, 5, border_c);
         }
 
-        // Vertically centered text exactly on y_mid
-        it.print(cx + (has_bullet ? 6 : 0), y_mid, id(font_small), text_c, TextAlign::CENTER, label);
+        // Vertically centered text exactly on midpoint of pill (x1 + x2) / 2
+        int btn_cx = (x1 + x2) / 2;
+        it.print(btn_cx + (has_bullet ? 6 : 0), y_mid, id(font_small), text_c, TextAlign::CENTER, label);
       };
 
       // ==========================================
@@ -3312,32 +3313,33 @@ display:
           // Standardized Page Title baseline at y = 54 (matching Music & Games gold standard)
           it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
 
+          // Natural 38px buffer between title and telemetry content for spacious breathing room
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
-          it.print(cx, 80, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
+          it.print(cx, 92, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
 
-          it.print(cx, 110, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
+          it.print(cx, 120, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
 
           float sig = id(pocket_wifi_signal).state;
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
-          it.print(cx, 138, id(font_small), id(col_green), TextAlign::CENTER, buf);
+          it.print(cx, 148, id(font_small), id(col_green), TextAlign::CENTER, buf);
 
           float temp_c = id(imu_temp).state;
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
-          it.print(cx, 166, id(font_small), id(col_slate), TextAlign::CENTER, buf);
+          it.print(cx, 176, id(font_small), id(col_slate), TextAlign::CENTER, buf);
 
-          it.print(cx, 194, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
+          it.print(cx, 204, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
 
           std::string cur_wake = std::string(id(pickup_wake_mode).current_option().c_str());
           snprintf(buf, sizeof(buf), "Pickup Wake: %s", cur_wake.c_str());
-          it.print(cx, 222, id(font_small), id(col_gray), TextAlign::CENTER, buf);
+          it.print(cx, 232, id(font_small), id(col_gray), TextAlign::CENTER, buf);
 
-          // Protected Settings & Power Access Button
-          draw_pill_button(120, 346, 300, 24, id(col_rust), id(col_dark_gray), "Settings & Power", id(col_white), true);
+          // Protected Settings & Power Access Button (dropped to y_mid = 320 for 64px separation)
+          draw_pill_button(120, 346, 320, 24, id(col_rust), id(col_dark_gray), "Settings & Power", id(col_white), true);
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
@@ -3379,14 +3381,14 @@ display:
           // --------------------------------------------------
           // VIEW 2: RESTART CONFIRMATION DIALOG
           // --------------------------------------------------
-          it.print(cx, 80, id(font_date), id(col_rust), TextAlign::CENTER, "RESTART?");
-          it.print(cx, 130, id(font_small), id(col_slate), TextAlign::CENTER, "Reboot device now?");
+          // Clean, focused confirmation header without redundant subtext
+          it.print(cx, 130, id(font_date), id(col_rust), TextAlign::CENTER, "RESTART?");
 
-          // Cancel Button (Left)
-          draw_pill_button(80, 215, 230, 26, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), true);
+          // Cancel Button (Left, Gray Pill)
+          draw_pill_button(80, 215, 230, 26, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
 
-          // Confirm Reboot Button (Right)
-          draw_pill_button(251, 386, 230, 26, id(col_red), id(col_dark_gray), "Reboot", id(col_white), true);
+          // Confirm Restart Button (Right, Red Pill)
+          draw_pill_button(251, 386, 230, 26, id(col_red), id(col_dark_gray), "Restart", id(col_white), false);
         }
       }
 
@@ -3850,7 +3852,7 @@ touchscreen:
             } else if (id(gui_page) == 4) {
               if (id(system_menu_mode) == 0) {
                 // Main Telemetry View: tap "Settings & Power" button
-                if (touch.y >= 270 && touch.y <= 335 && touch.x >= 110 && touch.x <= 356) {
+                if (touch.y >= 290 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 1;
                   id(disp1).update();
                 }
@@ -3924,7 +3926,7 @@ touchscreen:
                     id(system_menu_mode) = 1;
                     id(disp1).update();
                   } else if (touch.x >= 251 && touch.x <= 386) {
-                    // Confirm Reboot
+                    // Confirm Restart
                     id(restart_button).press();
                   }
                 }
