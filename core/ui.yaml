@@ -149,6 +149,14 @@ globals:
     type: float
     restore_value: no
     initial_value: '0.0'
+  - id: update_check_state
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = Idle, 1 = Checking..., 2 = Checked
+  - id: update_check_timer
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: boot_hold_triggered
     type: bool
     restore_value: no
@@ -678,10 +686,15 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          // Continuous smooth OTA progress animation & lerp interpolation
+          // Continuous OTA progress animation
           if (id(ota_in_progress)) {
             id(disp1).update();
             return;
+          }
+
+          // Active Update Check animation refresh
+          if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0) {
+            id(disp1).update();
           }
 
           // Read AXP2101 IRQ status for top button (PWR / PEK)
@@ -2076,62 +2089,43 @@ display:
       if (id(ota_in_progress)) {
         it.fill(id(col_bg));
 
-        // Outer bezel accent rings (recessed track)
+        // Outer bezel accent rings (recessed architectural track)
         it.circle(cx, cy, 230, id(col_dark_gray));
         it.circle(cx, cy, 228, id(col_rust));
         it.circle(cx, cy, 227, id(col_rust));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        // Smooth Lerp Interpolation
-        float target_pct = (float)id(ota_progress_pct);
-        if (id(ota_display_pct) < target_pct) {
-          float diff = target_pct - id(ota_display_pct);
-          // Glides smoothly at 10 FPS towards the target
-          id(ota_display_pct) += std::max(0.2f, diff * 0.20f);
-          if (id(ota_display_pct) > target_pct) {
-            id(ota_display_pct) = target_pct;
-          }
-        } else if (id(ota_display_pct) > target_pct) {
-          id(ota_display_pct) = target_pct;
-        }
-
-        // Circular Progress Arc (Radius 215)
-        // Background track
+        // Circular Bezel Gauge (Radius 214)
+        // Recessed track
+        it.circle(cx, cy, 216, id(col_dark_gray));
         it.circle(cx, cy, 215, id(col_dark_gray));
         it.circle(cx, cy, 214, id(col_dark_gray));
+        it.circle(cx, cy, 213, id(col_dark_gray));
 
-        // Draw radial arc segments up to current progress percentage
-        int steps = (int)id(ota_display_pct);
-        if (steps > 100) steps = 100;
-        for (int i = 0; i <= steps; i++) {
+        // Solid progress arc fill up to current percentage (clean, intentional instrument styling)
+        int pct = id(ota_progress_pct);
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        for (int i = 0; i <= pct; i++) {
           float rad = ((float)i / 100.0f) * 2.0f * 3.14159265f - 1.5707963f; // 12 o'clock top is -pi/2
           float c = cosf(rad);
           float s = sinf(rad);
-          it.line(cx + (int)(210 * c), cy + (int)(210 * s), cx + (int)(218 * c), cy + (int)(218 * s), id(col_cyan));
+          it.line(cx + (int)(212 * c), cy + (int)(212 * s), cx + (int)(218 * c), cy + (int)(218 * s), id(col_cyan));
         }
 
-        // Leading-edge illuminated glowing pip
-        if (id(ota_display_pct) > 0.0f) {
-          float tip_rad = (id(ota_display_pct) / 100.0f) * 2.0f * 3.14159265f - 1.5707963f;
-          float tc = cosf(tip_rad);
-          float ts = sinf(tip_rad);
-          it.filled_circle(cx + (int)(214 * tc), cy + (int)(214 * ts), 4, id(col_white));
-          it.circle(cx + (int)(214 * tc), cy + (int)(214 * ts), 6, id(col_cyan));
-        }
-
-        it.print(cx, cy - 65, id(font_date), id(col_rust), TextAlign::CENTER, "FIRMWARE UPDATE");
+        it.print(cx, cy - 60, id(font_date), id(col_rust), TextAlign::CENTER, "FIRMWARE UPDATE");
 
         char prog_buf[32];
-        snprintf(prog_buf, sizeof(prog_buf), "%.0f%%", id(ota_display_pct));
-        it.print(cx, cy + 5, id(font_time), id(col_white), TextAlign::CENTER, prog_buf);
+        snprintf(prog_buf, sizeof(prog_buf), "%d%%", pct);
+        it.print(cx, cy + 8, id(font_time), id(col_white), TextAlign::CENTER, prog_buf);
 
         // Dynamic stage messaging
         const char* status_msg = "Preparing flash...";
-        if (id(ota_display_pct) >= 99.0f) {
+        if (pct >= 99) {
           status_msg = "Rebooting device...";
-        } else if (id(ota_display_pct) >= 85.0f) {
+        } else if (pct >= 85) {
           status_msg = "Verifying image...";
-        } else if (id(ota_display_pct) >= 15.0f) {
+        } else if (pct >= 10) {
           status_msg = "Writing flash memory...";
         }
         it.print(cx, cy + 65, id(font_small), id(col_slate), TextAlign::CENTER, status_msg);
@@ -3624,6 +3618,20 @@ display:
           std::string lat_v = id(ha_firmware_latest_version).state;
           bool has_update = is_newer_semver(lat_v, "${version}");
 
+          // Manage checking state timer transitions
+          if (id(update_check_state) == 1) {
+            // After 1500ms of checking, transition to Checked
+            if (millis() - id(update_check_timer) > 1500) {
+              id(update_check_state) = has_update ? 0 : 2;
+              id(update_check_timer) = millis();
+            }
+          } else if (id(update_check_state) == 2) {
+            // After 3500ms of showing "No updates available", revert to Idle
+            if (millis() - id(update_check_timer) > 3500) {
+              id(update_check_state) = 0;
+            }
+          }
+
           if (has_update) {
             char lat_buf[32];
             snprintf(lat_buf, sizeof(lat_buf), "Available: v%s", lat_v.empty() ? "3.5.x" : lat_v.c_str());
@@ -3644,10 +3652,16 @@ display:
             snprintf(lat_buf, sizeof(lat_buf), "Latest: v%s", "${version}");
             it.print(cx, 125, id(font_small), id(col_green), TextAlign::CENTER, lat_buf);
 
-            it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, "Firmware is up to date");
-
-            // Action Button: Check for Updates (y_mid = 215, r = 20)
-            draw_pill_button(110, 356, 215, 20, id(col_slate), id(col_dark_gray), "Check for Updates", id(col_white), true);
+            if (id(update_check_state) == 1) {
+              it.print(cx, 160, id(font_small), id(col_gold), TextAlign::CENTER, "Checking Home Assistant...");
+              draw_pill_button(110, 356, 215, 20, id(col_gold), id(col_dark_gray), "Checking...", id(col_gold), true);
+            } else if (id(update_check_state) == 2) {
+              it.print(cx, 160, id(font_small), id(col_green), TextAlign::CENTER, "No updates available");
+              draw_pill_button(110, 356, 215, 20, id(col_green), id(col_dark_gray), "Up to date", id(col_white), false);
+            } else {
+              it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, "Firmware is up to date");
+              draw_pill_button(110, 356, 215, 20, id(col_slate), id(col_dark_gray), "Check for Updates", id(col_white), true);
+            }
           }
 
           // Back Button (y_mid = 285, r = 18)
@@ -4301,12 +4315,16 @@ touchscreen:
                   if (has_update) {
                     id(system_menu_mode) = 6; // Open Update Confirmation Dialog
                     id(disp1).update();
-                  } else {
+                  } else if (id(update_check_state) == 0) {
+                    // Start interactive checking sequence
+                    id(update_check_state) = 1;
+                    id(update_check_timer) = millis();
                     id(check_firmware_update).execute();
                     id(disp1).update();
                   }
                 // Back Button: < Back (y: 265..315, x: 125..341)
                 } else if (touch.y >= 265 && touch.y <= 315 && touch.x >= 125 && touch.x <= 341) {
+                  id(update_check_state) = 0; // Reset checking state
                   id(system_menu_mode) = 1; // Return to System Hub
                   id(disp1).update();
                 }
