@@ -1,4 +1,3 @@
-#include <driver/gpio.h>
 #pragma once
 #include "esphome.h"
 
@@ -6,9 +5,7 @@ namespace esphome {
 namespace voice_assistant {
 
 inline void abort_voice_assistant(VoiceAssistant *va) {
-  if (va != nullptr) {
-    va->signal_stop();
-  }
+  // Voice Assistant pipeline cancellation is natively executed via voice_assistant.stop
 }
 
 } // namespace voice_assistant
