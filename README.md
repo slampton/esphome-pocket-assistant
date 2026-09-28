@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v3.5.0-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.5.3-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -17,15 +17,16 @@ Most ESPHome media controllers are passive displays that only reflect what an ex
 * 🎵 **Native Music Assistant Library Browsing**: Browse Favorites, Playlists, Artists, Albums, Radio, Podcasts, and Audiobooks directly on-device with dual-action play (`▶`) and drill-down (`>`) touch cards across a 3-page category menu with bidirectional carousel wrap-around.
 * 🖼️ **Universal Active Album Art**: Displays crisp, full-color 200×200 album art whether playing locally through the handheld speaker or handed off to any external household speaker (Sonos, AirPlay, Chromecast, DLNA, Marantz receivers).
 * 🔊 **Smart Speaker Handoff & Takeover**: Transfer active playback queues between rooms with intelligent priority sorting: the active speaker floats to Slot 1 (highlighted green), the handheld device sits at Slot 2 for 1-tap return, and previously used speakers remain pinned at Slot 3.
-* 🎙️ **Voice Assistant with Software Mixer Ducking**: Direct Assist satellite pipeline with dynamic 20 dB music ducking, kinetic AMOLED visual feedback, and instant push-to-talk/side-button cancellation.
+* 🎙️ **Voice Assistant with Touch Modal Takeover & Tap-to-Dismiss**: Direct Assist satellite pipeline with dynamic 20 dB music ducking, kinetic AMOLED visual feedback, physical side-button abort, and full-screen touch modal interception allowing tap-to-dismiss without triggering background app cards.
 * 🎚️ **Single-Authority Audio & Glitch-Free Volume**: Unified physical DAC control with priority-synchronized boot gain (no 100% startup blasts) and a configurable **Volume Step Size** entity (1%–10%, default 2%) to eliminate slider rubber-banding.
 * ⏱️ **Vintage Chronograph & Lap Stopwatch**: Precision chronometer featuring an aged parchment Heuer-inspired dual-subdial dial, center sweep seconds, and crown button controls with hardware release-dwell latency compensation.
 * 🎮 **Interactive Motion Games**: Real-time 20 FPS physics games (Marble Maze, Archery Target, Treat Catcher) powered by the onboard 6-axis IMU.
-* 🔋 **Intelligent Multi-Tier Power Management**: Instant AMOLED screen standby with modular pickup wake modes (Always On, Docked Only, or Button Only), physical pocket lock, 5-second abortable hibernation countdown, hardware deep sleep with accidental-bump rejection, and USB dock stay-awake override.
-* 🛡️ **Protected Settings & Telemetry Dashboard**: Complete separation of observational telemetry (battery %, voltage, Wi-Fi RSSI/IP, temperature, orientation, and firmware version) from actionable controls (brightness, start app, confirmation-guarded reboot, and manual hibernate).
+* 🔋 **Intelligent Multi-Tier Power Management**: Instant AMOLED screen standby with modular pickup wake modes (Always On, Docked Only, or Button Only), selective Tap-to-Wake gating (`select.tap_wake_mode`), configurable standby auto-sleep timeout (5m, 10m, 15m, 30m, Disabled), physical pocket lock, 5-second abortable hibernation countdown, hardware deep sleep with accidental-bump rejection, and USB dock stay-awake override.
+* 🛡️ **2-Tier Hierarchical System Submenu Hub**: Clean separation of Mode 0 observational telemetry (battery %, voltage, Wi-Fi RSSI/IP, IMU temp/orientation, firmware version, wake settings, live brightness, and sleep timeout) from an interactive 2-tier menu: Mode 1 (System Hub router), Mode 2 (Device Settings cyclers for Brightness, Start App, Motion Wake, Tap Wake), Mode 3 (Power Options for Hibernate Now, Auto-Sleep cycler, and Restart), and Mode 4 (Protected Restart confirmation dialog).
+* 💡 **Live Display Brightness Readout**: Real-time on-screen telemetry on the System Dashboard updating instantaneously when cycling brightness via the physical top crown button.
 * 🔄 **Native Home Assistant Firmware Updates**: Full compliance with the *Made for ESPHome* standard (`project` and `dashboard_import` metadata), automatically generating an `update` entity in Home Assistant with 1-click OTA update support.
 * 🕒 **Modern Dial Clock Face**: High-contrast watch dial with Roman indices, polished polygon hands, 12-hour digital readout, and a sleek vertical battery level gauge with a golden charging lightning bolt.
-* ⚙️ **Elevated System Telemetry**: High-legibility 22pt live telemetry readouts for battery percentage, voltage, charging state, and Wi-Fi signal strength with generous vertical breathing room.
+* ⚙️ **Elevated System Telemetry**: High-legibility live telemetry readouts for battery percentage, voltage, charging state, Wi-Fi signal strength, and hardware states with generous vertical breathing room.
 * 🧩 **Modular Architecture**: Built on ESPHome's native `packages:` engine. Customize or reorder apps at runtime without touching core firmware.
 
 ---
@@ -150,58 +151,97 @@ Interactive accelerometer-driven games running at 20 FPS:
 * **Archery Target**: Steady your aim against synthetic wind drift.
 * **Treat Catcher**: Tilt to roll treats into the animated cat's mouth.
 
-### ⚙️ System Dashboard & Diagnostics (`apps/system.yaml`)
-Consolidated hardware status and controls:
-* High-legibility 22pt telemetry for battery percentage, voltage, charging state, and Wi-Fi RSSI.
-* One-touch display brightness preset cycler (40% to 100%).
-* Configurable default boot app selector.
-* Safe diagnostic device restart button.
+### ⚙️ System Dashboard & Hierarchical Submenu Hub (`apps/system.yaml`)
+Consolidated hardware status, settings, and power controls organized into a clean 2-tier hierarchy:
+* **Mode 0 (Telemetry Dashboard)**: 100% observational display with zero risk of accidental setting toggles. Shows real-time battery % and voltage, USB charging status, Wi-Fi RSSI and IP address, IMU temperature and orientation, firmware version, Motion & Tap Wake modes, live screen brightness, and standby sleep timeout.
+* **Mode 1 (System Hub Router)**: High-level category menu dividing controls into **Device Settings** and **Power Options**.
+* **Mode 2 (Device Settings Submenu)**: Interactive cycler pills for **Brightness Preset** (40%–100%), **Default Start App** (Clock, Stopwatch, Music, Games, System), **Motion Wake Mode** (Always On, Docked Only, Disabled), and **Tap Wake Mode** (Always On, Docked Only, Disabled).
+* **Mode 3 (Power Options Submenu)**: Instant **Hibernate Now**, one-touch **Auto-Sleep Timeout** cycler (5 min, 10 min, 15 min, 30 min, Disabled), and **Restart Device**.
+* **Mode 4 (Restart Confirmation Modal)**: Protected dialog requiring deliberate confirmation (`Cancel` vs. `Restart`) to eliminate accidental restarts.
 
 ---
 
-## 🚀 Quick Start & Installation
+## 🚀 Installation & First-Time Setup
 
-### 1. Requirements
-* Home Assistant with the **ESPHome** and **Music Assistant** integrations installed.
-* Supported ESP32-S3 hardware (Waveshare ESP32-S3-Touch-AMOLED-1.75C).
+Getting Pocket Assistant up and running takes just three simple steps: flash the firmware, adopt the device in Home Assistant, and optionally enable the Music Assistant companion package.
 
-### 2. Home Assistant Setup (Blueprint & Companion Package)
+---
 
-#### A. Install the Browse Script Blueprint
-Pocket Assistant uses a native Home Assistant Script Blueprint to dynamically fetch and paginate library data directly from Music Assistant without hardcoding entity IDs:
-1. Copy [`homeassistant/blueprints/script/music_assistant_browse.yaml`](homeassistant/blueprints/script/music_assistant_browse.yaml) to your Home Assistant configuration directory under:
-   `/config/blueprints/script/esphome/music_assistant_browse.yaml`
-   *(Or import it via **Settings** -> **Automations & Scenes** -> **Blueprints**).*
-2. Click **Create Script** from the Blueprint:
-   * **Target ESPHome Device Name**: Leave as default (`pocket-assistant`), or enter your custom node name.
-   * **Active Speaker Helper**: Leave as default (`input_text.pocket_assistant_active_speaker`).
-3. Save the script with Entity ID: `script.music_assistant_browse` (matching `${browse_script}` in your ESPHome substitutions).
+### Step 1: Flash Firmware & Connect to Wi-Fi
 
-#### B. Configure the Active Speaker Helper & Metadata Sensors
-Pocket Assistant mirrors playback metadata (title, artist, album, duration, progress, artwork) from whichever household speaker is currently active using companion Home Assistant template entities.
+Choose whichever installation method fits your workflow:
 
-##### Option 1: Using Home Assistant Packages (Recommended)
-Packages allow you to bundle the helper and sensors in a single, clean file without cluttering `configuration.yaml`:
+#### Method A: Web Browser via ESPHome Web (Recommended — Fast & Zero Installs)
+1. Plug your Pocket Assistant into your computer using a USB-C data cable.
+2. Open **[web.esphome.io](https://web.esphome.io)** in a WebSerial-supported browser (Chrome, Edge, or Opera).
+3. Click **Connect**, select your ESP32-S3 serial port, and choose **Install Pocket Assistant**.
+4. When prompted, enter your local Wi-Fi SSID and password. The device will connect to your network immediately.
 
-1. **Locate your Home Assistant Configuration Directory (`/config`)**:
-   * Access your Home Assistant files using the **Studio Code Server** or **File Editor** add-on (from the Home Assistant sidebar), or via **Samba / SSH**.
-   * The `/config` folder (labeled `homeassistant/` in some file editors) is the root folder where your `configuration.yaml`, `secrets.yaml`, and `automations.yaml` reside.
-2. **Enable Packages in `configuration.yaml` (One-Time Prerequisite)**:
-   * Home Assistant does not enable packages by default. Open `/config/configuration.yaml` and add:
-     ```yaml
-     homeassistant:
-       packages: !include_dir_named packages
-     ```
-3. **Create the `packages/` Directory**:
-   * If it doesn't already exist, create a folder named `packages` directly inside `/config` (e.g. `/config/packages/`).
-4. **Copy the Package File**:
-   * Copy [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) into your `/config/packages/` directory.
-5. **Reload Home Assistant**:
-   * Navigate to **Developer Tools** -> **YAML** -> **Template Entities** and click **Reload** (or restart Home Assistant).
-   * This automatically instantiates `input_text.pocket_assistant_active_speaker` and the 7 mirror sensors (`sensor.pocket_assistant_target_*`).
+#### Method B: ESPHome Dashboard in Home Assistant (Remote Git Package)
+If you manage your devices via the Home Assistant ESPHome add-on:
+1. In Home Assistant, open **ESPHome Device Builder** from the sidebar.
+2. Click **New Device**, name it `pocket-assistant`, and paste this clean remote package configuration:
+   ```yaml
+   substitutions:
+     name: "pocket-assistant"
+     friendly_name: "Pocket Assistant"
+     version: "v3.5.3"
+     local_player_id: "media_player.pocket_assistant"
 
-##### Option 2: Dedicated Template File (`template: !include templates.yaml`) (Modern Split Standard)
-If your `configuration.yaml` already delegates templates via `template: !include templates.yaml`:
+   wifi:
+     ssid: !secret wifi_ssid
+     password: !secret wifi_password
+
+   api:
+     encryption:
+       key: !secret pocket_assistant_encryption_key
+
+   ota:
+     - platform: esphome
+       encryption:
+
+   packages:
+     remote_pocket_assistant:
+       url: https://github.com/slampton/esphome-pocket-assistant
+       ref: main
+       refresh: 0s
+       files:
+         - pocket-assistant-1.75c.yaml
+   ```
+3. Click **Save** and **Install** (select **Plug into this computer** for first-time USB flash, or **Over the air** if already online).
+
+---
+
+### Step 2: Adopt Device in Home Assistant
+
+1. In Home Assistant, navigate to **Settings** -> **Devices & Services**.
+2. Pocket Assistant will appear under **Discovered** devices.
+3. Click **Configure**, enter your `pocket_assistant_encryption_key` (if prompted), and assign it to an area.
+
+---
+
+### Step 3: Enable Music Assistant Companion Package (Optional)
+
+Pocket Assistant mirrors live playback metadata (title, artist, album, progress, and artwork) from whichever household speaker is active.
+
+#### 1-Click Package Setup (Recommended)
+1. Open your Home Assistant configuration directory (`/config`) using **Studio Code Server**, **File Editor**, or Samba.
+2. Ensure package support is enabled in `/config/configuration.yaml` (one-time prerequisite):
+   ```yaml
+   homeassistant:
+     packages: !include_dir_named packages
+   ```
+3. Copy [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) into `/config/packages/`.
+4. Go to **Developer Tools** -> **YAML** -> **Template Entities** and click **Reload**.
+5. Import the **Browse Script Blueprint** ([`homeassistant/blueprints/script/music_assistant_browse.yaml`](homeassistant/blueprints/script/music_assistant_browse.yaml)) via **Settings** -> **Automations & Scenes** -> **Blueprints**, click **Create Script**, and save it as `script.music_assistant_browse`.
+
+<details>
+<summary>👉 Click to view alternative manual templates.yaml or monolithic setup</summary>
+
+<br>
+
+##### Dedicated Template File (`template: !include templates.yaml`)
+If your Home Assistant environment routes templates through a dedicated `templates.yaml` file:
 
 1. **Add Helper to `configuration.yaml`** (or create it via **Settings -> Devices & Services -> Helpers**):
    ```yaml
@@ -210,7 +250,7 @@ If your `configuration.yaml` already delegates templates via `template: !include
        name: "Pocket Assistant Active Speaker"
        icon: mdi:speaker
    ```
-2. **Append to `/config/templates.yaml`** (do not include the top-level `template:` header):
+2. **Append to `/config/templates.yaml`**:
    ```yaml
    - trigger:
        - platform: state
@@ -301,64 +341,27 @@ If your `configuration.yaml` already delegates templates via `template: !include
    ```
 3. Navigate to **Developer Tools** -> **YAML** -> **Template Entities** and click **Reload**.
 
-##### Option 3: Direct Addition to `configuration.yaml` (Monolithic Setup)
-If your `configuration.yaml` does not use split include files:
-1. Open `/config/configuration.yaml` in your editor.
-2. Open [`homeassistant/packages/music_assistant_esphome_mirror.yaml`](homeassistant/packages/music_assistant_esphome_mirror.yaml) and copy its entire text contents directly into `configuration.yaml` (merging under existing `input_text:` or `template:` keys).
-3. Go to **Developer Tools** -> **YAML** -> **Template Entities** and click **Reload**.
+##### Monolithic Setup (`configuration.yaml`)
+If your configuration is un-split, you can paste the full contents of `homeassistant/packages/music_assistant_esphome_mirror.yaml` directly into your `/config/configuration.yaml` (merging under existing `input_text:` and `template:` keys), then reload Template Entities.
+</details>
 
-### 3. Deploy Firmware (One-Click Remote Git Package)
-In your Home Assistant **ESPHome Device Builder** dashboard, create a new device or edit your configuration with this clean, minimal stub:
+## 🧭 Navigation & Hardware Controls
 
-```yaml
-substitutions:
-  name: "pocket-assistant"
-  friendly_name: "Pocket Assistant"
-  version: "v3.5.0"
-
-  # Local Media Player Identity
-  local_player_id: "media_player.pocket_assistant"
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-
-api:
-  encryption:
-    key: !secret pocket_assistant_encryption_key
-
-ota:
-  - platform: esphome
-    encryption:
-
-packages:
-  remote_pocket_assistant:
-    url: https://github.com/slampton/esphome-pocket-assistant
-    ref: main
-    refresh: 0s
-    files:
-      - pocket-assistant-1.75c.yaml
-```
-
-Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `pocket_assistant_encryption_key`.
-
----
-
-## 🧭 Navigation & Controls
-
-| Gesture / Input | Scope | Action |
+| Input / Control | Context / Screen | Behavior |
 | :--- | :--- | :--- |
-| **Left / Right Edge Swipe** | Main Apps | Cycle between active app deck (Clock <-> Stopwatch <-> Music <-> Games <-> System) |
-| **Left / Right Edge Swipe** | Library Submenus | Paginates forward and back with bidirectional carousel wrap-around (Page 1 <-> Page 3) |
-| **Top Crown Button (Short Press)** | Sleep / Any App | Wake display / Toggle between current app and Now Playing player screen |
-| **Top Crown Button (Long Press >1s)** | Any App | Enter hardware deep sleep hibernation |
-| **Side Button (Short Press)** | Any Screen | Activate Voice Assistant (Assist satellite listening) |
-| **Side Button (Press while Active)** | Voice Assistant | Instantly cancel Assist and dismiss acoustic overlay |
-| **Rotational Perimeter Swipe** | Music Player | Adjust volume up / down with left-side HUD feedback |
-| **Center Screen Tap** | Music Player | Toggle Play / Pause |
-| **Center Screen Tap** | Stopwatch | Instant Start / Stop (zero dead zones across central dial) |
-
----
+| **Top Crown (Short Click)** | **Screen Off (Standby)** | Wakes display immediately. If asleep $>30\text{ s}$, opens Default Start App; if $<30\text{ s}$, restores previous screen. |
+| **Top Crown (Short Click)** | **Pages 0–3 (Clock, Stopwatch, Music, Games)** | Exits active game to menu, or toggles between active app and Default Start App. In Stopwatch, operates as precision Start/Stop with 200ms latency compensation. |
+| **Top Crown (Short Click)** | **Page 4 (System App)** | **Cycles Display Brightness Preset** ($40\% \rightarrow 50\% \rightarrow \dots \rightarrow 100\% \rightarrow 40\%$) with instant on-screen feedback. |
+| **Top Crown (Hold >1.5s)** | **Any Screen** | Initiates the **5-second abortable Hibernation Countdown**. (A short click or continuing to hold during countdown aborts it; releasing and waiting 5s enters hardware deep sleep $<100\mu\text{A}$). |
+| **Top Crown (Hold ~0.5s)** | **Deep Sleep (Off)** | Boots the device (filtered by $>200\text{ms}$ anti-pocket-bump threshold). |
+| **Side Button (Short Press)** | **Any Screen / Standby** | Activates Voice Assistant (Assist satellite listening mode). Pauses local music and routes I2S to microphone. |
+| **Side Button (Short Press)** | **Assist Active** | **Instantly cancels Voice Assistant** via hardware hook, mutes audio, and returns to previous app. |
+| **Anywhere on Screen (Tap)** | **Assist Active** | **Tap-to-Dismiss**: Aborts Voice Assistant modal without triggering underlying app controls. |
+| **Left / Right Edge Swipe** | **Main App Deck** | Cycles through active apps: `Clock` $\leftrightarrow$ `Stopwatch` $\leftrightarrow$ `Music` $\leftrightarrow$ `Games` $\leftrightarrow$ `System`. |
+| **Left / Right Edge Swipe** | **Library Submenus** | Paginates forward and back with bidirectional carousel wrap-around (Page 1 $\leftrightarrow$ Page 3). |
+| **Perimeter Rotational Swipe** | **Music Player** | Adjusts volume with left-side HUD feedback. |
+| **Center Screen Tap** | **Music Player** | Toggles Play / Pause. |
+| **Center Screen Tap** | **Stopwatch** | Instant leading-edge capacitive Start / Stop across central dial. |
 
 ## 📂 Repository Layout
 
@@ -392,7 +395,36 @@ esphome-pocket-assistant/
 
 ## 📜 Version History & Changelog
 
-### v3.5.0 (Current)
+### v3.5.3 (Current)
+* **Live Display Brightness Readout**:
+  * Added real-time on-screen brightness telemetry (`Brightness: XX% | Sleep: XX`) at line $y = 260$ on the Mode 0 Observational Dashboard.
+  * Updates instantaneously upon physical crown button clicks, providing clear feedback when cycling brightness presets without opening submenus.
+* **Configurable Standby Sleep Timeout (`select.sleep_timeout_mode`)**:
+  * Implemented an ESPHome template select entity with options: `5 min` *(Default)*, `10 min`, `15 min`, `30 min`, and `Disabled`.
+  * Preserved across reboots and deep sleep via `restore_value: true`, automatically exposed to Home Assistant for remote dashboard control.
+  * Integrated a one-touch cycler pill button in View 3 (Power Options Submenu) at $y = 160$ with rebalanced 60px vertical spacing.
+  * Dynamically evaluates inactivity timeout in Power Management Priority 4, honoring `prevent_deep_sleep_switch` and `Disabled` mode.
+* **Streamlined Documentation & Web Builder Support**:
+  * Re-architected installation instructions into a bite-sized 3-step guide highlighting ESPHome Web (`web.esphome.io`) for browser-based first-time flashing.
+  * Compartmentalized advanced split-template and monolithic YAML examples inside collapsible `<details>` blocks to eliminate visual clutter.
+  * Added a complete, multi-context Hardware Button & Touch Input matrix.
+
+### v3.5.2
+* **C++ Lambda Compilation Hotfix**:
+  * Resolved an ESP-IDF 5.5.5 / GCC compilation error (`error: expected ')' before '}' token` at line 3436 of `core/ui.yaml`) caused by an extraneous closing brace following the display lambda.
+  * Performed automated AST balance verification across all 71 C++ lambdas in the repository.
+
+### v3.5.1
+* **2-Tier Hierarchical System Submenu Hub**:
+  * Partitioned the System application into 5 clean modes: Mode 0 (Observational Telemetry Dashboard), Mode 1 (System Hub router), Mode 2 (Device Settings cyclers), Mode 3 (Power Options), and Mode 4 (Protected Restart confirmation modal).
+  * Completely eliminated accidental setting changes on the initial System screen while keeping all diagnostics immediately visible.
+* **Selective Tap-to-Wake Gating (`select.tap_wake_mode`)**:
+  * Added `select.tap_wake_mode` with options `Always On`, `Docked Only`, and `Disabled`.
+  * In standby on battery with `Docked Only` or `Disabled`, touch polling is ignored to eliminate phantom pocket touches while preserving motion pickup and crown button wake.
+* **Voice Assistant Full Modal Touch Interception & Tap-to-Dismiss**:
+  * Added full-screen touch interception during active Voice Assistant states (listening, thinking, responding), allowing users to tap anywhere on the screen to cleanly cancel Assist without click-through.
+
+### v3.5.0
 * **Standardized Active Album Art Pipeline & Decoder Alignment**:
   * **Clean Multi-Format Image Decoding (`format: AUTO`)**: Configured `platform: online_image` to `format: AUTO` with a valid static boot image (`/static/icons/favicon-192x192.png`). Automatically decodes JPEG and PNG based on server `Content-Type` headers, eliminating `Incorrect PNG signature` mismatches when receiving Home Assistant media player streams.
   * **Clean Entity Picture Pass-Through**: Standardized `sensor.pocket_assistant_target_art_url` in `music_assistant_esphome_mirror.yaml` to cleanly route the active speaker's authentic `entity_picture` (or `media_image_url`) through Home Assistant (`http://homeassistant.local:8123`) without brittle string-replacement hacks (e.g. injecting `size=200` or `fmt=jpg`), preventing Music Assistant HTTP 400 Bad Request rejections.
