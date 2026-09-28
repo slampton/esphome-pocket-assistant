@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v3.4.9-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v3.5.0-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -312,7 +312,7 @@ In your Home Assistant **ESPHome Device Builder** dashboard, create a new device
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "v3.4.9"
+  version: "v3.5.0"
 
   # Local Media Player Identity
   local_player_id: "media_player.pocket_assistant"
@@ -390,7 +390,17 @@ esphome-pocket-assistant/
 
 ## 📜 Version History & Changelog
 
-### v3.4.9 (Current)
+### v3.5.0 (Current)
+* **Geometric Symmetry for Player Navigation Carets**:
+  * Corrected Next Track chevron coordinates to span $x = 353$ to $375$ (centered at $y = 212$), resolving a horizontal asymmetry where the right button previously sat at $x = 343$ to $365$ with only a $2\text{ px}$ gap to the album art.
+  * Both Previous Track ($x = 91..113$) and Next Track ($x = 353..375$) chevrons now feature an identical, balanced $12\text{ px}$ margin to the $216\times 216\text{ px}$ album art ($x = 125..341$), perfectly mirrored across $cx = 233$, and centered inside their respective $75\text{ px}$ touch zones ($touch.x \in [50, 125]$ and $touch.x \in [341, 416]$).
+* **Persistent Multi-Track Remote Album Art & Continuous Playback Architecture**:
+  * Resolved the remote speaker album art blanking bug where skipping to the next track on an album or playlist caused the artwork to disappear.
+  * Eliminated premature buffer releases (`remote_album_art.release()`) and cache-wiping (`current_loaded_art_url = ""`) in `music_next_track`, `music_prev_track`, and `play_music_slot_1/2/3`. When playing albums, audiobooks, or playlists where consecutive tracks share the same artwork, the decoded image remains persistent in memory without blanking out or flickering.
+  * Removed non-functional `homeassistant.update_entity: ${target_art_url_sensor}` calls that previously triggered `NotImplementedError` in Home Assistant Core logs (as Home Assistant trigger-based template sensors do not implement `update_entity`).
+  * Integrated intelligent state evaluation in `ha_track_title.on_value`: when a new track starts on a remote speaker, ESPHome checks if artwork is missing (`width == 0`) or if a new art URL is available, immediately triggering `online_image.set_url` while cleanly preserving existing artwork when playing through multi-track albums.
+
+### v3.4.9
 * **Standardized Active Album Art Pipeline & Decoder Alignment**:
   * **Clean Multi-Format Image Decoding (`format: AUTO`)**: Configured `platform: online_image` to `format: AUTO` with a valid static boot image (`/static/icons/favicon-192x192.png`). Automatically decodes JPEG and PNG based on server `Content-Type` headers, eliminating `Incorrect PNG signature` mismatches when receiving Home Assistant media player streams.
   * **Clean Entity Picture Pass-Through**: Standardized `sensor.pocket_assistant_target_art_url` in `music_assistant_esphome_mirror.yaml` to cleanly route the active speaker's authentic `entity_picture` (or `media_image_url`) through Home Assistant (`http://10.0.20.10:8123`) without brittle string-replacement hacks (e.g. injecting `size=200` or `fmt=jpg`), preventing Music Assistant HTTP 400 Bad Request rejections.

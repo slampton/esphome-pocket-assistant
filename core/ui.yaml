@@ -926,20 +926,18 @@ text_sensor:
     entity_id: ${target_title_sensor}
     on_value:
       then:
-        - lambda: |-
-            bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-            if (is_remote) {
-              id(current_loaded_art_url) = "";
-            }
         - if:
             condition:
-              lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+              lambda: |-
+                return (id(active_speaker_entity) != "${local_player_id}") &&
+                       !id(ha_target_art_url).state.empty() &&
+                       (id(ha_target_art_url).state != "none") &&
+                       (id(remote_album_art).get_width() == 0 || id(ha_target_art_url).state != id(current_loaded_art_url));
             then:
-              - delay: 300ms
-              - homeassistant.action:
-                  action: homeassistant.update_entity
-                  data:
-                    entity_id: ${target_art_url_sensor}
+              - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
+              - online_image.set_url:
+                  id: remote_album_art
+                  url: !lambda 'return id(ha_target_art_url).state;'
         - component.update: disp1
 
   - platform: homeassistant
@@ -1173,48 +1171,18 @@ script:
   - id: music_next_track
     mode: restart
     then:
-      - lambda: |-
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
-            id(disp1).update();
-          }
       - homeassistant.action:
           action: media_player.media_next_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
 
   - id: music_prev_track
     mode: restart
     then:
-      - lambda: |-
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
-            id(disp1).update();
-          }
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
 
   - id: fetch_music_browse
     mode: restart
@@ -1257,10 +1225,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_1_name);
           id(music_feedback_timer) = millis();
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
-          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1270,15 +1234,6 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_1_type).c_str();
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -1290,10 +1245,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_2_name);
           id(music_feedback_timer) = millis();
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
-          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1303,15 +1254,6 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_2_type).c_str();
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -1323,10 +1265,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_3_name);
           id(music_feedback_timer) = millis();
-          if (id(active_speaker_entity) != "${local_player_id}") {
-            id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
-          }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -1336,15 +1274,6 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_3_type).c_str();
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -1383,16 +1312,7 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-            - if:
-                condition:
-                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-                then:
-                  - lambda: 'id(current_loaded_art_url) = "";'
-                  - delay: 800ms
-                  - homeassistant.action:
-                      action: homeassistant.update_entity
-                      data:
-                        entity_id: ${target_art_url_sensor}
+
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -1480,16 +1400,7 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-            - if:
-                condition:
-                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-                then:
-                  - lambda: 'id(current_loaded_art_url) = "";'
-                  - delay: 800ms
-                  - homeassistant.action:
-                      action: homeassistant.update_entity
-                      data:
-                        entity_id: ${target_art_url_sensor}
+
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -1577,16 +1488,7 @@ script:
                 data:
                   entity_id: ${active_speaker_helper}
                   value: !lambda 'return id(active_speaker_entity).c_str();'
-            - if:
-                condition:
-                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-                then:
-                  - lambda: 'id(current_loaded_art_url) = "";'
-                  - delay: 800ms
-                  - homeassistant.action:
-                      action: homeassistant.update_entity
-                      data:
-                        entity_id: ${target_art_url_sensor}
+
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -2387,8 +2289,8 @@ display:
           it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
           it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
-          it.filled_triangle(353, art_center_y, 343, art_center_y - 11, 343, art_center_y + 11, id(col_white));
-          it.filled_triangle(365, art_center_y, 355, art_center_y - 11, 355, art_center_y + 11, id(col_white));
+          it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
+          it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
 
           // Paused state frosted scrim overlay with borderless bold green Play badge ▶
           if (!is_playing) {
