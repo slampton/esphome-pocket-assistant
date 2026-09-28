@@ -21,7 +21,9 @@ Most ESPHome media controllers are passive displays that only reflect what an ex
 * 🎚️ **Single-Authority Audio & Glitch-Free Volume**: Unified physical DAC control with priority-synchronized boot gain (no 100% startup blasts) and a configurable **Volume Step Size** entity (1%–10%, default 2%) to eliminate slider rubber-banding.
 * ⏱️ **Vintage Chronograph & Lap Stopwatch**: Precision chronometer featuring an aged parchment Heuer-inspired dual-subdial dial, center sweep seconds, and crown button controls with hardware release-dwell latency compensation.
 * 🎮 **Interactive Motion Games**: Real-time 20 FPS physics games (Marble Maze, Archery Target, Treat Catcher) powered by the onboard 6-axis IMU.
-* 🔋 **Intelligent Multi-Tier Power Management**: Instant AMOLED screen standby (<50ms IMU pickup wake), physical pocket lock, hardware deep sleep hibernation with accidental-bump rejection, and USB dock stay-awake override.
+* 🔋 **Intelligent Multi-Tier Power Management**: Instant AMOLED screen standby with modular pickup wake modes (Always On, Docked Only, or Button Only), physical pocket lock, 5-second abortable hibernation countdown, hardware deep sleep with accidental-bump rejection, and USB dock stay-awake override.
+* 🛡️ **Protected Settings & Telemetry Dashboard**: Complete separation of observational telemetry (battery %, voltage, Wi-Fi RSSI/IP, temperature, orientation, and firmware version) from actionable controls (brightness, start app, confirmation-guarded reboot, and manual hibernate).
+* 🔄 **Native Home Assistant Firmware Updates**: Full compliance with the *Made for ESPHome* standard (`project` and `dashboard_import` metadata), automatically generating an `update` entity in Home Assistant with 1-click OTA update support.
 * 🕒 **Modern Dial Clock Face**: High-contrast watch dial with Roman indices, polished polygon hands, 12-hour digital readout, and a sleek vertical battery level gauge with a golden charging lightning bolt.
 * ⚙️ **Elevated System Telemetry**: High-legibility 22pt live telemetry readouts for battery percentage, voltage, charging state, and Wi-Fi signal strength with generous vertical breathing room.
 * 🧩 **Modular Architecture**: Built on ESPHome's native `packages:` engine. Customize or reorder apps at runtime without touching core firmware.
@@ -335,7 +337,7 @@ packages:
     ref: main
     refresh: 0s
     files:
-      - pocket-assistant-1.75c.yaml
+      - pocket-assistant.yaml
 ```
 
 Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `pocket_assistant_encryption_key`.
@@ -362,7 +364,7 @@ Ensure your `/config/secrets.yaml` contains `wifi_ssid`, `wifi_password`, and `p
 
 ```text
 esphome-pocket-assistant/
-├── pocket-assistant-1.75c.yaml          # Master node configuration & substitutions
+├── pocket-assistant.yaml          # Master node configuration & substitutions
 ├── va_cancel_helper.h             # C++ side-button Assist cancellation hook
 ├── LICENSE                        # Apache 2.0 open-source license
 ├── README.md                      # Architecture guide & documentation
@@ -391,16 +393,6 @@ esphome-pocket-assistant/
 ## 📜 Version History & Changelog
 
 ### v3.5.0 (Current)
-* **Geometric Symmetry for Player Navigation Carets**:
-  * Corrected Next Track chevron coordinates to span $x = 353$ to $375$ (centered at $y = 212$), resolving a horizontal asymmetry where the right button previously sat at $x = 343$ to $365$ with only a $2\text{ px}$ gap to the album art.
-  * Both Previous Track ($x = 91..113$) and Next Track ($x = 353..375$) chevrons now feature an identical, balanced $12\text{ px}$ margin to the $216\times 216\text{ px}$ album art ($x = 125..341$), perfectly mirrored across $cx = 233$, and centered inside their respective $75\text{ px}$ touch zones ($touch.x \in [50, 125]$ and $touch.x \in [341, 416]$).
-* **Persistent Multi-Track Remote Album Art & Continuous Playback Architecture**:
-  * Resolved the remote speaker album art blanking bug where skipping to the next track on an album or playlist caused the artwork to disappear.
-  * Eliminated premature buffer releases (`remote_album_art.release()`) and cache-wiping (`current_loaded_art_url = ""`) in `music_next_track`, `music_prev_track`, and `play_music_slot_1/2/3`. When playing albums, audiobooks, or playlists where consecutive tracks share the same artwork, the decoded image remains persistent in memory without blanking out or flickering.
-  * Removed non-functional `homeassistant.update_entity: ${target_art_url_sensor}` calls that previously triggered `NotImplementedError` in Home Assistant Core logs (as Home Assistant trigger-based template sensors do not implement `update_entity`).
-  * Integrated intelligent state evaluation in `ha_track_title.on_value`: when a new track starts on a remote speaker, ESPHome checks if artwork is missing (`width == 0`) or if a new art URL is available, immediately triggering `online_image.set_url` while cleanly preserving existing artwork when playing through multi-track albums.
-
-### v3.4.9
 * **Standardized Active Album Art Pipeline & Decoder Alignment**:
   * **Clean Multi-Format Image Decoding (`format: AUTO`)**: Configured `platform: online_image` to `format: AUTO` with a valid static boot image (`/static/icons/favicon-192x192.png`). Automatically decodes JPEG and PNG based on server `Content-Type` headers, eliminating `Incorrect PNG signature` mismatches when receiving Home Assistant media player streams.
   * **Clean Entity Picture Pass-Through**: Standardized `sensor.pocket_assistant_target_art_url` in `music_assistant_esphome_mirror.yaml` to cleanly route the active speaker's authentic `entity_picture` (or `media_image_url`) through Home Assistant (`http://10.0.20.10:8123`) without brittle string-replacement hacks (e.g. injecting `size=200` or `fmt=jpg`), preventing Music Assistant HTTP 400 Bad Request rejections.
@@ -434,7 +426,7 @@ esphome-pocket-assistant/
 
 ### v3.4.8
 * **Home Assistant Script Blueprint Architecture**: Decoupled the music browsing engine into a reusable Home Assistant Script Blueprint (`homeassistant/blueprints/script/music_assistant_browse.yaml`), allowing any ESPHome device to generate its own browsing script with automatic RPC target resolution.
-* **Purge of Vestigial Substitutions**: Completely removed legacy presets (`preset_1_*`, `preset_2_*`, `preset_3_*`) and hardcoded speaker slots (`speaker_2_*`, `speaker_3_*`) from `pocket-assistant-1.75c.yaml` and `core/ui.yaml`. Replaced with single `local_player_id: "media_player.pocket_assistant"`.
+* **Purge of Vestigial Substitutions**: Completely removed legacy presets (`preset_1_*`, `preset_2_*`, `preset_3_*`) and hardcoded speaker slots (`speaker_2_*`, `speaker_3_*`) from `pocket-assistant.yaml` and `core/ui.yaml`. Replaced with single `local_player_id: "media_player.pocket_assistant"`.
 * **Universal Active Album Art Pipeline**: Integrated dual local/remote album art rendering. Local playback streams via Sendspin, while remote speaker handoffs leverage Music Assistant's native local HTTP image proxy on port 8095 (`?size=200&fmt=jpg`) paired with ESPHome's native `online_image` and `http_request` components.
 * **Smart-Sorted Dynamic Speaker Handoff**: Script Blueprint intelligently sorts the currently active speaker to Slot 1 (highlighted green), followed by Pocket Assistant at Slot 2 for 1-tap return, and all remaining household speakers alphabetically.
 * **Audio Output Hardware Fix**: Resolved silent playback on waking from sleep by adding explicit `switch.turn_on: speaker_enable` in `pocket_music_player.on_play` and asserting `ALWAYS_ON` restore mode.
