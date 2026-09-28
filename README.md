@@ -171,11 +171,11 @@ Getting Pocket Assistant up and running takes just three simple steps: flash the
 
 Choose whichever installation method fits your workflow:
 
-#### Method A: Web Browser via ESPHome Web (Recommended — Fast & Zero Installs)
+#### Method A: Pocket Assistant Web Installer (Recommended — 1-Click in Browser)
 1. Plug your Pocket Assistant into your computer using a USB-C data cable.
-2. Open **[web.esphome.io](https://web.esphome.io)** in a WebSerial-supported browser (Chrome, Edge, or Opera).
-3. Click **Connect**, select your ESP32-S3 serial port, and choose **Install Pocket Assistant**.
-4. When prompted, enter your local Wi-Fi SSID and password. The device will connect to your network immediately.
+2. Open the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** in a WebSerial-supported browser (Google Chrome, Microsoft Edge, or Opera).
+3. Click **Install Pocket Assistant**, select your device's USB serial port, and follow the on-screen prompt.
+4. When prompted, enter your local Wi-Fi SSID and password to bring the device online.
 
 #### Method B: ESPHome Dashboard in Home Assistant (Remote Git Package)
 If you manage your devices via the Home Assistant ESPHome add-on:
@@ -405,7 +405,7 @@ esphome-pocket-assistant/
   * Integrated a one-touch cycler pill button in View 3 (Power Options Submenu) at $y = 160$ with rebalanced 60px vertical spacing.
   * Dynamically evaluates inactivity timeout in Power Management Priority 4, honoring `prevent_deep_sleep_switch` and `Disabled` mode.
 * **Streamlined Documentation & Web Builder Support**:
-  * Re-architected installation instructions into a bite-sized 3-step guide highlighting ESPHome Web (`web.esphome.io`) for browser-based first-time flashing.
+  * Re-architected installation instructions into a bite-sized 3-step guide highlighting the dedicated web installer (`https://slampton.github.io/esphome-pocket-assistant/`) for 1-click browser-based flashing.
   * Compartmentalized advanced split-template and monolithic YAML examples inside collapsible `<details>` blocks to eliminate visual clutter.
   * Added a complete, multi-context Hardware Button & Touch Input matrix.
 
