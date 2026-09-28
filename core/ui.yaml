@@ -331,6 +331,22 @@ light:
 
 select:
   - platform: template
+    name: "Standby Sleep Timeout"
+    id: sleep_timeout_mode
+    entity_category: config
+    options:
+      - "5 min"
+      - "10 min"
+      - "15 min"
+      - "30 min"
+      - "Disabled"
+    initial_option: "5 min"
+    restore_value: true
+    optimistic: true
+    set_action:
+      - lambda: |-
+          id(disp1).update();
+  - platform: template
     name: "Display Brightness Preset"
     id: display_brightness_preset
     entity_category: config
@@ -630,8 +646,18 @@ interval:
             id(batt_charging).publish_state(vbus && (chg == 1));
           }
 
-          // Priority 4: 5-Minute Inactivity Auto-Descent to Deep Sleep
-          if (!id(display_brightness).current_values.is_on() &&
+          // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
+          uint32_t sleep_timeout_ms = 300000;
+          std::string st_opt = std::string(id(sleep_timeout_mode).current_option().c_str());
+          bool auto_sleep_enabled = true;
+          if (st_opt == "10 min") sleep_timeout_ms = 600000;
+          else if (st_opt == "15 min") sleep_timeout_ms = 900000;
+          else if (st_opt == "30 min") sleep_timeout_ms = 1800000;
+          else if (st_opt == "Disabled") auto_sleep_enabled = false;
+
+          if (auto_sleep_enabled &&
+              !id(prevent_deep_sleep_switch).state &&
+              !id(display_brightness).current_values.is_on() &&
               !id(usb_connected).state &&
               !id(ota_in_progress) &&
               (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
@@ -640,8 +666,8 @@ interval:
               !id(announcement_mixing_input).is_running() &&
               (id(active_game) == 0) &&
               id(sleep_start_time) > 0 &&
-              (millis() - id(sleep_start_time) >= 300000)) {
-            ESP_LOGI("power", "5 minutes inactivity with screen off: starting hibernation countdown");
+              (millis() - id(sleep_start_time) >= sleep_timeout_ms)) {
+            ESP_LOGI("power", "Inactivity with screen off exceeded %s: starting hibernation countdown", st_opt.c_str());
             id(start_hibernation_countdown).execute();
           }
 
@@ -3352,6 +3378,13 @@ display:
           snprintf(buf, sizeof(buf), "Wake: Motion [%s] | Tap [%s]", mw.c_str(), tw.c_str());
           it.print(cx, 232, id(font_small), id(col_gray), TextAlign::CENTER, buf);
 
+          std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
+          std::string slp_p = std::string(id(sleep_timeout_mode).current_option().c_str());
+          if (bri_p.empty()) bri_p = "90%";
+          if (slp_p.empty()) slp_p = "5 min";
+          snprintf(buf, sizeof(buf), "Brightness: %s | Sleep: %s", bri_p.c_str(), slp_p.c_str());
+          it.print(cx, 260, id(font_small), id(col_slate), TextAlign::CENTER, buf);
+
           // Protected Settings & Power Access Button (dropped to y_mid = 320 for 64px separation)
           draw_pill_button(120, 346, 320, 24, id(col_rust), id(col_dark_gray), "Settings & Power", id(col_white), true);
 
@@ -3407,18 +3440,25 @@ display:
 
         } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
-          // VIEW 3: POWER OPTIONS SUBMENU
+          // VIEW 3: POWER OPTIONS SUBMENU (WITH SLEEP TIMEOUT CYCLER)
           // --------------------------------------------------
           it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "POWER");
 
-          // Button 1: Hibernate Now
-          draw_pill_button(110, 356, 145, 24, id(col_rust), id(col_dark_gray), "Hibernate Now", id(col_gold), true);
+          // Button 1: Hibernate Now (y_mid = 110, r = 18)
+          draw_pill_button(110, 356, 110, 18, id(col_rust), id(col_dark_gray), "Hibernate Now", id(col_gold), true);
 
-          // Button 2: Restart Device (Protected confirmation)
-          draw_pill_button(110, 356, 215, 24, id(col_red), id(col_dark_gray), "Restart Device", id(col_white), true);
+          // Button 2: Auto-Sleep Timeout Cycler (y_mid = 160, r = 18)
+          char s_buf[32];
+          std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
+          if (cur_s.empty()) cur_s = "5 min";
+          snprintf(s_buf, sizeof(s_buf), "Auto-Sleep: %s", cur_s.c_str());
+          draw_pill_button(110, 356, 160, 18, id(col_rust), id(col_dark_gray), s_buf, id(col_white), true);
 
-          // Bottom Button: Back to System Hub
-          draw_pill_button(135, 331, 295, 20, id(col_slate), id(col_dark_gray), "< Back", id(col_slate), false);
+          // Button 3: Restart Device (Protected confirmation) (y_mid = 210, r = 18)
+          draw_pill_button(110, 356, 210, 18, id(col_red), id(col_dark_gray), "Restart Device", id(col_white), true);
+
+          // Bottom Button: Back to System Hub (y_mid = 285, r = 18)
+          draw_pill_button(135, 331, 285, 18, id(col_slate), id(col_dark_gray), "< Back", id(col_slate), false);
 
         } else if (id(system_menu_mode) == 4) {
           // --------------------------------------------------
@@ -3993,16 +4033,29 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 3) {
-                // Mode 3: Power Options Submenu
-                // Button 1: Hibernate Now (y: 120..170, x: 100..366)
-                if (touch.y >= 120 && touch.y <= 170 && touch.x >= 100 && touch.x <= 366) {
+                // Mode 3: Power Options Submenu (4 buttons)
+                // Button 1: Hibernate Now (y: 90..135, x: 100..366)
+                if (touch.y >= 90 && touch.y <= 135 && touch.x >= 100 && touch.x <= 366) {
                   id(start_hibernation_countdown).execute();
-                // Button 2: Restart Device (y: 190..240, x: 100..366)
-                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
+                // Button 2: Auto-Sleep Timeout Cycler (y: 140..185, x: 100..366)
+                } else if (touch.y >= 140 && touch.y <= 185 && touch.x >= 100 && touch.x <= 366) {
+                  std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
+                  std::string next = "5 min";
+                  if (cur == "5 min") next = "10 min";
+                  else if (cur == "10 min") next = "15 min";
+                  else if (cur == "15 min") next = "30 min";
+                  else if (cur == "30 min") next = "Disabled";
+                  else next = "5 min";
+                  auto call = id(sleep_timeout_mode).make_call();
+                  call.set_option(next);
+                  call.perform();
+                  id(disp1).update();
+                // Button 3: Restart Device (y: 190..235, x: 100..366)
+                } else if (touch.y >= 190 && touch.y <= 235 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 4; // Open Confirmation Dialog
                   id(disp1).update();
-                // Button 3: Back to System Hub (y: 275..325, x: 125..341)
-                } else if (touch.y >= 275 && touch.y <= 325 && touch.x >= 125 && touch.x <= 341) {
+                // Button 4: Back to System Hub (y: 265..315, x: 125..341)
+                } else if (touch.y >= 265 && touch.y <= 315 && touch.x >= 125 && touch.x <= 341) {
                   id(system_menu_mode) = 1; // Return to System Hub
                   id(disp1).update();
                 }
