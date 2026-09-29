@@ -395,6 +395,22 @@ light:
 
 select:
   - platform: template
+    name: "System: Full-Screen Album Art"
+    id: music_fullscreen_art_mode
+    icon: "mdi:image-size-select-actual"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Disabled"
+    options:
+      - "Disabled"
+      - "Clean Art"
+      - "Player Overlay"
+    set_action:
+      - lambda: |-
+          id(disp1).update();
+
+  - platform: template
     name: "System: Page Counter Mode"
     id: page_counter_mode
     icon: "mdi:numeric"
@@ -627,13 +643,6 @@ button:
 
 
 switch:
-  - platform: template
-    name: "System: Full-Screen Album Art"
-    id: music_fullscreen_art_switch
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-
   - platform: gpio
     name: "Speaker Enable"
     id: speaker_enable
@@ -3241,7 +3250,10 @@ display:
             if (has_art) target_art = id(album_art);
           }
 
-          bool is_fs_art = id(music_fullscreen_art_switch).state && has_art;
+          std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+          bool is_clean_art = (art_mode == "Clean Art") && has_art;
+          bool is_overlay_art = (art_mode == "Player Overlay") && has_art;
+          bool is_fs_art = is_clean_art || is_overlay_art;
 
           auto draw_scaled_art = [&](esphome::image::Image *img, int dst_x, int dst_y, int dst_w, int dst_h) {
             if (img == nullptr || img->get_width() == 0 || img->get_height() == 0) return;
@@ -3260,14 +3272,46 @@ display:
             }
           };
 
-          if (is_fs_art) {
+          if (is_clean_art) {
             // ====================================================
-            // FULL-SCREEN ALBUM ART CANVAS (Edge-to-Edge 466x466)
+            // CLEAN FULL-BLEED ALBUM ART (100% Screen Real Estate)
+            // ====================================================
+            draw_scaled_art(target_art, 0, 0, 466, 466);
+
+            // Paused state frosted scrim overlay with borderless Play badge ▶
+            if (!is_playing) {
+              it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
+              it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
+            }
+
+            // Universal Left & Right fixed navigation anchors
+            it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
+            it.line(165 + 5, 424 - 7, 165 - 3, 424, id(theme_secondary));
+            it.line(165 + 4, 424 + 7, 165 - 4, 424, id(theme_secondary));
+            it.line(165 + 5, 424 + 7, 165 - 3, 424, id(theme_secondary));
+
+            it.line(301 - 4, 424 - 7, 301 + 4, 424, id(theme_secondary));
+            it.line(301 - 5, 424 - 7, 301 + 3, 424, id(theme_secondary));
+            it.line(301 - 4, 424 + 7, 301 + 4, 424, id(theme_secondary));
+            it.line(301 - 5, 424 + 7, 301 + 3, 424, id(theme_secondary));
+
+            std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
+            if (cnt_mode.empty()) cnt_mode = "Always";
+            bool show_in_deck = (cnt_mode == "Always" || cnt_mode == "System Only");
+            if (show_in_deck) {
+              int total = id(active_deck_size);
+              int cur = id(current_deck_index);
+              char pg_buf[16];
+              snprintf(pg_buf, sizeof(pg_buf), "%d / %d", cur + 1, total);
+              it.print(cx, 424, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+            }
+          } else if (is_overlay_art) {
+            // ====================================================
+            // FULL-SCREEN ALBUM ART WITH PLAYER OVERLAY & VIGNETTE
             // ====================================================
             draw_scaled_art(target_art, 0, 0, 466, 466);
 
             // Dual-Zone Vignette Scrim (Top 90px & Bottom 146px for maximum legibility)
-            // Top Vignette: Solid black at y: 0..60, 50% dither at y: 60..90
             for (int y = 0; y < 60; y++) {
               int y_d = abs(y - cy);
               int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
@@ -3281,7 +3325,6 @@ display:
               }
             }
 
-            // Bottom Vignette: 50% dither at y: 320..355, 75% at y: 355..385, Solid black at y: 385..466
             for (int y = 320; y < 355; y++) {
               int y_d = abs(y - cy);
               int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
@@ -3301,9 +3344,31 @@ display:
               int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
               it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
             }
+
+            // Universal Left & Right fixed navigation anchors (Overlaid on dark vignette)
+            it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
+            it.line(165 + 5, 424 - 7, 165 - 3, 424, id(theme_secondary));
+            it.line(165 + 4, 424 + 7, 165 - 4, 424, id(theme_secondary));
+            it.line(165 + 5, 424 + 7, 165 - 3, 424, id(theme_secondary));
+
+            it.line(301 - 4, 424 - 7, 301 + 4, 424, id(theme_secondary));
+            it.line(301 - 5, 424 - 7, 301 + 3, 424, id(theme_secondary));
+            it.line(301 - 4, 424 + 7, 301 + 4, 424, id(theme_secondary));
+            it.line(301 - 5, 424 + 7, 301 + 3, 424, id(theme_secondary));
+
+            std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
+            if (cnt_mode.empty()) cnt_mode = "Always";
+            bool show_in_deck = (cnt_mode == "Always" || cnt_mode == "System Only");
+            if (show_in_deck) {
+              int total = id(active_deck_size);
+              int cur = id(current_deck_index);
+              char pg_buf[16];
+              snprintf(pg_buf, sizeof(pg_buf), "%d / %d", cur + 1, total);
+              it.print(cx, 424, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+            }
           } else {
             // ====================================================
-            // CLASSIC FRAMED 216x216 ALBUM ART & VINYL DISC
+            // CLASSIC FRAMED 216x216 ALBUM ART & VINYL DISC (Disabled)
             // ====================================================
             if (has_art) {
               draw_scaled_art(target_art, cx - art_w / 2, art_top_y, art_w, art_w);
@@ -3318,7 +3383,7 @@ display:
             }
           }
 
-          if (true) {
+          if (!is_clean_art) {
             // Left Flank (x: 91..113): Previous Track (◀◀) centered on horizon (y = 212, exactly 12px gap from art)
             it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
             it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
@@ -4269,9 +4334,17 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO & MEDIA");
 
-          // Button 1: Full-Screen Album Art Toggle (y = 120, r = 18)
-          std::string fs_label = id(music_fullscreen_art_switch).state ? "Full-Screen Art: On" : "Full-Screen Art: Off";
-          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), fs_label.c_str(), id(col_white), false);
+          // Button 1: Full-Screen Album Art Mode cycler (y = 120, r = 18)
+          std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+          char fs_label[32];
+          if (cur_mode == "Clean Art") {
+            snprintf(fs_label, sizeof(fs_label), "Full Art: Clean");
+          } else if (cur_mode == "Player Overlay") {
+            snprintf(fs_label, sizeof(fs_label), "Full Art: Overlay");
+          } else {
+            snprintf(fs_label, sizeof(fs_label), "Full Art: Off");
+          }
+          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
 
           // Button 2: Hardware Speaker Volume (y = 175, r = 18)
           char spk_vol[32];
@@ -4994,9 +5067,16 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 7) {
                 // Mode 7: Audio & Media Submenu
-                // Card 1: Full-Screen Album Art Toggle (y: 100..140, x: 100..366)
+                // Card 1: Full-Screen Album Art Mode cycler (y: 100..140, x: 100..366)
                 if (touch.y >= 100 && touch.y <= 140 && touch.x >= 100 && touch.x <= 366) {
-                  id(music_fullscreen_art_switch).toggle();
+                  std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+                  if (cur_mode == "Disabled") {
+                    id(music_fullscreen_art_mode).set("Clean Art");
+                  } else if (cur_mode == "Clean Art") {
+                    id(music_fullscreen_art_mode).set("Player Overlay");
+                  } else {
+                    id(music_fullscreen_art_mode).set("Disabled");
+                  }
                   id(disp1).update();
                 // Card 2: Speaker Volume Step (y: 155..195, x: 100..366)
                 } else if (touch.y >= 155 && touch.y <= 195 && touch.x >= 100 && touch.x <= 366) {
