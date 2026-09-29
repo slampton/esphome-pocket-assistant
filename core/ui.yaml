@@ -355,7 +355,7 @@ light:
 
 select:
   - platform: template
-    name: "Standby Sleep Timeout"
+    name: "Power: Standby Timeout"
     id: sleep_timeout_mode
     entity_category: config
     options:
@@ -371,7 +371,7 @@ select:
       - lambda: |-
           id(disp1).update();
   - platform: template
-    name: "Auto Brightness Mode"
+    name: "Brightness: Auto Mode"
     id: auto_brightness_mode
     entity_category: config
     optimistic: true
@@ -385,7 +385,7 @@ select:
       - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Day Brightness"
+    name: "Brightness: Day Level"
     id: day_brightness_preset
     entity_category: config
     optimistic: true
@@ -401,7 +401,7 @@ select:
       - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Night Brightness"
+    name: "Brightness: Night Level"
     id: night_brightness_preset
     entity_category: config
     optimistic: true
@@ -417,7 +417,7 @@ select:
       - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Display Brightness Preset"
+    name: "Brightness: Manual Preset"
     id: display_brightness_preset
     entity_category: config
     options:
@@ -435,7 +435,7 @@ select:
   # ⚙️ Application Preferences & Power Management Selectors
   # --------------------------------------------------------------------------
   - platform: template
-    name: "Clock Face Style"
+    name: "Clock: Face Style"
     id: clock_face_style
     entity_category: config
     optimistic: true
@@ -449,7 +449,7 @@ select:
           if (id(sleep_start_time) > 0) id(disp1).update();
 
   - platform: template
-    name: "Time Format"
+    name: "Clock: Time Format"
     id: time_format_select
     entity_category: config
     optimistic: true
@@ -463,7 +463,7 @@ select:
           if (id(sleep_start_time) > 0) id(disp1).update();
 
   - platform: template
-    name: "Default Start App"
+    name: "System: Default Start App"
     id: default_start_app
     entity_category: config
     optimistic: true
@@ -477,7 +477,7 @@ select:
       - "System"
 
   - platform: template
-    name: "Pickup Wake Mode"
+    name: "Wake: Motion Pickup Mode"
     id: pickup_wake_mode
     entity_category: config
     optimistic: true
@@ -493,7 +493,7 @@ select:
 
 
   - platform: template
-    name: "Tap Wake Mode"
+    name: "Wake: Touch Tap Mode"
     id: tap_wake_mode
     entity_category: config
     optimistic: true
@@ -520,7 +520,7 @@ button:
       - button.press: internal_restart
 
   - platform: template
-    name: "Enter Deep Sleep"
+    name: "Power: Enter Deep Sleep"
     id: enter_deep_sleep_btn
     icon: "mdi:sleep"
     entity_category: config
@@ -561,7 +561,7 @@ switch:
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
   - platform: template
-    name: "Show Clock App"
+    name: "App Visibility: Clock"
     id: show_clock_switch
     entity_category: config
     optimistic: true
@@ -585,7 +585,7 @@ switch:
             }
 
   - platform: template
-    name: "Show Stopwatch App"
+    name: "App Visibility: Stopwatch"
     id: show_stopwatch_switch
     entity_category: config
     optimistic: true
@@ -609,7 +609,7 @@ switch:
             }
 
   - platform: template
-    name: "Show Music App"
+    name: "App Visibility: Music"
     id: show_music_switch
     entity_category: config
     optimistic: true
@@ -633,7 +633,7 @@ switch:
             }
 
   - platform: template
-    name: "Show Games App"
+    name: "App Visibility: Games"
     id: show_games_switch
     entity_category: config
     optimistic: true
@@ -657,7 +657,7 @@ switch:
             }
 
   - platform: template
-    name: "Show System App"
+    name: "App Visibility: System"
     id: show_system_switch
     entity_category: config
     optimistic: true
@@ -682,7 +682,7 @@ switch:
 
 
   - platform: template
-    name: "Docked Screensaver"
+    name: "Power: Docked Screensaver"
     id: docked_screensaver_switch
     icon: "mdi:power-sleep"
     entity_category: config
@@ -690,7 +690,7 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
 
   - platform: template
-    name: "Prevent Deep Sleep"
+    name: "Power: Prevent Deep Sleep"
     id: prevent_deep_sleep_switch
     entity_category: config
     optimistic: true
@@ -703,7 +703,7 @@ switch:
 
 number:
   - platform: template
-    name: "Day Schedule Start Hour"
+    name: "Schedule: Day Start Hour"
     id: day_start_hour
     entity_category: config
     optimistic: true
@@ -718,7 +718,7 @@ number:
         - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Night Schedule Start Hour"
+    name: "Schedule: Night Start Hour"
     id: night_start_hour
     entity_category: config
     optimistic: true
@@ -1165,23 +1165,16 @@ binary_sensor:
       float dyn = id(motion_mag).state;
       if (isnan(dyn)) return false;
 
-      const float thresh = 0.22f;
-      const uint32_t active_ms = 8000;
+      const float thresh = 0.16f; // Responsive pickup detection
+      const uint32_t active_ms = 5000;
       static uint32_t last_active_time = 0;
-      static uint32_t last_hit_time = 0;
       static bool is_active = false;
       uint32_t now_ms = millis();
 
       if (dyn > thresh) {
-        if (now_ms - last_hit_time < 600) {
-          is_active = true;
-          last_active_time = now_ms;
-        }
-        last_hit_time = now_ms;
+        is_active = true;
+        last_active_time = now_ms;
       } else if (is_active) {
-        if (dyn > 0.03f) {
-          last_active_time = now_ms;
-        }
         if (now_ms - last_active_time >= active_ms) {
           is_active = false;
         }
@@ -1198,19 +1191,20 @@ binary_sensor:
                 if (mode == "Docked Only" && !id(usb_connected).state) return false;
                 return true;
             then:
-              - script.stop: screen_sleep_timer
-              - lambda: |-
-                  if (!id(display_brightness).current_values.is_on()) {
-                    if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-                      id(apply_default_start_page).execute();
-                    }
-                    id(sleep_start_time) = 0;
-                  }
-              - light.turn_on: display_brightness
-              - component.update: disp1
+              - if:
+                  condition:
+                    lambda: 'return id(display_power_state) != 0 || !id(display_brightness).current_values.is_on();'
+                  then:
+                    - script.execute: wake_to_active_state
+                  else:
+                    - script.execute: screen_sleep_timer
     on_release:
       then:
-        - script.execute: screen_sleep_timer
+        - if:
+            condition:
+              lambda: 'return id(display_power_state) == 0;'
+            then:
+              - script.execute: screen_sleep_timer
 
 text_sensor:
   - platform: homeassistant
@@ -3760,50 +3754,63 @@ display:
           // Top Header: Pure iconic "SYSTEM" title
           it.print(cx, 56, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
 
-          // Upper Zone: Technical Telemetry & Firmware
+          // Upper Zone: Technical Telemetry & Firmware (Swapped per Sean)
+          // Line 1: Wi-Fi Signal & IP (Green)
           float sig = id(pocket_wifi_signal).state;
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
           it.print(cx, 92, id(font_small), id(col_green), TextAlign::CENTER, buf);
 
-          bool has_update = id(ha_firmware_update_status).state == "ON";
-          std::string lat_v = id(ha_firmware_latest_version).state;
-          if (has_update) {
-            snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
-            it.print(cx, 118, id(font_small), id(col_gold), TextAlign::CENTER, buf);
-          } else {
-            it.print(cx, 118, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
-          }
-
+          // Line 2: Temperature & IMU (Red)
           float temp_c = id(imu_temp).state;
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
-          it.print(cx, 144, id(font_small), id(col_slate), TextAlign::CENTER, buf);
+          it.print(cx, 118, id(font_small), id(col_red), TextAlign::CENTER, buf);
+
+          // Line 3: Pocket Assistant Version / Update badge (Blue/Cyan)
+          bool has_update = id(ha_firmware_update_status).state == "ON";
+          std::string lat_v = id(ha_firmware_latest_version).state;
+          if (has_update) {
+            snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
+            it.print(cx, 144, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+          } else {
+            it.print(cx, 144, id(font_small), id(col_cyan), TextAlign::CENTER, "Pocket Assistant v${version}");
+          }
 
           // Center Zone: Primary Interactive Navigation Buttons
-          draw_pill_button(110, 356, 205, 20, id(col_rust), id(col_dark_gray), "Display & Clock >", id(col_white), true);
-          draw_pill_button(110, 356, 265, 20, id(col_rust), id(col_dark_gray), "Power & Wake >", id(col_white), true);
+          draw_pill_button(110, 356, 195, 18, id(col_rust), id(col_dark_gray), "Display & Clock >", id(col_white), true);
+          draw_pill_button(110, 356, 250, 18, id(col_rust), id(col_dark_gray), "Power & Wake >", id(col_white), true);
 
-          // Lower Zone: Glanceable Battery & Time Status
+          // Lower Zone: Glanceable Battery & Nested Curved Time/Date
+          // Battery line (y = 315): Cyan "Battery: 85% (4.05V)" with Gold " • Charging" if on USB
           float v_batt = id(batt_voltage).state;
-          char batt_buf[48];
-          snprintf(batt_buf, sizeof(batt_buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Charging" : "");
-          it.print(cx, 328, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_cyan), TextAlign::CENTER, batt_buf);
+          char b_main[32];
+          snprintf(b_main, sizeof(b_main), "Battery: %.0f%% (%.2fV)", batt, v_batt);
+          if (id(batt_charging).state) {
+            int w_main = (strlen(b_main) >= 21) ? 202 : 191;
+            int start_x = cx - (w_main + 105) / 2;
+            it.print(start_x, 315, id(font_small), id(col_cyan), TextAlign::LEFT, b_main);
+            it.print(start_x + w_main, 315, id(font_small), id(col_gold), TextAlign::LEFT, " • Charging");
+          } else {
+            it.print(cx, 315, id(font_small), id(col_cyan), TextAlign::CENTER, b_main);
+          }
 
+          // Date above time (y = 350)
           if (now.is_valid()) {
-            char full_buf[64];
-            char date_buf[32];
-            now.strftime(date_buf, sizeof(date_buf), "%a, %b %d");
+            it.strftime(cx, 350, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+
+            // Time nestled at bottom curve (y = 385) in font_date (prominent white)
+            char t_buf[16];
             if (id(is_24h_format)) {
-              snprintf(full_buf, sizeof(full_buf), "%02d:%02d  •  %s", now.hour, now.minute, date_buf);
+              snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
             } else {
               int h12 = now.hour % 12;
               if (h12 == 0) h12 = 12;
-              snprintf(full_buf, sizeof(full_buf), "%d:%02d %s  •  %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM", date_buf);
+              snprintf(t_buf, sizeof(t_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
             }
-            it.print(cx, 356, id(font_small), id(col_slate), TextAlign::CENTER, full_buf);
+            it.print(cx, 385, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
           }
 
         } else if (id(system_menu_mode) == 1) {
@@ -4479,16 +4486,16 @@ touchscreen:
                 return l_pat > c_pat;
               };
               if (id(system_menu_mode) == 0) {
-                // Main Telemetry View: tap Version line to open Software Update directly (y: 105..135)
-                if (touch.y >= 105 && touch.y <= 135 && touch.x >= 100 && touch.x <= 366) {
+                // Main Telemetry View: tap Version line to open Software Update directly (y: 132..158)
+                if (touch.y >= 132 && touch.y <= 158 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Main Telemetry View: Button 1 "Display & Clock" (y: 185..225)
-                } else if (touch.y >= 185 && touch.y <= 225 && touch.x >= 110 && touch.x <= 356) {
+                // Main Telemetry View: Button 1 "Display & Clock" (y: 175..215)
+                } else if (touch.y >= 175 && touch.y <= 215 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 2; // Open Display & Clock Submenu
                   id(disp1).update();
-                // Main Telemetry View: Button 2 "Power & Wake" (y: 245..285)
-                } else if (touch.y >= 245 && touch.y <= 285 && touch.x >= 110 && touch.x <= 356) {
+                // Main Telemetry View: Button 2 "Power & Wake" (y: 230..270)
+                } else if (touch.y >= 230 && touch.y <= 270 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 1; // Open Power & Wake Submenu
                   id(disp1).update();
                 }
