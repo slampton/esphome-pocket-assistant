@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.5.5"
+  version: "3.6.0"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -101,14 +101,15 @@ esphome:
             - deep_sleep.enter: deep_sleep_ctrl
           else:
             - script.execute: apply_default_start_page
+            - script.execute: rebuild_active_app_deck
+            - script.execute: sync_time_of_day_brightness
             - lambda: |-
                 id(sleep_start_time) = millis();
                 id(is_locked) = false;
                 id(is_hibernating) = false;
-                float b = 0.90f;
+                float b = 0.80f;
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                if (cur == "40%") b = 0.40f;
-                else if (cur == "50%") b = 0.50f;
+                if (cur == "50%") b = 0.50f;
                 else if (cur == "60%") b = 0.60f;
                 else if (cur == "70%") b = 0.70f;
                 else if (cur == "80%") b = 0.80f;
@@ -126,10 +127,9 @@ esphome:
         - audio_dac.mute_on: es8311_dac
         - lambda: |-
             // Assert restored display brightness preset post-driver initialization
-            float b = 0.90f;
+            float b = 0.80f;
             std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-            if (cur == "40%") b = 0.40f;
-            else if (cur == "50%") b = 0.50f;
+            if (cur == "50%") b = 0.50f;
             else if (cur == "60%") b = 0.60f;
             else if (cur == "70%") b = 0.70f;
             else if (cur == "80%") b = 0.80f;

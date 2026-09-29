@@ -193,6 +193,14 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: app_deck_pages
+    type: int[5]
+    restore_value: no
+    initial_value: '{0, 1, 2, 3, 4}'
+  - id: app_deck_count
+    type: int
+    restore_value: no
+    initial_value: '5'
   - id: gui_page
     type: int
     restore_value: no
@@ -363,27 +371,86 @@ select:
     id: display_brightness_preset
     entity_category: config
     options:
-      - "40%"
       - "50%"
       - "60%"
       - "70%"
       - "80%"
       - "90%"
       - "100%"
-    initial_option: "90%"
+    initial_option: "80%"
     restore_value: true
     optimistic: true
     set_action:
       - lambda: |-
-          float b = 0.90f;
-          if (x == "40%") b = 0.40f;
-          else if (x == "50%") b = 0.50f;
+          float b = 0.80f;
+          if (x == "50%") b = 0.50f;
           else if (x == "60%") b = 0.60f;
           else if (x == "70%") b = 0.70f;
           else if (x == "80%") b = 0.80f;
           else if (x == "90%") b = 0.90f;
           else if (x == "100%") b = 1.00f;
           id(display_brightness).turn_on().set_brightness(b).perform();
+          id(disp1).update();
+
+  - platform: template
+    name: "Auto Brightness Mode"
+    id: auto_brightness_mode
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Disabled"
+    options:
+      - "Disabled"
+      - "Sun Synchronized"
+    set_action:
+      - script.execute: sync_time_of_day_brightness
+
+  - platform: template
+    name: "Day Brightness"
+    id: day_brightness_preset
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "90%"
+    options:
+      - "50%"
+      - "60%"
+      - "70%"
+      - "80%"
+      - "90%"
+      - "100%"
+    set_action:
+      - script.execute: sync_time_of_day_brightness
+
+  - platform: template
+    name: "Night Brightness"
+    id: night_brightness_preset
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "60%"
+    options:
+      - "50%"
+      - "60%"
+      - "70%"
+      - "80%"
+      - "90%"
+      - "100%"
+    set_action:
+      - script.execute: sync_time_of_day_brightness
+
+  - platform: template
+    name: "Clock Face Style"
+    id: clock_face_style
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Modern Roman (Analog)"
+    options:
+      - "Modern Roman (Analog)"
+      - "Modern Digital (Bold)"
+    set_action:
+      - lambda: |-
           id(disp1).update();
   # --------------------------------------------------------------------------
   # ⚙️ Application Preferences & Power Management Selectors
@@ -492,23 +559,12 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 0) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (0 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
+        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Show Stopwatch App"
@@ -516,23 +572,12 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 1) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (1 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
+        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Show Music App"
@@ -540,23 +585,12 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 2) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (2 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
+        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Show Games App"
@@ -564,23 +598,12 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 3) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (3 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
+        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Show System App"
@@ -588,23 +611,12 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 4) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (4 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
+        - script.execute: rebuild_active_app_deck
 
 
   - platform: template
@@ -630,6 +642,79 @@ number:
     initial_value: 350
     unit_of_measurement: "ms"
     entity_category: config
+
+  # --------------------------------------------------------------------------
+  # 📱 Dynamic App Deck Order Priorities (1..10)
+  # --------------------------------------------------------------------------
+  - platform: template
+    name: "Order: Clock App"
+    id: order_clock_app
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 1
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_app_deck
+
+  - platform: template
+    name: "Order: Stopwatch App"
+    id: order_stopwatch_app
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 2
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_app_deck
+
+  - platform: template
+    name: "Order: Music App"
+    id: order_music_app
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 3
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_app_deck
+
+  - platform: template
+    name: "Order: Games App"
+    id: order_games_app
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 4
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_app_deck
+
+  - platform: template
+    name: "Order: System App"
+    id: order_system_app
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 5
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_app_deck
 
 
 interval:
@@ -784,14 +869,13 @@ interval:
               } else if (id(gui_page) == 4) {
                 // Page 4: System -> click top button cycles brightness preset
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                std::string nxt = "90%";
-                if (cur == "40%") nxt = "50%";
-                else if (cur == "50%") nxt = "60%";
+                std::string nxt = "80%";
+                if (cur == "50%") nxt = "60%";
                 else if (cur == "60%") nxt = "70%";
                 else if (cur == "70%") nxt = "80%";
                 else if (cur == "80%") nxt = "90%";
                 else if (cur == "90%") nxt = "100%";
-                else if (cur == "100%") nxt = "40%";
+                else nxt = "50%";
                 auto call = id(display_brightness_preset).make_call();
                 call.set_option(nxt);
                 call.perform();
@@ -1107,6 +1191,13 @@ text_sensor:
     entity_category: diagnostic
     lambda: 'return std::string("${version}");'
   - platform: homeassistant
+    id: ha_sun_state
+    entity_id: sun.sun
+    internal: true
+    on_value:
+      then:
+        - script.execute: sync_time_of_day_brightness
+  - platform: homeassistant
     id: ha_firmware_update_status
     entity_id: update.pocket_assistant_project_firmware
     internal: true
@@ -1246,6 +1337,68 @@ text_sensor:
 
 
 script:
+  - id: sync_time_of_day_brightness
+    mode: restart
+    then:
+      - lambda: |-
+          if (id(auto_brightness_mode).current_option() == "Sun Synchronized") {
+            std::string sun = id(ha_sun_state).state;
+            std::string target_opt = id(day_brightness_preset).current_option();
+            if (sun == "below_horizon") {
+              target_opt = id(night_brightness_preset).current_option();
+            }
+            auto call = id(display_brightness_preset).make_call();
+            call.set_option(target_opt);
+            call.perform();
+          }
+
+  - id: rebuild_active_app_deck
+    mode: restart
+    then:
+      - lambda: |-
+          struct AppOrder { int page; float prio; };
+          AppOrder list[5];
+          int count = 0;
+          if (id(show_clock_switch).state)     { list[count++] = {0, (float)id(order_clock_app).state}; }
+          if (id(show_stopwatch_switch).state) { list[count++] = {1, (float)id(order_stopwatch_app).state}; }
+          if (id(show_music_switch).state)     { list[count++] = {2, (float)id(order_music_app).state}; }
+          if (id(show_games_switch).state)     { list[count++] = {3, (float)id(order_games_app).state}; }
+          if (id(show_system_switch).state)    { list[count++] = {4, (float)id(order_system_app).state}; }
+          
+          if (count == 0) {
+            list[0] = {0, 1.0f};
+            list[1] = {4, 5.0f};
+            count = 2;
+          }
+          
+          // Bubble sort in ascending order of priority numbers
+          for (int i = 0; i < count - 1; i++) {
+            for (int j = 0; j < count - i - 1; j++) {
+              if (list[j].prio > list[j + 1].prio) {
+                AppOrder temp = list[j];
+                list[j] = list[j + 1];
+                list[j + 1] = temp;
+              }
+            }
+          }
+          for (int i = 0; i < count; i++) {
+            id(app_deck_pages)[i] = list[i].page;
+          }
+          id(app_deck_count) = count;
+
+          // If current page is no longer in deck, switch to first available page
+          bool cur_in_deck = false;
+          for (int i = 0; i < count; i++) {
+            if (id(app_deck_pages)[i] == id(gui_page)) {
+              cur_in_deck = true;
+              break;
+            }
+          }
+          if (!cur_in_deck) {
+            id(gui_page) = id(app_deck_pages)[0];
+            id(disp1).update();
+          }
+
   - id: apply_default_start_page
     then:
       - lambda: |-
@@ -2349,6 +2502,60 @@ display:
         int hour = now.hour;
         int min = now.minute;
         int sec = now.second;
+
+        std::string face_style = id(clock_face_style).current_option();
+        if (face_style == "Modern Digital (Bold)") {
+          // Perimeter bezel ticks
+          for (int i = 0; i < 60; i++) {
+            float s = DIAL_SIN[i];
+            float c = DIAL_COS[i];
+            if (i % 5 == 0) {
+              it.line(cx + (int)(212 * s), cy - (int)(212 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_slate));
+            } else {
+              it.line(cx + (int)(216 * s), cy - (int)(216 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_gray));
+            }
+          }
+          // Highlight active second tick in vibrant cyan
+          float s_sec = DIAL_SIN[sec % 60];
+          float c_sec = DIAL_COS[sec % 60];
+          it.line(cx + (int)(208 * s_sec), cy - (int)(208 * c_sec), cx + (int)(220 * s_sec), cy - (int)(220 * c_sec), id(col_cyan));
+          it.line(cx + (int)(208 * s_sec) + 1, cy - (int)(208 * c_sec), cx + (int)(220 * s_sec) + 1, cy - (int)(220 * c_sec), id(col_cyan));
+
+          // Date Header: "MON, SEP 28"
+          it.strftime(cx, 130, id(font_date), id(col_cyan), TextAlign::CENTER, "%a, %b %d", now);
+
+          // Giant Bold Digital Time: "10:45"
+          int h12 = now.hour % 12;
+          if (h12 == 0) h12 = 12;
+          char dig_buf[16];
+          snprintf(dig_buf, sizeof(dig_buf), "%d:%02d", h12, now.minute);
+          it.print(cx, 205, id(font_time), id(col_white), TextAlign::CENTER, dig_buf);
+
+          // AM/PM & Seconds Pill: "PM  •  42s"
+          char sec_buf[16];
+          snprintf(sec_buf, sizeof(sec_buf), "%s  •  %02ds", now.hour >= 12 ? "PM" : "AM", sec);
+          it.print(cx, 262, id(font_small), id(col_gold), TextAlign::CENTER, sec_buf);
+
+          // Battery telemetry in cyan with charging bolt / battery gauge
+          if (!isnan(batt)) {
+            char batt_str[16];
+            snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
+            int text_x = cx + 8;
+            it.print(text_x, 340, id(font_small), id(col_cyan), TextAlign::CENTER, batt_str);
+            int bx = text_x - (batt >= 100.0f ? 36 : 28);
+            int by = 340;
+            if (id(batt_charging).state) {
+              it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
+              it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
+            } else {
+              it.filled_rectangle(bx - 2, by - 9, 4, 2, id(col_green));
+              it.rectangle(bx - 5, by - 7, 10, 16, id(col_green));
+              int fill_h = (int)std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f));
+              it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, id(col_green));
+            }
+          }
+          return;
+        }
 
         // Dial markers: 60 ticks (major 5-min in slate, individual minutes in medium gray)
         // Priority 2: Precomputed 60-tick sine/cosine LUT - eliminates 120 transcendental float calls/frame
@@ -3526,38 +3733,43 @@ display:
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
-          // VIEW 2: DEVICE SETTINGS SUBMENU (UNCLUTTERED 4 OPTIONS)
+          // VIEW 2: DEVICE SETTINGS SUBMENU (5 SETTINGS + BACK)
           // --------------------------------------------------
-          it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SETTINGS");
+          it.print(cx, 50, id(font_date), id(col_rust), TextAlign::CENTER, "SETTINGS");
 
-          // Button 1: Brightness Preset
+          // Button 1: Brightness Preset (y=100)
           char b_buf[32];
           std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
-          if (bri_p.empty()) bri_p = "90%";
+          if (bri_p.empty()) bri_p = "80%";
           snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-          draw_pill_button(110, 356, 105, 18, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
+          draw_pill_button(110, 356, 100, 18, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
 
-          // Button 2: Default Start App
+          // Button 2: Default Start App (y=145)
           char def_buf[32];
           std::string def_p = std::string(id(default_start_app).current_option().c_str());
           if (def_p.empty()) def_p = "Clock";
           snprintf(def_buf, sizeof(def_buf), "Start App: %s", def_p.c_str());
-          draw_pill_button(110, 356, 155, 18, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
+          draw_pill_button(110, 356, 145, 18, id(col_rust), id(col_dark_gray), def_buf, id(col_white), true);
 
-          // Button 3: Motion Wake Cycler
+          // Button 3: Clock Face Style (y=190)
+          std::string cur_cf = std::string(id(clock_face_style).current_option().c_str());
+          std::string cf_label = (cur_cf == "Modern Digital (Bold)") ? "Face: Digital" : "Face: Analog";
+          draw_pill_button(110, 356, 190, 18, id(col_rust), id(col_dark_gray), cf_label.c_str(), id(col_white), true);
+
+          // Button 4: Motion Wake Cycler (y=235)
           char m_buf[32];
           std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
-          snprintf(m_buf, sizeof(m_buf), "Motion Wake: %s", cur_m.c_str());
-          draw_pill_button(110, 356, 205, 18, id(col_rust), id(col_dark_gray), m_buf, id(col_white), true);
+          snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
+          draw_pill_button(110, 356, 235, 18, id(col_rust), id(col_dark_gray), m_buf, id(col_white), true);
 
-          // Button 4: Tap Wake Cycler
+          // Button 5: Tap Wake Cycler (y=280)
           char t_buf[32];
           std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
-          snprintf(t_buf, sizeof(t_buf), "Tap Wake: %s", cur_t.c_str());
-          draw_pill_button(110, 356, 255, 18, id(col_rust), id(col_dark_gray), t_buf, id(col_white), true);
+          snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
+          draw_pill_button(110, 356, 280, 18, id(col_rust), id(col_dark_gray), t_buf, id(col_white), true);
 
-          // Bottom Button: Back to System Hub
-          draw_pill_button(135, 331, 315, 18, id(col_slate), id(col_dark_gray), "< Back", id(col_slate), false);
+          // Bottom Button: Back to System Hub (y=330)
+          draw_pill_button(135, 331, 330, 18, id(col_slate), id(col_dark_gray), "< Back", id(col_slate), false);
 
         } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
@@ -3770,38 +3982,34 @@ touchscreen:
               // In Settings or Confirmation submenu on System page, guard edge flips so button taps pass through
               bool allow_edge_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0);
 
-              // Left edge tap / swipe: Previous page
+              // Left edge tap / swipe: Previous page in active app deck
               if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
-                for (int i = 1; i <= 5; i++) {
-                  int prev_p = (id(gui_page) - i + 5) % 5;
-                  bool ok = (prev_p == 0 ? id(show_clock_switch).state :
-                            (prev_p == 1 ? id(show_stopwatch_switch).state :
-                            (prev_p == 2 ? id(show_music_switch).state :
-                            (prev_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                  if (ok) {
-                    id(gui_page) = prev_p;
-                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; // Reset submenus when switching pages
-                    id(disp1).update();
-                    return;
+                int curr_deck_idx = 0;
+                for (int i = 0; i < id(app_deck_count); i++) {
+                  if (id(app_deck_pages)[i] == id(gui_page)) {
+                    curr_deck_idx = i;
+                    break;
                   }
                 }
+                int prev_deck_idx = (curr_deck_idx - 1 + id(app_deck_count)) % id(app_deck_count);
+                id(gui_page) = id(app_deck_pages)[prev_deck_idx];
+                id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                id(disp1).update();
                 return;
               }
-              // Right edge tap / swipe: Next page
+              // Right edge tap / swipe: Next page in active app deck
               if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
-                for (int i = 1; i <= 5; i++) {
-                  int next_p = (id(gui_page) + i) % 5;
-                  bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                            (next_p == 1 ? id(show_stopwatch_switch).state :
-                            (next_p == 2 ? id(show_music_switch).state :
-                            (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                  if (ok) {
-                    id(gui_page) = next_p;
-                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; // Reset submenus when switching pages
-                    id(disp1).update();
-                    return;
+                int curr_deck_idx = 0;
+                for (int i = 0; i < id(app_deck_count); i++) {
+                  if (id(app_deck_pages)[i] == id(gui_page)) {
+                    curr_deck_idx = i;
+                    break;
                   }
                 }
+                int next_deck_idx = (curr_deck_idx + 1) % id(app_deck_count);
+                id(gui_page) = id(app_deck_pages)[next_deck_idx];
+                id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                id(disp1).update();
                 return;
               }
             }
@@ -4192,23 +4400,21 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 2) {
                 // Mode 2: Device Settings Submenu
-                // Button 1: Brightness Preset Cycler (y: 85..125, x: 100..366)
-                if (touch.y >= 85 && touch.y <= 125 && touch.x >= 100 && touch.x <= 366) {
+                // Button 1: Brightness Preset Cycler (y: 80..120, x: 100..366)
+                if (touch.y >= 80 && touch.y <= 120 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                  std::string nxt = "90%";
-                  if (cur == "40%") nxt = "50%";
-                  else if (cur == "50%") nxt = "60%";
+                  std::string nxt = "80%";
+                  if (cur == "50%") nxt = "60%";
                   else if (cur == "60%") nxt = "70%";
                   else if (cur == "70%") nxt = "80%";
                   else if (cur == "80%") nxt = "90%";
                   else if (cur == "90%") nxt = "100%";
-                  else if (cur == "100%") nxt = "40%";
+                  else nxt = "50%";
                   auto call = id(display_brightness_preset).make_call();
                   call.set_option(nxt);
                   call.perform();
-                  float b = 0.90f;
-                  if (nxt == "40%") b = 0.40f;
-                  else if (nxt == "50%") b = 0.50f;
+                  float b = 0.80f;
+                  if (nxt == "50%") b = 0.50f;
                   else if (nxt == "60%") b = 0.60f;
                   else if (nxt == "70%") b = 0.70f;
                   else if (nxt == "80%") b = 0.80f;
@@ -4216,8 +4422,8 @@ touchscreen:
                   else if (nxt == "100%") b = 1.00f;
                   id(display_brightness).turn_on().set_brightness(b).perform();
                   id(disp1).update();
-                // Button 2: Default Start App Cycler (y: 135..175, x: 100..366)
-                } else if (touch.y >= 135 && touch.y <= 175 && touch.x >= 100 && touch.x <= 366) {
+                // Button 2: Default Start App Cycler (y: 125..165, x: 100..366)
+                } else if (touch.y >= 125 && touch.y <= 165 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(default_start_app).current_option().c_str());
                   std::string nxt = "Clock";
                   if (cur == "Clock") nxt = "Stopwatch";
@@ -4229,8 +4435,18 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Button 3: Motion Wake Cycler (y: 185..225, x: 100..366)
-                } else if (touch.y >= 185 && touch.y <= 225 && touch.x >= 100 && touch.x <= 366) {
+                // Button 3: Clock Face Style Cycler (y: 170..210, x: 100..366)
+                } else if (touch.y >= 170 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
+                  std::string cur = std::string(id(clock_face_style).current_option().c_str());
+                  std::string nxt = "Modern Roman (Analog)";
+                  if (cur == "Modern Roman (Analog)") nxt = "Modern Digital (Bold)";
+                  else nxt = "Modern Roman (Analog)";
+                  auto call = id(clock_face_style).make_call();
+                  call.set_option(nxt);
+                  call.perform();
+                  id(disp1).update();
+                // Button 4: Motion Wake Cycler (y: 215..255, x: 100..366)
+                } else if (touch.y >= 215 && touch.y <= 255 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
                   std::string nxt = "Always On";
                   if (cur == "Always On") nxt = "Docked Only";
@@ -4240,8 +4456,8 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Button 4: Tap Wake Cycler (y: 235..275, x: 100..366)
-                } else if (touch.y >= 235 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                // Button 5: Tap Wake Cycler (y: 260..300, x: 100..366)
+                } else if (touch.y >= 260 && touch.y <= 300 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
                   std::string nxt = "Always On";
                   if (cur == "Always On") nxt = "Docked Only";
@@ -4251,8 +4467,8 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Button 5: Back to System Hub (y: 295..335, x: 125..341)
-                } else if (touch.y >= 295 && touch.y <= 335 && touch.x >= 125 && touch.x <= 341) {
+                // Button 6: Back to System Hub (y: 310..355, x: 125..341)
+                } else if (touch.y >= 310 && touch.y <= 355 && touch.x >= 125 && touch.x <= 341) {
                   id(system_menu_mode) = 1; // Return to System Hub
                   id(disp1).update();
                 }
