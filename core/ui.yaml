@@ -3999,9 +3999,9 @@ display:
           std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
           draw_pill_button(110, 356, 230, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
 
-          // Button 4: Standby Screen Mode (y = 285)
-          std::string st_label = id(standby_ambient_mode).state ? "Standby: Dim Dial" : "Standby: Deep Black";
-          draw_pill_button(110, 356, 285, 20, id(theme_secondary), id(col_dark_gray), st_label.c_str(), id(col_white), false);
+          // Button 4: Stay Awake Mode (y = 285)
+          std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
+          draw_pill_button(110, 356, 285, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
 
           // Bottom Button: Back to Dashboard (y = 352)
           draw_pill_button(135, 331, 352, 18, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
@@ -4689,9 +4689,9 @@ touchscreen:
                 } else if (touch.y >= 220 && touch.y <= 260 && touch.x >= 100 && touch.x <= 366) {
                   id(docked_screensaver_switch).toggle();
                   id(disp1).update();
-                // Card 4: Standby Screen Mode Toggle (y: 265..310, x: 100..366)
+                // Card 4: Stay Awake Mode Toggle (y: 265..310, x: 100..366)
                 } else if (touch.y >= 265 && touch.y <= 310 && touch.x >= 100 && touch.x <= 366) {
-                  id(standby_ambient_mode).toggle();
+                  id(prevent_deep_sleep_switch).toggle();
                   id(disp1).update();
                 // Card 5: < Dashboard (y: 335..380, x: 120..346)
                 } else if (touch.y >= 335 && touch.y <= 380 && touch.x >= 120 && touch.x <= 346) {
