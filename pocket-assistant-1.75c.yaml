@@ -101,8 +101,6 @@ esphome:
             - deep_sleep.enter: deep_sleep_ctrl
           else:
             - script.execute: apply_default_start_page
-            - script.execute: rebuild_active_app_deck
-            - script.execute: sync_time_of_day_brightness
             - lambda: |-
                 id(sleep_start_time) = millis();
                 id(is_locked) = false;
@@ -125,6 +123,8 @@ esphome:
             id: es8311_dac
             volume: 70%
         - audio_dac.mute_on: es8311_dac
+        - script.execute: rebuild_active_app_deck
+        - script.execute: sync_time_of_day_brightness
         - lambda: |-
             // Assert restored display brightness preset post-driver initialization
             float b = 0.80f;
