@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.7.1"
+  version: "3.7.2"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -102,6 +102,7 @@ esphome:
           else:
             - script.execute: apply_default_start_page
             - script.execute: rebuild_active_deck
+            - script.execute: apply_theme_preset
             - lambda: |-
                 id(sleep_start_time) = millis();
                 id(is_locked) = false;
@@ -110,6 +111,7 @@ esphome:
                 id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
                 id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
             - script.execute: sync_display_brightness
+            - script.execute: apply_theme_preset
             - script.execute: route_i2s_to_mic
             - switch.turn_on: speaker_enable
 
@@ -123,6 +125,7 @@ esphome:
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
         - script.execute: sync_display_brightness
+        - script.execute: apply_theme_preset
 
 logger:
   level: INFO
