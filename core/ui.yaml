@@ -1051,6 +1051,11 @@ binary_sensor:
               condition:
                 lambda: 'return !id(is_locked) && !id(boot_hold_triggered);'
               then:
+                - lambda: |-
+                    static uint32_t last_btn_click = 0;
+                    uint32_t now = millis();
+                    if (now - last_btn_click < 300) return;
+                    last_btn_click = now;
                 - script.stop: screen_sleep_timer
                 - if:
                     condition:
@@ -1991,13 +1996,13 @@ script:
     then:
       - audio_dac.mute_on: es8311_dac
       - voice_assistant.stop:
+      - speaker.stop: va_speaker
+      - speaker.stop: announcement_mixing_input
       - lambda: |-
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_active) = false;
           id(gui_page) = id(return_page);
-      - speaker.stop: va_speaker
-      - speaker.stop: announcement_mixing_input
       - component.update: disp1
       - mixer_speaker.apply_ducking:
           id: media_mixing_input
@@ -2017,6 +2022,8 @@ script:
 
   - id: route_i2s_to_mic
     then:
+      - audio_dac.mute_on: es8311_dac
+      - delay: 30ms
       - lambda: |-
           esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
           esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
