@@ -392,7 +392,6 @@ select:
     restore_value: true
     initial_option: "90%"
     options:
-      - "50%"
       - "60%"
       - "70%"
       - "80%"
@@ -407,9 +406,8 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "60%"
+    initial_option: "70%"
     options:
-      - "50%"
       - "60%"
       - "70%"
       - "80%"
@@ -423,8 +421,6 @@ select:
     id: display_brightness_preset
     entity_category: config
     options:
-      - "40%"
-      - "50%"
       - "60%"
       - "70%"
       - "80%"
@@ -434,17 +430,7 @@ select:
     restore_value: true
     optimistic: true
     set_action:
-      - lambda: |-
-          float b = 0.90f;
-          if (x == "40%") b = 0.40f;
-          else if (x == "50%") b = 0.50f;
-          else if (x == "60%") b = 0.60f;
-          else if (x == "70%") b = 0.70f;
-          else if (x == "80%") b = 0.80f;
-          else if (x == "90%") b = 0.90f;
-          else if (x == "100%") b = 1.00f;
-          id(display_brightness).turn_on().set_brightness(b).perform();
-          id(disp1).update();
+      - script.execute: sync_display_brightness
   # --------------------------------------------------------------------------
   # ⚙️ Application Preferences & Power Management Selectors
   # --------------------------------------------------------------------------
@@ -717,6 +703,35 @@ switch:
 
 number:
   - platform: template
+    name: "Day Schedule Start Hour"
+    id: day_start_hour
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 7
+    min_value: 0
+    max_value: 23
+    step: 1
+    unit_of_measurement: "h"
+    on_value:
+      then:
+        - script.execute: sync_display_brightness
+
+  - platform: template
+    name: "Night Schedule Start Hour"
+    id: night_start_hour
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 20
+    min_value: 0
+    max_value: 23
+    step: 1
+    unit_of_measurement: "h"
+    on_value:
+      then:
+        - script.execute: sync_display_brightness
+  - platform: template
     name: "Assist Speaking Animation Interval"
     id: va_speech_anim_interval
     optimistic: true
@@ -884,13 +899,11 @@ interval:
                 // Page 4: System -> click top button cycles brightness preset
                 std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                 std::string nxt = "90%";
-                if (cur == "40%") nxt = "50%";
-                else if (cur == "50%") nxt = "60%";
-                else if (cur == "60%") nxt = "70%";
+                if (cur == "60%") nxt = "70%";
                 else if (cur == "70%") nxt = "80%";
                 else if (cur == "80%") nxt = "90%";
                 else if (cur == "90%") nxt = "100%";
-                else if (cur == "100%") nxt = "40%";
+                else nxt = "60%";
                 auto call = id(display_brightness_preset).make_call();
                 call.set_option(nxt);
                 call.perform();
@@ -1362,7 +1375,6 @@ script:
     then:
       - lambda: |-
           auto parse_bri = [](const std::string& opt) -> float {
-            if (opt == "50%") return 0.50f;
             if (opt == "60%") return 0.60f;
             if (opt == "70%") return 0.70f;
             if (opt == "80%") return 0.80f;
@@ -1382,7 +1394,16 @@ script:
             b_target = parse_bri(opt);
           } else if (mode == "Time Schedule") {
             auto now = id(ha_time).now();
-            bool is_day = (!now.is_valid() || (now.hour >= 7 && now.hour < 20));
+            int day_h = (int)id(day_start_hour).state;
+            int night_h = (int)id(night_start_hour).state;
+            bool is_day = true;
+            if (now.is_valid()) {
+              if (day_h < night_h) {
+                is_day = (now.hour >= day_h && now.hour < night_h);
+              } else {
+                is_day = (now.hour >= day_h || now.hour < night_h);
+              }
+            }
             std::string opt = is_day ? std::string(id(day_brightness_preset).current_option().c_str())
                                      : std::string(id(night_brightness_preset).current_option().c_str());
             b_target = parse_bri(opt);
@@ -1395,7 +1416,7 @@ script:
           if (id(display_power_state) == 0) { // ACTIVE
             id(display_brightness).turn_on().set_brightness(b_target).perform();
           } else if (id(display_power_state) == 1) { // SCREENSAVER
-            id(display_brightness).turn_on().set_brightness(0.15f).perform();
+            id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
           }
 
   - id: enter_standby_state
@@ -1405,7 +1426,7 @@ script:
           if (id(usb_connected).state && id(docked_screensaver_switch).state) {
             id(display_power_state) = 1; // SCREENSAVER
             id(sleep_start_time) = 0; // Inhibit deep sleep countdown while docked
-            id(display_brightness).turn_on().set_brightness(0.15f).perform();
+            id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
             id(disp1).update();
           } else {
             id(display_power_state) = 2; // SCREEN_OFF
@@ -3734,53 +3755,56 @@ display:
 
         if (id(system_menu_mode) == 0) {
           // --------------------------------------------------
-          // VIEW 0: MAIN SYSTEM OBSERVATIONAL DASHBOARD (DUAL CATEGORY HUBS)
+          // VIEW 0: MAIN SYSTEM OBSERVATIONAL DASHBOARD
           // --------------------------------------------------
-          if (now.is_valid()) {
-            char title_buf[32];
-            if (id(is_24h_format)) {
-              snprintf(title_buf, sizeof(title_buf), "SYSTEM • %02d:%02d", now.hour, now.minute);
-            } else {
-              int h12 = now.hour % 12;
-              if (h12 == 0) h12 = 12;
-              snprintf(title_buf, sizeof(title_buf), "SYSTEM • %d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
-            }
-            it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, title_buf);
-          } else {
-            it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
-          }
+          // Top Header: Pure iconic "SYSTEM" title
+          it.print(cx, 56, id(font_date), id(col_rust), TextAlign::CENTER, "SYSTEM");
 
-          // Essential Hardware Telemetry Readout
-          float v_batt = id(batt_voltage).state;
-          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)", batt, v_batt);
-          it.print(cx, 88, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
-
-          it.print(cx, 114, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_slate), TextAlign::CENTER, id(batt_charging).state ? "Status: Charging (USB)" : "Status: On Battery");
-
+          // Upper Zone: Technical Telemetry & Firmware
           float sig = id(pocket_wifi_signal).state;
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
-          it.print(cx, 140, id(font_small), id(col_green), TextAlign::CENTER, buf);
-
-          float temp_c = id(imu_temp).state;
-          float r_val = id(imu_roll).state;
-          float p_val = id(imu_pitch).state;
-          snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
-          it.print(cx, 166, id(font_small), id(col_slate), TextAlign::CENTER, buf);
+          it.print(cx, 92, id(font_small), id(col_green), TextAlign::CENTER, buf);
 
           bool has_update = id(ha_firmware_update_status).state == "ON";
           std::string lat_v = id(ha_firmware_latest_version).state;
           if (has_update) {
             snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
-            it.print(cx, 194, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+            it.print(cx, 118, id(font_small), id(col_gold), TextAlign::CENTER, buf);
           } else {
-            it.print(cx, 194, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
+            it.print(cx, 118, id(font_small), id(col_gold), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
-          // Two spacious category buttons for logical breakout (pitch = 70px, r = 22, height = 44px)
-          draw_pill_button(110, 356, 245, 22, id(col_rust), id(col_dark_gray), "Display & Clock", id(col_white), true);
-          draw_pill_button(110, 356, 315, 22, id(col_rust), id(col_dark_gray), "Power & Wake", id(col_white), true);
+          float temp_c = id(imu_temp).state;
+          float r_val = id(imu_roll).state;
+          float p_val = id(imu_pitch).state;
+          snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
+          it.print(cx, 144, id(font_small), id(col_slate), TextAlign::CENTER, buf);
+
+          // Center Zone: Primary Interactive Navigation Buttons
+          draw_pill_button(110, 356, 205, 20, id(col_rust), id(col_dark_gray), "Display & Clock >", id(col_white), true);
+          draw_pill_button(110, 356, 265, 20, id(col_rust), id(col_dark_gray), "Power & Wake >", id(col_white), true);
+
+          // Lower Zone: Glanceable Battery & Time Status
+          float v_batt = id(batt_voltage).state;
+          char batt_buf[48];
+          snprintf(batt_buf, sizeof(batt_buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Charging" : "");
+          it.print(cx, 328, id(font_small), id(batt_charging).state ? id(col_gold) : id(col_cyan), TextAlign::CENTER, batt_buf);
+
+          if (now.is_valid()) {
+            char full_buf[64];
+            char date_buf[32];
+            it.strftime(date_buf, sizeof(date_buf), "%a, %b %d", now);
+            if (id(is_24h_format)) {
+              snprintf(full_buf, sizeof(full_buf), "%02d:%02d  •  %s", now.hour, now.minute, date_buf);
+            } else {
+              int h12 = now.hour % 12;
+              if (h12 == 0) h12 = 12;
+              snprintf(full_buf, sizeof(full_buf), "%d:%02d %s  •  %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM", date_buf);
+            }
+            it.print(cx, 356, id(font_small), id(col_slate), TextAlign::CENTER, full_buf);
+          }
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
@@ -4455,16 +4479,16 @@ touchscreen:
                 return l_pat > c_pat;
               };
               if (id(system_menu_mode) == 0) {
-                // Main Telemetry View: tap Version line to open Software Update directly
-                if (touch.y >= 180 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
+                // Main Telemetry View: tap Version line to open Software Update directly (y: 105..135)
+                if (touch.y >= 105 && touch.y <= 135 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Main Telemetry View: Button 1 "Display & Clock" (y: 220..270)
-                } else if (touch.y >= 220 && touch.y <= 270 && touch.x >= 110 && touch.x <= 356) {
+                // Main Telemetry View: Button 1 "Display & Clock" (y: 185..225)
+                } else if (touch.y >= 185 && touch.y <= 225 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 2; // Open Display & Clock Submenu
                   id(disp1).update();
-                // Main Telemetry View: Button 2 "Power & Wake" (y: 290..340)
-                } else if (touch.y >= 290 && touch.y <= 340 && touch.x >= 110 && touch.x <= 356) {
+                // Main Telemetry View: Button 2 "Power & Wake" (y: 245..285)
+                } else if (touch.y >= 245 && touch.y <= 285 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 1; // Open Power & Wake Submenu
                   id(disp1).update();
                 }
@@ -4522,13 +4546,11 @@ touchscreen:
                 } else if (touch.y >= 125 && touch.y <= 165 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                   std::string nxt = "90%";
-                  if (cur == "40%") nxt = "50%";
-                  else if (cur == "50%") nxt = "60%";
-                  else if (cur == "60%") nxt = "70%";
+                  if (cur == "60%") nxt = "70%";
                   else if (cur == "70%") nxt = "80%";
                   else if (cur == "80%") nxt = "90%";
                   else if (cur == "90%") nxt = "100%";
-                  else if (cur == "100%") nxt = "40%";
+                  else nxt = "60%";
                   auto call = id(display_brightness_preset).make_call();
                   call.set_option(nxt);
                   call.perform();
