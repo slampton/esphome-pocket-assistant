@@ -193,14 +193,6 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  - id: app_deck_pages
-    type: int[5]
-    restore_value: no
-    initial_value: '{0, 1, 2, 3, 4}'
-  - id: app_deck_count
-    type: int
-    restore_value: no
-    initial_value: '5'
   - id: gui_page
     type: int
     restore_value: no
@@ -575,12 +567,10 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-    on_turn_on:
-      then:
-        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - script.execute: rebuild_active_app_deck
+        - lambda: |-
+            if (id(gui_page) == 0) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show Stopwatch App"
@@ -588,12 +578,10 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-    on_turn_on:
-      then:
-        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - script.execute: rebuild_active_app_deck
+        - lambda: |-
+            if (id(gui_page) == 1) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show Music App"
@@ -601,12 +589,10 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-    on_turn_on:
-      then:
-        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - script.execute: rebuild_active_app_deck
+        - lambda: |-
+            if (id(gui_page) == 2) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show Games App"
@@ -614,12 +600,10 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-    on_turn_on:
-      then:
-        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - script.execute: rebuild_active_app_deck
+        - lambda: |-
+            if (id(gui_page) == 3) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show System App"
@@ -627,12 +611,10 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-    on_turn_on:
-      then:
-        - script.execute: rebuild_active_app_deck
     on_turn_off:
       then:
-        - script.execute: rebuild_active_app_deck
+        - lambda: |-
+            if (id(gui_page) == 4) { id(gui_page) = 0; id(disp1).update(); }
 
 
   - platform: template
@@ -672,9 +654,6 @@ number:
     min_value: 1
     max_value: 10
     step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Order: Stopwatch App"
@@ -686,9 +665,6 @@ number:
     min_value: 1
     max_value: 10
     step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Order: Music App"
@@ -700,9 +676,6 @@ number:
     min_value: 1
     max_value: 10
     step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Order: Games App"
@@ -714,9 +687,6 @@ number:
     min_value: 1
     max_value: 10
     step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_app_deck
 
   - platform: template
     name: "Order: System App"
@@ -728,9 +698,6 @@ number:
     min_value: 1
     max_value: 10
     step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_app_deck
 
 
 interval:
@@ -1368,59 +1335,6 @@ script:
               call.set_option(target_opt);
               call.perform();
             }
-          }
-
-  - id: rebuild_active_app_deck
-    mode: restart
-    then:
-      - lambda: |-
-          struct AppOrder { int page; float prio; };
-          AppOrder list[5];
-          int count = 0;
-          float p_clock = isnan(id(order_clock_app).state) ? 1.0f : (float)id(order_clock_app).state;
-          float p_stopwatch = isnan(id(order_stopwatch_app).state) ? 2.0f : (float)id(order_stopwatch_app).state;
-          float p_music = isnan(id(order_music_app).state) ? 3.0f : (float)id(order_music_app).state;
-          float p_games = isnan(id(order_games_app).state) ? 4.0f : (float)id(order_games_app).state;
-          float p_system = isnan(id(order_system_app).state) ? 5.0f : (float)id(order_system_app).state;
-
-          if (id(show_clock_switch).state)     { list[count++] = {0, p_clock}; }
-          if (id(show_stopwatch_switch).state) { list[count++] = {1, p_stopwatch}; }
-          if (id(show_music_switch).state)     { list[count++] = {2, p_music}; }
-          if (id(show_games_switch).state)     { list[count++] = {3, p_games}; }
-          if (id(show_system_switch).state)    { list[count++] = {4, p_system}; }
-          
-          if (count == 0) {
-            list[0] = {0, 1.0f};
-            list[1] = {4, 5.0f};
-            count = 2;
-          }
-          
-          // Bubble sort in ascending order of priority numbers
-          for (int i = 0; i < count - 1; i++) {
-            for (int j = 0; j < count - i - 1; j++) {
-              if (list[j].prio > list[j + 1].prio) {
-                AppOrder temp = list[j];
-                list[j] = list[j + 1];
-                list[j + 1] = temp;
-              }
-            }
-          }
-          for (int i = 0; i < count; i++) {
-            id(app_deck_pages)[i] = list[i].page;
-          }
-          id(app_deck_count) = count;
-
-          // If current page is no longer in deck, switch to first available page
-          bool cur_in_deck = false;
-          for (int i = 0; i < count; i++) {
-            if (id(app_deck_pages)[i] == id(gui_page)) {
-              cur_in_deck = true;
-              break;
-            }
-          }
-          if (!cur_in_deck) {
-            id(gui_page) = id(app_deck_pages)[0];
-            id(disp1).update();
           }
 
   - id: apply_default_start_page
@@ -4007,32 +3921,65 @@ touchscreen:
               // In Settings or Confirmation submenu on System page, guard edge flips so button taps pass through
               bool allow_edge_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0);
 
-              // Left edge tap / swipe: Previous page in active app deck
+              // Helper lambda to fetch dynamic app priority safely
+              auto get_app_prio = [](int p) -> float {
+                if (p == 0) return id(show_clock_switch).state ? (isnan(id(order_clock_app).state) ? 1.0f : (float)id(order_clock_app).state) : 999.0f;
+                if (p == 1) return id(show_stopwatch_switch).state ? (isnan(id(order_stopwatch_app).state) ? 2.0f : (float)id(order_stopwatch_app).state) : 999.0f;
+                if (p == 2) return id(show_music_switch).state ? (isnan(id(order_music_app).state) ? 3.0f : (float)id(order_music_app).state) : 999.0f;
+                if (p == 3) return id(show_games_switch).state ? (isnan(id(order_games_app).state) ? 4.0f : (float)id(order_games_app).state) : 999.0f;
+                if (p == 4) return id(show_system_switch).state ? (isnan(id(order_system_app).state) ? 5.0f : (float)id(order_system_app).state) : 999.0f;
+                return 999.0f;
+              };
+
+              // Left edge tap / swipe: Previous page in active priority deck
               if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
-                int curr_deck_idx = 0;
-                for (int i = 0; i < id(app_deck_count); i++) {
-                  if (id(app_deck_pages)[i] == id(gui_page)) {
-                    curr_deck_idx = i;
-                    break;
+                struct AppItem { int page; float prio; };
+                AppItem deck[5];
+                int deck_cnt = 0;
+                for (int p = 0; p < 5; p++) {
+                  float prio = get_app_prio(p);
+                  if (prio < 900.0f) deck[deck_cnt++] = {p, prio};
+                }
+                if (deck_cnt == 0) { deck[0] = {0, 1.0f}; deck[1] = {4, 5.0f}; deck_cnt = 2; }
+                for (int i = 0; i < deck_cnt - 1; i++) {
+                  for (int j = 0; j < deck_cnt - i - 1; j++) {
+                    if (deck[j].prio > deck[j + 1].prio) {
+                      AppItem t = deck[j]; deck[j] = deck[j + 1]; deck[j + 1] = t;
+                    }
                   }
                 }
-                int prev_deck_idx = (curr_deck_idx - 1 + id(app_deck_count)) % id(app_deck_count);
-                id(gui_page) = id(app_deck_pages)[prev_deck_idx];
+                int cur_idx = 0;
+                for (int i = 0; i < deck_cnt; i++) {
+                  if (deck[i].page == id(gui_page)) { cur_idx = i; break; }
+                }
+                id(gui_page) = deck[(cur_idx - 1 + deck_cnt) % deck_cnt].page;
                 id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
                 id(disp1).update();
                 return;
               }
-              // Right edge tap / swipe: Next page in active app deck
+
+              // Right edge tap / swipe: Next page in active priority deck
               if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
-                int curr_deck_idx = 0;
-                for (int i = 0; i < id(app_deck_count); i++) {
-                  if (id(app_deck_pages)[i] == id(gui_page)) {
-                    curr_deck_idx = i;
-                    break;
+                struct AppItem { int page; float prio; };
+                AppItem deck[5];
+                int deck_cnt = 0;
+                for (int p = 0; p < 5; p++) {
+                  float prio = get_app_prio(p);
+                  if (prio < 900.0f) deck[deck_cnt++] = {p, prio};
+                }
+                if (deck_cnt == 0) { deck[0] = {0, 1.0f}; deck[1] = {4, 5.0f}; deck_cnt = 2; }
+                for (int i = 0; i < deck_cnt - 1; i++) {
+                  for (int j = 0; j < deck_cnt - i - 1; j++) {
+                    if (deck[j].prio > deck[j + 1].prio) {
+                      AppItem t = deck[j]; deck[j] = deck[j + 1]; deck[j + 1] = t;
+                    }
                   }
                 }
-                int next_deck_idx = (curr_deck_idx + 1) % id(app_deck_count);
-                id(gui_page) = id(app_deck_pages)[next_deck_idx];
+                int cur_idx = 0;
+                for (int i = 0; i < deck_cnt; i++) {
+                  if (deck[i].page == id(gui_page)) { cur_idx = i; break; }
+                }
+                id(gui_page) = deck[(cur_idx + 1) % deck_cnt].page;
                 id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
                 id(disp1).update();
                 return;
