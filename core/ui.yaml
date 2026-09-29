@@ -2619,15 +2619,15 @@ display:
       }
 
       // ==========================================
-      // GLOBAL CAROUSEL POSITION PIPS (Subtle Navigation Indicator)
+      // GLOBAL CAROUSEL POSITION PIPS (Bottom Navigation Indicator)
       // ==========================================
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(music_overlay_mode) == 0 && id(system_menu_mode) == 0) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(music_overlay_mode) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0)) {
         int total = id(active_deck_size);
         int cur = id(current_deck_index);
         int pip_spacing = 11;
         int pips_w = (total - 1) * pip_spacing;
         int start_x = cx - pips_w / 2;
-        int pip_y = 22;
+        int pip_y = 422;
 
         for (int p = 0; p < total; p++) {
           int px = start_x + p * pip_spacing;
@@ -3813,6 +3813,7 @@ display:
       // ==========================================
       // PAGE 4: SYSTEM (STATUS & CONTROLS - RUST HIGHLIGHT)
       // ==========================================
+      } else if (id(gui_page) == 4) {
         // Minimalist Edge-to-Edge Definition: Subtle perimeter bezel guide
         it.circle(cx, cy, 230, id(col_dark_gray));
         it.circle(cx, cy, 222, id(col_dark_gray));
