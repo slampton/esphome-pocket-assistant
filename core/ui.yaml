@@ -398,6 +398,7 @@ select:
     name: "System: Page Counter Mode"
     id: page_counter_mode
     icon: "mdi:numeric"
+    entity_category: config
     optimistic: true
     restore_value: true
     initial_option: "Always"
@@ -2746,9 +2747,18 @@ display:
       // GLOBAL BOTTOM NAVIGATION BAR (Fixed Anchors & Centered Page Counter)
       // ==========================================
       if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
-        // Universal Left & Right fixed navigation anchors (Inset to x=165 & x=301, y=424: immune to dial/bezel rings)
-        it.print(165, 424, id(font_small), id(theme_secondary), TextAlign::CENTER, "<");
-        it.print(301, 424, id(font_small), id(theme_secondary), TextAlign::CENTER, ">");
+        // Universal Left & Right fixed navigation anchors (Pixel-perfect vector chevrons matching preferred '>' size)
+        // Left Anchor (<): 9px wide, 15px tall, 2px stroke
+        it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
+        it.line(165 + 5, 424 - 7, 165 - 3, 424, id(theme_secondary));
+        it.line(165 + 4, 424 + 7, 165 - 4, 424, id(theme_secondary));
+        it.line(165 + 5, 424 + 7, 165 - 3, 424, id(theme_secondary));
+
+        // Right Anchor (>): 9px wide, 15px tall, 2px stroke (exact mirror geometry)
+        it.line(301 - 4, 424 - 7, 301 + 4, 424, id(theme_secondary));
+        it.line(301 - 5, 424 - 7, 301 + 3, 424, id(theme_secondary));
+        it.line(301 - 4, 424 + 7, 301 + 4, 424, id(theme_secondary));
+        it.line(301 - 5, 424 + 7, 301 + 3, 424, id(theme_secondary));
 
         std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
         if (cnt_mode.empty()) cnt_mode = "Always";
@@ -3244,11 +3254,11 @@ display:
             it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
           }
 
-          // Left Flank (x = 91..113): Previous Track (◀◀) perfectly on the center horizontal line (y = 212, 12px gap from art)
+          // Left Flank (x: 91..113): Previous Track (◀◀) centered on horizon (y = 212, exactly 12px gap from art)
           it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
           it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
-          // Right Flank: Next Track (▶▶) centered on horizon (x: 353..375, y = 212, exactly 12px symmetric gap from art)
+          // Right Flank (x: 353..375): Next Track (▶▶) centered on horizon (y = 212, exactly 12px gap from art)
           it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
           it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
 
@@ -4899,8 +4909,8 @@ touchscreen:
                     id(check_firmware_update).execute();
                     id(disp1).update();
                   }
-                // Back Button: < Back (y: 265..315, x: 125..341)
-                } else if (touch.y >= 265 && touch.y <= 315 && touch.x >= 125 && touch.x <= 341) {
+                // Standardized < BACK (y: 350..400, x: 120..346)
+                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
                   id(update_check_state) = 0; // Reset checking state
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
@@ -4937,9 +4947,9 @@ touchscreen:
                   id(music_overlay_mode) = 1;
                   id(system_menu_mode) = 0;
                   id(disp1).update();
-                // Bottom Button: < Dashboard (y: 330..375, x: 120..346)
-                } else if (touch.y >= 330 && touch.y <= 375 && touch.x >= 120 && touch.x <= 346) {
-                  id(system_menu_mode) = 0;
+                // Standardized < BACK (y: 350..400, x: 120..346)
+                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                  id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
                 }
               }
