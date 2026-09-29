@@ -249,10 +249,6 @@ voice_assistant:
           id: media_mixing_input
           decibel_reduction: 0
           duration: 1.0s
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: 50
-          duration: 0.1s
       - if:
           condition:
             lambda: 'return id(va_tts_received);'
@@ -269,6 +265,10 @@ voice_assistant:
                 timeout: 180s
             # 3. Clean 400ms settling flush for physical speaker & DAC FIFO drain
             - delay: 400ms
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 50
+          duration: 0.1s
       - if:
           condition:
             media_player.is_idle: pocket_music_player
