@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.6.5"
+  version: "3.7.0"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -101,6 +101,7 @@ esphome:
             - deep_sleep.enter: deep_sleep_ctrl
           else:
             - script.execute: apply_default_start_page
+            - script.execute: rebuild_active_deck
             - lambda: |-
                 id(sleep_start_time) = millis();
                 id(is_locked) = false;

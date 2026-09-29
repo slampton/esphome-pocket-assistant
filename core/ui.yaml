@@ -209,6 +209,34 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: active_deck_size
+    type: int
+    restore_value: no
+    initial_value: '5'
+  - id: current_deck_index
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: deck_slot_0
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: deck_slot_1
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: deck_slot_2
+    type: int
+    restore_value: no
+    initial_value: '2'
+  - id: deck_slot_3
+    type: int
+    restore_value: no
+    initial_value: '3'
+  - id: deck_slot_4
+    type: int
+    restore_value: no
+    initial_value: '4'
   - id: return_page
     type: int
     restore_value: no
@@ -339,7 +367,15 @@ output:
     type: float
     write_action:
       - lambda: |-
-          id(disp1).set_brightness(uint8_t(state * 255.0f));
+          if (state <= 0.01f) {
+            id(disp1).set_brightness(0);
+          } else {
+            // Perceptual Gamma Mapping: Calibrated for AMOLED emission threshold (~90 hardware floor)
+            float clamped = std::max(0.0f, std::min(1.0f, state));
+            float hw = 90.0f + 165.0f * powf(clamped, 1.6f);
+            uint8_t bri_byte = (uint8_t)std::max(0.0f, std::min(255.0f, roundf(hw)));
+            id(disp1).set_brightness(bri_byte);
+          }
 
 
 light:
@@ -568,121 +604,60 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 0) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (0 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
-
+        - script.execute: rebuild_active_deck
   - platform: template
     name: "App Visibility: Stopwatch"
     id: show_stopwatch_switch
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 1) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (1 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
-
+        - script.execute: rebuild_active_deck
   - platform: template
     name: "App Visibility: Music"
     id: show_music_switch
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 2) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (2 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
-
+        - script.execute: rebuild_active_deck
   - platform: template
     name: "App Visibility: Games"
     id: show_games_switch
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 3) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (3 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
-
+        - script.execute: rebuild_active_deck
   - platform: template
     name: "App Visibility: System"
     id: show_system_switch
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
     on_turn_off:
       then:
-        - lambda: |-
-            if (id(gui_page) == 4) {
-              for (int i = 1; i <= 5; i++) {
-                int next_p = (4 + i) % 5;
-                bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                          (next_p == 1 ? id(show_stopwatch_switch).state :
-                          (next_p == 2 ? id(show_music_switch).state :
-                          (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                if (ok) {
-                  id(gui_page) = next_p;
-                  id(disp1).update();
-                  break;
-                }
-              }
-            }
-
-
+        - script.execute: rebuild_active_deck
   - platform: template
     name: "Power: Docked Screensaver"
     id: docked_screensaver_switch
@@ -1366,6 +1341,81 @@ text_sensor:
 
 
 script:
+
+  - id: rebuild_active_deck
+    mode: restart
+    then:
+      - lambda: |-
+          int count = 0;
+          if (id(show_clock_switch).state) {
+            if (count == 0) id(deck_slot_0) = 0;
+            else if (count == 1) id(deck_slot_1) = 0;
+            else if (count == 2) id(deck_slot_2) = 0;
+            else if (count == 3) id(deck_slot_3) = 0;
+            else if (count == 4) id(deck_slot_4) = 0;
+            count++;
+          }
+          if (id(show_stopwatch_switch).state) {
+            if (count == 0) id(deck_slot_0) = 1;
+            else if (count == 1) id(deck_slot_1) = 1;
+            else if (count == 2) id(deck_slot_2) = 1;
+            else if (count == 3) id(deck_slot_3) = 1;
+            else if (count == 4) id(deck_slot_4) = 1;
+            count++;
+          }
+          if (id(show_music_switch).state) {
+            if (count == 0) id(deck_slot_0) = 2;
+            else if (count == 1) id(deck_slot_1) = 2;
+            else if (count == 2) id(deck_slot_2) = 2;
+            else if (count == 3) id(deck_slot_3) = 2;
+            else if (count == 4) id(deck_slot_4) = 2;
+            count++;
+          }
+          if (id(show_games_switch).state) {
+            if (count == 0) id(deck_slot_0) = 3;
+            else if (count == 1) id(deck_slot_1) = 3;
+            else if (count == 2) id(deck_slot_2) = 3;
+            else if (count == 3) id(deck_slot_3) = 3;
+            else if (count == 4) id(deck_slot_4) = 3;
+            count++;
+          }
+          if (id(show_system_switch).state) {
+            if (count == 0) id(deck_slot_0) = 4;
+            else if (count == 1) id(deck_slot_1) = 4;
+            else if (count == 2) id(deck_slot_2) = 4;
+            else if (count == 3) id(deck_slot_3) = 4;
+            else if (count == 4) id(deck_slot_4) = 4;
+            count++;
+          }
+          if (count == 0) {
+            id(deck_slot_0) = 0;
+            count = 1;
+          }
+          id(active_deck_size) = count;
+
+          auto get_slot = [](int idx) -> int {
+            if (idx == 0) return id(deck_slot_0);
+            if (idx == 1) return id(deck_slot_1);
+            if (idx == 2) return id(deck_slot_2);
+            if (idx == 3) return id(deck_slot_3);
+            if (idx == 4) return id(deck_slot_4);
+            return 0;
+          };
+
+          // Find current page in deck
+          bool found = false;
+          for (int i = 0; i < count; i++) {
+            if (get_slot(i) == id(gui_page)) {
+              found = true;
+              id(current_deck_index) = i;
+              break;
+            }
+          }
+          if (!found) {
+            id(current_deck_index) = 0;
+            id(gui_page) = id(deck_slot_0);
+            id(disp1).update();
+          }
   - id: sync_display_brightness
     mode: restart
     then:
@@ -1437,6 +1487,7 @@ script:
           bool was_dark = (id(display_power_state) == 2);
           if (was_dark && id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
             id(apply_default_start_page).execute();
+            id(rebuild_active_deck).execute();
           }
           id(sleep_start_time) = 0;
           id(display_power_state) = 0; // ACTIVE
@@ -2565,6 +2616,27 @@ display:
           it.print(cx, cy + 95, id(font_small), id(col_cyan), TextAlign::CENTER, status_str);
         }
         return;
+      }
+
+      // ==========================================
+      // GLOBAL CAROUSEL POSITION PIPS (Subtle Navigation Indicator)
+      // ==========================================
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(music_overlay_mode) == 0 && id(system_menu_mode) == 0) {
+        int total = id(active_deck_size);
+        int cur = id(current_deck_index);
+        int pip_spacing = 11;
+        int pips_w = (total - 1) * pip_spacing;
+        int start_x = cx - pips_w / 2;
+        int pip_y = 22;
+
+        for (int p = 0; p < total; p++) {
+          int px = start_x + p * pip_spacing;
+          if (p == cur) {
+            it.filled_circle(px, pip_y, 3, id(col_white));
+          } else {
+            it.filled_circle(px, pip_y, 2, id(col_dark_gray));
+          }
+        }
       }
 
       // ==========================================
@@ -3741,10 +3813,8 @@ display:
       // ==========================================
       // PAGE 4: SYSTEM (STATUS & CONTROLS - RUST HIGHLIGHT)
       // ==========================================
-      } else {
+        // Minimalist Edge-to-Edge Definition: Subtle perimeter bezel guide
         it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_rust));
-        it.circle(cx, cy, 227, id(col_rust));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
         char buf[64];
@@ -4084,37 +4154,37 @@ touchscreen:
               // In Settings or Confirmation submenu on System page, guard edge flips so button taps pass through
               bool allow_edge_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0);
 
-              // Left edge tap / swipe: Previous page
+              auto get_slot = [](int idx) -> int {
+                if (idx == 0) return id(deck_slot_0);
+                if (idx == 1) return id(deck_slot_1);
+                if (idx == 2) return id(deck_slot_2);
+                if (idx == 3) return id(deck_slot_3);
+                if (idx == 4) return id(deck_slot_4);
+                return 0;
+              };
+
+              // Left edge tap / swipe: Previous page in deck (O(1) Instant Array Router)
               if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x < left_flip_thresh) {
-                for (int i = 1; i <= 5; i++) {
-                  int prev_p = (id(gui_page) - i + 5) % 5;
-                  bool ok = (prev_p == 0 ? id(show_clock_switch).state :
-                            (prev_p == 1 ? id(show_stopwatch_switch).state :
-                            (prev_p == 2 ? id(show_music_switch).state :
-                            (prev_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                  if (ok) {
-                    id(gui_page) = prev_p;
-                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; // Reset submenus when switching pages
-                    id(disp1).update();
-                    return;
-                  }
+                int total = id(active_deck_size);
+                if (total > 1) {
+                  int prev_idx = (id(current_deck_index) - 1 + total) % total;
+                  id(current_deck_index) = prev_idx;
+                  id(gui_page) = get_slot(prev_idx);
+                  id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                  id(disp1).update();
                 }
                 return;
               }
-              // Right edge tap / swipe: Next page
+
+              // Right edge tap / swipe: Next page in deck (O(1) Instant Array Router)
               if (allow_edge_flip && !(id(gui_page) == 3 && id(active_game) > 0) && touch.x > right_flip_thresh) {
-                for (int i = 1; i <= 5; i++) {
-                  int next_p = (id(gui_page) + i) % 5;
-                  bool ok = (next_p == 0 ? id(show_clock_switch).state :
-                            (next_p == 1 ? id(show_stopwatch_switch).state :
-                            (next_p == 2 ? id(show_music_switch).state :
-                            (next_p == 3 ? id(show_games_switch).state : id(show_system_switch).state))));
-                  if (ok) {
-                    id(gui_page) = next_p;
-                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; // Reset submenus when switching pages
-                    id(disp1).update();
-                    return;
-                  }
+                int total = id(active_deck_size);
+                if (total > 1) {
+                  int next_idx = (id(current_deck_index) + 1) % total;
+                  id(current_deck_index) = next_idx;
+                  id(gui_page) = get_slot(next_idx);
+                  id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                  id(disp1).update();
                 }
                 return;
               }
