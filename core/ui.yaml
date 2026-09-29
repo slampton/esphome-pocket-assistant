@@ -401,11 +401,11 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Disabled"
+    initial_option: "Full Bleed"
     options:
+      - "Full Bleed"
+      - "Letterbox"
       - "Disabled"
-      - "Clean Art"
-      - "Player Overlay"
     set_action:
       - lambda: |-
           id(disp1).update();
@@ -643,6 +643,20 @@ button:
 
 
 switch:
+  - platform: template
+    name: "System: Music Controls Overlay"
+    id: music_controls_overlay_switch
+    icon: "mdi:layers-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - lambda: |-
+          id(disp1).update();
+    turn_off_action:
+      - lambda: |-
+          id(disp1).update();
+
   - platform: gpio
     name: "Speaker Enable"
     id: speaker_enable
@@ -3251,9 +3265,10 @@ display:
           }
 
           std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-          bool is_clean_art = (art_mode == "Clean Art") && has_art;
-          bool is_overlay_art = (art_mode == "Player Overlay") && has_art;
-          bool is_fs_art = is_clean_art || is_overlay_art;
+          bool is_fs_active = (art_mode != "Disabled") && has_art;
+          bool is_full_bleed = (art_mode == "Full Bleed") && has_art;
+          bool is_letterbox = (art_mode == "Letterbox") && has_art;
+          bool show_overlay = id(music_controls_overlay_switch).state || !is_fs_active;
 
           auto draw_scaled_art = [&](esphome::image::Image *img, int dst_x, int dst_y, int dst_w, int dst_h) {
             if (img == nullptr || img->get_width() == 0 || img->get_height() == 0) return;
@@ -3272,99 +3287,45 @@ display:
             }
           };
 
-          if (is_clean_art) {
+          if (is_fs_active) {
             // ====================================================
-            // CLEAN FULL-BLEED ALBUM ART (100% Screen Real Estate)
-            // ====================================================
-            draw_scaled_art(target_art, 0, 0, 466, 466);
-
-            // Paused state frosted scrim overlay with borderless Play badge ▶
-            if (!is_playing) {
-              it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
-              it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
-            }
-
-            // Universal Left & Right fixed navigation anchors
-            it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
-            it.line(165 + 5, 424 - 7, 165 - 3, 424, id(theme_secondary));
-            it.line(165 + 4, 424 + 7, 165 - 4, 424, id(theme_secondary));
-            it.line(165 + 5, 424 + 7, 165 - 3, 424, id(theme_secondary));
-
-            it.line(301 - 4, 424 - 7, 301 + 4, 424, id(theme_secondary));
-            it.line(301 - 5, 424 - 7, 301 + 3, 424, id(theme_secondary));
-            it.line(301 - 4, 424 + 7, 301 + 4, 424, id(theme_secondary));
-            it.line(301 - 5, 424 + 7, 301 + 3, 424, id(theme_secondary));
-
-            std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
-            if (cnt_mode.empty()) cnt_mode = "Always";
-            bool show_in_deck = (cnt_mode == "Always" || cnt_mode == "System Only");
-            if (show_in_deck) {
-              int total = id(active_deck_size);
-              int cur = id(current_deck_index);
-              char pg_buf[16];
-              snprintf(pg_buf, sizeof(pg_buf), "%d / %d", cur + 1, total);
-              it.print(cx, 424, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
-            }
-          } else if (is_overlay_art) {
-            // ====================================================
-            // FULL-SCREEN ALBUM ART WITH PLAYER OVERLAY & VIGNETTE
+            // FULL-SCREEN ALBUM ART CANVAS (Edge-to-Edge 466x466)
             // ====================================================
             draw_scaled_art(target_art, 0, 0, 466, 466);
 
-            // Dual-Zone Vignette Scrim (Top 90px & Bottom 146px for maximum legibility)
-            for (int y = 0; y < 60; y++) {
-              int y_d = abs(y - cy);
-              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-              it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
-            }
-            for (int y = 60; y < 90; y++) {
-              int y_d = abs(y - cy);
-              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-              for (int x = cx - hw; x <= cx + hw; x++) {
-                if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
+            if (is_letterbox) {
+              // Dual-Zone Letterbox / Vignette Scrim (Top 90px & Bottom 146px for matte look)
+              for (int y = 0; y < 60; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
               }
-            }
-
-            for (int y = 320; y < 355; y++) {
-              int y_d = abs(y - cy);
-              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-              for (int x = cx - hw; x <= cx + hw; x++) {
-                if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
+              for (int y = 60; y < 90; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                for (int x = cx - hw; x <= cx + hw; x++) {
+                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
+                }
               }
-            }
-            for (int y = 355; y < 385; y++) {
-              int y_d = abs(y - cy);
-              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-              for (int x = cx - hw; x <= cx + hw; x++) {
-                if ((x + y) % 2 == 0 || (x % 2 == 0 && y % 2 == 1)) it.draw_pixel_at(x, y, id(col_black));
+              for (int y = 320; y < 355; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                for (int x = cx - hw; x <= cx + hw; x++) {
+                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
+                }
               }
-            }
-            for (int y = 385; y < 466; y++) {
-              int y_d = abs(y - cy);
-              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-              it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
-            }
-
-            // Universal Left & Right fixed navigation anchors (Overlaid on dark vignette)
-            it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
-            it.line(165 + 5, 424 - 7, 165 - 3, 424, id(theme_secondary));
-            it.line(165 + 4, 424 + 7, 165 - 4, 424, id(theme_secondary));
-            it.line(165 + 5, 424 + 7, 165 - 3, 424, id(theme_secondary));
-
-            it.line(301 - 4, 424 - 7, 301 + 4, 424, id(theme_secondary));
-            it.line(301 - 5, 424 - 7, 301 + 3, 424, id(theme_secondary));
-            it.line(301 - 4, 424 + 7, 301 + 4, 424, id(theme_secondary));
-            it.line(301 - 5, 424 + 7, 301 + 3, 424, id(theme_secondary));
-
-            std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
-            if (cnt_mode.empty()) cnt_mode = "Always";
-            bool show_in_deck = (cnt_mode == "Always" || cnt_mode == "System Only");
-            if (show_in_deck) {
-              int total = id(active_deck_size);
-              int cur = id(current_deck_index);
-              char pg_buf[16];
-              snprintf(pg_buf, sizeof(pg_buf), "%d / %d", cur + 1, total);
-              it.print(cx, 424, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+              for (int y = 355; y < 385; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                for (int x = cx - hw; x <= cx + hw; x++) {
+                  if ((x + y) % 2 == 0 || (x % 2 == 0 && y % 2 == 1)) it.draw_pixel_at(x, y, id(col_black));
+                }
+              }
+              for (int y = 385; y < 466; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
+              }
             }
           } else {
             // ====================================================
@@ -3383,20 +3344,28 @@ display:
             }
           }
 
-          if (!is_clean_art) {
+          if (show_overlay) {
             // Left Flank (x: 91..113): Previous Track (◀◀) centered on horizon (y = 212, exactly 12px gap from art)
+            // High-contrast drop shadow for crisp legibility over full-bleed artwork
+            it.filled_triangle(91 + 1, art_center_y + 1, 101 + 1, art_center_y - 10, 101 + 1, art_center_y + 12, id(col_black));
             it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
+            it.filled_triangle(103 + 1, art_center_y + 1, 113 + 1, art_center_y - 10, 113 + 1, art_center_y + 12, id(col_black));
             it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
             // Right Flank (x: 353..375): Next Track (▶▶) centered on horizon (y = 212, exactly 12px gap from art)
+            it.filled_triangle(363 + 1, art_center_y + 1, 353 + 1, art_center_y - 10, 353 + 1, art_center_y + 12, id(col_black));
             it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
+            it.filled_triangle(375 + 1, art_center_y + 1, 365 + 1, art_center_y - 10, 365 + 1, art_center_y + 12, id(col_black));
             it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
 
-            // Right Flank Volume Up (+): centered at x = 392, y = 125 (crisp 15px stroke, identical visual weight)
+            // Right Flank Volume Up (+): centered at x = 392, y = 125
+            it.filled_rectangle(392 - 7 + 1, 125 - 1 + 1, 15, 3, id(col_black));
+            it.filled_rectangle(392 - 1 + 1, 125 - 7 + 1, 3, 15, id(col_black));
             it.filled_rectangle(392 - 7, 125 - 1, 15, 3, id(theme_secondary));
             it.filled_rectangle(392 - 1, 125 - 7, 3, 15, id(theme_secondary));
 
-            // Right Flank Volume Down (-): centered at x = 392, y = 299 (crisp 15px stroke, identical visual weight)
+            // Right Flank Volume Down (-): centered at x = 392, y = 299
+            it.filled_rectangle(392 - 7 + 1, 299 - 1 + 1, 15, 3, id(col_black));
             it.filled_rectangle(392 - 7, 299 - 1, 15, 3, id(theme_secondary));
 
             // Paused state frosted scrim overlay with borderless Play badge ▶
@@ -3455,15 +3424,55 @@ display:
             if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
             if (title.length() > 24) title = title.substr(0, 22) + "...";
 
-            // Uncrowded metadata layout below album art (y = 336, 358, 378)
+            // Uncrowded metadata layout below album art (y = 336, 358, 378) with drop shadow
+            it.print(cx + 1, 336 + 1, id(font_small), id(col_black), TextAlign::CENTER, title.c_str());
             it.print(cx, 336, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
             if (!artist.empty() && artist != "None") {
               if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
+              it.print(cx + 1, 358 + 1, id(font_small), id(col_black), TextAlign::CENTER, artist.c_str());
               it.print(cx, 358, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
             }
             if (!album.empty() && album != "None") {
               if (album.length() > 28) album = album.substr(0, 26) + "...";
+              it.print(cx + 1, 378 + 1, id(font_small), id(col_black), TextAlign::CENTER, album.c_str());
               it.print(cx, 378, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
+            }
+          } else {
+            // Clean Art Mode: Paused state play badge ▶ only (for visual playback feedback)
+            if (!is_playing) {
+              it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
+              it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
+            }
+          }
+
+          // Universal Fixed-Anchor Bottom Navigation (Overlaid on full-screen art with high-contrast shadow)
+          if (is_fs_active) {
+            // Left Chevron (<) with shadow
+            it.line(165 + 5, 424 - 6, 165 - 3, 425, id(col_black));
+            it.line(165 + 5, 424 + 8, 165 - 3, 425, id(col_black));
+            it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
+            it.line(165 + 5, 424 - 7, 165 - 3, 424, id(theme_secondary));
+            it.line(165 + 4, 424 + 7, 165 - 4, 424, id(theme_secondary));
+            it.line(165 + 5, 424 + 7, 165 - 3, 424, id(theme_secondary));
+
+            // Right Chevron (>) with shadow
+            it.line(301 - 3, 424 - 6, 301 + 5, 425, id(col_black));
+            it.line(301 - 3, 424 + 8, 301 + 5, 425, id(col_black));
+            it.line(301 - 4, 424 - 7, 301 + 4, 424, id(theme_secondary));
+            it.line(301 - 5, 424 - 7, 301 + 3, 424, id(theme_secondary));
+            it.line(301 - 4, 424 + 7, 301 + 4, 424, id(theme_secondary));
+            it.line(301 - 5, 424 + 7, 301 + 3, 424, id(theme_secondary));
+
+            std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
+            if (cnt_mode.empty()) cnt_mode = "Always";
+            bool show_in_deck = (cnt_mode == "Always" || cnt_mode == "System Only");
+            if (show_in_deck) {
+              int total = id(active_deck_size);
+              int cur = id(current_deck_index);
+              char pg_buf[16];
+              snprintf(pg_buf, sizeof(pg_buf), "%d / %d", cur + 1, total);
+              it.print(cx + 1, 424 + 1, id(font_small), id(col_black), TextAlign::CENTER, pg_buf);
+              it.print(cx, 424, id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
             }
           }
 
@@ -4334,28 +4343,32 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO & MEDIA");
 
-          // Button 1: Full-Screen Album Art Mode cycler (y = 120, r = 18)
+          // Button 1: Full-Screen Album Art Style cycler (y = 110, r = 18)
           std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
           char fs_label[32];
-          if (cur_mode == "Clean Art") {
-            snprintf(fs_label, sizeof(fs_label), "Full Art: Clean");
-          } else if (cur_mode == "Player Overlay") {
-            snprintf(fs_label, sizeof(fs_label), "Full Art: Overlay");
+          if (cur_mode == "Full Bleed") {
+            snprintf(fs_label, sizeof(fs_label), "Full Art: Full Bleed");
+          } else if (cur_mode == "Letterbox") {
+            snprintf(fs_label, sizeof(fs_label), "Full Art: Letterbox");
           } else {
-            snprintf(fs_label, sizeof(fs_label), "Full Art: Off");
+            snprintf(fs_label, sizeof(fs_label), "Full Art: Disabled");
           }
-          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
+          draw_pill_button(110, 356, 110, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
 
-          // Button 2: Hardware Speaker Volume (y = 175, r = 18)
+          // Button 2: Controls Overlay Toggle (y = 165, r = 18)
+          std::string ovl_label = id(music_controls_overlay_switch).state ? "Controls Overlay: On" : "Controls Overlay: Off";
+          draw_pill_button(110, 356, 165, 18, id(theme_secondary), id(col_dark_gray), ovl_label.c_str(), id(col_white), false);
+
+          // Button 3: Hardware Speaker Volume (y = 220, r = 18)
           char spk_vol[32];
           int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
           snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
-          draw_pill_button(110, 356, 175, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
+          draw_pill_button(110, 356, 220, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
 
-          // Button 3: Active Speaker Target (y = 230, r = 18)
+          // Button 4: Active Speaker Target (y = 275, r = 18)
           std::string spk_target = "Speaker: " + id(active_speaker_name);
           if (spk_target.length() > 24) spk_target = spk_target.substr(0, 22) + "..";
-          draw_pill_button(110, 356, 230, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 275, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -5067,31 +5080,35 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 7) {
                 // Mode 7: Audio & Media Submenu
-                // Card 1: Full-Screen Album Art Mode cycler (y: 100..140, x: 100..366)
-                if (touch.y >= 100 && touch.y <= 140 && touch.x >= 100 && touch.x <= 366) {
+                // Card 1: Full-Screen Album Art Style cycler (y: 90..130, x: 100..366)
+                if (touch.y >= 90 && touch.y <= 130 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-                  std::string nxt_mode = "Disabled";
-                  if (cur_mode == "Disabled") {
-                    nxt_mode = "Clean Art";
-                  } else if (cur_mode == "Clean Art") {
-                    nxt_mode = "Player Overlay";
-                  } else {
+                  std::string nxt_mode = "Full Bleed";
+                  if (cur_mode == "Full Bleed") {
+                    nxt_mode = "Letterbox";
+                  } else if (cur_mode == "Letterbox") {
                     nxt_mode = "Disabled";
+                  } else {
+                    nxt_mode = "Full Bleed";
                   }
                   auto call = id(music_fullscreen_art_mode).make_call();
                   call.set_option(nxt_mode);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Speaker Volume Step (y: 155..195, x: 100..366)
-                } else if (touch.y >= 155 && touch.y <= 195 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Controls Overlay Toggle (y: 145..185, x: 100..366)
+                } else if (touch.y >= 145 && touch.y <= 185 && touch.x >= 100 && touch.x <= 366) {
+                  id(music_controls_overlay_switch).toggle();
+                  id(disp1).update();
+                // Card 3: Speaker Volume Step (y: 200..240, x: 100..366)
+                } else if (touch.y >= 200 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
                   float v = id(pocket_music_player).volume + 0.10f;
                   if (v > 1.05f) v = 0.20f;
                   auto call = id(pocket_music_player).make_call();
                   call.set_volume(v);
                   call.perform();
                   id(disp1).update();
-                // Card 3: Speaker Target Jump to Music Menu (y: 210..250, x: 100..366)
-                } else if (touch.y >= 210 && touch.y <= 250 && touch.x >= 100 && touch.x <= 366) {
+                // Card 4: Speaker Target Jump to Music Menu (y: 255..295, x: 100..366)
+                } else if (touch.y >= 255 && touch.y <= 295 && touch.x >= 100 && touch.x <= 366) {
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 1;
                   id(system_menu_mode) = 0;
