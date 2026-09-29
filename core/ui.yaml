@@ -382,7 +382,6 @@ select:
           else if (x == "90%") b = 0.90f;
           else if (x == "100%") b = 1.00f;
           id(display_brightness).turn_on().set_brightness(b).perform();
-          id(disp1).update();
 
   - platform: template
     name: "Auto Brightness Mode"
@@ -443,7 +442,9 @@ select:
       - "Modern Digital (Bold)"
     set_action:
       - lambda: |-
-          id(disp1).update();
+          if (id(sleep_start_time) > 0) {
+            id(disp1).update();
+          }
   # --------------------------------------------------------------------------
   # ⚙️ Application Preferences & Power Management Selectors
   # --------------------------------------------------------------------------
@@ -552,12 +553,16 @@ switch:
     icon: "mdi:clock-time-four-outline"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      then:
-        - lambda: 'id(disp1).update();'
-    on_turn_off:
-      then:
-        - lambda: 'id(disp1).update();'
+    turn_on_action:
+      - lambda: |-
+          if (id(sleep_start_time) > 0) {
+            id(disp1).update();
+          }
+    turn_off_action:
+      - lambda: |-
+          if (id(sleep_start_time) > 0) {
+            id(disp1).update();
+          }
   # --------------------------------------------------------------------------
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
@@ -570,7 +575,7 @@ switch:
     on_turn_off:
       then:
         - lambda: |-
-            if (id(gui_page) == 0) { id(gui_page) = 4; id(disp1).update(); }
+            if (id(sleep_start_time) > 0 && id(gui_page) == 0) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show Stopwatch App"
@@ -581,7 +586,7 @@ switch:
     on_turn_off:
       then:
         - lambda: |-
-            if (id(gui_page) == 1) { id(gui_page) = 4; id(disp1).update(); }
+            if (id(sleep_start_time) > 0 && id(gui_page) == 1) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show Music App"
@@ -592,7 +597,7 @@ switch:
     on_turn_off:
       then:
         - lambda: |-
-            if (id(gui_page) == 2) { id(gui_page) = 4; id(disp1).update(); }
+            if (id(sleep_start_time) > 0 && id(gui_page) == 2) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show Games App"
@@ -603,7 +608,7 @@ switch:
     on_turn_off:
       then:
         - lambda: |-
-            if (id(gui_page) == 3) { id(gui_page) = 4; id(disp1).update(); }
+            if (id(sleep_start_time) > 0 && id(gui_page) == 3) { id(gui_page) = 4; id(disp1).update(); }
 
   - platform: template
     name: "Show System App"
@@ -614,7 +619,7 @@ switch:
     on_turn_off:
       then:
         - lambda: |-
-            if (id(gui_page) == 4) { id(gui_page) = 0; id(disp1).update(); }
+            if (id(sleep_start_time) > 0 && id(gui_page) == 4) { id(gui_page) = 0; id(disp1).update(); }
 
 
   - platform: template
@@ -1324,6 +1329,7 @@ script:
     mode: restart
     then:
       - lambda: |-
+          if (id(sleep_start_time) == 0) return;
           if (id(auto_brightness_mode).current_option() == "Sun Synchronized") {
             std::string sun = id(ha_sun_state).state;
             if (!sun.empty() && sun != "unavailable" && sun != "unknown") {
