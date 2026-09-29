@@ -105,15 +105,6 @@ esphome:
                 id(sleep_start_time) = millis();
                 id(is_locked) = false;
                 id(is_hibernating) = false;
-                float b = 0.80f;
-                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                if (cur == "50%") b = 0.50f;
-                else if (cur == "60%") b = 0.60f;
-                else if (cur == "70%") b = 0.70f;
-                else if (cur == "80%") b = 0.80f;
-                else if (cur == "90%") b = 0.90f;
-                else if (cur == "100%") b = 1.00f;
-                id(display_brightness).turn_on().set_brightness(b).perform();
             - script.execute: route_i2s_to_mic
             - switch.turn_on: speaker_enable
 
@@ -126,7 +117,8 @@ esphome:
         - lambda: |-
             // Assert restored display brightness preset post-driver initialization
             float b = 0.80f;
-            std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+            std::string cur = id(display_brightness_preset).state;
+            if (cur.empty()) cur = "80%";
             if (cur == "50%") b = 0.50f;
             else if (cur == "60%") b = 0.60f;
             else if (cur == "70%") b = 0.70f;

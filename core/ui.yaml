@@ -856,7 +856,8 @@ interval:
                 id(disp1).update();
               } else if (id(gui_page) == 4) {
                 // Page 4: System -> click top button cycles brightness preset
-                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                std::string cur = id(display_brightness_preset).state;
+                if (cur.empty()) cur = "80%";
                 std::string nxt = "80%";
                 if (cur == "50%") nxt = "60%";
                 else if (cur == "60%") nxt = "70%";
@@ -1330,12 +1331,15 @@ script:
     then:
       - lambda: |-
           if (id(sleep_start_time) == 0) return;
-          if (id(auto_brightness_mode).current_option() == "Sun Synchronized") {
+          std::string auto_mode = id(auto_brightness_mode).state;
+          if (auto_mode == "Sun Synchronized") {
             std::string sun = id(ha_sun_state).state;
             if (!sun.empty() && sun != "unavailable" && sun != "unknown") {
-              std::string target_opt = id(day_brightness_preset).current_option();
+              std::string target_opt = id(day_brightness_preset).state;
+              if (target_opt.empty()) target_opt = "90%";
               if (sun == "below_horizon") {
-                target_opt = id(night_brightness_preset).current_option();
+                std::string n_opt = id(night_brightness_preset).state;
+                target_opt = n_opt.empty() ? "60%" : n_opt;
               }
               auto call = id(display_brightness_preset).make_call();
               call.set_option(target_opt);
@@ -1346,7 +1350,8 @@ script:
   - id: apply_default_start_page
     then:
       - lambda: |-
-          std::string def_app = std::string(id(default_start_app).current_option().c_str());
+          std::string def_app = id(default_start_app).state;
+          if (def_app.empty()) def_app = "Clock";
           int init_p = 0;
           if (def_app == "Stopwatch") init_p = 1;
           else if (def_app == "Music") init_p = 2;
@@ -2448,7 +2453,7 @@ display:
         int sec = now.second;
 
         // Priority 2: Precomputed 60-tick sine/cosine LUT - eliminates 120 transcendental float calls/frame
-        static const float DIAL_SIN[60] = {
+        static constexpr float DIAL_SIN[60] = {
           0.000000f, 0.104528f, 0.207912f, 0.309017f, 0.406737f, 0.500000f,
           0.587785f, 0.669131f, 0.743145f, 0.809017f, 0.866025f, 0.913545f,
           0.951057f, 0.978148f, 0.994522f, 1.000000f, 0.994522f, 0.978148f,
@@ -2460,7 +2465,7 @@ display:
           -0.951057f, -0.913545f, -0.866025f, -0.809017f, -0.743145f, -0.669131f,
           -0.587785f, -0.500000f, -0.406737f, -0.309017f, -0.207912f, -0.104528f
         };
-        static const float DIAL_COS[60] = {
+        static constexpr float DIAL_COS[60] = {
           1.000000f, 0.994522f, 0.978148f, 0.951057f, 0.913545f, 0.866025f,
           0.809017f, 0.743145f, 0.669131f, 0.587785f, 0.500000f, 0.406737f,
           0.309017f, 0.207912f, 0.104528f, 0.000000f, -0.104528f, -0.207912f,
@@ -2473,7 +2478,8 @@ display:
           0.809017f, 0.866025f, 0.913545f, 0.951057f, 0.978148f, 0.994522f
         };
 
-        std::string face_style = id(clock_face_style).current_option();
+        std::string face_style = id(clock_face_style).state;
+        if (face_style.empty()) face_style = "Modern Roman (Analog)";
         if (face_style == "Modern Digital (Bold)") {
           // Perimeter bezel ticks
           for (int i = 0; i < 60; i++) {
