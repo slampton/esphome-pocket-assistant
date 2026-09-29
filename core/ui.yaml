@@ -2727,27 +2727,30 @@ display:
       }
 
       // ==========================================
-      // GLOBAL CAROUSEL POSITION PIPS (Bottom Navigation Indicator)
+      // GLOBAL BOTTOM NAVIGATION BAR (Fixed Anchors & Centered Page Counter)
       // ==========================================
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(music_overlay_mode) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0)) {
-        int total = id(active_deck_size);
-        int cur = id(current_deck_index);
-        int pip_spacing = 11;
-        int pips_w = (total - 1) * pip_spacing;
-        int start_x = cx - pips_w / 2;
-        int pip_y = 428; // Nestled snugly in 6 o'clock pip sanctuary
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0)) {
+        // Universal Left & Right fixed navigation anchors
+        it.print(120, 428, id(font_small), id(theme_secondary), TextAlign::CENTER, "<");
+        it.print(346, 428, id(font_small), id(theme_secondary), TextAlign::CENTER, ">");
 
-        // Subtle left & right corner navigation cues flanking carousel pips
-        it.print(start_x - 18, pip_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, "<");
-        it.print(start_x + pips_w + 18, pip_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, ">");
-
-        for (int p = 0; p < total; p++) {
-          int px = start_x + p * pip_spacing;
-          if (p == cur) {
-            it.filled_circle(px, pip_y, 3, id(col_white));
-          } else {
-            it.filled_circle(px, pip_y, 2, id(col_dark_gray));
-          }
+        if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+          // In Browse Library categories: show category page (e.g. "1 / 3")
+          char pg_buf[16];
+          snprintf(pg_buf, sizeof(pg_buf), "%d / 3", id(music_category_page));
+          it.print(cx, 428, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+        } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
+          // In Item Browser: show item browse page (e.g. "1 / 8")
+          char pg_buf[16];
+          snprintf(pg_buf, sizeof(pg_buf), "%d / %d", id(music_browse_page), id(music_browse_total_pages));
+          it.print(cx, 428, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+        } else {
+          // App Deck indicator: centered page readout (e.g. "1 / 5", "2 / 5")
+          int total = id(active_deck_size);
+          int cur = id(current_deck_index);
+          char pg_buf[16];
+          snprintf(pg_buf, sizeof(pg_buf), "%d / %d", cur + 1, total);
+          it.print(cx, 428, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
         }
       }
 
@@ -2839,7 +2842,7 @@ display:
             char batt_str[16];
             snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
             int text_x = cx + 8;
-            it.print(text_x, 340, id(font_small), id(col_cyan), TextAlign::CENTER, batt_str);
+            it.print(text_x, 340, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
             int bx = text_x - (batt >= 100.0f ? 36 : 28);
             int by = 340;
             if (id(batt_charging).state) {
@@ -2885,7 +2888,7 @@ display:
           char batt_str[16];
           snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
           int text_x = cx + 8;
-          it.print(text_x, 380, id(font_small), id(col_cyan), TextAlign::CENTER, batt_str);
+          it.print(text_x, 380, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
           int bx = text_x - (batt >= 100.0f ? 36 : 28);
           int by = 380;
           if (id(batt_charging).state) {
@@ -3339,23 +3342,8 @@ display:
             draw_pill_button(140, 326, 215, 22, id(theme_secondary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), true);
           }
 
-          // Category Pagination (y = 352, 3 clean pages with carousel wrap)
-          Color l_arr = id(col_white);
-          it.filled_circle(110, 352, 17, id(col_dark_gray));
-          it.filled_triangle(104, 352, 110, 345, 110, 359, l_arr);
-          it.filled_triangle(111, 352, 117, 345, 117, 359, l_arr);
-
-          char cat_pg[32];
-          snprintf(cat_pg, sizeof(cat_pg), "PAGE %d / 3", id(music_category_page));
-          it.print(cx, 352, id(font_small), id(col_slate), TextAlign::CENTER, cat_pg);
-
-          Color r_arr = id(col_white);
-          it.filled_circle(356, 352, 17, id(col_dark_gray));
-          it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr);
-          it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr);
-
-          // Standardized Bottom Navigation: < MENU (returns to Level 1 Menu)
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(theme_primary), false);
+          // Standardized Centered < BACK Button at y = 352 (Bottom navigation bar at y = 428 handles paging)
+          draw_pill_button(150, 316, 352, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(theme_secondary), false);
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
@@ -3433,26 +3421,8 @@ display:
           draw_slot_card(290, id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active));
 
           // Pagination Arrows & Status (y = 352) - Carousel Wrap-Around Active
-          Color l_arr_c = (id(music_browse_total_pages) > 1) ? id(col_white) : id(col_dark_gray);
-          it.filled_circle(110, 352, 17, id(col_dark_gray));
-          it.filled_triangle(104, 352, 110, 345, 110, 359, l_arr_c);
-          it.filled_triangle(111, 352, 117, 345, 117, 359, l_arr_c);
-
-          if (millis() - id(music_feedback_timer) < 2500 && !id(music_action_feedback).empty()) {
-            it.print(cx, 352 - 9, id(font_small), id(col_gold), TextAlign::CENTER, id(music_action_feedback).c_str());
-          } else {
-            char pg_buf[32];
-            snprintf(pg_buf, sizeof(pg_buf), "PAGE %d / %d", id(music_browse_page), id(music_browse_total_pages));
-            it.print(cx, 352 - 9, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
-          }
-
-          Color r_arr_c = (id(music_browse_total_pages) > 1) ? id(col_white) : id(col_dark_gray);
-          it.filled_circle(356, 352, 17, id(col_dark_gray));
-          it.filled_triangle(355, 352, 349, 345, 349, 359, r_arr_c);
-          it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr_c);
-
-          // Standardized Bottom Navigation: < BACK
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(theme_secondary), false);
+          // Standardized Centered < BACK Button at y = 352 (Bottom navigation bar at y = 428 handles paging)
+          draw_pill_button(150, 316, 352, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(theme_secondary), false);
         }
 
       // ==========================================
@@ -3970,61 +3940,71 @@ display:
             it.print(cx, 144, id(font_small), id(theme_primary), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
-          // Center Zone: 4 Categorized System Navigation Buttons (Clean, Compact r=14)
-          // Button 1: Display & Clock > (y = 175)
-          draw_pill_button(120, 346, 175, 14, id(theme_secondary), id(col_dark_gray), "Display & Clock >", id(col_white), false);
+          // Center Zone: 2x2 Grid with Generous Horizontal & Vertical Padding (x: 76..220 and 246..390)
+          // Row 1: Display & Clock (Left) | Sleep & Wake (Right) at y = 190
+          draw_pill_button(76, 220, 190, 16, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
+          draw_pill_button(246, 390, 190, 16, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
 
-          // Button 2: Power & Wake > (y = 215)
-          draw_pill_button(120, 346, 215, 14, id(theme_secondary), id(col_dark_gray), "Power & Wake >", id(col_white), false);
+          // Row 2: Audio & Media (Left) | System Actions (Right) at y = 238
+          draw_pill_button(76, 220, 238, 16, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
+          draw_pill_button(246, 390, 238, 16, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
 
-          // Button 3: Audio & Media > (y = 255)
-          draw_pill_button(120, 346, 255, 14, id(theme_secondary), id(col_dark_gray), "Audio & Media >", id(col_white), false);
-
-          // Button 4: Power Actions > (y = 295)
-          draw_pill_button(120, 346, 295, 14, id(theme_secondary), id(col_dark_gray), "Power Actions >", id(col_white), false);
-
-          // Lower Zone: Glanceable Battery & Date/Time
+          // Lower Zone: Battery, Date, and Prominent Clock with generous padding
           float v_batt = id(batt_voltage).state;
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%% (%.2fV)", batt, v_batt);
           if (id(batt_charging).state) {
             int w_main = (strlen(b_main) >= 21) ? 202 : 191;
             int start_x = cx - (w_main + 105) / 2;
-            it.print(start_x, 336, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
-            it.print(start_x + w_main, 336, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
+            it.print(start_x, 286, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
+            it.print(start_x + w_main, 286, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
           } else {
-            it.print(cx, 336, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
+            it.print(cx, 286, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
 
-          it.strftime(cx, 360, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+          if (now.is_valid()) {
+            it.strftime(cx, 314, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+
+            // Prominent Time readout (y = 345)
+            char t_buf[16];
+            if (id(is_24h_format)) {
+              snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
+            } else {
+              int h12 = now.hour % 12;
+              if (h12 == 0) h12 = 12;
+              snprintf(t_buf, sizeof(t_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
+            }
+            it.print(cx, 345, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
+          }
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
-          // VIEW 1: POWER & WAKE SUBMENU (SPACIOUS PITCH)
+          // VIEW 1: SLEEP & WAKE SUBMENU
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "POWER & WAKE");
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
 
           // Button 1: Motion Wake Cycler (y = 120)
           char m_buf[32];
           std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
           snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
-          draw_pill_button(110, 356, 120, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), true);
+          draw_pill_button(110, 356, 120, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
 
-          // Button 2: Tap Wake Cycler (y = 180)
+          // Button 2: Tap Wake Cycler (y = 175)
           char t_buf[32];
           std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
           snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-          draw_pill_button(110, 356, 180, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), true);
+          draw_pill_button(110, 356, 175, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
 
-          // Button 3: Docked Screensaver Toggle (y = 240)
+          // Button 3: Docked Screensaver Toggle (y = 230)
           std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
-          draw_pill_button(110, 356, 240, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), true);
+          draw_pill_button(110, 356, 230, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
 
-          // Button 4: Power Actions Submenu (y = 300)
-          draw_pill_button(110, 356, 300, 20, id(theme_secondary), id(col_dark_gray), "Power Actions >", id(theme_secondary), true);
+          // Button 4: Standby Screen Mode (y = 285)
+          std::string st_label = id(standby_ambient_mode).state ? "Standby: Dim Dial" : "Standby: Deep Black";
+          draw_pill_button(110, 356, 285, 20, id(theme_secondary), id(col_dark_gray), st_label.c_str(), id(col_white), false);
 
-          // Bottom Button: Back to Dashboard (y = 355)
-          draw_pill_button(135, 331, 355, 18, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
+          // Bottom Button: Back to Dashboard (y = 352)
+          draw_pill_button(135, 331, 352, 18, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
@@ -4065,25 +4045,27 @@ display:
 
         } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
-          // VIEW 3: POWER ACTIONS SUBMENU (SPACIOUS 75PX PITCH)
+          // VIEW 3: SYSTEM ACTIONS SUBMENU
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "POWER ACTIONS");
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM ACTIONS");
 
-          // Button 1: Hibernate Now (y = 130, r = 22)
-          draw_pill_button(110, 356, 130, 22, id(theme_secondary), id(col_dark_gray), "Hibernate Now", id(theme_primary), true);
+          // Button 1: Hibernate Now (y = 120, r = 18)
+          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "Hibernate Now", id(col_white), false);
 
-          // Button 2: Auto-Sleep Timeout Cycler (y = 205, r = 22)
+          // Button 2: Auto-Sleep Timeout Cycler (y = 175, r = 18)
           char s_buf[32];
           std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
-          if (cur_s.empty()) cur_s = "5 min";
           snprintf(s_buf, sizeof(s_buf), "Auto-Sleep: %s", cur_s.c_str());
-          draw_pill_button(110, 356, 205, 22, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), true);
+          draw_pill_button(110, 356, 175, 18, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
 
-          // Button 3: Restart Device (Protected confirmation) (y = 280, r = 22)
-          draw_pill_button(110, 356, 280, 22, id(col_red), id(col_dark_gray), "Restart Device", id(col_white), true);
+          // Button 3: Restart Device (y = 230, r = 18)
+          draw_pill_button(110, 356, 230, 18, id(col_red), id(col_dark_gray), "Restart Device", id(col_white), false);
 
-          // Bottom Button: Back to Power & Wake (y = 352, r = 18)
-          draw_pill_button(135, 331, 352, 18, id(col_slate), id(col_dark_gray), "< Back", id(col_slate), false);
+          // Button 4: Software Update (y = 285, r = 18)
+          draw_pill_button(110, 356, 285, 18, id(theme_secondary), id(col_dark_gray), "Software Update >", id(col_white), false);
+
+          // Bottom Button: Back to Dashboard (y = 352, r = 18)
+          draw_pill_button(135, 331, 352, 18, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
 
                 } else if (id(system_menu_mode) == 4) {
           // --------------------------------------------------
@@ -4503,24 +4485,8 @@ touchscreen:
                     id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
                   }
-                // Left Arrow (Prev Category Page - Carousel Wrap): x: 65..155, y: 325..380
-                } else if (touch.x >= 65 && touch.x <= 155 && touch.y >= 325 && touch.y <= 380) {
-                  if (id(music_category_page) > 1) {
-                    id(music_category_page)--;
-                  } else {
-                    id(music_category_page) = 3;
-                  }
-                  id(disp1).update();
-                // Right Arrow (Next Category Page - Carousel Wrap): x: 311..401, y: 325..380
-                } else if (touch.x >= 311 && touch.x <= 401 && touch.y >= 325 && touch.y <= 380) {
-                  if (id(music_category_page) < 3) {
-                    id(music_category_page)++;
-                  } else {
-                    id(music_category_page) = 1;
-                  }
-                  id(disp1).update();
-                // Standardized Bottom Navigation: < MENU (y: 380..435, x: 140..326)
-                } else if (touch.y >= 380 && touch.y <= 435 && touch.x >= 140 && touch.x <= 326) {
+                // Centered < BACK Button at y = 352 (y: 330..375, x: 140..326) -> Returns to Level 1 Menu
+                } else if (touch.y >= 330 && touch.y <= 375 && touch.x >= 140 && touch.x <= 326) {
                   id(music_overlay_mode) = 1; // Return to Level 1 Menu
                   id(disp1).update();
                 }
@@ -4605,30 +4571,8 @@ touchscreen:
                       id(select_music_slot_3).execute();
                     }
                   }
-                // Left Arrow (Prev Page - Carousel Wrap): x: 65..155, y: 325..380
-                } else if (touch.x >= 65 && touch.x <= 155 && touch.y >= 325 && touch.y <= 380) {
-                  if (id(music_browse_total_pages) > 1) {
-                    if (id(music_browse_page) > 1) {
-                      id(music_browse_page)--;
-                    } else {
-                      id(music_browse_page) = id(music_browse_total_pages);
-                    }
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                // Right Arrow (Next Page - Carousel Wrap): x: 311..401, y: 325..380
-                } else if (touch.x >= 311 && touch.x <= 401 && touch.y >= 325 && touch.y <= 380) {
-                  if (id(music_browse_total_pages) > 1) {
-                    if (id(music_browse_page) < id(music_browse_total_pages)) {
-                      id(music_browse_page)++;
-                    } else {
-                      id(music_browse_page) = 1;
-                    }
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                // Standardized Bottom Navigation: < BACK (for drilldowns) or < MENU (for root categories) (y: 380..435, x: 140..326)
-                } else if (touch.y >= 380 && touch.y <= 435 && touch.x >= 140 && touch.x <= 326) {
+                // Centered < BACK Button at y = 352 (y: 330..375, x: 140..326) -> Returns to Level 2 Categories
+                } else if (touch.y >= 330 && touch.y <= 375 && touch.x >= 140 && touch.x <= 326) {
                   if (id(selected_category_mode) == "album_tracks") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
@@ -4745,9 +4689,9 @@ touchscreen:
                 } else if (touch.y >= 220 && touch.y <= 260 && touch.x >= 100 && touch.x <= 366) {
                   id(docked_screensaver_switch).toggle();
                   id(disp1).update();
-                // Card 4: Power Actions Submenu (y: 280..320, x: 100..366)
-                } else if (touch.y >= 280 && touch.y <= 320 && touch.x >= 100 && touch.x <= 366) {
-                  id(system_menu_mode) = 3; // Open Power Actions Submenu
+                // Card 4: Standby Screen Mode Toggle (y: 265..310, x: 100..366)
+                } else if (touch.y >= 265 && touch.y <= 310 && touch.x >= 100 && touch.x <= 366) {
+                  id(standby_ambient_mode).toggle();
                   id(disp1).update();
                 // Card 5: < Dashboard (y: 335..380, x: 120..346)
                 } else if (touch.y >= 335 && touch.y <= 380 && touch.x >= 120 && touch.x <= 346) {
@@ -4830,13 +4774,17 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Card 3: Restart Device (y: 255..305, x: 100..366)
-                } else if (touch.y >= 255 && touch.y <= 305 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Restart Device (y: 215..255, x: 100..366)
+                } else if (touch.y >= 215 && touch.y <= 255 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 4; // Open Confirmation Dialog
                   id(disp1).update();
-                // Card 4: Back to Power & Wake (y: 330..375, x: 120..346)
+                // Card 4: Software Update (y: 270..315, x: 100..366)
+                } else if (touch.y >= 270 && touch.y <= 315 && touch.x >= 100 && touch.x <= 366) {
+                  id(system_menu_mode) = 5; // Open Software Update Screen
+                  id(disp1).update();
+                // Bottom Button: Back to Dashboard (y: 330..375, x: 120..346)
                 } else if (touch.y >= 330 && touch.y <= 375 && touch.x >= 120 && touch.x <= 346) {
-                  id(system_menu_mode) = 1; // Return to Power & Wake Submenu
+                  id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
                 }
                             } else if (id(system_menu_mode) == 4) {
