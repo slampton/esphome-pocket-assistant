@@ -348,7 +348,7 @@ image:
     id: album_slot
     format: JPEG
     type: RGB565
-    resize: 192x192
+    resize: 216x216
     source: album
     current_image:
       id: album_art
@@ -359,7 +359,7 @@ image:
     id: remote_album_art
     format: AUTO
     type: RGB565
-    resize: 192x192
+    resize: 216x216
     url: "${initial_art_url}"
     on_download_finished:
       - component.update: disp1
@@ -402,10 +402,10 @@ select:
     restore_value: true
     initial_option: "Blue & Gold"
     options:
+      - "Steel & Silver"
+      - "Pink & Gray"
       - "Blue & Gold"
       - "Green & Gold"
-      - "Red & Gold"
-      - "Steel & Silver"
     set_action:
       - lambda: |-
           id(theme_palette_select).publish_state(x);
@@ -610,6 +610,13 @@ button:
 
 
 switch:
+  - platform: template
+    name: "System: Full-Screen Album Art"
+    id: music_fullscreen_art_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   - platform: gpio
     name: "Speaker Enable"
     id: speaker_enable
@@ -1436,15 +1443,15 @@ script:
     then:
       - lambda: |-
           std::string p = std::string(id(theme_palette_select).current_option().c_str());
-          if (p == "Green & Gold") {
-            id(theme_primary) = Color(66, 116, 83);    // Heritage Sage Green #427453
-            id(theme_secondary) = Color(197, 155, 39); // Chrono Mustard Gold #C59B27
-          } else if (p == "Red & Gold") {
-            id(theme_primary) = Color(158, 69, 59);    // Antique Brick Rust Red #9E453B
-            id(theme_secondary) = Color(197, 155, 39); // Chrono Mustard Gold #C59B27
-          } else if (p == "Steel & Silver") {
+          if (p == "Steel & Silver") {
             id(theme_primary) = Color(107, 142, 158);  // Soft Steel Ice Blue #6B8E9E
             id(theme_secondary) = Color(192, 192, 192);// Brushed Silver #C0C0C0
+          } else if (p == "Pink & Gray") {
+            id(theme_primary) = Color(168, 120, 132);  // Muted Ash Pink #A87884 (faint, gray undertones)
+            id(theme_secondary) = Color(192, 192, 192);// Brushed Silver / Gray #C0C0C0
+          } else if (p == "Green & Gold") {
+            id(theme_primary) = Color(66, 116, 83);    // Heritage Sage Green #427453
+            id(theme_secondary) = Color(197, 155, 39); // Chrono Mustard Gold #C59B27
           } else {
             // Blue & Gold (Default Classic): Steel Slate Blue + Chrono Gold
             id(theme_primary) = Color(69, 110, 138);   // #456E8A Steel Cyan
@@ -3183,10 +3190,10 @@ display:
           std::string spk_label = "[" + id(active_speaker_name) + "]";
           it.print(cx, 80, id(font_small), is_remote ? id(theme_secondary) : id(col_slate), TextAlign::CENTER, spk_label.c_str());
 
-          // Perfectly Centered Album Art: 192x192 centered at (cx = 233, y = 182), spans y = 86 to 278
-          const int art_center_y = 182;
-          const int art_top_y = 86;
-          const int art_w = 192;
+          // Perfectly Centered Album Art: 216x216 centered across horizontal centerline (cx = 233, art_center_y = 212), spans y = 104 to 320
+          const int art_center_y = 212;
+          const int art_top_y = 104;
+          const int art_w = 216;
 
           bool has_art = false;
           if (is_remote) {
@@ -3202,29 +3209,36 @@ display:
               it.image(cx - art_w / 2, art_top_y, id(album_art));
             }
           } else {
-            // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 182)
-            it.filled_circle(cx, art_center_y, 72, id(col_dark_gray));
-            it.circle(cx, art_center_y, 72, is_remote ? id(theme_secondary) : id(theme_primary));
-            it.circle(cx, art_center_y, 54, id(col_bg));
-            it.circle(cx, art_center_y, 36, id(col_dark_gray));
-            it.circle(cx, art_center_y, 22, id(col_bg));
-            it.filled_circle(cx, art_center_y, 12, is_remote ? id(theme_secondary) : id(theme_primary));
+            // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
+            it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
+            it.circle(cx, art_center_y, 80, is_remote ? id(theme_secondary) : id(theme_primary));
+            it.circle(cx, art_center_y, 64, id(col_bg));
+            it.circle(cx, art_center_y, 48, id(col_dark_gray));
+            it.circle(cx, art_center_y, 32, id(col_bg));
+            it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
           }
 
-          // Track Navigation Buttons: Previous (◀◀) Left (x=95-117), Next (▶▶) Right (x=349-371) at y = 182
-          it.filled_triangle(95, art_center_y, 105, art_center_y - 11, 105, art_center_y + 11, id(col_white));
-          it.filled_triangle(107, art_center_y, 117, art_center_y - 11, 117, art_center_y + 11, id(col_white));
+          // Left Flank (x = 91..113): Previous Track (◀◀) perfectly on the center horizontal line (y = 212)
+          it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
+          it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
-          it.filled_triangle(359, art_center_y, 349, art_center_y - 11, 349, art_center_y + 11, id(col_white));
-          it.filled_triangle(371, art_center_y, 361, art_center_y - 11, 361, art_center_y + 11, id(col_white));
+          // Right Flank (x = 353..375): Next Track (▶▶) in center (y = 212)
+          it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
+          it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
+
+          // Right Flank Volume Up (▲) positioned directly above Next Track at y = 145
+          it.filled_triangle(364, 137, 354, 153, 374, 153, id(theme_secondary));
+
+          // Right Flank Volume Down (▼) positioned directly below Next Track at y = 280
+          it.filled_triangle(364, 288, 354, 272, 374, 272, id(theme_secondary));
 
           // Paused state frosted scrim overlay with borderless Play badge ▶
           if (!is_playing) {
-            it.filled_circle(cx, art_center_y, 32, id(col_dark_gray));
+            it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
             it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
           }
 
-          // Prominent Center Volume HUD Overlay: Borderless solid black circle over center of album art
+          // Prominent Center Volume HUD Overlay: Borderless solid black circle over center of album art (1800ms)
           if (millis() - id(vol_hud_timer) < 1800) {
             int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
             char v_buf[16];
@@ -3283,22 +3297,16 @@ display:
           if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
           if (title.length() > 24) title = title.substr(0, 22) + "...";
 
-          it.print(cx, 298, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
+          // Uncrowded metadata layout below album art (y = 320..385, zero volume button interference)
+          it.print(cx, 336, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
           if (!artist.empty() && artist != "None") {
             if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
-            it.print(cx, 322, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
+            it.print(cx, 358, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
           }
           if (!album.empty() && album != "None") {
             if (album.length() > 28) album = album.substr(0, 26) + "...";
-            it.print(cx, 344, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
+            it.print(cx, 378, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
           }
-
-          // Dedicated Volume Buttons at y = 368 (Pure HUD feedback, no static percentage clutter)
-          // Vol Down (-) Pill: x: 135..185, y_mid = 368, r = 13
-          draw_pill_button(135, 185, 368, 13, id(theme_secondary), id(col_dark_gray), "-", id(col_white), false);
-
-          // Vol Up (+) Pill: x: 281..331, y_mid = 368, r = 13
-          draw_pill_button(281, 331, 368, 13, id(theme_secondary), id(col_dark_gray), "+", id(col_white), false);
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
@@ -3307,7 +3315,7 @@ display:
           it.print(cx, 82, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
 
           draw_pill_button(140, 326, 155, 22, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), true);
-          draw_pill_button(140, 326, 235, 22, id(theme_primary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), true);
+          draw_pill_button(140, 326, 235, 22, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), true);
           draw_pill_button(140, 326, 315, 22, id(theme_secondary), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
 
           // Bottom Back to Player
@@ -3323,17 +3331,17 @@ display:
           if (id(music_category_page) == 1) {
             // Page 1: Favorites, Playlists, Artists (expanded pitch = 75px, 31px gaps)
             draw_pill_button(140, 326, 140, 22, id(theme_secondary), id(col_dark_gray), "FAVORITES", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(theme_primary), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(theme_secondary), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
             draw_pill_button(140, 326, 290, 22, id(theme_secondary), id(col_dark_gray), "ARTISTS", id(col_white), true);
           } else if (id(music_category_page) == 2) {
             // Page 2: Albums, Tracks, Radio (expanded pitch = 75px, 31px gaps)
             draw_pill_button(140, 326, 140, 22, id(theme_secondary), id(col_dark_gray), "ALBUMS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(theme_primary), id(col_dark_gray), "TRACKS", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(theme_secondary), id(col_dark_gray), "TRACKS", id(col_white), true);
             draw_pill_button(140, 326, 290, 22, id(theme_secondary), id(col_dark_gray), "RADIO", id(col_white), true);
           } else if (id(music_category_page) == 3) {
             // Page 3: Podcasts, Audiobooks (expanded pitch = 75px, 31px gaps)
             draw_pill_button(140, 326, 140, 22, id(theme_secondary), id(col_dark_gray), "PODCASTS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(theme_primary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(theme_secondary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), true);
           }
 
           // Category Pagination (y = 352, 3 clean pages with carousel wrap)
@@ -3499,7 +3507,7 @@ display:
           draw_pill_button(140, 326, 127, 22, id(theme_secondary), id(col_dark_gray), "MARBLES", id(col_white), true);
 
           // Card 2: Archery
-          draw_pill_button(140, 326, 207, 22, id(theme_primary), id(col_dark_gray), "ARCHERY", id(col_white), true);
+          draw_pill_button(140, 326, 207, 22, id(theme_secondary), id(col_dark_gray), "ARCHERY", id(col_white), true);
 
           // Card 3: Treat Catcher
           draw_pill_button(140, 326, 287, 22, id(theme_secondary), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
@@ -3969,7 +3977,7 @@ display:
 
           // Center Zone: Primary Interactive Navigation Buttons (Themed Pill Borders - Alternating)
           draw_pill_button(110, 356, 195, 18, id(theme_secondary), id(col_dark_gray), "Display & Clock >", id(col_white), true);
-          draw_pill_button(110, 356, 250, 18, id(theme_primary), id(col_dark_gray), "Power & Wake >", id(col_white), true);
+          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), "Power & Wake >", id(col_white), true);
 
           // Lower Zone: Glanceable Battery & Nested Curved Time/Date
           // Battery line (y = 310): Theme Primary with Theme Secondary " • Charging" if on USB
@@ -4017,14 +4025,14 @@ display:
           char t_buf[32];
           std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
           snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-          draw_pill_button(110, 356, 180, 20, id(theme_primary), id(col_dark_gray), t_buf, id(col_white), true);
+          draw_pill_button(110, 356, 180, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), true);
 
           // Button 3: Docked Screensaver Toggle (y = 240)
           std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
           draw_pill_button(110, 356, 240, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), true);
 
           // Button 4: Power Actions Submenu (y = 300)
-          draw_pill_button(110, 356, 300, 20, id(theme_primary), id(col_dark_gray), "Power Actions >", id(theme_secondary), true);
+          draw_pill_button(110, 356, 300, 20, id(theme_secondary), id(col_dark_gray), "Power Actions >", id(theme_secondary), true);
 
           // Bottom Button: Back to Dashboard (y = 355)
           draw_pill_button(135, 331, 355, 18, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
@@ -4046,7 +4054,7 @@ display:
           std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
           if (bri_p.empty()) bri_p = "90%";
           snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-          draw_pill_button(110, 356, 145, 18, id(theme_primary), id(col_dark_gray), b_buf, id(col_white), true);
+          draw_pill_button(110, 356, 145, 18, id(theme_secondary), id(col_dark_gray), b_buf, id(col_white), true);
 
           // Button 3: Clock Face Style Cycler (y = 190)
           std::string cf_label = id(clock_face_digital) ? "Clock Face: Digital" : "Clock Face: Analog";
@@ -4054,7 +4062,7 @@ display:
 
           // Button 4: Time Format Cycler (y = 235)
           std::string tf_label = id(is_24h_format) ? "Format: 24-Hour" : "Format: 12-Hour";
-          draw_pill_button(110, 356, 235, 18, id(theme_primary), id(col_dark_gray), tf_label.c_str(), id(col_white), true);
+          draw_pill_button(110, 356, 235, 18, id(theme_secondary), id(col_dark_gray), tf_label.c_str(), id(col_white), true);
 
           // Button 5: Color Palette Cycler (y = 280)
           char th_buf[32];
@@ -4080,7 +4088,7 @@ display:
           std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
           if (cur_s.empty()) cur_s = "5 min";
           snprintf(s_buf, sizeof(s_buf), "Auto-Sleep: %s", cur_s.c_str());
-          draw_pill_button(110, 356, 205, 22, id(theme_primary), id(col_dark_gray), s_buf, id(col_white), true);
+          draw_pill_button(110, 356, 205, 22, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), true);
 
           // Button 3: Restart Device (Protected confirmation) (y = 280, r = 22)
           draw_pill_button(110, 356, 280, 22, id(col_red), id(col_dark_gray), "Restart Device", id(col_white), true);
@@ -4354,32 +4362,32 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                // Vol Down (-) Button: x: 120..195, y: 350..384
-                if (touch.x >= 120 && touch.x <= 195 && touch.y >= 350 && touch.y <= 384) {
-                  id(vol_hud_direction) = -1;
-                  id(vol_hud_timer) = millis();
-                  id(music_vol_down).execute();
-                  id(disp1).update();
-                // Vol Up (+) Button: x: 270..345, y: 350..384
-                } else if (touch.x >= 270 && touch.x <= 345 && touch.y >= 350 && touch.y <= 384) {
+                // Right Flank Volume Up (▲): above Next Track (x: 340..425, y: 110..177)
+                if (touch.x >= 340 && touch.x <= 425 && touch.y >= 110 && touch.y <= 177) {
                   id(vol_hud_direction) = 1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_up).execute();
                   id(disp1).update();
-                // Left Arrow: Previous Track (x: 50..124, y: 130..240)
-                } else if (touch.x >= 50 && touch.x <= 124 && touch.y >= 130 && touch.y <= 240) {
-                  id(music_prev_track).execute();
-                  id(disp1).update();
-                // Right Arrow: Next Track (x: 342..416, y: 130..240)
-                } else if (touch.x >= 342 && touch.x <= 416 && touch.y >= 130 && touch.y <= 240) {
+                // Right Flank Next Track (▶▶): centered on horizon (x: 340..425, y: 178..246)
+                } else if (touch.x >= 340 && touch.x <= 425 && touch.y >= 178 && touch.y <= 246) {
                   id(music_next_track).execute();
                   id(disp1).update();
+                // Right Flank Volume Down (▼): below Next Track (x: 340..425, y: 247..315)
+                } else if (touch.x >= 340 && touch.x <= 425 && touch.y >= 247 && touch.y <= 315) {
+                  id(vol_hud_direction) = -1;
+                  id(vol_hud_timer) = millis();
+                  id(music_vol_down).execute();
+                  id(disp1).update();
+                // Left Flank Previous Track (◀◀): centered on horizon (x: 45..124, y: 145..280)
+                } else if (touch.x >= 45 && touch.x <= 124 && touch.y >= 145 && touch.y <= 280) {
+                  id(music_prev_track).execute();
+                  id(disp1).update();
                 // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu
-                } else if (touch.y >= 30 && touch.y <= 84 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 30 && touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
-                // Center Album Art (192x192): Play / Pause toggle
-                } else if (touch.y >= 86 && touch.y <= 285 && touch.x >= 125 && touch.x <= 341) {
+                // Center Album Art (216x216): Play / Pause toggle
+                } else if (touch.y >= 104 && touch.y <= 320 && touch.x >= 125 && touch.x <= 339) {
                   // Center Album Art (216x216): Play / Pause toggle
                   if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
@@ -4769,11 +4777,11 @@ touchscreen:
                 // Card 5: Color Palette Cycler (y: 260..300, x: 100..366)
                 } else if (touch.y >= 260 && touch.y <= 300 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(theme_palette_select).current_option().c_str());
-                  std::string nxt = "Blue & Gold";
-                  if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Green & Gold";
-                  else if (cur == "Green & Gold") nxt = "Red & Gold";
-                  else if (cur == "Red & Gold") nxt = "Steel & Silver";
-                  else if (cur == "Steel & Silver") nxt = "Blue & Gold";
+                  std::string nxt = "Steel & Silver";
+                  if (cur == "Steel & Silver") nxt = "Pink & Gray";
+                  else if (cur == "Pink & Gray") nxt = "Blue & Gold";
+                  else if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Green & Gold";
+                  else if (cur == "Green & Gold") nxt = "Steel & Silver";
                   auto call = id(theme_palette_select).make_call();
                   call.set_option(nxt);
                   call.perform();
