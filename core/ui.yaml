@@ -181,6 +181,34 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: clock_face_digital
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: is_24h_format
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: app_order_clock
+    type: int
+    restore_value: yes
+    initial_value: '1'
+  - id: app_order_stopwatch
+    type: int
+    restore_value: yes
+    initial_value: '2'
+  - id: app_order_music
+    type: int
+    restore_value: yes
+    initial_value: '3'
+  - id: app_order_games
+    type: int
+    restore_value: yes
+    initial_value: '4'
+  - id: app_order_system
+    type: int
+    restore_value: yes
+    initial_value: '5'
   - id: vol_hud_timer
     type: uint32_t
     restore_value: no
@@ -435,13 +463,14 @@ select:
     id: clock_face_style
     entity_category: config
     optimistic: true
-    restore_value: true
-    initial_option: "Modern Roman (Analog)"
     options:
       - "Modern Roman (Analog)"
       - "Modern Digital (Bold)"
+    lambda: |-
+      return id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)";
     set_action:
       - lambda: |-
+          id(clock_face_digital) = (x == "Modern Digital (Bold)");
           if (id(sleep_start_time) > 0) {
             id(disp1).update();
           }
@@ -552,14 +581,17 @@ switch:
     id: time_format_24h
     icon: "mdi:clock-time-four-outline"
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    lambda: |-
+      return id(is_24h_format);
     turn_on_action:
       - lambda: |-
+          id(is_24h_format) = true;
           if (id(sleep_start_time) > 0) {
             id(disp1).update();
           }
     turn_off_action:
       - lambda: |-
+          id(is_24h_format) = false;
           if (id(sleep_start_time) > 0) {
             id(disp1).update();
           }
@@ -654,55 +686,70 @@ number:
     id: order_clock_app
     entity_category: config
     optimistic: true
-    restore_value: true
-    initial_value: 1
     min_value: 1
     max_value: 10
     step: 1
+    lambda: |-
+      return (float)id(app_order_clock);
+    set_action:
+      - lambda: |-
+          id(app_order_clock) = (int)x;
 
   - platform: template
     name: "Order: Stopwatch App"
     id: order_stopwatch_app
     entity_category: config
     optimistic: true
-    restore_value: true
-    initial_value: 2
     min_value: 1
     max_value: 10
     step: 1
+    lambda: |-
+      return (float)id(app_order_stopwatch);
+    set_action:
+      - lambda: |-
+          id(app_order_stopwatch) = (int)x;
 
   - platform: template
     name: "Order: Music App"
     id: order_music_app
     entity_category: config
     optimistic: true
-    restore_value: true
-    initial_value: 3
     min_value: 1
     max_value: 10
     step: 1
+    lambda: |-
+      return (float)id(app_order_music);
+    set_action:
+      - lambda: |-
+          id(app_order_music) = (int)x;
 
   - platform: template
     name: "Order: Games App"
     id: order_games_app
     entity_category: config
     optimistic: true
-    restore_value: true
-    initial_value: 4
     min_value: 1
     max_value: 10
     step: 1
+    lambda: |-
+      return (float)id(app_order_games);
+    set_action:
+      - lambda: |-
+          id(app_order_games) = (int)x;
 
   - platform: template
     name: "Order: System App"
     id: order_system_app
     entity_category: config
     optimistic: true
-    restore_value: true
-    initial_value: 5
     min_value: 1
     max_value: 10
     step: 1
+    lambda: |-
+      return (float)id(app_order_system);
+    set_action:
+      - lambda: |-
+          id(app_order_system) = (int)x;
 
 
 interval:
@@ -2476,8 +2523,7 @@ display:
           0.809017f, 0.866025f, 0.913545f, 0.951057f, 0.978148f, 0.994522f
         };
 
-        std::string face_style = std::string(id(clock_face_style).current_option().c_str());
-        if (face_style == "Modern Digital (Bold)") {
+        if (id(clock_face_digital)) {
           // Perimeter bezel ticks
           for (int i = 0; i < 60; i++) {
             float s = DIAL_SIN[i];
@@ -2499,7 +2545,7 @@ display:
 
           // Giant Bold Digital Time: "10:45" (12h) or "14:45" (24h)
           char dig_buf[16];
-          if (id(time_format_24h).state) {
+          if (id(is_24h_format)) {
             snprintf(dig_buf, sizeof(dig_buf), "%02d:%02d", now.hour, now.minute);
           } else {
             int h12 = now.hour % 12;
@@ -2510,7 +2556,7 @@ display:
 
           // AM/PM & Seconds Pill: "PM  •  42s" (12h) or "SEC  •  42s" (24h)
           char sec_buf[16];
-          if (id(time_format_24h).state) {
+          if (id(is_24h_format)) {
             snprintf(sec_buf, sizeof(sec_buf), "SEC  •  %02ds", sec);
           } else {
             snprintf(sec_buf, sizeof(sec_buf), "%s  •  %02ds", now.hour >= 12 ? "PM" : "AM", sec);
@@ -2555,7 +2601,7 @@ display:
         // Formatted date and digital time complication (12h with AM/PM or 24h format)
         it.strftime(cx, 145, id(font_date), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
         char time_buf[16];
-        if (id(time_format_24h).state) {
+        if (id(is_24h_format)) {
           snprintf(time_buf, sizeof(time_buf), "%02d:%02d", now.hour, now.minute);
         } else {
           int h12 = now.hour % 12;
@@ -3622,7 +3668,7 @@ display:
           // --------------------------------------------------
           if (now.is_valid()) {
             char title_buf[32];
-            if (id(time_format_24h).state) {
+            if (id(is_24h_format)) {
               snprintf(title_buf, sizeof(title_buf), "SYSTEM • %02d:%02d", now.hour, now.minute);
             } else {
               int h12 = now.hour % 12;
@@ -3705,8 +3751,7 @@ display:
           draw_pill_button(110, 356, 130, 22, id(col_rust), id(col_dark_gray), b_buf, id(col_white), true);
 
           // Button 2: Clock Face Style Cycler (y = 205)
-          std::string cur_cf = std::string(id(clock_face_style).current_option().c_str());
-          std::string cf_label = (cur_cf == "Modern Digital (Bold)") ? "Clock Face: Digital" : "Clock Face: Analog";
+          std::string cf_label = id(clock_face_digital) ? "Clock Face: Digital" : "Clock Face: Analog";
           draw_pill_button(110, 356, 205, 22, id(col_rust), id(col_dark_gray), cf_label.c_str(), id(col_white), true);
 
           // Button 3: Default Start App Cycler (y = 280)
@@ -3932,11 +3977,11 @@ touchscreen:
 
               // Helper lambda to fetch dynamic app priority safely
               auto get_app_prio = [](int p) -> float {
-                if (p == 0) return id(show_clock_switch).state ? (isnan(id(order_clock_app).state) ? 1.0f : (float)id(order_clock_app).state) : 999.0f;
-                if (p == 1) return id(show_stopwatch_switch).state ? (isnan(id(order_stopwatch_app).state) ? 2.0f : (float)id(order_stopwatch_app).state) : 999.0f;
-                if (p == 2) return id(show_music_switch).state ? (isnan(id(order_music_app).state) ? 3.0f : (float)id(order_music_app).state) : 999.0f;
-                if (p == 3) return id(show_games_switch).state ? (isnan(id(order_games_app).state) ? 4.0f : (float)id(order_games_app).state) : 999.0f;
-                if (p == 4) return id(show_system_switch).state ? (isnan(id(order_system_app).state) ? 5.0f : (float)id(order_system_app).state) : 999.0f;
+                if (p == 0) return id(show_clock_switch).state ? (float)id(app_order_clock) : 999.0f;
+                if (p == 1) return id(show_stopwatch_switch).state ? (float)id(app_order_stopwatch) : 999.0f;
+                if (p == 2) return id(show_music_switch).state ? (float)id(app_order_music) : 999.0f;
+                if (p == 3) return id(show_games_switch).state ? (float)id(app_order_games) : 999.0f;
+                if (p == 4) return id(show_system_switch).state ? (float)id(app_order_system) : 999.0f;
                 return 999.0f;
               };
 
@@ -4423,12 +4468,9 @@ touchscreen:
                   id(disp1).update();
                 // Card 2: Clock Face Style Cycler (y: 180..230, x: 100..366)
                 } else if (touch.y >= 180 && touch.y <= 230 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur = std::string(id(clock_face_style).current_option().c_str());
-                  std::string nxt = "Modern Roman (Analog)";
-                  if (cur == "Modern Roman (Analog)") nxt = "Modern Digital (Bold)";
-                  else nxt = "Modern Roman (Analog)";
+                  id(clock_face_digital) = !id(clock_face_digital);
                   auto call = id(clock_face_style).make_call();
-                  call.set_option(nxt);
+                  call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
                   call.perform();
                   id(disp1).update();
                 // Card 3: Default Start App Cycler (y: 255..305, x: 100..366)
