@@ -547,6 +547,10 @@ button:
 switch:
   - platform: gpio
     name: "Speaker Enable"
+    id: speaker_enable
+    pin: GPIO46
+    restore_mode: ALWAYS_ON
+
   # --------------------------------------------------------------------------
   # 🕒 System-Wide Time Display Format (12h vs 24h)
   # --------------------------------------------------------------------------
@@ -563,9 +567,6 @@ switch:
     on_turn_off:
       then:
         - lambda: 'id(disp1).update();'
-    id: speaker_enable
-    pin: GPIO46
-    restore_mode: ALWAYS_ON
   # --------------------------------------------------------------------------
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
