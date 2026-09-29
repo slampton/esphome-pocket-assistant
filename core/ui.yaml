@@ -404,9 +404,9 @@ select:
     options:
       - "Default Classic"
       - "Tokyo Cyber"
-      - "Heritage Coast"
-      - "Solar Flare"
-      - "Mono Luxury"
+      - "Cyber Volt"
+      - "Sunset Horizon"
+      - "Quantum Mint"
     set_action:
       - script.execute: apply_theme_preset
   - platform: template
@@ -1438,15 +1438,15 @@ script:
           if (p == "Tokyo Cyber") {
             id(theme_primary) = Color(245, 59, 137);   // Neon Synth Pink #F53B89
             id(theme_secondary) = Color(0, 229, 255);  // Electric Cyan #00E5FF
-          } else if (p == "Heritage Coast") {
-            id(theme_primary) = Color(66, 116, 83);    // Sage Green #427453
-            id(theme_secondary) = Color(184, 92, 36);  // Terracotta Orange #B85C24
-          } else if (p == "Solar Flare") {
-            id(theme_primary) = Color(245, 175, 25);   // Amber Gold #F5AF19
-            id(theme_secondary) = Color(205, 45, 35);  // Crimson Red #CD2D23
-          } else if (p == "Mono Luxury") {
-            id(theme_primary) = Color(200, 200, 200); // Titanium Silver #C8C8C8
-            id(theme_secondary) = Color(255, 255, 255); // Pure White #FFFFFF
+          } else if (p == "Cyber Volt") {
+            id(theme_primary) = Color(255, 230, 0);    // Radiant Cyber Yellow #FFE600
+            id(theme_secondary) = Color(41, 121, 255); // Electric Cobalt #2979FF
+          } else if (p == "Sunset Horizon") {
+            id(theme_primary) = Color(168, 85, 247);   // Luminous Electric Violet #A855F7
+            id(theme_secondary) = Color(255, 122, 0);  // Sunset Coral Amber #FF7A00
+          } else if (p == "Quantum Mint") {
+            id(theme_primary) = Color(0, 245, 212);    // Hyper Mint #00F5D4
+            id(theme_secondary) = Color(79, 70, 229);  // Royal Indigo #4F46E5
           } else {
             // Default Classic: Steel Cyan Blue + Vintage Chrono Gold
             id(theme_primary) = Color(69, 110, 138);   // #456E8A Steel Cyan
@@ -4786,10 +4786,10 @@ touchscreen:
                   std::string cur = std::string(id(theme_palette_select).current_option().c_str());
                   std::string nxt = "Default Classic";
                   if (cur == "Default Classic") nxt = "Tokyo Cyber";
-                  else if (cur == "Tokyo Cyber") nxt = "Heritage Coast";
-                  else if (cur == "Heritage Coast") nxt = "Solar Flare";
-                  else if (cur == "Solar Flare") nxt = "Mono Luxury";
-                  else if (cur == "Mono Luxury") nxt = "Default Classic";
+                  else if (cur == "Tokyo Cyber") nxt = "Cyber Volt";
+                  else if (cur == "Cyber Volt") nxt = "Sunset Horizon";
+                  else if (cur == "Sunset Horizon") nxt = "Quantum Mint";
+                  else if (cur == "Quantum Mint") nxt = "Default Classic";
                   auto call = id(theme_palette_select).make_call();
                   call.set_option(nxt);
                   call.perform();
