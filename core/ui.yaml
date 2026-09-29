@@ -2312,22 +2312,29 @@ display:
       if (id(display_power_state) == 1) {
         it.fill(id(col_bg));
 
+        auto now = id(ha_time).now();
+        int sec = now.is_valid() ? now.second : 0;
+
         // AMOLED Burn-in Prevention: Drift center position based on minute
         int drift_x = (sec % 10) * 4 - 20;
         int drift_y = ((sec / 10) % 6) * 4 - 10;
 
         // Ambient Minimalist Clock
         char amb_time[16];
-        if (id(is_24h_format)) {
-          snprintf(amb_time, sizeof(amb_time), "%02d:%02d", now.hour, now.minute);
-        } else {
-          int h12 = now.hour % 12;
-          if (h12 == 0) h12 = 12;
-          snprintf(amb_time, sizeof(amb_time), "%d:%02d", h12, now.minute);
-        }
-        it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, amb_time);
+        if (now.is_valid()) {
+          if (id(is_24h_format)) {
+            snprintf(amb_time, sizeof(amb_time), "%02d:%02d", now.hour, now.minute);
+          } else {
+            int h12 = now.hour % 12;
+            if (h12 == 0) h12 = 12;
+            snprintf(amb_time, sizeof(amb_time), "%d:%02d", h12, now.minute);
+          }
+          it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, amb_time);
 
-        it.strftime(cx + drift_x, cy + 45 + drift_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, "%a, %b %d", now);
+          it.strftime(cx + drift_x, cy + 45 + drift_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, "%a, %b %d", now);
+        } else {
+          it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, "--:--");
+        }
         return;
       }
 
@@ -4487,9 +4494,7 @@ touchscreen:
                   id(disp1).update();
                 // Card 3: Docked Screensaver Toggle (y: 220..260, x: 100..366)
                 } else if (touch.y >= 220 && touch.y <= 260 && touch.x >= 100 && touch.x <= 366) {
-                  auto call = id(docked_screensaver_switch).make_call();
-                  call.set_state(!id(docked_screensaver_switch).state);
-                  call.perform();
+                  id(docked_screensaver_switch).toggle();
                   id(disp1).update();
                 // Card 4: Power Actions Submenu (y: 280..320, x: 100..366)
                 } else if (touch.y >= 280 && touch.y <= 320 && touch.x >= 100 && touch.x <= 366) {
