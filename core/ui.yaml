@@ -2729,7 +2729,7 @@ display:
       // ==========================================
       // GLOBAL BOTTOM NAVIGATION BAR (Fixed Anchors & Centered Page Counter)
       // ==========================================
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0)) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
         // Universal Left & Right fixed navigation anchors
         it.print(120, 428, id(font_small), id(theme_secondary), TextAlign::CENTER, "<");
         it.print(346, 428, id(font_small), id(theme_secondary), TextAlign::CENTER, ">");
@@ -3940,32 +3940,32 @@ display:
             it.print(cx, 144, id(font_small), id(theme_primary), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
-          // Center Zone: 2x2 Grid with Generous Horizontal & Vertical Padding (x: 76..220 and 246..390)
-          // Row 1: Display & Clock (Left) | Sleep & Wake (Right) at y = 190
-          draw_pill_button(76, 220, 190, 16, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
-          draw_pill_button(246, 390, 190, 16, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
+          // Center Zone: Buffered 2x2 Grid with 24px Center Gap & 30px Vertical Separation
+          // Row 1: Display & Clock (Left: x 73..221) | Sleep & Wake (Right: x 245..393) at y = 184
+          draw_pill_button(89, 205, 184, 16, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
+          draw_pill_button(261, 377, 184, 16, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
 
-          // Row 2: Audio & Media (Left) | System Actions (Right) at y = 238
-          draw_pill_button(76, 220, 238, 16, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
-          draw_pill_button(246, 390, 238, 16, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
+          // Row 2: Audio & Media (Left: x 73..221) | System Actions (Right: x 245..393) at y = 246
+          draw_pill_button(89, 205, 246, 16, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
+          draw_pill_button(261, 377, 246, 16, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
 
-          // Lower Zone: Battery, Date, and Prominent Clock with generous padding
+          // Lower Zone: Battery, Date, and Prominent Clock with generous breathing room
           float v_batt = id(batt_voltage).state;
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%% (%.2fV)", batt, v_batt);
           if (id(batt_charging).state) {
             int w_main = (strlen(b_main) >= 21) ? 202 : 191;
             int start_x = cx - (w_main + 105) / 2;
-            it.print(start_x, 286, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
-            it.print(start_x + w_main, 286, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
+            it.print(start_x, 298, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
+            it.print(start_x + w_main, 298, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
           } else {
-            it.print(cx, 286, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
+            it.print(cx, 298, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
 
           if (now.is_valid()) {
-            it.strftime(cx, 314, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+            it.strftime(cx, 324, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
 
-            // Prominent Time readout (y = 345)
+            // Prominent Time readout (y = 354)
             char t_buf[16];
             if (id(is_24h_format)) {
               snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
@@ -3974,7 +3974,7 @@ display:
               if (h12 == 0) h12 = 12;
               snprintf(t_buf, sizeof(t_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
             }
-            it.print(cx, 345, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
+            it.print(cx, 354, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
           }
 
         } else if (id(system_menu_mode) == 1) {
@@ -4226,11 +4226,107 @@ touchscreen:
               return;
             }
 
-            // When in Music Overlay/Browser (gui_page == 2 && music_overlay_mode > 0),
-            // the left and right sides of the screen turn menu pages instead of exiting to other watch apps!
-            if (id(gui_page) == 2 && id(music_overlay_mode) > 0) {
+            // ==========================================
+            // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER (y >= 385)
+            // ==========================================
+            // When in Modal Music Menu (gui_page == 2 && music_overlay_mode == 1):
+            // Fall through so [ RETURN ] button (y: 370..425, x: 140..326) receives touch.
+            if (touch.y >= 385 && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
+              if (touch.x < 215) {
+                // Bottom-Left Navigation (<): Page Back / Previous
+                if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+                  // Browse Library Category Carousel (3 pages)
+                  id(music_category_page) = (id(music_category_page) == 1) ? 3 : (id(music_category_page) - 1);
+                  id(disp1).update();
+                  return;
+                } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
+                  // Item Browser Pagination (e.g. Artists 1..21)
+                  if (id(music_browse_total_pages) > 1) {
+                    if (id(music_browse_page) > 1) {
+                      id(music_browse_page)--;
+                    } else {
+                      id(music_browse_page) = id(music_browse_total_pages);
+                    }
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                } else {
+                  // App Deck: Previous App in Deck
+                  bool allow_deck_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
+                                         !(id(gui_page) == 3 && id(active_game) > 0) &&
+                                         !(id(gui_page) == 2 && id(music_overlay_mode) > 0);
+                  if (allow_deck_flip) {
+                    int total = id(active_deck_size);
+                    if (total > 1) {
+                      auto get_slot = [](int idx) -> int {
+                        if (idx == 0) return id(deck_slot_0);
+                        if (idx == 1) return id(deck_slot_1);
+                        if (idx == 2) return id(deck_slot_2);
+                        if (idx == 3) return id(deck_slot_3);
+                        if (idx == 4) return id(deck_slot_4);
+                        return 0;
+                      };
+                      int prev_idx = (id(current_deck_index) - 1 + total) % total;
+                      id(current_deck_index) = prev_idx;
+                      id(gui_page) = get_slot(prev_idx);
+                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+              } else if (touch.x > 251) {
+                // Bottom-Right Navigation (>): Page Forward / Next
+                if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+                  // Browse Library Category Carousel (3 pages)
+                  id(music_category_page) = (id(music_category_page) >= 3) ? 1 : (id(music_category_page) + 1);
+                  id(disp1).update();
+                  return;
+                } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
+                  // Item Browser Pagination (e.g. Artists 1..21)
+                  if (id(music_browse_total_pages) > 1) {
+                    if (id(music_browse_page) < id(music_browse_total_pages)) {
+                      id(music_browse_page)++;
+                    } else {
+                      id(music_browse_page) = 1;
+                    }
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                } else {
+                  // App Deck: Next App in Deck
+                  bool allow_deck_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
+                                         !(id(gui_page) == 3 && id(active_game) > 0) &&
+                                         !(id(gui_page) == 2 && id(music_overlay_mode) > 0);
+                  if (allow_deck_flip) {
+                    int total = id(active_deck_size);
+                    if (total > 1) {
+                      auto get_slot = [](int idx) -> int {
+                        if (idx == 0) return id(deck_slot_0);
+                        if (idx == 1) return id(deck_slot_1);
+                        if (idx == 2) return id(deck_slot_2);
+                        if (idx == 3) return id(deck_slot_3);
+                        if (idx == 4) return id(deck_slot_4);
+                        return 0;
+                      };
+                      int next_idx = (id(current_deck_index) + 1) % total;
+                      id(current_deck_index) = next_idx;
+                      id(gui_page) = get_slot(next_idx);
+                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+              }
+              return; // Absorb any touch in the central counter sanctuary (x: 215..251)
+            }
+
+            // Optional edge tap support for one-handed navigation in Browse Library & Item Browser
+            if (id(gui_page) == 2 && id(music_overlay_mode) > 1) {
               if (touch.x < 65) {
-                // Left side: Previous Page within multi-page menu
                 if (id(music_overlay_mode) == 2) {
                   id(music_category_page) = (id(music_category_page) == 1) ? 3 : (id(music_category_page) - 1);
                   id(disp1).update();
@@ -4245,9 +4341,8 @@ touchscreen:
                     id(disp1).update();
                   }
                 }
-                return; // Guard overlay: never exit to Stopwatch/Clock from edge touch
+                return;
               } else if (touch.x > 401) {
-                // Right side: Next Page within multi-page menu
                 if (id(music_overlay_mode) == 2) {
                   id(music_category_page) = (id(music_category_page) >= 3) ? 1 : (id(music_category_page) + 1);
                   id(disp1).update();
@@ -4262,50 +4357,7 @@ touchscreen:
                     id(disp1).update();
                   }
                 }
-                return; // Guard overlay: never exit to Games/System from edge touch
-              }
-            } else {
-              // Universal Global Deck Navigation (Consistent across ALL pages forever):
-              // Full-height edge taps are completely removed so in-app buttons never conflict.
-              // Navigation is strictly in the generous bottom corners (y >= 385):
-              //   - Bottom-Left (y >= 385, x < 215): Generous Page Back
-              //   - Bottom-Right (y >= 385, x > 251): Generous Page Forward
-              //   - Center (x: 215..251): Protected Carousel Pips Sanctuary
-              bool allow_deck_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
-                                     !(id(gui_page) == 3 && id(active_game) > 0) &&
-                                     !(id(gui_page) == 2 && id(music_overlay_mode) > 0);
-
-              auto get_slot = [](int idx) -> int {
-                if (idx == 0) return id(deck_slot_0);
-                if (idx == 1) return id(deck_slot_1);
-                if (idx == 2) return id(deck_slot_2);
-                if (idx == 3) return id(deck_slot_3);
-                if (idx == 4) return id(deck_slot_4);
-                return 0;
-              };
-
-              if (allow_deck_flip && touch.y >= 385) {
-                int total = id(active_deck_size);
-                if (total > 1) {
-                  if (touch.x < 215) {
-                    // Generous Bottom-Left Corner: Previous App in Deck
-                    int prev_idx = (id(current_deck_index) - 1 + total) % total;
-                    id(current_deck_index) = prev_idx;
-                    id(gui_page) = get_slot(prev_idx);
-                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
-                    id(disp1).update();
-                    return;
-                  } else if (touch.x > 251) {
-                    // Generous Bottom-Right Corner: Next App in Deck
-                    int next_idx = (id(current_deck_index) + 1) % total;
-                    id(current_deck_index) = next_idx;
-                    id(gui_page) = get_slot(next_idx);
-                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
-                    id(disp1).update();
-                    return;
-                  }
-                }
-                return; // Absorb any touch in the central pip sanctuary (x: 215..251)
+                return;
               }
             }
 
@@ -4644,21 +4696,21 @@ touchscreen:
                 if (touch.y >= 132 && touch.y <= 158 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Main Telemetry View: Button 1 "Display & Clock" (y: 158..195)
-                } else if (touch.y >= 158 && touch.y <= 195 && touch.x >= 110 && touch.x <= 356) {
+                // Row 1 Left: "Display >" (y: 160..210, x: 65..230)
+                } else if (touch.y >= 160 && touch.y <= 210 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 2; // Open Display & Clock Submenu
                   id(disp1).update();
-                // Main Telemetry View: Button 2 "Power & Wake" (y: 198..235)
-                } else if (touch.y >= 198 && touch.y <= 235 && touch.x >= 110 && touch.x <= 356) {
-                  id(system_menu_mode) = 1; // Open Power & Wake Submenu
+                // Row 1 Right: "Sleep & Wake >" (y: 160..210, x: 236..405)
+                } else if (touch.y >= 160 && touch.y <= 210 && touch.x >= 236 && touch.x <= 405) {
+                  id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
                   id(disp1).update();
-                // Main Telemetry View: Button 3 "Audio & Media" (y: 238..275)
-                } else if (touch.y >= 238 && touch.y <= 275 && touch.x >= 110 && touch.x <= 356) {
+                // Row 2 Left: "Audio >" (y: 225..275, x: 65..230)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 7; // Open Audio & Media Submenu
                   id(disp1).update();
-                // Main Telemetry View: Button 4 "Power Actions" (y: 278..315)
-                } else if (touch.y >= 278 && touch.y <= 315 && touch.x >= 110 && touch.x <= 356) {
-                  id(system_menu_mode) = 3; // Open Power Actions Submenu
+                // Row 2 Right: "Actions >" (y: 225..275, x: 236..405)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 236 && touch.x <= 405) {
+                  id(system_menu_mode) = 3; // Open System Actions Submenu
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
