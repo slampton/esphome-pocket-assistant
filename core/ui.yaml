@@ -483,26 +483,6 @@ switch:
     id: speaker_enable
     pin: GPIO46
     restore_mode: ALWAYS_ON
-
-  # --------------------------------------------------------------------------
-  # 🕒 System-Wide Time Display Format (12h vs 24h)
-  # --------------------------------------------------------------------------
-  - platform: template
-    name: "24-Hour Clock"
-    id: time_format_24h
-    icon: "mdi:clock-time-four-outline"
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    turn_on_action:
-      - lambda: |-
-          if (id(sleep_start_time) > 0) {
-            id(disp1).update();
-          }
-    turn_off_action:
-      - lambda: |-
-          if (id(sleep_start_time) > 0) {
-            id(disp1).update();
-          }
   # --------------------------------------------------------------------------
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
@@ -2409,17 +2389,12 @@ display:
           }
         }
 
-        // Formatted date and digital time (12h or 24h format)
+        // 12-Hour formatted date and digital time (single-digit hours drop leading zero)
         it.strftime(cx, 145, id(font_date), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+        int h12 = now.hour % 12;
+        if (h12 == 0) h12 = 12;
         char time_buf[16];
-        bool is_24h = (time_format_24h != nullptr && id(time_format_24h).state);
-        if (is_24h) {
-          snprintf(time_buf, sizeof(time_buf), "%02d:%02d", now.hour, now.minute);
-        } else {
-          int h12 = now.hour % 12;
-          if (h12 == 0) h12 = 12;
-          snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
-        }
+        snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
         it.print(cx, 305, id(font_small), id(col_slate), TextAlign::CENTER, time_buf);
 
         // Battery percentage in cyan in all states; golden charging bolt appears on left when plugged in
