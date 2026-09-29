@@ -1,6 +1,10 @@
 # Core Subsystem: Display Engine & UI Router
 
 globals:
+  - id: music_hud_visible
+    type: bool
+    restore_value: no
+    initial_value: 'true'
   - id: drilldown_artist_name
     type: std::string
     restore_value: no
@@ -348,7 +352,7 @@ image:
     id: album_slot
     format: JPEG
     type: RGB565
-    resize: 216x216
+    resize: 466x466
     source: album
     current_image:
       id: album_art
@@ -359,7 +363,7 @@ image:
     id: remote_album_art
     format: AUTO
     type: RGB565
-    resize: 216x216
+    resize: 466x466
     url: "${initial_art_url}"
     on_download_finished:
       - component.update: disp1
@@ -2746,7 +2750,8 @@ display:
       // ==========================================
       // GLOBAL BOTTOM NAVIGATION BAR (Fixed Anchors & Centered Page Counter)
       // ==========================================
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
+      bool hide_bot_nav_fs = (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_fullscreen_art_switch).state && !id(music_hud_visible));
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !hide_bot_nav_fs) {
         // Universal Left & Right fixed navigation anchors (Pixel-perfect vector chevrons matching preferred '>' size)
         // Left Anchor (<): 9px wide, 15px tall, 2px stroke
         it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
@@ -3232,117 +3237,186 @@ display:
           const int art_w = 216;
 
           bool has_art = false;
+          esphome::image::Image *target_art = nullptr;
           if (is_remote) {
             has_art = (id(remote_album_art).get_width() > 0);
+            if (has_art) target_art = id(remote_album_art);
           } else {
             has_art = (id(album_art).get_width() > 0);
+            if (has_art) target_art = id(album_art);
           }
 
-          if (has_art) {
-            if (is_remote) {
-              it.image(cx - art_w / 2, art_top_y, id(remote_album_art));
-            } else {
-              it.image(cx - art_w / 2, art_top_y, id(album_art));
+          bool is_fs_art = id(music_fullscreen_art_switch).state && has_art;
+          bool show_hud = !is_fs_art || id(music_hud_visible);
+
+          auto draw_scaled_art = [&](esphome::image::Image *img, int dst_x, int dst_y, int dst_w, int dst_h) {
+            if (img == nullptr || img->get_width() == 0 || img->get_height() == 0) return;
+            int src_w = img->get_width();
+            int src_h = img->get_height();
+            if (src_w == dst_w && src_h == dst_h) {
+              it.image(dst_x, dst_y, img);
+              return;
+            }
+            for (int dy = 0; dy < dst_h; dy++) {
+              int sy = (dy * src_h) / dst_h;
+              for (int dx = 0; dx < dst_w; dx++) {
+                int sx = (dx * src_w) / dst_w;
+                it.draw_pixel_at(dst_x + dx, dst_y + dy, img->get_pixel(sx, sy));
+              }
+            }
+          };
+
+          if (is_fs_art) {
+            // ====================================================
+            // FULL-SCREEN ALBUM ART CANVAS (Edge-to-Edge 466x466)
+            // ====================================================
+            draw_scaled_art(target_art, 0, 0, 466, 466);
+
+            if (show_hud) {
+              // Dual-Zone Vignette Scrim (Top 90px & Bottom 146px for maximum legibility)
+              // Top Vignette: Solid black at y: 0..60, 50% dither at y: 60..90
+              for (int y = 0; y < 60; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
+              }
+              for (int y = 60; y < 90; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                for (int x = cx - hw; x <= cx + hw; x++) {
+                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
+                }
+              }
+
+              // Bottom Vignette: 50% dither at y: 320..355, 75% at y: 355..385, Solid black at y: 385..466
+              for (int y = 320; y < 355; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                for (int x = cx - hw; x <= cx + hw; x++) {
+                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
+                }
+              }
+              for (int y = 355; y < 385; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                for (int x = cx - hw; x <= cx + hw; x++) {
+                  if ((x + y) % 2 == 0 || (x % 2 == 0 && y % 2 == 1)) it.draw_pixel_at(x, y, id(col_black));
+                }
+              }
+              for (int y = 385; y < 466; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
+              }
             }
           } else {
-            // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
-            it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
-            it.circle(cx, art_center_y, 80, is_remote ? id(theme_secondary) : id(theme_primary));
-            it.circle(cx, art_center_y, 64, id(col_bg));
-            it.circle(cx, art_center_y, 48, id(col_dark_gray));
-            it.circle(cx, art_center_y, 32, id(col_bg));
-            it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
+            // ====================================================
+            // CLASSIC FRAMED 216x216 ALBUM ART & VINYL DISC
+            // ====================================================
+            if (has_art) {
+              draw_scaled_art(target_art, cx - art_w / 2, art_top_y, art_w, art_w);
+            } else {
+              // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
+              it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
+              it.circle(cx, art_center_y, 80, is_remote ? id(theme_secondary) : id(theme_primary));
+              it.circle(cx, art_center_y, 64, id(col_bg));
+              it.circle(cx, art_center_y, 48, id(col_dark_gray));
+              it.circle(cx, art_center_y, 32, id(col_bg));
+              it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
+            }
           }
 
-          // Left Flank (x: 91..113): Previous Track (◀◀) centered on horizon (y = 212, exactly 12px gap from art)
-          it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
-          it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
+          if (show_hud) {
+            // Left Flank (x: 91..113): Previous Track (◀◀) centered on horizon (y = 212, exactly 12px gap from art)
+            it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
+            it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
-          // Right Flank (x: 353..375): Next Track (▶▶) centered on horizon (y = 212, exactly 12px gap from art)
-          it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
-          it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
+            // Right Flank (x: 353..375): Next Track (▶▶) centered on horizon (y = 212, exactly 12px gap from art)
+            it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
+            it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
 
-          // Right Flank Volume Up (+): centered at x = 392, y = 125 (crisp 15px stroke, identical visual weight)
-          it.filled_rectangle(392 - 7, 125 - 1, 15, 3, id(theme_secondary));
-          it.filled_rectangle(392 - 1, 125 - 7, 3, 15, id(theme_secondary));
+            // Right Flank Volume Up (+): centered at x = 392, y = 125 (crisp 15px stroke, identical visual weight)
+            it.filled_rectangle(392 - 7, 125 - 1, 15, 3, id(theme_secondary));
+            it.filled_rectangle(392 - 1, 125 - 7, 3, 15, id(theme_secondary));
 
-          // Right Flank Volume Down (-): centered at x = 392, y = 299 (crisp 15px stroke, identical visual weight)
-          it.filled_rectangle(392 - 7, 299 - 1, 15, 3, id(theme_secondary));
+            // Right Flank Volume Down (-): centered at x = 392, y = 299 (crisp 15px stroke, identical visual weight)
+            it.filled_rectangle(392 - 7, 299 - 1, 15, 3, id(theme_secondary));
 
-          // Paused state frosted scrim overlay with borderless Play badge ▶
-          if (!is_playing) {
-            it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
-            it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
+            // Paused state frosted scrim overlay with borderless Play badge ▶
+            if (!is_playing) {
+              it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
+              it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
+            }
+
+            // Real-time track progress calculation
+            float dur = id(ha_media_duration).state;
+            float current_pos = id(music_pos_base);
+            if (is_playing && id(music_pos_sync_time) > 0) {
+              current_pos += (millis() - id(music_pos_sync_time)) / 1000.0f;
+            }
+            float prog = 0.0f;
+            if (!isnan(dur) && dur > 0.0f) {
+              prog = current_pos / dur;
+              if (prog < 0.0f) prog = 0.0f;
+              if (prog > 1.0f) prog = 1.0f;
+            }
+
+            // Perimeter continuous track playback progress arc (r = 224, 2px continuous stroke)
+            if (prog > 0.005f) {
+              float end_a = prog * 2.0f * PI_F;
+              float step = 0.035f;
+              for (float a = 0.0f; a < end_a; a += step) {
+                float next_a = std::min(a + step, end_a);
+                float s1, c1, s2, c2;
+                sincosf(a, &s1, &c1);
+                sincosf(next_a, &s2, &c2);
+                it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
+                        cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), id(theme_secondary));
+                it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
+                        cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), id(theme_secondary));
+              }
+            }
+
+            // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
+            std::string title = "";
+            std::string artist = "";
+            std::string album = "";
+
+            if (is_remote) {
+              title = id(ha_track_title).state;
+              artist = id(ha_track_artist).state;
+              album = id(ha_track_album).state;
+            } else {
+              title = id(track_title).state;
+              if (title.empty() || title == "None") title = id(ha_track_title).state;
+              artist = id(track_artist).state;
+              if (artist.empty() || artist == "None") artist = id(ha_track_artist).state;
+              album = id(track_album).state;
+              if (album.empty() || album == "None") album = id(ha_track_album).state;
+            }
+
+            if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
+            if (title.length() > 24) title = title.substr(0, 22) + "...";
+
+            // Uncrowded metadata layout below album art (y = 336, 358, 378)
+            it.print(cx, 336, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
+            if (!artist.empty() && artist != "None") {
+              if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
+              it.print(cx, 358, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
+            }
+            if (!album.empty() && album != "None") {
+              if (album.length() > 28) album = album.substr(0, 26) + "...";
+              it.print(cx, 378, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
+            }
           }
 
-          // Prominent Center Volume HUD Overlay: Borderless solid black circle over center of album art (1800ms)
+          // Prominent Center Volume HUD Overlay: Borderless solid black circle (always floats on top when adjusted)
           if (millis() - id(vol_hud_timer) < 1800) {
             int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
             char v_buf[16];
             snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
             it.filled_circle(cx, art_center_y, 44, id(col_black));
             it.print(cx, art_center_y, id(font_chrono_time), id(col_white), TextAlign::CENTER, v_buf);
-          }
-
-          // Real-time track progress calculation
-          float dur = id(ha_media_duration).state;
-          float current_pos = id(music_pos_base);
-          if (is_playing && id(music_pos_sync_time) > 0) {
-            current_pos += (millis() - id(music_pos_sync_time)) / 1000.0f;
-          }
-          float prog = 0.0f;
-          if (!isnan(dur) && dur > 0.0f) {
-            prog = current_pos / dur;
-            if (prog < 0.0f) prog = 0.0f;
-            if (prog > 1.0f) prog = 1.0f;
-          }
-
-          // Perimeter continuous track playback progress arc (r = 224, 2px continuous stroke)
-          if (prog > 0.005f) {
-            float end_a = prog * 2.0f * PI_F;
-            float step = 0.035f;
-            for (float a = 0.0f; a < end_a; a += step) {
-              float next_a = std::min(a + step, end_a);
-              float s1, c1, s2, c2;
-              sincosf(a, &s1, &c1);
-              sincosf(next_a, &s2, &c2);
-              it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
-                      cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), id(theme_secondary));
-              it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
-                      cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), id(theme_secondary));
-            }
-          }
-
-          // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
-          std::string title = "";
-          std::string artist = "";
-          std::string album = "";
-
-          if (is_remote) {
-            title = id(ha_track_title).state;
-            artist = id(ha_track_artist).state;
-            album = id(ha_track_album).state;
-          } else {
-            title = id(track_title).state;
-            if (title.empty() || title == "None") title = id(ha_track_title).state;
-            artist = id(track_artist).state;
-            if (artist.empty() || artist == "None") artist = id(ha_track_artist).state;
-            album = id(track_album).state;
-            if (album.empty() || album == "None") album = id(ha_track_album).state;
-          }
-
-          if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
-          if (title.length() > 24) title = title.substr(0, 22) + "...";
-
-          // Uncrowded metadata layout below album art (y = 320..385, zero volume button interference)
-          it.print(cx, 336, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
-          if (!artist.empty() && artist != "None") {
-            if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
-            it.print(cx, 358, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
-          }
-          if (!album.empty() && album != "None") {
-            if (album.length() > 28) album = album.substr(0, 26) + "...";
-            it.print(cx, 378, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
           }
 
         } else if (id(music_overlay_mode) == 1) {
@@ -4473,22 +4547,32 @@ touchscreen:
                 } else if (touch.y >= 30 && touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
-                // Center Album Art (216x216): Play / Pause toggle
-                } else if (touch.y >= 104 && touch.y <= 320 && touch.x >= 125 && touch.x <= 339) {
-                  // Center Album Art (216x216): Play / Pause toggle
-                  if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                    auto call = id(pocket_music_player).make_call();
-                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                    call.perform();
-                    id(toggle_ha_music).execute();
-                  } else {
-                    if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                      id(music_action_feedback) = "Connecting to stream...";
-                      id(music_feedback_timer) = millis();
-                    }
-                    id(toggle_ha_music).execute();
-                  }
+                // Full-Screen Mode: When HUD is hidden, tap anywhere in the center canvas to bring HUD back
+                } else if (id(music_fullscreen_art_switch).state && !id(music_hud_visible) && touch.y >= 60 && touch.y <= 400 && touch.x >= 50 && touch.x <= 416) {
+                  id(music_hud_visible) = true;
                   id(disp1).update();
+                // Center Album Art (216x216): Play / Pause toggle or Tap-to-Toggle HUD
+                } else if (touch.y >= 104 && touch.y <= 320 && touch.x >= 125 && touch.x <= 339) {
+                  if (id(music_fullscreen_art_switch).state) {
+                    // In full-screen mode: tap toggles HUD on/off
+                    id(music_hud_visible) = !id(music_hud_visible);
+                    id(disp1).update();
+                  } else {
+                    // Standard Mode: tap toggles Play / Pause
+                    if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                      auto call = id(pocket_music_player).make_call();
+                      call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                      call.perform();
+                      id(toggle_ha_music).execute();
+                    } else {
+                      if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                        id(music_action_feedback) = "Connecting to stream...";
+                        id(music_feedback_timer) = millis();
+                      }
+                      id(toggle_ha_music).execute();
+                    }
+                    id(disp1).update();
+                  }
                 }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
