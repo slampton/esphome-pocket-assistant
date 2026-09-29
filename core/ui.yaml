@@ -463,7 +463,7 @@ select:
           if (id(sleep_start_time) > 0) id(disp1).update();
 
   - platform: template
-    name: "System: Default Start App"
+    name: "App: Default Start App"
     id: default_start_app
     entity_category: config
     optimistic: true
@@ -732,7 +732,7 @@ number:
       then:
         - script.execute: sync_display_brightness
   - platform: template
-    name: "Assist Speaking Animation Interval"
+    name: "Voice: Speaking Animation Interval"
     id: va_speech_anim_interval
     optimistic: true
     min_value: 150
@@ -3762,12 +3762,12 @@ display:
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
           it.print(cx, 92, id(font_small), id(col_green), TextAlign::CENTER, buf);
 
-          // Line 2: Temperature & IMU (Red)
+          // Line 2: Temperature & IMU (Gold)
           float temp_c = id(imu_temp).state;
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
-          it.print(cx, 118, id(font_small), id(col_red), TextAlign::CENTER, buf);
+          it.print(cx, 118, id(font_small), id(col_gold), TextAlign::CENTER, buf);
 
           // Line 3: Pocket Assistant Version / Update badge (Blue/Cyan)
           bool has_update = id(ha_firmware_update_status).state == "ON";
@@ -3784,24 +3784,24 @@ display:
           draw_pill_button(110, 356, 250, 18, id(col_rust), id(col_dark_gray), "Power & Wake >", id(col_white), true);
 
           // Lower Zone: Glanceable Battery & Nested Curved Time/Date
-          // Battery line (y = 315): Cyan "Battery: 85% (4.05V)" with Gold " • Charging" if on USB
+          // Battery line (y = 310): Cyan "Battery: 85% (4.05V)" with Gold " • Charging" if on USB
           float v_batt = id(batt_voltage).state;
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%% (%.2fV)", batt, v_batt);
           if (id(batt_charging).state) {
             int w_main = (strlen(b_main) >= 21) ? 202 : 191;
             int start_x = cx - (w_main + 105) / 2;
-            it.print(start_x, 315, id(font_small), id(col_cyan), TextAlign::LEFT, b_main);
-            it.print(start_x + w_main, 315, id(font_small), id(col_gold), TextAlign::LEFT, " • Charging");
+            it.print(start_x, 310, id(font_small), id(col_cyan), TextAlign::LEFT, b_main);
+            it.print(start_x + w_main, 310, id(font_small), id(col_gold), TextAlign::LEFT, " • Charging");
           } else {
-            it.print(cx, 315, id(font_small), id(col_cyan), TextAlign::CENTER, b_main);
+            it.print(cx, 310, id(font_small), id(col_cyan), TextAlign::CENTER, b_main);
           }
 
-          // Date above time (y = 350)
+          // Date above time with generous buffer from battery (y = 362)
           if (now.is_valid()) {
-            it.strftime(cx, 350, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+            it.strftime(cx, 362, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
 
-            // Time nestled at bottom curve (y = 385) in font_date (prominent white)
+            // Time nestled at bottom curve (y = 397) in font_date (prominent white)
             char t_buf[16];
             if (id(is_24h_format)) {
               snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
@@ -3810,7 +3810,7 @@ display:
               if (h12 == 0) h12 = 12;
               snprintf(t_buf, sizeof(t_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
             }
-            it.print(cx, 385, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
+            it.print(cx, 397, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
           }
 
         } else if (id(system_menu_mode) == 1) {
