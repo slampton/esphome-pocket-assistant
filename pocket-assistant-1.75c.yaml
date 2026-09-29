@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.6.0"
+  version: "3.5.6"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -105,6 +105,16 @@ esphome:
                 id(sleep_start_time) = millis();
                 id(is_locked) = false;
                 id(is_hibernating) = false;
+                float b = 0.90f;
+                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                if (cur == "40%") b = 0.40f;
+                else if (cur == "50%") b = 0.50f;
+                else if (cur == "60%") b = 0.60f;
+                else if (cur == "70%") b = 0.70f;
+                else if (cur == "80%") b = 0.80f;
+                else if (cur == "90%") b = 0.90f;
+                else if (cur == "100%") b = 1.00f;
+                id(display_brightness).turn_on().set_brightness(b).perform();
             - script.execute: route_i2s_to_mic
             - switch.turn_on: speaker_enable
 
@@ -116,9 +126,10 @@ esphome:
         - audio_dac.mute_on: es8311_dac
         - lambda: |-
             // Assert restored display brightness preset post-driver initialization
-            float b = 0.80f;
+            float b = 0.90f;
             std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-            if (cur == "50%") b = 0.50f;
+            if (cur == "40%") b = 0.40f;
+            else if (cur == "50%") b = 0.50f;
             else if (cur == "60%") b = 0.60f;
             else if (cur == "70%") b = 0.70f;
             else if (cur == "80%") b = 0.80f;
@@ -208,8 +219,7 @@ ota:
 update:
   - platform: http_request
     id: update_pocket_assistant
-    name: "Project Firmware"
-    icon: "mdi:cellphone-arrow-down"
+    name: "Pocket Assistant Firmware"
     source: "https://slampton.github.io/esphome-pocket-assistant/manifest.json"
     update_interval: 6h
 
