@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.9.0"
+  version: "3.9.1"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -79,7 +79,6 @@ esphome:
           uint8_t r0 = 0x00, s0 = 0;
           if (id(bus_internal).write_readv(0x34, &r0, 1, &s0, 1) == esphome::i2c::ERROR_OK) {
             bool vbus = (s0 & 0x20) != 0;
-            id(usb_connected).publish_state(vbus);
             if (vbus) {
               id(abort_boot) = false;
               ESP_LOGI("power", "USB power detected on boot: deep sleep abort inhibited.");
@@ -106,10 +105,10 @@ esphome:
                 id(is_hibernating) = false;
                 id(display_power_state) = 0; // ACTIVE
             - script.execute: route_i2s_to_mic
-            - switch.turn_on: speaker_enable
 
     - priority: -100
       then:
+        - switch.turn_on: speaker_enable
         - audio_dac.set_volume:
             id: es8311_dac
             volume: 70%

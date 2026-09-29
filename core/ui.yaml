@@ -408,12 +408,6 @@ select:
       - "Never"
     set_action:
       - lambda: |-
-          id(page_counter_mode).publish_state(x);
-          if (x == "Never") {
-            id(page_counter_switch).publish_state(false);
-          } else {
-            id(page_counter_switch).publish_state(true);
-          }
           id(disp1).update();
 
   - platform: template
@@ -632,23 +626,6 @@ button:
 
 
 switch:
-  - platform: template
-    name: "System: Page Counter Enabled"
-    id: page_counter_switch
-    icon: "mdi:numeric"
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
-    turn_on_action:
-      - lambda: |-
-          auto call = id(page_counter_mode).make_call();
-          call.set_option("Always");
-          call.perform();
-    turn_off_action:
-      - lambda: |-
-          auto call = id(page_counter_mode).make_call();
-          call.set_option("Never");
-          call.perform();
-
   - platform: template
     name: "System: Full-Screen Album Art"
     id: music_fullscreen_art_switch
