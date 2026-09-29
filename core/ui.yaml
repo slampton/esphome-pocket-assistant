@@ -2523,16 +2523,16 @@ display:
       if (id(is_hibernating)) {
         it.fill(id(col_bg));
         it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_rust));
-        it.circle(cx, cy, 227, id(col_rust));
+        it.circle(cx, cy, 228, id(theme_primary));
+        it.circle(cx, cy, 227, id(theme_primary));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        it.print(cx, cy - 65, id(font_date), id(col_rust), TextAlign::CENTER, "HIBERNATING");
+        it.print(cx, cy - 65, id(font_date), id(theme_primary), TextAlign::CENTER, "HIBERNATING");
 
         char c_buf[16];
         if (id(hibernate_countdown_val) > 0) {
           snprintf(c_buf, sizeof(c_buf), "%d", id(hibernate_countdown_val));
-          it.print(cx, cy + 5, id(font_chrono_time), id(col_white), TextAlign::CENTER, c_buf);
+          it.print(cx, cy + 5, id(font_chrono_time), id(theme_secondary), TextAlign::CENTER, c_buf);
           it.print(cx, cy + 65, id(font_small), id(col_slate), TextAlign::CENTER, "Tap screen to stay awake");
         } else {
           it.print(cx, cy + 20, id(font_small), id(col_slate), TextAlign::CENTER, "Shutting down...");
@@ -3157,8 +3157,8 @@ display:
       // ==========================================
       } else if (id(gui_page) == 2) {
         it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_green));
-        it.circle(cx, cy, 227, id(col_green));
+        it.circle(cx, cy, 228, id(theme_primary));
+        it.circle(cx, cy, 227, id(theme_primary));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
         if (id(music_overlay_mode) == 0) {
@@ -3166,7 +3166,7 @@ display:
           // VIEW 0: NOW PLAYING MUSIC PLAYER
           // --------------------------------------------------
           // Elevated Title baseline (y = 54) & Buffered Active Speaker Indicator (y = 80)
-          it.print(cx, 54, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC");
+          it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
           bool is_playing = false;
@@ -3177,7 +3177,7 @@ display:
           }
 
           std::string spk_label = "[" + id(active_speaker_name) + "]";
-          it.print(cx, 80, id(font_small), is_remote ? id(col_cyan) : id(col_gray), TextAlign::CENTER, spk_label.c_str());
+          it.print(cx, 80, id(font_small), is_remote ? id(theme_secondary) : id(col_slate), TextAlign::CENTER, spk_label.c_str());
 
           // Perfectly Centered Album Art: 216x216 centered at (cx = 233, y = 212), spans y = 104 to 320
           const int art_center_y = 212;
@@ -3200,11 +3200,11 @@ display:
           } else {
             // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
             it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
-            it.circle(cx, art_center_y, 80, is_remote ? id(col_cyan) : id(col_green));
+            it.circle(cx, art_center_y, 80, is_remote ? id(theme_secondary) : id(theme_primary));
             it.circle(cx, art_center_y, 64, id(col_bg));
             it.circle(cx, art_center_y, 48, id(col_dark_gray));
             it.circle(cx, art_center_y, 32, id(col_bg));
-            it.filled_circle(cx, art_center_y, 16, is_remote ? id(col_cyan) : id(col_green));
+            it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
           }
 
           // Track Navigation Buttons: Previous (◀◀) Left (x=91-113), Next (▶▶) Right (x=353-375) at y = 212
@@ -3215,10 +3215,10 @@ display:
           it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
           it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
 
-          // Paused state frosted scrim overlay with borderless bold green Play badge ▶
+          // Paused state frosted scrim overlay with borderless Play badge ▶
           if (!is_playing) {
             it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
-            it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(col_green));
+            it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
           }
 
           // Prominent Center Volume HUD Overlay: Borderless solid black circle over center of album art
@@ -3243,15 +3243,43 @@ display:
             if (prog > 1.0f) prog = 1.0f;
           }
 
-          // Perimeter track position beads (soft light slate gray, non-blooming)
-          float max_angle = prog * 2.0f * PI_F;
-          for (float a = 0.0f; a < max_angle; a += 0.12f) {
+          // Perimeter continuous track playback progress arc (r = 224, 2px stroke)
+          if (prog > 0.005f) {
+            float end_a = prog * 2.0f * PI_F;
+            float step = 0.035f;
+            for (float a = 0.0f; a < end_a; a += step) {
+              float next_a = std::min(a + step, end_a);
+              float s1, c1, s2, c2;
+              sincosf(a, &s1, &c1);
+              sincosf(next_a, &s2, &c2);
+              it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
+                      cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), id(theme_secondary));
+              it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
+                      cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), id(theme_secondary));
+            }
+          }
+
+          // Crown / Right-Edge Volume Indicator Arc (r = 217, spanning -35° to +35°)
+          float v_lvl = id(pocket_music_player).volume;
+          if (isnan(v_lvl)) v_lvl = 0.5f;
+          float v_start_a = -35.0f * (PI_F / 180.0f);
+          float v_total_a = 70.0f * (PI_F / 180.0f);
+          float v_fill_a = v_start_a + v_lvl * v_total_a;
+
+          for (float a = v_start_a; a <= v_start_a + v_total_a; a += 0.04f) {
             float sa, ca;
             sincosf(a, &sa, &ca);
-            int px = cx + (int)(216.0f * sa);
-            int py = cy - (int)(216.0f * ca);
-            it.filled_circle(px, py, 3, id(col_slate));
+            it.draw_pixel_at(cx + (int)(216.0f * ca), cy + (int)(216.0f * sa), id(col_dark_gray));
+            it.draw_pixel_at(cx + (int)(217.0f * ca), cy + (int)(217.0f * sa), id(col_dark_gray));
           }
+          for (float a = v_start_a; a <= v_fill_a; a += 0.04f) {
+            float sa, ca;
+            sincosf(a, &sa, &ca);
+            it.draw_pixel_at(cx + (int)(216.0f * ca), cy + (int)(216.0f * sa), id(theme_primary));
+            it.draw_pixel_at(cx + (int)(217.0f * ca), cy + (int)(217.0f * sa), id(theme_primary));
+          }
+          it.print(424, 126, id(font_small), id(theme_secondary), TextAlign::CENTER, "+");
+          it.print(424, 340, id(font_small), id(theme_secondary), TextAlign::CENTER, "-");
 
           // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
           std::string title = "";
@@ -3277,28 +3305,22 @@ display:
           it.print(cx, 338, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
           if (!artist.empty() && artist != "None") {
             if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
-            it.print(cx, 364, id(font_small), id(col_orange), TextAlign::CENTER, artist.c_str());
+            it.print(cx, 364, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
           }
           if (!album.empty() && album != "None") {
             if (album.length() > 28) album = album.substr(0, 26) + "...";
             it.print(cx, 386, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
           }
 
-          // Consolidated Bottom Volume Controls: ▼ [Down]  VOL  ▲ [Up] at y = 422
-          // Optically balanced anti-glare brass gold carets with uniform visual weight and padding
-          it.print(cx, 422, id(font_small), id(col_slate), TextAlign::CENTER, "VOL");
-          it.filled_triangle(cx - 45, 429, cx - 54, 415, cx - 36, 415, id(col_warm_gold));
-          it.filled_triangle(cx + 45, 414, cx + 35, 429, cx + 55, 429, id(col_warm_gold));
-
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
           // LEVEL 1: TOP-LEVEL SELECTION MENU (3 Cards, 1 Page)
           // --------------------------------------------------
-          it.print(cx, 82, id(font_date), id(col_green), TextAlign::CENTER, "MUSIC MENU");
+          it.print(cx, 82, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
 
-          draw_pill_button(140, 326, 155, 22, id(col_green), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), true);
-          draw_pill_button(140, 326, 235, 22, id(col_cyan), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), true);
-          draw_pill_button(140, 326, 315, 22, id(col_gold), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
+          draw_pill_button(140, 326, 155, 22, id(theme_primary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), true);
+          draw_pill_button(140, 326, 235, 22, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), true);
+          draw_pill_button(140, 326, 315, 22, id(theme_primary), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
 
           // Bottom Back to Player
           draw_pill_button(180, 286, 395, 18, id(col_dark_gray), id(col_dark_gray), "[ RETURN ]", id(col_slate), false);
@@ -3308,22 +3330,22 @@ display:
           // LEVEL 2: LIBRARY CATEGORIES SUBMENU (3 per page)
           // --------------------------------------------------
           // Standardized Title at y = 80 (aligned with Music/Games/System)
-          it.print(cx, 80, id(font_date), id(col_green), TextAlign::CENTER, "BROWSE LIBRARY");
+          it.print(cx, 80, id(font_date), id(theme_primary), TextAlign::CENTER, "BROWSE LIBRARY");
 
           if (id(music_category_page) == 1) {
             // Page 1: Favorites, Playlists, Artists (expanded pitch = 75px, 31px gaps)
-            draw_pill_button(140, 326, 140, 22, id(col_gold), id(col_dark_gray), "FAVORITES", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_cyan), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
-            draw_pill_button(140, 326, 290, 22, id(col_green), id(col_dark_gray), "ARTISTS", id(col_white), true);
+            draw_pill_button(140, 326, 140, 22, id(theme_secondary), id(col_dark_gray), "FAVORITES", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(theme_primary), id(col_dark_gray), "PLAYLISTS", id(col_white), true);
+            draw_pill_button(140, 326, 290, 22, id(theme_secondary), id(col_dark_gray), "ARTISTS", id(col_white), true);
           } else if (id(music_category_page) == 2) {
             // Page 2: Albums, Tracks, Radio (expanded pitch = 75px, 31px gaps)
-            draw_pill_button(140, 326, 140, 22, id(col_orange), id(col_dark_gray), "ALBUMS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_cyan), id(col_dark_gray), "TRACKS", id(col_white), true);
-            draw_pill_button(140, 326, 290, 22, id(col_gold), id(col_dark_gray), "RADIO", id(col_white), true);
+            draw_pill_button(140, 326, 140, 22, id(theme_primary), id(col_dark_gray), "ALBUMS", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(theme_secondary), id(col_dark_gray), "TRACKS", id(col_white), true);
+            draw_pill_button(140, 326, 290, 22, id(theme_primary), id(col_dark_gray), "RADIO", id(col_white), true);
           } else if (id(music_category_page) == 3) {
             // Page 3: Podcasts, Audiobooks (expanded pitch = 75px, 31px gaps)
-            draw_pill_button(140, 326, 140, 22, id(col_green), id(col_dark_gray), "PODCASTS", id(col_white), true);
-            draw_pill_button(140, 326, 215, 22, id(col_rust), id(col_dark_gray), "AUDIOBOOKS", id(col_white), true);
+            draw_pill_button(140, 326, 140, 22, id(theme_secondary), id(col_dark_gray), "PODCASTS", id(col_white), true);
+            draw_pill_button(140, 326, 215, 22, id(theme_primary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), true);
           }
 
           // Category Pagination (y = 352, 3 clean pages with carousel wrap)
@@ -3342,7 +3364,7 @@ display:
           it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr);
 
           // Standardized Bottom Navigation: < MENU (returns to Level 1 Menu)
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(col_cyan), false);
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(theme_primary), false);
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
@@ -3447,8 +3469,8 @@ display:
       // ==========================================
       } else if (id(gui_page) == 3) {
         it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_cyan));
-        it.circle(cx, cy, 227, id(col_cyan));
+        it.circle(cx, cy, 228, id(theme_primary));
+        it.circle(cx, cy, 227, id(theme_primary));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
         // Read real-time accelerometer / gyroscope tilt angles
@@ -3483,22 +3505,22 @@ display:
         // ----------------------------------------------------
         if (id(active_game) == 0) {
           // Elevated Title aligned with Music & System at y = 54
-          it.print(cx, 54, id(font_date), id(col_cyan), TextAlign::CENTER, "GAMES");
+          it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
 
           // Card 1: Marbles
-          draw_pill_button(140, 326, 127, 22, id(col_gold), id(col_dark_gray), "MARBLES", id(col_white), true);
+          draw_pill_button(140, 326, 127, 22, id(theme_primary), id(col_dark_gray), "MARBLES", id(col_white), true);
 
           // Card 2: Archery
-          draw_pill_button(140, 326, 207, 22, id(col_rust), id(col_dark_gray), "ARCHERY", id(col_white), true);
+          draw_pill_button(140, 326, 207, 22, id(theme_secondary), id(col_dark_gray), "ARCHERY", id(col_white), true);
 
           // Card 3: Treat Catcher
-          draw_pill_button(140, 326, 287, 22, id(col_green), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
+          draw_pill_button(140, 326, 287, 22, id(theme_primary), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
         // ----------------------------------------------------
         } else if (id(active_game) == 1) {
-          it.print(cx, 65, id(font_small), id(col_gold), TextAlign::CENTER, "MARBLES");
+          it.print(cx, 65, id(font_small), id(theme_secondary), TextAlign::CENTER, "MARBLES");
 
           struct SimBall {
             float x, y, vx, vy, r;
@@ -3695,7 +3717,7 @@ display:
         // GAME 2: ARCHERY (TILT AIM & TARGET PRACTICE)
         // ----------------------------------------------------
         } else if (id(active_game) == 2) {
-          it.print(cx, 65, id(font_small), id(col_red), TextAlign::CENTER, "ARCHERY");
+          it.print(cx, 65, id(font_small), id(theme_secondary), TextAlign::CENTER, "ARCHERY");
 
           static int arch_score = 0;
           static int shots_fired = 0;
@@ -3798,7 +3820,7 @@ display:
         // GAME 3: TREAT CATCHER (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
         } else {
-          it.print(cx, 65, id(font_small), id(col_green), TextAlign::CENTER, "TREAT CATCHER");
+          it.print(cx, 65, id(font_small), id(theme_secondary), TextAlign::CENTER, "TREAT CATCHER");
 
           static int treat_score = 0;
           static float treat_x = cx + 60.0f;
@@ -4060,17 +4082,17 @@ display:
           // --------------------------------------------------
           // VIEW 3: POWER ACTIONS SUBMENU (SPACIOUS 75PX PITCH)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(col_rust), TextAlign::CENTER, "POWER ACTIONS");
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "POWER ACTIONS");
 
           // Button 1: Hibernate Now (y = 130, r = 22)
-          draw_pill_button(110, 356, 130, 22, id(col_rust), id(col_dark_gray), "Hibernate Now", id(col_gold), true);
+          draw_pill_button(110, 356, 130, 22, id(theme_primary), id(col_dark_gray), "Hibernate Now", id(theme_secondary), true);
 
           // Button 2: Auto-Sleep Timeout Cycler (y = 205, r = 22)
           char s_buf[32];
           std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
           if (cur_s.empty()) cur_s = "5 min";
           snprintf(s_buf, sizeof(s_buf), "Auto-Sleep: %s", cur_s.c_str());
-          draw_pill_button(110, 356, 205, 22, id(col_rust), id(col_dark_gray), s_buf, id(col_white), true);
+          draw_pill_button(110, 356, 205, 22, id(theme_primary), id(col_dark_gray), s_buf, id(col_white), true);
 
           // Button 3: Restart Device (Protected confirmation) (y = 280, r = 22)
           draw_pill_button(110, 356, 280, 22, id(col_red), id(col_dark_gray), "Restart Device", id(col_white), true);
@@ -4082,7 +4104,7 @@ display:
           // --------------------------------------------------
           // VIEW 4: RESTART CONFIRMATION DIALOG
           // --------------------------------------------------
-          it.print(cx, 130, id(font_date), id(col_rust), TextAlign::CENTER, "RESTART?");
+          it.print(cx, 130, id(font_date), id(theme_primary), TextAlign::CENTER, "RESTART?");
 
           // Cancel Button (Left, Gray Pill - compact 110px width, spans x: 105..215)
           draw_pill_button(125, 195, 230, 20, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
@@ -4094,7 +4116,7 @@ display:
           // --------------------------------------------------
           // VIEW 5: SOFTWARE UPDATE SCREEN
           // --------------------------------------------------
-          it.print(cx, 54, id(font_date), id(col_rust), TextAlign::CENTER, "UPDATE");
+          it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "UPDATE");
 
           // Version Information
           char cur_buf[32];
@@ -4121,7 +4143,7 @@ display:
           if (has_update) {
             char lat_buf[32];
             snprintf(lat_buf, sizeof(lat_buf), "Available: v%s", lat_v.empty() ? "3.5.x" : lat_v.c_str());
-            it.print(cx, 125, id(font_small), id(col_gold), TextAlign::CENTER, lat_buf);
+            it.print(cx, 125, id(font_small), id(theme_secondary), TextAlign::CENTER, lat_buf);
 
             // Summary / Changelog highlight
             std::string summ = id(ha_firmware_release_summary).state;
@@ -4132,21 +4154,21 @@ display:
             it.print(cx, 160, id(font_small), id(col_white), TextAlign::CENTER, summ.c_str());
 
             // Action Button: Update Now (y_mid = 215, r = 20)
-            draw_pill_button(110, 356, 215, 20, id(col_gold), id(col_dark_gray), "Update Now", id(col_gold), true);
+            draw_pill_button(110, 356, 215, 20, id(theme_primary), id(col_dark_gray), "Update Now", id(theme_secondary), true);
           } else {
             char lat_buf[32];
             snprintf(lat_buf, sizeof(lat_buf), "Latest: v%s", "${version}");
-            it.print(cx, 125, id(font_small), id(col_green), TextAlign::CENTER, lat_buf);
+            it.print(cx, 125, id(font_small), id(theme_secondary), TextAlign::CENTER, lat_buf);
 
             if (id(update_check_state) == 1) {
-              it.print(cx, 160, id(font_small), id(col_gold), TextAlign::CENTER, "Checking Home Assistant...");
-              draw_pill_button(110, 356, 215, 20, id(col_gold), id(col_dark_gray), "Checking...", id(col_gold), true);
+              it.print(cx, 160, id(font_small), id(theme_secondary), TextAlign::CENTER, "Checking Home Assistant...");
+              draw_pill_button(110, 356, 215, 20, id(theme_primary), id(col_dark_gray), "Checking...", id(theme_secondary), true);
             } else if (id(update_check_state) == 2) {
-              it.print(cx, 160, id(font_small), id(col_green), TextAlign::CENTER, "No updates available");
-              draw_pill_button(110, 356, 215, 20, id(col_green), id(col_dark_gray), "Up to date", id(col_white), false);
+              it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, "No updates available");
+              draw_pill_button(110, 356, 215, 20, id(theme_secondary), id(col_dark_gray), "Up to date", id(col_white), false);
             } else {
               it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, "Firmware is up to date");
-              draw_pill_button(110, 356, 215, 20, id(col_slate), id(col_dark_gray), "Check for Updates", id(col_white), true);
+              draw_pill_button(110, 356, 215, 20, id(theme_primary), id(col_dark_gray), "Check for Updates", id(col_white), true);
             }
           }
 
@@ -4157,16 +4179,16 @@ display:
           // --------------------------------------------------
           // VIEW 6: UPDATE CONFIRMATION DIALOG
           // --------------------------------------------------
-          it.print(cx, 100, id(font_date), id(col_rust), TextAlign::CENTER, "INSTALL UPDATE?");
+          it.print(cx, 100, id(font_date), id(theme_primary), TextAlign::CENTER, "INSTALL UPDATE?");
 
           it.print(cx, 145, id(font_small), id(col_white), TextAlign::CENTER, "Download & flash firmware");
-          it.print(cx, 175, id(font_small), id(col_gold), TextAlign::CENTER, "Keep device powered on");
+          it.print(cx, 175, id(font_small), id(theme_secondary), TextAlign::CENTER, "Keep device powered on");
 
           // Cancel Button (Left, Gray Pill, spans x: 105..215, y_mid = 240, r = 20)
           draw_pill_button(125, 195, 240, 20, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
 
-          // Confirm Install Button (Right, Green/Rust Pill, spans x: 251..361, y_mid = 240, r = 20)
-          draw_pill_button(271, 341, 240, 20, id(col_green), id(col_dark_gray), "Install", id(col_white), false);
+          // Confirm Install Button (Right, Primary Pill, spans x: 251..361, y_mid = 240, r = 20)
+          draw_pill_button(271, 341, 240, 20, id(theme_primary), id(col_dark_gray), "Install", id(col_white), false);
         }
       }
 
@@ -4369,31 +4391,31 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                if (touch.y > 385 && touch.x >= 100 && touch.x <= 366) {
-                  // Consolidated Bottom Volume Controls: Left side is Down (▼), Right side is Up (▲)
-                  if (touch.x < 233) {
-                    id(vol_hud_direction) = -1;
-                    id(vol_hud_timer) = millis();
-                    id(music_vol_down).execute();
-                  } else {
+                // Crown / Right-Edge Volume Zone (x >= 395, y: 110..340)
+                if (touch.x >= 395 && touch.y >= 110 && touch.y <= 340) {
+                  if (touch.y < 225) {
                     id(vol_hud_direction) = 1;
                     id(vol_hud_timer) = millis();
                     id(music_vol_up).execute();
+                  } else {
+                    id(vol_hud_direction) = -1;
+                    id(vol_hud_timer) = millis();
+                    id(music_vol_down).execute();
                   }
                   id(disp1).update();
-                } else if (touch.x >= 50 && touch.x <= 125 && touch.y >= 145 && touch.y <= 280) {
-                  // Left Arrow: Previous Track
+                } else if (touch.x >= 70 && touch.x <= 125 && touch.y >= 150 && touch.y <= 275) {
+                  // Left Arrow: Previous Track (x: 70..125, y: 150..275)
                   id(music_prev_track).execute();
                   id(disp1).update();
-                } else if (touch.x >= 341 && touch.x <= 416 && touch.y >= 145 && touch.y <= 280) {
-                  // Right Arrow: Next Track
+                } else if (touch.x >= 340 && touch.x < 395 && touch.y >= 150 && touch.y <= 275) {
+                  // Right Arrow: Next Track (x: 340..394, y: 150..275)
                   id(music_next_track).execute();
                   id(disp1).update();
                 } else if (touch.y >= 30 && touch.y <= 100 && touch.x >= 120 && touch.x <= 346) {
                   // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
-                } else if (touch.y >= 104 && touch.y <= 320 && touch.x >= 125 && touch.x <= 341) {
+                } else if (touch.y >= 104 && touch.y <= 320 && touch.x >= 125 && touch.x <= 340) {
                   // Center Album Art (216x216): Play / Pause toggle
                   if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
