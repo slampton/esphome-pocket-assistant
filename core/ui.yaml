@@ -5070,13 +5070,17 @@ touchscreen:
                 // Card 1: Full-Screen Album Art Mode cycler (y: 100..140, x: 100..366)
                 if (touch.y >= 100 && touch.y <= 140 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+                  std::string nxt_mode = "Disabled";
                   if (cur_mode == "Disabled") {
-                    id(music_fullscreen_art_mode).set("Clean Art");
+                    nxt_mode = "Clean Art";
                   } else if (cur_mode == "Clean Art") {
-                    id(music_fullscreen_art_mode).set("Player Overlay");
+                    nxt_mode = "Player Overlay";
                   } else {
-                    id(music_fullscreen_art_mode).set("Disabled");
+                    nxt_mode = "Disabled";
                   }
+                  auto call = id(music_fullscreen_art_mode).make_call();
+                  call.set_option(nxt_mode);
+                  call.perform();
                   id(disp1).update();
                 // Card 2: Speaker Volume Step (y: 155..195, x: 100..366)
                 } else if (touch.y >= 155 && touch.y <= 195 && touch.x >= 100 && touch.x <= 366) {
