@@ -1359,13 +1359,15 @@ script:
       - lambda: |-
           if (id(auto_brightness_mode).current_option() == "Sun Synchronized") {
             std::string sun = id(ha_sun_state).state;
-            std::string target_opt = id(day_brightness_preset).current_option();
-            if (sun == "below_horizon") {
-              target_opt = id(night_brightness_preset).current_option();
+            if (!sun.empty() && sun != "unavailable" && sun != "unknown") {
+              std::string target_opt = id(day_brightness_preset).current_option();
+              if (sun == "below_horizon") {
+                target_opt = id(night_brightness_preset).current_option();
+              }
+              auto call = id(display_brightness_preset).make_call();
+              call.set_option(target_opt);
+              call.perform();
             }
-            auto call = id(display_brightness_preset).make_call();
-            call.set_option(target_opt);
-            call.perform();
           }
 
   - id: rebuild_active_app_deck
@@ -1375,11 +1377,17 @@ script:
           struct AppOrder { int page; float prio; };
           AppOrder list[5];
           int count = 0;
-          if (id(show_clock_switch).state)     { list[count++] = {0, (float)id(order_clock_app).state}; }
-          if (id(show_stopwatch_switch).state) { list[count++] = {1, (float)id(order_stopwatch_app).state}; }
-          if (id(show_music_switch).state)     { list[count++] = {2, (float)id(order_music_app).state}; }
-          if (id(show_games_switch).state)     { list[count++] = {3, (float)id(order_games_app).state}; }
-          if (id(show_system_switch).state)    { list[count++] = {4, (float)id(order_system_app).state}; }
+          float p_clock = isnan(id(order_clock_app).state) ? 1.0f : (float)id(order_clock_app).state;
+          float p_stopwatch = isnan(id(order_stopwatch_app).state) ? 2.0f : (float)id(order_stopwatch_app).state;
+          float p_music = isnan(id(order_music_app).state) ? 3.0f : (float)id(order_music_app).state;
+          float p_games = isnan(id(order_games_app).state) ? 4.0f : (float)id(order_games_app).state;
+          float p_system = isnan(id(order_system_app).state) ? 5.0f : (float)id(order_system_app).state;
+
+          if (id(show_clock_switch).state)     { list[count++] = {0, p_clock}; }
+          if (id(show_stopwatch_switch).state) { list[count++] = {1, p_stopwatch}; }
+          if (id(show_music_switch).state)     { list[count++] = {2, p_music}; }
+          if (id(show_games_switch).state)     { list[count++] = {3, p_games}; }
+          if (id(show_system_switch).state)    { list[count++] = {4, p_system}; }
           
           if (count == 0) {
             list[0] = {0, 1.0f};
