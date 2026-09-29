@@ -395,19 +395,20 @@ light:
 
 select:
   - platform: template
-    name: "System: Theme Palette"
+    name: "System: Color Palette"
     id: theme_palette_select
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Default Classic"
+    initial_option: "Blue & Gold"
     options:
-      - "Default Classic"
-      - "Tokyo Cyber"
-      - "Cyber Volt"
-      - "Sunset Horizon"
-      - "Quantum Mint"
+      - "Blue & Gold"
+      - "Green & Gold"
+      - "Red & Gold"
+      - "Steel & Silver"
     set_action:
+      - lambda: |-
+          id(theme_palette_select).publish_state(x);
       - script.execute: apply_theme_preset
   - platform: template
     name: "Power: Standby Timeout"
@@ -1435,20 +1436,17 @@ script:
     then:
       - lambda: |-
           std::string p = std::string(id(theme_palette_select).current_option().c_str());
-          if (p == "Tokyo Cyber") {
-            id(theme_primary) = Color(245, 59, 137);   // Neon Synth Pink #F53B89
-            id(theme_secondary) = Color(0, 229, 255);  // Electric Cyan #00E5FF
-          } else if (p == "Cyber Volt") {
-            id(theme_primary) = Color(255, 230, 0);    // Radiant Cyber Yellow #FFE600
-            id(theme_secondary) = Color(41, 121, 255); // Electric Cobalt #2979FF
-          } else if (p == "Sunset Horizon") {
-            id(theme_primary) = Color(168, 85, 247);   // Luminous Electric Violet #A855F7
-            id(theme_secondary) = Color(255, 122, 0);  // Sunset Coral Amber #FF7A00
-          } else if (p == "Quantum Mint") {
-            id(theme_primary) = Color(0, 245, 212);    // Hyper Mint #00F5D4
-            id(theme_secondary) = Color(79, 70, 229);  // Royal Indigo #4F46E5
+          if (p == "Green & Gold") {
+            id(theme_primary) = Color(66, 116, 83);    // Heritage Sage Green #427453
+            id(theme_secondary) = Color(197, 155, 39); // Chrono Mustard Gold #C59B27
+          } else if (p == "Red & Gold") {
+            id(theme_primary) = Color(158, 69, 59);    // Antique Brick Rust Red #9E453B
+            id(theme_secondary) = Color(197, 155, 39); // Chrono Mustard Gold #C59B27
+          } else if (p == "Steel & Silver") {
+            id(theme_primary) = Color(107, 142, 158);  // Soft Steel Ice Blue #6B8E9E
+            id(theme_secondary) = Color(192, 192, 192);// Brushed Silver #C0C0C0
           } else {
-            // Default Classic: Steel Cyan Blue + Vintage Chrono Gold
+            // Blue & Gold (Default Classic): Steel Slate Blue + Chrono Gold
             id(theme_primary) = Color(69, 110, 138);   // #456E8A Steel Cyan
             id(theme_secondary) = Color(197, 155, 39); // #C59B27 Vintage Gold
           }
@@ -4048,10 +4046,11 @@ display:
           std::string tf_label = id(is_24h_format) ? "Format: 24-Hour" : "Format: 12-Hour";
           draw_pill_button(110, 356, 235, 18, id(theme_primary), id(col_dark_gray), tf_label.c_str(), id(col_white), true);
 
-          // Button 5: Theme Palette Cycler (y = 280)
+          // Button 5: Color Palette Cycler (y = 280)
           char th_buf[32];
           std::string th_p = std::string(id(theme_palette_select).current_option().c_str());
-          snprintf(th_buf, sizeof(th_buf), "Theme: %s", th_p.c_str());
+          if (th_p == "Default Classic") th_p = "Blue & Gold";
+          snprintf(th_buf, sizeof(th_buf), "Palette: %s", th_p.c_str());
           draw_pill_button(110, 356, 280, 18, id(theme_primary), id(col_dark_gray), th_buf, id(col_white), true);
 
           // Bottom Button: Back to Dashboard (y = 352)
@@ -4781,19 +4780,17 @@ touchscreen:
                   call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
                   call.perform();
                   id(disp1).update();
-                // Card 5: Theme Palette Cycler (y: 260..300, x: 100..366)
+                // Card 5: Color Palette Cycler (y: 260..300, x: 100..366)
                 } else if (touch.y >= 260 && touch.y <= 300 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(theme_palette_select).current_option().c_str());
-                  std::string nxt = "Default Classic";
-                  if (cur == "Default Classic") nxt = "Tokyo Cyber";
-                  else if (cur == "Tokyo Cyber") nxt = "Cyber Volt";
-                  else if (cur == "Cyber Volt") nxt = "Sunset Horizon";
-                  else if (cur == "Sunset Horizon") nxt = "Quantum Mint";
-                  else if (cur == "Quantum Mint") nxt = "Default Classic";
+                  std::string nxt = "Blue & Gold";
+                  if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Green & Gold";
+                  else if (cur == "Green & Gold") nxt = "Red & Gold";
+                  else if (cur == "Red & Gold") nxt = "Steel & Silver";
+                  else if (cur == "Steel & Silver") nxt = "Blue & Gold";
                   auto call = id(theme_palette_select).make_call();
                   call.set_option(nxt);
                   call.perform();
-                  id(apply_theme_preset).execute();
                   id(disp1).update();
                 // Card 6: < Dashboard (y: 330..375, x: 120..346)
                 } else if (touch.y >= 330 && touch.y <= 375 && touch.x >= 120 && touch.x <= 346) {
