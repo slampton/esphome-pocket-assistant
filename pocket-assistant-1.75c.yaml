@@ -117,8 +117,7 @@ esphome:
         - lambda: |-
             // Assert restored display brightness preset post-driver initialization
             float b = 0.80f;
-            std::string cur = id(display_brightness_preset).state;
-            if (cur.empty()) cur = "80%";
+            std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
             if (cur == "50%") b = 0.50f;
             else if (cur == "60%") b = 0.60f;
             else if (cur == "70%") b = 0.70f;
