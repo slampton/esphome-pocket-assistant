@@ -1,10 +1,6 @@
 # Core Subsystem: Display Engine & UI Router
 
 globals:
-  - id: music_hud_visible
-    type: bool
-    restore_value: no
-    initial_value: 'true'
   - id: drilldown_artist_name
     type: std::string
     restore_value: no
@@ -2750,8 +2746,7 @@ display:
       // ==========================================
       // GLOBAL BOTTOM NAVIGATION BAR (Fixed Anchors & Centered Page Counter)
       // ==========================================
-      bool hide_bot_nav_fs = (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_fullscreen_art_switch).state && !id(music_hud_visible));
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !hide_bot_nav_fs) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
         // Universal Left & Right fixed navigation anchors (Pixel-perfect vector chevrons matching preferred '>' size)
         // Left Anchor (<): 9px wide, 15px tall, 2px stroke
         it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
@@ -3247,7 +3242,6 @@ display:
           }
 
           bool is_fs_art = id(music_fullscreen_art_switch).state && has_art;
-          bool show_hud = !is_fs_art || id(music_hud_visible);
 
           auto draw_scaled_art = [&](esphome::image::Image *img, int dst_x, int dst_y, int dst_w, int dst_h) {
             if (img == nullptr || img->get_width() == 0 || img->get_height() == 0) return;
@@ -3272,42 +3266,40 @@ display:
             // ====================================================
             draw_scaled_art(target_art, 0, 0, 466, 466);
 
-            if (show_hud) {
-              // Dual-Zone Vignette Scrim (Top 90px & Bottom 146px for maximum legibility)
-              // Top Vignette: Solid black at y: 0..60, 50% dither at y: 60..90
-              for (int y = 0; y < 60; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
+            // Dual-Zone Vignette Scrim (Top 90px & Bottom 146px for maximum legibility)
+            // Top Vignette: Solid black at y: 0..60, 50% dither at y: 60..90
+            for (int y = 0; y < 60; y++) {
+              int y_d = abs(y - cy);
+              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+              it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
+            }
+            for (int y = 60; y < 90; y++) {
+              int y_d = abs(y - cy);
+              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+              for (int x = cx - hw; x <= cx + hw; x++) {
+                if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
               }
-              for (int y = 60; y < 90; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
-                }
-              }
+            }
 
-              // Bottom Vignette: 50% dither at y: 320..355, 75% at y: 355..385, Solid black at y: 385..466
-              for (int y = 320; y < 355; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
-                }
+            // Bottom Vignette: 50% dither at y: 320..355, 75% at y: 355..385, Solid black at y: 385..466
+            for (int y = 320; y < 355; y++) {
+              int y_d = abs(y - cy);
+              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+              for (int x = cx - hw; x <= cx + hw; x++) {
+                if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
               }
-              for (int y = 355; y < 385; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0 || (x % 2 == 0 && y % 2 == 1)) it.draw_pixel_at(x, y, id(col_black));
-                }
+            }
+            for (int y = 355; y < 385; y++) {
+              int y_d = abs(y - cy);
+              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+              for (int x = cx - hw; x <= cx + hw; x++) {
+                if ((x + y) % 2 == 0 || (x % 2 == 0 && y % 2 == 1)) it.draw_pixel_at(x, y, id(col_black));
               }
-              for (int y = 385; y < 466; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
-              }
+            }
+            for (int y = 385; y < 466; y++) {
+              int y_d = abs(y - cy);
+              int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+              it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
             }
           } else {
             // ====================================================
@@ -3326,7 +3318,7 @@ display:
             }
           }
 
-          if (show_hud) {
+          if (true) {
             // Left Flank (x: 91..113): Previous Track (◀◀) centered on horizon (y = 212, exactly 12px gap from art)
             it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
             it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
@@ -4547,32 +4539,21 @@ touchscreen:
                 } else if (touch.y >= 30 && touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
-                // Full-Screen Mode: When HUD is hidden, tap anywhere in the center canvas to bring HUD back
-                } else if (id(music_fullscreen_art_switch).state && !id(music_hud_visible) && touch.y >= 60 && touch.y <= 400 && touch.x >= 50 && touch.x <= 416) {
-                  id(music_hud_visible) = true;
-                  id(disp1).update();
-                // Center Album Art (216x216): Play / Pause toggle or Tap-to-Toggle HUD
+                // Center Album Art (216x216 or Full-Screen): Play / Pause toggle
                 } else if (touch.y >= 104 && touch.y <= 320 && touch.x >= 125 && touch.x <= 339) {
-                  if (id(music_fullscreen_art_switch).state) {
-                    // In full-screen mode: tap toggles HUD on/off
-                    id(music_hud_visible) = !id(music_hud_visible);
-                    id(disp1).update();
+                  if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                    auto call = id(pocket_music_player).make_call();
+                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                    call.perform();
+                    id(toggle_ha_music).execute();
                   } else {
-                    // Standard Mode: tap toggles Play / Pause
-                    if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                      auto call = id(pocket_music_player).make_call();
-                      call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                      call.perform();
-                      id(toggle_ha_music).execute();
-                    } else {
-                      if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                        id(music_action_feedback) = "Connecting to stream...";
-                        id(music_feedback_timer) = millis();
-                      }
-                      id(toggle_ha_music).execute();
+                    if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                      id(music_action_feedback) = "Connecting to stream...";
+                      id(music_feedback_timer) = millis();
                     }
-                    id(disp1).update();
+                    id(toggle_ha_music).execute();
                   }
+                  id(disp1).update();
                 }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
