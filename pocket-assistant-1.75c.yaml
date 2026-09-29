@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.6.4"
+  version: "3.6.5"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -106,6 +106,8 @@ esphome:
                 id(is_locked) = false;
                 id(is_hibernating) = false;
                 id(display_power_state) = 0; // ACTIVE
+                id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
+                id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
             - script.execute: sync_display_brightness
             - script.execute: route_i2s_to_mic
             - switch.turn_on: speaker_enable
@@ -116,6 +118,9 @@ esphome:
             id: es8311_dac
             volume: 70%
         - audio_dac.mute_on: es8311_dac
+        - lambda: |-
+            id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
+            id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
         - script.execute: sync_display_brightness
 
 logger:

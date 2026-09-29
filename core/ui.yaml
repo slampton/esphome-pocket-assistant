@@ -183,11 +183,11 @@ globals:
     initial_value: '0'
   - id: clock_face_digital
     type: bool
-    restore_value: no
+    restore_value: yes
     initial_value: 'false'
   - id: is_24h_format
     type: bool
-    restore_value: no
+    restore_value: yes
     initial_value: 'false'
   - id: display_power_state
     type: int
@@ -439,6 +439,7 @@ select:
     id: clock_face_style
     entity_category: config
     optimistic: true
+    restore_value: true
     initial_option: "Modern Roman (Analog)"
     options:
       - "Modern Roman (Analog)"
@@ -453,6 +454,7 @@ select:
     id: time_format_select
     entity_category: config
     optimistic: true
+    restore_value: true
     initial_option: "12-Hour (AM/PM)"
     options:
       - "12-Hour (AM/PM)"
@@ -2683,15 +2685,15 @@ display:
           }
         }
 
-        // Formatted date and digital time complication (12h with AM/PM or 24h format)
-        it.strftime(cx, 145, id(font_date), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+        // Formatted date (white) and digital time complication (uniform slate gray)
+        it.strftime(cx, 145, id(font_date), id(col_white), TextAlign::CENTER, "%a, %b %d", now);
         char time_buf[16];
         if (id(is_24h_format)) {
           snprintf(time_buf, sizeof(time_buf), "%02d:%02d", now.hour, now.minute);
         } else {
           int h12 = now.hour % 12;
           if (h12 == 0) h12 = 12;
-          snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
+          snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "pm" : "am");
         }
         it.print(cx, 305, id(font_small), id(col_slate), TextAlign::CENTER, time_buf);
 
@@ -3797,11 +3799,11 @@ display:
             it.print(cx, 310, id(font_small), id(col_cyan), TextAlign::CENTER, b_main);
           }
 
-          // Date above time with generous buffer from battery (y = 362)
+          // Date above time with generous buffer from battery (y = 365)
           if (now.is_valid()) {
-            it.strftime(cx, 362, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
+            it.strftime(cx, 365, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
 
-            // Time nestled at bottom curve (y = 397) in font_date (prominent white)
+            // Time nestled at bottom curve (y = 400) in font_date (prominent white)
             char t_buf[16];
             if (id(is_24h_format)) {
               snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
@@ -3810,7 +3812,7 @@ display:
               if (h12 == 0) h12 = 12;
               snprintf(t_buf, sizeof(t_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
             }
-            it.print(cx, 397, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
+            it.print(cx, 400, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
           }
 
         } else if (id(system_menu_mode) == 1) {
