@@ -2409,14 +2409,9 @@ display:
         it.filled_circle(x2, y_mid, r - 2, bg_c);
         it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
 
-        // Optional bullet point on left
-        if (has_bullet) {
-          it.filled_circle(x1 - 4, y_mid, 5, border_c);
-        }
-
-        // Vertically centered text exactly on midpoint of pill (x1 + x2) / 2
+        // Perfectly centered text on midpoint of pill (x1 + x2) / 2 (zero bullet offset)
         int btn_cx = (x1 + x2) / 2;
-        it.print(btn_cx + (has_bullet ? 6 : 0), y_mid, id(font_small), text_c, TextAlign::CENTER, label);
+        it.print(btn_cx, y_mid, id(font_small), text_c, TextAlign::CENTER, label);
       };
 
       // Semantic Version Comparison Helper (Rejects ESPHome 2026.x CalVer; strictly tests major.minor.patch)
@@ -3222,15 +3217,15 @@ display:
           it.filled_triangle(91, art_center_y, 101, art_center_y - 11, 101, art_center_y + 11, id(col_white));
           it.filled_triangle(103, art_center_y, 113, art_center_y - 11, 113, art_center_y + 11, id(col_white));
 
-          // Right Flank (x = 353..375): Next Track (▶▶) in center (y = 212)
-          it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, id(col_white));
-          it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, id(col_white));
+          // Right Flank: Next Track (▶▶) centered on horizon (x = 358, y = 212)
+          it.filled_triangle(357, art_center_y, 347, art_center_y - 11, 347, art_center_y + 11, id(col_white));
+          it.filled_triangle(369, art_center_y, 359, art_center_y - 11, 359, art_center_y + 11, id(col_white));
 
-          // Right Flank Volume Up (▲) positioned directly above Next Track at y = 145
-          it.filled_triangle(364, 137, 354, 153, 374, 153, id(theme_secondary));
+          // Right Flank Volume Up (▲): shifted further right to x = 392 and higher to y = 125
+          it.filled_triangle(392, 117, 382, 133, 402, 133, id(theme_secondary));
 
-          // Right Flank Volume Down (▼) positioned directly below Next Track at y = 280
-          it.filled_triangle(364, 288, 354, 272, 374, 272, id(theme_secondary));
+          // Right Flank Volume Down (▼): shifted further right to x = 392 and lower to y = 299
+          it.filled_triangle(392, 307, 382, 291, 402, 291, id(theme_secondary));
 
           // Paused state frosted scrim overlay with borderless Play badge ▶
           if (!is_playing) {
@@ -3369,7 +3364,7 @@ display:
           bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
 
           // Standardized Centered Category/Item Title at y = 80
-          it.print(cx, 80, id(font_date), id(col_green), TextAlign::CENTER, id(selected_category_title).c_str());
+          it.print(cx, 80, id(font_date), id(theme_primary), TextAlign::CENTER, id(selected_category_title).c_str());
 
           // Dual-Action or Unified Slot Drawer
           auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &id_str, const std::string &mtype, bool is_act) {
@@ -3381,13 +3376,13 @@ display:
               // ----------------------------------------------
               // Left Discrete Circular Play Button (center 98, y_mid, radius 18)
               it.filled_circle(98, y_mid, 18, id(col_dark_gray));
-              it.circle(98, y_mid, 18, id(col_green));
-              it.filled_triangle(95, y_mid - 6, 95, y_mid + 6, 104, y_mid, id(col_green));
+              it.circle(98, y_mid, 18, id(theme_primary));
+              it.filled_triangle(95, y_mid - 6, 95, y_mid + 6, 104, y_mid, id(theme_primary));
 
               // Right Card Body with Name and > Drilldown Chevron (x: 132..395)
-              it.filled_circle(154, y_mid, 22, id(col_cyan));
-              it.filled_circle(373, y_mid, 22, id(col_cyan));
-              it.filled_rectangle(154, y_mid - 22, 219, 45, id(col_cyan));
+              it.filled_circle(154, y_mid, 22, id(theme_secondary));
+              it.filled_circle(373, y_mid, 22, id(theme_secondary));
+              it.filled_rectangle(154, y_mid - 22, 219, 45, id(theme_secondary));
 
               it.filled_circle(154, y_mid, 20, id(col_dark_gray));
               it.filled_circle(373, y_mid, 20, id(col_dark_gray));
@@ -3398,14 +3393,14 @@ display:
               it.print(258, y_mid, id(font_small), id(col_white), TextAlign::CENTER, disp_name.c_str());
 
               // Drilldown Chevron [ > ] on right end
-              it.print(372, y_mid, id(font_small), id(col_cyan), TextAlign::CENTER, ">");
+              it.print(372, y_mid, id(font_small), id(theme_secondary), TextAlign::CENTER, ">");
             } else {
               // ----------------------------------------------
               // REGULAR / PLAYABLE ITEM: FULL-WIDTH UNIFIED CARD
               // ----------------------------------------------
               Color bg_c = id(col_dark_gray);
-              Color border_c = is_act ? id(col_green) : id(col_dark_gray);
-              Color txt_c = is_act ? id(col_green) : id(col_white);
+              Color border_c = is_act ? id(theme_primary) : id(theme_secondary);
+              Color txt_c = is_act ? id(theme_primary) : id(col_white);
 
               it.filled_circle(140, y_mid, 22, border_c);
               it.filled_circle(326, y_mid, 22, border_c);
@@ -3417,12 +3412,12 @@ display:
 
               if (is_spk) {
                 if (is_act || id_str == id(active_speaker_entity)) {
-                  it.filled_circle(136, y_mid, 6, id(col_green));
+                  it.filled_circle(136, y_mid, 6, id(theme_primary));
                 } else {
                   it.circle(136, y_mid, 5, id(col_slate));
                 }
               } else {
-                Color icon_c = (mtype == "radio") ? id(col_gold) : ((mtype == "playlist") ? id(col_cyan) : id(col_orange));
+                Color icon_c = (mtype == "radio") ? id(theme_secondary) : id(theme_primary);
                 it.filled_triangle(132, y_mid - 6, 132, y_mid + 6, 142, y_mid, icon_c);
               }
 
@@ -3457,7 +3452,7 @@ display:
           it.filled_triangle(362, 352, 356, 345, 356, 359, r_arr_c);
 
           // Standardized Bottom Navigation: < BACK
-          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(col_cyan), false);
+          draw_pill_button(180, 286, 405, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(theme_secondary), false);
         }
 
       // ==========================================
@@ -3975,45 +3970,39 @@ display:
             it.print(cx, 144, id(font_small), id(theme_primary), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
-          // Center Zone: Primary Interactive Navigation Buttons (Themed Pill Borders - Alternating)
-          draw_pill_button(110, 356, 195, 18, id(theme_secondary), id(col_dark_gray), "Display & Clock >", id(col_white), true);
-          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), "Power & Wake >", id(col_white), true);
+          // Center Zone: 4 Categorized System Navigation Buttons (Clean, Compact r=14)
+          // Button 1: Display & Clock > (y = 175)
+          draw_pill_button(120, 346, 175, 14, id(theme_secondary), id(col_dark_gray), "Display & Clock >", id(col_white), false);
 
-          // Lower Zone: Glanceable Battery & Nested Curved Time/Date
-          // Battery line (y = 310): Theme Primary with Theme Secondary " • Charging" if on USB
+          // Button 2: Power & Wake > (y = 215)
+          draw_pill_button(120, 346, 215, 14, id(theme_secondary), id(col_dark_gray), "Power & Wake >", id(col_white), false);
+
+          // Button 3: Audio & Media > (y = 255)
+          draw_pill_button(120, 346, 255, 14, id(theme_secondary), id(col_dark_gray), "Audio & Media >", id(col_white), false);
+
+          // Button 4: Power Actions > (y = 295)
+          draw_pill_button(120, 346, 295, 14, id(theme_secondary), id(col_dark_gray), "Power Actions >", id(col_white), false);
+
+          // Lower Zone: Glanceable Battery & Date/Time
           float v_batt = id(batt_voltage).state;
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%% (%.2fV)", batt, v_batt);
           if (id(batt_charging).state) {
             int w_main = (strlen(b_main) >= 21) ? 202 : 191;
             int start_x = cx - (w_main + 105) / 2;
-            it.print(start_x, 310, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
-            it.print(start_x + w_main, 310, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
+            it.print(start_x, 336, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
+            it.print(start_x + w_main, 336, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
           } else {
-            it.print(cx, 310, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
+            it.print(cx, 336, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
 
-          // Date above time with generous buffer from battery (y = 365)
-          if (now.is_valid()) {
-            it.strftime(cx, 365, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
-
-            // Time nestled at bottom curve (y = 400) in font_date (prominent white)
-            char t_buf[16];
-            if (id(is_24h_format)) {
-              snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
-            } else {
-              int h12 = now.hour % 12;
-              if (h12 == 0) h12 = 12;
-              snprintf(t_buf, sizeof(t_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
-            }
-            it.print(cx, 400, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
-          }
+          it.strftime(cx, 360, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
           // VIEW 1: POWER & WAKE SUBMENU (SPACIOUS PITCH)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(col_rust), TextAlign::CENTER, "POWER & WAKE");
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "POWER & WAKE");
 
           // Button 1: Motion Wake Cycler (y = 120)
           char m_buf[32];
@@ -4185,6 +4174,30 @@ display:
 
           // Confirm Install Button (Right, Primary Pill, spans x: 251..361, y_mid = 240, r = 20)
           draw_pill_button(271, 341, 240, 20, id(theme_primary), id(col_dark_gray), "Install", id(col_white), false);
+
+        } else if (id(system_menu_mode) == 7) {
+          // --------------------------------------------------
+          // VIEW 7: AUDIO & MEDIA SUBMENU
+          // --------------------------------------------------
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO & MEDIA");
+
+          // Button 1: Full-Screen Album Art Toggle (y = 120, r = 18)
+          std::string fs_label = id(music_fullscreen_art_switch).state ? "Full-Screen Art: On" : "Full-Screen Art: Off";
+          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), fs_label.c_str(), id(col_white), false);
+
+          // Button 2: Hardware Speaker Volume (y = 175, r = 18)
+          char spk_vol[32];
+          int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+          snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
+          draw_pill_button(110, 356, 175, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
+
+          // Button 3: Active Speaker Target (y = 230, r = 18)
+          std::string spk_target = "Speaker: " + id(active_speaker_name);
+          if (spk_target.length() > 24) spk_target = spk_target.substr(0, 22) + "..";
+          draw_pill_button(110, 356, 230, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
+
+          // Bottom Button: Back to Dashboard (y = 352, r = 18)
+          draw_pill_button(135, 331, 352, 18, id(col_slate), id(col_dark_gray), "< Dashboard", id(col_slate), false);
         }
       }
 
@@ -4362,18 +4375,18 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                // Right Flank Volume Up (▲): above Next Track (x: 340..425, y: 110..177)
-                if (touch.x >= 340 && touch.x <= 425 && touch.y >= 110 && touch.y <= 177) {
+                // Right Flank Volume Up (▲): Upper Right Quadrant (x: 340..445, y: 90..165)
+                if (touch.x >= 340 && touch.x <= 445 && touch.y >= 90 && touch.y <= 165) {
                   id(vol_hud_direction) = 1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_up).execute();
                   id(disp1).update();
-                // Right Flank Next Track (▶▶): centered on horizon (x: 340..425, y: 178..246)
-                } else if (touch.x >= 340 && touch.x <= 425 && touch.y >= 178 && touch.y <= 246) {
+                // Right Flank Next Track (▶▶): Middle Right Zone (x: 335..420, y: 166..254)
+                } else if (touch.x >= 335 && touch.x <= 420 && touch.y >= 166 && touch.y <= 254) {
                   id(music_next_track).execute();
                   id(disp1).update();
-                // Right Flank Volume Down (▼): below Next Track (x: 340..425, y: 247..315)
-                } else if (touch.x >= 340 && touch.x <= 425 && touch.y >= 247 && touch.y <= 315) {
+                // Right Flank Volume Down (▼): Lower Right Quadrant (x: 340..445, y: 255..345)
+                } else if (touch.x >= 340 && touch.x <= 445 && touch.y >= 255 && touch.y <= 345) {
                   id(vol_hud_direction) = -1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_down).execute();
@@ -4687,13 +4700,21 @@ touchscreen:
                 if (touch.y >= 132 && touch.y <= 158 && touch.x >= 100 && touch.x <= 366) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Main Telemetry View: Button 1 "Display & Clock" (y: 175..215)
-                } else if (touch.y >= 175 && touch.y <= 215 && touch.x >= 110 && touch.x <= 356) {
+                // Main Telemetry View: Button 1 "Display & Clock" (y: 158..195)
+                } else if (touch.y >= 158 && touch.y <= 195 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 2; // Open Display & Clock Submenu
                   id(disp1).update();
-                // Main Telemetry View: Button 2 "Power & Wake" (y: 230..270)
-                } else if (touch.y >= 230 && touch.y <= 270 && touch.x >= 110 && touch.x <= 356) {
+                // Main Telemetry View: Button 2 "Power & Wake" (y: 198..235)
+                } else if (touch.y >= 198 && touch.y <= 235 && touch.x >= 110 && touch.x <= 356) {
                   id(system_menu_mode) = 1; // Open Power & Wake Submenu
+                  id(disp1).update();
+                // Main Telemetry View: Button 3 "Audio & Media" (y: 238..275)
+                } else if (touch.y >= 238 && touch.y <= 275 && touch.x >= 110 && touch.x <= 356) {
+                  id(system_menu_mode) = 7; // Open Audio & Media Submenu
+                  id(disp1).update();
+                // Main Telemetry View: Button 4 "Power Actions" (y: 278..315)
+                } else if (touch.y >= 278 && touch.y <= 315 && touch.x >= 110 && touch.x <= 356) {
+                  id(system_menu_mode) = 3; // Open Power Actions Submenu
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
@@ -4863,6 +4884,31 @@ touchscreen:
                     // Confirm Install -> trigger update and arm OTA overlay
                     id(trigger_firmware_update).execute();
                   }
+                }
+              } else if (id(system_menu_mode) == 7) {
+                // Mode 7: Audio & Media Submenu
+                // Card 1: Full-Screen Album Art Toggle (y: 100..140, x: 100..366)
+                if (touch.y >= 100 && touch.y <= 140 && touch.x >= 100 && touch.x <= 366) {
+                  id(music_fullscreen_art_switch).toggle();
+                  id(disp1).update();
+                // Card 2: Speaker Volume Step (y: 155..195, x: 100..366)
+                } else if (touch.y >= 155 && touch.y <= 195 && touch.x >= 100 && touch.x <= 366) {
+                  float v = id(pocket_music_player).volume + 0.10f;
+                  if (v > 1.05f) v = 0.20f;
+                  auto call = id(pocket_music_player).make_call();
+                  call.set_volume(v);
+                  call.perform();
+                  id(disp1).update();
+                // Card 3: Speaker Target Jump to Music Menu (y: 210..250, x: 100..366)
+                } else if (touch.y >= 210 && touch.y <= 250 && touch.x >= 100 && touch.x <= 366) {
+                  id(gui_page) = 2;
+                  id(music_overlay_mode) = 1;
+                  id(system_menu_mode) = 0;
+                  id(disp1).update();
+                // Bottom Button: < Dashboard (y: 330..375, x: 120..346)
+                } else if (touch.y >= 330 && touch.y <= 375 && touch.x >= 120 && touch.x <= 346) {
+                  id(system_menu_mode) = 0;
+                  id(disp1).update();
                 }
               }
             }
