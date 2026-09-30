@@ -348,7 +348,7 @@ image:
     id: album_slot
     format: JPEG
     type: RGB565
-    resize: 466x466
+    resize: 256x256
     source: album
     current_image:
       id: album_art
@@ -359,7 +359,7 @@ image:
     id: remote_album_art
     format: AUTO
     type: RGB565
-    resize: 466x466
+    resize: 256x256
     url: "${initial_art_url}"
     on_download_finished:
       - component.update: disp1
@@ -1412,7 +1412,19 @@ text_sensor:
               - homeassistant.action:
                   action: homeassistant.update_entity
                   data:
-                    entity_id: ${target_art_url_sensor}
+                    entity_id: 
+        - if:
+            condition:
+              lambda: |-
+                return (id(active_speaker_entity) != ) &&
+                       !id(ha_target_art_url).state.empty() &&
+                       (id(ha_target_art_url).state != none) &&
+                       (id(remote_album_art).get_width() == 0);
+            then:
+              - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
+              - online_image.set_url:
+                  id: remote_album_art
+                  url: !lambda 'return id(ha_target_art_url).state;' ${target_art_url_sensor}
         - component.update: disp1
 
   - platform: homeassistant
@@ -3249,10 +3261,20 @@ display:
           esphome::image::Image *target_art = nullptr;
           if (is_remote) {
             has_art = (id(remote_album_art).get_width() > 0);
-            if (has_art) target_art = id(remote_album_art);
+            if (has_art) {
+              target_art = id(remote_album_art);
+            } else if (id(album_art).get_width() > 0) {
+              has_art = true;
+              target_art = id(album_art);
+            }
           } else {
             has_art = (id(album_art).get_width() > 0);
-            if (has_art) target_art = id(album_art);
+            if (has_art) {
+              target_art = id(album_art);
+            } else if (id(remote_album_art).get_width() > 0) {
+              has_art = true;
+              target_art = id(remote_album_art);
+            }
           }
 
           std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
@@ -3291,8 +3313,13 @@ display:
             // ====================================================
             draw_scaled_art(target_art, 0, 0, 466, 466);
 
-            // In Letterbox mode: Clean artwork to top (zero top overlay); solid black matte at bottom y >= 385
+            // In Letterbox mode: Solid black matte bars at top (y: 0..60) and bottom (y: 385..466); zero overlay on image!
             if (is_letterbox) {
+              for (int y = 0; y < 60; y++) {
+                int y_d = abs(y - cy);
+                int hw = (int)sqrtf((float)(54289 - y_d * y_d));
+                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
+              }
               for (int y = 385; y < 466; y++) {
                 int y_d = abs(y - cy);
                 int hw = (int)sqrtf((float)(54289 - y_d * y_d));
@@ -4607,28 +4634,28 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                // Right Flank Volume Up (+): Outer Right Column (x >= 380, y: 70..211, center 405, 140)
-                if (touch.x >= 380 && touch.y >= 70 && touch.y < 212) {
+                // Right Flank Volume Up (+): Upper Right Quadrant (x > 326, y: 70..174, center 405, 140)
+                if (touch.x > 326 && touch.y >= 70 && touch.y < 175) {
                   id(vol_hud_direction) = 1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_up).execute();
                   id(disp1).update();
-                // Right Flank Volume Down (-): Outer Right Column (x >= 380, y: 212..355, center 405, 284)
-                } else if (touch.x >= 380 && touch.y >= 212 && touch.y <= 355) {
+                // Right Flank Volume Down (-): Lower Right Quadrant (x > 326, y: 248..360, center 405, 284)
+                } else if (touch.x > 326 && touch.y >= 248 && touch.y <= 360) {
                   id(vol_hud_direction) = -1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_down).execute();
                   id(disp1).update();
-                // Right Flank Next Track (▶▶): Middle Right Horizon Column (x: 320..379, y: 155..268, center 364, 212)
-                } else if (touch.x >= 320 && touch.x < 380 && touch.y >= 155 && touch.y <= 268) {
+                // Right Flank Next Track (▶▶): Middle Right Horizon (x > 326, y: 175..247, center 364, 212)
+                } else if (touch.x > 326 && touch.y >= 175 && touch.y < 248) {
                   id(music_next_track).execute();
                   id(disp1).update();
-                // Left Flank Menu Button (☰): Outer Left Column (x <= 85, y: 212..355, center 61, 284)
-                } else if (touch.x <= 85 && touch.y >= 212 && touch.y <= 355) {
+                // Left Flank Menu Button (☰): Lower Left Quadrant (x < 140, y: 248..360, center 61, 284)
+                } else if (touch.x < 140 && touch.y >= 248 && touch.y <= 360) {
                   id(music_overlay_mode) = 1; // Open Level 1 Music Menu
                   id(disp1).update();
-                // Left Flank Previous Track (◀◀): Middle Left Horizon Column (x: 86..145, y: 155..268, center 102, 212)
-                } else if (touch.x > 85 && touch.x <= 145 && touch.y >= 155 && touch.y <= 268) {
+                // Left Flank Previous Track (◀◀): Middle Left Horizon (x < 140, y: 170..247, center 102, 212)
+                } else if (touch.x < 140 && touch.y >= 170 && touch.y < 248) {
                   id(music_prev_track).execute();
                   id(disp1).update();
                 // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu
