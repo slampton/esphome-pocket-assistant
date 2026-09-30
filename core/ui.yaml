@@ -213,6 +213,10 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
+  - id: screensaver_start_time
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: clock_face_digital
     type: bool
     restore_value: yes
@@ -493,6 +497,43 @@ select:
       - lambda: |-
           id(theme_palette_select).publish_state(x);
       - script.execute: apply_theme_preset
+  - platform: template
+    name: "Display: Screen Off Timeout"
+    id: display_off_timeout
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "15s"
+    options:
+      - "10s"
+      - "15s"
+      - "30s"
+      - "1 min"
+      - "2 min"
+      - "Never"
+    set_action:
+      - lambda: |-
+          id(disp1).update();
+          id(screen_sleep_timer).execute();
+
+  - platform: template
+    name: "Power: Screensaver Timeout"
+    id: screensaver_docked_timeout
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Never"
+    options:
+      - "10s"
+      - "15s"
+      - "30s"
+      - "1 min"
+      - "5 min"
+      - "Never"
+    set_action:
+      - lambda: |-
+          id(disp1).update();
+
   - platform: template
     name: "Power: Standby Timeout"
     id: sleep_timeout_mode
@@ -919,6 +960,27 @@ interval:
           if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
             uint8_t chg = (stat1 >> 5) & 0x03;
             id(batt_charging).publish_state(vbus && (chg == 1));
+          }
+
+          // Screensaver Docked Timeout Watchdog:
+          if (id(display_power_state) == 1) {
+            std::string ss_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
+            if (ss_to != "Never" && id(screensaver_start_time) > 0) {
+              uint32_t ss_limit_ms = 300000;
+              if (ss_to == "10s") ss_limit_ms = 10000;
+              else if (ss_to == "15s") ss_limit_ms = 15000;
+              else if (ss_to == "30s") ss_limit_ms = 30000;
+              else if (ss_to == "1 min") ss_limit_ms = 60000;
+              else if (ss_to == "5 min") ss_limit_ms = 300000;
+
+              if (millis() - id(screensaver_start_time) >= ss_limit_ms) {
+                ESP_LOGI("power", "Screensaver timeout reached (%s): turning display off", ss_to.c_str());
+                id(display_power_state) = 2; // SCREEN_OFF
+                id(screensaver_start_time) = 0;
+                id(sleep_start_time) = millis();
+                id(display_brightness).turn_off().perform();
+              }
+            }
           }
 
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
@@ -1668,11 +1730,13 @@ script:
       - lambda: |-
           if (id(usb_connected).state && id(docked_screensaver_switch).state) {
             id(display_power_state) = 1; // SCREENSAVER
+            id(screensaver_start_time) = millis();
             id(sleep_start_time) = 0; // Inhibit deep sleep countdown while docked
             id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
             id(disp1).update();
           } else {
             id(display_power_state) = 2; // SCREEN_OFF
+            id(screensaver_start_time) = 0;
             id(sleep_start_time) = millis();
             id(display_brightness).turn_off().perform();
           }
@@ -1687,6 +1751,7 @@ script:
             id(rebuild_active_deck).execute();
           }
           id(sleep_start_time) = 0;
+          id(screensaver_start_time) = 0;
           id(display_power_state) = 0; // ACTIVE
       - script.execute: sync_display_brightness
       - script.execute: screen_sleep_timer
@@ -2479,10 +2544,19 @@ script:
   - id: screen_sleep_timer
     mode: restart
     then:
-      - delay: 10s
+      - delay: !lambda |-
+          std::string opt = std::string(id(display_off_timeout).current_option().c_str());
+          if (opt == "10s") return 10000;
+          if (opt == "15s") return 15000;
+          if (opt == "30s") return 30000;
+          if (opt == "1 min") return 60000;
+          if (opt == "2 min") return 120000;
+          if (opt == "Never") return 86400000; // 24 hours
+          return 15000;
       - if:
           condition:
             lambda: |-
+              if (std::string(id(display_off_timeout).current_option().c_str()) == "Never") return false;
               return !id(va).is_running() && 
                      !id(va_tts_received) && 
                      !id(announcement_mixing_input).is_running() && 
@@ -4065,14 +4139,14 @@ display:
             it.filled_circle(356, y_mid, 16, id(col_dark_gray));
             it.filled_rectangle(110, y_mid - 16, 246, 33, id(col_dark_gray));
 
-            // Left-aligned title with generous inset (x = 145, lining up with left of 'G' in GAMES)
-            it.print(145, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, title);
+            // Left-aligned title shifted left to x = 126 for a clean primary column
+            it.print(126, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, title);
 
-            // Right-aligned high score in matching white text for high contrast and prominent readability
+            // Left-aligned high score column at x = 280 (accommodates up to 6 digits before rollover) in matching white text
             if (high_score > 0) {
               char score_buf[16];
               snprintf(score_buf, sizeof(score_buf), "%d", high_score);
-              it.print(336, y_mid, id(font_small), id(col_white), TextAlign::CENTER_RIGHT, score_buf);
+              it.print(280, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, score_buf);
             }
           };
 
@@ -4931,38 +5005,44 @@ display:
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
-          // VIEW 1: SLEEP & WAKE SUBMENU (Clean 50px Pitch)
+          // VIEW 1: SLEEP & WAKE SUBMENU (Balanced 48px Pitch, y = 95..345)
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
 
-          // Button 1: Motion Wake Cycler (y = 110, r = 18)
+          // Button 1: Motion Wake Cycler (y = 95, r = 16)
           char m_buf[32];
           std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
           snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
-          draw_pill_button(110, 356, 110, 18, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
+          draw_pill_button(110, 356, 95, 16, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
 
-          // Button 2: Tap Wake Cycler (y = 160, r = 18)
+          // Button 2: Tap Wake Cycler (y = 145, r = 16)
           char t_buf[32];
           std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
           snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-          draw_pill_button(110, 356, 160, 18, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
+          draw_pill_button(110, 356, 145, 16, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
 
-          // Button 3: Docked Screensaver Toggle (y = 210, r = 18)
+          // Button 3: Docked Screensaver Toggle (y = 195, r = 16)
           std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
-          draw_pill_button(110, 356, 210, 18, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 195, 16, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
 
-          // Button 4: Screensaver Style Cycler (y = 260, r = 18)
+          // Button 4: Screensaver Style Cycler (y = 245, r = 16)
           std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
           char sty_buf[32];
           snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Solar Flare" ? "Solar" : s_style.c_str())));
-          draw_pill_button(110, 356, 260, 18, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
+          draw_pill_button(110, 356, 245, 16, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
 
-          // Button 5: Stay Awake Mode (y = 310, r = 18)
+          // Button 5: Screensaver Docked Timeout Cycler (y = 295, r = 16)
+          char sst_buf[32];
+          std::string sst_opt = std::string(id(screensaver_docked_timeout).current_option().c_str());
+          snprintf(sst_buf, sizeof(sst_buf), "Saver Time: %s", sst_opt.c_str());
+          draw_pill_button(110, 356, 295, 16, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
+
+          // Button 6: Stay Awake Mode (y = 345, r = 16)
           std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
-          draw_pill_button(110, 356, 310, 18, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 345, 16, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
 
-          // Bottom Button: Standardized < BACK (y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          // Bottom Button: Standardized < BACK (y = 398, r = 16)
+          draw_pill_button(150, 316, 398, 16, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
@@ -4989,6 +5069,12 @@ display:
           if (th_p == "Default Classic") th_p = "Blue & Gold";
           snprintf(th_buf, sizeof(th_buf), "Palette: %s", th_p.c_str());
           draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), th_buf, id(col_white), false);
+
+          // Button 4: Screen Off Inactivity Timeout Cycler (y = 300, r = 18)
+          char so_buf[32];
+          std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
+          snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
+          draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
