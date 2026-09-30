@@ -3242,7 +3242,7 @@ display:
           bool show_overlay = id(music_controls_overlay_switch).state || !is_fs_active;
 
           if (is_fs_active) {
-            uint16_t *fb = reinterpret_cast<uint16_t *>(it.get_buffer());
+            uint16_t *fb = esphome::display::DisplayBufferAccessor::get_framebuffer(&it);
             if (fb != nullptr && target_art != nullptr) {
               const uint16_t *src = reinterpret_cast<const uint16_t *>(target_art->get_data_start());
               int src_w = target_art->get_width();
