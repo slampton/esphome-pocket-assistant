@@ -205,7 +205,7 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
-  - id: high_score_celestial
+  - id: high_score_breakout
     type: int
     restore_value: yes
     initial_value: '0'
@@ -3968,35 +3968,36 @@ display:
               }
             } else {
               // ----------------------------------------------
-              // REGULAR / PLAYABLE ITEM: FULL-WIDTH UNIFIED CARD
+              // REGULAR / PLAYABLE ITEM: STANDARD GUI-WIDTH UNIFIED CARD (110..356, r = 18)
               // ----------------------------------------------
               Color bg_c = id(col_dark_gray);
               Color border_c = is_act ? id(theme_primary) : id(theme_secondary);
               Color txt_c = is_act ? id(theme_primary) : id(col_white);
 
-              it.filled_circle(140, y_mid, 22, border_c);
-              it.filled_circle(326, y_mid, 22, border_c);
-              it.filled_rectangle(140, y_mid - 22, 186, 45, border_c);
+              // Standardized GUI pill geometry matching Library & System menus
+              it.filled_circle(110, y_mid, 18, border_c);
+              it.filled_circle(356, y_mid, 18, border_c);
+              it.filled_rectangle(110, y_mid - 18, 246, 37, border_c);
 
-              it.filled_circle(140, y_mid, 20, bg_c);
-              it.filled_circle(326, y_mid, 20, bg_c);
-              it.filled_rectangle(140, y_mid - 20, 186, 41, bg_c);
+              it.filled_circle(110, y_mid, 16, bg_c);
+              it.filled_circle(356, y_mid, 16, bg_c);
+              it.filled_rectangle(110, y_mid - 16, 246, 33, bg_c);
 
               if (is_spk) {
                 if (is_act || id_str == id(active_speaker_entity)) {
-                  it.filled_circle(136, y_mid, 6, id(theme_primary));
+                  it.filled_circle(114, y_mid, 6, id(theme_primary));
                 } else {
-                  it.circle(136, y_mid, 5, id(col_slate));
+                  it.circle(114, y_mid, 5, id(col_slate));
                 }
               } else {
                 Color icon_c = (mtype == "radio") ? id(theme_secondary) : id(theme_primary);
-                it.filled_triangle(132, y_mid - 6, 132, y_mid + 6, 142, y_mid, icon_c);
+                it.filled_triangle(108, y_mid - 6, 108, y_mid + 6, 118, y_mid, icon_c);
               }
 
               std::string disp_name = name;
-              if (disp_name.length() > 18) disp_name = disp_name.substr(0, 16) + "..";
-              // Preserves fixed left-alignment (12px gap from play button) so long track names never overlap play icon
-              it.print(154, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
+              if (disp_name.length() > 26) disp_name = disp_name.substr(0, 24) + "..";
+              // Left-aligned title with generous space across the full pill width
+              it.print(130, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
             }
           };
 
@@ -4057,7 +4058,7 @@ display:
           // Standardized 60px pitch matching System & Music Submenus (y = 120, 180, 240, 300, r = 18)
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "MARBLES", id(col_white), false);
           draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "ARCHERY", id(col_white), false);
-          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "CELESTIAL", id(col_white), false);
+          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "BREAKOUT", id(col_white), false);
           draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "CHOMP (Kids)", id(col_white), false);
 
           // Subtle NVS High Score readouts right inside the arena margin
@@ -4070,8 +4071,8 @@ display:
             snprintf(hs_buf, sizeof(hs_buf), "%d", id(high_score_archery));
             it.print(346, 180, id(font_micro), id(col_gold), TextAlign::CENTER_RIGHT, hs_buf);
           }
-          if (id(high_score_celestial) > 0) {
-            snprintf(hs_buf, sizeof(hs_buf), "%d", id(high_score_celestial));
+          if (id(high_score_breakout) > 0) {
+            snprintf(hs_buf, sizeof(hs_buf), "%d", id(high_score_breakout));
             it.print(346, 240, id(font_micro), id(col_gold), TextAlign::CENTER_RIGHT, hs_buf);
           }
           if (id(high_score_chomp) > 0) {
@@ -4362,11 +4363,12 @@ display:
           static int arch_score = 0;
           static int arrows_left = 10;
           static float target_x = 233.0f;
+          static float target_y = 165.0f;
           static float target_step = 0.0f;
           static float arrow_x = -1.0f;
           static float arrow_y = -1.0f;
-          static float arrow_target_x = 233.0f;
-          static float arrow_target_y = 165.0f;
+          static float arrow_vx = 0.0f;
+          static float arrow_vy = 0.0f;
           static float wind_speed = 0.0f;
           static std::string hit_feedback = "";
           static uint32_t feedback_timer = 0;
@@ -4383,27 +4385,31 @@ display:
             is_new_high = false;
           }
 
-          target_step += 0.04f;
-          target_x = cx + sinf(target_step) * 90.0f;
-          float target_y = 165.0f;
+          // Dynamic 2D Swaying Target (Horizontal sweep ±105px, vertical bobbing ±32px)
+          target_step += 0.045f;
+          target_x = cx + sinf(target_step) * 105.0f;
+          target_y = 165.0f + cosf(target_step * 1.6f) * 32.0f;
 
-          // 3D Target Rings with Drop Shadow
-          it.filled_circle((int)target_x, (int)target_y + 4, 38, id(col_dark_gray));
-          it.filled_circle((int)target_x, (int)target_y, 38, id(col_white));
-          it.circle((int)target_x, (int)target_y, 38, id(col_dark_gray));
-          it.filled_circle((int)target_x, (int)target_y, 28, id(col_black));
-          it.circle((int)target_x, (int)target_y, 28, id(col_slate));
-          it.filled_circle((int)target_x, (int)target_y, 20, id(col_cyan));
-          it.filled_circle((int)target_x, (int)target_y, 12, id(col_red));
-          it.filled_circle((int)target_x, (int)target_y, 6, id(col_gold));
+          // 3D Shaded Target Rings with Drop Shadow (Tighter tournament radii: 28, 20, 14, 8, 4)
+          it.filled_circle((int)target_x, (int)target_y + 3, 28, id(col_dark_gray));
+          it.filled_circle((int)target_x, (int)target_y, 28, id(col_white));
+          it.circle((int)target_x, (int)target_y, 28, id(col_dark_gray));
+          it.filled_circle((int)target_x, (int)target_y, 20, id(col_black));
+          it.circle((int)target_x, (int)target_y, 20, id(col_slate));
+          it.filled_circle((int)target_x, (int)target_y, 14, id(col_cyan));
+          it.filled_circle((int)target_x, (int)target_y, 8, id(col_red));
+          it.filled_circle((int)target_x, (int)target_y, 4, id(col_gold));
 
+          // Player Aim Reticle
           float ax = cx + roll_delta * 6.5f;
           float ay = 165.0f - pitch_delta * 6.5f;
           if (ax < 65.0f) ax = 65.0f; if (ax > 401.0f) ax = 401.0f;
           if (ay < 65.0f) ay = 65.0f; if (ay > 370.0f) ay = 370.0f;
 
-          wind_speed = sinf((float)millis() * 0.0006f) * 8.5f;
+          // Dynamic Crosswind: Shifts smoothly between -9.0 and +9.0 mph
+          wind_speed = sinf((float)millis() * 0.0007f) * 9.0f;
 
+          // Shoot Trigger (Button or Tap)
           if (id(game_btn_pressed) || id(marble_touch_x) >= 0.0f) {
             id(game_btn_pressed) = false;
             id(marble_touch_x) = -1.0f;
@@ -4418,37 +4424,45 @@ display:
             } else if (arrow_y < 0.0f && arrows_left > 0) {
               arrow_x = cx;
               arrow_y = 370.0f;
-              arrow_target_x = ax + (wind_speed * 2.2f);
-              arrow_target_y = ay;
+              // Aim vector towards player reticle + initial trajectory
+              float launch_dx = ax - cx;
+              float launch_dy = ay - 370.0f;
+              float launch_len = sqrtf(launch_dx * launch_dx + launch_dy * launch_dy);
+              float speed = 360.0f; // Flight speed in px/s
+              arrow_vx = (launch_dx / launch_len) * speed;
+              arrow_vy = (launch_dy / launch_len) * speed;
               arrows_left--;
             }
           }
 
+          // In-Flight Arrow Physics with Wind Drift & Faux-3D Scaling
           if (arrow_y >= 0.0f) {
-            float adx = arrow_target_x - arrow_x;
-            float ady = arrow_target_y - arrow_y;
-            arrow_x += adx * 0.35f;
-            arrow_y += ady * 0.35f;
+            const float dt_arrow = 0.05f;
+            // Crosswind deflects the arrow horizontally during flight!
+            arrow_vx += wind_speed * 16.0f * dt_arrow;
+            arrow_x += arrow_vx * dt_arrow;
+            arrow_y += arrow_vy * dt_arrow;
 
             float progress = (370.0f - arrow_y) / 205.0f;
             if (progress < 0.0f) progress = 0.0f; if (progress > 1.0f) progress = 1.0f;
-            int arrow_len = (int)(22.0f - progress * 10.0f);
+            int arrow_len = (int)(22.0f - progress * 11.0f);
 
             it.line((int)arrow_x, (int)arrow_y, (int)arrow_x, (int)(arrow_y + arrow_len), id(col_gold));
             it.filled_circle((int)arrow_x, (int)arrow_y, progress > 0.6f ? 2 : 3, id(col_white));
 
-            if (fabsf(arrow_y - arrow_target_y) < 6.0f) {
-              float dist_hit = sqrtf((arrow_target_x - target_x) * (arrow_target_x - target_x) +
-                                     (arrow_target_y - target_y) * (arrow_target_y - target_y));
-              if (dist_hit < 7.0f) {
+            // Check if arrow has reached the target plane y
+            if (arrow_y <= target_y + 6.0f) {
+              float dist_hit = sqrtf((arrow_x - target_x) * (arrow_x - target_x) +
+                                     (arrow_y - target_y) * (arrow_y - target_y));
+              if (dist_hit <= 4.5f) {
                 hit_feedback = "BULLSEYE! +10"; arch_score += 10;
-              } else if (dist_hit < 13.0f) {
+              } else if (dist_hit <= 9.0f) {
                 hit_feedback = "RED RING! +7"; arch_score += 7;
-              } else if (dist_hit < 21.0f) {
+              } else if (dist_hit <= 15.0f) {
                 hit_feedback = "BLUE RING! +5"; arch_score += 5;
-              } else if (dist_hit < 29.0f) {
+              } else if (dist_hit <= 21.0f) {
                 hit_feedback = "BLACK RING! +3"; arch_score += 3;
-              } else if (dist_hit < 39.0f) {
+              } else if (dist_hit <= 29.0f) {
                 hit_feedback = "WHITE! +1"; arch_score += 1;
               } else {
                 hit_feedback = "MISS!";
@@ -4513,198 +4527,190 @@ display:
           it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
 
         // ----------------------------------------------------
-        // GAME 3: CELESTIAL ORBIT (GRAVITATIONAL SLINGSHOT CHALLENGE)
+        // ----------------------------------------------------
+        // GAME 3: BREAKOUT (CIRCULAR ARC PADDLE & BRICK BREAKER)
         // ----------------------------------------------------
         } else if (id(active_game) == 3) {
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "CELESTIAL");
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "BREAKOUT");
 
-          struct OrbitProbe {
-            float x, y, vx, vy;
-            int shields;
+          struct BreakoutBrick {
+            int x, y, w, h;
+            int row;
+            bool alive;
           };
-          static OrbitProbe probe = {233.0f + 110.0f, 233.0f, 0.0f, 55.0f, 3};
-
-          struct CosmicCrystal {
-            float r_orbit, angle, speed;
-            int col_idx;
-            bool active;
-          };
-          static CosmicCrystal crystals[3] = {
-            {85.0f, 0.0f, 0.75f, 0, true},
-            {135.0f, 2.1f, 0.45f, 1, true},
-            {180.0f, 4.2f, 0.30f, 2, true}
+          static BreakoutBrick bricks[12] = {
+            // Row 0: Gold (150 pts)
+            {140, 125, 38, 14, 0, true}, {190, 125, 38, 14, 0, true}, {240, 125, 38, 14, 0, true}, {290, 125, 38, 14, 0, true},
+            // Row 1: Cyan (100 pts)
+            {140, 150, 38, 14, 1, true}, {190, 150, 38, 14, 1, true}, {240, 150, 38, 14, 1, true}, {290, 150, 38, 14, 1, true},
+            // Row 2: Orange (50 pts)
+            {140, 175, 38, 14, 2, true}, {190, 175, 38, 14, 2, true}, {240, 175, 38, 14, 2, true}, {290, 175, 38, 14, 2, true}
           };
 
-          static int cel_score = 0;
-          static int streak = 1;
+          static float ball_x = cx;
+          static float ball_y = 345.0f;
+          static float ball_vx = 0.0f;
+          static float ball_vy = 0.0f;
+          static bool ball_launched = false;
+          static int lives_left = 3;
+          static int bo_score = 0;
           static bool round_over = false;
           static bool is_new_high = false;
-          static uint32_t sparkle_timer = 0;
-          static float sparkle_x = -1.0f;
-          static float sparkle_y = -1.0f;
+          static uint32_t bo_spark_timer = 0;
+          static int bo_spark_x = -1;
+          static int bo_spark_y = -1;
 
           if (game_just_entered) {
-            probe = {233.0f + 110.0f, 233.0f, 0.0f, 55.0f, 3};
-            crystals[0] = {85.0f, 0.0f, 0.75f, 0, true};
-            crystals[1] = {135.0f, 2.1f, 0.45f, 1, true};
-            crystals[2] = {180.0f, 4.2f, 0.30f, 2, true};
-            cel_score = 0;
-            streak = 1;
+            for (int b = 0; b < 12; b++) bricks[b].alive = true;
+            ball_x = cx; ball_y = 345.0f;
+            ball_vx = 0.0f; ball_vy = 0.0f;
+            ball_launched = false;
+            lives_left = 3;
+            bo_score = 0;
             round_over = false;
             is_new_high = false;
-            sparkle_x = -1.0f;
+            bo_spark_x = -1;
           }
 
-          float pulse_r = 16.0f + sinf((float)millis() * 0.005f) * 2.5f;
-          it.filled_circle(cx, cy, (int)(pulse_r + 8.0f), id(col_dark_gray));
-          it.filled_circle(cx, cy, (int)(pulse_r + 4.0f), id(col_slate));
-          it.filled_circle(cx, cy, (int)pulse_r, id(col_gold));
-          it.filled_circle(cx, cy, (int)(pulse_r * 0.6f), id(col_white));
+          // Paddle Physics: Tilt roll slides paddle along bottom arc
+          float paddle_x = cx + roll_delta * 7.5f;
+          if (paddle_x < 145.0f) paddle_x = 145.0f;
+          if (paddle_x > 321.0f) paddle_x = 321.0f;
+          int paddle_y = 356;
+          int paddle_w = 54;
+          int paddle_h = 10;
 
-          it.circle(cx, cy, 85, id(col_dark_gray));
-          it.circle(cx, cy, 135, id(col_dark_gray));
-          it.circle(cx, cy, 180, id(col_dark_gray));
-
+          // Touch Trigger: Launch Ball or Replay
           if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
             id(marble_touch_x) = -1.0f;
             id(game_btn_pressed) = false;
+
             if (round_over) {
-              probe = {233.0f + 110.0f, 233.0f, 0.0f, 55.0f, 3};
-              crystals[0] = {85.0f, 0.0f, 0.75f, 0, true};
-              crystals[1] = {135.0f, 2.1f, 0.45f, 1, true};
-              crystals[2] = {180.0f, 4.2f, 0.30f, 2, true};
-              cel_score = 0;
-              streak = 1;
+              for (int b = 0; b < 12; b++) bricks[b].alive = true;
+              ball_x = cx; ball_y = 345.0f;
+              ball_vx = 0.0f; ball_vy = 0.0f;
+              ball_launched = false;
+              lives_left = 3;
+              bo_score = 0;
               round_over = false;
               is_new_high = false;
-            } else {
-              float pdx = probe.x - cx; float pdy = probe.y - cy;
-              float pdist = sqrtf(pdx * pdx + pdy * pdy);
-              if (pdist > 5.0f) {
-                probe.vx += (pdx / pdist) * 90.0f;
-                probe.vy += (pdy / pdist) * 90.0f;
-              }
+            } else if (!ball_launched) {
+              // Launch ball upward angled by tilt
+              ball_vx = roll_delta * 5.0f;
+              if (fabsf(ball_vx) < 30.0f) ball_vx = 45.0f;
+              ball_vy = -175.0f;
+              ball_launched = true;
             }
           }
 
-          const float dt = 0.05f;
+          const float dt_bo = 0.05f;
+          int bricks_remaining = 0;
+          for (int b = 0; b < 12; b++) { if (bricks[b].alive) bricks_remaining++; }
+
           if (!round_over) {
-            for (int k = 0; k < 3; k++) {
-              crystals[k].angle += crystals[k].speed * dt;
-              if (crystals[k].angle > 2.0f * PI_F) crystals[k].angle -= 2.0f * PI_F;
-            }
+            if (!ball_launched) {
+              // Ball rests on paddle
+              ball_x = paddle_x;
+              ball_y = paddle_y - 10.0f;
+            } else {
+              ball_x += ball_vx * dt_bo;
+              ball_y += ball_vy * dt_bo;
 
-            float dx = probe.x - cx;
-            float dy = probe.y - cy;
-            float dist = sqrtf(dx * dx + dy * dy);
+              // Circular Arena Boundary Reflection (r = 208px)
+              float b_dx = ball_x - cx;
+              float b_dy = ball_y - cy;
+              float b_dist = sqrtf(b_dx * b_dx + b_dy * b_dy);
+              if (b_dist > 203.0f && ball_y < 355.0f) {
+                float bnx = b_dx / b_dist;
+                float bny = b_dy / b_dist;
+                float v_dot = ball_vx * bnx + ball_vy * bny;
+                if (v_dot > 0.0f) {
+                  ball_vx -= 2.0f * v_dot * bnx;
+                  ball_vy -= 2.0f * v_dot * bny;
+                }
+              }
 
-            if (dist < 22.0f) {
-              probe.shields--;
-              sparkle_x = probe.x; sparkle_y = probe.y; sparkle_timer = millis();
-              streak = 1;
-              if (probe.shields <= 0) {
+              // Paddle Reflection
+              if (ball_y >= (float)(paddle_y - 8) && ball_y <= (float)(paddle_y + 6) && ball_vy > 0.0f) {
+                if (fabsf(ball_x - paddle_x) <= (paddle_w * 0.55f)) {
+                  float offset = (ball_x - paddle_x) / (paddle_w * 0.5f);
+                  ball_vx = offset * 210.0f;
+                  ball_vy = -180.0f;
+                  bo_spark_x = (int)ball_x; bo_spark_y = (int)ball_y; bo_spark_timer = millis();
+                }
+              }
+
+              // Brick Collisions
+              for (int b = 0; b < 12; b++) {
+                if (!bricks[b].alive) continue;
+                if (fabsf(ball_x - (float)bricks[b].x) < (float)(bricks[b].w / 2 + 5) &&
+                    fabsf(ball_y - (float)bricks[b].y) < (float)(bricks[b].h / 2 + 5)) {
+                  bricks[b].alive = false;
+                  ball_vy = -ball_vy;
+                  int pts = (bricks[b].row == 0 ? 150 : (bricks[b].row == 1 ? 100 : 50));
+                  bo_score += pts;
+                  bo_spark_x = bricks[b].x; bo_spark_y = bricks[b].y; bo_spark_timer = millis();
+                  break;
+                }
+              }
+
+              // Ball Lost Below Paddle Gate
+              if (ball_y > 390.0f) {
+                lives_left--;
+                ball_launched = false;
+                if (lives_left <= 0) {
+                  round_over = true;
+                  if (bo_score > id(high_score_breakout)) {
+                    id(high_score_breakout) = bo_score;
+                    is_new_high = true;
+                  }
+                }
+              }
+
+              // Win Condition: All Bricks Cleared
+              if (bricks_remaining == 0) {
                 round_over = true;
-                if (cel_score > id(high_score_celestial)) {
-                  id(high_score_celestial) = cel_score;
+                bo_score += lives_left * 250; // Lives bonus
+                if (bo_score > id(high_score_breakout)) {
+                  id(high_score_breakout) = bo_score;
                   is_new_high = true;
                 }
-              } else {
-                probe.x = cx + 130.0f; probe.y = cy;
-                probe.vx = 0.0f; probe.vy = 48.0f;
-              }
-            }
-
-            float accel_g = 68000.0f / (dist * dist + 350.0f);
-            probe.vx -= (dx / dist) * accel_g * dt;
-            probe.vy -= (dy / dist) * accel_g * dt;
-
-            float tx = roll_delta * 32.0f;
-            float ty = -pitch_delta * 32.0f;
-            if (tx > 450.0f) tx = 450.0f; if (tx < -450.0f) tx = -450.0f;
-            if (ty > 450.0f) ty = 450.0f; if (ty < -450.0f) ty = -450.0f;
-
-            probe.vx += tx * dt;
-            probe.vy += ty * dt;
-
-            probe.vx *= 0.999f;
-            probe.vy *= 0.999f;
-
-            probe.x += probe.vx * dt;
-            probe.y += probe.vy * dt;
-
-            float cur_dist = sqrtf((probe.x - cx) * (probe.x - cx) + (probe.y - cy) * (probe.y - cy));
-            if (cur_dist > 206.0f) {
-              float bnx = (probe.x - cx) / cur_dist;
-              float bny = (probe.y - cy) / cur_dist;
-              probe.x = cx + bnx * 205.0f;
-              probe.y = cy + bny * 205.0f;
-              float vdot = probe.vx * bnx + probe.vy * bny;
-              if (vdot > 0.0f) {
-                probe.vx -= 1.6f * vdot * bnx;
-                probe.vy -= 1.6f * vdot * bny;
-              }
-            }
-
-            for (int k = 0; k < 3; k++) {
-              float c_sin, c_cos;
-              sincosf(crystals[k].angle, &c_sin, &c_cos);
-              float cx_pos = cx + c_cos * crystals[k].r_orbit;
-              float cy_pos = cy + c_sin * crystals[k].r_orbit;
-
-              float c_dist = sqrtf((probe.x - cx_pos) * (probe.x - cx_pos) + (probe.y - cy_pos) * (probe.y - cy_pos));
-              if (c_dist < 18.0f) {
-                cel_score += 100 * streak;
-                streak++;
-                sparkle_x = cx_pos; sparkle_y = cy_pos; sparkle_timer = millis();
-                crystals[k].angle += PI_F;
               }
             }
           }
 
-          Color cr_cols[3] = {id(col_gold), id(col_cyan), id(col_purple)};
-          for (int k = 0; k < 3; k++) {
-            float c_sin, c_cos;
-            sincosf(crystals[k].angle, &c_sin, &c_cos);
-            int cx_pos = (int)(cx + c_cos * crystals[k].r_orbit);
-            int cy_pos = (int)(cy + c_sin * crystals[k].r_orbit);
-
-            it.line(cx_pos, cy_pos - 6, cx_pos + 6, cy_pos, cr_cols[crystals[k].col_idx]);
-            it.line(cx_pos + 6, cy_pos, cx_pos, cy_pos + 6, cr_cols[crystals[k].col_idx]);
-            it.line(cx_pos, cy_pos + 6, cx_pos - 6, cy_pos, cr_cols[crystals[k].col_idx]);
-            it.line(cx_pos - 6, cy_pos, cx_pos, cy_pos - 6, cr_cols[crystals[k].col_idx]);
-            it.filled_circle(cx_pos, cy_pos, 2, id(col_white));
+          // Draw Bricks
+          Color row_cols[3] = {id(col_gold), id(col_cyan), id(col_orange)};
+          for (int b = 0; b < 12; b++) {
+            if (!bricks[b].alive) continue;
+            int rx = bricks[b].x - (bricks[b].w / 2);
+            int ry = bricks[b].y - (bricks[b].h / 2);
+            it.filled_rectangle(rx, ry, bricks[b].w, bricks[b].h, row_cols[bricks[b].row]);
+            it.rectangle(rx, ry, bricks[b].w, bricks[b].h, id(col_white));
           }
 
-          if (sparkle_x >= 0.0f && (millis() - sparkle_timer < 400)) {
-            it.circle((int)sparkle_x, (int)sparkle_y, 8, id(col_white));
-            it.circle((int)sparkle_x, (int)sparkle_y, 14, id(col_gold));
+          // Draw Paddle (Rounded Capsule in Theme Primary with White Core)
+          it.filled_circle((int)(paddle_x - (paddle_w / 2) + 5), paddle_y, 5, id(theme_primary));
+          it.filled_circle((int)(paddle_x + (paddle_w / 2) - 5), paddle_y, 5, id(theme_primary));
+          it.filled_rectangle((int)(paddle_x - (paddle_w / 2) + 5), paddle_y - 5, paddle_w - 10, 10, id(theme_primary));
+          it.rectangle((int)(paddle_x - (paddle_w / 2) + 5), paddle_y - 5, paddle_w - 10, 10, id(col_white));
+
+          // Draw Ball
+          it.filled_circle((int)ball_x, (int)ball_y, 6, id(col_gold));
+          it.filled_circle((int)ball_x, (int)ball_y, 3, id(col_white));
+
+          // Brick Impact Sparkle
+          if (bo_spark_x >= 0 && (millis() - bo_spark_timer < 300)) {
+            it.circle(bo_spark_x, bo_spark_y, 8, id(col_white));
+            it.circle(bo_spark_x, bo_spark_y, 14, id(col_gold));
           }
 
-          float heading = atan2f(probe.vy, probe.vx);
-          float h_cos = cosf(heading); float h_sin = sinf(heading);
-          float l_cos = cosf(heading + 2.5f); float l_sin = sinf(heading + 2.5f);
-          float r_cos = cosf(heading - 2.5f); float r_sin = sinf(heading - 2.5f);
+          // Top HUD: Balls Left • Bricks Left • Score
+          char bo_hud[48];
+          snprintf(bo_hud, sizeof(bo_hud), "Balls: %d/3  •  Bricks: %d  •  %d", lives_left, bricks_remaining, bo_score);
+          it.print(cx, 84, id(font_small), id(col_gold), TextAlign::CENTER, bo_hud);
 
-          int nose_x = (int)(probe.x + h_cos * 10.0f); int nose_y = (int)(probe.y + h_sin * 10.0f);
-          int l_wing_x = (int)(probe.x + l_cos * 8.0f); int l_wing_y = (int)(probe.y + l_sin * 8.0f);
-          int r_wing_x = (int)(probe.x + r_cos * 8.0f); int r_wing_y = (int)(probe.y + r_sin * 8.0f);
-
-          it.line(nose_x, nose_y, l_wing_x, l_wing_y, id(col_cyan));
-          it.line(l_wing_x, l_wing_y, (int)probe.x, (int)probe.y, id(col_cyan));
-          it.line((int)probe.x, (int)probe.y, r_wing_x, r_wing_y, id(col_cyan));
-          it.line(r_wing_x, r_wing_y, nose_x, nose_y, id(col_cyan));
-          it.filled_circle((int)probe.x, (int)probe.y, 2, id(col_white));
-
-          if (fabsf(roll_delta) > 5.0f || fabsf(pitch_delta) > 5.0f) {
-            int flame_x = (int)(probe.x - h_cos * 7.0f);
-            int flame_y = (int)(probe.y - h_sin * 7.0f);
-            it.filled_circle(flame_x, flame_y, 3, id(col_orange));
-          }
-
-          char cel_hud[48];
-          snprintf(cel_hud, sizeof(cel_hud), "Shields: %d/3  •  %dx  •  %d", probe.shields, streak, cel_score);
-          it.print(cx, 84, id(font_small), id(col_gold), TextAlign::CENTER, cel_hud);
-
+          // Game Over Scoreboard Overlay
           if (round_over) {
             it.filled_circle(cx, cy, 115, id(col_bg));
             it.circle(cx, cy, 115, is_new_high ? id(col_gold) : id(theme_secondary));
@@ -4712,25 +4718,28 @@ display:
 
             if (is_new_high) {
               it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "NEW HIGH SCORE!");
+            } else if (bricks_remaining == 0) {
+              it.print(cx, 160, id(font_date), id(col_cyan), TextAlign::CENTER, "ALL CLEARED!");
             } else {
-              it.print(cx, 160, id(font_date), id(col_red), TextAlign::CENTER, "HULL BREACHED");
+              it.print(cx, 160, id(font_date), id(col_red), TextAlign::CENTER, "GAME OVER");
             }
 
             char score_str[32];
-            snprintf(score_str, sizeof(score_str), "Score: %d", cel_score);
+            snprintf(score_str, sizeof(score_str), "Score: %d", bo_score);
             it.print(cx, 202, id(font_date), id(col_white), TextAlign::CENTER, score_str);
 
             char best_str[32];
-            snprintf(best_str, sizeof(best_str), "Best: %d", id(high_score_celestial));
+            snprintf(best_str, sizeof(best_str), "Best: %d", id(high_score_breakout));
             it.print(cx, 235, id(font_small), id(col_gold), TextAlign::CENTER, best_str);
 
             it.print(cx, 275, id(font_small), id(col_cyan), TextAlign::CENTER, "[ TAP TO REPLAY ]");
+          } else if (!ball_launched) {
+            it.print(cx, 260, id(font_small), id(col_cyan), TextAlign::CENTER, "[ Tap Screen to Launch ]");
           }
 
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt Thrusters • Tap Pulse Boost");
+          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt to Steer Paddle • Bounce Ball");
           it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
 
-        // ----------------------------------------------------
         // GAME 4: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
         } else {
@@ -5667,8 +5676,6 @@ touchscreen:
                     id(active_game) = 3; // Celestial Orbit
                   } else if (touch.y >= 275 && touch.y <= 330) {
                     id(active_game) = 4; // CHOMP (Kids)
-                  } else if (touch.y >= 335 && touch.y <= 450) {
-                    id(apply_default_start_page).execute(); // < BACK to Watchface
                   }
                 }
                 if (id(active_game) > 0) {
