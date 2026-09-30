@@ -113,6 +113,22 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: slot_4_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: slot_4_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: slot_4_type
+    type: std::string
+    restore_value: no
+    initial_value: '"player"'
+  - id: slot_4_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: current_loaded_art_url
     type: std::string
     restore_value: no
@@ -1896,7 +1912,7 @@ script:
               }
               return id(selected_category_mode).c_str();
             page: !lambda 'return to_string(id(music_browse_page));'
-            page_size: "3"
+            page_size: "4"
             search: !lambda |-
               if (id(selected_category_mode) == "artist_albums") {
                 return id(drilldown_artist_name).c_str();
@@ -1992,6 +2008,39 @@ script:
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               return id(slot_3_type).c_str();
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - delay: 800ms
+            - homeassistant.action:
+                action: homeassistant.update_entity
+                data:
+                  entity_id: ${target_art_url_sensor}
+      - delay: 200ms
+      - lambda: |-
+          id(music_overlay_mode) = 0;
+      - component.update: disp1
+
+  - id: play_music_slot_4
+    mode: restart
+    then:
+      - lambda: |-
+          id(music_action_feedback) = "Playing: " + id(slot_4_name);
+          id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) != "${local_player_id}") {
+            id(current_loaded_art_url) = "";
+            id(remote_album_art).release();
+          }
+      - homeassistant.action:
+          action: music_assistant.play_media
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            media_id: !lambda 'return id(slot_4_id).c_str();'
+            media_type: !lambda |-
+              if (id(selected_category_mode) == "artist") return "artist";
+              if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              return id(slot_4_type).c_str();
       - if:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
@@ -2292,6 +2341,103 @@ script:
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
                           return id(slot_3_type).c_str();
+                  - delay: 800ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+
+  - id: select_music_slot_4
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(selected_category_mode) == "speakers";'
+          then:
+            - lambda: |-
+                id(music_action_feedback) = "Transferring -> " + id(slot_4_name);
+                id(music_feedback_timer) = millis();
+                if (id(active_speaker_entity) == "${local_player_id}" && id(slot_4_id) != "${local_player_id}") {
+                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                    auto call = id(pocket_music_player).make_call();
+                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                    call.perform();
+                  }
+                }
+            - homeassistant.action:
+                action: music_assistant.transfer_queue
+                data:
+                  entity_id: !lambda 'return id(slot_4_id).c_str();'
+                  source_player: !lambda 'return id(active_speaker_entity).c_str();'
+                  auto_play: "true"
+            - lambda: |-
+                if (id(active_speaker_entity) != id(slot_4_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_4_id);
+                id(active_speaker_name) = id(slot_4_name);
+                id(music_action_feedback) = "Active: " + id(slot_4_name);
+                id(music_feedback_timer) = millis();
+            - homeassistant.action:
+                action: input_text.set_value
+                data:
+                  entity_id: ${active_speaker_helper}
+                  value: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+                then:
+                  - lambda: 'id(current_loaded_art_url) = "";'
+                  - delay: 800ms
+                  - homeassistant.action:
+                      action: homeassistant.update_entity
+                      data:
+                        entity_id: ${target_art_url_sensor}
+            - if:
+                condition:
+                  lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+                then:
+                  - lambda: 'id(current_loaded_art_url) = "";'
+                  - online_image.release: remote_album_art
+            - component.update: disp1
+            - delay: 200ms
+            - lambda: |-
+                id(music_overlay_mode) = 0;
+            - component.update: disp1
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(selected_category_mode) == "speaker_takeover";'
+                then:
+                  - lambda: |-
+                      if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+                        auto call = id(pocket_music_player).make_call();
+                        call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+                        call.perform();
+                      }
+                      if (id(active_speaker_entity) != id(slot_4_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_4_id);
+                      id(active_speaker_name) = id(slot_4_name);
+                      id(music_action_feedback) = "Controlling: " + id(slot_4_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: input_text.set_value
+                      data:
+                        entity_id: ${active_speaker_helper}
+                        value: !lambda 'return id(active_speaker_entity).c_str();'
+                  - component.update: disp1
+                  - delay: 600ms
+                  - lambda: |-
+                      id(music_overlay_mode) = 0;
+                  - component.update: disp1
+                else:
+                  - lambda: |-
+                      id(music_action_feedback) = "Playing: " + id(slot_4_name);
+                      id(music_feedback_timer) = millis();
+                  - homeassistant.action:
+                      action: music_assistant.play_media
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        media_id: !lambda 'return id(slot_4_id).c_str();'
+                        media_type: !lambda |-
+                          if (id(selected_category_mode) == "artist") return "artist";
+                          if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          return id(slot_4_type).c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
@@ -3733,10 +3879,10 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
 
-          // Standardized 60px pitch matching System Submenus (y = 130, 190, 250, r = 20)
-          draw_pill_button(110, 356, 130, 20, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), false);
-          draw_pill_button(110, 356, 190, 20, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), false);
-          draw_pill_button(110, 356, 250, 20, id(theme_secondary), id(col_dark_gray), "LIBRARY", id(col_white), false);
+          // Standardized 60px pitch matching System Submenus (y = 120, 180, 240, r = 18)
+          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), false);
+          draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), false);
+          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "LIBRARY", id(col_white), false);
 
           // Bottom Back to Player (Standardized at y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -3755,11 +3901,10 @@ display:
             draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "ARTISTS", id(col_white), false);
             draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "ALBUMS", id(col_white), false);
           } else {
-            // Page 2: Tracks, Radio, Podcasts, Audiobooks (Standardized 60px pitch, r = 18)
-            draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "TRACKS", id(col_white), false);
-            draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "RADIO", id(col_white), false);
-            draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "PODCASTS", id(col_white), false);
-            draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), false);
+            // Page 2: Radio, Podcasts, Audiobooks (Standardized 60px pitch, r = 18, Tracks removed)
+            draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "RADIO", id(col_white), false);
+            draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "PODCASTS", id(col_white), false);
+            draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), false);
           }
 
           // Standardized Centered < BACK Button at y = 375 (Bottom navigation bar at y = 424 handles paging)
@@ -3839,10 +3984,11 @@ display:
             }
           };
 
-          // Expanded Card Pitch = 75px (y = 140, 215, 290, 31px gaps)
-          draw_slot_card(140, id(slot_1_name), id(slot_1_id), id(slot_1_type), id(slot_1_active));
-          draw_slot_card(215, id(slot_2_name), id(slot_2_id), id(slot_2_type), id(slot_2_active));
-          draw_slot_card(290, id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active));
+          // Standardized Card Pitch = 60px (y = 120, 180, 240, 300, 4 slots)
+          draw_slot_card(120, id(slot_1_name), id(slot_1_id), id(slot_1_type), id(slot_1_active));
+          draw_slot_card(180, id(slot_2_name), id(slot_2_id), id(slot_2_type), id(slot_2_active));
+          draw_slot_card(240, id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active));
+          draw_slot_card(300, id(slot_4_name), id(slot_4_id), id(slot_4_type), id(slot_4_active));
 
           // Pagination Arrows & Status (y = 352) - Carousel Wrap-Around Active
           // Standardized Centered < BACK Button at y = 352 (Bottom navigation bar at y = 428 handles paging)
@@ -4424,29 +4570,29 @@ display:
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
-          // VIEW 2: DISPLAY SUBMENU (Spacious 60px Pitch)
+          // VIEW 2: DISPLAY SUBMENU (Gold Standard 60px Pitch)
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "DISPLAY");
 
-          // Button 1: Auto-Brightness Mode Cycler (y = 130, r = 18)
+          // Button 1: Auto-Brightness Mode Cycler (y = 120, r = 18)
           std::string ab_mode = std::string(id(auto_brightness_mode).current_option().c_str());
           char ab_buf[32];
           snprintf(ab_buf, sizeof(ab_buf), "Auto-Bri: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
-          draw_pill_button(110, 356, 130, 18, id(theme_secondary), id(col_dark_gray), ab_buf, id(col_white), false);
+          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), ab_buf, id(col_white), false);
 
-          // Button 2: Manual / Day Brightness Preset Cycler (y = 190, r = 18)
+          // Button 2: Manual / Day Brightness Preset Cycler (y = 180, r = 18)
           char b_buf[32];
           std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
           if (bri_p.empty()) bri_p = "90%";
           snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-          draw_pill_button(110, 356, 190, 18, id(theme_secondary), id(col_dark_gray), b_buf, id(col_white), false);
+          draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), b_buf, id(col_white), false);
 
-          // Button 3: Color Palette Cycler (y = 250, r = 18)
+          // Button 3: Color Palette Cycler (y = 240, r = 18)
           char th_buf[32];
           std::string th_p = std::string(id(theme_palette_select).current_option().c_str());
           if (th_p == "Default Classic") th_p = "Blue & Gold";
           snprintf(th_buf, sizeof(th_buf), "Palette: %s", th_p.c_str());
-          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), th_buf, id(col_white), false);
+          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), th_buf, id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -4571,22 +4717,22 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO & MEDIA");
 
-          // Button 1: Album Art Style Cycler (y = 130, r = 18)
+          // Button 1: Album Art Style Cycler (y = 120, r = 18)
           std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
           char fs_label[32];
           snprintf(fs_label, sizeof(fs_label), "Art: %s", cur_mode.c_str());
-          draw_pill_button(110, 356, 130, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
+          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
 
-          // Button 2: Hardware Speaker Volume (y = 190, r = 18)
+          // Button 2: Hardware Speaker Volume (y = 180, r = 18)
           char spk_vol[32];
           int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
           snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
-          draw_pill_button(110, 356, 190, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
+          draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
 
-          // Button 3: Active Speaker Target (y = 250, r = 18)
+          // Button 3: Active Speaker Target (y = 240, r = 18)
           std::string spk_target = "Speaker: " + id(active_speaker_name);
           if (spk_target.length() > 24) spk_target = spk_target.substr(0, 22) + "..";
-          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
 
           // Standardized Centered < BACK Button at y = 375 (r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -4641,16 +4787,16 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "CLOCK & TIME");
 
-          // Button 1: Clock Face Style Cycler (y = 130, r = 18)
+          // Button 1: Clock Face Style Cycler (y = 120, r = 18)
           std::string cf_label = id(clock_face_digital) ? "Clock Face: Digital" : "Clock Face: Analog";
-          draw_pill_button(110, 356, 130, 18, id(theme_secondary), id(col_dark_gray), cf_label.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), cf_label.c_str(), id(col_white), false);
 
-          // Button 2: Time Format Cycler (y = 190, r = 18)
+          // Button 2: Time Format Cycler (y = 180, r = 18)
           std::string tf_label = id(is_24h_format) ? "Format: 24-Hour" : "Format: 12-Hour";
-          draw_pill_button(110, 356, 190, 18, id(theme_secondary), id(col_dark_gray), tf_label.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), tf_label.c_str(), id(col_white), false);
 
-          // Button 3: Time Sync Status (y = 250, r = 18)
-          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), "Sync: Home Assistant", id(col_white), false);
+          // Button 3: Time Sync Status (y = 240, r = 18)
+          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "Sync: Home Assistant", id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -4920,22 +5066,22 @@ touchscreen:
                 // ----------------------------------------------------
                 // LEVEL 1: TOP-LEVEL SELECTION MENU (Standardized 60px Pitch)
                 // ----------------------------------------------------
-                // Card 1: SPEAKER HANDOFF (y: 105..155, x: 100..366)
-                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                // Card 1: SPEAKER HANDOFF (y: 95..150, x: 100..366)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
                   id(selected_category_mode) = "speakers";
                   id(selected_category_title) = "HANDOFF";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 2: SPEAKER TAKEOVER (y: 165..215, x: 100..366)
-                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: SPEAKER TAKEOVER (y: 155..210, x: 100..366)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
                   id(selected_category_mode) = "speaker_takeover";
                   id(selected_category_title) = "TAKEOVER";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 3: BROWSE LIBRARY (y: 225..275, x: 100..366)
-                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: LIBRARY (y: 215..270, x: 100..366)
+                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
                   id(music_category_page) = 1;
                   id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
                   id(disp1).update();
@@ -4958,8 +5104,8 @@ touchscreen:
                     id(selected_category_mode) = "favorites";
                     id(selected_category_title) = "FAVORITES";
                   } else {
-                    id(selected_category_mode) = "track";
-                    id(selected_category_title) = "TRACKS";
+                    id(selected_category_mode) = "radio";
+                    id(selected_category_title) = "RADIO";
                   }
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
@@ -4970,8 +5116,8 @@ touchscreen:
                     id(selected_category_mode) = "playlist";
                     id(selected_category_title) = "PLAYLISTS";
                   } else {
-                    id(selected_category_mode) = "radio";
-                    id(selected_category_title) = "RADIO";
+                    id(selected_category_mode) = "podcast";
+                    id(selected_category_title) = "PODCASTS";
                   }
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3;
@@ -4982,24 +5128,21 @@ touchscreen:
                     id(selected_category_mode) = "artist";
                     id(selected_category_title) = "ARTISTS";
                   } else {
-                    id(selected_category_mode) = "podcast";
-                    id(selected_category_title) = "PODCASTS";
-                  }
-                  id(music_browse_page) = 1;
-                  id(music_overlay_mode) = 3;
-                  id(fetch_music_browse).execute();
-                // Card 4 (y: 275..330, x: 65..401)
-                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 65 && touch.x <= 401) {
-                  if (id(music_category_page) == 1) {
-                    id(selected_category_mode) = "album";
-                    id(selected_category_title) = "ALBUMS";
-                  } else {
                     id(selected_category_mode) = "audiobook";
                     id(selected_category_title) = "AUDIOBOOKS";
                   }
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3;
                   id(fetch_music_browse).execute();
+                // Card 4 (y: 275..330, x: 65..401) - Page 1 Only (ALBUMS)
+                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 65 && touch.x <= 401) {
+                  if (id(music_category_page) == 1) {
+                    id(selected_category_mode) = "album";
+                    id(selected_category_title) = "ALBUMS";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 3;
+                    id(fetch_music_browse).execute();
+                  }
                 // Standardized Centered < BACK Button at y = 375 -> Returns to Level 1 Menu
                 } else if (touch.y >= 335 && touch.y <= 404 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 1; // Return to Level 1 Menu
@@ -5007,12 +5150,12 @@ touchscreen:
                 }
               } else if (id(music_overlay_mode) == 3) {
                 // ----------------------------------------------------
-                // LEVEL 3: ITEM BROWSER (Expanded Pitch = 75px)
+                // LEVEL 3: ITEM BROWSER (Standardized 60px Pitch, 4 Slots)
                 // ----------------------------------------------------
                 bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
 
-                // Card 1 (y: 105..175, x: 65..405)
-                if (touch.y >= 105 && touch.y < 175 && touch.x >= 65 && touch.x <= 405) {
+                // Card 1 (y: 95..150, x: 65..405)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 65 && touch.x <= 405) {
                   if (!id(slot_1_id).empty()) {
                     if (is_drill && touch.x <= 130) {
                       id(play_music_slot_1).execute();
@@ -5036,8 +5179,8 @@ touchscreen:
                       id(select_music_slot_1).execute();
                     }
                   }
-                // Card 2 (y: 175..250, x: 65..405)
-                } else if (touch.y >= 175 && touch.y < 250 && touch.x >= 65 && touch.x <= 405) {
+                // Card 2 (y: 155..210, x: 65..405)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 65 && touch.x <= 405) {
                   if (!id(slot_2_id).empty()) {
                     if (is_drill && touch.x <= 130) {
                       id(play_music_slot_2).execute();
@@ -5061,8 +5204,8 @@ touchscreen:
                       id(select_music_slot_2).execute();
                     }
                   }
-                // Card 3 (y: 250..325, x: 65..405)
-                } else if (touch.y >= 250 && touch.y < 325 && touch.x >= 65 && touch.x <= 405) {
+                // Card 3 (y: 215..270, x: 65..405)
+                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 65 && touch.x <= 405) {
                   if (!id(slot_3_id).empty()) {
                     if (is_drill && touch.x <= 130) {
                       id(play_music_slot_3).execute();
@@ -5084,6 +5227,31 @@ touchscreen:
                       }
                     } else {
                       id(select_music_slot_3).execute();
+                    }
+                  }
+                // Card 4 (y: 275..330, x: 65..405)
+                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 65 && touch.x <= 405) {
+                  if (!id(slot_4_id).empty()) {
+                    if (is_drill && touch.x <= 130) {
+                      id(play_music_slot_4).execute();
+                    } else if (is_drill && touch.x > 130) {
+                      if (id(selected_category_mode) == "artist") {
+                        id(drilldown_artist_name) = id(slot_4_name);
+                        id(selected_category_mode) = "artist_albums";
+                        id(selected_category_title) = id(slot_4_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      } else {
+                        id(drilldown_album_id) = id(slot_4_id);
+                        id(drilldown_album_name) = id(slot_4_name);
+                        id(drilldown_parent_mode) = id(selected_category_mode);
+                        id(selected_category_mode) = "album_tracks";
+                        id(selected_category_title) = id(slot_4_name);
+                        id(music_browse_page) = 1;
+                        id(fetch_music_browse).execute();
+                      }
+                    } else {
+                      id(select_music_slot_4).execute();
                     }
                   }
                 // Standardized Centered < BACK Button at y = 375 (y: 350..400, x: 120..346) -> Returns to Level 2 Categories
@@ -5237,9 +5405,9 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 2) {
-                // Mode 2: Display Submenu (3 Spacious Cards)
-                // Card 1: Auto-Brightness Mode Cycler (y: 105..155, x: 100..366)
-                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                // Mode 2: Display Submenu (Gold Standard 60px Pitch)
+                // Card 1: Auto-Brightness Mode Cycler (y: 95..150, x: 100..366)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(auto_brightness_mode).current_option().c_str());
                   std::string nxt = "Disabled";
                   if (cur == "Disabled") nxt = "Sun Synchronized";
@@ -5249,8 +5417,8 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Brightness Preset Cycler (y: 165..215, x: 100..366)
-                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Brightness Preset Cycler (y: 155..210, x: 100..366)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                   std::string nxt = "90%";
                   if (cur == "60%") nxt = "70%";
@@ -5263,8 +5431,8 @@ touchscreen:
                   call.perform();
                   id(sync_display_brightness).execute();
                   id(disp1).update();
-                // Card 3: Color Palette Cycler (y: 225..275, x: 100..366)
-                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Color Palette Cycler (y: 215..270, x: 100..366)
+                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(theme_palette_select).current_option().c_str());
                   std::string nxt = "Steel & Silver";
                   if (cur == "Steel & Silver") nxt = "Pink & Gray";
@@ -5358,9 +5526,9 @@ touchscreen:
                   }
                 }
               } else if (id(system_menu_mode) == 7) {
-                // Mode 7: Audio & Media Submenu (Standardized 60px Pitch)
-                // Card 1: Album Art Style Cycler (y: 105..155, x: 100..366)
-                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                // Mode 7: Audio & Media Submenu (Gold Standard 60px Pitch)
+                // Card 1: Album Art Style Cycler (y: 95..150, x: 100..366)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
                   std::string nxt_mode = "Letterbox";
                   if (cur_mode == "Full Screen") nxt_mode = "Letterbox";
@@ -5370,15 +5538,15 @@ touchscreen:
                   call.set_option(nxt_mode);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Hardware Speaker Volume Step (y: 165..215, x: 100..366)
-                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Hardware Speaker Volume Step (y: 155..210, x: 100..366)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
                   float cur_vol = id(pocket_music_player).volume;
                   float new_vol = cur_vol + 0.10f;
                   if (new_vol > 0.90f) new_vol = 0.10f;
                   id(pocket_music_player).make_call().set_volume(new_vol).perform();
                   id(disp1).update();
-                // Card 3: Active Speaker Target Jump to Music Menu (y: 225..275, x: 100..366)
-                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Active Speaker Target Jump to Music Menu (y: 215..270, x: 100..366)
+                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 1;
                   id(system_menu_mode) = 0;
@@ -5398,23 +5566,23 @@ touchscreen:
                   id(disp1).update(); // Tap anywhere to refresh telemetry
                 }
               } else if (id(system_menu_mode) == 9) {
-                // Mode 9: Clock & Time Submenu
-                // Card 1: Clock Face Style Cycler (y: 105..155, x: 100..366)
-                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                // Mode 9: Clock & Time Submenu (Gold Standard 60px Pitch)
+                // Card 1: Clock Face Style Cycler (y: 95..150, x: 100..366)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
                   id(clock_face_digital) = !id(clock_face_digital);
                   auto call = id(clock_face_style).make_call();
                   call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
                   call.perform();
                   id(disp1).update();
-                // Card 2: Time Format Cycler (y: 165..215, x: 100..366)
-                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Time Format Cycler (y: 155..210, x: 100..366)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
                   id(is_24h_format) = !id(is_24h_format);
                   auto call = id(time_format_select).make_call();
                   call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
                   call.perform();
                   id(disp1).update();
-                // Card 3: Time Sync Status (y: 225..275, x: 100..366)
-                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Time Sync Status (y: 215..270, x: 100..366)
+                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
                 } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
