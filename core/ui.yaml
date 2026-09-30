@@ -395,6 +395,24 @@ light:
 
 select:
   - platform: template
+    name: "System: Screensaver Style"
+    id: screensaver_style_select
+    icon: "mdi:weather-night"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Ambient Clock"
+    options:
+      - "Ambient Clock"
+      - "Aurora Borealis"
+      - "Starfield"
+      - "Matrix Rain"
+      - "Arc Reactor"
+    set_action:
+      - lambda: |-
+          id(disp1).update();
+
+  - platform: template
     name: "System: Album Art Style"
     id: music_fullscreen_art_mode
     icon: "mdi:image-size-select-actual"
@@ -899,6 +917,14 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
+          // High-refresh animation loop for active screensavers when docked (10 FPS)
+          if (id(display_power_state) == 1 && id(docked_screensaver_switch).state) {
+            std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
+            if (s_style != "Ambient Clock") {
+              id(disp1).update();
+            }
+          }
+
           // Active Update Check animation refresh
           if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0) {
             id(disp1).update();
@@ -2484,30 +2510,264 @@ display:
       if (id(display_power_state) == 1) {
         it.fill(id(col_bg));
 
+        std::string ss_style = std::string(id(screensaver_style_select).current_option().c_str());
+        if (ss_style.empty()) ss_style = "Ambient Clock";
+
+        uint32_t now_ms = millis();
         auto now = id(ha_time).now();
-        int sec = now.is_valid() ? now.second : 0;
 
-        // AMOLED Burn-in Prevention: Drift center position based on minute
-        int drift_x = (sec % 10) * 4 - 20;
-        int drift_y = ((sec / 10) % 6) * 4 - 10;
+        // --------------------------------------------------
+        // STYLE 1: AMBIENT MINIMALIST CLOCK (Anti-Burn-In Drift)
+        // --------------------------------------------------
+        if (ss_style == "Ambient Clock") {
+          int sec = now.is_valid() ? now.second : 0;
+          int drift_x = (sec % 10) * 4 - 20;
+          int drift_y = ((sec / 10) % 6) * 4 - 10;
 
-        // Ambient Minimalist Clock
-        char amb_time[16];
-        if (now.is_valid()) {
-          if (id(is_24h_format)) {
-            snprintf(amb_time, sizeof(amb_time), "%02d:%02d", now.hour, now.minute);
+          char amb_time[16];
+          if (now.is_valid()) {
+            if (id(is_24h_format)) {
+              snprintf(amb_time, sizeof(amb_time), "%02d:%02d", now.hour, now.minute);
+            } else {
+              int h12 = now.hour % 12;
+              if (h12 == 0) h12 = 12;
+              snprintf(amb_time, sizeof(amb_time), "%d:%02d", h12, now.minute);
+            }
+            it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, amb_time);
+            it.strftime(cx + drift_x, cy + 45 + drift_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, "%a, %b %d", now);
           } else {
-            int h12 = now.hour % 12;
-            if (h12 == 0) h12 = 12;
-            snprintf(amb_time, sizeof(amb_time), "%d:%02d", h12, now.minute);
+            it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, "--:--");
           }
-          it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, amb_time);
+          return;
 
-          it.strftime(cx + drift_x, cy + 45 + drift_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, "%a, %b %d", now);
-        } else {
-          it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, "--:--");
+        // --------------------------------------------------
+        // STYLE 2: AURORA BOREALIS (Northern Lights Waves)
+        // --------------------------------------------------
+        } else if (ss_style == "Aurora Borealis") {
+          float t = now_ms * 0.0012f;
+
+          // Background Twinkling Arctic Stars (Static pseudorandom grid)
+          for (int i = 0; i < 35; i++) {
+            int sx = (i * 97 + 31) % 440 + 13;
+            int sy = (i * 53 + 17) % 240 + 20;
+            int dist_c = (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy);
+            if (dist_c < 48000) {
+              int twinkle = (int)(sinf(t * 2.5f + i) * 100.0f);
+              if (twinkle > 20) {
+                it.draw_pixel_at(sx, sy, id(col_white));
+              } else {
+                it.draw_pixel_at(sx, sy, id(col_slate));
+              }
+            }
+          }
+
+          // Layer 1: Deep Violet / Magenta High-Altitude Glow (y: 80..220)
+          for (int x = 40; x < 426; x += 3) {
+            float wave1 = sinf(x * 0.015f + t * 0.8f) * 35.0f + cosf(x * 0.008f - t * 0.5f) * 20.0f;
+            int y_base = 150 + (int)wave1;
+            int ray_len = 55 + (int)(sinf(x * 0.03f + t * 1.5f) * 25.0f);
+            for (int r = 0; r < ray_len; r += 2) {
+              int py = y_base - r;
+              int dx = x - cx; int dy = py - cy;
+              if (dx * dx + dy * dy < 50000 && py > 10) {
+                it.draw_pixel_at(x, py, id(col_magenta));
+              }
+            }
+          }
+
+          // Layer 2: Electric Cyan / Turquoise Mid Curtain (y: 140..280)
+          for (int x = 40; x < 426; x += 3) {
+            float wave2 = sinf(x * 0.018f - t * 1.1f + 1.2f) * 40.0f + sinf(x * 0.009f + t * 0.7f) * 25.0f;
+            int y_base = 210 + (int)wave2;
+            int ray_len = 65 + (int)(cosf(x * 0.025f - t * 1.8f) * 30.0f);
+            for (int r = 0; r < ray_len; r += 2) {
+              int py = y_base - r;
+              int dx = x - cx; int dy = py - cy;
+              if (dx * dx + dy * dy < 50000 && py > 10) {
+                it.draw_pixel_at(x, py, id(col_cyan));
+              }
+            }
+          }
+
+          // Layer 3: Brilliant Emerald Green Primary Aurora Curtain (y: 200..340)
+          for (int x = 40; x < 426; x += 2) {
+            float wave3 = sinf(x * 0.022f + t * 1.4f) * 45.0f + cosf(x * 0.012f + t * 0.9f) * 30.0f;
+            int y_base = 270 + (int)wave3;
+            int ray_len = 75 + (int)(sinf(x * 0.035f + t * 2.1f) * 35.0f);
+            for (int r = 0; r < ray_len; r += 2) {
+              int py = y_base - r;
+              int dx = x - cx; int dy = py - cy;
+              if (dx * dx + dy * dy < 50000 && py > 10) {
+                it.draw_pixel_at(x, py, (r < 12) ? id(col_white) : id(col_green));
+              }
+            }
+          }
+
+          // Subtle Clock Watermark at bottom (y = 400)
+          if (now.is_valid()) {
+            char t_str[16];
+            int h12 = now.hour % 12; if (h12 == 0) h12 = 12;
+            snprintf(t_str, sizeof(t_str), "%d:%02d", id(is_24h_format) ? now.hour : h12, now.minute);
+            it.print(cx, 400, id(font_small), id(col_slate), TextAlign::CENTER, t_str);
+          }
+          return;
+
+        // --------------------------------------------------
+        // STYLE 3: 3D WARP-SPEED STARFIELD (Hyperspace Outflow)
+        // --------------------------------------------------
+        } else if (ss_style == "Starfield") {
+          struct Star3D {
+            float x, y, z;
+          };
+          static Star3D stars[65];
+          static bool stars_init = false;
+          if (!stars_init) {
+            for (int i = 0; i < 65; i++) {
+              stars[i].x = (float)((i * 137 % 1600) - 800);
+              stars[i].y = (float)(((i * 73 + 41) % 1600) - 800);
+              stars[i].z = (float)(i * 15 + 10);
+            }
+            stars_init = true;
+          }
+
+          float speed = 22.0f; // Hyperspace velocity
+          for (int i = 0; i < 65; i++) {
+            stars[i].z -= speed;
+            if (stars[i].z <= 15.0f) {
+              stars[i].z = 1000.0f;
+              float angle = ((i * 47) % 360) * (PI_F / 180.0f);
+              float rad = 150.0f + (float)((i * 23) % 650);
+              stars[i].x = cosf(angle) * rad;
+              stars[i].y = sinf(angle) * rad;
+            }
+
+            float k = 230.0f / stars[i].z;
+            int px = cx + (int)(stars[i].x * k);
+            int py = cy + (int)(stars[i].y * k);
+
+            int dx = px - cx; int dy = py - cy;
+            if (dx * dx + dy * dy < 51500) {
+              if (stars[i].z > 600.0f) {
+                it.draw_pixel_at(px, py, id(col_dark_gray));
+              } else if (stars[i].z > 300.0f) {
+                it.draw_pixel_at(px, py, id(col_slate));
+                it.draw_pixel_at(px + 1, py, id(col_slate));
+              } else {
+                float prev_k = 230.0f / (stars[i].z + speed * 1.5f);
+                int p_prev_x = cx + (int)(stars[i].x * prev_k);
+                int p_prev_y = cy + (int)(stars[i].y * prev_k);
+                it.line(p_prev_x, p_prev_y, px, py, id(col_cyan));
+                it.filled_circle(px, py, 2, id(col_white));
+              }
+            }
+          }
+
+          it.circle(cx, cy, 14, id(col_dark_gray));
+          it.draw_pixel_at(cx, cy, id(col_cyan));
+          return;
+
+        // --------------------------------------------------
+        // STYLE 4: MATRIX CYBER RAIN (Cascading Phosphor Streams)
+        // --------------------------------------------------
+        } else if (ss_style == "Matrix Rain") {
+          struct RainCol {
+            int x;
+            float head_y;
+            float speed;
+            int len;
+          };
+          static RainCol cols[21];
+          static bool rain_init = false;
+          if (!rain_init) {
+            for (int i = 0; i < 21; i++) {
+              cols[i].x = 45 + i * 19;
+              cols[i].head_y = (float)((i * 37) % 400 - 150);
+              cols[i].speed = 5.5f + (float)((i * 13) % 9);
+              cols[i].len = 8 + (i % 6);
+            }
+            rain_init = true;
+          }
+
+          for (int i = 0; i < 21; i++) {
+            cols[i].head_y += cols[i].speed;
+            int lead_y = (int)cols[i].head_y;
+
+            if (lead_y - cols[i].len * 14 > 450) {
+              cols[i].head_y = -30.0f - (float)((i * 29) % 120);
+              cols[i].speed = 5.5f + (float)((now_ms + i * 7) % 9);
+            }
+
+            for (int j = 0; j < cols[i].len; j++) {
+              int py = lead_y - j * 14;
+              int dx = cols[i].x - cx; int dy = py - cy;
+              if (dx * dx + dy * dy < 51500 && py > 10 && py < 456) {
+                if (j == 0) {
+                  it.filled_rectangle(cols[i].x - 1, py - 3, 3, 7, id(col_white));
+                } else if (j < 3) {
+                  it.filled_rectangle(cols[i].x - 1, py - 2, 2, 5, id(col_green));
+                } else {
+                  it.draw_pixel_at(cols[i].x, py, id(col_dark_gray));
+                  it.draw_pixel_at(cols[i].x, py + 1, id(col_green));
+                }
+              }
+            }
+          }
+          return;
+
+        // --------------------------------------------------
+        // STYLE 5: ARC REACTOR (Pulsing Plasma Corona)
+        // --------------------------------------------------
+        } else if (ss_style == "Arc Reactor") {
+          float t = now_ms * 0.002f;
+
+          it.circle(cx, cy, 210, id(col_dark_gray));
+          it.circle(cx, cy, 208, id(theme_secondary));
+          it.circle(cx, cy, 204, id(col_dark_gray));
+
+          for (int i = 0; i < 12; i++) {
+            float ang = (i * 30.0f) * (PI_F / 180.0f);
+            float sa, ca;
+            sincosf(ang, &sa, &ca);
+            it.line(cx + (int)(196.0f * sa), cy - (int)(196.0f * ca),
+                    cx + (int)(212.0f * sa), cy - (int)(212.0f * ca), id(theme_primary));
+          }
+
+          float rot_a = t * 0.7f;
+          for (int i = 0; i < 8; i++) {
+            float arc_start = rot_a + i * (PI_F / 4.0f);
+            float s_a1, c_a1, s_a2, c_a2;
+            sincosf(arc_start, &s_a1, &c_a1);
+            sincosf(arc_start + 0.22f, &s_a2, &c_a2);
+            it.line(cx + (int)(145.0f * s_a1), cy - (int)(145.0f * c_a1),
+                    cx + (int)(145.0f * s_a2), cy - (int)(145.0f * c_a2), id(col_cyan));
+            it.line(cx + (int)(146.0f * s_a1), cy - (int)(146.0f * c_a1),
+                    cx + (int)(146.0f * s_a2), cy - (int)(146.0f * c_a2), id(col_white));
+          }
+
+          float core_rot = -t * 1.1f;
+          for (int i = 0; i < 6; i++) {
+            float c_ang = core_rot + i * (PI_F / 3.0f);
+            float sa, ca;
+            sincosf(c_ang, &sa, &ca);
+            it.line(cx + (int)(85.0f * sa), cy - (int)(85.0f * ca),
+                    cx + (int)(105.0f * sa), cy - (int)(105.0f * ca), id(theme_secondary));
+          }
+
+          int core_r = 48 + (int)(sinf(t * 3.5f) * 6.0f);
+          it.filled_circle(cx, cy, core_r, id(col_dark_gray));
+          it.circle(cx, cy, core_r, id(theme_primary));
+          it.filled_circle(cx, cy, core_r - 12, id(col_cyan));
+          it.filled_circle(cx, cy, core_r - 24, id(col_white));
+
+          for (int i = 0; i < 4; i++) {
+            float spark_a = t * 2.2f + i * (PI_F / 2.0f);
+            float sa, ca;
+            sincosf(spark_a, &sa, &ca);
+            it.line(cx + (int)(54.0f * sa), cy - (int)(54.0f * ca),
+                    cx + (int)(138.0f * sa), cy - (int)(138.0f * ca), id(col_white));
+          }
+          return;
         }
-        return;
       }
 
       if (!id(display_brightness).current_values.is_on() || id(display_power_state) == 2) {
@@ -3621,8 +3881,8 @@ display:
           // Card 2: Archery
           draw_pill_button(140, 326, 207, 22, id(theme_secondary), id(col_dark_gray), "ARCHERY", id(col_white), true);
 
-          // Card 3: Treat Catcher
-          draw_pill_button(140, 326, 287, 22, id(theme_secondary), id(col_dark_gray), "TREAT CATCHER", id(col_white), true);
+          // Card 3: CHOMP (Kids)
+          draw_pill_button(140, 326, 287, 22, id(theme_secondary), id(col_dark_gray), "CHOMP (Kids)", id(col_white), true);
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
@@ -3925,10 +4185,10 @@ display:
           it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
 
         // ----------------------------------------------------
-        // GAME 3: TREAT CATCHER (FEED THE HUNGRY MONSTER)
+        // GAME 3: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
         } else {
-          it.print(cx, 65, id(font_small), id(theme_secondary), TextAlign::CENTER, "TREAT CATCHER");
+          it.print(cx, 65, id(font_small), id(theme_secondary), TextAlign::CENTER, "CHOMP (Kids)");
 
           static int treat_score = 0;
           static float treat_x = cx + 60.0f;
@@ -4004,8 +4264,8 @@ display:
 
           bool is_chomping = (millis() - chomp_timer < 500);
 
-          // Draw Creature Body
-          it.filled_circle(cx, cy, 32, id(col_green));
+          // Draw Creature Body (Electric Blue)
+          it.filled_circle(cx, cy, 32, id(col_light_blue));
           it.circle(cx, cy, 32, id(col_white));
 
           // Eyes follow treat
@@ -4039,7 +4299,7 @@ display:
           it.filled_circle((int)treat_x - 4, (int)treat_y - 4, 4, id(col_white));
 
           char t_buf[32];
-          snprintf(t_buf, sizeof(t_buf), "Treats Eaten: %d", treat_score);
+          snprintf(t_buf, sizeof(t_buf), "Treats Chomped: %d", treat_score);
           it.print(cx, 90, id(font_small), id(col_gold), TextAlign::CENTER, t_buf);
 
           it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt to Roll Treat into Mouth");
@@ -4126,31 +4386,37 @@ display:
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
-          // VIEW 1: SLEEP & WAKE SUBMENU
+          // VIEW 1: SLEEP & WAKE SUBMENU (Clean 50px Pitch)
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
 
-          // Button 1: Motion Wake Cycler (y = 120)
+          // Button 1: Motion Wake Cycler (y = 110, r = 18)
           char m_buf[32];
           std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
           snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
-          draw_pill_button(110, 356, 120, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
+          draw_pill_button(110, 356, 110, 18, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
 
-          // Button 2: Tap Wake Cycler (y = 175)
+          // Button 2: Tap Wake Cycler (y = 160, r = 18)
           char t_buf[32];
           std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
           snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-          draw_pill_button(110, 356, 175, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
+          draw_pill_button(110, 356, 160, 18, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
 
-          // Button 3: Docked Screensaver Toggle (y = 230)
+          // Button 3: Docked Screensaver Toggle (y = 210, r = 18)
           std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
-          draw_pill_button(110, 356, 230, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 210, 18, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
 
-          // Button 4: Stay Awake Mode (y = 285)
+          // Button 4: Screensaver Style Cycler (y = 260, r = 18)
+          std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
+          char sty_buf[32];
+          snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Arc Reactor" ? "Reactor" : s_style.c_str())));
+          draw_pill_button(110, 356, 260, 18, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
+
+          // Button 5: Stay Awake Mode (y = 310, r = 18)
           std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
-          draw_pill_button(110, 356, 285, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 310, 18, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
 
-          // Bottom Button: Standardized < BACK (y = 375)
+          // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
 
         } else if (id(system_menu_mode) == 2) {
@@ -4804,7 +5070,7 @@ touchscreen:
                   } else if (touch.y >= 175 && touch.y < 250) {
                     id(active_game) = 2; // Archery
                   } else if (touch.y >= 255 && touch.y < 330) {
-                    id(active_game) = 3; // Treat Catcher
+                    id(active_game) = 3; // CHOMP (Kids)
                   }
                 }
                 if (id(active_game) > 0) {
@@ -4867,38 +5133,51 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
-                // Mode 1: Power & Wake Submenu
-                // Card 1: Motion Wake Cycler (y: 100..140, x: 100..366)
-                if (touch.y >= 100 && touch.y <= 140 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
-                  std::string nxt = "Always On";
-                  if (cur == "Always On") nxt = "Docked Only";
-                  else if (cur == "Docked Only") nxt = "Disabled";
-                  else if (cur == "Disabled") nxt = "Always On";
+                // Mode 1: Sleep & Wake Submenu
+                // Card 1: Motion Wake Cycler (y: 90..130, x: 100..366)
+                if (touch.y >= 90 && touch.y <= 130 && touch.x >= 100 && touch.x <= 366) {
+                  std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
+                  std::string nxt_m = "Always On";
+                  if (cur_m == "Always On") nxt_m = "Docked Only";
+                  else if (cur_m == "Docked Only") nxt_m = "Disabled";
+                  else nxt_m = "Always On";
                   auto call = id(pickup_wake_mode).make_call();
-                  call.set_option(nxt);
+                  call.set_option(nxt_m);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Tap Wake Cycler (y: 160..200, x: 100..366)
-                } else if (touch.y >= 160 && touch.y <= 200 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
-                  std::string nxt = "Always On";
-                  if (cur == "Always On") nxt = "Docked Only";
-                  else if (cur == "Docked Only") nxt = "Disabled";
-                  else if (cur == "Disabled") nxt = "Always On";
+                // Card 2: Tap Wake Cycler (y: 140..180, x: 100..366)
+                } else if (touch.y >= 140 && touch.y <= 180 && touch.x >= 100 && touch.x <= 366) {
+                  std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
+                  std::string nxt_t = "Always On";
+                  if (cur_t == "Always On") nxt_t = "Docked Only";
+                  else if (cur_t == "Docked Only") nxt_t = "Disabled";
+                  else nxt_t = "Always On";
                   auto call = id(tap_wake_mode).make_call();
-                  call.set_option(nxt);
+                  call.set_option(nxt_t);
                   call.perform();
                   id(disp1).update();
-                // Card 3: Docked Screensaver Toggle (y: 220..260, x: 100..366)
-                } else if (touch.y >= 220 && touch.y <= 260 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Docked Screensaver Toggle (y: 190..230, x: 100..366)
+                } else if (touch.y >= 190 && touch.y <= 230 && touch.x >= 100 && touch.x <= 366) {
                   id(docked_screensaver_switch).toggle();
                   id(disp1).update();
-                // Card 4: Stay Awake Mode Toggle (y: 265..310, x: 100..366)
-                } else if (touch.y >= 265 && touch.y <= 310 && touch.x >= 100 && touch.x <= 366) {
+                // Card 4: Screensaver Style Cycler (y: 240..280, x: 100..366)
+                } else if (touch.y >= 240 && touch.y <= 280 && touch.x >= 100 && touch.x <= 366) {
+                  std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
+                  std::string nxt_s = "Ambient Clock";
+                  if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
+                  else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
+                  else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
+                  else if (cur_s == "Matrix Rain") nxt_s = "Arc Reactor";
+                  else nxt_s = "Ambient Clock";
+                  auto call = id(screensaver_style_select).make_call();
+                  call.set_option(nxt_s);
+                  call.perform();
+                  id(disp1).update();
+                // Card 5: Stay Awake Mode (y: 290..330, x: 100..366)
+                } else if (touch.y >= 290 && touch.y <= 330 && touch.x >= 100 && touch.x <= 366) {
                   id(prevent_deep_sleep_switch).toggle();
                   id(disp1).update();
-                // Standardized < BACK (y: 350..400, x: 120..346)
+                // Standardized < BACK Button at y = 375 (y: 350..400, x: 120..346)
                 } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();

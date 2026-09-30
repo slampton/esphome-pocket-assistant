@@ -20,7 +20,7 @@ Most ESPHome media controllers are passive displays that only reflect what an ex
 * 🎙️ **Voice Assistant with Touch Modal Takeover & Tap-to-Dismiss**: Direct Assist satellite pipeline with dynamic 20 dB music ducking, kinetic AMOLED visual feedback, physical side-button abort, and full-screen touch modal interception allowing tap-to-dismiss without triggering background app cards.
 * 🎚️ **Single-Authority Audio & Glitch-Free Volume**: Unified physical DAC control with priority-synchronized boot gain (no 100% startup blasts) and a configurable **Volume Step Size** entity (1%–10%, default 2%) to eliminate slider rubber-banding.
 * ⏱️ **Vintage Chronograph & Lap Stopwatch**: Precision chronometer featuring an aged parchment Heuer-inspired dual-subdial dial, center sweep seconds, and crown button controls with hardware release-dwell latency compensation.
-* 🎮 **Interactive Motion Games**: Real-time 20 FPS physics games (Marble Maze, Archery Target, Treat Catcher) powered by the onboard 6-axis IMU.
+* 🎮 **Interactive Motion Games**: Real-time 20 FPS physics games (Marble Maze, Archery Target, CHOMP (Kids)) powered by the onboard 6-axis IMU.
 * 🔋 **Intelligent Multi-Tier Power Management**: Instant AMOLED screen standby with modular pickup wake modes (Always On, Docked Only, or Button Only), selective Tap-to-Wake gating (`select.tap_wake_mode`), configurable standby auto-sleep timeout (5m, 10m, 15m, 30m, Disabled), physical pocket lock, 5-second abortable hibernation countdown, hardware deep sleep with accidental-bump rejection, and USB dock stay-awake override.
 * 🛡️ **2-Tier Hierarchical System Submenu Hub with Software Updates**: Clean separation of Mode 0 observational telemetry (battery %, voltage, Wi-Fi RSSI/IP, IMU temp/orientation, firmware version, wake settings, live brightness, and sleep timeout) from an interactive menu hierarchy: Mode 1 (System Hub router), Mode 2 (Device Settings cyclers for Brightness, Start App, Motion Wake, Tap Wake), Mode 3 (Power Options for Hibernate Now, Auto-Sleep cycler, and Restart), Mode 4 (Protected Restart confirmation dialog), Mode 5 (On-Device Software Update management screen), and Mode 6 (Update confirmation dialog).
 * 🔄 **Overhauled Radial OTA In-Progress Overlay**: A watchOS-grade 360° circular progress arc with 10 FPS smooth linear interpolation (`lerp`) and an orbiting illuminated pip that eliminates chunky multi-second jumps and displays real-time stage cues (`"Writing flash memory..."`, `"Verifying image..."`).
@@ -150,7 +150,7 @@ Complete handheld controller for Music Assistant:
 Interactive accelerometer-driven games running at 20 FPS:
 * **Marble Maze**: Guide a steel ball through moving obstacles into the goal.
 * **Archery Target**: Steady your aim against synthetic wind drift.
-* **Treat Catcher**: Tilt to roll treats into the animated cat's mouth.
+* **CHOMP (Kids)**: Tilt to roll treats into the animated cat's mouth.
 
 ### ⚙️ System Dashboard & Hierarchical Submenu Hub (`apps/system.yaml` / `core/ui.yaml`)
 Consolidated hardware status, settings, software updates, and power controls organized into a clean 2-tier hierarchy:
@@ -385,7 +385,7 @@ esphome-pocket-assistant/
 │   ├── clock.yaml                 # Modern dial watch face with vertical battery gauge
 │   ├── stopwatch.yaml             # Vintage Heuer chronometer with dual subdials
 │   ├── music.yaml                 # Music Assistant client, album art, roving remote
-│   ├── games.yaml                 # 3 motion physics games (Marble, Archery, Treat Catcher)
+│   ├── games.yaml                 # 3 motion physics games (Marble, Archery, CHOMP (Kids))
 │   └── system.yaml                # Elevated telemetry dashboard, brightness presets, restart
 └── homeassistant/
     ├── blueprints/
