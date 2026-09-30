@@ -407,7 +407,7 @@ select:
       - "Aurora Borealis"
       - "Starfield"
       - "Matrix Rain"
-      - "Arc Reactor"
+      - "Solar Flare"
     set_action:
       - lambda: |-
           id(disp1).update();
@@ -2542,133 +2542,115 @@ display:
           return;
 
         // --------------------------------------------------
-        // STYLE 2: AURORA BOREALIS (Northern Lights Waves)
+        // STYLE 2: AURORA BOREALIS (Full-Bleed Organic Cosmic Ribbons)
         // --------------------------------------------------
         } else if (ss_style == "Aurora Borealis") {
-          float t = now_ms * 0.0012f;
+          float t = now_ms * 0.0010f;
 
-          // Background Twinkling Arctic Stars (Static pseudorandom grid)
-          for (int i = 0; i < 35; i++) {
-            int sx = (i * 97 + 31) % 440 + 13;
-            int sy = (i * 53 + 17) % 240 + 20;
-            int dist_c = (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy);
-            if (dist_c < 48000) {
-              int twinkle = (int)(sinf(t * 2.5f + i) * 100.0f);
-              if (twinkle > 20) {
-                it.draw_pixel_at(sx, sy, id(col_white));
-              } else {
-                it.draw_pixel_at(sx, sy, id(col_slate));
+          // Full circular screen coverage (R = 228, edge-to-edge, zero static content)
+          for (int x = 8; x <= 458; x += 2) {
+            int dx = x - cx;
+            int dx2 = dx * dx;
+            if (dx2 >= 51984) continue; // 228^2
+            int h_half = (int)sqrtf(51984.0f - (float)dx2);
+            int y_min = cy - h_half;
+            int y_max = cy + h_half;
+
+            // Wave 1: Cosmic Violet / High-Altitude Mauve Ribbon
+            int y1 = cy - 35 + (int)(sinf(x * 0.011f + t * 0.6f) * 55.0f + cosf(x * 0.006f - t * 0.35f) * 25.0f);
+            int len1 = 55 + (int)(sinf(x * 0.024f + t * 1.2f) * 25.0f);
+            for (int py = y1; py >= y1 - len1; py -= 2) {
+              if (py >= y_min && py <= y_max) {
+                float k = (float)(y1 - py) / (float)len1;
+                it.draw_pixel_at(x, py, Color((uint8_t)(180.0f - 80.0f * k), (uint8_t)(30.0f - 15.0f * k), (uint8_t)(190.0f - 60.0f * k)));
               }
             }
-          }
 
-          // Layer 1: Deep Violet / Magenta High-Altitude Glow (y: 80..220)
-          for (int x = 40; x < 426; x += 3) {
-            float wave1 = sinf(x * 0.015f + t * 0.8f) * 35.0f + cosf(x * 0.008f - t * 0.5f) * 20.0f;
-            int y_base = 150 + (int)wave1;
-            int ray_len = 55 + (int)(sinf(x * 0.03f + t * 1.5f) * 25.0f);
-            for (int r = 0; r < ray_len; r += 2) {
-              int py = y_base - r;
-              int dx = x - cx; int dy = py - cy;
-              if (dx * dx + dy * dy < 50000 && py > 10) {
-                it.draw_pixel_at(x, py, id(col_magenta));
+            // Wave 2: Electric Cyan / Turquoise Ionosphere Ribbon
+            int y2 = cy + 15 + (int)(sinf(x * 0.014f - t * 0.8f + 1.6f) * 60.0f + sinf(x * 0.008f + t * 0.5f) * 30.0f);
+            int len2 = 65 + (int)(cosf(x * 0.028f - t * 1.5f) * 30.0f);
+            for (int py = y2; py >= y2 - len2; py -= 2) {
+              if (py >= y_min && py <= y_max) {
+                float k = (float)(y2 - py) / (float)len2;
+                it.draw_pixel_at(x, py, Color((uint8_t)(15.0f * (1.0f - k)), (uint8_t)(230.0f - 110.0f * k), (uint8_t)(240.0f - 70.0f * k)));
               }
             }
-          }
 
-          // Layer 2: Electric Cyan / Turquoise Mid Curtain (y: 140..280)
-          for (int x = 40; x < 426; x += 3) {
-            float wave2 = sinf(x * 0.018f - t * 1.1f + 1.2f) * 40.0f + sinf(x * 0.009f + t * 0.7f) * 25.0f;
-            int y_base = 210 + (int)wave2;
-            int ray_len = 65 + (int)(cosf(x * 0.025f - t * 1.8f) * 30.0f);
-            for (int r = 0; r < ray_len; r += 2) {
-              int py = y_base - r;
-              int dx = x - cx; int dy = py - cy;
-              if (dx * dx + dy * dy < 50000 && py > 10) {
-                it.draw_pixel_at(x, py, id(col_cyan));
+            // Wave 3: Emerald Jade Primary Aurora Curtain (Seamless gradient, NO white line)
+            int y3 = cy + 65 + (int)(sinf(x * 0.017f + t * 1.0f + 3.1f) * 65.0f + cosf(x * 0.010f - t * 0.7f) * 35.0f);
+            int len3 = 80 + (int)(sinf(x * 0.032f + t * 1.8f) * 35.0f);
+            for (int py = y3; py >= y3 - len3; py -= 2) {
+              if (py >= y_min && py <= y_max) {
+                float k = (float)(y3 - py) / (float)len3;
+                it.draw_pixel_at(x, py, Color((uint8_t)(25.0f * (1.0f - k)), (uint8_t)(235.0f - 120.0f * k), (uint8_t)(85.0f - 40.0f * k)));
               }
             }
-          }
-
-          // Layer 3: Brilliant Emerald Green Primary Aurora Curtain (y: 200..340)
-          for (int x = 40; x < 426; x += 2) {
-            float wave3 = sinf(x * 0.022f + t * 1.4f) * 45.0f + cosf(x * 0.012f + t * 0.9f) * 30.0f;
-            int y_base = 270 + (int)wave3;
-            int ray_len = 75 + (int)(sinf(x * 0.035f + t * 2.1f) * 35.0f);
-            for (int r = 0; r < ray_len; r += 2) {
-              int py = y_base - r;
-              int dx = x - cx; int dy = py - cy;
-              if (dx * dx + dy * dy < 50000 && py > 10) {
-                it.draw_pixel_at(x, py, (r < 12) ? id(col_white) : id(col_green));
-              }
-            }
-          }
-
-          // Subtle Clock Watermark at bottom (y = 400)
-          if (now.is_valid()) {
-            char t_str[16];
-            int h12 = now.hour % 12; if (h12 == 0) h12 = 12;
-            snprintf(t_str, sizeof(t_str), "%d:%02d", id(is_24h_format) ? now.hour : h12, now.minute);
-            it.print(cx, 400, id(font_small), id(col_slate), TextAlign::CENTER, t_str);
           }
           return;
 
         // --------------------------------------------------
-        // STYLE 3: 3D WARP-SPEED STARFIELD (Hyperspace Outflow)
+        // STYLE 3: 3D WARP-SPEED STARFIELD (Authentic Hyperspace Simulation)
         // --------------------------------------------------
         } else if (ss_style == "Starfield") {
           struct Star3D {
             float x, y, z;
           };
-          static Star3D stars[65];
+          static Star3D stars[90];
           static bool stars_init = false;
+          static uint32_t star_seed = 123456789;
+
+          auto star_rand = [&]() -> float {
+            star_seed = star_seed * 1664525u + 1013904223u;
+            return (float)(star_seed & 0xFFFF) / 65535.0f;
+          };
+
+          auto respawn_star = [&](int i, bool init_z) {
+            float ang = star_rand() * 2.0f * PI_F;
+            float dist = 40.0f + star_rand() * 650.0f;
+            stars[i].x = cosf(ang) * dist;
+            stars[i].y = sinf(ang) * dist;
+            stars[i].z = init_z ? (30.0f + star_rand() * 950.0f) : (850.0f + star_rand() * 150.0f);
+          };
+
           if (!stars_init) {
-            for (int i = 0; i < 65; i++) {
-              stars[i].x = (float)((i * 137 % 1600) - 800);
-              stars[i].y = (float)(((i * 73 + 41) % 1600) - 800);
-              stars[i].z = (float)(i * 15 + 10);
+            for (int i = 0; i < 90; i++) {
+              respawn_star(i, true);
             }
             stars_init = true;
           }
 
-          float speed = 22.0f; // Hyperspace velocity
-          for (int i = 0; i < 65; i++) {
+          float speed = 25.0f;
+          for (int i = 0; i < 90; i++) {
             stars[i].z -= speed;
-            if (stars[i].z <= 15.0f) {
-              stars[i].z = 1000.0f;
-              float angle = ((i * 47) % 360) * (PI_F / 180.0f);
-              float rad = 150.0f + (float)((i * 23) % 650);
-              stars[i].x = cosf(angle) * rad;
-              stars[i].y = sinf(angle) * rad;
-            }
 
             float k = 230.0f / stars[i].z;
-            int px = cx + (int)(stars[i].x * k);
-            int py = cy + (int)(stars[i].y * k);
+            int sx = cx + (int)(stars[i].x * k);
+            int sy = cy + (int)(stars[i].y * k);
 
-            int dx = px - cx; int dy = py - cy;
-            if (dx * dx + dy * dy < 51500) {
-              if (stars[i].z > 600.0f) {
-                it.draw_pixel_at(px, py, id(col_dark_gray));
-              } else if (stars[i].z > 300.0f) {
-                it.draw_pixel_at(px, py, id(col_slate));
-                it.draw_pixel_at(px + 1, py, id(col_slate));
-              } else {
-                float prev_k = 230.0f / (stars[i].z + speed * 1.5f);
-                int p_prev_x = cx + (int)(stars[i].x * prev_k);
-                int p_prev_y = cy + (int)(stars[i].y * prev_k);
-                it.line(p_prev_x, p_prev_y, px, py, id(col_cyan));
-                it.filled_circle(px, py, 2, id(col_white));
-              }
+            int dx = sx - cx; int dy = sy - cy;
+            if (stars[i].z <= 25.0f || (dx * dx + dy * dy) >= 51529) { // 227^2
+              respawn_star(i, false);
+              continue;
+            }
+
+            float prev_k = 230.0f / (stars[i].z + speed * 1.5f);
+            int px = cx + (int)(stars[i].x * prev_k);
+            int py = cy + (int)(stars[i].y * prev_k);
+
+            if (stars[i].z > 650.0f) {
+              it.draw_pixel_at(sx, sy, Color(80, 100, 130));
+            } else if (stars[i].z > 350.0f) {
+              it.line(px, py, sx, sy, Color(100, 180, 230));
+              it.draw_pixel_at(sx, sy, Color(180, 220, 255));
+            } else {
+              it.line(px, py, sx, sy, Color(40, 180, 255));
+              it.filled_circle(sx, sy, 2, Color(255, 255, 255));
             }
           }
-
-          it.circle(cx, cy, 14, id(col_dark_gray));
-          it.draw_pixel_at(cx, cy, id(col_cyan));
           return;
 
         // --------------------------------------------------
-        // STYLE 4: MATRIX CYBER RAIN (Cascading Phosphor Streams)
+        // STYLE 4: MATRIX CYBER RAIN (Chunky Phosphor Glyph Droplets)
         // --------------------------------------------------
         } else if (ss_style == "Matrix Rain") {
           struct RainCol {
@@ -2677,38 +2659,51 @@ display:
             float speed;
             int len;
           };
-          static RainCol cols[21];
+          static RainCol cols[12];
           static bool rain_init = false;
           if (!rain_init) {
-            for (int i = 0; i < 21; i++) {
-              cols[i].x = 45 + i * 19;
-              cols[i].head_y = (float)((i * 37) % 400 - 150);
-              cols[i].speed = 5.5f + (float)((i * 13) % 9);
-              cols[i].len = 8 + (i % 6);
+            uint32_t r_seed = 987654321;
+            for (int i = 0; i < 12; i++) {
+              r_seed = r_seed * 1664525u + 1013904223u;
+              cols[i].x = 65 + i * 30;
+              cols[i].head_y = (float)((int)(r_seed % 550) - 150);
+              r_seed = r_seed * 1664525u + 1013904223u;
+              cols[i].speed = 7.0f + (float)(r_seed % 6);
+              cols[i].len = 9 + (i % 5);
             }
             rain_init = true;
           }
 
-          for (int i = 0; i < 21; i++) {
+          for (int i = 0; i < 12; i++) {
             cols[i].head_y += cols[i].speed;
             int lead_y = (int)cols[i].head_y;
 
-            if (lead_y - cols[i].len * 14 > 450) {
-              cols[i].head_y = -30.0f - (float)((i * 29) % 120);
-              cols[i].speed = 5.5f + (float)((now_ms + i * 7) % 9);
+            if (lead_y - cols[i].len * 16 > 460) {
+              cols[i].head_y = -35.0f - (float)((now_ms + i * 43) % 120);
+              cols[i].speed = 7.0f + (float)((now_ms + i * 17) % 6);
             }
 
             for (int j = 0; j < cols[i].len; j++) {
-              int py = lead_y - j * 14;
-              int dx = cols[i].x - cx; int dy = py - cy;
-              if (dx * dx + dy * dy < 51500 && py > 10 && py < 456) {
+              int gy = lead_y - j * 16;
+              int dx = cols[i].x - cx; int dy = gy - cy;
+              if (dx * dx + dy * dy < 51529 && gy > 10 && gy < 456) {
                 if (j == 0) {
-                  it.filled_rectangle(cols[i].x - 1, py - 3, 3, 7, id(col_white));
-                } else if (j < 3) {
-                  it.filled_rectangle(cols[i].x - 1, py - 2, 2, 5, id(col_green));
+                  // Bold white lead droplet with neon green aura
+                  it.filled_rectangle(cols[i].x - 3, gy - 5, 7, 11, Color(140, 255, 140));
+                  it.filled_rectangle(cols[i].x - 2, gy - 4, 5, 9, Color(255, 255, 255));
+                } else if (j <= 2) {
+                  // Electric lime green upper trail
+                  it.filled_rectangle(cols[i].x - 3, gy - 5, 6, 10, Color(40, 255, 80));
+                  it.filled_rectangle(cols[i].x - 2, gy - 4, 4, 8, Color(160, 255, 180));
+                } else if (j <= 5) {
+                  // Emerald matrix green
+                  it.filled_rectangle(cols[i].x - 2, gy - 4, 5, 8, Color(20, 200, 50));
+                } else if (j <= 8) {
+                  // Phosphor mid-green
+                  it.filled_rectangle(cols[i].x - 2, gy - 3, 4, 6, Color(10, 130, 30));
                 } else {
-                  it.draw_pixel_at(cols[i].x, py, id(col_dark_gray));
-                  it.draw_pixel_at(cols[i].x, py + 1, id(col_green));
+                  // Fading phosphor trail
+                  it.filled_rectangle(cols[i].x - 1, gy - 2, 3, 4, Color(5, 65, 15));
                 }
               }
             }
@@ -2716,56 +2711,79 @@ display:
           return;
 
         // --------------------------------------------------
-        // STYLE 5: ARC REACTOR (Pulsing Plasma Corona)
+        // STYLE 5: SOLAR FLARE (Pulsing Living Sun & Dynamic Coronal Loops)
         // --------------------------------------------------
-        } else if (ss_style == "Arc Reactor") {
-          float t = now_ms * 0.002f;
+        } else if (ss_style == "Solar Flare") {
+          float t = now_ms * 0.0015f;
 
-          it.circle(cx, cy, 210, id(col_dark_gray));
-          it.circle(cx, cy, 208, id(theme_secondary));
-          it.circle(cx, cy, 204, id(col_dark_gray));
+          // Living solar core pulsation (r0 breathes between 56 and 68)
+          float r0 = 62.0f + 6.0f * sinf(t * 1.5f);
 
-          for (int i = 0; i < 12; i++) {
-            float ang = (i * 30.0f) * (PI_F / 180.0f);
-            float sa, ca;
-            sincosf(ang, &sa, &ca);
-            it.line(cx + (int)(196.0f * sa), cy - (int)(196.0f * ca),
-                    cx + (int)(212.0f * sa), cy - (int)(212.0f * ca), id(theme_primary));
+          // 1. Coronal Mass Ejection (CME Shockwaves traveling outward to bezel)
+          int cme_r = (int)((now_ms % 2800) / 2800.0f * 220.0f);
+          if (cme_r > (int)r0 + 20) {
+            it.circle(cx, cy, cme_r, Color(110, 20, 5));
+            it.circle(cx, cy, cme_r - 2, Color(160, 45, 10));
           }
 
-          float rot_a = t * 0.7f;
-          for (int i = 0; i < 8; i++) {
-            float arc_start = rot_a + i * (PI_F / 4.0f);
-            float s_a1, c_a1, s_a2, c_a2;
-            sincosf(arc_start, &s_a1, &c_a1);
-            sincosf(arc_start + 0.22f, &s_a2, &c_a2);
-            it.line(cx + (int)(145.0f * s_a1), cy - (int)(145.0f * c_a1),
-                    cx + (int)(145.0f * s_a2), cy - (int)(145.0f * c_a2), id(col_cyan));
-            it.line(cx + (int)(146.0f * s_a1), cy - (int)(146.0f * c_a1),
-                    cx + (int)(146.0f * s_a2), cy - (int)(146.0f * c_a2), id(col_white));
+          // 2. Coronal Streamers (36 radial plasma rays modulated by harmonic waves)
+          for (int i = 0; i < 36; i++) {
+            float theta = i * (2.0f * PI_F / 36.0f);
+            float sa = sinf(theta);
+            float ca = cosf(theta);
+
+            float L = 35.0f + 25.0f * sinf(theta * 4.0f + t * 2.4f) + 18.0f * cosf(theta * 7.0f - t * 1.8f) + 12.0f * sinf(theta * 11.0f + t * 3.2f);
+            int in_x = cx + (int)((r0 + 6.0f) * ca);
+            int in_y = cy + (int)((r0 + 6.0f) * sa);
+            int mid_x = cx + (int)((r0 + 6.0f + L * 0.6f) * ca);
+            int mid_y = cy + (int)((r0 + 6.0f + L * 0.6f) * sa);
+            int out_x = cx + (int)((r0 + 6.0f + L) * ca);
+            int out_y = cy + (int)((r0 + 6.0f + L) * sa);
+
+            it.line(in_x, in_y, mid_x, mid_y, Color(245, 95, 15));
+            it.line(mid_x, mid_y, out_x, out_y, Color(255, 205, 35));
+
+            if (L > 65.0f) {
+              it.filled_circle(out_x, out_y, 2, Color(255, 255, 255));
+            }
           }
 
-          float core_rot = -t * 1.1f;
-          for (int i = 0; i < 6; i++) {
-            float c_ang = core_rot + i * (PI_F / 3.0f);
-            float sa, ca;
-            sincosf(c_ang, &sa, &ca);
-            it.line(cx + (int)(85.0f * sa), cy - (int)(85.0f * ca),
-                    cx + (int)(105.0f * sa), cy - (int)(105.0f * ca), id(theme_secondary));
-          }
+          // 3. Magnetic Prominence Loops (Curved plasma arcs leaping out and returning)
+          auto draw_prominence_loop = [&](float center_ang, float peak_r, float arc_span) {
+            float prev_lx = 0, prev_ly = 0;
+            for (int step = 0; step <= 8; step++) {
+              float prog = (float)step / 8.0f;
+              float cur_ang = center_ang - arc_span * 0.5f + arc_span * prog;
+              float h_factor = 4.0f * prog * (1.0f - prog);
+              float cur_r = (r0 + 8.0f) + (peak_r - (r0 + 8.0f)) * h_factor;
+              float lx = cx + cur_r * cosf(cur_ang);
+              float ly = cy + cur_r * sinf(cur_ang);
+              if (step > 0) {
+                it.line((int)prev_lx, (int)prev_ly, (int)lx, (int)ly, Color(255, 195, 30));
+                it.line((int)prev_lx, (int)prev_ly + 1, (int)lx, (int)ly + 1, Color(255, 80, 10));
+              }
+              prev_lx = lx; prev_ly = ly;
+            }
+          };
 
-          int core_r = 48 + (int)(sinf(t * 3.5f) * 6.0f);
-          it.filled_circle(cx, cy, core_r, id(col_dark_gray));
-          it.circle(cx, cy, core_r, id(theme_primary));
-          it.filled_circle(cx, cy, core_r - 12, id(col_cyan));
-          it.filled_circle(cx, cy, core_r - 24, id(col_white));
+          draw_prominence_loop(t * 0.5f, 155.0f + 20.0f * sinf(t * 1.4f), 0.55f);
+          draw_prominence_loop(t * 0.5f + 2.2f, 175.0f + 25.0f * cosf(t * 1.1f), 0.70f);
+          draw_prominence_loop(t * 0.5f + 4.3f, 145.0f + 18.0f * sinf(t * 1.9f), 0.50f);
 
-          for (int i = 0; i < 4; i++) {
-            float spark_a = t * 2.2f + i * (PI_F / 2.0f);
-            float sa, ca;
-            sincosf(spark_a, &sa, &ca);
-            it.line(cx + (int)(54.0f * sa), cy - (int)(54.0f * ca),
-                    cx + (int)(138.0f * sa), cy - (int)(138.0f * ca), id(col_white));
+          // 4. Concentric Sun Body & Photosphere Layers
+          it.filled_circle(cx, cy, (int)(r0 + 16.0f), Color(160, 25, 10));  // Chromosphere glow
+          it.filled_circle(cx, cy, (int)(r0 + 8.0f), Color(245, 100, 10));  // Fiery orange mantle
+          it.filled_circle(cx, cy, (int)r0, Color(255, 195, 25));           // Radiant gold photosphere
+          it.filled_circle(cx, cy, (int)(r0 - 18.0f), Color(255, 255, 230));// White-hot fusion core
+
+          // 5. Convection Granulation Vortices (Rotating flares on solar surface)
+          for (int k = 0; k < 4; k++) {
+            float c_ang = t * 0.8f + k * (PI_F / 2.0f);
+            float c_rad = 22.0f + 10.0f * sinf(t * 2.0f + (float)k);
+            int vx = cx + (int)(cosf(c_ang) * c_rad);
+            int vy = cy + (int)(sinf(c_ang) * c_rad);
+            it.filled_circle(vx, vy, 10, Color(255, 230, 120));
+            it.filled_circle(vx, vy, 6, Color(255, 255, 240));
           }
           return;
         }
@@ -4409,7 +4427,7 @@ display:
           // Button 4: Screensaver Style Cycler (y = 260, r = 18)
           std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
           char sty_buf[32];
-          snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Arc Reactor" ? "Reactor" : s_style.c_str())));
+          snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Solar Flare" ? "Solar" : s_style.c_str())));
           draw_pill_button(110, 356, 260, 18, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
 
           // Button 5: Stay Awake Mode (y = 310, r = 18)
@@ -5167,7 +5185,7 @@ touchscreen:
                   if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
                   else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
                   else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
-                  else if (cur_s == "Matrix Rain") nxt_s = "Arc Reactor";
+                  else if (cur_s == "Matrix Rain") nxt_s = "Solar Flare";
                   else nxt_s = "Ambient Clock";
                   auto call = id(screensaver_style_select).make_call();
                   call.set_option(nxt_s);
