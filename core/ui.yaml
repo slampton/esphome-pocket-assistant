@@ -395,19 +395,6 @@ light:
 
 select:
   - platform: template
-    name: "System: Full-Screen Album Art"
-    id: music_fullscreen_art_mode
-    icon: "mdi:image-size-select-actual"
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_option: "Full Bleed"
-    options:
-      - "Full Bleed"
-      - "Letterbox"
-      - "Disabled"
-
-  - platform: template
     name: "System: Page Counter Mode"
     id: page_counter_mode
     icon: "mdi:numeric"
@@ -640,14 +627,6 @@ button:
 
 
 switch:
-  - platform: template
-    name: "System: Music Controls Overlay"
-    id: music_controls_overlay_switch
-    icon: "mdi:layers-outline"
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
-
   - platform: gpio
     name: "Speaker Enable"
     id: speaker_enable
@@ -3235,230 +3214,106 @@ display:
             }
           }
 
-          std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-          bool is_fs_active = (art_mode != "Disabled") && has_art;
-          bool is_full_bleed = (art_mode == "Full Bleed") && has_art;
-          bool is_letterbox = (art_mode == "Letterbox") && has_art;
-          bool show_overlay = id(music_controls_overlay_switch).state || !is_fs_active;
-
-          if (is_fs_active) {
-            class DisplayBufferAccessor : public esphome::display::DisplayBuffer {
-             public:
-              static uint16_t *get_fb(esphome::display::Display *disp) {
-                if (!disp) return nullptr;
-                auto *buf_disp = static_cast<DisplayBufferAccessor *>(disp);
-                return reinterpret_cast<uint16_t *>(buf_disp->buffer_);
-              }
-            };
-            uint16_t *fb = DisplayBufferAccessor::get_fb(&it);
-            if (fb != nullptr && target_art != nullptr) {
-              const uint16_t *src = reinterpret_cast<const uint16_t *>(target_art->get_data_start());
-              int src_w = target_art->get_width();
-              int src_h = target_art->get_height();
-              if (src != nullptr && src_w > 0 && src_h > 0) {
-                int step_x = (src_w << 12) / 466;
-                int step_y = (src_h << 12) / 466;
-
-                int start_y = is_letterbox ? 60 : 0;
-                int end_y = is_letterbox ? 385 : 466;
-
-                if (is_letterbox) {
-                  // Direct fast memset for solid black letterbox bars (< 0.01ms)
-                  memset(fb, 0, 60 * 466 * sizeof(uint16_t));
-                  memset(fb + 385 * 466, 0, (466 - 385) * 466 * sizeof(uint16_t));
-                }
-
-                // Ultra-fast direct 16-bit framebuffer pointer scaling (~0.13ms, zero function call overhead)
-                int curr_y = start_y * step_y;
-                for (int y = start_y; y < end_y; y++) {
-                  int sy = curr_y >> 12;
-                  curr_y += step_y;
-                  const uint16_t *src_row = src + sy * src_w;
-                  uint16_t *dst_row = fb + y * 466;
-
-                  int curr_x = 0;
-                  for (int x = 0; x < 466; x++) {
-                    dst_row[x] = src_row[curr_x >> 12];
-                    curr_x += step_x;
-                  }
-                }
-
-                // Fast 50% Translucent Dither Scrim over metadata when Overlay is enabled
-                if (show_overlay) {
-                  int scrim_end = is_letterbox ? 385 : 395;
-                  for (int y = 320; y < scrim_end; y++) {
-                    uint16_t *dst_row = fb + y * 466;
-                    int start_x = (y % 2 != 0) ? 1 : 0;
-                    for (int x = start_x; x < 466; x += 2) {
-                      dst_row[x] = 0x0000;
-                    }
-                  }
-                }
-              }
-            }
+          if (has_art) {
+            // Ultra-snappy hardware DMA block blit (< 0.2ms, zero CPU scaling overhead)
+            it.image(cx - art_w / 2, art_top_y, target_art);
           } else {
-            if (has_art) {
-              it.image(cx - art_w / 2, art_top_y, target_art);
-            } else {
-              // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
-              it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
-              it.circle(cx, art_center_y, 80, is_remote ? id(theme_secondary) : id(theme_primary));
-              it.circle(cx, art_center_y, 64, id(col_bg));
-              it.circle(cx, art_center_y, 48, id(col_dark_gray));
-              it.circle(cx, art_center_y, 32, id(col_bg));
-              it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
+            // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
+            it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
+            it.circle(cx, art_center_y, 80, is_remote ? id(theme_secondary) : id(theme_primary));
+            it.circle(cx, art_center_y, 64, id(col_bg));
+            it.circle(cx, art_center_y, 48, id(col_dark_gray));
+            it.circle(cx, art_center_y, 32, id(col_bg));
+            it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
+          }
+
+          Color flank_btn_col = id(col_white);
+
+          // Left Flank (x: 88..108): Previous Track (|◀) centered on horizon (y = 212) - ISO 7000 Standard
+          it.filled_rectangle(88, art_center_y - 10, 3, 21, flank_btn_col);
+          it.filled_triangle(94, art_center_y, 108, art_center_y - 10, 108, art_center_y + 10, flank_btn_col);
+
+          // Right Flank (x: 358..378): Next Track (▶|) centered on horizon (y = 212) - ISO 7000 Standard
+          it.filled_triangle(372, art_center_y, 358, art_center_y - 10, 358, art_center_y + 10, flank_btn_col);
+          it.filled_rectangle(375, art_center_y - 10, 3, 21, flank_btn_col);
+
+          // Right Flank Volume Up (+): centered at x = 405, y = 140
+          it.filled_rectangle(405 - 7, 140 - 1, 15, 3, flank_btn_col);
+          it.filled_rectangle(405 - 1, 140 - 7, 3, 15, flank_btn_col);
+
+          // Right Flank Volume Down (-): centered at x = 405, y = 284
+          it.filled_rectangle(405 - 7, 284 - 1, 15, 3, flank_btn_col);
+
+          // Left Flank Menu Button (☰): centered at x = 61, y = 284
+          for (int dy : {-4, 0, 4}) {
+            it.filled_rectangle(61 - 7, 284 + dy, 14, 2, flank_btn_col);
+          }
+
+          // Paused state frosted scrim overlay with borderless Play badge ▶
+          if (!is_playing) {
+            it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
+            it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
+          }
+
+          // Real-time track progress calculation
+          float dur = id(ha_media_duration).state;
+          float current_pos = id(music_pos_base);
+          if (is_playing && id(music_pos_sync_time) > 0) {
+            current_pos += (millis() - id(music_pos_sync_time)) / 1000.0f;
+          }
+          float prog = 0.0f;
+          if (!isnan(dur) && dur > 0.0f) {
+            prog = current_pos / dur;
+            if (prog < 0.0f) prog = 0.0f;
+            if (prog > 1.0f) prog = 1.0f;
+          }
+
+          // Perimeter continuous track playback progress arc (r = 224, 2px continuous stroke)
+          if (prog > 0.005f) {
+            float end_a = prog * 2.0f * PI_F;
+            float step = 0.035f;
+            for (float a = 0.0f; a < end_a; a += step) {
+              float next_a = std::min(a + step, end_a);
+              float s1, c1, s2, c2;
+              sincosf(a, &s1, &c1);
+              sincosf(next_a, &s2, &c2);
+              it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
+                      cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), id(theme_secondary));
+              it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
+                      cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), id(theme_secondary));
             }
           }
 
-          if (show_overlay) {
-            Color flank_btn_col = is_fs_active ? id(theme_secondary) : id(col_white);
+          // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
+          std::string title = "";
+          std::string artist = "";
+          std::string album = "";
 
-            // Left Flank (x: 88..108): Previous Track (|◀) centered on horizon (y = 212) - ISO 7000 Standard
-            if (is_fs_active) {
-              it.filled_rectangle(88 + 1, art_center_y - 10 + 1, 3, 21, id(col_black));
-              it.filled_triangle(94 + 1, art_center_y + 1, 108 + 1, art_center_y - 10 + 1, 108 + 1, art_center_y + 10 + 1, id(col_black));
-            }
-            it.filled_rectangle(88, art_center_y - 10, 3, 21, flank_btn_col);
-            it.filled_triangle(94, art_center_y, 108, art_center_y - 10, 108, art_center_y + 10, flank_btn_col);
-
-            // Right Flank (x: 358..378): Next Track (▶|) centered on horizon (y = 212) - ISO 7000 Standard
-            if (is_fs_active) {
-              it.filled_triangle(372 + 1, art_center_y + 1, 358 + 1, art_center_y - 10 + 1, 358 + 1, art_center_y + 10 + 1, id(col_black));
-              it.filled_rectangle(375 + 1, art_center_y - 10 + 1, 3, 21, id(col_black));
-            }
-            it.filled_triangle(372, art_center_y, 358, art_center_y - 10, 358, art_center_y + 10, flank_btn_col);
-            it.filled_rectangle(375, art_center_y - 10, 3, 21, flank_btn_col);
-
-            // Right Flank Volume Up (+): centered at x = 405, y = 140
-            if (is_fs_active) {
-              it.filled_rectangle(405 - 7 + 1, 140 - 1 + 1, 15, 3, id(col_black));
-              it.filled_rectangle(405 - 1 + 1, 140 - 7 + 1, 3, 15, id(col_black));
-            }
-            it.filled_rectangle(405 - 7, 140 - 1, 15, 3, flank_btn_col);
-            it.filled_rectangle(405 - 1, 140 - 7, 3, 15, flank_btn_col);
-
-            // Right Flank Volume Down (-): centered at x = 405, y = 284
-            if (is_fs_active) {
-              it.filled_rectangle(405 - 7 + 1, 284 - 1 + 1, 15, 3, id(col_black));
-            }
-            it.filled_rectangle(405 - 7, 284 - 1, 15, 3, flank_btn_col);
-
-            // Left Flank Menu Button (☰): centered at x = 61, y = 284
-            for (int dy : {-4, 0, 4}) {
-              if (is_fs_active) {
-                it.filled_rectangle(61 - 7 + 1, 284 + dy + 1, 14, 2, id(col_black));
-              }
-              it.filled_rectangle(61 - 7, 284 + dy, 14, 2, flank_btn_col);
-            }
-
-            // Paused state frosted scrim overlay with borderless Play badge ▶
-            if (!is_playing) {
-              it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
-              it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
-            }
-
-            // Real-time track progress calculation
-            float dur = id(ha_media_duration).state;
-            float current_pos = id(music_pos_base);
-            if (is_playing && id(music_pos_sync_time) > 0) {
-              current_pos += (millis() - id(music_pos_sync_time)) / 1000.0f;
-            }
-            float prog = 0.0f;
-            if (!isnan(dur) && dur > 0.0f) {
-              prog = current_pos / dur;
-              if (prog < 0.0f) prog = 0.0f;
-              if (prog > 1.0f) prog = 1.0f;
-            }
-
-            // Perimeter continuous track playback progress arc (r = 224, 2px continuous stroke)
-            if (prog > 0.005f) {
-              float end_a = prog * 2.0f * PI_F;
-              float step = 0.035f;
-              for (float a = 0.0f; a < end_a; a += step) {
-                float next_a = std::min(a + step, end_a);
-                float s1, c1, s2, c2;
-                sincosf(a, &s1, &c1);
-                sincosf(next_a, &s2, &c2);
-                it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
-                        cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), id(theme_secondary));
-                it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
-                        cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), id(theme_secondary));
-              }
-            }
-
-            // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
-            std::string title = "";
-            std::string artist = "";
-            std::string album = "";
-
-            if (is_remote) {
-              title = id(ha_track_title).state;
-              artist = id(ha_track_artist).state;
-              album = id(ha_track_album).state;
-            } else {
-              title = id(track_title).state;
-              if (title.empty() || title == "None") title = id(ha_track_title).state;
-              artist = id(track_artist).state;
-              if (artist.empty() || artist == "None") artist = id(ha_track_artist).state;
-              album = id(track_album).state;
-              if (album.empty() || album == "None") album = id(ha_track_album).state;
-            }
-
-            if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
-            if (title.length() > 24) title = title.substr(0, 22) + "...";
-
-            // Uncrowded metadata layout below album art (y = 336, 358, 378)
-            if (is_fs_active) {
-              it.print(cx + 1, 336 + 1, id(font_small), id(col_black), TextAlign::CENTER, title.c_str());
-            }
-            it.print(cx, 336, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
-            if (!artist.empty() && artist != "None") {
-              if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
-              if (is_fs_active) {
-                it.print(cx + 1, 358 + 1, id(font_small), id(col_black), TextAlign::CENTER, artist.c_str());
-              }
-              it.print(cx, 358, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
-            }
-            if (!album.empty() && album != "None") {
-              if (album.length() > 28) album = album.substr(0, 26) + "...";
-              if (is_fs_active) {
-                it.print(cx + 1, 378 + 1, id(font_small), id(col_black), TextAlign::CENTER, album.c_str());
-              }
-              it.print(cx, 378, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
-            }
+          if (is_remote) {
+            title = id(ha_track_title).state;
+            artist = id(ha_track_artist).state;
+            album = id(ha_track_album).state;
           } else {
-            // Clean Art Mode: Paused state play badge ▶ only (for visual playback feedback)
-            if (!is_playing) {
-              it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
-              it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
-            }
+            title = id(track_title).state;
+            if (title.empty() || title == "None") title = id(ha_track_title).state;
+            artist = id(track_artist).state;
+            if (artist.empty() || artist == "None") artist = id(ha_track_artist).state;
+            album = id(track_album).state;
+            if (album.empty() || album == "None") album = id(ha_track_album).state;
           }
 
-          // Universal Fixed-Anchor Bottom Navigation (Overlaid on full-screen art with high-contrast shadow)
-          if (is_fs_active) {
-            // Left Chevron (<) with shadow
-            it.line(165 + 5, 424 - 6, 165 - 3, 425, id(col_black));
-            it.line(165 + 5, 424 + 8, 165 - 3, 425, id(col_black));
-            it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
-            it.line(165 + 5, 424 - 7, 165 - 3, 424, id(theme_secondary));
-            it.line(165 + 4, 424 + 7, 165 - 4, 424, id(theme_secondary));
-            it.line(165 + 5, 424 + 7, 165 - 3, 424, id(theme_secondary));
+          if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
+          if (title.length() > 24) title = title.substr(0, 22) + "...";
 
-            // Right Chevron (>) with shadow
-            it.line(301 - 3, 424 - 6, 301 + 5, 425, id(col_black));
-            it.line(301 - 3, 424 + 8, 301 + 5, 425, id(col_black));
-            it.line(301 - 4, 424 - 7, 301 + 4, 424, id(theme_secondary));
-            it.line(301 - 5, 424 - 7, 301 + 3, 424, id(theme_secondary));
-            it.line(301 - 4, 424 + 7, 301 + 4, 424, id(theme_secondary));
-            it.line(301 - 5, 424 + 7, 301 + 3, 424, id(theme_secondary));
-
-            std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
-            if (cnt_mode.empty()) cnt_mode = "Always";
-            bool show_in_deck = (cnt_mode == "Always" || cnt_mode == "System Only");
-            if (show_in_deck) {
-              it.printf(cx + 1, 424 + 1, id(font_small), id(col_black), TextAlign::CENTER, "%d / %d", id(current_deck_index) + 1, id(active_deck_size));
-              it.printf(cx, 424, id(font_small), id(theme_secondary), TextAlign::CENTER, "%d / %d", id(current_deck_index) + 1, id(active_deck_size));
-            }
+          // Uncrowded metadata layout below album art (y = 336, 358, 378)
+          it.print(cx, 336, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
+          if (!artist.empty() && artist != "None") {
+            if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
+            it.print(cx, 358, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
+          }
+          if (!album.empty() && album != "None") {
+            if (album.length() > 28) album = album.substr(0, 26) + "...";
+            it.print(cx, 378, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
           }
 
           // Prominent Center Volume HUD Overlay: Borderless solid black circle (always floats on top when adjusted)
@@ -4331,34 +4186,23 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO & MEDIA");
 
-          // Button 1: Full-Screen Album Art Style cycler (y = 110, r = 18)
-          std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-          char fs_label[32];
-          if (cur_mode == "Full Bleed") {
-            snprintf(fs_label, sizeof(fs_label), "Full Art: Full Bleed");
-          } else if (cur_mode == "Letterbox") {
-            snprintf(fs_label, sizeof(fs_label), "Full Art: Letterbox");
-          } else {
-            snprintf(fs_label, sizeof(fs_label), "Full Art: Disabled");
-          }
-          draw_pill_button(110, 356, 110, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
-
-          // Button 2: Controls Overlay Toggle (y = 165, r = 18)
-          std::string ovl_label = id(music_controls_overlay_switch).state ? "Controls Overlay: On" : "Controls Overlay: Off";
-          draw_pill_button(110, 356, 165, 18, id(theme_secondary), id(col_dark_gray), ovl_label.c_str(), id(col_white), false);
-
-          // Button 3: Hardware Speaker Volume (y = 220, r = 18)
+          // Button 1: Hardware Speaker Volume (y = 140, r = 20)
           char spk_vol[32];
           int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
           snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
-          draw_pill_button(110, 356, 220, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
+          draw_pill_button(110, 356, 140, 20, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
 
-          // Button 4: Active Speaker Target (y = 275, r = 18)
+          // Button 2: Active Speaker Target (y = 215, r = 20)
           std::string spk_target = "Speaker: " + id(active_speaker_name);
           if (spk_target.length() > 24) spk_target = spk_target.substr(0, 22) + "..";
-          draw_pill_button(110, 356, 275, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 215, 20, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
 
-          // Bottom Button: Standardized < BACK (y = 375, r = 18)
+          // Button 3: Volume Step Size (y = 290, r = 20)
+          char step_buf[32];
+          snprintf(step_buf, sizeof(step_buf), "Vol Step: %.0f%%", id(volume_step_size).state);
+          draw_pill_button(110, 356, 290, 20, id(theme_secondary), id(col_dark_gray), step_buf, id(col_white), false);
+
+          // Standardized Centered < BACK Button at y = 375 (r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);        }
       }
 
@@ -5071,45 +4915,30 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 7) {
                 // Mode 7: Audio & Media Submenu
-                // Card 1: Full-Screen Album Art Style cycler (y: 90..130, x: 100..366)
-                if (touch.y >= 90 && touch.y <= 130 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-                  std::string nxt_mode = "Full Bleed";
-                  if (cur_mode == "Full Bleed") {
-                    nxt_mode = "Letterbox";
-                  } else if (cur_mode == "Letterbox") {
-                    nxt_mode = "Disabled";
-                  } else {
-                    nxt_mode = "Full Bleed";
-                  }
-                  auto call = id(music_fullscreen_art_mode).make_call();
-                  call.set_option(nxt_mode);
-                  call.perform();
+                // Card 1: Hardware Speaker Volume Step (y: 115..165, x: 100..366)
+                if (touch.y >= 115 && touch.y <= 165 && touch.x >= 100 && touch.x <= 366) {
+                  float cur_vol = id(pocket_music_player).volume;
+                  float new_vol = cur_vol + 0.10f;
+                  if (new_vol > 0.90f) new_vol = 0.10f;
+                  id(pocket_music_player).make_call().set_volume(new_vol).perform();
                   id(disp1).update();
-                // Card 2: Controls Overlay Toggle (y: 145..185, x: 100..366)
-                } else if (touch.y >= 145 && touch.y <= 185 && touch.x >= 100 && touch.x <= 366) {
-                  id(music_controls_overlay_switch).toggle();
-                  id(disp1).update();
-                // Card 3: Speaker Volume Step (y: 200..240, x: 100..366)
-                } else if (touch.y >= 200 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
-                  float v = id(pocket_music_player).volume + 0.10f;
-                  if (v > 1.05f) v = 0.20f;
-                  auto call = id(pocket_music_player).make_call();
-                  call.set_volume(v);
-                  call.perform();
-                  id(disp1).update();
-                // Card 4: Speaker Target Jump to Music Menu (y: 255..295, x: 100..366)
-                } else if (touch.y >= 255 && touch.y <= 295 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Active Speaker Target Jump to Music Menu (y: 190..240, x: 100..366)
+                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 1;
                   id(system_menu_mode) = 0;
+                  id(disp1).update();
+                // Card 3: Speaker Volume Step (y: 265..315, x: 100..366)
+                } else if (touch.y >= 265 && touch.y <= 315 && touch.x >= 100 && touch.x <= 366) {
+                  float cur_s = id(volume_step_size).state;
+                  float next_s = (cur_s == 2.0f) ? 5.0f : ((cur_s == 5.0f) ? 10.0f : 2.0f);
+                  id(volume_step_size).publish_state(next_s);
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
                 } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
-                }
-                            }
+                }              }
             }
         - script.execute: screen_sleep_timer
 
