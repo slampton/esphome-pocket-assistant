@@ -406,6 +406,9 @@ select:
       - "Full Screen"
       - "Letterbox"
       - "Compact"
+    set_action:
+      - lambda: |-
+          id(disp1).update();
 
   - platform: template
     name: "System: Page Counter Mode"
@@ -3321,10 +3324,18 @@ display:
           it.circle(405, 284, 18, id(col_black));
           it.filled_rectangle(405 - 7, 284 - 1, 15, 3, id(col_white));
 
-          // Paused state frosted scrim overlay with borderless Play badge ▶
+          // Center Hero Play/Pause Button: High-Contrast Dark Gray Circular Capsule (Radius 34)
+          // Displays Play badge ▶ when paused, and Pause badge ❚❚ when playing across all 3 art modes
+          it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
+          it.circle(cx, art_center_y, 34, id(col_black));
+
           if (!is_playing) {
-            it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
+            // Play Badge ▶
             it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
+          } else {
+            // Pause Badge ❚❚ (Two distinct vertical bars centered with 6px spacing)
+            it.filled_rectangle(cx - 9, art_center_y - 13, 6, 26, id(theme_primary));
+            it.filled_rectangle(cx + 3, art_center_y - 13, 6, 26, id(theme_primary));
           }
 
           // Real-time track progress calculation
