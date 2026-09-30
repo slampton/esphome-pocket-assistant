@@ -4335,62 +4335,47 @@ display:
 
         if (id(system_menu_mode) == 0) {
           // --------------------------------------------------
-          // VIEW 0: MAIN SYSTEM OBSERVATIONAL DASHBOARD
+          // VIEW 0: MAIN SYSTEM OBSERVATIONAL DASHBOARD (2x3 Grid)
           // --------------------------------------------------
           // Top Header: Pure iconic "SYSTEM" title (Theme Primary)
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
 
-          // Upper Zone: Technical Telemetry & Firmware
-          // Line 1: Wi-Fi Signal & IP (Green)
-          float sig = id(pocket_wifi_signal).state;
-          std::string ip_str = id(pocket_ip_address).state;
-          if (ip_str.empty()) ip_str = "Connecting...";
-          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
-          it.print(cx, 92, id(font_small), id(col_green), TextAlign::CENTER, buf);
-
-          // Line 2: Temperature & IMU (Theme Secondary)
-          float temp_c = id(imu_temp).state;
-          float r_val = id(imu_roll).state;
-          float p_val = id(imu_pitch).state;
-          snprintf(buf, sizeof(buf), "Temp: %.1fC | R:%.0f P:%.0f", temp_c, r_val, p_val);
-          it.print(cx, 118, id(font_small), id(theme_secondary), TextAlign::CENTER, buf);
-
-          // Line 3: Pocket Assistant Version / Update badge (Theme Primary / Gold)
+          // Upper Zone: Pocket Assistant Version / Update badge (in Theme Secondary / Gold)
           bool has_update = id(ha_firmware_update_status).state == "ON";
           std::string lat_v = id(ha_firmware_latest_version).state;
           if (has_update) {
             snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
-            it.print(cx, 144, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+            it.print(cx, 86, id(font_small), id(col_gold), TextAlign::CENTER, buf);
           } else {
-            it.print(cx, 144, id(font_small), id(theme_primary), TextAlign::CENTER, "Pocket Assistant v${version}");
+            it.print(cx, 86, id(font_small), id(theme_secondary), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
-          // Center Zone: Buffered 2x2 Grid with Submenu-Consistent Pill Height (r = 20) & 24px Center Gap
-          // Row 1: Display & Clock (Left: x 69..221) | Sleep & Wake (Right: x 245..397) at y = 188
-          draw_pill_button(89, 201, 188, 20, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
-          draw_pill_button(265, 377, 188, 20, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
+          // Center Zone: Buffered 2x3 Grid with Standardized Pill Height (r = 20) & 24px Center Gap
+          // Row 1: Display > (Left: x 69..221) | Clock > (Right: x 245..397) at y = 130
+          draw_pill_button(89, 201, 130, 20, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
+          draw_pill_button(265, 377, 130, 20, id(theme_secondary), id(col_dark_gray), "Clock >", id(col_white), false);
 
-          // Row 2: Audio & Media (Left: x 69..221) | System Actions (Right: x 245..397) at y = 248
-          draw_pill_button(89, 201, 248, 20, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
-          draw_pill_button(265, 377, 248, 20, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
+          // Row 2: Sleep & Wake > (Left: x 69..221) | Audio > (Right: x 245..397) at y = 190
+          draw_pill_button(89, 201, 190, 20, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
+          draw_pill_button(265, 377, 190, 20, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
 
-          // Lower Zone: Battery, Date, and Prominent Clock nestled comfortably in the lower sanctuary
-          float v_batt = id(batt_voltage).state;
+          // Row 3: Actions > (Left: x 69..221) | Info > (Right: x 245..397) at y = 250
+          draw_pill_button(89, 201, 250, 20, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
+          draw_pill_button(265, 377, 250, 20, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
+
+          // Lower Zone: Battery and Time (Concise, date removed)
           char b_main[32];
-          snprintf(b_main, sizeof(b_main), "Battery: %.0f%% (%.2fV)", batt, v_batt);
+          snprintf(b_main, sizeof(b_main), "Battery: %.0f%%", batt);
           if (id(batt_charging).state) {
-            int w_main = (strlen(b_main) >= 21) ? 202 : 191;
+            int w_main = (strlen(b_main) >= 14) ? 140 : 130;
             int start_x = cx - (w_main + 105) / 2;
-            it.print(start_x, 308, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
-            it.print(start_x + w_main, 308, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
+            it.print(start_x, 338, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
+            it.print(start_x + w_main, 338, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
           } else {
-            it.print(cx, 308, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
+            it.print(cx, 338, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
 
           if (now.is_valid()) {
-            it.strftime(cx, 336, id(font_small), id(col_slate), TextAlign::CENTER, "%a, %b %d", now);
-
-            // Prominent Time readout (y = 374, nestled cleanly above bottom navigation)
             char t_buf[16];
             if (id(is_24h_format)) {
               snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
@@ -4439,42 +4424,34 @@ display:
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
-          // VIEW 2: DISPLAY & CLOCK SUBMENU (Spacious 50px Pitch)
+          // VIEW 2: DISPLAY SUBMENU (Spacious 60px Pitch)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "DISPLAY & CLOCK");
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "DISPLAY");
 
-          // Button 1: Auto-Brightness Mode Cycler (y = 100, r = 18)
+          // Button 1: Auto-Brightness Mode Cycler (y = 130, r = 18)
           std::string ab_mode = std::string(id(auto_brightness_mode).current_option().c_str());
           char ab_buf[32];
           snprintf(ab_buf, sizeof(ab_buf), "Auto-Bri: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
-          draw_pill_button(110, 356, 100, 18, id(theme_secondary), id(col_dark_gray), ab_buf, id(col_white), false);
+          draw_pill_button(110, 356, 130, 18, id(theme_secondary), id(col_dark_gray), ab_buf, id(col_white), false);
 
-          // Button 2: Manual / Day Brightness Preset Cycler (y = 150, r = 18)
+          // Button 2: Manual / Day Brightness Preset Cycler (y = 190, r = 18)
           char b_buf[32];
           std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
           if (bri_p.empty()) bri_p = "90%";
           snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-          draw_pill_button(110, 356, 150, 18, id(theme_secondary), id(col_dark_gray), b_buf, id(col_white), false);
+          draw_pill_button(110, 356, 190, 18, id(theme_secondary), id(col_dark_gray), b_buf, id(col_white), false);
 
-          // Button 3: Clock Face Style Cycler (y = 200, r = 18)
-          std::string cf_label = id(clock_face_digital) ? "Clock Face: Digital" : "Clock Face: Analog";
-          draw_pill_button(110, 356, 200, 18, id(theme_secondary), id(col_dark_gray), cf_label.c_str(), id(col_white), false);
-
-          // Button 4: Time Format Cycler (y = 250, r = 18)
-          std::string tf_label = id(is_24h_format) ? "Format: 24-Hour" : "Format: 12-Hour";
-          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), tf_label.c_str(), id(col_white), false);
-
-          // Button 5: Color Palette Cycler (y = 300, r = 18)
+          // Button 3: Color Palette Cycler (y = 250, r = 18)
           char th_buf[32];
           std::string th_p = std::string(id(theme_palette_select).current_option().c_str());
           if (th_p == "Default Classic") th_p = "Blue & Gold";
           snprintf(th_buf, sizeof(th_buf), "Palette: %s", th_p.c_str());
-          draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), th_buf, id(col_white), false);
+          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), th_buf, id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
 
-        } else if (id(system_menu_mode) == 3) {
+        } else if (id(system_menu_mode) == 3) {        } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
           // VIEW 3: SYSTEM ACTIONS SUBMENU
           // --------------------------------------------------
@@ -4612,7 +4589,69 @@ display:
           draw_pill_button(110, 356, 290, 20, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
 
           // Standardized Centered < BACK Button at y = 375 (r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);        }
+          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+        } else if (id(system_menu_mode) == 8) {
+          // --------------------------------------------------
+          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU
+          // --------------------------------------------------
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM INFO");
+
+          // Line 1: Wi-Fi Signal & IP (Green)
+          float sig = id(pocket_wifi_signal).state;
+          std::string ip_str = id(pocket_ip_address).state;
+          if (ip_str.empty()) ip_str = "Connecting...";
+          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
+          it.print(cx, 100, id(font_small), id(col_green), TextAlign::CENTER, buf);
+
+          // Line 2: Temperature (Dual C & F) (Gold)
+          float temp_c = id(imu_temp).state;
+          float temp_f = temp_c * 1.8f + 32.0f;
+          snprintf(buf, sizeof(buf), "IMU Temp: %.1fC (%.1fF)", temp_c, temp_f);
+          it.print(cx, 142, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+
+          // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch (Cyan)
+          float r_val = id(imu_roll).state;
+          float p_val = id(imu_pitch).state;
+          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f | Pitch:%.0f", r_val, p_val);
+          it.print(cx, 184, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
+
+          // Line 4: 3-Axis Acceleration (G-force) (Slate)
+          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
+          it.print(cx, 226, id(font_small), id(col_slate), TextAlign::CENTER, buf);
+
+          // Line 5: Battery Fuel Gauge & Power (Theme Secondary)
+          float v_batt = id(batt_voltage).state;
+          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
+          it.print(cx, 268, id(font_small), id(theme_secondary), TextAlign::CENTER, buf);
+
+          // Line 6: Hardware Platform, Memory & Firmware (Theme Primary)
+          uint32_t free_heap = esp_get_free_heap() / 1024;
+          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
+          it.print(cx, 310, id(font_small), id(theme_primary), TextAlign::CENTER, buf);
+
+          // Bottom Button: Standardized < BACK (y = 375, r = 18)
+          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+
+        } else if (id(system_menu_mode) == 9) {
+          // --------------------------------------------------
+          // VIEW 9: CLOCK & TIME SUBMENU (Spacious 60px Pitch)
+          // --------------------------------------------------
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "CLOCK & TIME");
+
+          // Button 1: Clock Face Style Cycler (y = 130, r = 18)
+          std::string cf_label = id(clock_face_digital) ? "Clock Face: Digital" : "Clock Face: Analog";
+          draw_pill_button(110, 356, 130, 18, id(theme_secondary), id(col_dark_gray), cf_label.c_str(), id(col_white), false);
+
+          // Button 2: Time Format Cycler (y = 190, r = 18)
+          std::string tf_label = id(is_24h_format) ? "Format: 24-Hour" : "Format: 12-Hour";
+          draw_pill_button(110, 356, 190, 18, id(theme_secondary), id(col_dark_gray), tf_label.c_str(), id(col_white), false);
+
+          // Button 3: Time Sync Status (y = 250, r = 18)
+          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), "Sync: Home Assistant", id(col_white), false);
+
+          // Bottom Button: Standardized < BACK (y = 375, r = 18)
+          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+        }
       }
 
 
@@ -5129,25 +5168,33 @@ touchscreen:
                 return l_pat > c_pat;
               };
               if (id(system_menu_mode) == 0) {
-                // Main Telemetry View: tap Version line to open Software Update directly (y: 132..158)
-                if (touch.y >= 132 && touch.y <= 158 && touch.x >= 100 && touch.x <= 366) {
+                // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 70..100)
+                if (touch.y >= 70 && touch.y <= 100 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Row 1 Left: "Display >" (y: 162..214, x: 65..230)
-                } else if (touch.y >= 162 && touch.y <= 214 && touch.x >= 65 && touch.x <= 230) {
-                  id(system_menu_mode) = 2; // Open Display & Clock Submenu
+                // Row 1 Left: "Display >" (y: 105..155, x: 65..230)
+                } else if (touch.y >= 105 && touch.y <= 155 && touch.x >= 65 && touch.x <= 230) {
+                  id(system_menu_mode) = 2; // Open Display Submenu
                   id(disp1).update();
-                // Row 1 Right: "Sleep & Wake >" (y: 162..214, x: 236..405)
-                } else if (touch.y >= 162 && touch.y <= 214 && touch.x >= 236 && touch.x <= 405) {
+                // Row 1 Right: "Clock >" (y: 105..155, x: 236..405)
+                } else if (touch.y >= 105 && touch.y <= 155 && touch.x >= 236 && touch.x <= 405) {
+                  id(system_menu_mode) = 9; // Open Clock & Time Submenu
+                  id(disp1).update();
+                // Row 2 Left: "Sleep & Wake >" (y: 165..215, x: 65..230)
+                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
                   id(disp1).update();
-                // Row 2 Left: "Audio >" (y: 222..274, x: 65..230)
-                } else if (touch.y >= 222 && touch.y <= 274 && touch.x >= 65 && touch.x <= 230) {
+                // Row 2 Right: "Audio >" (y: 165..215, x: 236..405)
+                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 7; // Open Audio & Media Submenu
                   id(disp1).update();
-                // Row 2 Right: "Actions >" (y: 222..274, x: 236..405)
-                } else if (touch.y >= 222 && touch.y <= 274 && touch.x >= 236 && touch.x <= 405) {
+                // Row 3 Left: "Actions >" (y: 225..275, x: 65..230)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 3; // Open System Actions Submenu
+                  id(disp1).update();
+                // Row 3 Right: "Info >" (y: 225..275, x: 236..405)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 236 && touch.x <= 405) {
+                  id(system_menu_mode) = 8; // Open System Info Submenu
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
@@ -5201,9 +5248,9 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 2) {
-                // Mode 2: Display & Clock Submenu (5 Spacious Cards)
-                // Card 1: Auto-Brightness Mode Cycler (y: 80..125, x: 100..366)
-                if (touch.y >= 80 && touch.y <= 125 && touch.x >= 100 && touch.x <= 366) {
+                // Mode 2: Display Submenu (3 Spacious Cards)
+                // Card 1: Auto-Brightness Mode Cycler (y: 105..155, x: 100..366)
+                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(auto_brightness_mode).current_option().c_str());
                   std::string nxt = "Disabled";
                   if (cur == "Disabled") nxt = "Sun Synchronized";
@@ -5213,8 +5260,8 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Brightness Preset Cycler (y: 130..175, x: 100..366)
-                } else if (touch.y >= 130 && touch.y <= 175 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Brightness Preset Cycler (y: 165..215, x: 100..366)
+                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                   std::string nxt = "90%";
                   if (cur == "60%") nxt = "70%";
@@ -5227,22 +5274,8 @@ touchscreen:
                   call.perform();
                   id(sync_display_brightness).execute();
                   id(disp1).update();
-                // Card 3: Clock Face Style Cycler (y: 180..225, x: 100..366)
-                } else if (touch.y >= 180 && touch.y <= 225 && touch.x >= 100 && touch.x <= 366) {
-                  id(clock_face_digital) = !id(clock_face_digital);
-                  auto call = id(clock_face_style).make_call();
-                  call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
-                  call.perform();
-                  id(disp1).update();
-                // Card 4: Time Format Cycler (y: 230..275, x: 100..366)
-                } else if (touch.y >= 230 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
-                  id(is_24h_format) = !id(is_24h_format);
-                  auto call = id(time_format_select).make_call();
-                  call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
-                  call.perform();
-                  id(disp1).update();
-                // Card 5: Color Palette Cycler (y: 280..325, x: 100..366)
-                } else if (touch.y >= 280 && touch.y <= 325 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Color Palette Cycler (y: 225..275, x: 100..366)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur = std::string(id(theme_palette_select).current_option().c_str());
                   std::string nxt = "Steel & Silver";
                   if (cur == "Steel & Silver") nxt = "Pink & Gray";
@@ -5255,7 +5288,7 @@ touchscreen:
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
                 } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
-                  id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
+                  id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 3) {
@@ -5363,7 +5396,40 @@ touchscreen:
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
                 } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
-                  id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
+                  id(system_menu_mode) = 0; // Return to Main System Dashboard
+                  id(disp1).update();
+                }
+              } else if (id(system_menu_mode) == 8) {
+                // Mode 8: System Info Submenu
+                // Standardized < BACK (y: 350..400, x: 120..346)
+                if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                  id(system_menu_mode) = 0; // Return to Main System Dashboard
+                  id(disp1).update();
+                } else {
+                  id(disp1).update(); // Tap anywhere to refresh telemetry
+                }
+              } else if (id(system_menu_mode) == 9) {
+                // Mode 9: Clock & Time Submenu
+                // Card 1: Clock Face Style Cycler (y: 105..155, x: 100..366)
+                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                  id(clock_face_digital) = !id(clock_face_digital);
+                  auto call = id(clock_face_style).make_call();
+                  call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
+                  call.perform();
+                  id(disp1).update();
+                // Card 2: Time Format Cycler (y: 165..215, x: 100..366)
+                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
+                  id(is_24h_format) = !id(is_24h_format);
+                  auto call = id(time_format_select).make_call();
+                  call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
+                  call.perform();
+                  id(disp1).update();
+                // Card 3: Time Sync Status (y: 225..275, x: 100..366)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                  id(disp1).update();
+                // Standardized < BACK (y: 350..400, x: 120..346)
+                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                  id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               }
