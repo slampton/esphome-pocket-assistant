@@ -3243,7 +3243,7 @@ display:
       // ==========================================
       // GLOBAL BOTTOM NAVIGATION BAR (Fixed Anchors & Centered Page Counter)
       // ==========================================
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && id(system_menu_mode) == 0 && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && ((id(system_menu_mode) == 0) || (id(gui_page) == 4 && id(system_menu_mode) == 1)) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
         // Universal Left & Right fixed navigation anchors (Pixel-perfect vector chevrons matching preferred '>' size)
         // Left Anchor (<): 9px wide, 15px tall, 2px stroke
         it.line(165 + 4, 424 - 7, 165 - 4, 424, id(theme_secondary));
@@ -3278,10 +3278,12 @@ display:
             it.print(cx, 424, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
           }
         } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-          // Sleep & Wake Submenu: 2-page indicator at bottom
-          char pg_buf[16];
-          snprintf(pg_buf, sizeof(pg_buf), "%d / 2", id(sleep_menu_page));
-          it.print(cx, 424, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+          // Sleep & Wake Submenu: 2-page indicator at bottom (respects page_counter_mode)
+          if (show_in_deck) {
+            char pg_buf[16];
+            snprintf(pg_buf, sizeof(pg_buf), "%d / 2", id(sleep_menu_page));
+            it.print(cx, 424, id(font_small), id(col_slate), TextAlign::CENTER, pg_buf);
+          }
         } else {
           // App Deck indicator: centered page readout (e.g. "1 / 5", "2 / 5")
           if (show_in_deck) {
@@ -5058,15 +5060,8 @@ display:
             draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
           }
 
-          // Standardized Centered < BACK Button at y = 368 (r = 18)
-          draw_pill_button(150, 316, 368, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
-
-          // Prominent On-Screen Page Switcher (y = 416)
-          if (id(sleep_menu_page) == 1) {
-            draw_pill_button(175, 291, 416, 14, id(theme_secondary), id(col_dark_gray), "PAGE 1/2  >", id(col_white), false);
-          } else {
-            draw_pill_button(175, 291, 416, 14, id(theme_secondary), id(col_dark_gray), "<  PAGE 2/2", id(col_white), false);
-          }
+          // Standardized Centered < BACK Button at y = 375 (r = 18)
+          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
@@ -5077,15 +5072,20 @@ display:
           // Button 1: Auto-Brightness Mode Cycler (y = 120, r = 18)
           std::string ab_mode = std::string(id(auto_brightness_mode).current_option().c_str());
           char ab_buf[32];
-          snprintf(ab_buf, sizeof(ab_buf), "Auto-Bri: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
+          snprintf(ab_buf, sizeof(ab_buf), "Auto Bright: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), ab_buf, id(col_white), false);
 
-          // Button 2: Manual / Day Brightness Preset Cycler (y = 180, r = 18)
+          // Button 2: Manual / Day Brightness Preset Cycler (y = 180, r = 18, grayed out if Auto Bright is active)
+          bool auto_bri_active = (ab_mode != "Disabled");
           char b_buf[32];
           std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
           if (bri_p.empty()) bri_p = "90%";
           snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-          draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), b_buf, id(col_white), false);
+          if (auto_bri_active) {
+            draw_pill_button(110, 356, 180, 18, id(col_dark_gray), id(col_bg), b_buf, id(col_slate), false);
+          } else {
+            draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), b_buf, id(col_white), false);
+          }
 
           // Button 3: Color Palette Cycler (y = 240, r = 18)
           char th_buf[32];
@@ -5251,38 +5251,38 @@ display:
           // Left-aligned margin at x = 80 with consistent theme_primary palette
           const int info_x = 80;
 
-          // Line 1: Wi-Fi Signal & IP
+          // Line 1: Wi-Fi Signal & IP (Always White for pure contrast)
           float sig = id(pocket_wifi_signal).state;
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
-          it.print(info_x, 105, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
+          it.print(info_x, 105, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 2: Temperature (Dual C & F)
           float temp_c = id(imu_temp).state;
           float temp_f = temp_c * 1.8f + 32.0f;
           snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-          it.print(info_x, 145, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
+          it.print(info_x, 145, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
-          it.print(info_x, 185, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
+          it.print(info_x, 185, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 4: 3-Axis Acceleration (G-force)
           snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(info_x, 225, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
+          it.print(info_x, 225, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 5: Battery Fuel Gauge & Power
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(info_x, 265, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
+          it.print(info_x, 265, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 6: Hardware Platform, Memory & Firmware
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
           snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
-          it.print(info_x, 305, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
+          it.print(info_x, 305, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -5404,6 +5404,13 @@ touchscreen:
                       id(disp1).update();
                     }
                   }
+                  return;
+                }
+              } else if (touch.x >= 205 && touch.x <= 261) {
+                // Center Navigation Tap: Page Toggle for Sleep & Wake
+                if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
+                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
+                  id(disp1).update();
                   return;
                 }
               } else if (touch.x > 261) {
@@ -5967,14 +5974,10 @@ touchscreen:
                   }
                 }
 
-                // Standardized Centered < BACK Button at y = 368 (y: 345..390, x: 130..336)
-                if (touch.y >= 345 && touch.y <= 390 && touch.x >= 130 && touch.x <= 336) {
+                // Standardized Centered < BACK Button at y = 375 (y: 345..400, x: 120..346)
+                if (touch.y >= 345 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(sleep_menu_page) = 1;
-                  id(disp1).update();
-                // Bottom Page Switcher Button (y: 395..455)
-                } else if (touch.y >= 395 && touch.y <= 455) {
-                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 2) {
@@ -5990,32 +5993,31 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Brightness Preset Cycler (y: 155..208, x: 90..376)
+                // Card 2: Brightness Preset Cycler (y: 155..208, x: 90..376 - active only when Auto Bright is Disabled)
                 } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
-                  std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                  std::string nxt = "90%";
-                  if (cur == "60%") nxt = "70%";
-                  else if (cur == "70%") nxt = "80%";
-                  else if (cur == "80%") nxt = "90%";
-                  else if (cur == "90%") nxt = "100%";
-                  else nxt = "60%";
-                  auto call = id(display_brightness_preset).make_call();
-                  call.set_option(nxt);
-                  call.perform();
-                  id(sync_display_brightness).execute();
-                  id(disp1).update();
-                // Card 3: Color Palette Cycler (y: 215..268, x: 90..376)
+                  std::string ab = std::string(id(auto_brightness_mode).current_option().c_str());
+                  if (ab == "Disabled") {
+                    std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                    std::string nxt = "90%";
+                    if (cur == "60%") nxt = "70%";
+                    else if (cur == "70%") nxt = "80%";
+                    else if (cur == "80%") nxt = "90%";
+                    else if (cur == "90%") nxt = "100%";
+                    else nxt = "60%";
+                    auto call = id(display_brightness_preset).make_call();
+                    call.set_option(nxt);
+                    call.perform();
+                    id(sync_display_brightness).execute();
+                    id(disp1).update();
+                  }
+                // Card 3: Color Palette Cycler (y: 215..268, x: 90..376 - cycles correctly through 4 supported palettes)
                 } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur = std::string(id(theme_palette_select).current_option().c_str());
-                  std::string nxt = "Blue & Gold";
-                  if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Emerald";
-                  else if (cur == "Emerald") nxt = "Amethyst";
-                  else if (cur == "Amethyst") nxt = "Rose Gold";
-                  else if (cur == "Rose Gold") nxt = "Amber Warmth";
-                  else if (cur == "Amber Warmth") nxt = "Ruby Red";
-                  else if (cur == "Ruby Red") nxt = "Obsidian Mono";
-                  else if (cur == "Obsidian Mono") nxt = "Cyberpunk Neon";
-                  else if (cur == "Cyberpunk Neon") nxt = "Blue & Gold";
+                  std::string nxt = "Steel & Silver";
+                  if (cur == "Steel & Silver") nxt = "Pink & Gray";
+                  else if (cur == "Pink & Gray") nxt = "Blue & Gold";
+                  else if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Green & Gold";
+                  else if (cur == "Green & Gold") nxt = "Steel & Silver";
                   auto call = id(theme_palette_select).make_call();
                   call.set_option(nxt);
                   call.perform();
