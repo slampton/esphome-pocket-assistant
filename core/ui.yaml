@@ -5058,8 +5058,15 @@ display:
             draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
           }
 
-          // Standardized Centered < BACK Button at y = 375 (r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          // Standardized Centered < BACK Button at y = 368 (r = 18)
+          draw_pill_button(150, 316, 368, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+
+          // Prominent On-Screen Page Switcher (y = 416)
+          if (id(sleep_menu_page) == 1) {
+            draw_pill_button(175, 291, 416, 14, id(theme_secondary), id(col_dark_gray), "PAGE 1/2  >", id(col_white), false);
+          } else {
+            draw_pill_button(175, 291, 416, 14, id(theme_secondary), id(col_dark_gray), "<  PAGE 2/2", id(col_white), false);
+          }
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
@@ -5864,59 +5871,116 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
-                // Mode 1: Sleep & Wake Submenu
-                // Card 1: Motion Wake Cycler (y: 90..130, x: 100..366)
-                if (touch.y >= 90 && touch.y <= 130 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
-                  std::string nxt_m = "Always On";
-                  if (cur_m == "Always On") nxt_m = "Docked Only";
-                  else if (cur_m == "Docked Only") nxt_m = "Disabled";
-                  else nxt_m = "Always On";
-                  auto call = id(pickup_wake_mode).make_call();
-                  call.set_option(nxt_m);
-                  call.perform();
-                  id(disp1).update();
-                // Card 2: Tap Wake Cycler (y: 140..180, x: 100..366)
-                } else if (touch.y >= 140 && touch.y <= 180 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
-                  std::string nxt_t = "Always On";
-                  if (cur_t == "Always On") nxt_t = "Docked Only";
-                  else if (cur_t == "Docked Only") nxt_t = "Disabled";
-                  else nxt_t = "Always On";
-                  auto call = id(tap_wake_mode).make_call();
-                  call.set_option(nxt_t);
-                  call.perform();
-                  id(disp1).update();
-                // Card 3: Docked Screensaver Toggle (y: 190..230, x: 100..366)
-                } else if (touch.y >= 190 && touch.y <= 230 && touch.x >= 100 && touch.x <= 366) {
-                  id(docked_screensaver_switch).toggle();
-                  id(disp1).update();
-                // Card 4: Screensaver Style Cycler (y: 240..280, x: 100..366)
-                } else if (touch.y >= 240 && touch.y <= 280 && touch.x >= 100 && touch.x <= 366) {
-                  std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
-                  std::string nxt_s = "Ambient Clock";
-                  if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
-                  else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
-                  else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
-                  else if (cur_s == "Matrix Rain") nxt_s = "Solar Flare";
-                  else nxt_s = "Ambient Clock";
-                  auto call = id(screensaver_style_select).make_call();
-                  call.set_option(nxt_s);
-                  call.perform();
-                  id(disp1).update();
-                // Card 5: Stay Awake Mode (y: 290..330, x: 100..366)
-                } else if (touch.y >= 290 && touch.y <= 330 && touch.x >= 100 && touch.x <= 366) {
-                  id(prevent_deep_sleep_switch).toggle();
-                  id(disp1).update();
-                // Standardized < BACK Button at y = 375 (y: 350..400, x: 120..346)
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Mode 1: Sleep & Wake Submenu (2 Pages, 4 slots each at 60px pitch)
+                if (id(sleep_menu_page) == 1) {
+                  // Page 1
+                  // Slot 1: Motion Wake Cycler (y: 95..148, x: 90..376)
+                  if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
+                    std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
+                    std::string nxt = "Off";
+                    if (cur == "Off") nxt = "Gentle";
+                    else if (cur == "Gentle") nxt = "Firm";
+                    else if (cur == "Firm") nxt = "Aggressive";
+                    else if (cur == "Aggressive") nxt = "Off";
+                    auto call = id(pickup_wake_mode).make_call();
+                    call.set_option(nxt);
+                    call.perform();
+                    id(disp1).update();
+                  // Slot 2: Tap Wake Cycler (y: 155..208, x: 90..376)
+                  } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
+                    std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
+                    std::string nxt = "Off";
+                    if (cur == "Off") nxt = "Gentle";
+                    else if (cur == "Gentle") nxt = "Firm";
+                    else if (cur == "Firm") nxt = "Aggressive";
+                    else if (cur == "Aggressive") nxt = "Off";
+                    auto call = id(tap_wake_mode).make_call();
+                    call.set_option(nxt);
+                    call.perform();
+                    id(disp1).update();
+                  // Slot 3: Docked Screensaver Toggle (y: 215..268, x: 90..376)
+                  } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
+                    id(docked_screensaver_switch).toggle();
+                    id(disp1).update();
+                  // Slot 4: Screensaver Style Cycler (y: 275..328, x: 90..376)
+                  } else if (touch.y >= 275 && touch.y <= 328 && touch.x >= 90 && touch.x <= 376) {
+                    std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
+                    std::string nxt_s = "Ambient Clock";
+                    if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
+                    else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
+                    else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
+                    else if (cur_s == "Matrix Rain") nxt_s = "Solar Flare";
+                    else if (cur_s == "Solar Flare") nxt_s = "Screen Off";
+                    else if (cur_s == "Screen Off") nxt_s = "Ambient Clock";
+                    auto call = id(screensaver_style_select).make_call();
+                    call.set_option(nxt_s);
+                    call.perform();
+                    id(disp1).update();
+                  }
+                } else {
+                  // Page 2
+                  // Slot 1: Screen Off Timeout (y: 95..148, x: 90..376)
+                  if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
+                    std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
+                    std::string nxt_so = "15s";
+                    if (cur_so == "10s") nxt_so = "15s";
+                    else if (cur_so == "15s") nxt_so = "30s";
+                    else if (cur_so == "30s") nxt_so = "1 min";
+                    else if (cur_so == "1 min") nxt_so = "2 min";
+                    else if (cur_so == "2 min") nxt_so = "Never";
+                    else if (cur_so == "Never") nxt_so = "10s";
+                    auto call = id(display_off_timeout).make_call();
+                    call.set_option(nxt_so);
+                    call.perform();
+                    id(disp1).update();
+                  // Slot 2: Docked Inactivity Timeout (y: 155..208, x: 90..376)
+                  } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
+                    std::string cur_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
+                    std::string nxt_to = "Never";
+                    if (cur_to == "10s") nxt_to = "15s";
+                    else if (cur_to == "15s") nxt_to = "30s";
+                    else if (cur_to == "30s") nxt_to = "1 min";
+                    else if (cur_to == "1 min") nxt_to = "5 min";
+                    else if (cur_to == "5 min") nxt_to = "Never";
+                    else if (cur_to == "Never") nxt_to = "10s";
+                    auto call = id(screensaver_docked_timeout).make_call();
+                    call.set_option(nxt_to);
+                    call.perform();
+                    id(disp1).update();
+                  // Slot 3: Stay Awake Mode (y: 215..268, x: 90..376)
+                  } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
+                    id(prevent_deep_sleep_switch).toggle();
+                    id(disp1).update();
+                  // Slot 4: Auto-Sleep Deep Sleep Timeout (y: 275..328, x: 90..376)
+                  } else if (touch.y >= 275 && touch.y <= 328 && touch.x >= 90 && touch.x <= 376) {
+                    std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
+                    std::string nxt_as = "5 min";
+                    if (cur_as == "5 min") nxt_as = "10 min";
+                    else if (cur_as == "10 min") nxt_as = "15 min";
+                    else if (cur_as == "15 min") nxt_as = "30 min";
+                    else if (cur_as == "30 min") nxt_as = "Disabled";
+                    else if (cur_as == "Disabled") nxt_as = "5 min";
+                    auto call = id(sleep_timeout_mode).make_call();
+                    call.set_option(nxt_as);
+                    call.perform();
+                    id(disp1).update();
+                  }
+                }
+
+                // Standardized Centered < BACK Button at y = 368 (y: 345..390, x: 130..336)
+                if (touch.y >= 345 && touch.y <= 390 && touch.x >= 130 && touch.x <= 336) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
+                  id(sleep_menu_page) = 1;
+                  id(disp1).update();
+                // Bottom Page Switcher Button (y: 395..455)
+                } else if (touch.y >= 395 && touch.y <= 455) {
+                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 2) {
                 // Mode 2: Display Submenu (Gold Standard 60px Pitch)
-                // Card 1: Auto-Brightness Mode Cycler (y: 95..150, x: 100..366)
-                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
+                // Card 1: Auto-Brightness Mode Cycler (y: 95..148, x: 90..376)
+                if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur = std::string(id(auto_brightness_mode).current_option().c_str());
                   std::string nxt = "Disabled";
                   if (cur == "Disabled") nxt = "Sun Synchronized";
@@ -5926,8 +5990,8 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Brightness Preset Cycler (y: 155..210, x: 100..366)
-                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Brightness Preset Cycler (y: 155..208, x: 90..376)
+                } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
                   std::string nxt = "90%";
                   if (cur == "60%") nxt = "70%";
@@ -5940,20 +6004,38 @@ touchscreen:
                   call.perform();
                   id(sync_display_brightness).execute();
                   id(disp1).update();
-                // Card 3: Color Palette Cycler (y: 215..270, x: 100..366)
-                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Color Palette Cycler (y: 215..268, x: 90..376)
+                } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur = std::string(id(theme_palette_select).current_option().c_str());
-                  std::string nxt = "Steel & Silver";
-                  if (cur == "Steel & Silver") nxt = "Pink & Gray";
-                  else if (cur == "Pink & Gray") nxt = "Blue & Gold";
-                  else if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Green & Gold";
-                  else if (cur == "Green & Gold") nxt = "Steel & Silver";
+                  std::string nxt = "Blue & Gold";
+                  if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Emerald";
+                  else if (cur == "Emerald") nxt = "Amethyst";
+                  else if (cur == "Amethyst") nxt = "Rose Gold";
+                  else if (cur == "Rose Gold") nxt = "Amber Warmth";
+                  else if (cur == "Amber Warmth") nxt = "Ruby Red";
+                  else if (cur == "Ruby Red") nxt = "Obsidian Mono";
+                  else if (cur == "Obsidian Mono") nxt = "Cyberpunk Neon";
+                  else if (cur == "Cyberpunk Neon") nxt = "Blue & Gold";
                   auto call = id(theme_palette_select).make_call();
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Standardized < BACK (y: 350..400, x: 120..346)
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Card 4: Screen Off Inactivity Timeout Cycler (y: 275..335, x: 90..376)
+                } else if (touch.y >= 275 && touch.y <= 335 && touch.x >= 90 && touch.x <= 376) {
+                  std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
+                  std::string nxt_so = "15s";
+                  if (cur_so == "10s") nxt_so = "15s";
+                  else if (cur_so == "15s") nxt_so = "30s";
+                  else if (cur_so == "30s") nxt_so = "1 min";
+                  else if (cur_so == "1 min") nxt_so = "2 min";
+                  else if (cur_so == "2 min") nxt_so = "Never";
+                  else if (cur_so == "Never") nxt_so = "10s";
+                  auto call = id(display_off_timeout).make_call();
+                  call.set_option(nxt_so);
+                  call.perform();
+                  id(disp1).update();
+                // Standardized < BACK Button at y = 375 (y: 345..420, x: 120..346)
+                } else if (touch.y >= 345 && touch.y <= 420 && touch.x >= 120 && touch.x <= 346) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
