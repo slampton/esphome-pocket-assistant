@@ -3879,10 +3879,10 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
 
-          // Standardized 60px pitch matching System Submenus (y = 120, 180, 240, r = 18)
+          // Standardized 60px pitch (Slot 1 & 2: Speaker Actions; Slot 3: Blank separator; Slot 4: Library)
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), false);
           draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), false);
-          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "LIBRARY", id(col_white), false);
+          draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "LIBRARY", id(col_white), false);
 
           // Bottom Back to Player (Standardized at y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -5080,8 +5080,8 @@ touchscreen:
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 3: LIBRARY (y: 215..270, x: 100..366)
-                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
+                // Card 4: LIBRARY (y: 275..330, x: 100..366) - Moved to Slot 4 (Slot 3 is blank visual separator)
+                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 100 && touch.x <= 366) {
                   id(music_category_page) = 1;
                   id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
                   id(disp1).update();
