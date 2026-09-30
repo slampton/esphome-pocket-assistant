@@ -3298,18 +3298,12 @@ display:
                   if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
                 }
               }
-              for (int y = 320; y < 355; y++) {
+              // Bottom Metadata Scrim: Uniform 50% light dither across y: 320..385
+              for (int y = 320; y < 385; y++) {
                 int y_d = abs(y - cy);
                 int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
                 for (int x = cx - hw; x <= cx + hw; x++) {
                   if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
-                }
-              }
-              for (int y = 355; y < 385; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0 || (x % 2 == 0 && y % 2 == 1)) it.draw_pixel_at(x, y, id(col_black));
                 }
               }
               for (int y = 385; y < 466; y++) {
@@ -3354,26 +3348,26 @@ display:
             it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, flank_btn_col);
             it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, flank_btn_col);
 
-            // Right Flank Volume Up (+): centered at x = 392, y = 125
+            // Right Flank Volume Up (+): centered at x = 392, y = 140 (brought down 15px for comfortable thumb reach)
             if (is_fs_active) {
-              it.filled_rectangle(392 - 7 + 1, 125 - 1 + 1, 15, 3, id(col_black));
-              it.filled_rectangle(392 - 1 + 1, 125 - 7 + 1, 3, 15, id(col_black));
+              it.filled_rectangle(392 - 7 + 1, 140 - 1 + 1, 15, 3, id(col_black));
+              it.filled_rectangle(392 - 1 + 1, 140 - 7 + 1, 3, 15, id(col_black));
             }
-            it.filled_rectangle(392 - 7, 125 - 1, 15, 3, flank_btn_col);
-            it.filled_rectangle(392 - 1, 125 - 7, 3, 15, flank_btn_col);
+            it.filled_rectangle(392 - 7, 140 - 1, 15, 3, flank_btn_col);
+            it.filled_rectangle(392 - 1, 140 - 7, 3, 15, flank_btn_col);
 
-            // Right Flank Volume Down (-): centered at x = 392, y = 299
+            // Right Flank Volume Down (-): centered at x = 392, y = 284 (brought up 15px, creating 36px buffer from metadata)
             if (is_fs_active) {
-              it.filled_rectangle(392 - 7 + 1, 299 - 1 + 1, 15, 3, id(col_black));
+              it.filled_rectangle(392 - 7 + 1, 284 - 1 + 1, 15, 3, id(col_black));
             }
-            it.filled_rectangle(392 - 7, 299 - 1, 15, 3, flank_btn_col);
+            it.filled_rectangle(392 - 7, 284 - 1, 15, 3, flank_btn_col);
 
-            // Left Flank Menu Button (☰): centered at x = 74, y = 299 (bilateral counterpart to Volume Down -)
+            // Left Flank Menu Button (☰): centered at x = 74, y = 284 (exact bilateral mirror to Volume Down -)
             for (int dy : {-4, 0, 4}) {
               if (is_fs_active) {
-                it.filled_rectangle(74 - 7 + 1, 299 + dy + 1, 14, 2, id(col_black));
+                it.filled_rectangle(74 - 7 + 1, 284 + dy + 1, 14, 2, id(col_black));
               }
-              it.filled_rectangle(74 - 7, 299 + dy, 14, 2, flank_btn_col);
+              it.filled_rectangle(74 - 7, 284 + dy, 14, 2, flank_btn_col);
             }
 
             // Paused state frosted scrim overlay with borderless Play badge ▶
@@ -3432,21 +3426,14 @@ display:
             if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
             if (title.length() > 24) title = title.substr(0, 22) + "...";
 
-            // In Full Bleed mode with Overlay ON: Translucent Dithered Gray Scrim over y: 320..395
-            // Allows artwork to show through while guaranteeing high contrast for metadata
+            // In Full Bleed mode with Overlay ON: Uniform 50% Translucent Dithered Gray Scrim over y: 320..395
+            // Allows artwork to show through with an even, clean translucent wash for title, artist, and album
             if (is_full_bleed) {
-              for (int y = 320; y < 355; y++) {
+              for (int y = 320; y < 395; y++) {
                 int y_d = abs(y - cy);
                 int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
                 for (int x = cx - hw; x <= cx + hw; x++) {
                   if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
-                }
-              }
-              for (int y = 355; y < 395; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0 || (x % 2 == 0 && y % 2 == 1)) it.draw_pixel_at(x, y, id(col_black));
                 }
               }
             }
@@ -4628,28 +4615,28 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                // Right Flank Volume Up (▲): Upper Right Quadrant (x: 340..445, y: 90..165)
-                if (touch.x >= 340 && touch.x <= 445 && touch.y >= 90 && touch.y <= 165) {
+                // Right Flank Volume Up (+): Upper Right Quadrant (x: 335..450, y: 80..174, center 140)
+                if (touch.x >= 335 && touch.x <= 450 && touch.y >= 80 && touch.y < 175) {
                   id(vol_hud_direction) = 1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_up).execute();
                   id(disp1).update();
-                // Right Flank Next Track (▶▶): Middle Right Zone (x: 335..420, y: 166..254)
-                } else if (touch.x >= 335 && touch.x <= 420 && touch.y >= 166 && touch.y <= 254) {
+                // Right Flank Next Track (▶▶): Middle Right Zone (x: 335..450, y: 175..247, center 212)
+                } else if (touch.x >= 335 && touch.x <= 450 && touch.y >= 175 && touch.y < 248) {
                   id(music_next_track).execute();
                   id(disp1).update();
-                // Right Flank Volume Down (▼): Lower Right Quadrant (x: 340..445, y: 255..345)
-                } else if (touch.x >= 340 && touch.x <= 445 && touch.y >= 255 && touch.y <= 345) {
+                // Right Flank Volume Down (-): Lower Right Quadrant (x: 335..450, y: 248..335, center 284)
+                } else if (touch.x >= 335 && touch.x <= 450 && touch.y >= 248 && touch.y <= 335) {
                   id(vol_hud_direction) = -1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_down).execute();
                   id(disp1).update();
-                // Left Flank Previous Track (◀◀): Middle Left Zone (x: 45..124, y: 145..254)
-                } else if (touch.x >= 45 && touch.x <= 124 && touch.y >= 145 && touch.y <= 254) {
+                // Left Flank Previous Track (◀◀): Middle Left Zone (x: 20..130, y: 145..247, center 212)
+                } else if (touch.x >= 20 && touch.x <= 130 && touch.y >= 145 && touch.y < 248) {
                   id(music_prev_track).execute();
                   id(disp1).update();
-                // Left Flank Menu Button (☰): Lower Left Quadrant (x: 20..125, y: 255..345)
-                } else if (touch.x >= 20 && touch.x <= 125 && touch.y >= 255 && touch.y <= 345) {
+                // Left Flank Menu Button (☰): Lower Left Quadrant (x: 20..130, y: 248..335, center 284)
+                } else if (touch.x >= 20 && touch.x <= 130 && touch.y >= 248 && touch.y <= 335) {
                   id(music_overlay_mode) = 1; // Open Level 1 Music Menu
                   id(disp1).update();
                 // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu
