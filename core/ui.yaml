@@ -3729,17 +3729,17 @@ display:
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
-          // LEVEL 1: TOP-LEVEL SELECTION MENU (Aligned with Browse Library)
+          // LEVEL 1: TOP-LEVEL SELECTION MENU (Standardized 60px Pitch)
           // --------------------------------------------------
-          it.print(cx, 80, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
 
-          // Cards aligned exactly with Browse Library (y = 140, 215, 290, r = 22)
-          draw_pill_button(140, 326, 140, 22, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), true);
-          draw_pill_button(140, 326, 215, 22, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), true);
-          draw_pill_button(140, 326, 290, 22, id(theme_secondary), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
+          // Standardized 60px pitch matching System Submenus (y = 130, 190, 250, r = 20)
+          draw_pill_button(110, 356, 130, 20, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), true);
+          draw_pill_button(110, 356, 190, 20, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), true);
+          draw_pill_button(110, 356, 250, 20, id(theme_secondary), id(col_dark_gray), "BROWSE LIBRARY", id(col_white), true);
 
-          // Bottom Back to Player (Aligned at y = 375)
-          draw_pill_button(150, 316, 375, 18, id(col_dark_gray), id(col_dark_gray), "< BACK", id(theme_secondary), false);
+          // Bottom Back to Player (Standardized at y = 375, r = 18)
+          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
 
         } else if (id(music_overlay_mode) == 2) {
           // --------------------------------------------------
@@ -4605,33 +4605,33 @@ display:
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
-          it.print(info_x, 105, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
+          it.print(info_x, 105, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
 
           // Line 2: Temperature (Dual C & F)
           float temp_c = id(imu_temp).state;
           float temp_f = temp_c * 1.8f + 32.0f;
           snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-          it.print(info_x, 145, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
+          it.print(info_x, 145, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
 
           // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
-          it.print(info_x, 185, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
+          it.print(info_x, 185, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
 
           // Line 4: 3-Axis Acceleration (G-force)
           snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(info_x, 225, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
+          it.print(info_x, 225, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
 
           // Line 5: Battery Fuel Gauge & Power
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(info_x, 265, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
+          it.print(info_x, 265, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
 
           // Line 6: Hardware Platform, Memory & Firmware
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
           snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
-          it.print(info_x, 305, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
+          it.print(info_x, 305, id(font_small), id(theme_secondary), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -4912,42 +4912,31 @@ touchscreen:
                 } else if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
-                // Center Album Art (216x216 or Full-Screen): Play / Pause toggle (Generous 186x220px zone)
-                } else if (touch.y >= 100 && touch.y <= 320 && touch.x >= 140 && touch.x <= 326) {
-                  if (id(active_speaker_entity) == "${local_player_id}" && id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                    auto call = id(pocket_music_player).make_call();
-                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                    call.perform();
-                    id(toggle_ha_music).execute();
-                  } else {
-                    if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                      id(music_action_feedback) = "Connecting to stream...";
-                      id(music_feedback_timer) = millis();
-                    }
-                    id(toggle_ha_music).execute();
-                  }
+                // Center Album Art & Text: Play / Pause toggle (Expanded 226x310px central zone, zero driver stall)
+                } else if (touch.y > 95 && touch.y < 405 && touch.x >= 120 && touch.x <= 346) {
+                  id(toggle_ha_music).execute();
                   id(disp1).update();
                 }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
-                // LEVEL 1: TOP-LEVEL SELECTION MENU (Aligned with Browse Library)
+                // LEVEL 1: TOP-LEVEL SELECTION MENU (Standardized 60px Pitch)
                 // ----------------------------------------------------
-                // Card 1: SPEAKER HANDOFF (y: 105..175, x: 65..401)
-                if (touch.y >= 105 && touch.y < 175 && touch.x >= 65 && touch.x <= 401) {
+                // Card 1: SPEAKER HANDOFF (y: 105..155, x: 100..366)
+                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
                   id(selected_category_mode) = "speakers";
                   id(selected_category_title) = "HANDOFF";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 2: SPEAKER TAKEOVER (y: 180..250, x: 65..401)
-                } else if (touch.y >= 180 && touch.y < 250 && touch.x >= 65 && touch.x <= 401) {
+                // Card 2: SPEAKER TAKEOVER (y: 165..215, x: 100..366)
+                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
                   id(selected_category_mode) = "speaker_takeover";
                   id(selected_category_title) = "TAKEOVER";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 3: BROWSE LIBRARY (y: 255..325, x: 65..401)
-                } else if (touch.y >= 255 && touch.y < 325 && touch.x >= 65 && touch.x <= 401) {
+                // Card 3: BROWSE LIBRARY (y: 225..275, x: 100..366)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
                   id(music_category_page) = 1;
                   id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
                   id(disp1).update();
@@ -4955,8 +4944,8 @@ touchscreen:
                 } else if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
                   id(music_overlay_mode) = 0; // Return to Player View
                   id(disp1).update();
-                // Standardized Centered < BACK Button at y = 375 (y: 350..400, x: 120..346) -> Returns to Player View
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                // Ultra-Forgiving < BACK Button (y: 335..450, x: 80..386) -> Returns to Player View
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 0; // Return to Player View
                   id(disp1).update();
                 }
@@ -5016,7 +5005,7 @@ touchscreen:
                     id(fetch_music_browse).execute();
                   }
                 // Standardized Centered < BACK Button at y = 375 (y: 350..400, x: 120..346) -> Returns to Level 1 Menu
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 1; // Return to Level 1 Menu
                   id(disp1).update();
                 }
@@ -5102,7 +5091,7 @@ touchscreen:
                     }
                   }
                 // Standardized Centered < BACK Button at y = 375 (y: 350..400, x: 120..346) -> Returns to Level 2 Categories
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   if (id(selected_category_mode) == "album_tracks") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
@@ -5247,7 +5236,7 @@ touchscreen:
                   id(prevent_deep_sleep_switch).toggle();
                   id(disp1).update();
                 // Standardized < BACK Button at y = 375 (y: 350..400, x: 120..346)
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
                 }
@@ -5291,7 +5280,7 @@ touchscreen:
                   call.perform();
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
@@ -5322,7 +5311,7 @@ touchscreen:
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
                 }
@@ -5355,7 +5344,7 @@ touchscreen:
                     id(disp1).update();
                   }
                 // Standardized < BACK (y: 350..400, x: 120..346)
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(update_check_state) = 0; // Reset checking state
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
@@ -5399,14 +5388,14 @@ touchscreen:
                   id(system_menu_mode) = 0;
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 8) {
                 // Mode 8: System Info Submenu
                 // Standardized < BACK (y: 350..400, x: 120..346)
-                if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 } else {
@@ -5432,7 +5421,7 @@ touchscreen:
                 } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
-                } else if (touch.y >= 350 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
