@@ -4055,33 +4055,33 @@ display:
           // Standardized Title at y = 56 (aligned across all OS menus)
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
 
-          // Standardized 60px pitch matching System & Music Submenus (y = 120, 180, 240, 300, r = 18)
-          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "MARBLES", id(col_white), false);
-          draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "ARCHERY", id(col_white), false);
-          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "BREAKOUT", id(col_white), false);
-          draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "CHOMP (Kids)", id(col_white), false);
+          // Reusable Game Card: Left-aligned title with generous 35px padding (x = 145) & right-aligned white high score
+          auto draw_game_card = [&](int y_mid, const char* title, int high_score) {
+            it.filled_circle(110, y_mid, 18, id(theme_secondary));
+            it.filled_circle(356, y_mid, 18, id(theme_secondary));
+            it.filled_rectangle(110, y_mid - 18, 246, 37, id(theme_secondary));
 
-          // Subtle NVS High Score readouts right inside the arena margin
-          char hs_buf[32];
-          if (id(high_score_marbles) > 0) {
-            snprintf(hs_buf, sizeof(hs_buf), "%d", id(high_score_marbles));
-            it.print(346, 120, id(font_micro), id(col_gold), TextAlign::CENTER_RIGHT, hs_buf);
-          }
-          if (id(high_score_archery) > 0) {
-            snprintf(hs_buf, sizeof(hs_buf), "%d", id(high_score_archery));
-            it.print(346, 180, id(font_micro), id(col_gold), TextAlign::CENTER_RIGHT, hs_buf);
-          }
-          if (id(high_score_breakout) > 0) {
-            snprintf(hs_buf, sizeof(hs_buf), "%d", id(high_score_breakout));
-            it.print(346, 240, id(font_micro), id(col_gold), TextAlign::CENTER_RIGHT, hs_buf);
-          }
-          if (id(high_score_chomp) > 0) {
-            snprintf(hs_buf, sizeof(hs_buf), "%d", id(high_score_chomp));
-            it.print(346, 300, id(font_micro), id(col_gold), TextAlign::CENTER_RIGHT, hs_buf);
-          }
+            it.filled_circle(110, y_mid, 16, id(col_dark_gray));
+            it.filled_circle(356, y_mid, 16, id(col_dark_gray));
+            it.filled_rectangle(110, y_mid - 16, 246, 33, id(col_dark_gray));
 
-          // Standardized Bottom Back Button (y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+            // Left-aligned title with generous inset (x = 145, lining up with left of 'G' in GAMES)
+            it.print(145, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, title);
+
+            // Right-aligned high score in matching white text for high contrast and prominent readability
+            if (high_score > 0) {
+              char score_buf[16];
+              snprintf(score_buf, sizeof(score_buf), "%d", high_score);
+              it.print(336, y_mid, id(font_small), id(col_white), TextAlign::CENTER_RIGHT, score_buf);
+            }
+          };
+
+          draw_game_card(120, "MARBLES", id(high_score_marbles));
+          draw_game_card(180, "ARCHERY", id(high_score_archery));
+          draw_game_card(240, "BREAKOUT", id(high_score_breakout));
+          draw_game_card(300, "CHOMP (Kids)", id(high_score_chomp));
+
+          // Physical top crown button exits directly to watchface
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
@@ -4385,20 +4385,20 @@ display:
             is_new_high = false;
           }
 
-          // Dynamic 2D Swaying Target (Horizontal sweep ±105px, vertical bobbing ±32px)
-          target_step += 0.045f;
-          target_x = cx + sinf(target_step) * 105.0f;
-          target_y = 165.0f + cosf(target_step * 1.6f) * 32.0f;
+          // Dynamic 2D Swaying Target (Horizontal sweep ±95px, vertical bobbing ±26px)
+          target_step += 0.04f;
+          target_x = cx + sinf(target_step) * 95.0f;
+          target_y = 165.0f + cosf(target_step * 1.4f) * 26.0f;
 
-          // 3D Shaded Target Rings with Drop Shadow (Tighter tournament radii: 28, 20, 14, 8, 4)
-          it.filled_circle((int)target_x, (int)target_y + 3, 28, id(col_dark_gray));
-          it.filled_circle((int)target_x, (int)target_y, 28, id(col_white));
-          it.circle((int)target_x, (int)target_y, 28, id(col_dark_gray));
-          it.filled_circle((int)target_x, (int)target_y, 20, id(col_black));
-          it.circle((int)target_x, (int)target_y, 20, id(col_slate));
-          it.filled_circle((int)target_x, (int)target_y, 14, id(col_cyan));
-          it.filled_circle((int)target_x, (int)target_y, 8, id(col_red));
-          it.filled_circle((int)target_x, (int)target_y, 4, id(col_gold));
+          // 3D Shaded Target Rings with Drop Shadow (Balanced tournament radii: 34, 25, 18, 11, 5.5)
+          it.filled_circle((int)target_x, (int)target_y + 3, 34, id(col_dark_gray));
+          it.filled_circle((int)target_x, (int)target_y, 34, id(col_white));
+          it.circle((int)target_x, (int)target_y, 34, id(col_dark_gray));
+          it.filled_circle((int)target_x, (int)target_y, 25, id(col_black));
+          it.circle((int)target_x, (int)target_y, 25, id(col_slate));
+          it.filled_circle((int)target_x, (int)target_y, 18, id(col_cyan));
+          it.filled_circle((int)target_x, (int)target_y, 11, id(col_red));
+          it.filled_circle((int)target_x, (int)target_y, 5, id(col_gold));
 
           // Player Aim Reticle
           float ax = cx + roll_delta * 6.5f;
@@ -4406,8 +4406,8 @@ display:
           if (ax < 65.0f) ax = 65.0f; if (ax > 401.0f) ax = 401.0f;
           if (ay < 65.0f) ay = 65.0f; if (ay > 370.0f) ay = 370.0f;
 
-          // Dynamic Crosswind: Shifts smoothly between -9.0 and +9.0 mph
-          wind_speed = sinf((float)millis() * 0.0007f) * 9.0f;
+          // Gentle Crosswind: Drifts smoothly between -5.5 and +5.5 mph (fair & skill-based)
+          wind_speed = sinf((float)millis() * 0.0006f) * 5.5f;
 
           // Shoot Trigger (Button or Tap)
           if (id(game_btn_pressed) || id(marble_touch_x) >= 0.0f) {
@@ -4428,18 +4428,18 @@ display:
               float launch_dx = ax - cx;
               float launch_dy = ay - 370.0f;
               float launch_len = sqrtf(launch_dx * launch_dx + launch_dy * launch_dy);
-              float speed = 360.0f; // Flight speed in px/s
+              float speed = 380.0f; // Flight speed in px/s
               arrow_vx = (launch_dx / launch_len) * speed;
               arrow_vy = (launch_dy / launch_len) * speed;
               arrows_left--;
             }
           }
 
-          // In-Flight Arrow Physics with Wind Drift & Faux-3D Scaling
+          // In-Flight Arrow Physics with Balanced Wind Drift & Faux-3D Scaling
           if (arrow_y >= 0.0f) {
             const float dt_arrow = 0.05f;
-            // Crosswind deflects the arrow horizontally during flight!
-            arrow_vx += wind_speed * 16.0f * dt_arrow;
+            // Crosswind deflects the arrow with calibrated gentle force (7.5x instead of 16x)
+            arrow_vx += wind_speed * 7.5f * dt_arrow;
             arrow_x += arrow_vx * dt_arrow;
             arrow_y += arrow_vy * dt_arrow;
 
@@ -4454,15 +4454,15 @@ display:
             if (arrow_y <= target_y + 6.0f) {
               float dist_hit = sqrtf((arrow_x - target_x) * (arrow_x - target_x) +
                                      (arrow_y - target_y) * (arrow_y - target_y));
-              if (dist_hit <= 4.5f) {
+              if (dist_hit <= 5.5f) {
                 hit_feedback = "BULLSEYE! +10"; arch_score += 10;
-              } else if (dist_hit <= 9.0f) {
+              } else if (dist_hit <= 11.0f) {
                 hit_feedback = "RED RING! +7"; arch_score += 7;
-              } else if (dist_hit <= 15.0f) {
+              } else if (dist_hit <= 18.0f) {
                 hit_feedback = "BLUE RING! +5"; arch_score += 5;
-              } else if (dist_hit <= 21.0f) {
+              } else if (dist_hit <= 25.0f) {
                 hit_feedback = "BLACK RING! +3"; arch_score += 3;
-              } else if (dist_hit <= 29.0f) {
+              } else if (dist_hit <= 34.0f) {
                 hit_feedback = "WHITE! +1"; arch_score += 1;
               } else {
                 hit_feedback = "MISS!";
@@ -4560,6 +4560,8 @@ display:
           static int bo_spark_x = -1;
           static int bo_spark_y = -1;
 
+          static float smooth_paddle_x = 233.0f;
+
           if (game_just_entered) {
             for (int b = 0; b < 12; b++) bricks[b].alive = true;
             ball_x = cx; ball_y = 345.0f;
@@ -4570,14 +4572,19 @@ display:
             round_over = false;
             is_new_high = false;
             bo_spark_x = -1;
+            smooth_paddle_x = cx;
           }
 
-          // Paddle Physics: Tilt roll slides paddle along bottom arc
-          float paddle_x = cx + roll_delta * 7.5f;
-          if (paddle_x < 145.0f) paddle_x = 145.0f;
-          if (paddle_x > 321.0f) paddle_x = 321.0f;
+          // Paddle Physics: Exponential Moving Average (EMA) smoothing eliminates raw IMU jitter and jerking
+          float raw_target_x = cx + roll_delta * 6.8f;
+          if (raw_target_x < 140.0f) raw_target_x = 140.0f;
+          if (raw_target_x > 326.0f) raw_target_x = 326.0f;
+
+          // 32% lerp per 50ms frame produces butter-smooth glide with zero lag
+          smooth_paddle_x += (raw_target_x - smooth_paddle_x) * 0.32f;
+          float paddle_x = smooth_paddle_x;
           int paddle_y = 356;
-          int paddle_w = 54;
+          int paddle_w = 58;
           int paddle_h = 10;
 
           // Touch Trigger: Launch Ball or Replay
