@@ -4351,28 +4351,29 @@ display:
           }
 
           // Center Zone: Buffered 2x3 Grid with Standardized Pill Height (r = 20) & 24px Center Gap
-          // Row 1: Display > (Left: x 69..221) | Clock > (Right: x 245..397) at y = 130
-          draw_pill_button(89, 201, 130, 20, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
-          draw_pill_button(265, 377, 130, 20, id(theme_secondary), id(col_dark_gray), "Clock >", id(col_white), false);
+          // Center Zone: Buffered 2x3 Grid centered across horizon (y = 150, 210, 270)
+          // Row 1: Display > (Left: x 69..221) | Clock > (Right: x 245..397) at y = 150
+          draw_pill_button(89, 201, 150, 20, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
+          draw_pill_button(265, 377, 150, 20, id(theme_secondary), id(col_dark_gray), "Clock >", id(col_white), false);
 
-          // Row 2: Sleep & Wake > (Left: x 69..221) | Audio > (Right: x 245..397) at y = 190
-          draw_pill_button(89, 201, 190, 20, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
-          draw_pill_button(265, 377, 190, 20, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
+          // Row 2: Sleep & Wake > (Left: x 69..221) | Audio > (Right: x 245..397) at y = 210 (Screen Horizon)
+          draw_pill_button(89, 201, 210, 20, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
+          draw_pill_button(265, 377, 210, 20, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
 
-          // Row 3: Actions > (Left: x 69..221) | Info > (Right: x 245..397) at y = 250
-          draw_pill_button(89, 201, 250, 20, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
-          draw_pill_button(265, 377, 250, 20, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
+          // Row 3: Actions > (Left: x 69..221) | Info > (Right: x 245..397) at y = 270
+          draw_pill_button(89, 201, 270, 20, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
+          draw_pill_button(265, 377, 270, 20, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
 
-          // Lower Zone: Battery and Time (Concise, date removed)
+          // Lower Zone: Battery and Time with comfortable padding buffers (y = 328, y = 374)
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%%", batt);
           if (id(batt_charging).state) {
             int w_main = (strlen(b_main) >= 14) ? 140 : 130;
             int start_x = cx - (w_main + 105) / 2;
-            it.print(start_x, 338, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
-            it.print(start_x + w_main, 338, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
+            it.print(start_x, 328, id(font_small), id(theme_primary), TextAlign::LEFT, b_main);
+            it.print(start_x + w_main, 328, id(font_small), id(theme_secondary), TextAlign::LEFT, " • Charging");
           } else {
-            it.print(cx, 338, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
+            it.print(cx, 328, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
 
           if (now.is_valid()) {
@@ -4451,7 +4452,7 @@ display:
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
 
-        } else if (id(system_menu_mode) == 3) {        } else if (id(system_menu_mode) == 3) {
+        } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
           // VIEW 3: SYSTEM ACTIONS SUBMENU
           // --------------------------------------------------
@@ -4571,63 +4572,66 @@ display:
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO & MEDIA");
 
-          // Button 1: Album Art Style Cycler (y = 140, r = 20)
+          // Button 1: Album Art Style Cycler (y = 130, r = 18)
           std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
           char fs_label[32];
           snprintf(fs_label, sizeof(fs_label), "Art: %s", cur_mode.c_str());
-          draw_pill_button(110, 356, 140, 20, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
+          draw_pill_button(110, 356, 130, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
 
-          // Button 2: Hardware Speaker Volume (y = 215, r = 20)
+          // Button 2: Hardware Speaker Volume (y = 190, r = 18)
           char spk_vol[32];
           int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
           snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
-          draw_pill_button(110, 356, 215, 20, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
+          draw_pill_button(110, 356, 190, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
 
-          // Button 3: Active Speaker Target (y = 290, r = 20)
+          // Button 3: Active Speaker Target (y = 250, r = 18)
           std::string spk_target = "Speaker: " + id(active_speaker_name);
           if (spk_target.length() > 24) spk_target = spk_target.substr(0, 22) + "..";
-          draw_pill_button(110, 356, 290, 20, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
+          draw_pill_button(110, 356, 250, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
 
           // Standardized Centered < BACK Button at y = 375 (r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
         } else if (id(system_menu_mode) == 8) {
           // --------------------------------------------------
-          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU
+          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Left-Aligned Monochromatic)
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM INFO");
 
-          // Line 1: Wi-Fi Signal & IP (Green)
+          // Left-aligned margin at x = 80 with consistent theme_primary palette
+          const int info_x = 80;
+
+          // Line 1: Wi-Fi Signal & IP
           float sig = id(pocket_wifi_signal).state;
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
-          it.print(cx, 100, id(font_small), id(col_green), TextAlign::CENTER, buf);
+          it.print(info_x, 105, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
 
-          // Line 2: Temperature (Dual C & F) (Gold)
+          // Line 2: Temperature (Dual C & F)
           float temp_c = id(imu_temp).state;
           float temp_f = temp_c * 1.8f + 32.0f;
-          snprintf(buf, sizeof(buf), "IMU Temp: %.1fC (%.1fF)", temp_c, temp_f);
-          it.print(cx, 142, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
+          it.print(info_x, 145, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
 
-          // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch (Cyan)
+          // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
-          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f | Pitch:%.0f", r_val, p_val);
-          it.print(cx, 184, id(font_small), id(col_cyan), TextAlign::CENTER, buf);
+          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
+          it.print(info_x, 185, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
 
-          // Line 4: 3-Axis Acceleration (G-force) (Slate)
+          // Line 4: 3-Axis Acceleration (G-force)
           snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(cx, 226, id(font_small), id(col_slate), TextAlign::CENTER, buf);
+          it.print(info_x, 225, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
 
-          // Line 5: Battery Fuel Gauge & Power (Theme Secondary)
+          // Line 5: Battery Fuel Gauge & Power
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(cx, 268, id(font_small), id(theme_secondary), TextAlign::CENTER, buf);
+          it.print(info_x, 265, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
 
-          // Line 6: Hardware Platform, Memory & Firmware (Theme Primary)
+          // Line 6: Hardware Platform, Memory & Firmware
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
           snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
-          it.print(cx, 310, id(font_small), id(theme_primary), TextAlign::CENTER, buf);
+          it.print(info_x, 305, id(font_small), id(theme_primary), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
@@ -5172,28 +5176,28 @@ touchscreen:
                 if (touch.y >= 70 && touch.y <= 100 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Row 1 Left: "Display >" (y: 105..155, x: 65..230)
-                } else if (touch.y >= 105 && touch.y <= 155 && touch.x >= 65 && touch.x <= 230) {
+                // Row 1 Left: "Display >" (y: 125..175, x: 65..230)
+                } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 2; // Open Display Submenu
                   id(disp1).update();
-                // Row 1 Right: "Clock >" (y: 105..155, x: 236..405)
-                } else if (touch.y >= 105 && touch.y <= 155 && touch.x >= 236 && touch.x <= 405) {
+                // Row 1 Right: "Clock >" (y: 125..175, x: 236..405)
+                } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 9; // Open Clock & Time Submenu
                   id(disp1).update();
-                // Row 2 Left: "Sleep & Wake >" (y: 165..215, x: 65..230)
-                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 65 && touch.x <= 230) {
+                // Row 2 Left: "Sleep & Wake >" (y: 185..235, x: 65..230)
+                } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
                   id(disp1).update();
-                // Row 2 Right: "Audio >" (y: 165..215, x: 236..405)
-                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 236 && touch.x <= 405) {
+                // Row 2 Right: "Audio >" (y: 185..235, x: 236..405)
+                } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 7; // Open Audio & Media Submenu
                   id(disp1).update();
-                // Row 3 Left: "Actions >" (y: 225..275, x: 65..230)
-                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 65 && touch.x <= 230) {
+                // Row 3 Left: "Actions >" (y: 245..295, x: 65..230)
+                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 3; // Open System Actions Submenu
                   id(disp1).update();
-                // Row 3 Right: "Info >" (y: 225..275, x: 236..405)
-                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 236 && touch.x <= 405) {
+                // Row 3 Right: "Info >" (y: 245..295, x: 236..405)
+                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 8; // Open System Info Submenu
                   id(disp1).update();
                 }
@@ -5369,9 +5373,9 @@ touchscreen:
                   }
                 }
               } else if (id(system_menu_mode) == 7) {
-                // Mode 7: Audio & Media Submenu
-                // Card 1: Album Art Style Cycler (y: 115..165, x: 100..366)
-                if (touch.y >= 115 && touch.y <= 165 && touch.x >= 100 && touch.x <= 366) {
+                // Mode 7: Audio & Media Submenu (Standardized 60px Pitch)
+                // Card 1: Album Art Style Cycler (y: 105..155, x: 100..366)
+                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
                   std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
                   std::string nxt_mode = "Letterbox";
                   if (cur_mode == "Full Screen") nxt_mode = "Letterbox";
@@ -5381,15 +5385,15 @@ touchscreen:
                   call.set_option(nxt_mode);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Hardware Speaker Volume Step (y: 190..240, x: 100..366)
-                } else if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Hardware Speaker Volume Step (y: 165..215, x: 100..366)
+                } else if (touch.y >= 165 && touch.y <= 215 && touch.x >= 100 && touch.x <= 366) {
                   float cur_vol = id(pocket_music_player).volume;
                   float new_vol = cur_vol + 0.10f;
                   if (new_vol > 0.90f) new_vol = 0.10f;
                   id(pocket_music_player).make_call().set_volume(new_vol).perform();
                   id(disp1).update();
-                // Card 3: Active Speaker Target Jump to Music Menu (y: 265..315, x: 100..366)
-                } else if (touch.y >= 265 && touch.y <= 315 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Active Speaker Target Jump to Music Menu (y: 225..275, x: 100..366)
+                } else if (touch.y >= 225 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 1;
                   id(system_menu_mode) = 0;
