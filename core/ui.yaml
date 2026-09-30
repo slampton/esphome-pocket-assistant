@@ -1412,19 +1412,7 @@ text_sensor:
               - homeassistant.action:
                   action: homeassistant.update_entity
                   data:
-                    entity_id: 
-        - if:
-            condition:
-              lambda: |-
-                return (id(active_speaker_entity) != ) &&
-                       !id(ha_target_art_url).state.empty() &&
-                       (id(ha_target_art_url).state != none) &&
-                       (id(remote_album_art).get_width() == 0);
-            then:
-              - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
-              - online_image.set_url:
-                  id: remote_album_art
-                  url: !lambda 'return id(ha_target_art_url).state;' ${target_art_url_sensor}
+                    entity_id: ${target_art_url_sensor}
         - component.update: disp1
 
   - platform: homeassistant
