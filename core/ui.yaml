@@ -4625,7 +4625,7 @@ display:
           it.print(cx, 268, id(font_small), id(theme_secondary), TextAlign::CENTER, buf);
 
           // Line 6: Hardware Platform, Memory & Firmware (Theme Primary)
-          uint32_t free_heap = esp_get_free_heap() / 1024;
+          unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
           snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
           it.print(cx, 310, id(font_small), id(theme_primary), TextAlign::CENTER, buf);
 
