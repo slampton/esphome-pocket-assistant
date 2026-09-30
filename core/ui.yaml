@@ -3269,10 +3269,17 @@ display:
               it.image(dst_x, dst_y, img);
               return;
             }
+            // High-speed fixed-point integer scaling (replaces 46,656 divisions/frame with bitshifts)
+            int step_x = (src_w << 12) / dst_w;
+            int step_y = (src_h << 12) / dst_h;
+            int curr_y = 0;
             for (int dy = 0; dy < dst_h; dy++) {
-              int sy = (dy * src_h) / dst_h;
+              int sy = curr_y >> 12;
+              curr_y += step_y;
+              int curr_x = 0;
               for (int dx = 0; dx < dst_w; dx++) {
-                int sx = (dx * src_w) / dst_w;
+                int sx = curr_x >> 12;
+                curr_x += step_x;
                 it.draw_pixel_at(dst_x + dx, dst_y + dy, img->get_pixel(sx, sy));
               }
             }
@@ -3284,31 +3291,11 @@ display:
             // ====================================================
             draw_scaled_art(target_art, 0, 0, 466, 466);
 
+            // In Letterbox mode: Clean artwork to top (zero top overlay); solid black matte at bottom y >= 385
             if (is_letterbox) {
-              // Dual-Zone Letterbox / Vignette Scrim (Top 90px & Bottom 146px for matte look)
-              for (int y = 0; y < 60; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
-              }
-              for (int y = 60; y < 90; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
-                }
-              }
-              // Bottom Metadata Scrim: Uniform 50% light dither across y: 320..385
-              for (int y = 320; y < 385; y++) {
-                int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
-                }
-              }
               for (int y = 385; y < 466; y++) {
                 int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
+                int hw = (int)sqrtf((float)(54289 - y_d * y_d));
                 it.horizontal_line(cx - hw, y, 2 * hw + 1, id(col_black));
               }
             }
@@ -3348,26 +3335,26 @@ display:
             it.filled_triangle(363, art_center_y, 353, art_center_y - 11, 353, art_center_y + 11, flank_btn_col);
             it.filled_triangle(375, art_center_y, 365, art_center_y - 11, 365, art_center_y + 11, flank_btn_col);
 
-            // Right Flank Volume Up (+): centered at x = 392, y = 140 (brought down 15px for comfortable thumb reach)
+            // Right Flank Volume Up (+): centered at x = 405, y = 140 (bumped 13px right for distinct column separation)
             if (is_fs_active) {
-              it.filled_rectangle(392 - 7 + 1, 140 - 1 + 1, 15, 3, id(col_black));
-              it.filled_rectangle(392 - 1 + 1, 140 - 7 + 1, 3, 15, id(col_black));
+              it.filled_rectangle(405 - 7 + 1, 140 - 1 + 1, 15, 3, id(col_black));
+              it.filled_rectangle(405 - 1 + 1, 140 - 7 + 1, 3, 15, id(col_black));
             }
-            it.filled_rectangle(392 - 7, 140 - 1, 15, 3, flank_btn_col);
-            it.filled_rectangle(392 - 1, 140 - 7, 3, 15, flank_btn_col);
+            it.filled_rectangle(405 - 7, 140 - 1, 15, 3, flank_btn_col);
+            it.filled_rectangle(405 - 1, 140 - 7, 3, 15, flank_btn_col);
 
-            // Right Flank Volume Down (-): centered at x = 392, y = 284 (brought up 15px, creating 36px buffer from metadata)
+            // Right Flank Volume Down (-): centered at x = 405, y = 284 (bumped 13px right, 36px buffer from metadata)
             if (is_fs_active) {
-              it.filled_rectangle(392 - 7 + 1, 284 - 1 + 1, 15, 3, id(col_black));
+              it.filled_rectangle(405 - 7 + 1, 284 - 1 + 1, 15, 3, id(col_black));
             }
-            it.filled_rectangle(392 - 7, 284 - 1, 15, 3, flank_btn_col);
+            it.filled_rectangle(405 - 7, 284 - 1, 15, 3, flank_btn_col);
 
-            // Left Flank Menu Button (☰): centered at x = 74, y = 284 (exact bilateral mirror to Volume Down -)
+            // Left Flank Menu Button (☰): centered at x = 61, y = 284 (exact bilateral mirror to Volume Down at x = 405)
             for (int dy : {-4, 0, 4}) {
               if (is_fs_active) {
-                it.filled_rectangle(74 - 7 + 1, 284 + dy + 1, 14, 2, id(col_black));
+                it.filled_rectangle(61 - 7 + 1, 284 + dy + 1, 14, 2, id(col_black));
               }
-              it.filled_rectangle(74 - 7, 284 + dy, 14, 2, flank_btn_col);
+              it.filled_rectangle(61 - 7, 284 + dy, 14, 2, flank_btn_col);
             }
 
             // Paused state frosted scrim overlay with borderless Play badge ▶
@@ -3426,14 +3413,19 @@ display:
             if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
             if (title.length() > 24) title = title.substr(0, 22) + "...";
 
-            // In Full Bleed mode with Overlay ON: Uniform 50% Translucent Dithered Gray Scrim over y: 320..395
-            // Allows artwork to show through with an even, clean translucent wash for title, artist, and album
-            if (is_full_bleed) {
-              for (int y = 320; y < 395; y++) {
+            // Uniform 50% Translucent Dithered Gray Scrim over metadata (y: 320..395 for Full Bleed, y: 320..385 for Letterbox)
+            // Strictly guarded by show_overlay: when Overlay is OFF, zero scrim is rendered in both Full Bleed & Letterbox!
+            // Optimized with direct x += 2 stepping to eliminate 50% of loop iterations and branch tests
+            if (is_fs_active) {
+              int scrim_end_y = is_letterbox ? 385 : 395;
+              for (int y = 320; y < scrim_end_y; y++) {
                 int y_d = abs(y - cy);
-                int hw = (int)sqrtf((float)(233 * 233 - y_d * y_d));
-                for (int x = cx - hw; x <= cx + hw; x++) {
-                  if ((x + y) % 2 == 0) it.draw_pixel_at(x, y, id(col_black));
+                int hw = (int)sqrtf((float)(54289 - y_d * y_d));
+                int start_x = cx - hw;
+                if ((start_x + y) % 2 != 0) start_x++;
+                int end_x = cx + hw;
+                for (int x = start_x; x <= end_x; x += 2) {
+                  it.draw_pixel_at(x, y, id(col_black));
                 }
               }
             }
@@ -4615,29 +4607,29 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                // Right Flank Volume Up (+): Upper Right Quadrant (x: 335..450, y: 80..174, center 140)
-                if (touch.x >= 335 && touch.x <= 450 && touch.y >= 80 && touch.y < 175) {
+                // Right Flank Volume Up (+): Outer Right Column (x >= 380, y: 70..211, center 405, 140)
+                if (touch.x >= 380 && touch.y >= 70 && touch.y < 212) {
                   id(vol_hud_direction) = 1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_up).execute();
                   id(disp1).update();
-                // Right Flank Next Track (▶▶): Middle Right Zone (x: 335..450, y: 175..247, center 212)
-                } else if (touch.x >= 335 && touch.x <= 450 && touch.y >= 175 && touch.y < 248) {
-                  id(music_next_track).execute();
-                  id(disp1).update();
-                // Right Flank Volume Down (-): Lower Right Quadrant (x: 335..450, y: 248..335, center 284)
-                } else if (touch.x >= 335 && touch.x <= 450 && touch.y >= 248 && touch.y <= 335) {
+                // Right Flank Volume Down (-): Outer Right Column (x >= 380, y: 212..355, center 405, 284)
+                } else if (touch.x >= 380 && touch.y >= 212 && touch.y <= 355) {
                   id(vol_hud_direction) = -1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_down).execute();
                   id(disp1).update();
-                // Left Flank Previous Track (◀◀): Middle Left Zone (x: 20..130, y: 145..247, center 212)
-                } else if (touch.x >= 20 && touch.x <= 130 && touch.y >= 145 && touch.y < 248) {
-                  id(music_prev_track).execute();
+                // Right Flank Next Track (▶▶): Middle Right Horizon Column (x: 320..379, y: 155..268, center 364, 212)
+                } else if (touch.x >= 320 && touch.x < 380 && touch.y >= 155 && touch.y <= 268) {
+                  id(music_next_track).execute();
                   id(disp1).update();
-                // Left Flank Menu Button (☰): Lower Left Quadrant (x: 20..130, y: 248..335, center 284)
-                } else if (touch.x >= 20 && touch.x <= 130 && touch.y >= 248 && touch.y <= 335) {
+                // Left Flank Menu Button (☰): Outer Left Column (x <= 85, y: 212..355, center 61, 284)
+                } else if (touch.x <= 85 && touch.y >= 212 && touch.y <= 355) {
                   id(music_overlay_mode) = 1; // Open Level 1 Music Menu
+                  id(disp1).update();
+                // Left Flank Previous Track (◀◀): Middle Left Horizon Column (x: 86..145, y: 155..268, center 102, 212)
+                } else if (touch.x > 85 && touch.x <= 145 && touch.y >= 155 && touch.y <= 268) {
+                  id(music_prev_track).execute();
                   id(disp1).update();
                 // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu
                 } else if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
