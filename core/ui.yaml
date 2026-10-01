@@ -1940,10 +1940,16 @@ script:
   - id: toggle_ha_music
     mode: restart
     then:
-      - homeassistant.action:
-          action: media_player.media_play_pause
-          data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return millis() < 4000;'
+          then:
+            - lambda: 'ESP_LOGI("music", "Ignored play/pause toggle during boot settling period");'
+          else:
+            - homeassistant.action:
+                action: media_player.media_play_pause
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_next_track
     mode: restart
@@ -3726,7 +3732,10 @@ display:
           }
 
           std::string spk_label = "[" + id(active_speaker_name) + "]";
-          it.print(cx, 80, id(font_small), is_remote ? id(theme_secondary) : id(col_slate), TextAlign::CENTER, spk_label.c_str());
+          if (millis() < 4000) {
+            spk_label = "[CONNECTING...]";
+          }
+          it.print(cx, 80, id(font_small), (is_remote && millis() >= 4000) ? id(theme_secondary) : id(col_slate), TextAlign::CENTER, spk_label.c_str());
 
           // Perfectly Centered Album Art: 216x216 centered across horizontal centerline (cx = 233, art_center_y = 212), spans y = 104 to 320
           const int art_center_y = 212;
@@ -5371,7 +5380,7 @@ touchscreen:
             // ==========================================
             // When in Modal Music Menu (gui_page == 2 && music_overlay_mode == 1):
             // Fall through so [ RETURN ] button (y: 370..425, x: 140..326) receives touch.
-            if (touch.y >= 405 && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !(id(gui_page) == 4 && id(system_menu_mode) > 1) && !(id(gui_page) == 3 && id(active_game) > 0)) {
+            if (touch.y >= 390 && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !(id(gui_page) == 4 && id(system_menu_mode) > 1) && !(id(gui_page) == 3 && id(active_game) > 0)) {
               if (touch.x < 205) {
                 // Bottom-Left Navigation (<): Page Back / Previous
                 if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
@@ -5576,8 +5585,9 @@ touchscreen:
                 } else if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
-                // Center Album Art & Text: Play / Pause toggle (Expanded 226x310px central zone, zero driver stall)
-                } else if (touch.y > 95 && touch.y < 405 && touch.x >= 120 && touch.x <= 346) {
+                // Center Hero Album Art & Play / Pause toggle (Strictly bounded to 216x216 album art: x: 125..341, y: 104..325)
+                // Leaves a generous 65px non-interactive sanctuary buffer (y: 326..389) over the metadata text to protect bottom navigation
+                } else if (touch.y >= 104 && touch.y <= 325 && touch.x >= 125 && touch.x <= 341) {
                   id(toggle_ha_music).execute();
                   id(disp1).update();
                 }

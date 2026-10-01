@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "3.9.46"
+  version: "3.9.47"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -107,6 +107,9 @@ esphome:
 
     - priority: -100
       then:
+        - media_player.pause: pocket_music_player
+        - online_image.release: remote_album_art
+        - lambda: 'id(current_loaded_art_url) = "";'
         - script.execute: route_i2s_to_mic
         - switch.turn_on: speaker_enable
         - audio_dac.set_volume:
