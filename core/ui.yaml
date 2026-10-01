@@ -53,14 +53,6 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  - id: music_optimistic_playing
-    type: int
-    restore_value: no
-    initial_value: '-1'
-  - id: music_optimistic_timer
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
   - id: active_speaker_entity
     type: std::string
     restore_value: no
@@ -1514,8 +1506,6 @@ text_sensor:
     entity_id: ${target_state_sensor}
     on_value:
       then:
-        - lambda: |-
-            id(music_optimistic_playing) = -1;
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
@@ -1587,7 +1577,11 @@ script:
     mode: restart
     then:
       - delay: 35ms
-      - component.update: disp1
+      - if:
+          condition:
+            lambda: 'return id(display_power_state) == 0 && id(gui_page) == 2;'
+          then:
+            - component.update: disp1
 
   - id: apply_theme_preset
     mode: restart
@@ -1763,12 +1757,18 @@ script:
             // Power down QMI8658 Gyroscope, keep Accelerometer active for motion pickup wake (~1.5mA savings)
             uint8_t qmi_gyro_off[2] = {0x08, 0x01}; // CTRL7: aEN=1, gEN=0
             id(bus_internal).write(0x6B, qmi_gyro_off, 2);
+            // On battery power, enable Wi-Fi modem sleep while screen is off to conserve energy
+            if (!id(usb_connected).state) {
+              esphome::power::set_wifi_power_save(true);
+            }
           }
 
   - id: wake_to_active_state
     mode: restart
     then:
       - lambda: |-
+          // Instantly boost Wi-Fi radio to full performance (zero sleep latency)
+          esphome::power::set_wifi_power_save(false);
           bool was_dark = (id(display_power_state) == 2);
           if (was_dark && id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
             id(apply_default_start_page).execute();
@@ -1982,41 +1982,20 @@ script:
     then:
       - if:
           condition:
-            lambda: 'return millis() < 4000;'
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
           then:
-            - lambda: 'ESP_LOGI("music", "Ignored play/pause toggle during boot settling period");'
-          else:
             - if:
                 condition:
-                  lambda: |-
-                    if (id(music_optimistic_playing) == 0) {
-                      return true; // We intend to pause
-                    } else if (id(music_optimistic_playing) == 1) {
-                      return false; // We intend to play
-                    }
-                    bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-                    if (is_remote) {
-                      return (id(ha_target_state).state == "playing");
-                    } else {
-                      return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-                    }
+                  media_player.is_playing: pocket_music_player
                 then:
-                  - if:
-                      condition:
-                        lambda: |-
-                          return (id(active_speaker_entity) == "${local_player_id}") &&
-                                 (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-                      then:
-                        - media_player.pause: pocket_music_player
-                  - homeassistant.action:
-                      action: media_player.media_pause
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  - media_player.pause: pocket_music_player
                 else:
-                  - homeassistant.action:
-                      action: media_player.media_play
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  - media_player.play: pocket_music_player
+          else:
+            - homeassistant.action:
+                action: media_player.media_play_pause
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_next_track
     mode: restart
@@ -2778,6 +2757,11 @@ display:
     brightness: 200
     update_interval: 1s
     lambda: |-
+      // Priority 0: Touch Interrupt Yielding
+      // If user touches the glass (GPIO11 active LOW), yield immediately so touch processing gets instantaneous priority!
+      if (gpio_get_level(GPIO_NUM_11) == 0) {
+        return;
+      }
       const int cx = 233;
       const int cy = 233;
       static constexpr float PI_F = 3.14159265358979323846f;
@@ -2916,6 +2900,7 @@ display:
 
           // Full circular screen coverage (R = 228, edge-to-edge, zero static content)
           for (int x = 8; x <= 458; x += 2) {
+            if (gpio_get_level(GPIO_NUM_11) == 0) return;
             int dx = x - cx;
             int dx2 = dx * dx;
             if (dx2 >= 51984) continue; // 228^2
@@ -3847,19 +3832,8 @@ display:
           it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-          bool is_playing = false;
-          if (id(music_optimistic_playing) != -1) {
-            if (millis() - id(music_optimistic_timer) > 3000) {
-              id(music_optimistic_playing) = -1;
-            }
-          }
-          if (id(music_optimistic_playing) != -1) {
-            is_playing = (id(music_optimistic_playing) == 1);
-          } else if (is_remote) {
-            is_playing = (id(ha_target_state).state == "playing");
-          } else {
-            is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-          }
+          bool is_playing = is_remote ? (id(ha_target_state).state == "playing")
+                                      : (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
 
           std::string spk_label = "[" + id(active_speaker_name) + "]";
           bool is_feedback = (millis() - id(music_feedback_timer) < 1800 && !id(music_action_feedback).empty());
@@ -3910,6 +3884,7 @@ display:
                 int step_y = (src_h << 12) / 216;
                 int curr_y = 0;
                 for (int y = 0; y < 216; y++) {
+                  if (gpio_get_level(GPIO_NUM_11) == 0) return;
                   int sy = curr_y >> 12;
                   curr_y += step_y;
                   const uint16_t *src_row = src_data + sy * src_w;
@@ -5711,7 +5686,7 @@ touchscreen:
                   id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
                   id(music_feedback_timer) = millis();
                   id(music_vol_up).execute();
-                  id(disp1).update();
+                  id(throttled_disp_update).execute();
                 // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) - Zero dead zones
                 } else if ((touch.x >= 300 && touch.y >= 248 && touch.y < 390) || (touch.x >= 380 && touch.y >= 212 && touch.y < 390)) {
                   id(vol_hud_direction) = -1;
@@ -5721,7 +5696,7 @@ touchscreen:
                   id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
                   id(music_feedback_timer) = millis();
                   id(music_vol_down).execute();
-                  id(disp1).update();
+                  id(throttled_disp_update).execute();
                 // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 284) - Expanded for broad thumb touch
                 } else if (touch.x <= 180 && touch.y >= 248 && touch.y < 390) {
                   id(music_overlay_mode) = 1; // Open Level 1 Music Menu
@@ -5730,45 +5705,37 @@ touchscreen:
                 } else if (touch.y >= 170 && touch.y <= 255 && (is_compact_touch ? (touch.x >= 310) : (touch.x >= 280 && touch.x < 380))) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_next_tap > 450) {
+                  if (now_tap - last_next_tap > 250) {
                     last_next_tap = now_tap;
                     id(music_action_feedback) = "Next Track >>";
                     id(music_feedback_timer) = now_tap;
                     id(music_next_track).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
                 // Left Flank Previous Track (|◀): Middle Left Horizon (center 128, 212 in Full/Letterbox, 102 in Compact)
                 } else if (touch.y >= 155 && touch.y < 248 && (is_compact_touch ? (touch.x <= 150) : (touch.x <= 180))) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_prev_tap > 450) {
+                  if (now_tap - last_prev_tap > 250) {
                     last_prev_tap = now_tap;
                     id(music_action_feedback) = "<< Prev Track";
                     id(music_feedback_timer) = now_tap;
                     id(music_prev_track).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
                 // Center Hero Album Art & Play / Pause toggle (center 233, 212)
                 } else if (touch.y >= 104 && touch.y < 390 && (is_compact_touch ? (touch.x > 150 && touch.x < 310) : (touch.x > 180 && touch.x < 280))) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
-                  if (now_pp - last_pp_tap > 450) {
+                  if (now_pp - last_pp_tap > 250) {
                     last_pp_tap = now_pp;
                     bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-                    bool currently_playing = false;
-                    if (id(music_optimistic_playing) != -1) {
-                      currently_playing = (id(music_optimistic_playing) == 1);
-                    } else if (is_remote) {
-                      currently_playing = (id(ha_target_state).state == "playing");
-                    } else {
-                      currently_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-                    }
-                    id(music_optimistic_playing) = currently_playing ? 0 : 1;
-                    id(music_optimistic_timer) = now_pp;
+                    bool currently_playing = is_remote ? (id(ha_target_state).state == "playing")
+                                                       : (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
                     id(music_action_feedback) = currently_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(toggle_ha_music).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
                 }
               } else if (id(music_overlay_mode) == 1) {
