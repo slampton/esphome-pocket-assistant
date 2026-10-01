@@ -1759,7 +1759,8 @@ script:
             id(bus_internal).write(0x6B, qmi_gyro_off, 2);
             // On battery power, enable Wi-Fi modem sleep while screen is off to conserve energy
             if (!id(usb_connected).state) {
-              esphome::power::set_wifi_power_save(true);
+              extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+              esp_wifi_set_ps(1); // 1: WIFI_PS_MIN_MODEM
             }
           }
 
@@ -1768,7 +1769,8 @@ script:
     then:
       - lambda: |-
           // Instantly boost Wi-Fi radio to full performance (zero sleep latency)
-          esphome::power::set_wifi_power_save(false);
+          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+          esp_wifi_set_ps(0); // 0: WIFI_PS_NONE
           bool was_dark = (id(display_power_state) == 2);
           if (was_dark && id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
             id(apply_default_start_page).execute();
