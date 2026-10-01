@@ -1938,34 +1938,44 @@ script:
   - id: music_vol_up
     mode: restart
     then:
-      - lambda: |-
-          float step = id(volume_step_size).state / 100.0f;
-          if (std::isnan(step) || step <= 0.0f) step = 0.02f;
-          float cur = id(pocket_music_player).volume;
-          if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-          float new_vol = std::min(0.90f, cur + step);
-          id(pocket_music_player).volume = new_vol;
-          id(pocket_music_player).make_call().set_volume(new_vol).perform();
-      - homeassistant.action:
-          action: media_player.volume_up
-          data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+          then:
+            - lambda: |-
+                float step = id(volume_step_size).state / 100.0f;
+                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                float cur = id(pocket_music_player).volume;
+                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+                float new_vol = std::min(0.90f, cur + step);
+                id(pocket_music_player).volume = new_vol;
+                id(pocket_music_player).make_call().set_volume(new_vol).perform();
+          else:
+            - homeassistant.action:
+                action: media_player.volume_up
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_vol_down
     mode: restart
     then:
-      - lambda: |-
-          float step = id(volume_step_size).state / 100.0f;
-          if (std::isnan(step) || step <= 0.0f) step = 0.02f;
-          float cur = id(pocket_music_player).volume;
-          if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-          float new_vol = std::max(0.10f, cur - step);
-          id(pocket_music_player).volume = new_vol;
-          id(pocket_music_player).make_call().set_volume(new_vol).perform();
-      - homeassistant.action:
-          action: media_player.volume_down
-          data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+          then:
+            - lambda: |-
+                float step = id(volume_step_size).state / 100.0f;
+                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                float cur = id(pocket_music_player).volume;
+                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+                float new_vol = std::max(0.10f, cur - step);
+                id(pocket_music_player).volume = new_vol;
+                id(pocket_music_player).make_call().set_volume(new_vol).perform();
+          else:
+            - homeassistant.action:
+                action: media_player.volume_down
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: toggle_ha_music
     mode: restart
@@ -5660,16 +5670,21 @@ touchscreen:
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
 
-                // Right Flank Volume Up (+): Upper Right Quadrant (center 405, 140)
+                // Right Flank Volume Up (+): Upper Right Quadrant (center 405, 140) with 120ms rate-limit
                 } else if (touch.x >= 316 && touch.y >= 70 && touch.y < 175) {
-                  id(vol_hud_direction) = 1;
-                  id(vol_hud_timer) = millis();
-                  int v_step = (int)id(volume_step_size).state;
-                  int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                  id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
-                  id(music_feedback_timer) = millis();
-                  id(music_vol_up).execute();
-                  id(disp1).update();
+                  static uint32_t last_vol_up_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_up_tap > 120) {
+                    last_vol_up_tap = now_vol_tap;
+                    id(vol_hud_direction) = 1;
+                    id(vol_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    id(music_vol_up).execute();
+                    id(disp1).update();
+                  }
 
                 // Right Flank Next Track (▶|): Middle Right Horizon (center 364, 212)
                 } else if (touch.x >= 316 && touch.y >= 175 && touch.y < 255) {
@@ -5683,16 +5698,21 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284)
+                // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) with 120ms rate-limit
                 } else if (touch.x >= 316 && touch.y >= 255 && touch.y < 390) {
-                  id(vol_hud_direction) = -1;
-                  id(vol_hud_timer) = millis();
-                  int v_step = (int)id(volume_step_size).state;
-                  int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                  id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
-                  id(music_feedback_timer) = millis();
-                  id(music_vol_down).execute();
-                  id(disp1).update();
+                  static uint32_t last_vol_dn_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_dn_tap > 120) {
+                    last_vol_dn_tap = now_vol_tap;
+                    id(vol_hud_direction) = -1;
+                    id(vol_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    id(music_vol_down).execute();
+                    id(disp1).update();
+                  }
 
                 // Left Flank Previous Track (|◀): Middle Left Horizon (center 102, 212)
                 } else if (touch.x <= 150 && touch.y >= 155 && touch.y < 255) {
@@ -5706,10 +5726,15 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 284)
+                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 284) with 250ms tap debounce
                 } else if (touch.x <= 150 && touch.y >= 255 && touch.y < 390) {
-                  id(music_overlay_mode) = 1; // Open Level 1 Music Menu
-                  id(disp1).update();
+                  static uint32_t last_menu_tap = 0;
+                  uint32_t now_tap = millis();
+                  if (now_tap - last_menu_tap > 250) {
+                    last_menu_tap = now_tap;
+                    id(music_overlay_mode) = 1; // Open Level 1 Music Menu
+                    id(disp1).update();
+                  }
 
                 // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Massive 166px x 295px zone across all modes!
                 } else if (touch.y >= 95 && touch.y < 390 && touch.x > 150 && touch.x < 316) {
