@@ -134,6 +134,7 @@ media_player:
     on_play:
       then:
         - lambda: |-
+            id(music_optimistic_playing) = -1;
             id(music_pos_sync_time) = millis();
             id(gui_page) = 2; // Auto-switch to Music Player screen on playback start
             id(sleep_start_time) = 0;
@@ -155,6 +156,7 @@ media_player:
     on_pause:
       then:
         - lambda: |-
+            id(music_optimistic_playing) = -1;
             if (id(music_pos_sync_time) > 0) {
               id(music_pos_base) += (millis() - id(music_pos_sync_time)) / 1000.0f;
               id(music_pos_sync_time) = 0;
@@ -163,6 +165,8 @@ media_player:
         - script.execute: mp_idle_debounce
     on_idle:
       then:
+        - lambda: |-
+            id(music_optimistic_playing) = -1;
         - script.execute: mp_idle_debounce
 
 voice_assistant:

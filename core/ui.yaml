@@ -53,6 +53,14 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: music_optimistic_playing
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: music_optimistic_timer
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: active_speaker_entity
     type: std::string
     restore_value: no
@@ -1450,19 +1458,25 @@ text_sensor:
       then:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
-              id(active_speaker_entity) = x;
-              if (x == "${local_player_id}") {
-                id(active_speaker_name) = "${friendly_name}";
-              } else {
-                std::string s = x;
-                size_t dot = s.find('.');
-                if (dot != std::string::npos) s = s.substr(dot + 1);
-                bool cap = true;
-                for (size_t i = 0; i < s.length(); i++) {
-                  if (s[i] == '_') { s[i] = ' '; cap = true; }
-                  else if (cap) { s[i] = toupper(s[i]); cap = false; }
+              if (x.rfind("media_player.", 0) == 0) {
+                id(active_speaker_entity) = x;
+                if (x == "${local_player_id}") {
+                  id(active_speaker_name) = "${friendly_name}";
+                } else {
+                  std::string s = x;
+                  size_t dot = s.find('.');
+                  if (dot != std::string::npos) s = s.substr(dot + 1);
+                  bool cap = true;
+                  for (size_t i = 0; i < s.length(); i++) {
+                    if (s[i] == '_') { s[i] = ' '; cap = true; }
+                    else if (cap) { s[i] = toupper(s[i]); cap = false; }
+                  }
+                  id(active_speaker_name) = s;
                 }
-                id(active_speaker_name) = s;
+              } else {
+                ESP_LOGW("ui", "Rejecting non-media_player speaker '%s', defaulting to local player", x.c_str());
+                id(active_speaker_entity) = "${local_player_id}";
+                id(active_speaker_name) = "${friendly_name}";
               }
               id(disp1).update();
             }
@@ -1484,6 +1498,8 @@ text_sensor:
     entity_id: ${target_state_sensor}
     on_value:
       then:
+        - lambda: |-
+            id(music_optimistic_playing) = -1;
         - component.update: disp1
 
   - platform: homeassistant
@@ -1946,10 +1962,37 @@ script:
           then:
             - lambda: 'ESP_LOGI("music", "Ignored play/pause toggle during boot settling period");'
           else:
-            - homeassistant.action:
-                action: media_player.media_play_pause
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: |-
+                    if (id(music_optimistic_playing) == 0) {
+                      return true; // We intend to pause
+                    } else if (id(music_optimistic_playing) == 1) {
+                      return false; // We intend to play
+                    }
+                    bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+                    if (is_remote) {
+                      return (id(ha_target_state).state == "playing");
+                    } else {
+                      return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                    }
+                then:
+                  - if:
+                      condition:
+                        lambda: |-
+                          return (id(active_speaker_entity) == "${local_player_id}") &&
+                                 (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                      then:
+                        - media_player.pause: pocket_music_player
+                  - homeassistant.action:
+                      action: media_player.media_pause
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                else:
+                  - homeassistant.action:
+                      action: media_player.media_play
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_next_track
     mode: restart
@@ -2013,11 +2056,7 @@ script:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
           then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
+            - delay: 200ms
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -2046,11 +2085,7 @@ script:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
           then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
+            - delay: 200ms
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -2079,11 +2114,7 @@ script:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
           then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
+            - delay: 200ms
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -2112,11 +2143,7 @@ script:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
           then:
-            - delay: 800ms
-            - homeassistant.action:
-                action: homeassistant.update_entity
-                data:
-                  entity_id: ${target_art_url_sensor}
+            - delay: 200ms
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
@@ -2146,9 +2173,17 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_1_id);
-                id(active_speaker_name) = id(slot_1_name);
-                id(music_action_feedback) = "Active: " + id(slot_1_name);
+                if (id(slot_1_id).rfind("media_player.", 0) == 0) {
+                  if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) {
+                    id(last_speaker_entity) = id(active_speaker_entity);
+                  }
+                  id(active_speaker_entity) = id(slot_1_id);
+                  id(active_speaker_name) = id(slot_1_name);
+                  id(music_action_feedback) = "Active: " + id(slot_1_name);
+                } else {
+                  ESP_LOGW("ui", "Rejecting non-media_player speaker slot 1: %s", id(slot_1_id).c_str());
+                  id(music_action_feedback) = "Invalid Speaker";
+                }
                 id(music_feedback_timer) = millis();
             - homeassistant.action:
                 action: input_text.set_value
@@ -2160,11 +2195,6 @@ script:
                   lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
                 then:
                   - lambda: 'id(current_loaded_art_url) = "";'
-                  - delay: 800ms
-                  - homeassistant.action:
-                      action: homeassistant.update_entity
-                      data:
-                        entity_id: ${target_art_url_sensor}
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -2187,9 +2217,17 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_1_id);
-                      id(active_speaker_name) = id(slot_1_name);
-                      id(music_action_feedback) = "Controlling: " + id(slot_1_name);
+                      if (id(slot_1_id).rfind("media_player.", 0) == 0) {
+                        if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) {
+                          id(last_speaker_entity) = id(active_speaker_entity);
+                        }
+                        id(active_speaker_entity) = id(slot_1_id);
+                        id(active_speaker_name) = id(slot_1_name);
+                        id(music_action_feedback) = "Controlling: " + id(slot_1_name);
+                      } else {
+                        ESP_LOGW("ui", "Rejecting non-media_player takeover slot 1: %s", id(slot_1_id).c_str());
+                        id(music_action_feedback) = "Invalid Speaker";
+                      }
                       id(music_feedback_timer) = millis();
                   - homeassistant.action:
                       action: input_text.set_value
@@ -2243,9 +2281,17 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_2_id);
-                id(active_speaker_name) = id(slot_2_name);
-                id(music_action_feedback) = "Active: " + id(slot_2_name);
+                if (id(slot_2_id).rfind("media_player.", 0) == 0) {
+                  if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) {
+                    id(last_speaker_entity) = id(active_speaker_entity);
+                  }
+                  id(active_speaker_entity) = id(slot_2_id);
+                  id(active_speaker_name) = id(slot_2_name);
+                  id(music_action_feedback) = "Active: " + id(slot_2_name);
+                } else {
+                  ESP_LOGW("ui", "Rejecting non-media_player speaker slot 2: %s", id(slot_2_id).c_str());
+                  id(music_action_feedback) = "Invalid Speaker";
+                }
                 id(music_feedback_timer) = millis();
             - homeassistant.action:
                 action: input_text.set_value
@@ -2257,11 +2303,6 @@ script:
                   lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
                 then:
                   - lambda: 'id(current_loaded_art_url) = "";'
-                  - delay: 800ms
-                  - homeassistant.action:
-                      action: homeassistant.update_entity
-                      data:
-                        entity_id: ${target_art_url_sensor}
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -2284,9 +2325,17 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_2_id);
-                      id(active_speaker_name) = id(slot_2_name);
-                      id(music_action_feedback) = "Controlling: " + id(slot_2_name);
+                      if (id(slot_2_id).rfind("media_player.", 0) == 0) {
+                        if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) {
+                          id(last_speaker_entity) = id(active_speaker_entity);
+                        }
+                        id(active_speaker_entity) = id(slot_2_id);
+                        id(active_speaker_name) = id(slot_2_name);
+                        id(music_action_feedback) = "Controlling: " + id(slot_2_name);
+                      } else {
+                        ESP_LOGW("ui", "Rejecting non-media_player takeover slot 2: %s", id(slot_2_id).c_str());
+                        id(music_action_feedback) = "Invalid Speaker";
+                      }
                       id(music_feedback_timer) = millis();
                   - homeassistant.action:
                       action: input_text.set_value
@@ -2340,9 +2389,17 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_3_id);
-                id(active_speaker_name) = id(slot_3_name);
-                id(music_action_feedback) = "Active: " + id(slot_3_name);
+                if (id(slot_3_id).rfind("media_player.", 0) == 0) {
+                  if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) {
+                    id(last_speaker_entity) = id(active_speaker_entity);
+                  }
+                  id(active_speaker_entity) = id(slot_3_id);
+                  id(active_speaker_name) = id(slot_3_name);
+                  id(music_action_feedback) = "Active: " + id(slot_3_name);
+                } else {
+                  ESP_LOGW("ui", "Rejecting non-media_player speaker slot 3: %s", id(slot_3_id).c_str());
+                  id(music_action_feedback) = "Invalid Speaker";
+                }
                 id(music_feedback_timer) = millis();
             - homeassistant.action:
                 action: input_text.set_value
@@ -2354,11 +2411,6 @@ script:
                   lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
                 then:
                   - lambda: 'id(current_loaded_art_url) = "";'
-                  - delay: 800ms
-                  - homeassistant.action:
-                      action: homeassistant.update_entity
-                      data:
-                        entity_id: ${target_art_url_sensor}
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -2381,9 +2433,17 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_3_id);
-                      id(active_speaker_name) = id(slot_3_name);
-                      id(music_action_feedback) = "Controlling: " + id(slot_3_name);
+                      if (id(slot_3_id).rfind("media_player.", 0) == 0) {
+                        if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) {
+                          id(last_speaker_entity) = id(active_speaker_entity);
+                        }
+                        id(active_speaker_entity) = id(slot_3_id);
+                        id(active_speaker_name) = id(slot_3_name);
+                        id(music_action_feedback) = "Controlling: " + id(slot_3_name);
+                      } else {
+                        ESP_LOGW("ui", "Rejecting non-media_player takeover slot 3: %s", id(slot_3_id).c_str());
+                        id(music_action_feedback) = "Invalid Speaker";
+                      }
                       id(music_feedback_timer) = millis();
                   - homeassistant.action:
                       action: input_text.set_value
@@ -2437,9 +2497,17 @@ script:
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: "true"
             - lambda: |-
-                if (id(active_speaker_entity) != id(slot_4_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_4_id);
-                id(active_speaker_name) = id(slot_4_name);
-                id(music_action_feedback) = "Active: " + id(slot_4_name);
+                if (id(slot_4_id).rfind("media_player.", 0) == 0) {
+                  if (id(active_speaker_entity) != id(slot_4_id) && !id(active_speaker_entity).empty()) {
+                    id(last_speaker_entity) = id(active_speaker_entity);
+                  }
+                  id(active_speaker_entity) = id(slot_4_id);
+                  id(active_speaker_name) = id(slot_4_name);
+                  id(music_action_feedback) = "Active: " + id(slot_4_name);
+                } else {
+                  ESP_LOGW("ui", "Rejecting non-media_player speaker slot 4: %s", id(slot_4_id).c_str());
+                  id(music_action_feedback) = "Invalid Speaker";
+                }
                 id(music_feedback_timer) = millis();
             - homeassistant.action:
                 action: input_text.set_value
@@ -2451,11 +2519,6 @@ script:
                   lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
                 then:
                   - lambda: 'id(current_loaded_art_url) = "";'
-                  - delay: 800ms
-                  - homeassistant.action:
-                      action: homeassistant.update_entity
-                      data:
-                        entity_id: ${target_art_url_sensor}
             - if:
                 condition:
                   lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -2478,9 +2541,17 @@ script:
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (id(active_speaker_entity) != id(slot_4_id) && !id(active_speaker_entity).empty()) { id(last_speaker_entity) = id(active_speaker_entity); } id(active_speaker_entity) = id(slot_4_id);
-                      id(active_speaker_name) = id(slot_4_name);
-                      id(music_action_feedback) = "Controlling: " + id(slot_4_name);
+                      if (id(slot_4_id).rfind("media_player.", 0) == 0) {
+                        if (id(active_speaker_entity) != id(slot_4_id) && !id(active_speaker_entity).empty()) {
+                          id(last_speaker_entity) = id(active_speaker_entity);
+                        }
+                        id(active_speaker_entity) = id(slot_4_id);
+                        id(active_speaker_name) = id(slot_4_name);
+                        id(music_action_feedback) = "Controlling: " + id(slot_4_name);
+                      } else {
+                        ESP_LOGW("ui", "Rejecting non-media_player takeover slot 4: %s", id(slot_4_id).c_str());
+                        id(music_action_feedback) = "Invalid Speaker";
+                      }
                       id(music_feedback_timer) = millis();
                   - homeassistant.action:
                       action: input_text.set_value
@@ -3725,7 +3796,14 @@ display:
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
           bool is_playing = false;
-          if (is_remote) {
+          if (id(music_optimistic_playing) != -1) {
+            if (millis() - id(music_optimistic_timer) > 3000) {
+              id(music_optimistic_playing) = -1;
+            }
+          }
+          if (id(music_optimistic_playing) != -1) {
+            is_playing = (id(music_optimistic_playing) == 1);
+          } else if (is_remote) {
             is_playing = (id(ha_target_state).state == "playing");
           } else {
             is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
@@ -5588,6 +5666,17 @@ touchscreen:
                 // Center Hero Album Art & Play / Pause toggle (Strictly bounded to 216x216 album art: x: 125..341, y: 104..325)
                 // Leaves a generous 65px non-interactive sanctuary buffer (y: 326..389) over the metadata text to protect bottom navigation
                 } else if (touch.y >= 104 && touch.y <= 325 && touch.x >= 125 && touch.x <= 341) {
+                  bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+                  bool currently_playing = false;
+                  if (id(music_optimistic_playing) != -1) {
+                    currently_playing = (id(music_optimistic_playing) == 1);
+                  } else if (is_remote) {
+                    currently_playing = (id(ha_target_state).state == "playing");
+                  } else {
+                    currently_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                  }
+                  id(music_optimistic_playing) = currently_playing ? 0 : 1;
+                  id(music_optimistic_timer) = millis();
                   id(toggle_ha_music).execute();
                   id(disp1).update();
                 }
