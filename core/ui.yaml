@@ -826,6 +826,14 @@ switch:
     turn_off_action:
       - deep_sleep.allow: deep_sleep_ctrl
 
+  - platform: template
+    name: "Voice: Wake Screen on Assist"
+    id: va_wake_screen_switch
+    icon: "mdi:television-ambient-light"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
 
 number:
   - platform: template
@@ -1050,13 +1058,36 @@ interval:
                 return;
               }
 
+              // Priority 1: Voice Assistant Active Cancellation
+              // If Assist is actively listening, thinking, or speaking TTS, crown click cancels it immediately!
+              if (id(va_active) || !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running()) {
+                id(cancel_voice_assistant).execute();
+                return;
+              }
+
               id(screen_sleep_timer).execute();
 
-              if (id(gui_page) == 0) {
-                // Main Clock Face -> quick screen off (Tier 2 Screen Standby)
-                id(enter_standby_state).execute();
+              // Priority 2: In-App Sub-Modals / Overlays / Active Games (Contextual Back/Exit)
+              if (id(gui_page) == 3 && id(active_game) > 0) {
+                // In active game -> exit game back to Games Menu
+                id(active_game) = 0;
+                id(disp1).update();
                 return;
-              } else if (id(gui_page) == 1) {
+              } else if (id(gui_page) == 2 && id(music_overlay_mode) > 0) {
+                // In Music Menu overlay -> close overlay back to Now Playing player
+                id(music_overlay_mode) = 0;
+                id(disp1).update();
+                return;
+              } else if (id(gui_page) == 4 && id(system_menu_mode) > 0) {
+                // In System Submenu -> back out to main System Dashboard
+                id(system_menu_mode) = 0;
+                id(disp1).update();
+                return;
+              }
+
+              // Priority 3: Primary App Screen Action
+              if (id(gui_page) == 1) {
+                // Stopwatch: Physical tactile start/stop pusher with dwell latency compensation
                 if (!id(stopwatch_running)) {
                   id(stopwatch_running) = true;
                   id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
@@ -1064,10 +1095,6 @@ interval:
                   id(display_brightness).turn_on().perform();
                 } else {
                   id(stopwatch_running) = false;
-                  // The AXP2101 PMIC PEK short-press IRQ is inherently a key-RELEASE event.
-                  // By the time the release IRQ is raised and polled over I2C, approximately
-                  // 200ms of physical human thumb hold + PMIC debounce qualification has elapsed.
-                  // Compensate for this key-down dwell time so the stopped time reflects when the crown was pressed down!
                   uint32_t now_stop = millis();
                   uint32_t press_dwell_compensation = 200; // ms
                   if (now_stop - id(stopwatch_start_time) > press_dwell_compensation) {
@@ -1077,35 +1104,13 @@ interval:
                   }
                 }
                 id(disp1).update();
-              } else if (id(gui_page) == 2) {
-                // Top Crown Button on Page 2: Toggle Category Menu Overlay
-                if (id(music_overlay_mode) == 0) {
-                  id(music_overlay_mode) = 1; // Open Level 1 Categories Menu
-                } else {
-                  id(music_overlay_mode) = 0; // Close overlay back to Now Playing player
-                }
-                id(disp1).update();
-              } else if (id(gui_page) == 3) {
-                // Page 3: Games -> click top button exits active game or exits menu to Watch Face
-                if (id(active_game) > 0) {
-                  id(active_game) = 0; // Exit game back to Games Menu
-                } else {
-                  id(apply_default_start_page).execute();
-                }
-                id(disp1).update();
-              } else if (id(gui_page) == 4) {
-                // Page 4: System -> click top button cycles brightness preset
-                std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                std::string nxt = "90%";
-                if (cur == "60%") nxt = "70%";
-                else if (cur == "70%") nxt = "80%";
-                else if (cur == "80%") nxt = "90%";
-                else if (cur == "90%") nxt = "100%";
-                else nxt = "60%";
-                auto call = id(display_brightness_preset).make_call();
-                call.set_option(nxt);
-                call.perform();
+                return;
               }
+
+              // All other primary app screens (Clock Page 0, Music Page 2, Games Launcher Page 3, System Page 4):
+              // Crown click puts device into Standby / turns off screen!
+              id(enter_standby_state).execute();
+              return;
             }
           }
 
@@ -1299,38 +1304,23 @@ binary_sensor:
     on_press:
       then:
         - lambda: |-
-            id(boot_hold_triggered) = false;
             if (id(is_locked)) return;
-            if (!id(display_brightness).current_values.is_on()) {
-              if (id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-                id(apply_default_start_page).execute();
-              }
-              id(sleep_start_time) = 0;
+            // Immediate in-game action trigger for zero-latency response
+            if (id(active_game) > 0) {
+              id(game_btn_pressed) = true;
             }
-        - if:
-            condition:
-              lambda: 'return !id(is_locked);'
-            then:
-              - script.stop: screen_sleep_timer
-              - light.turn_on: display_brightness
-              - script.execute: boot_button_hold_timer
-    on_release:
-      then:
-        - script.stop: boot_button_hold_timer
     on_click:
       - min_length: 50ms
-        max_length: 990ms
         then:
           - if:
               condition:
-                lambda: 'return !id(is_locked) && !id(boot_hold_triggered);'
+                lambda: 'return !id(is_locked);'
               then:
                 - lambda: |-
                     static uint32_t last_btn_click = 0;
                     uint32_t now = millis();
                     if (now - last_btn_click < 300) return;
                     last_btn_click = now;
-                - script.stop: screen_sleep_timer
                 - if:
                     condition:
                       lambda: 'return id(active_game) > 0;'
@@ -1340,10 +1330,19 @@ binary_sensor:
                       - if:
                           condition:
                             lambda: |-
-                              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() ;
+                              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running();
                           then:
                             - script.execute: cancel_voice_assistant
                           else:
+                            - lambda: |-
+                                // If waking from screen-off or standby, check Assist Screen Wake preference
+                                if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
+                                  if (id(va_wake_screen_switch).state) {
+                                    id(wake_to_active_state).execute();
+                                  }
+                                } else {
+                                  id(screen_sleep_timer).execute();
+                                }
                             - if:
                                 condition:
                                   media_player.is_playing: pocket_music_player
@@ -1351,7 +1350,6 @@ binary_sensor:
                                   - media_player.pause: pocket_music_player
                                   - delay: 200ms
                             - script.execute: route_i2s_to_mic
-                            - light.turn_on: display_brightness
                             - lambda: 'id(va_tts_received) = false;'
                             - voice_assistant.start:
 
@@ -1770,17 +1768,8 @@ script:
             }
           }
           id(gui_page) = init_p;
-  - id: boot_button_hold_timer
-    mode: restart
-    then:
-      - delay: 1000ms
-      - if:
-          condition:
-            binary_sensor.is_on: boot_button
-          then:
-            - lambda: 'id(boot_hold_triggered) = true;'
-            - script.execute: enter_deep_sleep
-
+  # Deep sleep hibernation is exclusively initiated via the Top Crown long-press (>1.5s)
+  # with a 5-second abortable countdown overlay to prevent accidental shutdowns.
   - id: start_hibernation_countdown
     mode: restart
     then:
@@ -5249,6 +5238,12 @@ display:
           if (spk_target.length() > 24) spk_target = spk_target.substr(0, 22) + "..";
           draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
 
+          // Button 4: Voice Assistant Screen Wake Toggle (y = 300, r = 18)
+          bool va_scr = id(va_wake_screen_switch).state;
+          char va_scr_label[32];
+          snprintf(va_scr_label, sizeof(va_scr_label), "Voice Screen: %s", va_scr ? "ON" : "OFF");
+          draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), va_scr_label, id(col_white), false);
+
           // Standardized Centered < BACK Button at y = 375 (r = 18)
           draw_back_button();
         } else if (id(system_menu_mode) == 8) {
@@ -6144,6 +6139,10 @@ touchscreen:
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 1;
                   id(system_menu_mode) = 0;
+                  id(disp1).update();
+                // Card 4: Voice Assistant Screen Wake Toggle (y: 275..330, x: 90..376)
+                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 90 && touch.x <= 376) {
+                  id(va_wake_screen_switch).toggle().perform();
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
                 } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
