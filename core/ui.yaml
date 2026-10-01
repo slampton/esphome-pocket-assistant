@@ -723,6 +723,14 @@ button:
       - script.execute: enter_deep_sleep
 
   - platform: template
+    name: "Power: Trigger Screensaver"
+    id: trigger_screensaver_btn
+    icon: "mdi:weather-night"
+    entity_category: config
+    on_press:
+      - script.execute: trigger_screensaver_now
+
+  - platform: template
     name: "Trigger Voice Assistant"
     id: trigger_va_button
     on_press:
@@ -1013,7 +1021,7 @@ interval:
     then:
       - lambda: |-
           // High-refresh animation loop for active screensavers when docked (10 FPS)
-          if (id(display_power_state) == 1 && id(docked_screensaver_switch).state) {
+          if (id(display_power_state) == 1) {
             std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
             if (s_style != "Ambient Clock") {
               id(disp1).update();
@@ -1707,6 +1715,16 @@ script:
           } else if (id(display_power_state) == 1) { // SCREENSAVER
             id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
           }
+
+  - id: trigger_screensaver_now
+    mode: restart
+    then:
+      - lambda: |-
+          id(display_power_state) = 1; // SCREENSAVER
+          id(screensaver_start_time) = millis();
+          id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
+          id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
+          id(disp1).update();
 
   - id: enter_standby_state
     mode: restart
@@ -3923,10 +3941,10 @@ display:
           }
 
           // Flank Control Buttons in High-Contrast Dark Gray Circular Capsules (Radius 18)
-          // Mode-aware placement: Full Screen & Letterbox bring skip buttons inward (prev: x=147, next: x=319)
+          // Mode-aware placement: Full Screen & Letterbox bring skip buttons inward (prev: x=128, next: x=338)
           // Compact mode keeps them outward (prev: x=102, next: x=364) to clear 216x216 centered album art
-          int prev_btn_x = is_compact ? 102 : 147;
-          int next_btn_x = is_compact ? 364 : 319;
+          int prev_btn_x = is_compact ? 102 : 128;
+          int next_btn_x = is_compact ? 364 : 338;
 
           // Left Flank Previous Track (|◀): centered at x = prev_btn_x, y = 212
           it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
@@ -5682,22 +5700,22 @@ touchscreen:
                   id(music_overlay_mode) = 1; // Open Level 1 Music Menu
                   id(disp1).update();
                 // Right Flank Next Track (▶|): Middle Right Horizon (y: 155..250)
-                // In Full Screen & Letterbox: button at x = 319 -> generous hit zone (x >= 270)
+                // In Full Screen & Letterbox: button at x = 338 -> generous hit zone (x >= 290)
                 // In Compact: button at x = 364 -> hit zone (x >= 320)
-                } else if (touch.y >= 155 && touch.y < 250 && (is_compact_touch ? (touch.x >= 320) : (touch.x >= 270))) {
+                } else if (touch.y >= 155 && touch.y < 250 && (is_compact_touch ? (touch.x >= 320) : (touch.x >= 290))) {
                   id(music_next_track).execute();
                   id(disp1).update();
                 // Left Flank Previous Track (|◀): Middle Left Horizon (y: 155..250)
-                // In Full Screen & Letterbox: button at x = 147 -> generous hit zone (x <= 195)
+                // In Full Screen & Letterbox: button at x = 128 -> generous hit zone (x <= 176)
                 // In Compact: button at x = 102 -> hit zone (x <= 145)
-                } else if (touch.y >= 155 && touch.y < 250 && (is_compact_touch ? (touch.x <= 145) : (touch.x <= 195))) {
+                } else if (touch.y >= 155 && touch.y < 250 && (is_compact_touch ? (touch.x <= 145) : (touch.x <= 176))) {
                   id(music_prev_track).execute();
                   id(disp1).update();
                 // Center Hero Album Art & Play / Pause toggle
                 // Bounded horizontally to avoid encroaching into Next/Prev flank zones
                 // In Compact: x: 145..320, y: 104..325
-                // In Full Screen / Letterbox: x: 195..270, y: 104..325
-                } else if (touch.y >= 104 && touch.y <= 325 && (is_compact_touch ? (touch.x > 145 && touch.x < 320) : (touch.x > 195 && touch.x < 270))) {
+                // In Full Screen / Letterbox: x: 176..290, y: 104..325
+                } else if (touch.y >= 104 && touch.y <= 325 && (is_compact_touch ? (touch.x > 145 && touch.x < 320) : (touch.x > 176 && touch.x < 290))) {
                   bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
                   bool currently_playing = false;
                   if (id(music_optimistic_playing) != -1) {
