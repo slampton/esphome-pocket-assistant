@@ -1133,12 +1133,7 @@ interval:
           // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
           if (id(display_brightness).current_values.is_on()) {
             if (id(gui_page) == 1 && id(stopwatch_running)) {
-              // Priority 0: Touch Interrupt Yielding
-              // If user is currently touching the screen (GPIO11 active LOW), yield immediately!
-              // This guarantees the touch controller and gesture processing get instantaneous priority without display lag.
-              if (gpio_get_level(GPIO_NUM_11) == 0) {
-                return;
-              }
+
 
               static uint32_t last_chrono_disp_update = 0;
               uint32_t now_chrono_ms = millis();
@@ -1377,8 +1372,11 @@ binary_sensor:
       float dyn = id(motion_mag).state;
       if (isnan(dyn)) return false;
 
-      const float thresh = 0.16f; // Responsive pickup detection
-      const uint32_t active_ms = 5000;
+      // Dual-Threshold In-Hand Detection:
+      // While screen is active, 0.025g maintains active hold so screen never sleeps in your hand.
+      // While screen is sleeping/standby, 0.15g requires a deliberate pickup motion to wake.
+      float thresh = (id(display_power_state) == 0) ? 0.025f : 0.15f;
+      const uint32_t active_ms = 8000;
       static uint32_t last_active_time = 0;
       static bool is_active = false;
       uint32_t now_ms = millis();
@@ -1940,64 +1938,47 @@ script:
   - id: music_vol_up
     mode: restart
     then:
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
-          then:
-            - lambda: |-
-                float step = id(volume_step_size).state / 100.0f;
-                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
-                float cur = id(pocket_music_player).volume;
-                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-                float new_vol = std::min(0.90f, cur + step);
-                id(pocket_music_player).volume = new_vol;
-                id(pocket_music_player).make_call().set_volume(new_vol).perform();
-          else:
-            - homeassistant.action:
-                action: media_player.volume_up
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - lambda: |-
+          float step = id(volume_step_size).state / 100.0f;
+          if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+          float cur = id(pocket_music_player).volume;
+          if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+          float new_vol = std::min(0.90f, cur + step);
+          id(pocket_music_player).volume = new_vol;
+          id(pocket_music_player).make_call().set_volume(new_vol).perform();
+      - homeassistant.action:
+          action: media_player.volume_up
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_vol_down
     mode: restart
     then:
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
-          then:
-            - lambda: |-
-                float step = id(volume_step_size).state / 100.0f;
-                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
-                float cur = id(pocket_music_player).volume;
-                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-                float new_vol = std::max(0.10f, cur - step);
-                id(pocket_music_player).volume = new_vol;
-                id(pocket_music_player).make_call().set_volume(new_vol).perform();
-          else:
-            - homeassistant.action:
-                action: media_player.volume_down
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - lambda: |-
+          float step = id(volume_step_size).state / 100.0f;
+          if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+          float cur = id(pocket_music_player).volume;
+          if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+          float new_vol = std::max(0.10f, cur - step);
+          id(pocket_music_player).volume = new_vol;
+          id(pocket_music_player).make_call().set_volume(new_vol).perform();
+      - homeassistant.action:
+          action: media_player.volume_down
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: toggle_ha_music
     mode: restart
     then:
       - if:
           condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+            lambda: 'return (id(active_speaker_entity) == "${local_player_id}") && (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);'
           then:
-            - if:
-                condition:
-                  media_player.is_playing: pocket_music_player
-                then:
-                  - media_player.pause: pocket_music_player
-                else:
-                  - media_player.play: pocket_music_player
-          else:
-            - homeassistant.action:
-                action: media_player.media_play_pause
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - media_player.pause: pocket_music_player
+      - homeassistant.action:
+          action: media_player.media_play_pause
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_next_track
     mode: restart
@@ -2664,11 +2645,14 @@ script:
               } else {
                 if (std::string(id(display_off_timeout).current_option().c_str()) == "Never") return false;
               }
+              bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+              bool is_music_playing = is_remote ? (id(ha_target_state).state == "playing")
+                                                 : (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
               return !id(ota_in_progress) &&
                      !id(va).is_running() && 
                      !id(va_tts_received) && 
                      !id(announcement_mixing_input).is_running() && 
-                     (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) && 
+                     !is_music_playing && 
                      !id(stopwatch_running) &&
                      !id(pickup_detected).state &&
                      (id(active_game) == 0) &&
@@ -2759,11 +2743,6 @@ display:
     brightness: 200
     update_interval: 1s
     lambda: |-
-      // Priority 0: Touch Interrupt Yielding
-      // If user touches the glass (GPIO11 active LOW), yield immediately so touch processing gets instantaneous priority!
-      if (gpio_get_level(GPIO_NUM_11) == 0) {
-        return;
-      }
       const int cx = 233;
       const int cy = 233;
       static constexpr float PI_F = 3.14159265358979323846f;
@@ -2902,7 +2881,6 @@ display:
 
           // Full circular screen coverage (R = 228, edge-to-edge, zero static content)
           for (int x = 8; x <= 458; x += 2) {
-            if (gpio_get_level(GPIO_NUM_11) == 0) return;
             int dx = x - cx;
             int dx2 = dx * dx;
             if (dx2 >= 51984) continue; // 228^2
@@ -3886,7 +3864,6 @@ display:
                 int step_y = (src_h << 12) / 216;
                 int curr_y = 0;
                 for (int y = 0; y < 216; y++) {
-                  if (gpio_get_level(GPIO_NUM_11) == 0) return;
                   int sy = curr_y >> 12;
                   curr_y += step_y;
                   const uint16_t *src_row = src_data + sy * src_w;
@@ -4094,7 +4071,7 @@ display:
             snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
             it.filled_circle(405, art_center_y, 22, id(col_black));
             it.circle(405, art_center_y, 22, id(theme_primary));
-            it.print(405, art_center_y, id(font_small), id(theme_primary), TextAlign::CENTER, v_buf);
+            it.print(405, art_center_y, id(font_small), id(col_white), TextAlign::CENTER, v_buf);
           }
 
         } else if (id(music_overlay_mode) == 1) {
@@ -5445,8 +5422,11 @@ touchscreen:
     display: disp1
     i2c_id: bus_internal
     address: 0x5A
-    interrupt_pin: GPIO11
+    interrupt_pin:
+      number: GPIO11
+      mode: INPUT_PULLUP
     reset_pin: GPIO2
+    update_interval: 16ms
     transform:
       mirror_x: true
       mirror_y: true
@@ -5688,7 +5668,7 @@ touchscreen:
                   id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
                   id(music_feedback_timer) = millis();
                   id(music_vol_up).execute();
-                  id(throttled_disp_update).execute();
+                  id(disp1).update();
                 // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) - Zero dead zones
                 } else if ((touch.x >= 300 && touch.y >= 248 && touch.y < 390) || (touch.x >= 380 && touch.y >= 212 && touch.y < 390)) {
                   id(vol_hud_direction) = -1;
@@ -5698,7 +5678,7 @@ touchscreen:
                   id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
                   id(music_feedback_timer) = millis();
                   id(music_vol_down).execute();
-                  id(throttled_disp_update).execute();
+                  id(disp1).update();
                 // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 284) - Expanded for broad thumb touch
                 } else if (touch.x <= 180 && touch.y >= 248 && touch.y < 390) {
                   id(music_overlay_mode) = 1; // Open Level 1 Music Menu
@@ -5712,7 +5692,7 @@ touchscreen:
                     id(music_action_feedback) = "Next Track >>";
                     id(music_feedback_timer) = now_tap;
                     id(music_next_track).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
                 // Left Flank Previous Track (|◀): Middle Left Horizon (center 128, 212 in Full/Letterbox, 102 in Compact)
                 } else if (touch.y >= 155 && touch.y < 248 && (is_compact_touch ? (touch.x <= 150) : (touch.x <= 180))) {
@@ -5723,7 +5703,7 @@ touchscreen:
                     id(music_action_feedback) = "<< Prev Track";
                     id(music_feedback_timer) = now_tap;
                     id(music_prev_track).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
                 // Center Hero Album Art & Play / Pause toggle (center 233, 212)
                 } else if (touch.y >= 104 && touch.y < 390 && (is_compact_touch ? (touch.x > 150 && touch.x < 310) : (touch.x > 180 && touch.x < 280))) {
@@ -5737,7 +5717,7 @@ touchscreen:
                     id(music_action_feedback) = currently_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(toggle_ha_music).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
                 }
               } else if (id(music_overlay_mode) == 1) {
