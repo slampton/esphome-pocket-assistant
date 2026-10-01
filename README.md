@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v1.0.6-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.0.7-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -444,6 +444,18 @@ esphome-pocket-assistant/
   * In standby on battery with `Docked Only` or `Disabled`, touch polling is ignored to eliminate phantom pocket touches while preserving motion pickup and crown button wake.
 * **Voice Assistant Full Modal Touch Interception & Tap-to-Dismiss**:
   * Added full-screen touch interception during active Voice Assistant states (listening, thinking, responding), allowing users to tap anywhere on the screen to cleanly cancel Assist without click-through.
+
+### v1.0.7 (Ergonomic Full-Screen Button Placement & Cold Boot Play Fix)
+* **Mode-Aware Flank Button Placement (Full Screen & Letterbox)**:
+  * Repositioned Previous Track (`x = 136`) and Next Track (`x = 330`) buttons in Full Screen and Letterbox modes, bringing them inward from the outer bezels to establish balanced 45px visual clearance to the center Play/Pause capsule (`x: 199..267`) and 39px clearance to outer volume/menu buttons.
+  * Compact mode preserves wider placement (`x = 102`, `x = 364`) to clear the 216×216 album art square.
+* **Synchronized Mode-Aware Touch Partitioning (Zero Dead Zones)**:
+  * Dynamically shifts horizontal touch boundaries: in Full Screen/Letterbox, Previous Track expands to `x <= 184` and Next Track expands to `x >= 282`, providing generous 30px margins around both 18px capsules without overlapping Play/Pause (`x: 184..282`, 98px wide).
+* **Cold Boot / Restart Play Command Resolution**:
+  * Fixed a critical routing bug in `toggle_ha_music`: previously, when paused after boot, if `active_speaker_entity` was local, it only invoked the local ESPHome action `media_player.play: pocket_music_player` (a passive I2S receiver for Sendspin), failing to notify Home Assistant / Music Assistant to start the queue stream.
+  * Now unconditionally dispatches `homeassistant.action: media_player.media_play` targeting `active_speaker_entity`, ensuring Music Assistant wakes the queue and streams immediately.
+* **Instant Track Transition Visual Feedback**:
+  * Added instant feedback text in `music_next_track` (`"Next Track >>"`) and `music_prev_track` (`"<< Prev Track"`), automatically cleared when the new track title arrives via `ha_track_title`.
 
 ### v1.0.6 (High-Speed Row-Major Album Art Engine & Zero-Overhead Scrim)
 * **Root Cause Elimination of Full-Screen UI Lag**:

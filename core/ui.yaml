@@ -1123,6 +1123,8 @@ text_sensor:
     entity_id: ${target_title_sensor}
     on_value:
       then:
+        - lambda: |-
+            id(music_action_feedback) = "";
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
@@ -1414,26 +1416,27 @@ script:
                   lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
                 then:
                   - media_player.pause: pocket_music_player
-                else:
-                  - homeassistant.action:
-                      action: media_player.media_pause
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - homeassistant.action:
+                action: media_player.media_pause
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
           else:
+            - homeassistant.action:
+                action: media_player.media_play
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
             - if:
                 condition:
                   lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
                 then:
                   - media_player.play: pocket_music_player
-                else:
-                  - homeassistant.action:
-                      action: media_player.media_play
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_next_track
     mode: single
     then:
+      - lambda: |-
+          id(music_action_feedback) = "Next Track >>";
+          id(music_feedback_timer) = millis();
       - homeassistant.action:
           action: media_player.media_next_track
           data:
@@ -1442,6 +1445,9 @@ script:
   - id: music_prev_track
     mode: single
     then:
+      - lambda: |-
+          id(music_action_feedback) = "<< Prev Track";
+          id(music_feedback_timer) = millis();
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
@@ -3333,10 +3339,10 @@ display:
           }
 
           // Flank Control Buttons in High-Contrast Dark Gray Circular Capsules (Radius 18)
-          // Standardized perimeter placement: prev at x=102, next at x=364 across ALL art modes
-          // Clears the center 166px width (x: 150..316) for massive, zero-deadzone center hero play/pause
-          const int prev_btn_x = 102;
-          const int next_btn_x = 364;
+          // Mode-aware placement: compact mode keeps buttons wide (102, 364) to clear 216x216 art;
+          // Full Screen & Letterbox bring buttons in (136, 330) for natural ergonomic thumb reach
+          const int prev_btn_x = is_compact ? 102 : 136;
+          const int next_btn_x = is_compact ? 364 : 330;
 
           // Left Flank Previous Track (|◀): centered at x = prev_btn_x, y = 212
           it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
@@ -5114,15 +5120,17 @@ touchscreen:
                 // Normal Player Mode
                 // ----------------------------------------------------
                 bool is_compact_touch = (std::string(id(music_fullscreen_art_mode).current_option().c_str()) == "Compact");
+                int prev_x_max = is_compact_touch ? 150 : 184;
+                int next_x_min = is_compact_touch ? 316 : 282;
 
                 // Dedicated Header Tap Zone ("MUSIC" & Active Speaker) & Upper-Left Flank: Open Category Menu
-                // Seamless coverage: y <= 95 (x: 120..346) OR upper-left quadrant (x <= 150, y < 155) opens Category Menu!
-                if ((touch.y <= 95 && touch.x >= 120 && touch.x <= 346) || (touch.x <= 150 && touch.y < 155)) {
+                // Seamless coverage: y <= 95 (x: 120..346) OR upper-left quadrant (x <= prev_x_max, y < 155) opens Category Menu!
+                if ((touch.y <= 95 && touch.x >= 120 && touch.x <= 346) || (touch.x <= prev_x_max && touch.y < 155)) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
 
-                // Right Flank Volume Up (+): Upper Right Quadrant (x >= 316, y < 175) with 120ms rate-limit
-                } else if (touch.x >= 316 && touch.y < 175) {
+                // Right Flank Volume Up (+): Upper Right Quadrant (x >= next_x_min, y < 175) with 120ms rate-limit
+                } else if (touch.x >= next_x_min && touch.y < 175) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_up_tap > 120) {
@@ -5137,8 +5145,8 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Right Flank Next Track (▶|): Middle Right Horizon (center 364, 212)
-                } else if (touch.x >= 316 && touch.y >= 175 && touch.y < 255) {
+                // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x, 212)
+                } else if (touch.x >= next_x_min && touch.y >= 175 && touch.y < 255) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > 250) {
@@ -5150,7 +5158,7 @@ touchscreen:
                   }
 
                 // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) with 120ms rate-limit
-                } else if (touch.x >= 316 && touch.y >= 255 && touch.y < 390) {
+                } else if (touch.x >= next_x_min && touch.y >= 255 && touch.y < 390) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > 120) {
@@ -5165,8 +5173,8 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Left Flank Previous Track (|◀): Middle Left Horizon (center 102, 212)
-                } else if (touch.x <= 150 && touch.y >= 155 && touch.y < 255) {
+                // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212)
+                } else if (touch.x <= prev_x_max && touch.y >= 155 && touch.y < 255) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_prev_tap > 250) {
@@ -5178,7 +5186,7 @@ touchscreen:
                   }
 
                 // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 284) with 250ms tap debounce
-                } else if (touch.x <= 150 && touch.y >= 255 && touch.y < 390) {
+                } else if (touch.x <= prev_x_max && touch.y >= 255 && touch.y < 390) {
                   static uint32_t last_menu_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_menu_tap > 250) {
@@ -5187,8 +5195,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Massive 166px x 295px zone across all modes!
-                } else if (touch.y >= 95 && touch.y < 390 && touch.x > 150 && touch.x < 316) {
+                // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Mode-aware generous zone
+                } else if (touch.y >= 95 && touch.y < 390 && touch.x > prev_x_max && touch.x < next_x_min) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > 250) {
