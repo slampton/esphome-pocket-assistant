@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v1.0.7-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.0.8-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -444,6 +444,23 @@ esphome-pocket-assistant/
   * In standby on battery with `Docked Only` or `Disabled`, touch polling is ignored to eliminate phantom pocket touches while preserving motion pickup and crown button wake.
 * **Voice Assistant Full Modal Touch Interception & Tap-to-Dismiss**:
   * Added full-screen touch interception during active Voice Assistant states (listening, thinking, responding), allowing users to tap anywhere on the screen to cleanly cancel Assist without click-through.
+
+### v1.0.8 (Clock Chevrons Restoration, Universal Back Button Redesign, Stopwatch Navigation Priority & Ergonomic Prev/Next Placement)
+* **Clock Face Chevrons Restoration (Fix Early Return Bug)**:
+  * Resolved the regression where navigation chevrons and page numbers disappeared from the Digital Clock face (`gui_page == 0`) due to an early `return;` exiting the display lambda before the Universal Bottom Navigation Bar at $y = 424$ could render. Restructured into `if (id(clock_face_digital)) { ... } else { ... }` so execution cleanly falls through to line 4818 in both digital and analog modes.
+* **Universal `< BACK` Button Redesign & Theme Highlighting**:
+  * Redesigned the universal `< BACK` button across all system and music submenus into a sleek, compact stadium pill (`r = 16`, width 138px from $x = 180$ to $286$), shrunk by ~32% horizontally from the previous 202px wide button.
+  * Shifted vertical position up 7px from $y = 375$ to $y = 368$, creating an optimal 34px buffer below menu row 4 and a 49px buffer above the bottom navigation chevrons.
+  * Highlighted border and text using `theme_primary` accent color (matching the page header) over `col_dark_gray` background.
+* **Submenu Touch Segregation (Zero `< BACK` vs Chevron Conflict)**:
+  * In multi-page submenus with both `< BACK` and page chevrons (`music_overlay_mode == 2, 3` and `system_menu_mode == 1`), segregated touch routing so center taps ($x \in [160, 306], y \le 405$) always trigger `< BACK`, while flank taps ($x < 200$ and $x > 266$) at $y \ge 380$ trigger Left/Right page flips, completely preventing accidental page flips when intending to tap Back.
+* **Stopwatch App Fast LUT Optimization & Navigation Priority**:
+  * Precomputed 60-point (`DIAL_SIN[60]`, `DIAL_COS[60]`) and 10-point (`SUB_SIN[10]`, `SUB_COS[10]`) static constexpr sine/cosine LUTs at the top of the display lambda, eliminating >85 runtime transcendental `sincosf` float calculations per frame across the chapter ring, numerals, and 1/10s subdial.
+  * Tightened Stopwatch LAP/RESET touch hitboxes to $y \in [280, 368]$ (matching physical button geometry centered at $y = 328, r = 38$) and restricted central dial start/stop to $y < 370$.
+  * Assigned top priority to deck navigation at $y \ge 375$ on the Stopwatch page with 150ms debounce, ensuring rapid taps from Clock to Stopwatch to Music immediately flip the app deck without dropping touches or misinterpreting taps as LAP/RESET.
+* **Ergonomic Full Screen & Letterbox Prev/Next Flank Button Placement**:
+  * Moved Previous Track to $x = 124$ and Next Track to $x = 342$ in Full Screen and Letterbox modes (giving 57px clearance to the center Play/Pause capsule and 27px clearance to the outer volume/menu buttons).
+  * Updated touch hitboxes to `prev_x_max = 175` and `next_x_min = 291` for perfectly balanced, generous thumb reach.
 
 ### v1.0.7 (Ergonomic Full-Screen Button Placement & Cold Boot Play Fix)
 * **Mode-Aware Flank Button Placement (Full Screen & Letterbox)**:

@@ -2157,6 +2157,40 @@ display:
       const int cy = 233;
       static constexpr float PI_F = 3.14159265358979323846f;
 
+      // Universal Precomputed 60-Tick & 10-Tick Sine/Cosine LUTs (Shared across Clock, Stopwatch, Dial Gauges)
+      static constexpr float DIAL_SIN[60] = {
+        0.000000f, 0.104528f, 0.207912f, 0.309017f, 0.406737f, 0.500000f,
+        0.587785f, 0.669131f, 0.743145f, 0.809017f, 0.866025f, 0.913545f,
+        0.951057f, 0.978148f, 0.994522f, 1.000000f, 0.994522f, 0.978148f,
+        0.951057f, 0.913545f, 0.866025f, 0.809017f, 0.743145f, 0.669131f,
+        0.587785f, 0.500000f, 0.406737f, 0.309017f, 0.207912f, 0.104528f,
+        0.000000f, -0.104528f, -0.207912f, -0.309017f, -0.406737f, -0.500000f,
+        -0.587785f, -0.669131f, -0.743145f, -0.809017f, -0.866025f, -0.913545f,
+        -0.951057f, -0.978148f, -0.994522f, -1.000000f, -0.994522f, -0.978148f,
+        -0.951057f, -0.913545f, -0.866025f, -0.809017f, -0.743145f, -0.669131f,
+        -0.587785f, -0.500000f, -0.406737f, -0.309017f, -0.207912f, -0.104528f
+      };
+      static constexpr float DIAL_COS[60] = {
+        1.000000f, 0.994522f, 0.978148f, 0.951057f, 0.913545f, 0.866025f,
+        0.809017f, 0.743145f, 0.669131f, 0.587785f, 0.500000f, 0.406737f,
+        0.309017f, 0.207912f, 0.104528f, 0.000000f, -0.104528f, -0.207912f,
+        -0.309017f, -0.406737f, -0.500000f, -0.587785f, -0.669131f, -0.743145f,
+        -0.809017f, -0.866025f, -0.913545f, -0.951057f, -0.978148f, -0.994522f,
+        -1.000000f, -0.994522f, -0.978148f, -0.951057f, -0.913545f, -0.866025f,
+        -0.809017f, -0.743145f, -0.669131f, -0.587785f, -0.500000f, -0.406737f,
+        -0.309017f, -0.207912f, -0.104528f, 0.000000f, 0.104528f, 0.207912f,
+        0.309017f, 0.406737f, 0.500000f, 0.587785f, 0.669131f, 0.743145f,
+        0.809017f, 0.866025f, 0.913545f, 0.951057f, 0.978148f, 0.994522f
+      };
+      static constexpr float SUB_SIN[10] = {
+        0.000000f, 0.587785f, 0.951057f, 0.951057f, 0.587785f,
+        0.000000f, -0.587785f, -0.951057f, -0.951057f, -0.587785f
+      };
+      static constexpr float SUB_COS[10] = {
+        1.000000f, 0.809017f, 0.309017f, -0.309017f, -0.809017f,
+        -1.000000f, -0.809017f, -0.309017f, 0.309017f, 0.809017f
+      };
+
       // Reusable Clean Pill / Stadium Button Helper (Artifact-Free Outer/Inner Geometry)
       auto draw_pill_button = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, Color text_c, bool has_bullet) {
         // Outer filled pill in border color
@@ -2174,9 +2208,9 @@ display:
         it.print(btn_cx, y_mid, id(font_small), text_c, TextAlign::CENTER, label);
       };
 
-      // Standardized Centered < BACK Button Helper across all submenus (y = 375, r = 18, 202px wide)
+      // Standardized Centered < BACK Button Helper across all submenus (y = 368, r = 16, 138px wide, theme accent)
       auto draw_back_button = [&]() {
-        draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+        draw_pill_button(180, 286, 368, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
       };
 
       // Semantic Version Comparison Helper (Rejects ESPHome 2026.x CalVer; strictly tests major.minor.patch)
@@ -2754,101 +2788,71 @@ display:
 
         if (!now.is_valid()) {
           it.print(cx, cy - 10, id(font_date), id(col_slate), TextAlign::CENTER, "Connecting...");
-          return;
-        }
+        } else {
+          int hour = now.hour;
+          int min = now.minute;
+          int sec = now.second;
 
-        int hour = now.hour;
-        int min = now.minute;
-        int sec = now.second;
-
-        // Priority 2: Precomputed 60-tick sine/cosine LUT - eliminates 120 transcendental float calls/frame
-        static constexpr float DIAL_SIN[60] = {
-          0.000000f, 0.104528f, 0.207912f, 0.309017f, 0.406737f, 0.500000f,
-          0.587785f, 0.669131f, 0.743145f, 0.809017f, 0.866025f, 0.913545f,
-          0.951057f, 0.978148f, 0.994522f, 1.000000f, 0.994522f, 0.978148f,
-          0.951057f, 0.913545f, 0.866025f, 0.809017f, 0.743145f, 0.669131f,
-          0.587785f, 0.500000f, 0.406737f, 0.309017f, 0.207912f, 0.104528f,
-          0.000000f, -0.104528f, -0.207912f, -0.309017f, -0.406737f, -0.500000f,
-          -0.587785f, -0.669131f, -0.743145f, -0.809017f, -0.866025f, -0.913545f,
-          -0.951057f, -0.978148f, -0.994522f, -1.000000f, -0.994522f, -0.978148f,
-          -0.951057f, -0.913545f, -0.866025f, -0.809017f, -0.743145f, -0.669131f,
-          -0.587785f, -0.500000f, -0.406737f, -0.309017f, -0.207912f, -0.104528f
-        };
-        static constexpr float DIAL_COS[60] = {
-          1.000000f, 0.994522f, 0.978148f, 0.951057f, 0.913545f, 0.866025f,
-          0.809017f, 0.743145f, 0.669131f, 0.587785f, 0.500000f, 0.406737f,
-          0.309017f, 0.207912f, 0.104528f, 0.000000f, -0.104528f, -0.207912f,
-          -0.309017f, -0.406737f, -0.500000f, -0.587785f, -0.669131f, -0.743145f,
-          -0.809017f, -0.866025f, -0.913545f, -0.951057f, -0.978148f, -0.994522f,
-          -1.000000f, -0.994522f, -0.978148f, -0.951057f, -0.913545f, -0.866025f,
-          -0.809017f, -0.743145f, -0.669131f, -0.587785f, -0.500000f, -0.406737f,
-          -0.309017f, -0.207912f, -0.104528f, 0.000000f, 0.104528f, 0.207912f,
-          0.309017f, 0.406737f, 0.500000f, 0.587785f, 0.669131f, 0.743145f,
-          0.809017f, 0.866025f, 0.913545f, 0.951057f, 0.978148f, 0.994522f
-        };
-
-        if (id(clock_face_digital)) {
-          // Perimeter bezel ticks
-          for (int i = 0; i < 60; i++) {
-            float s = DIAL_SIN[i];
-            float c = DIAL_COS[i];
-            if (i % 5 == 0) {
-              it.line(cx + (int)(212 * s), cy - (int)(212 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_slate));
-            } else {
-              it.line(cx + (int)(216 * s), cy - (int)(216 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_gray));
+          if (id(clock_face_digital)) {
+            // Perimeter bezel ticks
+            for (int i = 0; i < 60; i++) {
+              float s = DIAL_SIN[i];
+              float c = DIAL_COS[i];
+              if (i % 5 == 0) {
+                it.line(cx + (int)(212 * s), cy - (int)(212 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_slate));
+              } else {
+                it.line(cx + (int)(216 * s), cy - (int)(216 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_gray));
+              }
             }
-          }
-          // Highlight active second tick in theme primary
-          float s_sec = DIAL_SIN[sec % 60];
-          float c_sec = DIAL_COS[sec % 60];
-          it.line(cx + (int)(208 * s_sec), cy - (int)(208 * c_sec), cx + (int)(220 * s_sec), cy - (int)(220 * c_sec), id(theme_primary));
-          it.line(cx + (int)(208 * s_sec) + 1, cy - (int)(208 * c_sec), cx + (int)(220 * s_sec) + 1, cy - (int)(220 * c_sec), id(theme_primary));
+            // Highlight active second tick in theme primary
+            float s_sec = DIAL_SIN[sec % 60];
+            float c_sec = DIAL_COS[sec % 60];
+            it.line(cx + (int)(208 * s_sec), cy - (int)(208 * c_sec), cx + (int)(220 * s_sec), cy - (int)(220 * c_sec), id(theme_primary));
+            it.line(cx + (int)(208 * s_sec) + 1, cy - (int)(208 * c_sec), cx + (int)(220 * s_sec) + 1, cy - (int)(220 * c_sec), id(theme_primary));
 
-          // Date Header: "MON, SEP 28" (Theme Primary)
-          it.strftime(cx, 130, id(font_date), id(theme_primary), TextAlign::CENTER, "%a, %b %d", now);
+            // Date Header: "MON, SEP 28" (Theme Primary)
+            it.strftime(cx, 130, id(font_date), id(theme_primary), TextAlign::CENTER, "%a, %b %d", now);
 
-          // Giant Bold Digital Time: "10:45" (12h) or "14:45" (24h)
-          char dig_buf[16];
-          if (id(is_24h_format)) {
-            snprintf(dig_buf, sizeof(dig_buf), "%02d:%02d", now.hour, now.minute);
-          } else {
-            int h12 = now.hour % 12;
-            if (h12 == 0) h12 = 12;
-            snprintf(dig_buf, sizeof(dig_buf), "%d:%02d", h12, now.minute);
-          }
-          it.print(cx, 205, id(font_time), id(col_white), TextAlign::CENTER, dig_buf);
-
-          // AM/PM & Seconds Pill: (Theme Secondary)
-          char sec_buf[16];
-          if (id(is_24h_format)) {
-            snprintf(sec_buf, sizeof(sec_buf), "SEC  •  %02ds", sec);
-          } else {
-            snprintf(sec_buf, sizeof(sec_buf), "%s  •  %02ds", now.hour >= 12 ? "PM" : "AM", sec);
-          }
-          it.print(cx, 262, id(font_small), id(theme_secondary), TextAlign::CENTER, sec_buf);
-
-          // Battery telemetry in cyan with charging bolt / battery gauge
-          if (!isnan(batt)) {
-            char batt_str[16];
-            snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
-            int text_x = cx + 8;
-            it.print(text_x, 340, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
-            int bx = text_x - (batt >= 100.0f ? 36 : 28);
-            int by = 340;
-            if (id(batt_charging).state) {
-              it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
-              it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
+            // Giant Bold Digital Time: "10:45" (12h) or "14:45" (24h)
+            char dig_buf[16];
+            if (id(is_24h_format)) {
+              snprintf(dig_buf, sizeof(dig_buf), "%02d:%02d", now.hour, now.minute);
             } else {
-              it.filled_rectangle(bx - 2, by - 9, 4, 2, id(col_green));
-              it.rectangle(bx - 5, by - 7, 10, 16, id(col_green));
-              int fill_h = (int)std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f));
-              it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, id(col_green));
+              int h12 = now.hour % 12;
+              if (h12 == 0) h12 = 12;
+              snprintf(dig_buf, sizeof(dig_buf), "%d:%02d", h12, now.minute);
             }
-          }
-          return;
-        }
+            it.print(cx, 205, id(font_time), id(col_white), TextAlign::CENTER, dig_buf);
 
-        // Modernized Dial Markers: Refined perimeter bezel ticks with 6 o'clock pip sanctuary
+            // AM/PM & Seconds Pill: (Theme Secondary)
+            char sec_buf[16];
+            if (id(is_24h_format)) {
+              snprintf(sec_buf, sizeof(sec_buf), "SEC  •  %02ds", sec);
+            } else {
+              snprintf(sec_buf, sizeof(sec_buf), "%s  •  %02ds", now.hour >= 12 ? "PM" : "AM", sec);
+            }
+            it.print(cx, 262, id(font_small), id(theme_secondary), TextAlign::CENTER, sec_buf);
+
+            // Battery telemetry in cyan with charging bolt / battery gauge
+            if (!isnan(batt)) {
+              char batt_str[16];
+              snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
+              int text_x = cx + 8;
+              it.print(text_x, 340, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
+              int bx = text_x - (batt >= 100.0f ? 36 : 28);
+              int by = 340;
+              if (id(batt_charging).state) {
+                it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
+                it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
+              } else {
+                it.filled_rectangle(bx - 2, by - 9, 4, 2, id(col_green));
+                it.rectangle(bx - 5, by - 7, 10, 16, id(col_green));
+                int fill_h = (int)std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f));
+                it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, id(col_green));
+              }
+            }
+          } else {
+            // Modernized Dial Markers: Refined perimeter bezel ticks with 6 o'clock pip sanctuary
         for (int i = 0; i < 60; i++) {
           if (i == 30) continue; // 6 o'clock pip sanctuary: omitted to frame carousel pips cleanly
           float s = DIAL_SIN[i];
@@ -2934,6 +2938,8 @@ display:
         it.filled_circle(cx, cy, 7, id(col_white));
         it.filled_circle(cx, cy, 4, id(theme_secondary));
         it.filled_circle(cx, cy, 2, id(col_dark_gray));
+        }
+      }
 
       // ==========================================
       // PAGE 1: VINTAGE 1970 HEUER SWISS CHRONOMETER
@@ -2960,11 +2966,10 @@ display:
         it.circle(cx, cy, 192, id(col_black));
         it.circle(cx, cy, 191, id(col_black));
 
-        // Precision Perimeter Chapter Ring (Bold 3px Major 5s bars, 2px Minor 1s ticks)
+        // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
         for (int s = 0; s < 60; s++) {
-          float a = s * (2.0f * PI_F / 60.0f);
-          float t_sin, t_cos;
-          sincosf(a, &t_sin, &t_cos);
+          float t_sin = DIAL_SIN[s];
+          float t_cos = DIAL_COS[s];
           
           if (s % 5 == 0) {
             // Major 5-Second Bar: 3px wide, prominent solid black
@@ -2988,11 +2993,10 @@ display:
           }
         }
 
-        // Bold Perimeter Numerals (5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55 - 60 omitted for STOPWATCH)
+        // Bold Perimeter Numerals (5..55: Fast LUT Lookups)
         for (int s = 5; s <= 55; s += 5) {
-          float a = s * (2.0f * PI_F / 60.0f);
-          float t_sin, t_cos;
-          sincosf(a, &t_sin, &t_cos);
+          float t_sin = DIAL_SIN[s];
+          float t_cos = DIAL_COS[s];
           char num_str[8];
           snprintf(num_str, sizeof(num_str), "%d", s);
           it.print(cx + (int)(170.0f * t_sin), cy - (int)(170.0f * t_cos),
@@ -3020,11 +3024,10 @@ display:
         it.circle(sub_cx, sub_cy, sub_r - 1, id(col_black));
         it.circle(sub_cx, sub_cy, sub_r - 2, id(col_silver));
 
-        // 10 Tenths Ticks (0..9) with bold major bars
+        // 10 Tenths Ticks (0..9: Fast SUB_SIN/COS LUT Lookups)
         for (int i = 0; i < 10; i++) {
-          float a = i * (2.0f * PI_F / 10.0f);
-          float s_i, c_i;
-          sincosf(a, &s_i, &c_i);
+          float s_i = SUB_SIN[i];
+          float c_i = SUB_COS[i];
           int r_in = (i % 2 == 0) ? (sub_r - 10) : (sub_r - 6);
           it.line(sub_cx + (int)(r_in * s_i), sub_cy - (int)(r_in * c_i),
                   sub_cx + (int)((sub_r - 2) * s_i), sub_cy - (int)((sub_r - 2) * c_i), id(col_black));
@@ -3034,11 +3037,10 @@ display:
           }
         }
 
-        // Subdial Markings: 0, 2, 4, 6, 8 (Bold font_small size 20)
+        // Subdial Markings: 0, 2, 4, 6, 8 (Fast SUB_SIN/COS LUT Lookups)
         for (int i = 0; i < 10; i += 2) {
-          float a = i * (2.0f * PI_F / 10.0f);
-          float s_i, c_i;
-          sincosf(a, &s_i, &c_i);
+          float s_i = SUB_SIN[i];
+          float c_i = SUB_COS[i];
           char sub_num[4];
           snprintf(sub_num, sizeof(sub_num), "%d", i);
           it.print(sub_cx + (int)(28.0f * s_i), sub_cy - (int)(28.0f * c_i),
@@ -3340,9 +3342,9 @@ display:
 
           // Flank Control Buttons in High-Contrast Dark Gray Circular Capsules (Radius 18)
           // Mode-aware placement: compact mode keeps buttons wide (102, 364) to clear 216x216 art;
-          // Full Screen & Letterbox bring buttons in (136, 330) for natural ergonomic thumb reach
-          const int prev_btn_x = is_compact ? 102 : 136;
-          const int next_btn_x = is_compact ? 364 : 330;
+          // Full Screen & Letterbox position buttons at (124, 342) for comfortable thumb reach with 57px Play gap
+          const int prev_btn_x = is_compact ? 102 : 124;
+          const int next_btn_x = is_compact ? 364 : 342;
 
           // Left Flank Previous Track (|◀): centered at x = prev_btn_x, y = 212
           it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
@@ -4945,92 +4947,85 @@ touchscreen:
             };
 
             // ==========================================
-            // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER (y >= 390)
-            // Zero dead zones: x < 233 is 100% Left Navigation, x >= 233 is 100% Right Navigation
+            // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER
+            // High-priority deck flipping (y >= 380 on deck pages, y >= 375 on stopwatch)
+            // Multi-page submenus protect center < BACK button (x: 160..306) from chevron interference
             // ==========================================
-            // When in Modal Music Menu (gui_page == 2 && music_overlay_mode == 1):
-            // Fall through so [ RETURN ] button (y: 370..425, x: 140..326) receives touch.
-            if (touch.y >= 390 && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !(id(gui_page) == 4 && id(system_menu_mode) > 1) && !(id(gui_page) == 3 && id(active_game) > 0)) {
-              if (touch.x < 233) {
-                // Bottom-Left Navigation (<): Page Back / Previous (entire left quadrant)
-                if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
-                  // Browse Library Category Carousel (2 pages)
-                  id(music_category_page) = (id(music_category_page) == 1) ? 2 : 1;
-                  id(disp1).update();
-                  return;
-                } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
-                  id(disp1).update();
-                  return;
-                } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
-                  // Item Browser Pagination (e.g. Artists 1..21)
-                  if (id(music_browse_total_pages) > 1) {
-                    if (id(music_browse_page) > 1) {
-                      id(music_browse_page)--;
-                    } else {
-                      id(music_browse_page) = id(music_browse_total_pages);
-                    }
-                    id(fetch_music_browse).execute();
+            bool is_deck_nav = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
+                               !(id(gui_page) == 3 && id(active_game) > 0) &&
+                               !(id(gui_page) == 2 && id(music_overlay_mode) > 0);
+
+            bool is_paged_submenu = (id(gui_page) == 2 && (id(music_overlay_mode) == 2 || id(music_overlay_mode) == 3)) ||
+                                    (id(gui_page) == 4 && id(system_menu_mode) == 1);
+
+            int nav_y_min = (id(gui_page) == 1) ? 375 : 380;
+
+            if (touch.y >= nav_y_min) {
+              if (is_paged_submenu) {
+                // If touching center area in paged submenus, route to < BACK button instead of chevrons!
+                if (touch.x >= 160 && touch.x <= 306) {
+                  // Central area falls through to submenu < BACK handler below
+                } else if (touch.x < 200) {
+                  // Left Chevron (<): Paged Submenu Previous
+                  if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+                    id(music_category_page) = (id(music_category_page) == 1) ? 2 : 1;
                     id(disp1).update();
+                    return;
+                  } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
+                    id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
+                    id(disp1).update();
+                    return;
+                  } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
+                    if (id(music_browse_total_pages) > 1) {
+                      if (id(music_browse_page) > 1) id(music_browse_page)--;
+                      else id(music_browse_page) = id(music_browse_total_pages);
+                      id(fetch_music_browse).execute();
+                      id(disp1).update();
+                    }
+                    return;
                   }
-                  return;
-                } else {
-                  // App Deck: Previous App in Deck
-                  bool allow_deck_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
-                                         !(id(gui_page) == 3 && id(active_game) > 0) &&
-                                         !(id(gui_page) == 2 && id(music_overlay_mode) > 0);
-                  if (allow_deck_flip) {
-                    int total = id(active_deck_size);
-                    if (total > 1) {
+                } else if (touch.x > 266) {
+                  // Right Chevron (>): Paged Submenu Next
+                  if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+                    id(music_category_page) = (id(music_category_page) >= 2) ? 1 : 2;
+                    id(disp1).update();
+                    return;
+                  } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
+                    id(sleep_menu_page) = (id(sleep_menu_page) >= 2) ? 1 : 2;
+                    id(disp1).update();
+                    return;
+                  } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
+                    if (id(music_browse_total_pages) > 1) {
+                      if (id(music_browse_page) < id(music_browse_total_pages)) id(music_browse_page)++;
+                      else id(music_browse_page) = 1;
+                      id(fetch_music_browse).execute();
+                      id(disp1).update();
+                    }
+                    return;
+                  }
+                }
+              } else if (is_deck_nav) {
+                // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
+                static uint32_t last_deck_flip = 0;
+                uint32_t now_flip = millis();
+                if (now_flip - last_deck_flip > 150) {
+                  last_deck_flip = now_flip;
+                  int total = id(active_deck_size);
+                  if (total > 1) {
+                    if (touch.x < 233) {
                       int prev_idx = (id(current_deck_index) - 1 + total) % total;
                       id(current_deck_index) = prev_idx;
                       id(gui_page) = get_slot(prev_idx);
-                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
-                      id(disp1).update();
-                    }
-                  }
-                  return;
-                }
-              } else {
-                // Bottom-Right Navigation (>): Page Forward / Next (entire right quadrant)
-                if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
-                  // Browse Library Category Carousel (2 pages)
-                  id(music_category_page) = (id(music_category_page) >= 2) ? 1 : 2;
-                  id(disp1).update();
-                  return;
-                } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-                  id(sleep_menu_page) = (id(sleep_menu_page) >= 2) ? 1 : 2;
-                  id(disp1).update();
-                  return;
-                } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
-                  // Item Browser Pagination (e.g. Artists 1..21)
-                  if (id(music_browse_total_pages) > 1) {
-                    if (id(music_browse_page) < id(music_browse_total_pages)) {
-                      id(music_browse_page)++;
                     } else {
-                      id(music_browse_page) = 1;
-                    }
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                } else {
-                  // App Deck: Next App in Deck
-                  bool allow_deck_flip = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
-                                         !(id(gui_page) == 3 && id(active_game) > 0) &&
-                                         !(id(gui_page) == 2 && id(music_overlay_mode) > 0);
-                  if (allow_deck_flip) {
-                    int total = id(active_deck_size);
-                    if (total > 1) {
                       int next_idx = (id(current_deck_index) + 1) % total;
                       id(current_deck_index) = next_idx;
                       id(gui_page) = get_slot(next_idx);
-                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
-                      id(disp1).update();
                     }
+                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
+                    id(disp1).update();
                   }
-                  return;
                 }
+                return;
               }
             }
 
@@ -5083,10 +5078,10 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls
+            // Page 1: Stopwatch Screen Tap Controls (Optimized: Zero Contention with Navigation)
             if (id(gui_page) == 1) {
-              // 1. Bottom Control Buttons: LAP & RESET (y: 275..390)
-              if (touch.y >= 275 && touch.y <= 390) {
+              // 1. Bottom Control Buttons: LAP & RESET (y: 280..368, buttons centered at y=328, r=38)
+              if (touch.y >= 280 && touch.y <= 368 && touch.x >= 120 && touch.x <= 346) {
                 if (touch.x < 233) {
                   // LAP Button (Left half, center x=179, y=328, r=38)
                   if (id(stopwatch_running)) {
@@ -5099,8 +5094,8 @@ touchscreen:
                   id(stopwatch_lap_ms) = 0;
                 }
                 id(disp1).update();
-              // 2. Central Chrono Dial Face (Zero Dead Zones: entire central column outside LAP/RESET is START/STOP)
-              } else if (touch.x >= 100 && touch.x <= 366) {
+              // 2. Central Chrono Dial Face: START/STOP (y < 370 prevents encroaching on navigation)
+              } else if (touch.x >= 100 && touch.x <= 366 && touch.y < 370) {
                 uint32_t now_tap = millis();
                 if (!id(stopwatch_running)) {
                   id(stopwatch_running) = true;
@@ -5120,8 +5115,8 @@ touchscreen:
                 // Normal Player Mode
                 // ----------------------------------------------------
                 bool is_compact_touch = (std::string(id(music_fullscreen_art_mode).current_option().c_str()) == "Compact");
-                int prev_x_max = is_compact_touch ? 150 : 184;
-                int next_x_min = is_compact_touch ? 316 : 282;
+                int prev_x_max = is_compact_touch ? 150 : 175;
+                int next_x_min = is_compact_touch ? 316 : 291;
 
                 // Dedicated Header Tap Zone ("MUSIC" & Active Speaker) & Upper-Left Flank: Open Category Menu
                 // Seamless coverage: y <= 95 (x: 120..346) OR upper-left quadrant (x <= prev_x_max, y < 155) opens Category Menu!
@@ -5290,8 +5285,8 @@ touchscreen:
                     id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
                   }
-                // Standardized Centered < BACK Button at y = 375 -> Returns to Level 1 Menu
-                } else if (touch.y >= 335 && touch.y <= 404 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 368 -> Returns to Level 1 Menu
+                } else if (touch.y >= 335 && touch.y <= 405 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 1; // Return to Level 1 Menu
                   id(disp1).update();
                 }
@@ -5401,8 +5396,8 @@ touchscreen:
                       id(select_music_slot_4).execute();
                     }
                   }
-                // Standardized Centered < BACK Button at y = 375 (y: 335..404, x: 80..386) -> Returns to Level 2 Categories
-                } else if (touch.y >= 335 && touch.y <= 404 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 368 (y: 335..405, x: 80..386) -> Returns to Level 2 Categories
+                } else if (touch.y >= 335 && touch.y <= 405 && touch.x >= 80 && touch.x <= 386) {
                   if (id(selected_category_mode) == "album_tracks") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
