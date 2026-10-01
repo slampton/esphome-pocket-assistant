@@ -17,10 +17,6 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
-  - id: is_locked
-    type: bool
-    restore_value: no
-    initial_value: 'false'
   - id: music_overlay_mode
     type: int
     restore_value: no
@@ -141,22 +137,10 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
-  - id: is_hibernating
-    type: bool
-    restore_value: no
-    initial_value: 'false'
-  - id: hibernate_countdown_val
-    type: int
-    restore_value: no
-    initial_value: '0'
   - id: system_menu_mode
     type: int
     restore_value: no
     initial_value: '0'
-  - id: sleep_menu_page
-    type: int
-    restore_value: no
-    initial_value: '1' # 0 = Telemetry Dashboard, 1 = Settings Submenu, 2 = Restart Confirmation
   - id: ota_in_progress
     type: bool
     restore_value: no
@@ -217,10 +201,6 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
-  - id: screensaver_start_time
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
   - id: clock_face_digital
     type: bool
     restore_value: yes
@@ -229,10 +209,6 @@ globals:
     type: bool
     restore_value: yes
     initial_value: 'false'
-  - id: display_power_state
-    type: int
-    restore_value: no
-    initial_value: '0'
   - id: vol_hud_timer
     type: uint32_t
     restore_value: no
@@ -314,10 +290,6 @@ globals:
     restore_value: no
     initial_value: '0'
   - id: stopwatch_lap_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
-  - id: sleep_start_time
     type: uint32_t
     restore_value: no
     initial_value: '0'
@@ -511,59 +483,6 @@ select:
           id(theme_palette_select).publish_state(x);
       - script.execute: apply_theme_preset
   - platform: template
-    name: "Display: Screen Off Timeout"
-    id: display_off_timeout
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_option: "15s"
-    options:
-      - "10s"
-      - "15s"
-      - "30s"
-      - "1 min"
-      - "2 min"
-      - "Never"
-    set_action:
-      - lambda: |-
-          id(disp1).update();
-          id(screen_sleep_timer).execute();
-
-  - platform: template
-    name: "Power: Screensaver Timeout"
-    id: screensaver_docked_timeout
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_option: "Never"
-    options:
-      - "10s"
-      - "15s"
-      - "30s"
-      - "1 min"
-      - "5 min"
-      - "Never"
-    set_action:
-      - lambda: |-
-          id(disp1).update();
-
-  - platform: template
-    name: "Power: Standby Timeout"
-    id: sleep_timeout_mode
-    entity_category: config
-    options:
-      - "5 min"
-      - "10 min"
-      - "15 min"
-      - "30 min"
-      - "Disabled"
-    initial_option: "5 min"
-    restore_value: true
-    optimistic: true
-    set_action:
-      - lambda: |-
-          id(disp1).update();
-  - platform: template
     name: "Brightness: Auto Mode"
     id: auto_brightness_mode
     entity_category: config
@@ -671,33 +590,6 @@ select:
       - "Games"
       - "System"
 
-  - platform: template
-    name: "Wake: Motion Pickup Mode"
-    id: pickup_wake_mode
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_option: "Always On"
-    options:
-      - "Always On"
-      - "Docked Only"
-      - "Disabled"
-
-
-
-
-
-  - platform: template
-    name: "Wake: Touch Tap Mode"
-    id: tap_wake_mode
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_option: "Always On"
-    options:
-      - "Always On"
-      - "Docked Only"
-      - "Disabled"
 button:
   - platform: restart
     name: "Internal Restart"
@@ -714,21 +606,7 @@ button:
       - delay: 2s
       - button.press: internal_restart
 
-  - platform: template
-    name: "Power: Enter Deep Sleep"
-    id: enter_deep_sleep_btn
-    icon: "mdi:sleep"
-    entity_category: config
-    on_press:
-      - script.execute: enter_deep_sleep
 
-  - platform: template
-    name: "Power: Trigger Screensaver"
-    id: trigger_screensaver_btn
-    icon: "mdi:weather-night"
-    entity_category: config
-    on_press:
-      - script.execute: trigger_screensaver_now
 
   - platform: template
     name: "Trigger Voice Assistant"
@@ -823,25 +701,6 @@ switch:
     on_turn_off:
       then:
         - script.execute: rebuild_active_deck
-  - platform: template
-    name: "Power: Docked Screensaver"
-    id: docked_screensaver_switch
-    icon: "mdi:power-sleep"
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
-
-  - platform: template
-    name: "Power: Prevent Deep Sleep"
-    id: prevent_deep_sleep_switch
-    entity_category: config
-    optimistic: true
-    restore_mode: ALWAYS_OFF
-    turn_on_action:
-      - deep_sleep.prevent: deep_sleep_ctrl
-    turn_off_action:
-      - deep_sleep.allow: deep_sleep_ctrl
-
   - platform: template
     name: "Voice: Wake Screen on Assist"
     id: va_wake_screen_switch
@@ -974,160 +833,12 @@ interval:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGD("rtc_cal", "Periodic RTC slow clock calibration: %lu", (unsigned long)cal_val);
 
-  - interval: 10s
-    then:
-      - lambda: |-
-          uint8_t reg0 = 0x00;
-          uint8_t stat0 = 0;
-          bool vbus = false;
-          if (id(bus_internal).write_readv(0x34, &reg0, 1, &stat0, 1) == esphome::i2c::ERROR_OK) {
-            vbus = (stat0 & 0x20) != 0;
-            id(usb_connected).publish_state(vbus);
-          }
-          uint8_t reg1 = 0x01;
-          uint8_t stat1 = 0;
-          if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
-            uint8_t chg = (stat1 >> 5) & 0x03;
-            id(batt_charging).publish_state(vbus && (chg == 1));
-          }
-
-          // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
-          uint32_t sleep_timeout_ms = 300000;
-          std::string st_opt = std::string(id(sleep_timeout_mode).current_option().c_str());
-          bool auto_sleep_enabled = true;
-          if (st_opt == "10 min") sleep_timeout_ms = 600000;
-          else if (st_opt == "15 min") sleep_timeout_ms = 900000;
-          else if (st_opt == "30 min") sleep_timeout_ms = 1800000;
-          else if (st_opt == "Disabled") auto_sleep_enabled = false;
-
-          if (auto_sleep_enabled &&
-              !id(prevent_deep_sleep_switch).state &&
-              !id(display_brightness).current_values.is_on() &&
-              !id(usb_connected).state &&
-              !id(ota_in_progress) &&
-              (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
-              !id(stopwatch_running) &&
-              !id(va).is_running() &&
-              !id(va_tts_received) &&
-              !id(announcement_mixing_input).is_running() &&
-              (id(active_game) == 0) &&
-              id(sleep_start_time) > 0 &&
-              (millis() - id(sleep_start_time) >= sleep_timeout_ms)) {
-            ESP_LOGI("power", "Inactivity with screen off exceeded %s: starting hibernation countdown", st_opt.c_str());
-            id(start_hibernation_countdown).execute();
-          }
-
   - interval: 100ms
     then:
       - lambda: |-
-          // High-refresh animation loop for active screensavers when docked (10 FPS)
-          if (id(display_power_state) == 1) {
-            std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
-            if (s_style != "Ambient Clock") {
-              id(disp1).update();
-            }
-          }
-
           // Active Update Check animation refresh
           if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0) {
             id(disp1).update();
-          }
-
-          // Read AXP2101 IRQ status for top button (PWR / PEK)
-          uint8_t irq_reg = 0x49;
-          uint8_t irq_val = 0;
-          if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
-            if (irq_val & 0x0C) {
-              if (id(is_hibernating)) {
-                // Crown press aborts hibernation countdown immediately!
-                id(is_hibernating) = false;
-                id(hibernate_countdown_val) = 0;
-                id(sleep_start_time) = millis();
-                id(screen_sleep_timer).execute();
-                id(disp1).update();
-                uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
-                id(bus_internal).write(0x34, clr, 2);
-                return;
-              }
-              bool is_long = (irq_val & 0x04) != 0;
-              uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
-              id(bus_internal).write(0x34, clr, 2);
-
-              // ---------------------------------------------
-              // POCKET LOCK MANAGEMENT (HOLD CROWN 1.5s)
-              // ---------------------------------------------
-              if (id(is_locked)) {
-                if (is_long) {
-                  id(unlock_device).execute();
-                }
-                return; // Ignore all short clicks in locked state
-              }
-
-              // Long press (1.5s hold) initiates hibernation countdown
-              if (is_long) {
-                id(start_hibernation_countdown).execute();
-                return;
-              }
-
-              if (!id(display_brightness).current_values.is_on() || id(display_power_state) != 0) {
-                id(wake_to_active_state).execute();
-                return;
-              }
-
-              // Priority 1: Voice Assistant Active Cancellation
-              // If Assist is actively listening, thinking, or speaking TTS, crown click cancels it immediately!
-              if (id(va_active) || !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running()) {
-                id(cancel_voice_assistant).execute();
-                return;
-              }
-
-              id(screen_sleep_timer).execute();
-
-              // Priority 2: In-App Sub-Modals / Overlays / Active Games (Contextual Back/Exit)
-              if (id(gui_page) == 3 && id(active_game) > 0) {
-                // In active game -> exit game back to Games Menu
-                id(active_game) = 0;
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 2 && id(music_overlay_mode) > 0) {
-                // In Music Menu overlay -> close overlay back to Now Playing player
-                id(music_overlay_mode) = 0;
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 4 && id(system_menu_mode) > 0) {
-                // In System Submenu -> back out to main System Dashboard
-                id(system_menu_mode) = 0;
-                id(disp1).update();
-                return;
-              }
-
-              // Priority 3: Primary App Screen Action
-              if (id(gui_page) == 1) {
-                // Stopwatch: Physical tactile start/stop pusher with dwell latency compensation
-                if (!id(stopwatch_running)) {
-                  id(stopwatch_running) = true;
-                  id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
-                  id(sleep_start_time) = 0;
-                  id(display_brightness).turn_on().perform();
-                } else {
-                  id(stopwatch_running) = false;
-                  uint32_t now_stop = millis();
-                  uint32_t press_dwell_compensation = 200; // ms
-                  if (now_stop - id(stopwatch_start_time) > press_dwell_compensation) {
-                    id(stopwatch_elapsed_ms) = (now_stop - id(stopwatch_start_time)) - press_dwell_compensation;
-                  } else {
-                    id(stopwatch_elapsed_ms) = now_stop - id(stopwatch_start_time);
-                  }
-                }
-                id(disp1).update();
-                return;
-              }
-
-              // All other primary app screens (Clock Page 0, Music Page 2, Games Launcher Page 3, System Page 4):
-              // Crown click puts device into Standby / turns off screen!
-              id(enter_standby_state).execute();
-              return;
-            }
           }
 
           // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
@@ -1198,41 +909,6 @@ sensor:
     id: pocket_wifi_signal
     update_interval: 60s
 
-  - platform: template
-    name: "Battery Level"
-    id: batt_level
-    unit_of_measurement: "%"
-    device_class: battery
-    state_class: measurement
-    accuracy_decimals: 0
-    entity_category: diagnostic
-    lambda: |-
-      uint8_t reg = 0xA4;
-      uint8_t pct = 0;
-      if (id(bus_internal).write_readv(0x34, &reg, 1, &pct, 1) == esphome::i2c::ERROR_OK) {
-        if (pct <= 100) return pct;
-      }
-      return NAN;
-    update_interval: 15s
-
-  - platform: template
-    name: "Battery Voltage"
-    id: batt_voltage
-    unit_of_measurement: "V"
-    device_class: voltage
-    state_class: measurement
-    accuracy_decimals: 2
-    entity_category: diagnostic
-    lambda: |-
-      uint8_t reg = 0x34;
-      uint8_t buf[2] = {0};
-      if (id(bus_internal).write_readv(0x34, &reg, 1, buf, 2) == esphome::i2c::ERROR_OK) {
-        uint16_t mv = ((buf[0] & 0x3F) << 8) | buf[1];
-        return mv / 1000.0f;
-      }
-      return NAN;
-    update_interval: 15s
-
   - platform: motion
     motion_id: imu
     type: acceleration_x
@@ -1292,18 +968,6 @@ sensor:
 
 
 binary_sensor:
-  - platform: template
-    name: "Battery Charging"
-    id: batt_charging
-    device_class: battery_charging
-    entity_category: diagnostic
-
-  - platform: template
-    name: "USB Power Connected"
-    id: usb_connected
-    device_class: power
-    entity_category: diagnostic
-
   - platform: gpio
     pin:
       number: GPIO0
@@ -1363,58 +1027,6 @@ binary_sensor:
                             - script.execute: route_i2s_to_mic
                             - lambda: 'id(va_tts_received) = false;'
                             - voice_assistant.start:
-
-  - platform: template
-    name: "Pickup Detected"
-    id: pickup_detected
-    device_class: motion
-    lambda: |-
-      float dyn = id(motion_mag).state;
-      if (isnan(dyn)) return false;
-
-      // Dual-Threshold In-Hand Detection:
-      // While screen is active, 0.025g maintains active hold so screen never sleeps in your hand.
-      // While screen is sleeping/standby, 0.15g requires a deliberate pickup motion to wake.
-      float thresh = (id(display_power_state) == 0) ? 0.025f : 0.15f;
-      const uint32_t active_ms = 8000;
-      static uint32_t last_active_time = 0;
-      static bool is_active = false;
-      uint32_t now_ms = millis();
-
-      if (dyn > thresh) {
-        is_active = true;
-        last_active_time = now_ms;
-      } else if (is_active) {
-        if (now_ms - last_active_time >= active_ms) {
-          is_active = false;
-        }
-      }
-      return is_active;
-    on_press:
-      then:
-        - if:
-            condition:
-              lambda: |-
-                if (id(is_locked)) return false;
-                std::string mode = std::string(id(pickup_wake_mode).current_option().c_str());
-                if (mode == "Disabled") return false;
-                if (mode == "Docked Only" && !id(usb_connected).state) return false;
-                return true;
-            then:
-              - if:
-                  condition:
-                    lambda: 'return id(display_power_state) != 0 || !id(display_brightness).current_values.is_on();'
-                  then:
-                    - script.execute: wake_to_active_state
-                  else:
-                    - script.execute: screen_sleep_timer
-    on_release:
-      then:
-        - if:
-            condition:
-              lambda: 'return id(display_power_state) == 0;'
-            then:
-              - script.execute: screen_sleep_timer
 
 text_sensor:
   - platform: homeassistant
@@ -1721,68 +1333,6 @@ script:
             id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
           }
 
-  - id: trigger_screensaver_now
-    mode: restart
-    then:
-      - lambda: |-
-          id(display_power_state) = 1; // SCREENSAVER
-          id(screensaver_start_time) = millis();
-          id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
-          id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
-          id(disp1).update();
-
-  - id: enter_standby_state
-    mode: restart
-    then:
-      - lambda: |-
-          std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
-          bool screensaver_allowed = id(usb_connected).state && 
-                                     id(docked_screensaver_switch).state && 
-                                     (s_style != "Screen Off");
-          if (screensaver_allowed) {
-            id(display_power_state) = 1; // SCREENSAVER
-            id(screensaver_start_time) = millis();
-            id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
-            id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
-            id(disp1).update();
-          } else {
-            id(display_power_state) = 2; // SCREEN_OFF
-            id(screensaver_start_time) = 0;
-            id(sleep_start_time) = millis();
-            id(display_brightness).turn_off().perform();
-            // Power down speaker amp to eliminate quiescent drain
-            id(speaker_enable).turn_off();
-            // Power down QMI8658 Gyroscope, keep Accelerometer active for motion pickup wake (~1.5mA savings)
-            uint8_t qmi_gyro_off[2] = {0x08, 0x01}; // CTRL7: aEN=1, gEN=0
-            id(bus_internal).write(0x6B, qmi_gyro_off, 2);
-            // On battery power, enable Wi-Fi modem sleep while screen is off to conserve energy
-            if (!id(usb_connected).state) {
-              extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
-              esp_wifi_set_ps(1); // 1: WIFI_PS_MIN_MODEM
-            }
-          }
-
-  - id: wake_to_active_state
-    mode: restart
-    then:
-      - lambda: |-
-          // Instantly boost Wi-Fi radio to full performance (zero sleep latency)
-          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
-          esp_wifi_set_ps(0); // 0: WIFI_PS_NONE
-          bool was_dark = (id(display_power_state) == 2);
-          if (was_dark && id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-            id(apply_default_start_page).execute();
-            id(rebuild_active_deck).execute();
-          }
-          id(sleep_start_time) = 0;
-          id(screensaver_start_time) = 0;
-          id(display_power_state) = 0; // ACTIVE
-          // Restore full QMI8658 6-Axis mode (Accelerometer + Gyroscope active)
-          uint8_t qmi_full_on[2] = {0x08, 0x03}; // CTRL7: aEN=1, gEN=1
-          id(bus_internal).write(0x6B, qmi_full_on, 2);
-      - script.execute: sync_display_brightness
-      - script.execute: screen_sleep_timer
-      - component.update: disp1
   - id: apply_default_start_page
     then:
       - lambda: |-
@@ -1806,135 +1356,6 @@ script:
             }
           }
           id(gui_page) = init_p;
-  # Deep sleep hibernation is exclusively initiated via the Top Crown long-press (>1.5s)
-  # with a 5-second abortable countdown overlay to prevent accidental shutdowns.
-  - id: start_hibernation_countdown
-    mode: restart
-    then:
-      - lambda: |-
-          id(hibernate_countdown_val) = 5;
-          id(is_hibernating) = true;
-          id(active_game) = 0;
-      - voice_assistant.stop:
-      - media_player.pause: pocket_music_player
-      - audio_dac.mute_on: es8311_dac
-      - switch.turn_off: speaker_enable
-      - script.stop: screen_sleep_timer
-      - light.turn_on: display_brightness
-      - component.update: disp1
-      - repeat:
-          count: 5
-          then:
-            - delay: 1000ms
-            - if:
-                condition:
-                  lambda: 'return id(is_hibernating);'
-                then:
-                  - lambda: |-
-                      if (id(hibernate_countdown_val) > 1) {
-                        id(hibernate_countdown_val)--;
-                        id(disp1).update();
-                      }
-            - if:
-                condition:
-                  lambda: 'return !id(is_hibernating);'
-                then:
-                  - script.stop: start_hibernation_countdown
-      - if:
-          condition:
-            lambda: 'return id(is_hibernating);'
-          then:
-            - script.execute: enter_deep_sleep
-
-  - id: enter_deep_sleep
-    mode: restart
-    then:
-      - lambda: |-
-          id(is_locked) = true;
-          id(active_game) = 0;
-          id(is_hibernating) = true;
-      - voice_assistant.stop:
-      - media_player.pause: pocket_music_player
-      - audio_dac.mute_on: es8311_dac
-      - switch.turn_off: speaker_enable
-      - script.stop: screen_sleep_timer
-      - light.turn_on: display_brightness
-      - component.update: disp1
-      - lambda: |-
-          // Keep "HIBERNATING..." on screen while user is holding button (up to 3.0s)
-          int guard = 0;
-          while (gpio_get_level(GPIO_NUM_0) == 0 && guard < 200) {
-            esp_rom_delay_us(15000); // 15ms * 200 = 3.0s max wait for user to lift finger
-            guard++;
-          }
-          // Clean debounce delay after user releases finger
-          esp_rom_delay_us(150000); // 150ms
-      - delay: 500ms  # Ensure visual confirmation is cleanly perceived
-      - lambda: |-
-          id(is_hibernating) = false;
-      - light.turn_off: display_brightness
-      - component.update: disp1  # Flush all-black frame to AMOLED panel
-      - delay: 250ms  # Ensure QSPI frame buffer and brightness 0 are fully flushed before CPU sleep
-      - lambda: |-
-          // =========================================================================
-          // 🛑 ULTRA-LOW POWER PERIPHERAL SHUTDOWN & PAD RETENTION FOR DEEP SLEEP
-          // Reduces deep sleep baseline current from ~24mA to <100µA (<0.1mA)
-          // =========================================================================
-
-          // 1. Put QMI8658 6-Axis IMU into Power-Down Mode (CTRL7 = 0x00)
-          // Shuts off accelerometer and gyroscope MEMS circuitry (saves ~2.0mA)
-          uint8_t qmi_pwr_down[2] = {0x08, 0x00};
-          id(bus_internal).write(0x6B, qmi_pwr_down, 2);
-
-          // 2. Put ES8311 Audio DAC into Standby/Power-Down Mode (saves ~1.0mA)
-          uint8_t dac_sleep1[2] = {0x0D, 0xFF};
-          uint8_t dac_sleep2[2] = {0x00, 0x80};
-          id(bus_internal).write(0x18, dac_sleep1, 2);
-          id(bus_internal).write(0x18, dac_sleep2, 2);
-
-          // 3. Put ES7210 Audio ADC into Standby Mode (saves ~0.8mA)
-          uint8_t es7210_pwr[2] = {0x00, 0xFF};
-          id(bus_internal).write(0x40, es7210_pwr, 2);
-
-          // 4. Force Speaker Power Amplifier Enable (GPIO46) firmly LOW and hold it
-          // Prevents the amp enable line from floating into an active state in sleep (saves ~4.0mA)
-          gpio_set_direction(GPIO_NUM_46, GPIO_MODE_OUTPUT);
-          gpio_set_level(GPIO_NUM_46, 0);
-          gpio_hold_en(GPIO_NUM_46);
-
-          // 5. Force Display CS (GPIO12) firmly HIGH (deselected) and hold it
-          // Prevents floating QSPI bus leakage into panel controller (saves ~1.0mA)
-          gpio_set_direction(GPIO_NUM_12, GPIO_MODE_OUTPUT);
-          gpio_set_level(GPIO_NUM_12, 1);
-          gpio_hold_en(GPIO_NUM_12);
-
-          // 6. Put Display Controller (CO5300) into Hardware Reset (GPIO1 LOW) and hold it
-          // Fully powers down internal AMOLED charge pumps, DC-DC boosters & oscillators (saves ~14.0mA)
-          gpio_set_direction(GPIO_NUM_1, GPIO_MODE_OUTPUT);
-          gpio_set_level(GPIO_NUM_1, 0);
-          gpio_hold_en(GPIO_NUM_1);
-
-          // 7. Put Touch Controller (CST9217) into Hardware Reset (GPIO2 LOW) and hold it
-          // Stops capacitive matrix scanning (saves ~2.0mA)
-          gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
-          gpio_set_level(GPIO_NUM_2, 0);
-          gpio_hold_en(GPIO_NUM_2);
-
-          // 8. Latch all held pad states across the deep sleep cycle
-          gpio_deep_sleep_hold_en();
-      - deep_sleep.enter: deep_sleep_ctrl
-
-  - id: unlock_device
-    mode: restart
-    then:
-      - lambda: |-
-          id(is_locked) = false;
-          id(apply_default_start_page).execute();
-          id(sleep_start_time) = 0;
-      - light.turn_on: display_brightness
-      - component.update: disp1
-      - script.execute: screen_sleep_timer
-
   - id: music_vol_up
     mode: restart
     then:
@@ -1989,20 +1410,25 @@ script:
           then:
             - if:
                 condition:
-                  lambda: |-
-                    return (id(active_speaker_entity) == "${local_player_id}") &&
-                           (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                  lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
                 then:
                   - media_player.pause: pocket_music_player
-            - homeassistant.action:
-                action: media_player.media_pause
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                else:
+                  - homeassistant.action:
+                      action: media_player.media_pause
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
           else:
-            - homeassistant.action:
-                action: media_player.media_play
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
+                then:
+                  - media_player.play: pocket_music_player
+                else:
+                  - homeassistant.action:
+                      action: media_player.media_play
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_next_track
     mode: restart
@@ -2636,53 +2062,6 @@ script:
             - switch.turn_off: speaker_enable
             - script.execute: route_i2s_to_mic
             - component.update: disp1
-
-  - id: screen_sleep_timer
-    mode: restart
-    then:
-      - delay: !lambda |-
-          // When docked to USB power: use docked screensaver inactivity timeout
-          if (id(usb_connected).state) {
-            std::string ss_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
-            if (ss_to == "10s") return 10000;
-            if (ss_to == "15s") return 15000;
-            if (ss_to == "30s") return 30000;
-            if (ss_to == "1 min") return 60000;
-            if (ss_to == "5 min") return 300000;
-            if (ss_to == "Never") return 86400000; // 24 hours
-            return 300000; // default 5m
-          }
-          // When on battery: use screen_off_timeout
-          std::string opt = std::string(id(display_off_timeout).current_option().c_str());
-          if (opt == "10s") return 10000;
-          if (opt == "15s") return 15000;
-          if (opt == "30s") return 30000;
-          if (opt == "1 min") return 60000;
-          if (opt == "2 min") return 120000;
-          if (opt == "Never") return 86400000;
-          return 15000; // default 15s
-      - if:
-          condition:
-            lambda: |-
-              if (id(usb_connected).state) {
-                if (std::string(id(screensaver_docked_timeout).current_option().c_str()) == "Never") return false;
-              } else {
-                if (std::string(id(display_off_timeout).current_option().c_str()) == "Never") return false;
-              }
-              bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-              bool is_music_playing = is_remote ? (id(ha_target_state).state == "playing")
-                                                 : (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-              return !id(ota_in_progress) &&
-                     !id(va).is_running() && 
-                     !id(va_tts_received) && 
-                     !id(announcement_mixing_input).is_running() && 
-                     !is_music_playing && 
-                     !id(stopwatch_running) &&
-                     !id(pickup_detected).state &&
-                     (id(active_game) == 0) &&
-                     (id(gui_page) != 3 || !id(usb_connected).state);
-          then:
-            - script.execute: enter_standby_state
 
   - id: cancel_voice_assistant
     then:
@@ -5665,13 +5044,14 @@ touchscreen:
                 // ----------------------------------------------------
                 bool is_compact_touch = (std::string(id(music_fullscreen_art_mode).current_option().c_str()) == "Compact");
 
-                // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu (y <= 95, x: 120..346)
-                if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
+                // Dedicated Header Tap Zone ("MUSIC" & Active Speaker) & Upper-Left Flank: Open Category Menu
+                // Seamless coverage: y <= 95 (x: 120..346) OR upper-left quadrant (x <= 150, y < 155) opens Category Menu!
+                if ((touch.y <= 95 && touch.x >= 120 && touch.x <= 346) || (touch.x <= 150 && touch.y < 155)) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
 
-                // Right Flank Volume Up (+): Upper Right Quadrant (center 405, 140) with 120ms rate-limit
-                } else if (touch.x >= 316 && touch.y >= 70 && touch.y < 175) {
+                // Right Flank Volume Up (+): Upper Right Quadrant (x >= 316, y < 175) with 120ms rate-limit
+                } else if (touch.x >= 316 && touch.y < 175) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_up_tap > 120) {

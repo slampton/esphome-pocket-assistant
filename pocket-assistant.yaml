@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "1.0.3"
+  version: "1.0.4"
   pickup_threshold: "0.22"
   active_seconds: "8" 
   default_start_app: "Clock"
@@ -149,6 +149,10 @@ api:
         s3_id: string
         s3_type: string
         s3_active: bool
+        s4_name: string
+        s4_id: string
+        s4_type: string
+        s4_active: bool
       then:
         - lambda: |-
             id(music_browse_page) = page;
@@ -167,6 +171,10 @@ api:
             id(slot_3_id) = s3_id;
             id(slot_3_type) = s3_type;
             id(slot_3_active) = s3_active;
+            id(slot_4_name) = s4_name;
+            id(slot_4_id) = s4_id;
+            id(slot_4_type) = s4_type;
+            id(slot_4_active) = s4_active;
             id(disp1).update();
 
 ota:
