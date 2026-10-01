@@ -5357,8 +5357,18 @@ touchscreen:
               return;
             }
 
+            // Helper lambda resolving active app slot indices from user deck configuration
+            auto get_slot = [](int idx) -> int {
+              if (idx == 0) return id(deck_slot_0);
+              if (idx == 1) return id(deck_slot_1);
+              if (idx == 2) return id(deck_slot_2);
+              if (idx == 3) return id(deck_slot_3);
+              if (idx == 4) return id(deck_slot_4);
+              return 0;
+            };
+
             // ==========================================
-            // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER (y >= 385)
+            // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER (y >= 405)
             // ==========================================
             // When in Modal Music Menu (gui_page == 2 && music_overlay_mode == 1):
             // Fall through so [ RETURN ] button (y: 370..425, x: 140..326) receives touch.
@@ -5394,18 +5404,10 @@ touchscreen:
                   if (allow_deck_flip) {
                     int total = id(active_deck_size);
                     if (total > 1) {
-                      auto get_slot = [](int idx) -> int {
-                        if (idx == 0) return id(deck_slot_0);
-                        if (idx == 1) return id(deck_slot_1);
-                        if (idx == 2) return id(deck_slot_2);
-                        if (idx == 3) return id(deck_slot_3);
-                        if (idx == 4) return id(deck_slot_4);
-                        return 0;
-                      };
                       int prev_idx = (id(current_deck_index) - 1 + total) % total;
                       id(current_deck_index) = prev_idx;
                       id(gui_page) = get_slot(prev_idx);
-                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                       id(disp1).update();
                     }
                   }
@@ -5449,18 +5451,10 @@ touchscreen:
                   if (allow_deck_flip) {
                     int total = id(active_deck_size);
                     if (total > 1) {
-                      auto get_slot = [](int idx) -> int {
-                        if (idx == 0) return id(deck_slot_0);
-                        if (idx == 1) return id(deck_slot_1);
-                        if (idx == 2) return id(deck_slot_2);
-                        if (idx == 3) return id(deck_slot_3);
-                        if (idx == 4) return id(deck_slot_4);
-                        return 0;
-                      };
                       int next_idx = (id(current_deck_index) + 1) % total;
                       id(current_deck_index) = next_idx;
                       id(gui_page) = get_slot(next_idx);
-                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0;
+                      id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                       id(disp1).update();
                     }
                   }
@@ -5803,14 +5797,14 @@ touchscreen:
             // Page 3: Games Menu Launcher or Active Game Touch Action
             } else if (id(gui_page) == 3) {
               if (id(active_game) == 0) {
-                // Standardized 4-Slot Touch Grid (x: 100..366)
-                if (touch.x >= 100 && touch.x <= 366) {
+                // Standardized 4-Slot Touch Grid (x: 90..376, generous full-pill coverage)
+                if (touch.x >= 90 && touch.x <= 376) {
                   if (touch.y >= 95 && touch.y <= 150) {
                     id(active_game) = 1; // Marbles
                   } else if (touch.y >= 155 && touch.y <= 210) {
                     id(active_game) = 2; // Archery
                   } else if (touch.y >= 215 && touch.y <= 270) {
-                    id(active_game) = 3; // Celestial Orbit
+                    id(active_game) = 3; // Breakout
                   } else if (touch.y >= 275 && touch.y <= 330) {
                     id(active_game) = 4; // CHOMP (Kids)
                   }
