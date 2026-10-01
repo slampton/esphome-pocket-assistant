@@ -2677,6 +2677,11 @@ display:
         it.print(btn_cx, y_mid, id(font_small), text_c, TextAlign::CENTER, label);
       };
 
+      // Standardized Centered < BACK Button Helper across all submenus (y = 375, r = 18, 202px wide)
+      auto draw_back_button = [&]() {
+        draw_back_button();
+      };
+
       // Semantic Version Comparison Helper (Rejects ESPHome 2026.x CalVer; strictly tests major.minor.patch)
       auto is_newer_semver = [](const std::string& lat_str, const std::string& cur_str) -> bool {
         if (lat_str.empty() || lat_str == "unavailable" || lat_str == "unknown") return false;
@@ -3986,7 +3991,7 @@ display:
           draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "LIBRARY", id(col_white), false);
 
           // Bottom Back to Player (Standardized at y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
 
         } else if (id(music_overlay_mode) == 2) {
           // --------------------------------------------------
@@ -4009,7 +4014,7 @@ display:
           }
 
           // Standardized Centered < BACK Button at y = 375 (Bottom navigation bar at y = 424 handles paging)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards)
@@ -4094,7 +4099,7 @@ display:
 
           // Pagination Arrows & Status (y = 352) - Carousel Wrap-Around Active
           // Standardized Centered < BACK Button at y = 352 (Bottom navigation bar at y = 428 handles paging)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
         }
 
       // ==========================================
@@ -5061,7 +5066,7 @@ display:
           }
 
           // Standardized Centered < BACK Button at y = 375 (r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
@@ -5101,7 +5106,7 @@ display:
           draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
 
         } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
@@ -5125,7 +5130,7 @@ display:
           draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "Software Update >", id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
 
                 } else if (id(system_menu_mode) == 4) {
           // --------------------------------------------------
@@ -5200,7 +5205,7 @@ display:
           }
 
           // Back Button: Standardized < BACK (y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
 
         } else if (id(system_menu_mode) == 6) {
           // --------------------------------------------------
@@ -5241,7 +5246,7 @@ display:
           draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
 
           // Standardized Centered < BACK Button at y = 375 (r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
         } else if (id(system_menu_mode) == 8) {
           // --------------------------------------------------
           // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Left-Aligned Monochromatic)
@@ -5285,7 +5290,7 @@ display:
           it.print(info_x, 305, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
 
         } else if (id(system_menu_mode) == 9) {
           // --------------------------------------------------
@@ -5305,7 +5310,7 @@ display:
           draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), "Sync: Home Assistant", id(col_white), false);
 
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
-          draw_pill_button(150, 316, 375, 18, id(col_slate), id(col_dark_gray), "< BACK", id(col_slate), false);
+          draw_back_button();
         }
       }
 
@@ -5357,7 +5362,7 @@ touchscreen:
             // ==========================================
             // When in Modal Music Menu (gui_page == 2 && music_overlay_mode == 1):
             // Fall through so [ RETURN ] button (y: 370..425, x: 140..326) receives touch.
-            if (touch.y >= 405 && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
+            if (touch.y >= 405 && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !(id(gui_page) == 4 && id(system_menu_mode) > 1) && !(id(gui_page) == 3 && id(active_game) > 0)) {
               if (touch.x < 205) {
                 // Bottom-Left Navigation (<): Page Back / Previous
                 if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
@@ -5587,22 +5592,22 @@ touchscreen:
                 // ----------------------------------------------------
                 // LEVEL 1: TOP-LEVEL SELECTION MENU (Standardized 60px Pitch)
                 // ----------------------------------------------------
-                // Card 1: SPEAKER HANDOFF (y: 95..150, x: 100..366)
-                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
+                // Card 1: SPEAKER HANDOFF (y: 95..150, x: 90..376)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 90 && touch.x <= 376) {
                   id(selected_category_mode) = "speakers";
                   id(selected_category_title) = "HANDOFF";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 2: SPEAKER TAKEOVER (y: 155..210, x: 100..366)
-                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: SPEAKER TAKEOVER (y: 155..210, x: 90..376)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 90 && touch.x <= 376) {
                   id(selected_category_mode) = "speaker_takeover";
                   id(selected_category_title) = "TAKEOVER";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 4: LIBRARY (y: 275..330, x: 100..366) - Moved to Slot 4 (Slot 3 is blank visual separator)
-                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 100 && touch.x <= 366) {
+                // Card 4: LIBRARY (y: 275..330, x: 90..376) - Moved to Slot 4 (Slot 3 is blank visual separator)
+                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 90 && touch.x <= 376) {
                   id(music_category_page) = 1;
                   id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
                   id(disp1).update();
@@ -5775,8 +5780,8 @@ touchscreen:
                       id(select_music_slot_4).execute();
                     }
                   }
-                // Standardized Centered < BACK Button at y = 375 (y: 350..400, x: 120..346) -> Returns to Level 2 Categories
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 375 (y: 335..404, x: 80..386) -> Returns to Level 2 Categories
+                } else if (touch.y >= 335 && touch.y <= 404 && touch.x >= 80 && touch.x <= 386) {
                   if (id(selected_category_mode) == "album_tracks") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
@@ -5881,26 +5886,24 @@ touchscreen:
                 // Mode 1: Sleep & Wake Submenu (2 Pages, 4 slots each at 60px pitch)
                 if (id(sleep_menu_page) == 1) {
                   // Page 1
-                  // Slot 1: Motion Wake Cycler (y: 95..148, x: 90..376)
+                  // Slot 1: Motion Wake Cycler (y: 95..148, x: 90..376) - cycles Always On -> Docked Only -> Disabled
                   if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
                     std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
-                    std::string nxt = "Off";
-                    if (cur == "Off") nxt = "Gentle";
-                    else if (cur == "Gentle") nxt = "Firm";
-                    else if (cur == "Firm") nxt = "Aggressive";
-                    else if (cur == "Aggressive") nxt = "Off";
+                    std::string nxt = "Always On";
+                    if (cur == "Always On") nxt = "Docked Only";
+                    else if (cur == "Docked Only") nxt = "Disabled";
+                    else nxt = "Always On";
                     auto call = id(pickup_wake_mode).make_call();
                     call.set_option(nxt);
                     call.perform();
                     id(disp1).update();
-                  // Slot 2: Tap Wake Cycler (y: 155..208, x: 90..376)
+                  // Slot 2: Tap Wake Cycler (y: 155..208, x: 90..376) - cycles Always On -> Docked Only -> Disabled
                   } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
                     std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
-                    std::string nxt = "Off";
-                    if (cur == "Off") nxt = "Gentle";
-                    else if (cur == "Gentle") nxt = "Firm";
-                    else if (cur == "Firm") nxt = "Aggressive";
-                    else if (cur == "Aggressive") nxt = "Off";
+                    std::string nxt = "Always On";
+                    if (cur == "Always On") nxt = "Docked Only";
+                    else if (cur == "Docked Only") nxt = "Disabled";
+                    else nxt = "Always On";
                     auto call = id(tap_wake_mode).make_call();
                     call.set_option(nxt);
                     call.perform();
@@ -5974,8 +5977,8 @@ touchscreen:
                   }
                 }
 
-                // Standardized Centered < BACK Button at y = 375 (y: 345..400, x: 120..346)
-                if (touch.y >= 345 && touch.y <= 400 && touch.x >= 120 && touch.x <= 346) {
+                // Standardized Centered < BACK Button at y = 375 (y: 345..400, x: 80..386)
+                if (touch.y >= 345 && touch.y <= 400 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(sleep_menu_page) = 1;
                   id(disp1).update();
@@ -6036,18 +6039,18 @@ touchscreen:
                   call.set_option(nxt_so);
                   call.perform();
                   id(disp1).update();
-                // Standardized < BACK Button at y = 375 (y: 345..420, x: 120..346)
-                } else if (touch.y >= 345 && touch.y <= 420 && touch.x >= 120 && touch.x <= 346) {
+                // Standardized < BACK Button at y = 375 (y: 335..450, x: 80..386)
+                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 3) {
-                // Mode 3: Power Actions Submenu (Spacious 75px Pitch)
-                // Card 1: Hibernate Now (y: 105..155, x: 100..366)
-                if (touch.y >= 105 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                // Mode 3: Power Actions Submenu (Standardized 60px Pitch)
+                // Card 1: Hibernate Now (y: 95..148, x: 90..376)
+                if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
                   id(start_hibernation_countdown).execute();
-                // Card 2: Auto-Sleep Timeout Cycler (y: 180..230, x: 100..366)
-                } else if (touch.y >= 180 && touch.y <= 230 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Auto-Sleep Timeout Cycler (y: 155..208, x: 90..376)
+                } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
                   std::string nxt = "5 min";
                   if (cur == "5 min") nxt = "10 min";
@@ -6059,20 +6062,20 @@ touchscreen:
                   call.set_option(nxt);
                   call.perform();
                   id(disp1).update();
-                // Card 3: Restart Device (y: 215..255, x: 100..366)
-                } else if (touch.y >= 215 && touch.y <= 255 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Restart Device (y: 215..268, x: 90..376)
+                } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
                   id(system_menu_mode) = 4; // Open Confirmation Dialog
                   id(disp1).update();
-                // Card 4: Software Update (y: 270..315, x: 100..366)
-                } else if (touch.y >= 270 && touch.y <= 315 && touch.x >= 100 && touch.x <= 366) {
+                // Card 4: Software Update (y: 275..330, x: 90..376)
+                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 90 && touch.x <= 376) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Standardized < BACK (y: 350..400, x: 120..346)
+                // Standardized < BACK (y: 335..450, x: 80..386)
                 } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(disp1).update();
                 }
-                            } else if (id(system_menu_mode) == 4) {
+              } else if (id(system_menu_mode) == 4) {
                 // Mode 4: Restart Confirmation Dialog
                 if (touch.y >= 195 && touch.y <= 265) {
                   if (touch.x >= 90 && touch.x <= 225) {
@@ -6120,8 +6123,8 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 7) {
                 // Mode 7: Audio & Media Submenu (Gold Standard 60px Pitch)
-                // Card 1: Album Art Style Cycler (y: 95..150, x: 100..366)
-                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
+                // Card 1: Album Art Style Cycler (y: 95..150, x: 90..376)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
                   std::string nxt_mode = "Letterbox";
                   if (cur_mode == "Full Screen") nxt_mode = "Letterbox";
@@ -6131,15 +6134,15 @@ touchscreen:
                   call.set_option(nxt_mode);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Hardware Speaker Volume Step (y: 155..210, x: 100..366)
-                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Hardware Speaker Volume Step (y: 155..210, x: 90..376)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 90 && touch.x <= 376) {
                   float cur_vol = id(pocket_music_player).volume;
                   float new_vol = cur_vol + 0.10f;
                   if (new_vol > 0.90f) new_vol = 0.10f;
                   id(pocket_music_player).make_call().set_volume(new_vol).perform();
                   id(disp1).update();
-                // Card 3: Active Speaker Target Jump to Music Menu (y: 215..270, x: 100..366)
-                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Active Speaker Target Jump to Music Menu (y: 215..270, x: 90..376)
+                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 90 && touch.x <= 376) {
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 1;
                   id(system_menu_mode) = 0;
@@ -6160,22 +6163,22 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 9) {
                 // Mode 9: Clock & Time Submenu (Gold Standard 60px Pitch)
-                // Card 1: Clock Face Style Cycler (y: 95..150, x: 100..366)
-                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 100 && touch.x <= 366) {
+                // Card 1: Clock Face Style Cycler (y: 95..150, x: 90..376)
+                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 90 && touch.x <= 376) {
                   id(clock_face_digital) = !id(clock_face_digital);
                   auto call = id(clock_face_style).make_call();
                   call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
                   call.perform();
                   id(disp1).update();
-                // Card 2: Time Format Cycler (y: 155..210, x: 100..366)
-                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
+                // Card 2: Time Format Cycler (y: 155..210, x: 90..376)
+                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 90 && touch.x <= 376) {
                   id(is_24h_format) = !id(is_24h_format);
                   auto call = id(time_format_select).make_call();
                   call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
                   call.perform();
                   id(disp1).update();
-                // Card 3: Time Sync Status (y: 215..270, x: 100..366)
-                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 100 && touch.x <= 366) {
+                // Card 3: Time Sync Status (y: 215..270, x: 90..376)
+                } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 90 && touch.x <= 376) {
                   id(disp1).update();
                 // Standardized < BACK (y: 350..400, x: 120..346)
                 } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
