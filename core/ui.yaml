@@ -1512,15 +1512,6 @@ text_sensor:
             if (is_remote) {
               id(current_loaded_art_url) = "";
             }
-        - if:
-            condition:
-              lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-            then:
-              - delay: 300ms
-              - homeassistant.action:
-                  action: homeassistant.update_entity
-                  data:
-                    entity_id: ${target_art_url_sensor}
         - component.update: disp1
 
   - platform: homeassistant
@@ -2171,7 +2162,14 @@ script:
                 data:
                   entity_id: !lambda 'return id(slot_1_id).c_str();'
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
-                  auto_play: "true"
+                  auto_play: !lambda |-
+                    bool source_playing = false;
+                    if (id(active_speaker_entity) == "${local_player_id}") {
+                      source_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                    } else {
+                      source_playing = (id(ha_target_state).state == "playing");
+                    }
+                    return source_playing ? "true" : "false";
             - lambda: |-
                 if (id(slot_1_id).rfind("media_player.", 0) == 0) {
                   if (id(active_speaker_entity) != id(slot_1_id) && !id(active_speaker_entity).empty()) {
@@ -2279,7 +2277,14 @@ script:
                 data:
                   entity_id: !lambda 'return id(slot_2_id).c_str();'
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
-                  auto_play: "true"
+                  auto_play: !lambda |-
+                    bool source_playing = false;
+                    if (id(active_speaker_entity) == "${local_player_id}") {
+                      source_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                    } else {
+                      source_playing = (id(ha_target_state).state == "playing");
+                    }
+                    return source_playing ? "true" : "false";
             - lambda: |-
                 if (id(slot_2_id).rfind("media_player.", 0) == 0) {
                   if (id(active_speaker_entity) != id(slot_2_id) && !id(active_speaker_entity).empty()) {
@@ -2387,7 +2392,14 @@ script:
                 data:
                   entity_id: !lambda 'return id(slot_3_id).c_str();'
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
-                  auto_play: "true"
+                  auto_play: !lambda |-
+                    bool source_playing = false;
+                    if (id(active_speaker_entity) == "${local_player_id}") {
+                      source_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                    } else {
+                      source_playing = (id(ha_target_state).state == "playing");
+                    }
+                    return source_playing ? "true" : "false";
             - lambda: |-
                 if (id(slot_3_id).rfind("media_player.", 0) == 0) {
                   if (id(active_speaker_entity) != id(slot_3_id) && !id(active_speaker_entity).empty()) {
@@ -2495,7 +2507,14 @@ script:
                 data:
                   entity_id: !lambda 'return id(slot_4_id).c_str();'
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
-                  auto_play: "true"
+                  auto_play: !lambda |-
+                    bool source_playing = false;
+                    if (id(active_speaker_entity) == "${local_player_id}") {
+                      source_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                    } else {
+                      source_playing = (id(ha_target_state).state == "playing");
+                    }
+                    return source_playing ? "true" : "false";
             - lambda: |-
                 if (id(slot_4_id).rfind("media_player.", 0) == 0) {
                   if (id(active_speaker_entity) != id(slot_4_id) && !id(active_speaker_entity).empty()) {
@@ -3904,11 +3923,16 @@ display:
           }
 
           // Flank Control Buttons in High-Contrast Dark Gray Circular Capsules (Radius 18)
-          // Left Flank Previous Track (|◀): centered at x = 102, y = 212
-          it.filled_circle(102, art_center_y, 18, id(col_dark_gray));
-          it.circle(102, art_center_y, 18, id(col_black));
-          it.filled_rectangle(102 - 14, art_center_y - 10, 3, 21, id(col_white));
-          it.filled_triangle(102 - 8, art_center_y, 102 + 6, art_center_y - 10, 102 + 6, art_center_y + 10, id(col_white));
+          // Mode-aware placement: Full Screen & Letterbox bring skip buttons inward (prev: x=147, next: x=319)
+          // Compact mode keeps them outward (prev: x=102, next: x=364) to clear 216x216 centered album art
+          int prev_btn_x = is_compact ? 102 : 147;
+          int next_btn_x = is_compact ? 364 : 319;
+
+          // Left Flank Previous Track (|◀): centered at x = prev_btn_x, y = 212
+          it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
+          it.circle(prev_btn_x, art_center_y, 18, id(col_black));
+          it.filled_rectangle(prev_btn_x - 14, art_center_y - 10, 3, 21, id(col_white));
+          it.filled_triangle(prev_btn_x - 8, art_center_y, prev_btn_x + 6, art_center_y - 10, prev_btn_x + 6, art_center_y + 10, id(col_white));
 
           // Left Flank Menu Button (☰): centered at x = 61, y = 284
           it.filled_circle(61, 284, 18, id(col_dark_gray));
@@ -3923,11 +3947,11 @@ display:
           it.filled_rectangle(405 - 7, 140 - 1, 15, 3, id(col_white));
           it.filled_rectangle(405 - 1, 140 - 7, 3, 15, id(col_white));
 
-          // Right Flank Next Track (▶|): centered at x = 364, y = 212
-          it.filled_circle(364, art_center_y, 18, id(col_dark_gray));
-          it.circle(364, art_center_y, 18, id(col_black));
-          it.filled_triangle(364 + 8, art_center_y, 364 - 6, art_center_y - 10, 364 - 6, art_center_y + 10, id(col_white));
-          it.filled_rectangle(364 + 11, art_center_y - 10, 3, 21, id(col_white));
+          // Right Flank Next Track (▶|): centered at x = next_btn_x, y = 212
+          it.filled_circle(next_btn_x, art_center_y, 18, id(col_dark_gray));
+          it.circle(next_btn_x, art_center_y, 18, id(col_black));
+          it.filled_triangle(next_btn_x + 8, art_center_y, next_btn_x - 6, art_center_y - 10, next_btn_x - 6, art_center_y + 10, id(col_white));
+          it.filled_rectangle(next_btn_x + 11, art_center_y - 10, 3, 21, id(col_white));
 
           // Right Flank Volume Down (-): centered at x = 405, y = 284
           it.filled_circle(405, 284, 18, id(col_dark_gray));
@@ -5635,37 +5659,45 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                // Right Flank Volume Up (+): Upper Right Quadrant (x > 326, y: 70..160, center 405, 140)
-                if (touch.x > 326 && touch.y >= 70 && touch.y < 160) {
+                bool is_compact_touch = (std::string(id(album_art_style_select).current_option().c_str()) == "Compact");
+
+                // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu (y <= 95, x: 120..346)
+                if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
+                  id(music_overlay_mode) = 1;
+                  id(disp1).update();
+                // Right Flank Volume Up (+): Upper Right Quadrant (x > 326, y: 70..155, center 405, 140)
+                } else if (touch.x > 326 && touch.y >= 70 && touch.y < 155) {
                   id(vol_hud_direction) = 1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_up).execute();
                   id(disp1).update();
-                // Right Flank Volume Down (-): Lower Right Quadrant (x > 326, y: 248..360, center 405, 284)
-                } else if (touch.x > 326 && touch.y >= 248 && touch.y <= 360) {
+                // Right Flank Volume Down (-): Lower Right Quadrant (x > 326, y: 250..360, center 405, 284)
+                } else if (touch.x > 326 && touch.y >= 250 && touch.y <= 360) {
                   id(vol_hud_direction) = -1;
                   id(vol_hud_timer) = millis();
                   id(music_vol_down).execute();
                   id(disp1).update();
-                // Right Flank Next Track (▶|): Middle Right Horizon (x > 326, y: 160..248, center 364, 212)
-                } else if (touch.x > 326 && touch.y >= 160 && touch.y < 248) {
-                  id(music_next_track).execute();
-                  id(disp1).update();
-                // Left Flank Menu Button (☰): Lower Left Quadrant (x < 140, y: 248..360, center 61, 284)
-                } else if (touch.x < 140 && touch.y >= 248 && touch.y <= 360) {
+                // Left Flank Menu Button (☰): Lower Left Quadrant (x < 160, y: 250..360, center 61, 284) - Expanded for broad thumb touch
+                } else if (touch.x < 160 && touch.y >= 250 && touch.y <= 360) {
                   id(music_overlay_mode) = 1; // Open Level 1 Music Menu
                   id(disp1).update();
-                // Left Flank Previous Track (|◀): Middle Left Horizon (x < 140, y: 160..248, center 102, 212)
-                } else if (touch.x < 140 && touch.y >= 160 && touch.y < 248) {
+                // Right Flank Next Track (▶|): Middle Right Horizon (y: 155..250)
+                // In Full Screen & Letterbox: button at x = 319 -> generous hit zone (x >= 270)
+                // In Compact: button at x = 364 -> hit zone (x >= 320)
+                } else if (touch.y >= 155 && touch.y < 250 && (is_compact_touch ? (touch.x >= 320) : (touch.x >= 270))) {
+                  id(music_next_track).execute();
+                  id(disp1).update();
+                // Left Flank Previous Track (|◀): Middle Left Horizon (y: 155..250)
+                // In Full Screen & Letterbox: button at x = 147 -> generous hit zone (x <= 195)
+                // In Compact: button at x = 102 -> hit zone (x <= 145)
+                } else if (touch.y >= 155 && touch.y < 250 && (is_compact_touch ? (touch.x <= 145) : (touch.x <= 195))) {
                   id(music_prev_track).execute();
                   id(disp1).update();
-                // Dedicated Header Tap Zone ("MUSIC" & Active Speaker): Open Category Menu
-                } else if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
-                  id(music_overlay_mode) = 1;
-                  id(disp1).update();
-                // Center Hero Album Art & Play / Pause toggle (Strictly bounded to 216x216 album art: x: 125..341, y: 104..325)
-                // Leaves a generous 65px non-interactive sanctuary buffer (y: 326..389) over the metadata text to protect bottom navigation
-                } else if (touch.y >= 104 && touch.y <= 325 && touch.x >= 125 && touch.x <= 341) {
+                // Center Hero Album Art & Play / Pause toggle
+                // Bounded horizontally to avoid encroaching into Next/Prev flank zones
+                // In Compact: x: 145..320, y: 104..325
+                // In Full Screen / Letterbox: x: 195..270, y: 104..325
+                } else if (touch.y >= 104 && touch.y <= 325 && (is_compact_touch ? (touch.x > 145 && touch.x < 320) : (touch.x > 195 && touch.x < 270))) {
                   bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
                   bool currently_playing = false;
                   if (id(music_optimistic_playing) != -1) {
