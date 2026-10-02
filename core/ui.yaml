@@ -5963,15 +5963,15 @@ display:
                 Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
                 Color border_c = en ? id(theme_primary) : Color(45, 52, 60);
 
-                // Outer border pill (r = 45, 90px tall for enhanced readability)
-                it.filled_circle(90, y_mid, 45, border_c);
-                it.filled_circle(376, y_mid, 45, border_c);
-                it.filled_rectangle(90, y_mid - 45, 286, 91, border_c);
+                // Outer border pill (r = 46, 92px tall for enhanced readability)
+                it.filled_circle(90, y_mid, 46, border_c);
+                it.filled_circle(376, y_mid, 46, border_c);
+                it.filled_rectangle(90, y_mid - 46, 286, 93, border_c);
 
-                // Inner card pill (r = 43, 2px border inset)
-                it.filled_circle(90, y_mid, 43, card_bg);
-                it.filled_circle(376, y_mid, 43, card_bg);
-                it.filled_rectangle(90, y_mid - 43, 286, 87, card_bg);
+                // Inner card pill (r = 44, 2px border inset)
+                it.filled_circle(90, y_mid, 44, card_bg);
+                it.filled_circle(376, y_mid, 44, card_bg);
+                it.filled_rectangle(90, y_mid - 44, 286, 89, card_bg);
 
                 // Alarm Time String
                 char t_buf[16];
@@ -5985,16 +5985,16 @@ display:
                   snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
                 }
                 Color time_col = en ? id(col_white) : id(col_gray);
-                // Time shifted up to sit on the identical baseline defined by bottom of AM (at y_mid - 7)
-                it.print(92, y_mid - 13, id(font_chrono_time), time_col, TextAlign::LEFT, t_buf);
+                // Time & AM baselines aligned to bottom of the toggle switch icon (y_mid + 12)
+                it.print(92, y_mid + 12, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
                 if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(215, y_mid - 7, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::LEFT, ap_buf);
+                  it.print(215, y_mid + 12, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
                 }
 
-                // Recurrence Tag: generous breathing room below time, clear of shared baseline
+                // Recurrence Tag: positioned below shared baseline with clean separation
                 char tag_buf[32];
                 snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-                it.print(92, y_mid + 20, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
+                it.print(92, y_mid + 29, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
                 // Toggle Switch Pill (x = 345, y_mid, width 44, height 26)
                 Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
@@ -6029,19 +6029,19 @@ display:
               int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
               int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-              // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, y=136
+              // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, bumped up 5px to y=131
               char t_buf[16];
               if (id(is_24h_format)) {
                 snprintf(t_buf, sizeof(t_buf), "%02d:%02d", cur_h, cur_m);
-                it.print(cx, 136, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
               } else {
                 int h12 = cur_h % 12;
                 if (h12 == 0) h12 = 12;
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
-                it.print(cx, 136, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
                 int ap_x = (h12 >= 10) ? (cx + 124) : (cx + 100);
-                it.print(ap_x, 145, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
+                it.print(ap_x, 140, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
               // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
@@ -7255,8 +7255,8 @@ touchscreen:
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 99..189)
-                  if (touch.y >= 99 && touch.y <= 189 && touch.x >= 50 && touch.x <= 304) {
+                  // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 98..190)
+                  if (touch.y >= 98 && touch.y <= 190 && touch.x >= 50 && touch.x <= 304) {
                     id(alarm_edit_idx) = 1;
                     id(disp1).update();
                     return;
@@ -7268,8 +7268,8 @@ touchscreen:
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 209..299)
-                  if (touch.y >= 209 && touch.y <= 299 && touch.x >= 50 && touch.x <= 304) {
+                  // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 208..300)
+                  if (touch.y >= 208 && touch.y <= 300 && touch.x >= 50 && touch.x <= 304) {
                     id(alarm_edit_idx) = 2;
                     id(disp1).update();
                     return;
