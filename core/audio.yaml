@@ -102,8 +102,8 @@ speaker:
 
 
 rtttl:
-  - id: alarm_rtttl
-    speaker: announcement_mixing_input
+  id: alarm_rtttl
+  speaker: announcement_mixing_input
 
 sendspin:
   id: sendspin_hub
@@ -310,7 +310,8 @@ script:
                 rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
             - wait_until:
                 condition:
-                  lambda: "return !id(alarm_rtttl).is_playing();"
+                  not:
+                    rtttl.is_playing:
                 timeout: 5s
             - delay: 800ms
 
