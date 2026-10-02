@@ -4929,14 +4929,14 @@ display:
           // Top Header: Pure iconic "SYSTEM" title (Theme Primary)
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
 
-          // Upper Zone: Pocket Assistant Version / Update badge (lowered to y=96 for balanced title buffer)
+          // Upper Zone: Pocket Assistant Version / Update badge (midpoint y=91 between y=86 and y=96; standard white)
           bool has_update = id(ha_firmware_update_status).state == "ON";
           std::string lat_v = id(ha_firmware_latest_version).state;
           if (has_update) {
             snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
-            it.print(cx, 96, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+            it.print(cx, 91, id(font_small), id(col_gold), TextAlign::CENTER, buf);
           } else {
-            it.print(cx, 96, id(font_small), id(theme_secondary), TextAlign::CENTER, "Pocket Assistant v${version}");
+            it.print(cx, 91, id(font_small), id(col_white), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
           // Center Zone: Buffered 2x3 Grid with Standardized Pill Height (r = 20) & 24px Center Gap
@@ -5875,7 +5875,7 @@ display:
               it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
             } else {
               char hdr_buf[32];
-              snprintf(hdr_buf, sizeof(hdr_buf), "EDIT ALARM %d", id(alarm_edit_idx));
+              snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", id(alarm_edit_idx));
               it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
             }
           }
@@ -5953,15 +5953,15 @@ display:
                 Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
                 Color border_c = en ? id(theme_primary) : Color(45, 52, 60);
 
-                // Outer border pill (r = 32)
-                it.filled_circle(90, y_mid, 32, border_c);
-                it.filled_circle(376, y_mid, 32, border_c);
-                it.filled_rectangle(90, y_mid - 32, 286, 65, border_c);
+                // Outer border pill (r = 42, 84px tall for enhanced readability)
+                it.filled_circle(90, y_mid, 42, border_c);
+                it.filled_circle(376, y_mid, 42, border_c);
+                it.filled_rectangle(90, y_mid - 42, 286, 85, border_c);
 
-                // Inner card pill (r = 30, 2px border inset)
-                it.filled_circle(90, y_mid, 30, card_bg);
-                it.filled_circle(376, y_mid, 30, card_bg);
-                it.filled_rectangle(90, y_mid - 30, 286, 61, card_bg);
+                // Inner card pill (r = 40, 2px border inset)
+                it.filled_circle(90, y_mid, 40, card_bg);
+                it.filled_circle(376, y_mid, 40, card_bg);
+                it.filled_rectangle(90, y_mid - 40, 286, 81, card_bg);
 
                 // Alarm Time String
                 char t_buf[16];
@@ -5975,15 +5975,15 @@ display:
                   snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
                 }
                 Color time_col = en ? id(col_white) : id(col_gray);
-                it.print(100, y_mid - 18, id(font_chrono_time), time_col, TextAlign::LEFT, t_buf);
+                it.print(92, y_mid - 15, id(font_chrono_time), time_col, TextAlign::LEFT, t_buf);
                 if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(215, y_mid - 8, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::LEFT, ap_buf);
+                  it.print(215, y_mid - 7, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::LEFT, ap_buf);
                 }
 
-                // Recurrence Tag
+                // Recurrence Tag (enlarged to font_small for clear readability)
                 char tag_buf[32];
-                snprintf(tag_buf, sizeof(tag_buf), "ALARM %d  •  %s", idx, rec_labels[rec % 4]);
-                it.print(102, y_mid + 14, id(font_micro), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
+                snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
+                it.print(92, y_mid + 20, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
                 // Toggle Switch Pill (x = 345, y_mid, width 44, height 26)
                 Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
@@ -5995,21 +5995,19 @@ display:
                 it.filled_circle(knob_x, y_mid, 9, id(col_white));
               };
 
-              // Alarm 1: Weekdays default (y = 132)
-              draw_alarm_card(132, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
+              // Alarm 1: Weekdays default (y = 144)
+              draw_alarm_card(144, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
 
-              // Alarm 2: Weekends default (y = 228)
-              draw_alarm_card(228, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
+              // Alarm 2: Weekends default (y = 254)
+              draw_alarm_card(254, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
 
-              // Status / Prompt above subpage pills (y = 298, enlarged to font_small for clear readability)
+              // Snooze Status (only shown when an alarm is actively snoozed)
               if (id(alarm_snooze_until) > 0) {
                 auto now = id(ha_time).now();
                 int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
                 char snz_buf[48];
                 snprintf(snz_buf, sizeof(snz_buf), "Snoozed (%dm %ds)", rem_s / 60, rem_s % 60);
-                it.print(cx, 298, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
-              } else {
-                it.print(cx, 298, id(font_small), id(theme_secondary), TextAlign::CENTER, "Tap card to edit");
+                it.print(cx, 316, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
               }
             } else {
               // ----------------------------------------------------------------
@@ -6020,32 +6018,32 @@ display:
               int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
               int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-              // Large Time Display matching Timer scale (y = 125, font_time)
+              // Large Time Display (y = 146, font_time, moved down +21px with group)
               char t_buf[16];
               if (id(is_24h_format)) {
                 snprintf(t_buf, sizeof(t_buf), "%02d:%02d", cur_h, cur_m);
-                it.print(cx, 125, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                it.print(cx, 146, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
               } else {
                 int h12 = cur_h % 12;
                 if (h12 == 0) h12 = 12;
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
-                it.print(cx - 24, 125, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-                it.print(cx + 68, 134, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
+                it.print(cx - 24, 146, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                it.print(cx + 68, 155, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
-              // Stepper Controls (Headers at y = 180, Buttons at y = 212, r = 15, zero overlap)
-              it.print(145, 180, id(font_micro), id(theme_secondary), TextAlign::CENTER, "HOUR");
-              draw_pill_button(105, 123, 212, 15, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
-              draw_pill_button(167, 185, 212, 15, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
+              // Stepper Controls (Headers at y = 201, Buttons centered on device horizontal centerline y = 233)
+              it.print(145, 201, id(font_micro), id(theme_secondary), TextAlign::CENTER, "HOUR");
+              draw_pill_button(105, 123, 233, 15, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
+              draw_pill_button(167, 185, 233, 15, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
 
-              it.print(321, 180, id(font_micro), id(theme_secondary), TextAlign::CENTER, "MINUTE");
-              draw_pill_button(281, 299, 212, 15, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
-              draw_pill_button(343, 361, 212, 15, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+              it.print(321, 201, id(font_micro), id(theme_secondary), TextAlign::CENTER, "MINUTE");
+              draw_pill_button(281, 299, 233, 15, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
+              draw_pill_button(343, 361, 233, 15, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
 
-              // Recurrence Pill: y = 275 (r = 18)
+              // Recurrence Pill: y = 296 (r = 18, moved down +21px with group)
               const char* rec_names[4] = {"Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
-              draw_pill_button(120, 346, 275, 18, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
+              draw_pill_button(120, 346, 296, 18, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
 
               // Standardized System < BACK Button nestled right above navigation (y = 368)
               draw_back_button();
@@ -7239,27 +7237,27 @@ touchscreen:
                 // SUBPAGE 1: ALARM MANAGER TOUCH
                 // ==============================================================
                 if (id(alarm_edit_idx) == 0) {
-                  // Alarm 1 Toggle Switch (x: 305..385, y: 105..160)
-                  if (touch.y >= 105 && touch.y <= 160 && touch.x >= 305 && touch.x <= 385) {
+                  // Alarm 1 Toggle Switch (x: 305..385, y: 115..175)
+                  if (touch.y >= 115 && touch.y <= 175 && touch.x >= 305 && touch.x <= 385) {
                     id(alarm1_enabled) = !id(alarm1_enabled);
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 1 Card Area -> Enter Editor (x: 65..304, y: 96..168)
-                  if (touch.y >= 96 && touch.y <= 168 && touch.x >= 65 && touch.x <= 304) {
+                  // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 102..186)
+                  if (touch.y >= 102 && touch.y <= 186 && touch.x >= 50 && touch.x <= 304) {
                     id(alarm_edit_idx) = 1;
                     id(disp1).update();
                     return;
                   }
 
-                  // Alarm 2 Toggle Switch (x: 305..385, y: 200..255)
-                  if (touch.y >= 200 && touch.y <= 255 && touch.x >= 305 && touch.x <= 385) {
+                  // Alarm 2 Toggle Switch (x: 305..385, y: 225..285)
+                  if (touch.y >= 225 && touch.y <= 285 && touch.x >= 305 && touch.x <= 385) {
                     id(alarm2_enabled) = !id(alarm2_enabled);
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 2 Card Area -> Enter Editor (x: 65..304, y: 192..264)
-                  if (touch.y >= 192 && touch.y <= 264 && touch.x >= 65 && touch.x <= 304) {
+                  // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 212..296)
+                  if (touch.y >= 212 && touch.y <= 296 && touch.x >= 50 && touch.x <= 304) {
                     id(alarm_edit_idx) = 2;
                     id(disp1).update();
                     return;
@@ -7271,8 +7269,8 @@ touchscreen:
                   int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
                   int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-                  // Hour & Minute Steppers (y: 190..235, matching lowered buttons at y=212)
-                  if (touch.y >= 190 && touch.y <= 235) {
+                  // Hour & Minute Steppers (y: 211..256, matching buttons at center line y=233)
+                  if (touch.y >= 211 && touch.y <= 256) {
                     if (touch.x >= 75 && touch.x <= 145) {
                       cur_h = (cur_h + 23) % 24;
                       id(disp1).update();
@@ -7293,8 +7291,8 @@ touchscreen:
                     }
                   }
 
-                  // Recurrence Selector Button (y: 250..305, x: 100..366, matching lowered pill at y=275)
-                  if (touch.y >= 250 && touch.y <= 305 && touch.x >= 100 && touch.x <= 366) {
+                  // Recurrence Selector Button (y: 271..326, x: 100..366, matching pill at y=296)
+                  if (touch.y >= 271 && touch.y <= 326 && touch.x >= 100 && touch.x <= 366) {
                     cur_rec = (cur_rec + 1) % 4;
                     id(disp1).update();
                     return;
