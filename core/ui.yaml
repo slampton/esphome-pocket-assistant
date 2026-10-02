@@ -1135,20 +1135,6 @@ interval:
           }
 
 
-binary_sensor:
-  - platform: template
-    name: "Timer Active"
-    id: timer_active_binary_sensor
-    lambda: 'return id(timer_running);'
-    entity_category: diagnostic
-    icon: "mdi:timer-sand"
-
-  - platform: template
-    name: "Alarm Ringing"
-    id: alarm_ringing_binary_sensor
-    lambda: 'return id(alarm_ringing) || id(timer_ringing);'
-    entity_category: diagnostic
-    icon: "mdi:alarm-bell"
 
 sensor:
   # --------------------------------------------------------------------------
@@ -1347,6 +1333,19 @@ sensor:
 
 
 binary_sensor:
+  - platform: template
+    name: "Timer Active"
+    id: timer_active_binary_sensor
+    lambda: 'return id(timer_running);'
+    entity_category: diagnostic
+    icon: "mdi:timer-sand"
+
+  - platform: template
+    name: "Alarm Ringing"
+    id: alarm_ringing_binary_sensor
+    lambda: 'return id(alarm_ringing) || id(timer_ringing);'
+    entity_category: diagnostic
+    icon: "mdi:alarm-bell"
   - platform: gpio
     pin:
       number: GPIO0
