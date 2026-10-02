@@ -488,13 +488,15 @@ script:
             id(screensaver_start_time) = 0;
             id(sleep_start_time) = millis();
             id(display_brightness).turn_off().perform();
-            // Power down speaker amp to eliminate quiescent drain
-            id(speaker_enable).turn_off();
+            // Power down speaker amp only if local music is NOT playing
+            if (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+              id(speaker_enable).turn_off();
+            }
             // Power down QMI8658 Gyroscope, keep Accelerometer active for motion pickup wake (~1.5mA savings)
             uint8_t qmi_gyro_off[2] = {0x08, 0x01}; // CTRL7: aEN=1, gEN=0
             id(bus_internal).write(0x6B, qmi_gyro_off, 2);
-            // On battery power, enable Wi-Fi modem sleep while screen is off to conserve energy
-            if (!id(usb_connected).state) {
+            // On battery power, enable Wi-Fi modem sleep while screen is off only if local audio is not playing
+            if (!id(usb_connected).state && id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
               extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
               esp_wifi_set_ps(1); // 1: WIFI_PS_MIN_MODEM
             }
@@ -673,14 +675,13 @@ script:
               } else {
                 if (std::string(id(display_off_timeout).current_option().c_str()) == "Never") return false;
               }
-              bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-              bool is_music_playing = is_remote ? (id(ha_target_state).state == "playing")
-                                                 : (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+              // On battery power, screen sleep strictly honors display_off_timeout (default 15s)
+              // regardless of remote playback status, protecting OLED panel and battery.
+              // Local playback only inhibits Tier 3 deep sleep hibernation in the 10s watchdog loop.
               return !id(ota_in_progress) &&
-                     !id(va).is_running() && 
-                     !id(va_tts_received) && 
-                     !id(announcement_mixing_input).is_running() && 
-                     !is_music_playing && 
+                     !id(va).is_running() &&
+                     !id(va_tts_received) &&
+                     !id(announcement_mixing_input).is_running() &&
                      !id(stopwatch_running) &&
                      !id(pickup_detected).state &&
                      (id(active_game) == 0) &&

@@ -2,7 +2,7 @@
 
 A local-first handheld companion and media remote for Home Assistant and Music Assistant, built on the Waveshare 1.75" circular AMOLED ESP32-S3 development board.
 
-[![Version](https://img.shields.io/badge/Version-v1.0.0-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.1-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -18,13 +18,13 @@ Pocket Assistant started as a personal home lab project to explore what is possi
 * **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (1.75" 466×466 round AMOLED, CO5300 display, CST9220 touch, ES8311 DAC, ES7210 ADC, AXP2101 PMIC, QMI8658 6-axis IMU).
 
 ### 1. Flash the Firmware
-* **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v1.0.0 with one click.
+* **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v1.1 with one click.
 * **ESPHome Dashboard**: Alternatively, adopt the device using a minimal remote package include:
 ```yaml
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "1.0.0"
+  version: "1.1"
   local_player_id: "media_player.pocket_assistant"
 
 packages:
