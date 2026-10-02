@@ -5492,9 +5492,10 @@ display:
 
           int moon_cx = cx;
           int moon_cy = 136;
-          int moon_r = 44;
+          int moon_r = 57;
+          float scale = 57.0f / 44.0f;
 
-          // Render Standard 88px Detailed Moon Disc
+          // Render Scaled Detailed Moon Disc (Diameter 114px, title buffer halved to 13px)
           for (int my = -moon_r; my <= moon_r; my++) {
             int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
             float x_term = - (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
@@ -5504,19 +5505,21 @@ display:
               float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
               float base_lum = 205.0f + 25.0f * sphere_dim;
 
-              if (d2(mx, my, -14, -14) < 144) base_lum -= 58.0f;
-              else if (d2(mx, my, -22, 2) < 225) base_lum -= 52.0f;
-              else if (d2(mx, my, 8, -13) < 100) base_lum -= 54.0f;
-              else if (d2(mx, my, 16, -2) < 121) base_lum -= 56.0f;
-              else if (d2(mx, my, 25, -10) < 49) base_lum -= 60.0f;
-              else if (d2(mx, my, 18, 12) < 121) base_lum -= 50.0f;
-              else if (d2(mx, my, -10, 16) < 121) base_lum -= 48.0f;
+              // Scaled Maria
+              if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
+              else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
+              else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
+              else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
+              else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
+              else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
+              else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
 
-              if (d2(mx, my, -4, 28) < 16) base_lum = 245.0f;
-              else if (d2(mx, my, -4, 28) < 144 && abs((my - 28) - 1.5f * (mx + 4)) < 2.0f) base_lum += 24.0f;
+              // Scaled Tycho Crater & Ray System
+              if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(16 * scale * scale)) base_lum = 245.0f;
+              else if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(144 * scale * scale) && abs((my - (int)(28 * scale)) - 1.5f * (mx + (int)(4 * scale))) < (2.0f * scale)) base_lum += 24.0f;
 
               float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
-              float penumbra = 8.0f;
+              float penumbra = 8.0f * scale;
               float shadow;
               if (dist_to_term > penumbra) shadow = 1.0f;
               else if (dist_to_term < -penumbra) shadow = 0.0f;
