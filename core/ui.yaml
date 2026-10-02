@@ -260,11 +260,11 @@ globals:
   - id: deck_slot_4
     type: int
     restore_value: no
-    initial_value: '4'
+    initial_value: '5'
   - id: deck_slot_5
     type: int
     restore_value: no
-    initial_value: '5'
+    initial_value: '6'
   - id: sky_weather_subpage
     type: int
     restore_value: no
@@ -272,7 +272,7 @@ globals:
   - id: deck_slot_6
     type: int
     restore_value: no
-    initial_value: '6'
+    initial_value: '4'
   - id: timer_alarm_subpage
     type: int
     restore_value: no
@@ -680,9 +680,9 @@ select:
       - "Stopwatch"
       - "Music"
       - "Games"
-      - "System"
       - "Sky & Weather"
       - "Timer & Alarm"
+      - "System"
 
 button:
   - platform: restart
@@ -901,8 +901,8 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: System"
-    id: app_order_system
+    name: "App Order: Timer & Alarm"
+    id: app_order_timer
     entity_category: config
     optimistic: true
     restore_value: true
@@ -915,8 +915,8 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: Timer & Alarm"
-    id: app_order_timer
+    name: "App Order: System"
+    id: app_order_system
     entity_category: config
     optimistic: true
     restore_value: true
@@ -1691,9 +1691,9 @@ script:
             {1, id(app_order_stopwatch).state, id(show_stopwatch_switch).state},
             {2, id(app_order_music).state, id(show_music_switch).state},
             {3, id(app_order_games).state, id(show_games_switch).state},
-            {4, id(app_order_system).state, id(show_system_switch).state},
             {5, id(app_order_weather).state, id(show_weather_switch).state},
-            {6, id(app_order_timer).state, id(show_timer_switch).state}
+            {6, id(app_order_timer).state, id(show_timer_switch).state},
+            {4, id(app_order_system).state, id(show_system_switch).state}
           };
 
           // Stable bubble sort by user-configured position rank (1..10)
@@ -5342,9 +5342,9 @@ display:
           std::string s_state = id(ha_sun_state).state;
           bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
 
-          // Clean Upper-Right Corner Pocket Coordinates (cx=336, cy=98)
-          const int cel_cx = 336;
-          const int cel_cy = 98;
+          // Clean Upper-Right Corner Pocket Coordinates (cx=352, cy=82, aligned to temperature row)
+          const int cel_cx = 352;
+          const int cel_cy = 82;
 
           if (is_night) {
             // Subtle twinkling starfield in upper sky (y: 40..150)
@@ -5953,15 +5953,15 @@ display:
                 Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
                 Color border_c = en ? id(theme_primary) : Color(45, 52, 60);
 
-                // Outer border pill (r = 42, 84px tall for enhanced readability)
-                it.filled_circle(90, y_mid, 42, border_c);
-                it.filled_circle(376, y_mid, 42, border_c);
-                it.filled_rectangle(90, y_mid - 42, 286, 85, border_c);
+                // Outer border pill (r = 45, 90px tall for enhanced readability)
+                it.filled_circle(90, y_mid, 45, border_c);
+                it.filled_circle(376, y_mid, 45, border_c);
+                it.filled_rectangle(90, y_mid - 45, 286, 91, border_c);
 
-                // Inner card pill (r = 40, 2px border inset)
-                it.filled_circle(90, y_mid, 40, card_bg);
-                it.filled_circle(376, y_mid, 40, card_bg);
-                it.filled_rectangle(90, y_mid - 40, 286, 81, card_bg);
+                // Inner card pill (r = 43, 2px border inset)
+                it.filled_circle(90, y_mid, 43, card_bg);
+                it.filled_circle(376, y_mid, 43, card_bg);
+                it.filled_rectangle(90, y_mid - 43, 286, 87, card_bg);
 
                 // Alarm Time String
                 char t_buf[16];
@@ -5975,15 +5975,15 @@ display:
                   snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
                 }
                 Color time_col = en ? id(col_white) : id(col_gray);
-                it.print(92, y_mid - 15, id(font_chrono_time), time_col, TextAlign::LEFT, t_buf);
+                it.print(92, y_mid - 20, id(font_chrono_time), time_col, TextAlign::LEFT, t_buf);
                 if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(215, y_mid - 7, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::LEFT, ap_buf);
+                  it.print(215, y_mid - 13, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::LEFT, ap_buf);
                 }
 
-                // Recurrence Tag (enlarged to font_small for clear readability)
+                // Recurrence Tag (shifted up with clear breathing space from time)
                 char tag_buf[32];
                 snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-                it.print(92, y_mid + 20, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
+                it.print(92, y_mid + 16, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
                 // Toggle Switch Pill (x = 345, y_mid, width 44, height 26)
                 Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
@@ -6018,26 +6018,27 @@ display:
               int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
               int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-              // Large Time Display (y = 146, font_time, moved down +21px with group)
+              // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, y=136
               char t_buf[16];
               if (id(is_24h_format)) {
                 snprintf(t_buf, sizeof(t_buf), "%02d:%02d", cur_h, cur_m);
-                it.print(cx, 146, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                it.print(cx, 136, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
               } else {
                 int h12 = cur_h % 12;
                 if (h12 == 0) h12 = 12;
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
-                it.print(cx - 24, 146, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-                it.print(cx + 68, 155, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
+                it.print(cx, 136, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                int ap_x = (h12 >= 10) ? (cx + 124) : (cx + 100);
+                it.print(ap_x, 145, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
-              // Stepper Controls (Headers at y = 201, Buttons centered on device horizontal centerline y = 233)
-              it.print(145, 201, id(font_micro), id(theme_secondary), TextAlign::CENTER, "HOUR");
+              // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
+              it.print(145, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "HOUR");
               draw_pill_button(105, 123, 233, 15, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
               draw_pill_button(167, 185, 233, 15, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
 
-              it.print(321, 201, id(font_micro), id(theme_secondary), TextAlign::CENTER, "MINUTE");
+              it.print(321, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "MINUTE");
               draw_pill_button(281, 299, 233, 15, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
               draw_pill_button(343, 361, 233, 15, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
 
@@ -7116,8 +7117,8 @@ touchscreen:
                 id(disp1).update();
                 return;
               }
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 295..380, y: 60..135)
-              if (id(sky_weather_subpage) == 0 && touch.x >= 295 && touch.x <= 380 && touch.y >= 60 && touch.y <= 135) {
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 311..396, y: 44..119)
+              if (id(sky_weather_subpage) == 0 && touch.x >= 311 && touch.x <= 396 && touch.y >= 44 && touch.y <= 119) {
                 std::string s_state = id(ha_sun_state).state;
                 std::string cond = id(ha_weather_condition).state;
                 bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
@@ -7243,8 +7244,8 @@ touchscreen:
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 102..186)
-                  if (touch.y >= 102 && touch.y <= 186 && touch.x >= 50 && touch.x <= 304) {
+                  // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 99..189)
+                  if (touch.y >= 99 && touch.y <= 189 && touch.x >= 50 && touch.x <= 304) {
                     id(alarm_edit_idx) = 1;
                     id(disp1).update();
                     return;
@@ -7256,8 +7257,8 @@ touchscreen:
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 212..296)
-                  if (touch.y >= 212 && touch.y <= 296 && touch.x >= 50 && touch.x <= 304) {
+                  // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 209..299)
+                  if (touch.y >= 209 && touch.y <= 299 && touch.x >= 50 && touch.x <= 304) {
                     id(alarm_edit_idx) = 2;
                     id(disp1).update();
                     return;
