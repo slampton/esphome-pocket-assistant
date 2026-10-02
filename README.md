@@ -67,7 +67,7 @@ packages:
 * **Zero-Dead-Zone Touch Handling**: Continuous touch boundary tessellation across the entire round screen prevents dropped taps and misdirected inputs.
 * **Touch Priority Yielding**: Hardware touch interrupt pin (GPIO11) is monitored during rendering; display redraws yield instantly when a touch is detected, eliminating input latency.
 * **Radial OTA Progress Indicator**: Full-screen 360° circular progress arc with smooth 10 FPS interpolation and an orbiting pip during firmware updates.
-* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions, 5-Day forecast, 180° Sun Arc ephemeris, and 108px detailed Lunar maria globe), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), and a 2-tier hierarchical system diagnostic hub.
+* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with buffered hero temp, tight 3-Day aligned forecast, lowered Solar Cycle arc, and cartoon-realistic Moon with feathered terminator), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), and a 2-tier hierarchical system diagnostic hub.
 
 ---
 
