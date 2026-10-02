@@ -140,6 +140,12 @@ media_player:
             id(active_game) = 0;
         - script.stop: mp_idle_debounce
         - script.stop: screen_sleep_timer
+        - mixer_speaker.apply_ducking:
+            id: announcement_mixing_input
+            decibel_reduction: 50
+            duration: 0.1s
+        - speaker.stop: announcement_mixing_input
+        - speaker.stop: va_speaker
         - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
         - audio_dac.mute_off: es8311_dac
@@ -203,6 +209,10 @@ voice_assistant:
       - component.update: disp1
   on_tts_start:
     then:
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.1s
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
       - audio_dac.mute_off: es8311_dac
@@ -255,6 +265,10 @@ voice_assistant:
                 timeout: 180s
             # 3. Clean 400ms settling flush for physical speaker & DAC FIFO drain
             - delay: 400ms
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 50
+          duration: 0.1s
       - if:
           condition:
             media_player.is_idle: pocket_music_player
@@ -275,7 +289,7 @@ voice_assistant:
 
 number:
   - platform: template
-    name: "Volume Step Size"
+    name: "Audio: Volume Step Size"
     id: volume_step_size
     optimistic: true
     min_value: 1
