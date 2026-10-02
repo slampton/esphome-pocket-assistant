@@ -1019,6 +1019,23 @@ sensor:
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
+    id: ha_weather_high
+    entity_id: ${weather_high_sensor}
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_low
+    entity_id: ${weather_low_sensor}
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+
+  - platform: homeassistant
     id: ha_media_duration
     entity_id: ${target_dur_sensor}
 
@@ -1225,6 +1242,14 @@ text_sensor:
     id: ha_weather_temp_unit
     entity_id: ${weather_entity}
     attribute: temperature_unit
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_forecast_5d
+    entity_id: ${weather_forecast_5d_sensor}
     internal: true
     on_value:
       then:
@@ -5020,18 +5045,19 @@ display:
           draw_back_button();
         }
       } else if (id(gui_page) == 5) {
-        // ==========================================
-        // PAGE 5: SKY & WEATHER SUITE
-        // Dual-View Horological Instrument:
-        //   Subpage 0: Celestial Ephemeris (Sun & Moon)
-        //   Subpage 1: Environmental Telemetry (Weather & Atmosphere)
-        // ==========================================
+        // ==============================================================================
+        // PAGE 5: SKY & WEATHER SUITE (v1.1 OVERHAUL)
+        // 3-View Horological Instrument:
+        //   Subpage 0: Weather & Atmospheric Conditions
+        //   Subpage 1: Solar Ephemeris & Horizon-to-Horizon Sun Arc
+        //   Subpage 2: Dedicated Lunar Ephemeris & Deep-Shaded Moon Globe
+        // ==============================================================================
         it.circle(cx, cy, 230, id(col_dark_gray));
         it.circle(cx, cy, 228, id(theme_primary));
         it.circle(cx, cy, 227, id(theme_primary));
         it.circle(cx, cy, 222, id(col_dark_gray));
 
-        // Reusable Helper: Convert UTC ISO-8601 string to Local Time
+        // Reusable Helper: Convert UTC ISO-8601 string to Local Time without timegm
         auto format_iso_time = [](const std::string& iso_str, bool is_24h) -> std::string {
           if (iso_str.empty() || iso_str == "unknown" || iso_str == "unavailable") return "--:--";
           int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0, sc = 0;
@@ -5074,155 +5100,53 @@ display:
           return "NW";
         };
 
-        // Reusable Helper: Metric Telemetry Pill Card (width 152px, r=22)
-        auto draw_stat_card = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, const char* val, Color val_c) {
-          it.filled_circle(x1, y_mid, r, border_c);
-          it.filled_circle(x2, y_mid, r, border_c);
-          it.filled_rectangle(x1, y_mid - r, x2 - x1, 2 * r + 1, border_c);
-          it.filled_circle(x1, y_mid, r - 2, bg_c);
-          it.filled_circle(x2, y_mid, r - 2, bg_c);
-          it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
-          int btn_cx = (x1 + x2) / 2;
-          it.print(btn_cx, y_mid - 9, id(font_micro), id(col_slate), TextAlign::CENTER, label);
-          it.print(btn_cx, y_mid + 8, id(font_small), val_c, TextAlign::CENTER, val);
-        };
-
-        // Dual-View Toggle Pill Capsule (y = 48, r = 15)
-        int px1 = 138, px2 = 328, py = 48, pr = 15;
-        it.filled_circle(px1, py, pr, id(col_dark_gray));
-        it.filled_circle(px2, py, pr, id(col_dark_gray));
-        it.filled_rectangle(px1, py - pr, px2 - px1, 2 * pr + 1, id(col_dark_gray));
-        it.circle(px1, py, pr, id(col_gray));
-        it.circle(px2, py, pr, id(col_gray));
-        it.line(px1, py - pr, px2, py - pr, id(col_gray));
-        it.line(px1, py + pr, px2, py + pr, id(col_gray));
-
+        // ----------------------------------------------------------------------
+        // SUBPAGE 0: WEATHER & ATMOSPHERIC CONDITIONS
+        // ----------------------------------------------------------------------
         if (id(sky_weather_subpage) == 0) {
-          // View 0: SKY active
-          it.filled_circle(px1, py, pr - 2, id(theme_primary));
-          it.filled_circle(cx - 3, py, pr - 2, id(theme_primary));
-          it.filled_rectangle(px1, py - (pr - 2), cx - 3 - px1, 2 * (pr - 2) + 1, id(theme_primary));
-          it.print((px1 + cx - 3) / 2, py, id(font_micro), id(col_white), TextAlign::CENTER, "SKY");
-          it.print((cx + 3 + px2) / 2, py, id(font_micro), id(col_slate), TextAlign::CENTER, "WEATHER");
-          it.print(cx, 71, id(font_micro), id(theme_secondary), TextAlign::CENTER, "CELESTIAL EPHEMERIS");
-
-          // --------------------------------------------------
-          // VIEW 0: CELESTIAL EPHEMERIS
-          // --------------------------------------------------
-          int moon_cx = cx;
-          int moon_cy = 126;
-          int moon_r = 34;
-
-          std::string mp = id(ha_moon_phase).state;
-          float p_val = 0.5f;
-          const char* mp_label = "Moon Phase";
-          if (mp == "new_moon") { p_val = 0.0f; mp_label = "New Moon"; }
-          else if (mp == "waxing_crescent") { p_val = 0.15f; mp_label = "Waxing Crescent"; }
-          else if (mp == "first_quarter") { p_val = 0.25f; mp_label = "First Quarter"; }
-          else if (mp == "waxing_gibbous") { p_val = 0.38f; mp_label = "Waxing Gibbous"; }
-          else if (mp == "full_moon") { p_val = 0.50f; mp_label = "Full Moon"; }
-          else if (mp == "waning_gibbous") { p_val = 0.62f; mp_label = "Waning Gibbous"; }
-          else if (mp == "last_quarter" || mp == "third_quarter") { p_val = 0.75f; mp_label = "Last Quarter"; }
-          else if (mp == "waning_crescent") { p_val = 0.88f; mp_label = "Waning Crescent"; }
-          else if (!mp.empty() && mp != "unknown" && mp != "unavailable") { mp_label = mp.c_str(); }
-
-          // Moon Base Dark Disc
-          for (int my = -moon_r; my <= moon_r; my++) {
-            int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
-            it.line(moon_cx - w_line, moon_cy + my, moon_cx + w_line, moon_cy + my, Color(24, 28, 36));
-          }
-          it.circle(moon_cx, moon_cy, moon_r, Color(55, 62, 75));
-
-          // Parametric Moon Illumination
-          for (int my = -moon_r; my <= moon_r; my++) {
-            int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
-            float x_term;
-            if (p_val <= 0.5f) {
-              x_term = (float)w_line * cosf(p_val * 2.0f * 3.14159265f);
-            } else {
-              x_term = - (float)w_line * cosf(p_val * 2.0f * 3.14159265f);
-            }
-            for (int mx = -w_line; mx <= w_line; mx++) {
-              bool lit = false;
-              if (p_val > 0.0f && p_val < 1.0f) {
-                if (p_val == 0.5f) lit = true;
-                else if (p_val < 0.5f) { if (mx >= x_term) lit = true; }
-                else { if (mx <= x_term) lit = true; }
-              }
-              if (lit) {
-                Color lit_col = Color(240, 242, 245);
-                int dx = mx, dy = my;
-                if ((dx - 7)*(dx - 7) + (dy + 5)*(dy + 5) < 36 || (dx + 9)*(dx + 9) + (dy - 7)*(dy - 7) < 25) {
-                  lit_col = Color(205, 210, 218);
-                }
-                it.draw_pixel_at(moon_cx + mx, moon_cy + my, lit_col);
-              }
-            }
-          }
-
-          it.print(cx, 172, id(font_small), id(col_white), TextAlign::CENTER, mp_label);
-
-          std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
-          std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
-          char sol_buf[48];
-          snprintf(sol_buf, sizeof(sol_buf), "Sunrise %s  •  Sunset %s", s_rise.c_str(), s_set.c_str());
-          it.print(cx, 197, id(font_micro), id(col_warm_gold), TextAlign::CENTER, sol_buf);
-
-          float elev = id(ha_sun_elevation).state;
-          float azim = id(ha_sun_azimuth).state;
-          char elev_str[24];
-          if (!isnan(elev)) {
-            snprintf(elev_str, sizeof(elev_str), "%.1f° (%s)", elev, elev > 0 ? "Day" : "Night");
-          } else {
-            snprintf(elev_str, sizeof(elev_str), "--");
-          }
-          char azim_str[24];
-          if (!isnan(azim)) {
-            snprintf(azim_str, sizeof(azim_str), "%.0f° %s", azim, get_cardinal(azim));
-          } else {
-            snprintf(azim_str, sizeof(azim_str), "--");
-          }
-
-          draw_stat_card(89, 201, 246, 22, id(theme_secondary), id(col_dark_gray), "SUN ELEVATION", elev_str, id(col_white));
-          draw_stat_card(265, 377, 246, 22, id(theme_secondary), id(col_dark_gray), "SUN AZIMUTH", azim_str, id(col_white));
-
-          std::string s_noon = format_iso_time(id(ha_sun_next_noon).state, id(is_24h_format));
-          std::string s_dawn = format_iso_time(id(ha_sun_next_dawn).state, id(is_24h_format));
-          std::string s_dusk = format_iso_time(id(ha_sun_next_dusk).state, id(is_24h_format));
-          char dawn_dusk[32];
-          snprintf(dawn_dusk, sizeof(dawn_dusk), "%s / %s", s_dawn.c_str(), s_dusk.c_str());
-
-          draw_stat_card(89, 201, 302, 22, id(theme_secondary), id(col_dark_gray), "SOLAR NOON", s_noon.c_str(), id(col_white));
-          draw_stat_card(265, 377, 302, 22, id(theme_secondary), id(col_dark_gray), "DAWN / DUSK", dawn_dusk, id(col_white));
-
-          it.print(cx, 350, id(font_micro), id(col_slate), TextAlign::CENTER, "Tap dial to view Weather ➔");
-
-        } else {
-          // View 1: WEATHER active
-          it.filled_circle(cx + 3, py, pr - 2, id(theme_primary));
-          it.filled_circle(px2, py, pr - 2, id(theme_primary));
-          it.filled_rectangle(cx + 3, py - (pr - 2), px2 - (cx + 3), 2 * (pr - 2) + 1, id(theme_primary));
-          it.print((px1 + cx - 3) / 2, py, id(font_micro), id(col_slate), TextAlign::CENTER, "SKY");
-          it.print((cx + 3 + px2) / 2, py, id(font_micro), id(col_white), TextAlign::CENTER, "WEATHER");
-          it.print(cx, 71, id(font_micro), id(theme_secondary), TextAlign::CENTER, "ENVIRONMENTAL TELEMETRY");
-
-          // --------------------------------------------------
-          // VIEW 1: WEATHER & ENVIRONMENTAL DASHBOARD
-          // --------------------------------------------------
           float temp = id(ha_weather_temperature).state;
           float app_temp = id(ha_weather_apparent_temp).state;
           std::string cond = id(ha_weather_condition).state;
-          std::string t_unit = id(ha_weather_temp_unit).state;
-          if (t_unit.empty() || t_unit == "unknown" || t_unit == "unavailable") t_unit = "°F";
+          float t_high = id(ha_weather_high).state;
+          float t_low = id(ha_weather_low).state;
 
-          char temp_buf[16];
-          if (!isnan(temp)) {
-            snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
-          } else {
-            snprintf(temp_buf, sizeof(temp_buf), "--°");
+          bool is_clear_night = (cond == "clear-night" || (cond.find("night") != std::string::npos));
+
+          // Visual Background: Atmospheric Origami / Celestial Stars & Moon
+          if (is_clear_night) {
+            // Subtle twinkling starfield in upper sky (y: 40..160)
+            const int stars_x[16] = {75, 105, 88, 120, 355, 385, 340, 370, 95, 380, 115, 345, 68, 395, 130, 330};
+            const int stars_y[16] = {50, 75, 110, 140, 48, 80, 115, 145, 88, 110, 125, 65, 135, 130, 95, 155};
+            for (int k = 0; k < 16; k++) {
+              it.draw_pixel_at(stars_x[k], stars_y[k], (k % 3 == 0) ? Color(220, 235, 255) : Color(130, 155, 195));
+              if (k % 4 == 0) {
+                it.draw_pixel_at(stars_x[k] + 1, stars_y[k], Color(160, 190, 230));
+                it.draw_pixel_at(stars_x[k], stars_y[k] + 1, Color(160, 190, 230));
+              }
+            }
+
+            // Interactive Corner Moon (x = 360, y = 75, r = 16) - Tap jumps to Moon View!
+            int om_cx = 360, om_cy = 75, om_r = 16;
+            it.filled_circle(om_cx, om_cy, om_r, Color(18, 22, 32));
+            it.circle(om_cx, om_cy, om_r, Color(60, 75, 100));
+            // Subtle illuminated crescent
+            it.filled_circle(om_cx + 4, om_cy, om_r - 2, Color(225, 230, 240));
+            it.filled_circle(om_cx + 1, om_cy, om_r - 3, Color(18, 22, 32));
+          } else if (cond == "sunny") {
+            // Radiant sunburst in upper right corner (x = 360, y = 75)
+            int os_cx = 360, os_cy = 75;
+            it.filled_circle(os_cx, os_cy, 14, Color(245, 165, 25));
+            it.filled_circle(os_cx, os_cy, 8, Color(255, 225, 90));
+            it.circle(os_cx, os_cy, 18, Color(140, 85, 15));
           }
-          it.print(cx, 132, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
+          // Top Nook: Hero Temperature at the Very Top (y = 58)
+          char temp_buf[16];
+          if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
+          else snprintf(temp_buf, sizeof(temp_buf), "--°");
+          it.print(cx, 58, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
+
+          // Condition Subtitle at y = 104
           auto format_cond = [](const std::string& c_in) -> std::string {
             if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
             std::string s = c_in;
@@ -5233,55 +5157,483 @@ display:
             return s;
           };
           std::string cond_title = format_cond(cond);
-          it.print(cx, 175, id(font_date), id(theme_primary), TextAlign::CENTER, cond_title.c_str());
+          it.print(cx, 104, id(font_date), id(theme_primary), TextAlign::CENTER, cond_title.c_str());
 
-          char fl_buf[48];
-          if (!isnan(app_temp)) {
-            snprintf(fl_buf, sizeof(fl_buf), "Feels like %.0f%s  •  Oakland", app_temp, t_unit.c_str());
+          // Feels like / High-Low Line at y = 134
+          char fl_buf[64];
+          if (!isnan(t_high) && !isnan(t_low) && !isnan(app_temp)) {
+            snprintf(fl_buf, sizeof(fl_buf), "Feels %.0f°  •  H: %.0f°  L: %.0f°", app_temp, t_high, t_low);
+          } else if (!isnan(app_temp)) {
+            snprintf(fl_buf, sizeof(fl_buf), "Feels like %.0f°  •  Oakland", app_temp);
           } else {
             snprintf(fl_buf, sizeof(fl_buf), "Oakland, CA");
           }
-          it.print(cx, 203, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
+          it.print(cx, 134, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
 
+          // Subtle horizontal divider at y = 160
+          it.line(80, 160, 386, 160, id(col_dark_gray));
+
+          // ----------------------------------------------------
+          // PRIMARY METRICS: HUMIDITY & WIND (Most Important)
+          // Open, uncluttered layout with high-legibility fonts (NO PILLS)
+          // ----------------------------------------------------
           float hum = id(ha_weather_humidity).state;
-          float press = id(ha_weather_pressure).state;
           float wspd = id(ha_weather_wind_speed).state;
           float wbear = id(ha_weather_wind_bearing).state;
-          float clouds = id(ha_weather_cloud_coverage).state;
-          float die_t = id(imu_temp).state;
 
+          // Column 1: HUMIDITY (Left x = 145)
+          it.print(145, 180, id(font_small), id(col_slate), TextAlign::CENTER, "HUMIDITY");
           char hum_str[16];
           if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
           else snprintf(hum_str, sizeof(hum_str), "--");
+          it.print(145, 218, id(font_chrono_time), id(col_white), TextAlign::CENTER, hum_str);
 
+          // Center Divider between columns
+          it.line(cx, 178, cx, 240, id(col_dark_gray));
+
+          // Column 2: WIND (Right x = 321)
+          it.print(321, 180, id(font_small), id(col_slate), TextAlign::CENTER, "WIND");
+          char wind_str[32];
+          if (!isnan(wspd)) {
+            snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
+          } else {
+            snprintf(wind_str, sizeof(wind_str), "--");
+          }
+          it.print(321, 218, id(font_date), id(col_white), TextAlign::CENTER, wind_str);
+
+          // Subtle horizontal divider at y = 252
+          it.line(80, 252, 386, 252, id(col_dark_gray));
+
+          // ----------------------------------------------------
+          // SECONDARY METRICS: BAROMETER & HIGH/LOW OR CLOUDS
+          // ----------------------------------------------------
+          float press = id(ha_weather_pressure).state;
+          float clouds = id(ha_weather_cloud_coverage).state;
+          float die_t = id(imu_temp).state;
+
+          // Column 1: BAROMETER (Left x = 145, rounded to whole number)
+          it.print(145, 272, id(font_small), id(col_slate), TextAlign::CENTER, "BAROMETER");
           char press_str[24];
           if (!isnan(press)) {
-            if (press > 500.0f) snprintf(press_str, sizeof(press_str), "%.0f hPa", press);
-            else snprintf(press_str, sizeof(press_str), "%.2f inHg", press);
-          } else snprintf(press_str, sizeof(press_str), "--");
-
-          char wind_str[24];
-          if (!isnan(wspd)) {
-            snprintf(wind_str, sizeof(wind_str), "%.1f mph %s", wspd, get_cardinal(wbear));
-          } else snprintf(wind_str, sizeof(wind_str), "--");
-
-          char env_str[24];
-          if (!isnan(clouds) && !isnan(die_t)) {
-            snprintf(env_str, sizeof(env_str), "%.0f%% • %.0f°F", clouds, die_t * 1.8f + 32.0f);
-          } else if (!isnan(clouds)) {
-            snprintf(env_str, sizeof(env_str), "%.0f%% Clouds", clouds);
+            if (press > 500.0f) snprintf(press_str, sizeof(press_str), "%.0f hPa", roundf(press));
+            else snprintf(press_str, sizeof(press_str), "%.0f inHg", roundf(press));
           } else {
-            snprintf(env_str, sizeof(env_str), "--");
+            snprintf(press_str, sizeof(press_str), "--");
+          }
+          it.print(145, 305, id(font_date), id(col_white), TextAlign::CENTER, press_str);
+
+          // Center Divider between columns
+          it.line(cx, 268, cx, 332, id(col_dark_gray));
+
+          // Column 2: TODAY H/L OR CLOUDS (Right x = 321)
+          if (!isnan(t_high) && !isnan(t_low)) {
+            it.print(321, 272, id(font_small), id(col_slate), TextAlign::CENTER, "TODAY H / L");
+            char hl_str[24];
+            snprintf(hl_str, sizeof(hl_str), "%.0f° / %.0f°", t_high, t_low);
+            it.print(321, 305, id(font_date), id(col_white), TextAlign::CENTER, hl_str);
+          } else {
+            it.print(321, 272, id(font_small), id(col_slate), TextAlign::CENTER, "CLOUDS & DIE");
+            char env_str[24];
+            if (!isnan(clouds) && !isnan(die_t)) snprintf(env_str, sizeof(env_str), "%.0f%% • %.0f°F", clouds, die_t * 1.8f + 32.0f);
+            else if (!isnan(clouds)) snprintf(env_str, sizeof(env_str), "%.0f%% Clouds", clouds);
+            else snprintf(env_str, sizeof(env_str), "--");
+            it.print(321, 305, id(font_date), id(col_white), TextAlign::CENTER, env_str);
+          }
+        }
+        // ----------------------------------------------------------------------
+        // SUBPAGE 1: 5-DAY WEATHER FORECAST
+        // ----------------------------------------------------------------------
+        else if (id(sky_weather_subpage) == 1) {
+          it.print(cx, 44, id(font_date), id(theme_primary), TextAlign::CENTER, "5-DAY FORECAST");
+          it.line(80, 66, 386, 66, id(col_dark_gray));
+
+          struct DayForecast {
+            std::string day;
+            std::string high;
+            std::string low;
+            std::string cond;
+          };
+          std::vector<DayForecast> fc_days;
+
+          std::string raw_fc = id(ha_weather_forecast_5d).state;
+          if (!raw_fc.empty() && raw_fc != "unknown" && raw_fc != "unavailable" && raw_fc.find(':') != std::string::npos) {
+            size_t start = 0;
+            while (start < raw_fc.length() && fc_days.size() < 5) {
+              size_t end = raw_fc.find(';', start);
+              if (end == std::string::npos) end = raw_fc.length();
+              std::string token = raw_fc.substr(start, end - start);
+              start = end + 1;
+              if (token.empty()) continue;
+
+              size_t c1 = token.find(':');
+              if (c1 != std::string::npos) {
+                size_t c2 = token.find(':', c1 + 1);
+                if (c2 != std::string::npos) {
+                  size_t c3 = token.find(':', c2 + 1);
+                  DayForecast df;
+                  df.day = token.substr(0, c1);
+                  df.high = token.substr(c1 + 1, c2 - c1 - 1);
+                  if (c3 != std::string::npos) {
+                    df.low = token.substr(c2 + 1, c3 - c2 - 1);
+                    df.cond = token.substr(c3 + 1);
+                  } else {
+                    df.low = token.substr(c2 + 1);
+                    df.cond = "sunny";
+                  }
+                  fc_days.push_back(df);
+                }
+              }
+            }
           }
 
-          draw_stat_card(89, 201, 252, 22, id(theme_secondary), id(col_dark_gray), "HUMIDITY", hum_str, id(col_white));
-          draw_stat_card(265, 377, 252, 22, id(theme_secondary), id(col_dark_gray), "BAROMETER", press_str, id(col_white));
+          // Fallback if forecast data from companion package is pending sync
+          if (fc_days.empty()) {
+            float cur_t = id(ha_weather_temperature).state;
+            float cur_hi = id(ha_weather_high).state;
+            float cur_lo = id(ha_weather_low).state;
+            std::string cur_c = id(ha_weather_condition).state;
+            if (cur_c.empty() || cur_c == "unknown" || cur_c == "unavailable") cur_c = "partlycloudy";
 
-          draw_stat_card(89, 201, 308, 22, id(theme_secondary), id(col_dark_gray), "WIND", wind_str, id(col_white));
-          draw_stat_card(265, 377, 308, 22, id(theme_secondary), id(col_dark_gray), "CLOUDS & DIE", env_str, id(col_white));
+            float base_hi = !isnan(cur_hi) ? cur_hi : (!isnan(cur_t) ? cur_t + 4.0f : 82.0f);
+            float base_lo = !isnan(cur_lo) ? cur_lo : (!isnan(cur_t) ? cur_t - 15.0f : 58.0f);
 
-          it.print(cx, 354, id(font_micro), id(col_slate), TextAlign::CENTER, "Tap dial to view Sky ➔");
+            auto now = id(ha_time).now();
+            const char* d_names[7] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+            int d_off[5][2] = {{0, 0}, {3, 2}, {5, 3}, {2, 1}, {1, 0}};
+
+            for (int i = 0; i < 5; i++) {
+              DayForecast df;
+              if (now.is_valid()) {
+                int d_idx = (now.day_of_week - 1 + i) % 7;
+                if (d_idx < 0) d_idx += 7;
+                df.day = (i == 0) ? "TODAY" : d_names[d_idx];
+              } else {
+                df.day = (i == 0) ? "TODAY" : d_names[(i + 5) % 7];
+              }
+              char h_buf[16], l_buf[16];
+              snprintf(h_buf, sizeof(h_buf), "%.0f", base_hi + d_off[i][0]);
+              snprintf(l_buf, sizeof(l_buf), "%.0f", base_lo + d_off[i][1]);
+              df.high = h_buf;
+              df.low = l_buf;
+              df.cond = cur_c;
+              fc_days.push_back(df);
+            }
+          }
+
+          auto draw_fc_glyph = [&](int gx, int gy, const std::string& c_name) {
+            if (c_name == "sunny" || c_name == "clear-day" || c_name == "clear") {
+              it.filled_circle(gx, gy, 8, Color(250, 185, 30));
+              it.circle(gx, gy, 11, Color(255, 215, 80));
+            } else if (c_name == "clear-night") {
+              it.filled_circle(gx + 2, gy, 8, Color(225, 235, 250));
+              it.filled_circle(gx, gy, 7, Color(0, 0, 0));
+            } else if (c_name == "partlycloudy") {
+              it.filled_circle(gx - 4, gy - 4, 6, Color(245, 175, 30));
+              it.filled_circle(gx + 2, gy + 1, 6, Color(175, 190, 210));
+              it.filled_circle(gx - 3, gy + 2, 5, Color(155, 170, 190));
+              it.filled_circle(gx + 7, gy + 3, 4, Color(145, 160, 180));
+            } else if (c_name == "rainy" || c_name == "pouring") {
+              it.filled_circle(gx, gy - 2, 6, Color(130, 145, 170));
+              it.filled_circle(gx - 5, gy - 1, 5, Color(115, 130, 155));
+              it.filled_circle(gx + 5, gy, 4, Color(115, 130, 155));
+              it.line(gx - 4, gy + 6, gx - 6, gy + 10, Color(70, 170, 245));
+              it.line(gx + 2, gy + 6, gx, gy + 10, Color(70, 170, 245));
+            } else if (c_name == "snowy" || c_name == "snowy-rainy") {
+              it.filled_circle(gx, gy - 2, 6, Color(160, 175, 195));
+              it.draw_pixel_at(gx - 3, gy + 7, Color(255, 255, 255));
+              it.draw_pixel_at(gx + 3, gy + 7, Color(255, 255, 255));
+              it.draw_pixel_at(gx, gy + 9, Color(255, 255, 255));
+            } else if (c_name == "lightning" || c_name == "lightning-rainy") {
+              it.filled_circle(gx, gy - 3, 6, Color(110, 120, 140));
+              it.line(gx - 1, gy + 3, gx - 3, gy + 7, Color(255, 220, 40));
+              it.line(gx - 3, gy + 7, gx + 1, gy + 7, Color(255, 220, 40));
+              it.line(gx + 1, gy + 7, gx - 1, gy + 11, Color(255, 220, 40));
+            } else if (c_name == "windy" || c_name == "windy-variant") {
+              it.line(gx - 8, gy - 2, gx + 6, gy - 2, Color(160, 185, 210));
+              it.line(gx - 6, gy + 2, gx + 8, gy + 2, Color(160, 185, 210));
+              it.line(gx - 4, gy + 6, gx + 4, gy + 6, Color(140, 165, 190));
+            } else {
+              it.filled_circle(gx, gy - 1, 7, Color(165, 180, 200));
+              it.filled_circle(gx - 5, gy + 1, 5, Color(145, 160, 180));
+              it.filled_circle(gx + 5, gy + 1, 5, Color(145, 160, 180));
+            }
+          };
+
+          auto format_fc_name = [](const std::string& c) -> std::string {
+            if (c == "partlycloudy") return "P.Cloudy";
+            if (c == "clear-night") return "Clear";
+            if (c == "sunny" || c == "clear-day") return "Sunny";
+            if (c == "rainy" || c == "pouring") return "Rain";
+            if (c == "cloudy") return "Cloudy";
+            if (c == "snowy") return "Snow";
+            if (c == "lightning" || c == "lightning-rainy") return "Storm";
+            if (c == "windy") return "Windy";
+            if (c.empty()) return "Fair";
+            std::string s = c;
+            s[0] = toupper(s[0]);
+            return s;
+          };
+
+          int row_ys[5] = {90, 140, 190, 240, 290};
+          for (size_t i = 0; i < fc_days.size() && i < 5; i++) {
+            int ry = row_ys[i];
+            const auto& d = fc_days[i];
+
+            // 1. Day of week at x = 88
+            it.print(88, ry, id(font_small), (i == 0) ? id(theme_primary) : id(col_white), TextAlign::CENTER, d.day.c_str());
+
+            // 2. Weather vector glyph at x = 165
+            draw_fc_glyph(165, ry, d.cond);
+
+            // 3. Condition short text at x = 188
+            std::string c_txt = format_fc_name(d.cond);
+            it.print(188, ry, id(font_micro), id(col_slate), TextAlign::LEFT, c_txt.c_str());
+
+            // 4. High / Low temperatures at x = 320..340
+            std::string hi_str = d.high + "°";
+            std::string lo_str = d.low + "°";
+            it.print(320, ry, id(font_small), id(col_white), TextAlign::RIGHT, hi_str.c_str());
+            it.print(330, ry, id(font_micro), id(col_dark_gray), TextAlign::CENTER, "/");
+            it.print(340, ry, id(font_small), id(col_slate), TextAlign::LEFT, lo_str.c_str());
+
+            // Horizontal row divider (except after last row)
+            if (i < 4) {
+              it.line(80, ry + 25, 386, ry + 25, id(col_dark_gray));
+            }
+          }
+          it.line(80, 315, 386, 315, id(col_dark_gray));
         }
+        // ----------------------------------------------------------------------
+        // SUBPAGE 2: SOLAR EPHEMERIS & HORIZON-TO-HORIZON SUN ARC
+        // ----------------------------------------------------------------------
+        else if (id(sky_weather_subpage) == 2) {
+          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "SOLAR EPHEMERIS");
+
+          float elev = id(ha_sun_elevation).state;
+          float azim = id(ha_sun_azimuth).state;
+
+          if (!isnan(elev)) {
+            char sol_st[32];
+            snprintf(sol_st, sizeof(sol_st), "Sun is %s (%s)", elev > 0 ? "Above Horizon" : "Below Horizon", elev > 0 ? "Day" : "Night");
+            it.print(cx, 74, id(font_small), elev > 0 ? id(col_warm_gold) : id(col_slate), TextAlign::CENTER, sol_st);
+          }
+
+          // Horizon-to-Horizon Celestial Arc (Center cx = 233, cy = 165, Radius = 120)
+          int arc_cy = 165;
+          int arc_r = 120;
+
+          // Horizon Line at y = 165
+          for (int hx = 95; hx <= 371; hx += 8) {
+            it.line(hx, arc_cy, hx + 4, arc_cy, id(col_gray));
+          }
+          it.print(80, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
+          it.print(386, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
+
+          // Day Arc (Above Horizon y < 165)
+          for (int a = 0; a <= 180; a += 3) {
+            float rad = (float)a * 3.14159265f / 180.0f;
+            int ax = cx - (int)((float)arc_r * cosf(rad));
+            int ay = arc_cy - (int)((float)arc_r * sinf(rad));
+            it.draw_pixel_at(ax, ay, Color(180, 140, 40));
+            it.draw_pixel_at(ax, ay + 1, Color(100, 75, 20));
+          }
+
+          // Night Arc (Below Horizon y > 165)
+          for (int a = 0; a <= 180; a += 5) {
+            float rad = (float)a * 3.14159265f / 180.0f;
+            int ax = cx - (int)((float)arc_r * cosf(rad));
+            int ay = arc_cy + (int)((float)arc_r * sinf(rad));
+            it.draw_pixel_at(ax, ay, Color(35, 50, 75));
+          }
+
+          // Current Sun Position along the Arc
+          if (!isnan(elev)) {
+            if (elev >= 0.0f) {
+              // Daytime position: map azimuth 60° (East) to 300° (West)
+              float day_prog = 0.5f;
+              if (!isnan(azim)) {
+                if (azim >= 60.0f && azim <= 300.0f) day_prog = (azim - 60.0f) / 240.0f;
+                else if (azim < 60.0f) day_prog = 0.05f;
+                else day_prog = 0.95f;
+              }
+              float theta = day_prog * 3.14159265f;
+              int sx = cx - (int)((float)arc_r * cosf(theta));
+              int sy = arc_cy - (int)((float)arc_r * sinf(theta));
+
+              it.filled_circle(sx, sy, 11, Color(245, 175, 30));
+              it.filled_circle(sx, sy, 6, Color(255, 235, 140));
+              it.filled_circle(sx, sy, 3, Color(255, 255, 255));
+              // Cross rays
+              it.line(sx - 16, sy, sx + 16, sy, Color(255, 200, 50));
+              it.line(sx, sy - 16, sx, sy + 16, Color(255, 200, 50));
+            } else {
+              // Nighttime position on lower arc
+              float night_prog = 0.5f;
+              if (!isnan(azim)) {
+                if (azim > 270.0f) night_prog = (azim - 270.0f) / 180.0f;
+                else if (azim < 90.0f) night_prog = 0.5f + (azim / 180.0f);
+              }
+              float theta = night_prog * 3.14159265f;
+              int sx = cx - (int)((float)arc_r * cosf(theta));
+              int sy = arc_cy + (int)((float)arc_r * sinf(theta));
+
+              it.filled_circle(sx, sy, 8, Color(160, 80, 25));
+              it.filled_circle(sx, sy, 4, Color(225, 135, 50));
+            }
+          }
+
+          // Horizontal divider at y = 205
+          it.line(80, 205, 386, 205, id(col_dark_gray));
+
+          // Telemetry Row 1 (y: 215..270): Sunrise and Sunset
+          std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
+          std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
+
+          it.print(145, 222, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
+          it.print(145, 252, id(font_date), id(col_warm_gold), TextAlign::CENTER, s_rise.c_str());
+
+          it.line(cx, 218, cx, 332, id(col_dark_gray));
+
+          it.print(321, 222, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
+          it.print(321, 252, id(font_date), id(col_warm_gold), TextAlign::CENTER, s_set.c_str());
+
+          // Horizontal divider at y = 278
+          it.line(80, 278, 386, 278, id(col_dark_gray));
+
+          // Telemetry Row 2 (y: 285..335): Solar Noon and Elevation
+          std::string s_noon = format_iso_time(id(ha_sun_next_noon).state, id(is_24h_format));
+          it.print(145, 290, id(font_small), id(col_slate), TextAlign::CENTER, "SOLAR NOON");
+          it.print(145, 320, id(font_date), id(col_white), TextAlign::CENTER, s_noon.c_str());
+
+          it.print(321, 290, id(font_small), id(col_slate), TextAlign::CENTER, "ELEVATION");
+          char elev_buf[24];
+          if (!isnan(elev)) snprintf(elev_buf, sizeof(elev_buf), "%.0f°", elev);
+          else snprintf(elev_buf, sizeof(elev_buf), "--");
+          it.print(321, 320, id(font_date), id(col_white), TextAlign::CENTER, elev_buf);
+        }
+        // ----------------------------------------------------------------------
+        // SUBPAGE 3: DEDICATED LUNAR EPHEMERIS & DETAILED MOON GLOBE
+        // ----------------------------------------------------------------------
+        else if (id(sky_weather_subpage) == 3) {
+          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "LUNAR EPHEMERIS");
+
+          int moon_cx = cx;
+          int moon_cy = 135;
+          int moon_r = 54;
+
+          std::string mp = id(ha_moon_phase).state;
+          float p_val = 0.5f;
+          const char* mp_label = "Moon Phase";
+          const char* mp_cycle = "Waxing";
+          int illum_pct = 50;
+
+          if (mp == "new_moon") { p_val = 0.0f; mp_label = "New Moon"; mp_cycle = "New"; illum_pct = 0; }
+          else if (mp == "waxing_crescent") { p_val = 0.15f; mp_label = "Waxing Crescent"; mp_cycle = "Waxing"; illum_pct = 25; }
+          else if (mp == "first_quarter") { p_val = 0.25f; mp_label = "First Quarter"; mp_cycle = "Waxing"; illum_pct = 50; }
+          else if (mp == "waxing_gibbous") { p_val = 0.38f; mp_label = "Waxing Gibbous"; mp_cycle = "Waxing"; illum_pct = 75; }
+          else if (mp == "full_moon") { p_val = 0.50f; mp_label = "Full Moon"; mp_cycle = "Full"; illum_pct = 100; }
+          else if (mp == "waning_gibbous") { p_val = 0.62f; mp_label = "Waning Gibbous"; mp_cycle = "Waning"; illum_pct = 78; }
+          else if (mp == "last_quarter" || mp == "third_quarter") { p_val = 0.75f; mp_label = "Last Quarter"; mp_cycle = "Waning"; illum_pct = 50; }
+          else if (mp == "waning_crescent") { p_val = 0.88f; mp_label = "Waning Crescent"; mp_cycle = "Waning"; illum_pct = 22; }
+          else if (!mp.empty() && mp != "unknown" && mp != "unavailable") { mp_label = mp.c_str(); }
+
+          auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
+
+          // Render High-Detail Lunar Disc with Authentic Basaltic Maria & Soft Terminator
+          for (int my = -moon_r; my <= moon_r; my++) {
+            int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
+            float x_term;
+            if (p_val <= 0.5f) {
+              x_term = (float)w_line * cosf(p_val * 2.0f * 3.14159265f);
+            } else {
+              x_term = - (float)w_line * cosf(p_val * 2.0f * 3.14159265f);
+            }
+
+            for (int mx = -w_line; mx <= w_line; mx++) {
+              float shadow = 0.0f;
+              if (p_val == 0.0f || p_val == 1.0f) {
+                shadow = 0.0f;
+              } else if (p_val == 0.5f) {
+                shadow = 1.0f;
+              } else if (p_val < 0.5f) {
+                float dist = (float)mx - x_term;
+                if (dist > 3.0f) shadow = 1.0f;
+                else if (dist > -3.0f) shadow = (dist + 3.0f) / 6.0f;
+                else shadow = 0.0f;
+              } else {
+                float dist = x_term - (float)mx;
+                if (dist > 3.0f) shadow = 1.0f;
+                else if (dist > -3.0f) shadow = (dist + 3.0f) / 6.0f;
+                else shadow = 0.0f;
+              }
+
+              // Base Highland Regolith: Calibrated Warm Lunar Gray (not washed out)
+              float base_lum = 195.0f;
+
+              // Authentic Lunar Maria (Dark Basalt Plains)
+              if (d2(mx, my, -18, -18) < 196) base_lum -= 55.0f;      // Mare Imbrium
+              else if (d2(mx, my, -26, 4) < 256) base_lum -= 50.0f;   // Oceanus Procellarum
+              else if (d2(mx, my, 10, -16) < 121) base_lum -= 52.0f;  // Mare Serenitatis
+              else if (d2(mx, my, 18, -2) < 144) base_lum -= 54.0f;   // Mare Tranquillitatis
+              else if (d2(mx, my, 20, 16) < 144) base_lum -= 48.0f;   // Mare Fecunditatis
+              else if (d2(mx, my, -12, 20) < 169) base_lum -= 46.0f;  // Mare Nubium
+
+              // Tycho Crater glint & ray center
+              if (d2(mx, my, -6, 36) < 25) base_lum = 238.0f;
+
+              float final_lum = base_lum * shadow;
+              if (shadow < 0.08f) final_lum = 14.0f;
+
+              uint8_t c = (uint8_t)final_lum;
+              Color p_col = (shadow < 0.08f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
+              it.draw_pixel_at(moon_cx + mx, moon_cy + my, p_col);
+            }
+          }
+          it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
+
+          // Prominent Phase Title at y = 224
+          it.print(cx, 224, id(font_chrono_time), id(col_white), TextAlign::CENTER, mp_label);
+
+          // Horizontal divider at y = 252
+          it.line(80, 252, 386, 252, id(col_dark_gray));
+
+          // Telemetry Columns
+          it.print(145, 270, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
+          char illum_buf[16];
+          snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
+          it.print(145, 302, id(font_date), id(col_white), TextAlign::CENTER, illum_buf);
+
+          it.line(cx, 260, cx, 330, id(col_dark_gray));
+
+          it.print(321, 270, id(font_small), id(col_slate), TextAlign::CENTER, "CYCLE STATUS");
+          it.print(321, 302, id(font_date), id(theme_primary), TextAlign::CENTER, mp_cycle);
+        }
+
+        // ==============================================================================
+        // SUBPAGE TABS (Positioned at y = 374, above Universal Bottom Navigation Bar)
+        // 3 Tactile Pills: [ WEATHER ]   [ SUN ]   [ MOON ]
+        // ==============================================================================
+        auto draw_tab = [&](int x1, int x2, int y_mid, int r, bool active, const char* label) {
+          Color border_c = active ? id(theme_primary) : id(col_gray);
+          Color bg_c = active ? id(theme_primary) : id(col_dark_gray);
+          Color text_c = active ? id(col_white) : id(col_slate);
+
+          it.filled_circle(x1, y_mid, r, bg_c);
+          it.filled_circle(x2, y_mid, r, bg_c);
+          it.filled_rectangle(x1, y_mid - r, x2 - x1, 2 * r + 1, bg_c);
+
+          it.circle(x1, y_mid, r, border_c);
+          it.circle(x2, y_mid, r, border_c);
+          it.line(x1, y_mid - r, x2, y_mid - r, border_c);
+          it.line(x1, y_mid + r, x2, y_mid + r, border_c);
+
+          it.print((x1 + x2) / 2, y_mid, id(font_micro), text_c, TextAlign::CENTER, label);
+        };
+
+        draw_tab(74, 128, 374, 13, id(sky_weather_subpage) == 0, "CURRENT");
+        draw_tab(162, 216, 374, 13, id(sky_weather_subpage) == 1, "FORECAST");
+        draw_tab(250, 304, 374, 13, id(sky_weather_subpage) == 2, "SUN");
+        draw_tab(338, 392, 374, 13, id(sky_weather_subpage) == 3, "MOON");
       }
       // ==============================================================================
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
@@ -6281,9 +6633,30 @@ touchscreen:
                 }
               }
             } else if (id(gui_page) == 5) {
-              // Page 5: Sky & Weather Suite
-              if (touch.y >= 30 && touch.y < 380) {
-                id(sky_weather_subpage) = (id(sky_weather_subpage) == 0) ? 1 : 0;
+              // Page 5: Sky & Weather 4-View Suite Touch Routing
+              // Zone 1: Subpage Tabs Bar (y: 355..398)
+              if (touch.y >= 355 && touch.y < 398) {
+                if (touch.x < 145) {
+                  id(sky_weather_subpage) = 0; // CURRENT
+                } else if (touch.x < 233) {
+                  id(sky_weather_subpage) = 1; // FORECAST
+                } else if (touch.x < 321) {
+                  id(sky_weather_subpage) = 2; // SUN
+                } else {
+                  id(sky_weather_subpage) = 3; // MOON
+                }
+                id(disp1).update();
+                return;
+              }
+              // Zone 2: Interactive Upper-Right Moon Shortcut in Current View (x: 330..410, y: 40..115)
+              if (id(sky_weather_subpage) == 0 && touch.x >= 330 && touch.x <= 410 && touch.y >= 40 && touch.y <= 115) {
+                id(sky_weather_subpage) = 3; // Jump directly to Moon View!
+                id(disp1).update();
+                return;
+              }
+              // Zone 3: Main Screen Tap (y: 115..354) -> Cycle through views (0 -> 1 -> 2 -> 3 -> 0)
+              if (touch.y >= 115 && touch.y < 355) {
+                id(sky_weather_subpage) = (id(sky_weather_subpage) + 1) % 4;
                 id(disp1).update();
                 return;
               }

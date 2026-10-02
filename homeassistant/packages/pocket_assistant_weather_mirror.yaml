@@ -1,0 +1,47 @@
+# ==============================================================================
+# 🌤️ Home Assistant Companion Package: Pocket Assistant Weather & Forecast Mirror
+# Extracts daily high, low, and 5-day daily forecast for Pocket Assistant v1.1
+# Place this file in your Home Assistant configuration directory under packages/
+# ==============================================================================
+
+template:
+  - trigger:
+      - trigger: time_pattern
+        hours: "/1"
+      - trigger: homeassistant
+        event: start
+    action:
+      - action: weather.get_forecasts
+        data:
+          type: daily
+        target:
+          entity_id: weather.oakland
+        response_variable: daily_forecast
+    sensor:
+      - name: "Pocket Assistant Weather High"
+        unique_id: pocket_assistant_weather_high
+        state: >-
+          {{ daily_forecast['weather.oakland']['forecast'][0]['temperature'] | default(None) }}
+        unit_of_measurement: "°F"
+
+      - name: "Pocket Assistant Weather Low"
+        unique_id: pocket_assistant_weather_low
+        state: >-
+          {{ daily_forecast['weather.oakland']['forecast'][0]['templow'] | default(None) }}
+        unit_of_measurement: "°F"
+
+      - name: "Pocket Assistant Weather Forecast 5D"
+        unique_id: pocket_assistant_weather_forecast_5d
+        state: >-
+          {% set f = daily_forecast['weather.oakland']['forecast'] %}
+          {% set ns = namespace(items=[]) %}
+          {% for i in range(1, 6) %}
+            {% if f | length > i %}
+              {% set d = (as_datetime(f[i]['datetime'])).strftime('%a') | upper %}
+              {% set h = f[i]['temperature'] | round(0) %}
+              {% set l = f[i]['templow'] | round(0) %}
+              {% set c = f[i]['condition'] %}
+              {% set ns.items = ns.items + [d ~ ':' ~ h ~ ':' ~ l ~ ':' ~ c] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.items | join(';') }}

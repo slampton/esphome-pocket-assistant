@@ -67,7 +67,7 @@ packages:
 * **Zero-Dead-Zone Touch Handling**: Continuous touch boundary tessellation across the entire round screen prevents dropped taps and misdirected inputs.
 * **Touch Priority Yielding**: Hardware touch interrupt pin (GPIO11) is monitored during rendering; display redraws yield instantly when a touch is detected, eliminating input latency.
 * **Radial OTA Progress Indicator**: Full-screen 360° circular progress arc with smooth 10 FPS interpolation and an orbiting pip during firmware updates.
-* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather celestial ephemeris and atmospheric suite with parametric vector moon phase, 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), and a 2-tier hierarchical system diagnostic hub.
+* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions, 5-Day forecast, 180° Sun Arc ephemeris, and 108px detailed Lunar maria globe), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), and a 2-tier hierarchical system diagnostic hub.
 
 ---
 
@@ -108,7 +108,7 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 | **Screen Tap (Center)** | Music Player | Toggles Play / Pause. |
 | **Screen Tap (Right Flank)** | Music Player | Volume Up (+, top right), Volume Down (-, bottom right), Next Track (▶\|, middle right). |
 | **Screen Tap (Left Flank)** | Music Player | Previous Track (\|◀, middle left), Music Menu (☰, bottom left). |
-| **Screen Tap (Dial)** | Sky & Weather Page | Toggles between Celestial Ephemeris (Sky) and Environmental Telemetry (Weather) views. |
+| **Subpage Tabs / Screen Tap** | Sky & Weather Page | 4-View Navigation: Dedicated tabs ([ CURRENT ] [ FORECAST ] [ SUN ] [ MOON ]), central screen tap cycle, and upper-right night sky Moon shortcut to Moon view. |
 | **Bottom Bar (< / >)** | Main App Pages | Navigates through app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ Sky & Weather $\leftrightarrow$ System). |
 
 ---
