@@ -67,7 +67,7 @@ packages:
 * **Zero-Dead-Zone Touch Handling**: Continuous touch boundary tessellation across the entire round screen prevents dropped taps and misdirected inputs.
 * **Touch Priority Yielding**: Hardware touch interrupt pin (GPIO11) is monitored during rendering; display redraws yield instantly when a touch is detected, eliminating input latency.
 * **Radial OTA Progress Indicator**: Full-screen 360° circular progress arc with smooth 10 FPS interpolation and an orbiting pip during firmware updates.
-* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with buffered hero temp, tight 3-Day aligned forecast, lowered Solar Cycle arc, and cartoon-realistic Moon with feathered terminator), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), and a 2-tier hierarchical system diagnostic hub.
+* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with buffered hero temp, tight 4-Day aligned forecast, lowered Sun arc with daytime marker, and dual-mode Moon with full-screen backdrop toggle), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), and a 2-tier hierarchical system diagnostic hub.
 
 ---
 
@@ -108,7 +108,7 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 | **Screen Tap (Center)** | Music Player | Toggles Play / Pause. |
 | **Screen Tap (Right Flank)** | Music Player | Volume Up (+, top right), Volume Down (-, bottom right), Next Track (▶\|, middle right). |
 | **Screen Tap (Left Flank)** | Music Player | Previous Track (\|◀, middle left), Music Menu (☰, bottom left). |
-| **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 system-sized pill buttons ([ Current | Forecast ] / [ Sun | Moon ]), central screen tap cycle, and upper-right night sky Moon shortcut to Moon view. |
+| **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 system-sized pill buttons ([ Current | Forecast ] / [ Sun | Moon ]), central screen tap toggles full-screen moon backdrop on Moon view, and upper-right night sky Moon shortcut. |
 | **Bottom Bar (< / >)** | Main App Pages | Navigates through app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ Sky & Weather $\leftrightarrow$ System). |
 
 ---
@@ -133,7 +133,8 @@ esphome-pocket-assistant/
     │   └── script/
     │       └── music_assistant_browse.yaml    # Script Blueprint for MA library browsing
     └── packages/
-        └── music_assistant_esphome_mirror.yaml # Drop-in HA helper & sensor package
+        ├── music_assistant_esphome_mirror.yaml # Drop-in HA helper & sensor package
+        └── pocket_assistant_weather_mirror.yaml # Companion HA weather mirror package
 ```
 
 ---

@@ -269,6 +269,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: moon_fullscreen_mode
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: return_page
     type: int
     restore_value: no
@@ -5046,12 +5050,12 @@ display:
         }
       } else if (id(gui_page) == 5) {
         // ==============================================================================
-        // PAGE 5: SKY & WEATHER SUITE (v1.3 SYSTEM REFINEMENT)
+        // PAGE 5: SKY & WEATHER SUITE (v1.1 REFINEMENTS)
         // 4-View Horological Instrument:
-        //   Subpage 0: Current Conditions (Hero temp nestled with buffer, Humidity & Wind)
-        //   Subpage 1: Forecast (Standardized title at y=56, tight 3-day forecast, perfectly aligned)
-        //   Subpage 2: Sun (Title "SUN" at y=56, "Below/Above Horizon", arc lowered, daytime-only sun)
-        //   Subpage 3: Moon (Title "MOON" at y=56, cartoon-realistic maria globe, soft terminator, astronomical phase)
+        //   Subpage 0: Current Conditions (Hero temp at y=74 with buffer, consistent fonts)
+        //   Subpage 1: Forecast (Standardized title at y=56, tight 4-day forecast, centered alignment)
+        //   Subpage 2: Sun (Title "SUN" at y=56, Below/Above Horizon, lowered arc, daytime-only sun)
+        //   Subpage 3: Moon (Title "MOON" at y=56, normal & full-screen modes, soft feathered terminator)
         // Navigation: 2x2 System-Sized Pill Grid at bottom [ Current | Forecast ] / [ Sun | Moon ]
         // ==============================================================================
         it.circle(cx, cy, 230, id(col_dark_gray));
@@ -5127,7 +5131,7 @@ display:
               }
             }
 
-            // Interactive Corner Moon moved down & left (cx = 345, cy = 88, r = 15) - Tap jumps to Moon View!
+            // Interactive Corner Moon moved left and down (cx = 345, cy = 88, r = 15)
             int om_cx = 345, om_cy = 88, om_r = 15;
             it.filled_circle(om_cx, om_cy, om_r, Color(18, 22, 32));
             it.circle(om_cx, om_cy, om_r, Color(60, 75, 100));
@@ -5146,7 +5150,7 @@ display:
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
           it.print(cx, 74, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
-          // Condition Subtitle at y = 126 (added comfortable buffer below hero temperature)
+          // Condition Subtitle brought down to y = 132 for extra buffer below hero temperature
           auto format_cond = [](const std::string& c_in) -> std::string {
             if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
             std::string s = c_in;
@@ -5157,9 +5161,9 @@ display:
             return s;
           };
           std::string cond_title = format_cond(cond);
-          it.print(cx, 126, id(font_date), id(theme_primary), TextAlign::CENTER, cond_title.c_str());
+          it.print(cx, 132, id(font_date), id(theme_primary), TextAlign::CENTER, cond_title.c_str());
 
-          // Feels like / High-Low Line at y = 156 (font_small, consistent label size)
+          // Feels like / High-Low Line at y = 160 (font_small, 21pt)
           char fl_buf[64];
           if (!isnan(t_high) && !isnan(t_low) && !isnan(app_temp)) {
             snprintf(fl_buf, sizeof(fl_buf), "Feels %.0f°  •  H: %.0f°  L: %.0f°", app_temp, t_high, t_low);
@@ -5168,21 +5172,21 @@ display:
           } else {
             snprintf(fl_buf, sizeof(fl_buf), "Oakland, CA");
           }
-          it.print(cx, 156, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
+          it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
 
-          // Subtle horizontal divider at y = 180
-          it.line(80, 180, 386, 180, id(col_dark_gray));
+          // Subtle horizontal divider at y = 184
+          it.line(80, 184, 386, 184, id(col_dark_gray));
 
           // ----------------------------------------------------
-          // PRIMARY METRICS: HUMIDITY & WIND ONLY (No Line Two)
-          // Consistent font sizes: font_small for titles, font_date for data values
+          // PRIMARY METRICS: HUMIDITY & WIND ONLY
+          // Titles in font_small (matching Feels like), Data in font_date
           // ----------------------------------------------------
           float hum = id(ha_weather_humidity).state;
           float wspd = id(ha_weather_wind_speed).state;
           float wbear = id(ha_weather_wind_bearing).state;
 
           // Column 1: HUMIDITY (Left x = 145)
-          it.print(145, 206, id(font_small), id(col_slate), TextAlign::CENTER, "HUMIDITY");
+          it.print(145, 208, id(font_small), id(col_slate), TextAlign::CENTER, "HUMIDITY");
           char hum_str[16];
           if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
           else snprintf(hum_str, sizeof(hum_str), "--");
@@ -5192,7 +5196,7 @@ display:
           it.line(cx, 196, cx, 260, id(col_dark_gray));
 
           // Column 2: WIND (Right x = 321, font_date matching humidity)
-          it.print(321, 206, id(font_small), id(col_slate), TextAlign::CENTER, "WIND");
+          it.print(321, 208, id(font_small), id(col_slate), TextAlign::CENTER, "WIND");
           char wind_str[32];
           if (!isnan(wspd)) {
             snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
@@ -5205,7 +5209,7 @@ display:
           it.line(80, 274, 386, 274, id(col_dark_gray));
         }
         // ----------------------------------------------------------------------
-        // SUBPAGE 1: FORECAST (3-DAY FORECAST, TIGHTER SPACING & ALIGNED)
+        // SUBPAGE 1: FORECAST (4-DAY FORECAST: TODAY + 3 MORE DAYS)
         // ----------------------------------------------------------------------
         else if (id(sky_weather_subpage) == 1) {
           // Standardized Title at y = 56
@@ -5223,7 +5227,7 @@ display:
           std::string raw_fc = id(ha_weather_forecast_5d).state;
           if (!raw_fc.empty() && raw_fc != "unknown" && raw_fc != "unavailable" && raw_fc.find(':') != std::string::npos) {
             size_t start = 0;
-            while (start < raw_fc.length() && fc_days.size() < 3) {
+            while (start < raw_fc.length() && fc_days.size() < 4) {
               size_t end = raw_fc.find(';', start);
               if (end == std::string::npos) end = raw_fc.length();
               std::string token = raw_fc.substr(start, end - start);
@@ -5264,9 +5268,9 @@ display:
 
             auto now = id(ha_time).now();
             const char* d_names[7] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
-            int d_off[3][2] = {{0, 0}, {3, 2}, {5, 3}};
+            int d_off[4][2] = {{0, 0}, {3, 2}, {5, 3}, {4, 2}};
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 4; i++) {
               DayForecast df;
               if (now.is_valid()) {
                 int d_idx = (now.day_of_week - 1 + i) % 7;
@@ -5339,9 +5343,9 @@ display:
             return s;
           };
 
-          // Tighter vertical rows (y = 110, 160, 210) for generous lower buffer
-          int row_ys[3] = {110, 160, 210};
-          for (size_t i = 0; i < fc_days.size() && i < 3; i++) {
+          // 4 Tighter rows (y = 100, 142, 184, 226) for comfortable lower buffer
+          int row_ys[4] = {100, 142, 184, 226};
+          for (size_t i = 0; i < fc_days.size() && i < 4; i++) {
             int ry = row_ys[i];
             const auto& d = fc_days[i];
 
@@ -5363,14 +5367,14 @@ display:
             it.print(345, ry, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, lo_str.c_str());
 
             // Horizontal row divider
-            if (i < 2) {
-              it.line(80, ry + 25, 386, ry + 25, id(col_dark_gray));
+            if (i < 3) {
+              it.line(80, ry + 21, 386, ry + 21, id(col_dark_gray));
             }
           }
-          it.line(80, 248, 386, 248, id(col_dark_gray));
+          it.line(80, 252, 386, 252, id(col_dark_gray));
         }
         // ----------------------------------------------------------------------
-        // SUBPAGE 2: SUN (TITLE "SUN", LOWERED ARC, DAYTIME-ONLY SUN POS)
+        // SUBPAGE 2: SUN (TITLE "SUN", BUFFERED LOWER ARC, DAYTIME-ONLY SUN)
         // ----------------------------------------------------------------------
         else if (id(sky_weather_subpage) == 2) {
           // Standardized Title at y = 56
@@ -5384,18 +5388,18 @@ display:
             it.print(cx, 80, id(font_small), elev > 0.0f ? id(col_warm_gold) : id(col_slate), TextAlign::CENTER, sol_st);
           }
 
-          // Lowered Horizon-to-Horizon Celestial Arc (Center cx = 233, cy = 168, Radius = 76)
-          int arc_cy = 168;
-          int arc_r = 76;
+          // Lowered Horizon-to-Horizon Celestial Arc with comfortable buffer (Center cx = 233, cy = 176, Radius = 70)
+          int arc_cy = 176;
+          int arc_r = 70;
 
-          // Horizon Line at y = 168
-          for (int hx = 135; hx <= 331; hx += 8) {
+          // Horizon Line at y = 176
+          for (int hx = 140; hx <= 326; hx += 8) {
             it.line(hx, arc_cy, hx + 4, arc_cy, id(col_gray));
           }
-          it.print(120, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
-          it.print(346, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
+          it.print(125, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
+          it.print(341, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
 
-          // Day Arc (Above Horizon y < 168)
+          // Day Arc (Above Horizon y < 176)
           for (int a = 0; a <= 180; a += 3) {
             float rad = (float)a * 3.14159265f / 180.0f;
             int ax = cx - (int)((float)arc_r * cosf(rad));
@@ -5404,7 +5408,7 @@ display:
             it.draw_pixel_at(ax, ay + 1, Color(100, 75, 20));
           }
 
-          // Night Arc (Below Horizon y > 168)
+          // Night Arc (Below Horizon y > 176)
           for (int a = 0; a <= 180; a += 5) {
             float rad = (float)a * 3.14159265f / 180.0f;
             int ax = cx - (int)((float)arc_r * cosf(rad));
@@ -5431,35 +5435,28 @@ display:
             it.line(sx, sy - 13, sx, sy + 13, Color(255, 200, 50));
           }
 
-          // Horizontal divider at y = 198
-          it.line(80, 198, 386, 198, id(col_dark_gray));
+          // Horizontal divider at y = 202
+          it.line(80, 202, 386, 202, id(col_dark_gray));
 
-          // Telemetry Row: Sunrise and Sunset Only (Moved down to y = 222/248)
+          // Telemetry Row: Sunrise and Sunset (Titles in font_small, Times bumped up to font_date)
           std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
           std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
 
-          it.print(145, 222, id(font_micro), id(col_slate), TextAlign::CENTER, "SUNRISE");
-          it.print(145, 248, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_rise.c_str());
+          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
+          it.print(145, 248, id(font_date), id(col_warm_gold), TextAlign::CENTER, s_rise.c_str());
 
-          it.line(cx, 212, cx, 260, id(col_dark_gray));
+          it.line(cx, 210, cx, 260, id(col_dark_gray));
 
-          it.print(321, 222, id(font_micro), id(col_slate), TextAlign::CENTER, "SUNSET");
-          it.print(321, 248, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_set.c_str());
+          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
+          it.print(321, 248, id(font_date), id(col_warm_gold), TextAlign::CENTER, s_set.c_str());
 
-          // Divider at y = 274 above bottom 2x2 buttons
-          it.line(80, 274, 386, 274, id(col_dark_gray));
+          // Divider at y = 272 above bottom 2x2 buttons
+          it.line(80, 272, 386, 272, id(col_dark_gray));
         }
         // ----------------------------------------------------------------------
-        // SUBPAGE 3: MOON (TITLE "MOON", REALISTIC CARTOON LUNAR MARIA & FEATHERED SHADOW)
+        // SUBPAGE 3: MOON (STANDARD VIEW & HERO FULL-SCREEN BACKDROP MODE)
         // ----------------------------------------------------------------------
         else if (id(sky_weather_subpage) == 3) {
-          // Standardized Title at y = 56
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
-
-          int moon_cx = cx;
-          int moon_cy = 138;
-          int moon_r = 44;
-
           // Continuous astronomical synodic calculation from synchronized clock
           auto now = id(ha_time).now();
           double cycle = 0.5;
@@ -5495,80 +5492,128 @@ display:
 
           auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
 
-          // Render Cartoon-Realistic Lunar Disc: Authentic Maria + Smooth Feathered Terminator
-          for (int my = -moon_r; my <= moon_r; my++) {
-            int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
-            // Correct astronomical terminator chord offset
-            float x_term = - (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
+          // MODE A: HERO FULL-SCREEN MOON BACKDROP
+          if (id(moon_fullscreen_mode)) {
+            int fs_cx = cx;
+            int fs_cy = 185;
+            int fs_r = 142;
+            float scale = 142.0f / 44.0f;
 
-            for (int mx = -w_line; mx <= w_line; mx++) {
-              // 3D Spherical limb darkening
-              float r_dist = sqrtf((float)(mx * mx + my * my));
-              float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
-              float base_lum = 205.0f + 25.0f * sphere_dim;
+            // Render Giant Full-Screen Moon
+            for (int my = -fs_r; my <= fs_r; my++) {
+              int w_line = (int)sqrtf((float)(fs_r * fs_r - my * my));
+              float x_term = - (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
 
-              // Authentic Lunar Maria (Dark Basalt Formations)
-              if (d2(mx, my, -14, -14) < 144) base_lum -= 58.0f;     // Mare Imbrium
-              else if (d2(mx, my, -22, 2) < 225) base_lum -= 52.0f;  // Oceanus Procellarum
-              else if (d2(mx, my, 8, -13) < 100) base_lum -= 54.0f;  // Mare Serenitatis
-              else if (d2(mx, my, 16, -2) < 121) base_lum -= 56.0f;  // Mare Tranquillitatis
-              else if (d2(mx, my, 25, -10) < 49) base_lum -= 60.0f;  // Mare Crisium (isolated oval)
-              else if (d2(mx, my, 18, 12) < 121) base_lum -= 50.0f;  // Mare Fecunditatis
-              else if (d2(mx, my, -10, 16) < 121) base_lum -= 48.0f; // Mare Nubium
+              for (int mx = -w_line; mx <= w_line; mx++) {
+                float r_dist = sqrtf((float)(mx * mx + my * my));
+                float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((fs_r + 2) * (fs_r + 2))));
+                float base_lum = 205.0f + 25.0f * sphere_dim;
 
-              // Tycho Crater & South polar bright rays
-              if (d2(mx, my, -4, 28) < 16) base_lum = 245.0f;
-              else if (d2(mx, my, -4, 28) < 144 && abs((my - 28) - 1.5f * (mx + 4)) < 2.0f) base_lum += 24.0f;
+                // Scaled Maria
+                if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
+                else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
+                else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
+                else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
+                else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
+                else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
+                else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
 
-              // Soft, feathered terminator shadow penumbra (smooth, not harsh)
-              float dist_to_term;
-              if (cycle <= 0.5) {
-                dist_to_term = (float)mx - x_term; // Waxing: right side illuminated
-              } else {
-                dist_to_term = x_term - (float)mx; // Waning: left side illuminated
+                // Tycho crater
+                if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(16 * scale * scale)) base_lum = 245.0f;
+
+                float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
+                float penumbra = 14.0f;
+                float shadow;
+                if (dist_to_term > penumbra) shadow = 1.0f;
+                else if (dist_to_term < -penumbra) shadow = 0.0f;
+                else {
+                  float t = (dist_to_term + penumbra) / (2.0f * penumbra);
+                  shadow = t * t * (3.0f - 2.0f * t);
+                }
+
+                float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
+                uint8_t c = (uint8_t)fminf(255.0f, final_lum);
+                Color p_col = (shadow < 0.04f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
+                it.draw_pixel_at(fs_cx + mx, fs_cy + my, p_col);
               }
-
-              float penumbra = 8.0f;
-              float shadow;
-              if (dist_to_term > penumbra) shadow = 1.0f;
-              else if (dist_to_term < -penumbra) shadow = 0.0f;
-              else {
-                float t = (dist_to_term + penumbra) / (2.0f * penumbra);
-                shadow = t * t * (3.0f - 2.0f * t); // Smoothstep hermite
-              }
-
-              // Blend lit regolith with deep space earthshine
-              float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
-              uint8_t c = (uint8_t)fminf(255.0f, final_lum);
-              Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
-              it.draw_pixel_at(moon_cx + mx, moon_cy + my, p_col);
             }
+            it.circle(fs_cx, fs_cy, fs_r, Color(45, 55, 70));
+
+            // Minimalist Top Overlay
+            it.print(cx, 44, id(font_small), id(theme_primary), TextAlign::CENTER, "MOON");
+            char fs_info[48];
+            snprintf(fs_info, sizeof(fs_info), "%s  •  %d%%", mp_label.c_str(), illum_pct);
+            it.print(cx, 70, id(font_date), id(col_white), TextAlign::CENTER, fs_info);
+
+          } else {
+            // MODE B: STANDARD LUNAR TELEMETRY VIEW
+            it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
+
+            int moon_cx = cx;
+            int moon_cy = 136;
+            int moon_r = 44;
+
+            // Render Standard 88px Detailed Moon Disc
+            for (int my = -moon_r; my <= moon_r; my++) {
+              int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
+              float x_term = - (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
+
+              for (int mx = -w_line; mx <= w_line; mx++) {
+                float r_dist = sqrtf((float)(mx * mx + my * my));
+                float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
+                float base_lum = 205.0f + 25.0f * sphere_dim;
+
+                if (d2(mx, my, -14, -14) < 144) base_lum -= 58.0f;
+                else if (d2(mx, my, -22, 2) < 225) base_lum -= 52.0f;
+                else if (d2(mx, my, 8, -13) < 100) base_lum -= 54.0f;
+                else if (d2(mx, my, 16, -2) < 121) base_lum -= 56.0f;
+                else if (d2(mx, my, 25, -10) < 49) base_lum -= 60.0f;
+                else if (d2(mx, my, 18, 12) < 121) base_lum -= 50.0f;
+                else if (d2(mx, my, -10, 16) < 121) base_lum -= 48.0f;
+
+                if (d2(mx, my, -4, 28) < 16) base_lum = 245.0f;
+                else if (d2(mx, my, -4, 28) < 144 && abs((my - 28) - 1.5f * (mx + 4)) < 2.0f) base_lum += 24.0f;
+
+                float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
+                float penumbra = 8.0f;
+                float shadow;
+                if (dist_to_term > penumbra) shadow = 1.0f;
+                else if (dist_to_term < -penumbra) shadow = 0.0f;
+                else {
+                  float t = (dist_to_term + penumbra) / (2.0f * penumbra);
+                  shadow = t * t * (3.0f - 2.0f * t);
+                }
+
+                float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
+                uint8_t c = (uint8_t)fminf(255.0f, final_lum);
+                Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
+                it.draw_pixel_at(moon_cx + mx, moon_cy + my, p_col);
+              }
+            }
+            it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
+
+            // Horizontal divider at y = 196
+            it.line(80, 196, 386, 196, id(col_dark_gray));
+
+            // Telemetry Row: Titles in font_small (matching current conditions), Data in font_date
+            it.print(145, 216, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
+            char illum_buf[16];
+            snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
+            it.print(145, 244, id(font_date), id(col_white), TextAlign::CENTER, illum_buf);
+
+            it.line(cx, 206, cx, 260, id(col_dark_gray));
+
+            it.print(321, 216, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
+            it.print(321, 244, id(font_small), id(col_white), TextAlign::CENTER, mp_label.c_str());
+
+            // Divider at y = 272 above bottom 2x2 buttons
+            it.line(80, 272, 386, 272, id(col_dark_gray));
           }
-          it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
-
-          // Horizontal divider at y = 198
-          it.line(80, 198, 386, 198, id(col_dark_gray));
-
-          // Telemetry Row: ILLUMINATION and PHASE consistent with Current Conditions standards
-          it.print(145, 216, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
-          char illum_buf[16];
-          snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
-          it.print(145, 244, id(font_date), id(col_white), TextAlign::CENTER, illum_buf);
-
-          it.line(cx, 208, cx, 260, id(col_dark_gray));
-
-          it.print(321, 216, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
-          it.print(321, 244, id(font_small), id(col_white), TextAlign::CENTER, mp_label.c_str());
-
-          // Divider at y = 274 above bottom 2x2 buttons
-          it.line(80, 274, 386, 274, id(col_dark_gray));
         }
 
         // ==============================================================================
         // SUBPAGE BUTTONS: STANDARDIZED 2x2 SYSTEM PILL GRID (y = 308, 356)
-        // System-Standard Pill Buttons (r = 18, 148px width):
-        // Row 1 (y = 308): [ Current ] (Left) | [ Forecast ] (Right)
-        // Row 2 (y = 356): [ Sun ]     (Left) | [ Moon ]     (Right)
+        // Always rendered on top of views (including full-screen moon)
         // ==============================================================================
         auto draw_sub_pill = [&](int x1, int x2, int y_mid, const char* label, bool is_act) {
           Color border_c = is_act ? id(theme_primary) : id(theme_secondary);
@@ -6591,6 +6636,7 @@ touchscreen:
                 } else {
                   id(sky_weather_subpage) = 1; // Forecast
                 }
+                id(moon_fullscreen_mode) = false;
                 id(disp1).update();
                 return;
               }
@@ -6598,21 +6644,35 @@ touchscreen:
               if (touch.y >= 330 && touch.y <= 398) {
                 if (touch.x < 233) {
                   id(sky_weather_subpage) = 2; // Sun
+                  id(moon_fullscreen_mode) = false;
                 } else {
-                  id(sky_weather_subpage) = 3; // Moon
+                  if (id(sky_weather_subpage) == 3) {
+                    id(moon_fullscreen_mode) = !id(moon_fullscreen_mode); // Toggle fullscreen if already on Moon
+                  } else {
+                    id(sky_weather_subpage) = 3; // Moon
+                    id(moon_fullscreen_mode) = false;
+                  }
                 }
                 id(disp1).update();
                 return;
               }
-              // Zone 3: Interactive Upper-Right Moon Shortcut in Current View (x: 330..410, y: 40..115)
+              // Zone 3: Interactive Upper-Right Moon Shortcut in Current View (x: 315..385, y: 55..125)
               if (id(sky_weather_subpage) == 0 && touch.x >= 315 && touch.x <= 385 && touch.y >= 55 && touch.y <= 125) {
                 id(sky_weather_subpage) = 3; // Jump directly to Moon View!
+                id(moon_fullscreen_mode) = false;
                 id(disp1).update();
                 return;
               }
-              // Zone 4: Central Screen Tap Dial (y: 70..281) -> Cycle through views (0 -> 1 -> 2 -> 3 -> 0)
-              if (touch.y >= 70 && touch.y < 282) {
-                id(sky_weather_subpage) = (id(sky_weather_subpage) + 1) % 4;
+              // Zone 4: Central Screen Tap (y: 50..281)
+              if (touch.y >= 50 && touch.y < 282) {
+                if (id(sky_weather_subpage) == 3) {
+                  // In Moon Mode: Tap center toggles between detailed telemetry and hero full-screen moon!
+                  id(moon_fullscreen_mode) = !id(moon_fullscreen_mode);
+                } else {
+                  // Other Modes: Cycle sequentially through views (0 -> 1 -> 2 -> 3 -> 0)
+                  id(sky_weather_subpage) = (id(sky_weather_subpage) + 1) % 4;
+                  id(moon_fullscreen_mode) = false;
+                }
                 id(disp1).update();
                 return;
               }
