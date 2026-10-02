@@ -261,6 +261,14 @@ globals:
     type: int
     restore_value: no
     initial_value: '4'
+  - id: deck_slot_5
+    type: int
+    restore_value: no
+    initial_value: '5'
+  - id: sky_weather_subpage
+    type: int
+    restore_value: no
+    initial_value: '0'
   - id: return_page
     type: int
     restore_value: no
@@ -589,6 +597,7 @@ select:
       - "Music"
       - "Games"
       - "System"
+      - "Sky & Weather"
 
 button:
   - platform: restart
@@ -702,6 +711,18 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
+    name: "App Visibility: Sky & Weather"
+    id: show_weather_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
+    on_turn_off:
+      then:
+        - script.execute: rebuild_active_deck
+  - platform: template
     name: "Voice: Wake Screen on Assist"
     id: va_wake_screen_switch
     icon: "mdi:television-ambient-light"
@@ -768,12 +789,26 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
+    name: "App Order: Sky & Weather"
+    id: app_order_weather
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 5
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
     name: "App Order: System"
     id: app_order_system
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 5
+    initial_value: 6
     min_value: 1
     max_value: 10
     step: 1
@@ -890,6 +925,99 @@ interval:
 
 
 sensor:
+  # --------------------------------------------------------------------------
+  # 🌤️ Sky & Weather Suite Sensors
+  # --------------------------------------------------------------------------
+  - platform: homeassistant
+    id: ha_sun_elevation
+    entity_id: ${sun_entity}
+    attribute: elevation
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_sun_azimuth
+    entity_id: ${sun_entity}
+    attribute: azimuth
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_temperature
+    entity_id: ${weather_entity}
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_apparent_temp
+    entity_id: ${weather_entity}
+    attribute: apparent_temperature
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_humidity
+    entity_id: ${weather_entity}
+    attribute: humidity
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_pressure
+    entity_id: ${weather_entity}
+    attribute: pressure
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_wind_speed
+    entity_id: ${weather_entity}
+    attribute: wind_speed
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_wind_bearing
+    entity_id: ${weather_entity}
+    attribute: wind_bearing
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_cloud_coverage
+    entity_id: ${weather_entity}
+    attribute: cloud_coverage
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_visibility
+    entity_id: ${weather_entity}
+    attribute: visibility
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
   - platform: homeassistant
     id: ha_media_duration
     entity_id: ${target_dur_sensor}
@@ -968,6 +1096,99 @@ sensor:
 
 
 binary_sensor:
+  # --------------------------------------------------------------------------
+  # 🌤️ Sky & Weather Suite Sensors
+  # --------------------------------------------------------------------------
+  - platform: homeassistant
+    id: ha_sun_elevation
+    entity_id: ${sun_entity}
+    attribute: elevation
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_sun_azimuth
+    entity_id: ${sun_entity}
+    attribute: azimuth
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_temperature
+    entity_id: ${weather_entity}
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_apparent_temp
+    entity_id: ${weather_entity}
+    attribute: apparent_temperature
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_humidity
+    entity_id: ${weather_entity}
+    attribute: humidity
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_pressure
+    entity_id: ${weather_entity}
+    attribute: pressure
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_wind_speed
+    entity_id: ${weather_entity}
+    attribute: wind_speed
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_wind_bearing
+    entity_id: ${weather_entity}
+    attribute: wind_bearing
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_cloud_coverage
+    entity_id: ${weather_entity}
+    attribute: cloud_coverage
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_visibility
+    entity_id: ${weather_entity}
+    attribute: visibility
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
   - platform: gpio
     pin:
       number: GPIO0
@@ -1029,6 +1250,172 @@ binary_sensor:
                             - voice_assistant.start:
 
 text_sensor:
+  # --------------------------------------------------------------------------
+  # 🌤️ Sky & Weather Suite Text Sensors
+  # --------------------------------------------------------------------------
+  - platform: homeassistant
+    id: ha_sun_next_rising
+    entity_id: ${sun_entity}
+    attribute: next_rising
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_sun_next_setting
+    entity_id: ${sun_entity}
+    attribute: next_setting
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_sun_next_noon
+    entity_id: ${sun_entity}
+    attribute: next_noon
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_sun_next_dawn
+    entity_id: ${sun_entity}
+    attribute: next_dawn
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_sun_next_dusk
+    entity_id: ${sun_entity}
+    attribute: next_dusk
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_moon_phase
+    entity_id: ${moon_entity}
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_condition
+    entity_id: ${weather_entity}
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_temp_unit
+    entity_id: ${weather_entity}
+    attribute: temperature_unit
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  # --------------------------------------------------------------------------
+  # 🌤️ Sky & Weather Suite Sensors
+  # --------------------------------------------------------------------------
+  - platform: homeassistant
+    id: ha_sun_elevation
+    entity_id: ${sun_entity}
+    attribute: elevation
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_sun_azimuth
+    entity_id: ${sun_entity}
+    attribute: azimuth
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_temperature
+    entity_id: ${weather_entity}
+    attribute: temperature
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_apparent_temp
+    entity_id: ${weather_entity}
+    attribute: apparent_temperature
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_humidity
+    entity_id: ${weather_entity}
+    attribute: humidity
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_pressure
+    entity_id: ${weather_entity}
+    attribute: pressure
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_wind_speed
+    entity_id: ${weather_entity}
+    attribute: wind_speed
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_wind_bearing
+    entity_id: ${weather_entity}
+    attribute: wind_bearing
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_cloud_coverage
+    entity_id: ${weather_entity}
+    attribute: cloud_coverage
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
+    id: ha_weather_visibility
+    entity_id: ${weather_entity}
+    attribute: visibility
+    internal: true
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
+
   - platform: homeassistant
     id: ha_sun_state
     entity_id: sun.sun
@@ -1227,17 +1614,18 @@ script:
             bool enabled;
           };
 
-          AppEntry pool[5] = {
+          AppEntry pool[6] = {
             {0, id(app_order_clock).state, id(show_clock_switch).state},
             {1, id(app_order_stopwatch).state, id(show_stopwatch_switch).state},
             {2, id(app_order_music).state, id(show_music_switch).state},
             {3, id(app_order_games).state, id(show_games_switch).state},
-            {4, id(app_order_system).state, id(show_system_switch).state}
+            {4, id(app_order_system).state, id(show_system_switch).state},
+            {5, id(app_order_weather).state, id(show_weather_switch).state}
           };
 
           // Stable bubble sort by user-configured position rank (1..10)
-          for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4 - i; j++) {
+          for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5 - i; j++) {
               if (pool[j].rank > pool[j + 1].rank) {
                 AppEntry tmp = pool[j];
                 pool[j] = pool[j + 1];
@@ -1247,13 +1635,14 @@ script:
           }
 
           int count = 0;
-          for (int i = 0; i < 5; i++) {
+          for (int i = 0; i < 6; i++) {
             if (pool[i].enabled) {
               if (count == 0) id(deck_slot_0) = pool[i].page_id;
               else if (count == 1) id(deck_slot_1) = pool[i].page_id;
               else if (count == 2) id(deck_slot_2) = pool[i].page_id;
               else if (count == 3) id(deck_slot_3) = pool[i].page_id;
               else if (count == 4) id(deck_slot_4) = pool[i].page_id;
+              else if (count == 5) id(deck_slot_5) = pool[i].page_id;
               count++;
             }
           }
@@ -1270,6 +1659,7 @@ script:
             if (idx == 2) return id(deck_slot_2);
             if (idx == 3) return id(deck_slot_3);
             if (idx == 4) return id(deck_slot_4);
+            if (idx == 5) return id(deck_slot_5);
             return 0;
           };
 
@@ -1345,6 +1735,7 @@ script:
           else if (def_app == "Music") init_p = 2;
           else if (def_app == "Games") init_p = 3;
           else if (def_app == "System") init_p = 4;
+          else if (def_app == "Sky & Weather" || def_app == "Sky and Weather") init_p = 5;
           bool ok = (init_p == 0 ? id(show_clock_switch).state :
                     (init_p == 1 ? id(show_stopwatch_switch).state :
                     (init_p == 2 ? id(show_music_switch).state :
@@ -4814,6 +5205,267 @@ display:
           // Bottom Button: Standardized < BACK (y = 375, r = 18)
           draw_back_button();
         }
+      } else if (id(gui_page) == 5) {
+        // ==========================================
+        // PAGE 5: SKY & WEATHER SUITE
+        // Dual-View Horological Instrument:
+        //   Subpage 0: Celestial Ephemeris (Sun & Moon)
+        //   Subpage 1: Environmental Telemetry (Weather & Atmosphere)
+        // ==========================================
+        it.circle(cx, cy, 230, id(col_dark_gray));
+        it.circle(cx, cy, 228, id(theme_primary));
+        it.circle(cx, cy, 227, id(theme_primary));
+        it.circle(cx, cy, 222, id(col_dark_gray));
+
+        // Reusable Helper: Convert UTC ISO-8601 string to Local Time
+        auto format_iso_time = [](const std::string& iso_str, bool is_24h) -> std::string {
+          if (iso_str.empty() || iso_str == "unknown" || iso_str == "unavailable") return "--:--";
+          int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0, sc = 0;
+          if (sscanf(iso_str.c_str(), "%d-%d-%dT%d:%d:%d", &yr, &mo, &dy, &hr, &mn, &sc) < 5) return "--:--";
+          struct tm tm_utc = {};
+          tm_utc.tm_year = yr - 1900;
+          tm_utc.tm_mon = mo - 1;
+          tm_utc.tm_mday = dy;
+          tm_utc.tm_hour = hr;
+          tm_utc.tm_min = mn;
+          tm_utc.tm_sec = sc;
+          time_t t = timegm(&tm_utc);
+          struct tm tm_loc = {};
+          localtime_r(&t, &tm_loc);
+          char buf[16];
+          if (is_24h) {
+            snprintf(buf, sizeof(buf), "%02d:%02d", tm_loc.tm_hour, tm_loc.tm_min);
+          } else {
+            int h12 = tm_loc.tm_hour % 12;
+            if (h12 == 0) h12 = 12;
+            snprintf(buf, sizeof(buf), "%d:%02d %s", h12, tm_loc.tm_min, tm_loc.tm_hour >= 12 ? "PM" : "AM");
+          }
+          return std::string(buf);
+        };
+
+        // Reusable Helper: Wind Bearing to Cardinal Direction
+        auto get_cardinal = [](float deg) -> const char* {
+          if (isnan(deg)) return "";
+          deg = fmodf(deg, 360.0f);
+          if (deg < 0) deg += 360.0f;
+          if (deg >= 337.5f || deg < 22.5f) return "N";
+          if (deg < 67.5f) return "NE";
+          if (deg < 112.5f) return "E";
+          if (deg < 157.5f) return "SE";
+          if (deg < 202.5f) return "S";
+          if (deg < 247.5f) return "SW";
+          if (deg < 292.5f) return "W";
+          return "NW";
+        };
+
+        // Reusable Helper: Metric Telemetry Pill Card (width 152px, r=22)
+        auto draw_stat_card = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, const char* val, Color val_c) {
+          it.filled_circle(x1, y_mid, r, border_c);
+          it.filled_circle(x2, y_mid, r, border_c);
+          it.filled_rectangle(x1, y_mid - r, x2 - x1, 2 * r + 1, border_c);
+          it.filled_circle(x1, y_mid, r - 2, bg_c);
+          it.filled_circle(x2, y_mid, r - 2, bg_c);
+          it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
+          int btn_cx = (x1 + x2) / 2;
+          it.print(btn_cx, y_mid - 9, id(font_micro), id(col_slate), TextAlign::CENTER, label);
+          it.print(btn_cx, y_mid + 8, id(font_small), val_c, TextAlign::CENTER, val);
+        };
+
+        // Dual-View Toggle Pill Capsule (y = 48, r = 15)
+        int px1 = 138, px2 = 328, py = 48, pr = 15;
+        it.filled_circle(px1, py, pr, id(col_dark_gray));
+        it.filled_circle(px2, py, pr, id(col_dark_gray));
+        it.filled_rectangle(px1, py - pr, px2 - px1, 2 * pr + 1, id(col_dark_gray));
+        it.circle(px1, py, pr, id(col_gray));
+        it.circle(px2, py, pr, id(col_gray));
+        it.line(px1, py - pr, px2, py - pr, id(col_gray));
+        it.line(px1, py + pr, px2, py + pr, id(col_gray));
+
+        if (id(sky_weather_subpage) == 0) {
+          // View 0: SKY active
+          it.filled_circle(px1, py, pr - 2, id(theme_primary));
+          it.filled_circle(cx - 3, py, pr - 2, id(theme_primary));
+          it.filled_rectangle(px1, py - (pr - 2), cx - 3 - px1, 2 * (pr - 2) + 1, id(theme_primary));
+          it.print((px1 + cx - 3) / 2, py, id(font_micro), id(col_white), TextAlign::CENTER, "SKY");
+          it.print((cx + 3 + px2) / 2, py, id(font_micro), id(col_slate), TextAlign::CENTER, "WEATHER");
+          it.print(cx, 71, id(font_micro), id(theme_secondary), TextAlign::CENTER, "CELESTIAL EPHEMERIS");
+
+          // --------------------------------------------------
+          // VIEW 0: CELESTIAL EPHEMERIS
+          // --------------------------------------------------
+          int moon_cx = cx;
+          int moon_cy = 126;
+          int moon_r = 34;
+
+          std::string mp = id(ha_moon_phase).state;
+          float p_val = 0.5f;
+          const char* mp_label = "Moon Phase";
+          if (mp == "new_moon") { p_val = 0.0f; mp_label = "New Moon"; }
+          else if (mp == "waxing_crescent") { p_val = 0.15f; mp_label = "Waxing Crescent"; }
+          else if (mp == "first_quarter") { p_val = 0.25f; mp_label = "First Quarter"; }
+          else if (mp == "waxing_gibbous") { p_val = 0.38f; mp_label = "Waxing Gibbous"; }
+          else if (mp == "full_moon") { p_val = 0.50f; mp_label = "Full Moon"; }
+          else if (mp == "waning_gibbous") { p_val = 0.62f; mp_label = "Waning Gibbous"; }
+          else if (mp == "last_quarter" || mp == "third_quarter") { p_val = 0.75f; mp_label = "Last Quarter"; }
+          else if (mp == "waning_crescent") { p_val = 0.88f; mp_label = "Waning Crescent"; }
+          else if (!mp.empty() && mp != "unknown" && mp != "unavailable") { mp_label = mp.c_str(); }
+
+          // Moon Base Dark Disc
+          for (int my = -moon_r; my <= moon_r; my++) {
+            int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
+            it.line(moon_cx - w_line, moon_cy + my, moon_cx + w_line, moon_cy + my, Color(24, 28, 36));
+          }
+          it.circle(moon_cx, moon_cy, moon_r, Color(55, 62, 75));
+
+          // Parametric Moon Illumination
+          for (int my = -moon_r; my <= moon_r; my++) {
+            int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
+            float x_term;
+            if (p_val <= 0.5f) {
+              x_term = (float)w_line * cosf(p_val * 2.0f * 3.14159265f);
+            } else {
+              x_term = - (float)w_line * cosf(p_val * 2.0f * 3.14159265f);
+            }
+            for (int mx = -w_line; mx <= w_line; mx++) {
+              bool lit = false;
+              if (p_val > 0.0f && p_val < 1.0f) {
+                if (p_val == 0.5f) lit = true;
+                else if (p_val < 0.5f) { if (mx >= x_term) lit = true; }
+                else { if (mx <= x_term) lit = true; }
+              }
+              if (lit) {
+                Color lit_col = Color(240, 242, 245);
+                int dx = mx, dy = my;
+                if ((dx - 7)*(dx - 7) + (dy + 5)*(dy + 5) < 36 || (dx + 9)*(dx + 9) + (dy - 7)*(dy - 7) < 25) {
+                  lit_col = Color(205, 210, 218);
+                }
+                it.draw_pixel_at(moon_cx + mx, moon_cy + my, lit_col);
+              }
+            }
+          }
+
+          it.print(cx, 172, id(font_small), id(col_white), TextAlign::CENTER, mp_label);
+
+          std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
+          std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
+          char sol_buf[48];
+          snprintf(sol_buf, sizeof(sol_buf), "Sunrise %s  •  Sunset %s", s_rise.c_str(), s_set.c_str());
+          it.print(cx, 197, id(font_micro), id(col_warm_gold), TextAlign::CENTER, sol_buf);
+
+          float elev = id(ha_sun_elevation).state;
+          float azim = id(ha_sun_azimuth).state;
+          char elev_str[24];
+          if (!isnan(elev)) {
+            snprintf(elev_str, sizeof(elev_str), "%.1f° (%s)", elev, elev > 0 ? "Day" : "Night");
+          } else {
+            snprintf(elev_str, sizeof(elev_str), "--");
+          }
+          char azim_str[24];
+          if (!isnan(azim)) {
+            snprintf(azim_str, sizeof(azim_str), "%.0f° %s", azim, get_cardinal(azim));
+          } else {
+            snprintf(azim_str, sizeof(azim_str), "--");
+          }
+
+          draw_stat_card(89, 201, 246, 22, id(theme_secondary), id(col_dark_gray), "SUN ELEVATION", elev_str, id(col_white));
+          draw_stat_card(265, 377, 246, 22, id(theme_secondary), id(col_dark_gray), "SUN AZIMUTH", azim_str, id(col_white));
+
+          std::string s_noon = format_iso_time(id(ha_sun_next_noon).state, id(is_24h_format));
+          std::string s_dawn = format_iso_time(id(ha_sun_next_dawn).state, id(is_24h_format));
+          std::string s_dusk = format_iso_time(id(ha_sun_next_dusk).state, id(is_24h_format));
+          char dawn_dusk[32];
+          snprintf(dawn_dusk, sizeof(dawn_dusk), "%s / %s", s_dawn.c_str(), s_dusk.c_str());
+
+          draw_stat_card(89, 201, 302, 22, id(theme_secondary), id(col_dark_gray), "SOLAR NOON", s_noon.c_str(), id(col_white));
+          draw_stat_card(265, 377, 302, 22, id(theme_secondary), id(col_dark_gray), "DAWN / DUSK", dawn_dusk, id(col_white));
+
+          it.print(cx, 350, id(font_micro), id(col_slate), TextAlign::CENTER, "Tap dial to view Weather ➔");
+
+        } else {
+          // View 1: WEATHER active
+          it.filled_circle(cx + 3, py, pr - 2, id(theme_primary));
+          it.filled_circle(px2, py, pr - 2, id(theme_primary));
+          it.filled_rectangle(cx + 3, py - (pr - 2), px2 - (cx + 3), 2 * (pr - 2) + 1, id(theme_primary));
+          it.print((px1 + cx - 3) / 2, py, id(font_micro), id(col_slate), TextAlign::CENTER, "SKY");
+          it.print((cx + 3 + px2) / 2, py, id(font_micro), id(col_white), TextAlign::CENTER, "WEATHER");
+          it.print(cx, 71, id(font_micro), id(theme_secondary), TextAlign::CENTER, "ENVIRONMENTAL TELEMETRY");
+
+          // --------------------------------------------------
+          // VIEW 1: WEATHER & ENVIRONMENTAL DASHBOARD
+          // --------------------------------------------------
+          float temp = id(ha_weather_temperature).state;
+          float app_temp = id(ha_weather_apparent_temp).state;
+          std::string cond = id(ha_weather_condition).state;
+          std::string t_unit = id(ha_weather_temp_unit).state;
+          if (t_unit.empty() || t_unit == "unknown" || t_unit == "unavailable") t_unit = "°F";
+
+          char temp_buf[16];
+          if (!isnan(temp)) {
+            snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
+          } else {
+            snprintf(temp_buf, sizeof(temp_buf), "--°");
+          }
+          it.print(cx, 132, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
+
+          auto format_cond = [](const std::string& c_in) -> std::string {
+            if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
+            std::string s = c_in;
+            for (char &c : s) {
+              if (c == '-' || c == '_') c = ' ';
+              else c = toupper(c);
+            }
+            return s;
+          };
+          std::string cond_title = format_cond(cond);
+          it.print(cx, 175, id(font_date), id(theme_primary), TextAlign::CENTER, cond_title.c_str());
+
+          char fl_buf[48];
+          if (!isnan(app_temp)) {
+            snprintf(fl_buf, sizeof(fl_buf), "Feels like %.0f%s  •  Oakland", app_temp, t_unit.c_str());
+          } else {
+            snprintf(fl_buf, sizeof(fl_buf), "Oakland, CA");
+          }
+          it.print(cx, 203, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
+
+          float hum = id(ha_weather_humidity).state;
+          float press = id(ha_weather_pressure).state;
+          float wspd = id(ha_weather_wind_speed).state;
+          float wbear = id(ha_weather_wind_bearing).state;
+          float clouds = id(ha_weather_cloud_coverage).state;
+          float die_t = id(imu_temp).state;
+
+          char hum_str[16];
+          if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
+          else snprintf(hum_str, sizeof(hum_str), "--");
+
+          char press_str[24];
+          if (!isnan(press)) {
+            if (press > 500.0f) snprintf(press_str, sizeof(press_str), "%.0f hPa", press);
+            else snprintf(press_str, sizeof(press_str), "%.2f inHg", press);
+          } else snprintf(press_str, sizeof(press_str), "--");
+
+          char wind_str[24];
+          if (!isnan(wspd)) {
+            snprintf(wind_str, sizeof(wind_str), "%.1f mph %s", wspd, get_cardinal(wbear));
+          } else snprintf(wind_str, sizeof(wind_str), "--");
+
+          char env_str[24];
+          if (!isnan(clouds) && !isnan(die_t)) {
+            snprintf(env_str, sizeof(env_str), "%.0f%% • %.0f°F", clouds, die_t * 1.8f + 32.0f);
+          } else if (!isnan(clouds)) {
+            snprintf(env_str, sizeof(env_str), "%.0f%% Clouds", clouds);
+          } else {
+            snprintf(env_str, sizeof(env_str), "--");
+          }
+
+          draw_stat_card(89, 201, 252, 22, id(theme_secondary), id(col_dark_gray), "HUMIDITY", hum_str, id(col_white));
+          draw_stat_card(265, 377, 252, 22, id(theme_secondary), id(col_dark_gray), "BAROMETER", press_str, id(col_white));
+
+          draw_stat_card(89, 201, 308, 22, id(theme_secondary), id(col_dark_gray), "WIND", wind_str, id(col_white));
+          draw_stat_card(265, 377, 308, 22, id(theme_secondary), id(col_dark_gray), "CLOUDS & DIE", env_str, id(col_white));
+
+          it.print(cx, 354, id(font_micro), id(col_slate), TextAlign::CENTER, "Tap dial to view Sky ➔");
+        }
       }
       // ==============================================================================
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
@@ -4945,6 +5597,7 @@ touchscreen:
               if (idx == 2) return id(deck_slot_2);
               if (idx == 3) return id(deck_slot_3);
               if (idx == 4) return id(deck_slot_4);
+              if (idx == 5) return id(deck_slot_5);
               return 0;
             };
 
@@ -5810,6 +6463,13 @@ touchscreen:
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
+              }
+            } else if (id(gui_page) == 5) {
+              // Page 5: Sky & Weather Suite
+              if (touch.y >= 30 && touch.y < 380) {
+                id(sky_weather_subpage) = (id(sky_weather_subpage) == 0) ? 1 : 0;
+                id(disp1).update();
+                return;
               }
             }
         - script.execute: screen_sleep_timer
