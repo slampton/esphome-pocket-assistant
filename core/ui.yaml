@@ -5345,25 +5345,25 @@ display:
             int ry = row_ys[i];
             const auto& d = fc_days[i];
 
-            // 1. Day of week shifted right to x = 108 (pulled away from bezel ring)
-            it.print(108, ry, id(font_small), (i == 0) ? id(theme_primary) : id(col_white), TextAlign::CENTER, d.day.c_str());
+            // 1. Day of week shifted right to x = 114 (equalized circular bezel buffer on both sides)
+            it.print(114, ry, id(font_small), (i == 0) ? id(theme_primary) : id(col_white), TextAlign::CENTER, d.day.c_str());
 
             // Optical baseline alignment: glyph, condition, and high/low brought down by 2px to match days of week
             int ry_data = ry + 2;
 
-            // 2. Weather vector glyph centered at x = 172, y = ry_data
-            draw_fc_glyph(172, ry_data, d.cond);
+            // 2. Weather vector glyph centered at x = 178, y = ry_data
+            draw_fc_glyph(178, ry_data, d.cond);
 
-            // 3. Condition short text vertically aligned at x = 195, y = ry_data
+            // 3. Condition short text vertically aligned at x = 201, y = ry_data
             std::string c_txt = format_fc_name(d.cond);
-            it.print(195, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, c_txt.c_str());
+            it.print(201, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, c_txt.c_str());
 
-            // 4. High / Low temperatures vertically aligned at x = 325..345, y = ry_data
+            // 4. High / Low temperatures vertically aligned at x = 331..351, y = ry_data
             std::string hi_str = d.high + "°";
             std::string lo_str = d.low + "°";
-            it.print(325, ry_data, id(font_small), id(col_white), TextAlign::CENTER_RIGHT, hi_str.c_str());
-            it.print(335, ry_data, id(font_micro), id(col_dark_gray), TextAlign::CENTER, "/");
-            it.print(345, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, lo_str.c_str());
+            it.print(331, ry_data, id(font_small), id(col_white), TextAlign::CENTER_RIGHT, hi_str.c_str());
+            it.print(341, ry_data, id(font_micro), id(col_dark_gray), TextAlign::CENTER, "/");
+            it.print(351, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, lo_str.c_str());
 
             // Horizontal row divider
             if (i < 4) {
@@ -5382,24 +5382,20 @@ display:
           float elev = id(ha_sun_elevation).state;
           float azim = id(ha_sun_azimuth).state;
 
-          if (!isnan(elev)) {
-            const char* sol_st = (elev > 0.0f) ? "Above Horizon" : "Below Horizon";
-            it.print(cx, 80, id(font_small), elev > 0.0f ? id(col_warm_gold) : id(col_slate), TextAlign::CENTER, sol_st);
-          }
+          // Scaled Celestial Solar Arc: Top at y = 84 (identical 28px buffer from title as Moon page)
+          // Center cx = 233, cy = 168, Radius = 84 (taller & wider)
+          int arc_cy = 168;
+          int arc_r = 84;
 
-          // Lowered Horizon-to-Horizon Celestial Arc with comfortable buffer (Center cx = 233, cy = 176, Radius = 70)
-          int arc_cy = 176;
-          int arc_r = 70;
-
-          // Horizon Line at y = 176
-          for (int hx = 140; hx <= 326; hx += 8) {
+          // Horizon Line at y = 168
+          for (int hx = 135; hx <= 331; hx += 8) {
             it.line(hx, arc_cy, hx + 4, arc_cy, id(col_gray));
           }
-          it.print(125, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
-          it.print(341, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
+          it.print(120, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
+          it.print(346, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
 
-          // Day Arc (Above Horizon y < 176)
-          for (int a = 0; a <= 180; a += 3) {
+          // Day Arc (Above Horizon y <= 168, top apex at y = 84)
+          for (int a = 0; a <= 180; a += 2) {
             float rad = (float)a * 3.14159265f / 180.0f;
             int ax = cx - (int)((float)arc_r * cosf(rad));
             int ay = arc_cy - (int)((float)arc_r * sinf(rad));
@@ -5407,12 +5403,10 @@ display:
             it.draw_pixel_at(ax, ay + 1, Color(100, 75, 20));
           }
 
-          // Night Arc (Below Horizon y > 176)
-          for (int a = 0; a <= 180; a += 5) {
-            float rad = (float)a * 3.14159265f / 180.0f;
-            int ax = cx - (int)((float)arc_r * cosf(rad));
-            int ay = arc_cy + (int)((float)arc_r * sinf(rad));
-            it.draw_pixel_at(ax, ay, Color(35, 50, 75));
+          // Status Text placed UNDERNEATH the horizon line at y = 185 in font_micro
+          if (!isnan(elev)) {
+            const char* sol_st = (elev > 0.0f) ? "Above Horizon" : "Below Horizon";
+            it.print(cx, 185, id(font_micro), elev > 0.0f ? id(col_warm_gold) : id(col_slate), TextAlign::CENTER, sol_st);
           }
 
           // Current Sun Position: ONLY displayed if above horizon (elev >= 0)
