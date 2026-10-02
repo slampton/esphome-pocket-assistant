@@ -1686,6 +1686,16 @@ script:
             bool enabled;
           };
 
+          // Default positions lock: Ensure System is always last (#7) and Timer & Alarm is #6
+          if (id(app_order_system).state <= id(app_order_timer).state) {
+            auto call_tim = id(app_order_timer).make_call();
+            call_tim.set_value(6.0f);
+            call_tim.perform();
+            auto call_sys = id(app_order_system).make_call();
+            call_sys.set_value(7.0f);
+            call_sys.perform();
+          }
+
           AppEntry pool[7] = {
             {0, id(app_order_clock).state, id(show_clock_switch).state},
             {1, id(app_order_stopwatch).state, id(show_stopwatch_switch).state},
@@ -5975,15 +5985,16 @@ display:
                   snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
                 }
                 Color time_col = en ? id(col_white) : id(col_gray);
-                it.print(92, y_mid - 20, id(font_chrono_time), time_col, TextAlign::LEFT, t_buf);
+                // Time shifted up to sit on the identical baseline defined by bottom of AM (at y_mid - 7)
+                it.print(92, y_mid - 13, id(font_chrono_time), time_col, TextAlign::LEFT, t_buf);
                 if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(215, y_mid - 13, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::LEFT, ap_buf);
+                  it.print(215, y_mid - 7, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::LEFT, ap_buf);
                 }
 
-                // Recurrence Tag (shifted up with clear breathing space from time)
+                // Recurrence Tag: generous breathing room below time, clear of shared baseline
                 char tag_buf[32];
                 snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-                it.print(92, y_mid + 16, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
+                it.print(92, y_mid + 20, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
                 // Toggle Switch Pill (x = 345, y_mid, width 44, height 26)
                 Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
