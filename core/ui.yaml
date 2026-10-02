@@ -5170,39 +5170,39 @@ display:
           }
           it.print(cx, 168, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
 
-          // Subtle horizontal divider brought down to y = 192
-          it.line(80, 192, 386, 192, id(col_dark_gray));
+          // Horizontal divider at y = 202 (standardized to Sun page)
+          it.line(80, 202, 386, 202, id(col_dark_gray));
 
           // ----------------------------------------------------
           // PRIMARY METRICS: HUMIDITY & WIND ONLY
-          // Titles in font_small at y = 216, Data in font_date at y = 246
+          // Standardized: Titles in font_small at y = 220, Data in font_date at y = 248
           // ----------------------------------------------------
           float hum = id(ha_weather_humidity).state;
           float wspd = id(ha_weather_wind_speed).state;
           float wbear = id(ha_weather_wind_bearing).state;
 
           // Column 1: HUMIDITY (Left x = 145)
-          it.print(145, 216, id(font_small), id(col_slate), TextAlign::CENTER, "HUMIDITY");
+          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "HUMIDITY");
           char hum_str[16];
           if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
           else snprintf(hum_str, sizeof(hum_str), "--");
-          it.print(145, 246, id(font_date), id(col_white), TextAlign::CENTER, hum_str);
+          it.print(145, 248, id(font_date), id(col_white), TextAlign::CENTER, hum_str);
 
-          // Center Divider between columns
-          it.line(cx, 204, cx, 268, id(col_dark_gray));
+          // Center Divider between columns (y = 210..260, standardized to Sun page)
+          it.line(cx, 210, cx, 260, id(col_dark_gray));
 
           // Column 2: WIND (Right x = 321, font_date matching humidity)
-          it.print(321, 216, id(font_small), id(col_slate), TextAlign::CENTER, "WIND");
+          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "WIND");
           char wind_str[32];
           if (!isnan(wspd)) {
             snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
           } else {
             snprintf(wind_str, sizeof(wind_str), "--");
           }
-          it.print(321, 246, id(font_date), id(col_white), TextAlign::CENTER, wind_str);
+          it.print(321, 248, id(font_date), id(col_white), TextAlign::CENTER, wind_str);
 
-          // Divider at y = 274 above bottom 2x2 buttons
-          it.line(80, 274, 386, 274, id(col_dark_gray));
+          // Divider at y = 272 above bottom 2x2 buttons (standardized to Sun page)
+          it.line(80, 272, 386, 272, id(col_dark_gray));
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
@@ -5210,7 +5210,7 @@ display:
         else if (id(sky_weather_subpage) == 1) {
           // Standardized Title at y = 56
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "FORECAST");
-          it.line(80, 76, 386, 76, id(col_dark_gray));
+          it.line(80, 78, 386, 78, id(col_dark_gray));
 
           struct DayForecast {
             std::string day;
@@ -5339,8 +5339,8 @@ display:
             return s;
           };
 
-          // 5 Spaced Rows (y = 96, 132, 168, 204, 240) maintaining identical typography
-          int row_ys[5] = {96, 132, 168, 204, 240};
+          // 5 Spaced Rows (y = 102, 138, 174, 210, 246) with enhanced top buffer & identical typography
+          int row_ys[5] = {102, 138, 174, 210, 246};
           for (size_t i = 0; i < fc_days.size() && i < 5; i++) {
             int ry = row_ys[i];
             const auto& d = fc_days[i];
@@ -5367,7 +5367,7 @@ display:
               it.line(80, ry + 18, 386, ry + 18, id(col_dark_gray));
             }
           }
-          it.line(80, 258, 386, 258, id(col_dark_gray));
+          it.line(80, 264, 386, 264, id(col_dark_gray));
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 2: SUN (TITLE "SUN", BUFFERED LOWER ARC, DAYTIME-ONLY SUN)
@@ -5533,21 +5533,22 @@ display:
           }
           it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
 
-          // Horizontal divider at y = 196
-          it.line(80, 196, 386, 196, id(col_dark_gray));
+          // Horizontal divider at y = 202 (standardized to Sun page)
+          it.line(80, 202, 386, 202, id(col_dark_gray));
 
-          // Telemetry Row: Titles in font_small (matching current conditions), Data in font_date
-          it.print(145, 216, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
+          // Telemetry Row: Titles in font_small at y = 220, Data in font_date at y = 248 (standardized to Sun page)
+          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
           char illum_buf[16];
           snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
-          it.print(145, 244, id(font_date), id(col_white), TextAlign::CENTER, illum_buf);
+          it.print(145, 248, id(font_date), id(col_white), TextAlign::CENTER, illum_buf);
 
-          it.line(cx, 206, cx, 260, id(col_dark_gray));
+          // Center Divider between columns (y = 210..260, standardized to Sun page)
+          it.line(cx, 210, cx, 260, id(col_dark_gray));
 
-          it.print(321, 216, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
-          it.print(321, 244, id(font_small), id(col_white), TextAlign::CENTER, mp_label.c_str());
+          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
+          it.print(321, 248, (mp_label.length() > 11 ? id(font_small) : id(font_date)), id(col_white), TextAlign::CENTER, mp_label.c_str());
 
-          // Divider at y = 272 above bottom 2x2 buttons
+          // Divider at y = 272 above bottom 2x2 buttons (standardized to Sun page)
           it.line(80, 272, 386, 272, id(col_dark_gray));
         }
         // ==============================================================================
