@@ -5159,7 +5159,7 @@ display:
           std::string cond_title = format_cond(cond);
           it.print(cx, 140, id(font_date), id(theme_primary), TextAlign::CENTER, cond_title.c_str());
 
-          // Feels like / High-Low Line brought down to y = 168 (font_small, 21pt)
+          // Feels like / High-Low Line at y = 174 (expanded gap below condition subtitle)
           char fl_buf[64];
           if (!isnan(t_high) && !isnan(t_low) && !isnan(app_temp)) {
             snprintf(fl_buf, sizeof(fl_buf), "Feels %.0f°  •  H: %.0f°  L: %.0f°", app_temp, t_high, t_low);
@@ -5168,7 +5168,7 @@ display:
           } else {
             snprintf(fl_buf, sizeof(fl_buf), "Oakland, CA");
           }
-          it.print(cx, 168, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
+          it.print(cx, 174, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
 
           // Horizontal divider at y = 202 (standardized to Sun page)
           it.line(80, 202, 386, 202, id(col_dark_gray));
@@ -5348,19 +5348,22 @@ display:
             // 1. Day of week shifted right to x = 108 (pulled away from bezel ring)
             it.print(108, ry, id(font_small), (i == 0) ? id(theme_primary) : id(col_white), TextAlign::CENTER, d.day.c_str());
 
-            // 2. Weather vector glyph centered at x = 172, y = ry
-            draw_fc_glyph(172, ry, d.cond);
+            // Optical baseline alignment: glyph, condition, and high/low brought down by 2px to match days of week
+            int ry_data = ry + 2;
 
-            // 3. Condition short text vertically CENTERED on same line at x = 195
+            // 2. Weather vector glyph centered at x = 172, y = ry_data
+            draw_fc_glyph(172, ry_data, d.cond);
+
+            // 3. Condition short text vertically aligned at x = 195, y = ry_data
             std::string c_txt = format_fc_name(d.cond);
-            it.print(195, ry, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, c_txt.c_str());
+            it.print(195, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, c_txt.c_str());
 
-            // 4. High / Low temperatures vertically CENTERED on same line at x = 325..345
+            // 4. High / Low temperatures vertically aligned at x = 325..345, y = ry_data
             std::string hi_str = d.high + "°";
             std::string lo_str = d.low + "°";
-            it.print(325, ry, id(font_small), id(col_white), TextAlign::CENTER_RIGHT, hi_str.c_str());
-            it.print(335, ry, id(font_micro), id(col_dark_gray), TextAlign::CENTER, "/");
-            it.print(345, ry, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, lo_str.c_str());
+            it.print(325, ry_data, id(font_small), id(col_white), TextAlign::CENTER_RIGHT, hi_str.c_str());
+            it.print(335, ry_data, id(font_micro), id(col_dark_gray), TextAlign::CENTER, "/");
+            it.print(345, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, lo_str.c_str());
 
             // Horizontal row divider
             if (i < 4) {
@@ -5491,7 +5494,7 @@ display:
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
 
           int moon_cx = cx;
-          int moon_cy = 136;
+          int moon_cy = 141;
           int moon_r = 57;
           float scale = 57.0f / 44.0f;
 
