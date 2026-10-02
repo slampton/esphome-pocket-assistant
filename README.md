@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v1.0.8-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.0.9-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -444,6 +444,12 @@ esphome-pocket-assistant/
   * In standby on battery with `Docked Only` or `Disabled`, touch polling is ignored to eliminate phantom pocket touches while preserving motion pickup and crown button wake.
 * **Voice Assistant Full Modal Touch Interception & Tap-to-Dismiss**:
   * Added full-screen touch interception during active Voice Assistant states (listening, thinking, responding), allowing users to tap anywhere on the screen to cleanly cancel Assist without click-through.
+
+### v1.0.9 (Submenu Navigation Touch Disambiguation & Full-Width Caret Coverage)
+* **Submenu Bottom Navigation Touch Disambiguation**:
+  * Resolved critical dead-zone bug in paged submenus (`system_menu_mode == 1`, `music_overlay_mode == 2, 3`) where horizontal center filtering (`touch.x >= 160 && touch.x <= 306`) swallowed touches on the left caret ($x = 165$) and between the center line and right caret ($x \in [233, 306]$).
+  * Established clean vertical layer separation: `< BACK` button occupies $y \in [335, 398]$ ($x \in [80, 386]$), while bottom navigation chevrons occupy $y \ge 399$ across the full display width.
+  * Restored full-width, zero-deadzone navigation split at $x = 233$ for $y \ge 399$: entire left half ($x < 233$) maps to Left Navigation (`<`) and entire right half ($x \ge 233$) maps to Right Navigation (`>`), ensuring immediate registration when tapping carets, between carets and the center line, or on outer margins.
 
 ### v1.0.8 (Clock Chevrons Restoration, Universal Back Button Redesign, Stopwatch Navigation Priority & Ergonomic Prev/Next Placement)
 * **Clock Face Chevrons Restoration (Fix Early Return Bug)**:

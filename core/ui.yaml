@@ -4951,6 +4951,12 @@ touchscreen:
             // High-priority deck flipping (y >= 380 on deck pages, y >= 375 on stopwatch)
             // Multi-page submenus protect center < BACK button (x: 160..306) from chevron interference
             // ==========================================
+            // ==========================================
+            // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER
+            // Paged submenus: y >= 399 with zero dead zone (x < 233 is Left, x >= 233 is Right).
+            //   The < BACK button occupies y <= 398, eliminating all cross-talk!
+            // Main App Deck: y >= 380 (y >= 375 on stopwatch) with zero dead zone (x < 233 is Left, x >= 233 is Right).
+            // ==========================================
             bool is_deck_nav = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                !(id(gui_page) == 3 && id(active_game) > 0) &&
                                !(id(gui_page) == 2 && id(music_overlay_mode) > 0);
@@ -4958,53 +4964,49 @@ touchscreen:
             bool is_paged_submenu = (id(gui_page) == 2 && (id(music_overlay_mode) == 2 || id(music_overlay_mode) == 3)) ||
                                     (id(gui_page) == 4 && id(system_menu_mode) == 1);
 
-            int nav_y_min = (id(gui_page) == 1) ? 375 : 380;
-
-            if (touch.y >= nav_y_min) {
-              if (is_paged_submenu) {
-                // If touching center area in paged submenus, route to < BACK button instead of chevrons!
-                if (touch.x >= 160 && touch.x <= 306) {
-                  // Central area falls through to submenu < BACK handler below
-                } else if (touch.x < 200) {
-                  // Left Chevron (<): Paged Submenu Previous
-                  if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
-                    id(music_category_page) = (id(music_category_page) == 1) ? 2 : 1;
+            if (is_paged_submenu && touch.y >= 399) {
+              if (touch.x < 233) {
+                // Left Navigation (<): Paged Submenu Previous (Entire Left Half x < 233, y >= 399)
+                if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+                  id(music_category_page) = (id(music_category_page) == 1) ? 2 : 1;
+                  id(disp1).update();
+                  return;
+                } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
+                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
+                  id(disp1).update();
+                  return;
+                } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
+                  if (id(music_browse_total_pages) > 1) {
+                    if (id(music_browse_page) > 1) id(music_browse_page)--;
+                    else id(music_browse_page) = id(music_browse_total_pages);
+                    id(fetch_music_browse).execute();
                     id(disp1).update();
-                    return;
-                  } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-                    id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
-                    id(disp1).update();
-                    return;
-                  } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
-                    if (id(music_browse_total_pages) > 1) {
-                      if (id(music_browse_page) > 1) id(music_browse_page)--;
-                      else id(music_browse_page) = id(music_browse_total_pages);
-                      id(fetch_music_browse).execute();
-                      id(disp1).update();
-                    }
-                    return;
                   }
-                } else if (touch.x > 266) {
-                  // Right Chevron (>): Paged Submenu Next
-                  if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
-                    id(music_category_page) = (id(music_category_page) >= 2) ? 1 : 2;
-                    id(disp1).update();
-                    return;
-                  } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-                    id(sleep_menu_page) = (id(sleep_menu_page) >= 2) ? 1 : 2;
-                    id(disp1).update();
-                    return;
-                  } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
-                    if (id(music_browse_total_pages) > 1) {
-                      if (id(music_browse_page) < id(music_browse_total_pages)) id(music_browse_page)++;
-                      else id(music_browse_page) = 1;
-                      id(fetch_music_browse).execute();
-                      id(disp1).update();
-                    }
-                    return;
-                  }
+                  return;
                 }
-              } else if (is_deck_nav) {
+              } else {
+                // Right Navigation (>): Paged Submenu Next (Entire Right Half x >= 233, y >= 399)
+                if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+                  id(music_category_page) = (id(music_category_page) >= 2) ? 1 : 2;
+                  id(disp1).update();
+                  return;
+                } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
+                  id(sleep_menu_page) = (id(sleep_menu_page) >= 2) ? 1 : 2;
+                  id(disp1).update();
+                  return;
+                } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
+                  if (id(music_browse_total_pages) > 1) {
+                    if (id(music_browse_page) < id(music_browse_total_pages)) id(music_browse_page)++;
+                    else id(music_browse_page) = 1;
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+              }
+            } else if (is_deck_nav) {
+              int nav_y_min = (id(gui_page) == 1) ? 375 : 380;
+              if (touch.y >= nav_y_min) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
                 uint32_t now_flip = millis();
@@ -5286,7 +5288,7 @@ touchscreen:
                     id(fetch_music_browse).execute();
                   }
                 // Standardized Centered < BACK Button at y = 368 -> Returns to Level 1 Menu
-                } else if (touch.y >= 335 && touch.y <= 405 && touch.x >= 80 && touch.x <= 386) {
+                } else if (touch.y >= 335 && touch.y <= 398 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 1; // Return to Level 1 Menu
                   id(disp1).update();
                 }
@@ -5396,8 +5398,8 @@ touchscreen:
                       id(select_music_slot_4).execute();
                     }
                   }
-                // Standardized Centered < BACK Button at y = 368 (y: 335..405, x: 80..386) -> Returns to Level 2 Categories
-                } else if (touch.y >= 335 && touch.y <= 405 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 368 (y: 335..398, x: 80..386) -> Returns to Level 2 Categories
+                } else if (touch.y >= 335 && touch.y <= 398 && touch.x >= 80 && touch.x <= 386) {
                   if (id(selected_category_mode) == "album_tracks") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
@@ -5593,8 +5595,8 @@ touchscreen:
                   }
                 }
 
-                // Standardized Centered < BACK Button at y = 375 (y: 345..400, x: 80..386)
-                if (touch.y >= 345 && touch.y <= 400 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 368 (y: 335..398, x: 80..386)
+                if (touch.y >= 335 && touch.y <= 398 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(sleep_menu_page) = 1;
                   id(disp1).update();
