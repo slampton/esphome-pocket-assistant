@@ -187,6 +187,36 @@ api:
             id(slot_4_active) = s4_active;
             id(disp1).update();
 
+    - action: set_timer
+      variables:
+        seconds: int
+      then:
+        - lambda: |-
+            if (seconds > 0) {
+              id(timer_duration_sec) = seconds;
+              id(timer_remaining_sec) = seconds;
+              id(timer_target_ms) = millis() + (seconds * 1000);
+              id(timer_running) = true;
+              id(timer_paused) = false;
+              id(timer_ringing) = false;
+              id(gui_page) = 6;
+              id(timer_alarm_subpage) = 0;
+              id(wake_to_active_state).execute();
+              id(disp1).update();
+              ESP_LOGI("timer", "Voice/HA Timer started for %d seconds", seconds);
+            }
+
+    - action: cancel_timer
+      then:
+        - lambda: |-
+            id(timer_running) = false;
+            id(timer_paused) = false;
+            id(timer_ringing) = false;
+            id(timer_remaining_sec) = id(timer_duration_sec);
+            id(stop_alarm_sound).execute();
+            id(disp1).update();
+            ESP_LOGI("timer", "Voice/HA Timer cancelled");
+
 ota:
   - platform: esphome
     on_begin:

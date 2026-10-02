@@ -67,7 +67,7 @@ packages:
 * **Zero-Dead-Zone Touch Handling**: Continuous touch boundary tessellation across the entire round screen prevents dropped taps and misdirected inputs.
 * **Touch Priority Yielding**: Hardware touch interrupt pin (GPIO11) is monitored during rendering; display redraws yield instantly when a touch is detected, eliminating input latency.
 * **Radial OTA Progress Indicator**: Full-screen 360° circular progress arc with smooth 10 FPS interpolation and an orbiting pip during firmware updates.
-* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with buffered hero temp, balanced 5-Day aligned forecast, lowered Sun arc with daytime marker, and high-contrast lunar telemetry Moon view), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), and a 2-tier hierarchical system diagnostic hub.
+* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with buffered hero temp, balanced 5-Day aligned forecast, lowered Sun arc with daytime marker, and high-contrast lunar telemetry Moon view), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), Countdown Timer & Multi-Alarm Suite (circular dial stepper interface, local RTC/millis countdown, Home Assistant Voice Assistant integration, recurring alarms for weekdays vs. weekends, 5-minute crown button snooze, and radial perimeter progress and alert strobe arcs), and a 2-tier hierarchical system diagnostic hub.
 
 ---
 
@@ -98,8 +98,11 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 
 | Control | State / Context | Function |
 | :--- | :--- | :--- |
+| **Top Crown (Short Click)** | Alarm Ringing | Snoozes alarm for 5 minutes. |
+| **Top Crown (Short Click)** | Timer Ringing | Dismisses timer alert. |
 | **Top Crown (Short Click)** | Standby (Screen Off) | Wakes display to active brightness. |
 | **Top Crown (Short Click)** | Stopwatch Page | Mechanical chronograph Start / Stop (with 200ms latency compensation). |
+| **Top Crown (Short Click)** | Timer Page | Toggles Timer Start / Pause / Resume. |
 | **Top Crown (Short Click)** | Submenus / Overlays / Games | Back / Exit to parent application. |
 | **Top Crown (Short Click)** | Main App Pages | Enters screen standby immediately. |
 | **Top Crown (Long Press >1.5s)** | Any Screen | Starts 5-second abortable Hibernation Countdown. |
@@ -109,7 +112,7 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 | **Screen Tap (Right Flank)** | Music Player | Volume Up (+, top right), Volume Down (-, bottom right), Next Track (▶\|, middle right). |
 | **Screen Tap (Left Flank)** | Music Player | Previous Track (\|◀, middle left), Music Menu (☰, bottom left). |
 | **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 system-sized pill buttons ([ Current | Forecast ] / [ Sun | Moon ]), central screen tap cycles sequentially through all 4 views (Current $\rightarrow$ Forecast $\rightarrow$ Sun $\rightarrow$ Moon), and upper-right night sky Moon shortcut. |
-| **Bottom Bar (< / >)** | Main App Pages | Navigates through app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ Sky & Weather $\leftrightarrow$ System). |
+| **Bottom Bar (< / >)** | Main App Pages | Navigates through app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ System $\leftrightarrow$ Sky & Weather $\leftrightarrow$ Timer & Alarm). |
 
 ---
 

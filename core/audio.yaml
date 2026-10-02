@@ -101,6 +101,10 @@ speaker:
     task_stack_in_psram: true
 
 
+rtttl:
+  - id: alarm_rtttl
+    speaker: announcement_mixing_input
+
 sendspin:
   id: sendspin_hub
   task_stack_in_psram: false
@@ -134,12 +138,13 @@ media_player:
     on_play:
       then:
         - lambda: |-
+            id(music_optimistic_playing) = -1;
             id(music_pos_sync_time) = millis();
             id(gui_page) = 2; // Auto-switch to Music Player screen on playback start
             id(sleep_start_time) = 0;
             id(active_game) = 0;
         - script.stop: mp_idle_debounce
-        - script.execute: screen_sleep_timer
+        - script.stop: screen_sleep_timer
         - mixer_speaker.apply_ducking:
             id: announcement_mixing_input
             decibel_reduction: 50
@@ -155,6 +160,7 @@ media_player:
     on_pause:
       then:
         - lambda: |-
+            id(music_optimistic_playing) = -1;
             if (id(music_pos_sync_time) > 0) {
               id(music_pos_base) += (millis() - id(music_pos_sync_time)) / 1000.0f;
               id(music_pos_sync_time) = 0;
@@ -163,6 +169,8 @@ media_player:
         - script.execute: mp_idle_debounce
     on_idle:
       then:
+        - lambda: |-
+            id(music_optimistic_playing) = -1;
         - script.execute: mp_idle_debounce
 
 voice_assistant:
@@ -276,9 +284,6 @@ voice_assistant:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
       - lambda: |-
-          if (!id(va_active) && id(va_status_text).empty()) {
-            return; // Cancelled: already cleaned up by cancel_voice_assistant
-          }
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_active) = false;
@@ -289,6 +294,45 @@ voice_assistant:
             binary_sensor.is_off: pickup_detected
           then:
             - script.execute: screen_sleep_timer
+
+
+script:
+  - id: play_alarm_sound
+    mode: restart
+    then:
+      - script.execute: route_i2s_to_spk
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.1s
+      - while:
+          condition:
+            lambda: "return id(alarm_ringing) || id(timer_ringing);"
+          then:
+            - rtttl.play:
+                id: alarm_rtttl
+                rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
+            - wait_until:
+                condition:
+                  lambda: "return !id(alarm_rtttl).is_playing();"
+                timeout: 5s
+            - delay: 800ms
+
+  - id: stop_alarm_sound
+    mode: restart
+    then:
+      - rtttl.stop: alarm_rtttl
+      - script.stop: play_alarm_sound
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 50
+          duration: 0.1s
+      - if:
+          condition:
+            media_player.is_idle: pocket_music_player
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - script.execute: route_i2s_to_mic
 
 number:
   - platform: template

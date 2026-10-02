@@ -314,6 +314,9 @@ interval:
               !id(ota_in_progress) &&
               (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
               !id(stopwatch_running) &&
+              !id(timer_running) &&
+              !id(timer_ringing) &&
+              !id(alarm_ringing) &&
               !id(va).is_running() &&
               !id(va_tts_received) &&
               !id(announcement_mixing_input).is_running() &&
@@ -371,6 +374,30 @@ interval:
                 return;
               }
 
+              // ALARM / TIMER RINGING INTERCEPTION:
+              if (id(alarm_ringing)) {
+                // Crown short click Snoozes alarm for 5 minutes (300 seconds)
+                auto now = id(ha_time).now();
+                if (now.is_valid()) {
+                  id(alarm_snooze_until) = now.timestamp + 300;
+                } else {
+                  id(alarm_snooze_until) = (millis() / 1000) + 300;
+                }
+                id(alarm_ringing) = false;
+                id(stop_alarm_sound).execute();
+                id(disp1).update();
+                id(screen_sleep_timer).execute();
+                return;
+              }
+              if (id(timer_ringing)) {
+                // Crown short click Dismisses timer alarm
+                id(timer_ringing) = false;
+                id(stop_alarm_sound).execute();
+                id(disp1).update();
+                id(screen_sleep_timer).execute();
+                return;
+              }
+
               if (!id(display_brightness).current_values.is_on() || id(display_power_state) != 0) {
                 id(wake_to_active_state).execute();
                 return;
@@ -400,6 +427,11 @@ interval:
                 id(system_menu_mode) = 0;
                 id(disp1).update();
                 return;
+              } else if (id(gui_page) == 6 && id(alarm_edit_idx) > 0) {
+                // In Alarm Editor -> back out to Alarm List
+                id(alarm_edit_idx) = 0;
+                id(disp1).update();
+                return;
               }
 
               // Priority 3: Primary App Screen Action
@@ -419,6 +451,24 @@ interval:
                   } else {
                     id(stopwatch_elapsed_ms) = now_stop - id(stopwatch_start_time);
                   }
+                }
+                id(disp1).update();
+                return;
+              } else if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0) {
+                // Timer: Physical tactile start/pause/resume toggle
+                if (id(timer_running)) {
+                  id(timer_running) = false;
+                  id(timer_paused) = true;
+                  id(timer_remaining_sec) = (id(timer_target_ms) > millis()) ? ((id(timer_target_ms) - millis() + 999) / 1000) : 0;
+                } else if (id(timer_paused)) {
+                  id(timer_running) = true;
+                  id(timer_paused) = false;
+                  id(timer_target_ms) = millis() + (id(timer_remaining_sec) * 1000);
+                } else if (id(timer_duration_sec) > 0) {
+                  id(timer_running) = true;
+                  id(timer_paused) = false;
+                  id(timer_remaining_sec) = id(timer_duration_sec);
+                  id(timer_target_ms) = millis() + (id(timer_duration_sec) * 1000);
                 }
                 id(disp1).update();
                 return;
@@ -675,6 +725,8 @@ script:
                      !id(va_tts_received) &&
                      !id(announcement_mixing_input).is_running() &&
                      !id(stopwatch_running) &&
+                     !id(timer_ringing) &&
+                     !id(alarm_ringing) &&
                      !id(pickup_detected).state &&
                      (id(active_game) == 0) &&
                      (id(gui_page) != 3 || !id(usb_connected).state);
@@ -688,6 +740,8 @@ script:
                            !id(ota_in_progress) &&
                            !id(va).is_running() &&
                            !id(stopwatch_running) &&
+                           !id(timer_ringing) &&
+                           !id(alarm_ringing) &&
                            (id(active_game) == 0);
                 then:
                   - delay: 2s
