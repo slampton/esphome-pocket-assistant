@@ -1,0 +1,44 @@
+# Hardware Abstraction Layer (HAL): Waveshare 1.75C
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 32MB
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: true
+
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+
+i2c:
+  - id: bus_internal
+    sda: GPIO15
+    scl: GPIO14
+    frequency: 400kHz
+    scan: true
+
+
+spi:
+  - id: display_qspi
+    type: quad
+    clk_pin: GPIO38
+    data_pins:
+      - GPIO4
+      - GPIO5
+      - GPIO6
+      - GPIO7
+
+# Dual Master I2S Buses (Multiplexed via GPIO Matrix to Physical Pins)
+
+
+motion:
+  - platform: qmi8658
+    id: imu
+    address: 0x6B
+    accelerometer_range: 4G
+    gyroscope_range: 2048DPS
+
