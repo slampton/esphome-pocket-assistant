@@ -276,6 +276,9 @@ voice_assistant:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
       - lambda: |-
+          if (!id(va_active) && id(va_status_text).empty()) {
+            return; // Cancelled: already cleaned up by cancel_voice_assistant
+          }
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_active) = false;
