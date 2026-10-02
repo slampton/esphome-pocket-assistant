@@ -321,7 +321,8 @@ script:
   - id: stop_alarm_sound
     mode: restart
     then:
-      - rtttl.stop: alarm_rtttl
+      - rtttl.stop:
+          id: alarm_rtttl
       - script.stop: play_alarm_sound
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
