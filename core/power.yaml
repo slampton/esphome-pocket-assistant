@@ -187,8 +187,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_OFF
     turn_on_action:
       - deep_sleep.prevent: deep_sleep_ctrl
+      - lambda: 'id(prevent_deep_sleep_switch).publish_state(true);'
     turn_off_action:
       - deep_sleep.allow: deep_sleep_ctrl
+      - lambda: 'id(prevent_deep_sleep_switch).publish_state(false);'
 
 select:
   - platform: template
@@ -207,10 +209,8 @@ select:
       - "Never"
     set_action:
       - lambda: |-
-          auto call = id(display_off_timeout).make_call();
-          call.set_option(x);
-          call.perform();
           id(screen_sleep_timer).execute();
+          id(disp1).update();
 
   - platform: template
     name: "Power: Screensaver Timeout"
@@ -228,10 +228,8 @@ select:
       - "Never"
     set_action:
       - lambda: |-
-          auto call = id(screensaver_docked_timeout).make_call();
-          call.set_option(x);
-          call.perform();
           id(screen_sleep_timer).execute();
+          id(disp1).update();
 
   - platform: template
     name: "Power: Standby Timeout"
@@ -248,9 +246,7 @@ select:
       - "Disabled"
     set_action:
       - lambda: |-
-          auto call = id(sleep_timeout_mode).make_call();
-          call.set_option(x);
-          call.perform();
+          id(disp1).update();
 
   - platform: template
     name: "Wake: Motion Pickup Mode"
@@ -265,9 +261,7 @@ select:
       - "Disabled"
     set_action:
       - lambda: |-
-          auto call = id(pickup_wake_mode).make_call();
-          call.set_option(x);
-          call.perform();
+          id(disp1).update();
 
   - platform: template
     name: "Wake: Touch Tap Mode"
@@ -282,9 +276,7 @@ select:
       - "Disabled"
     set_action:
       - lambda: |-
-          auto call = id(tap_wake_mode).make_call();
-          call.set_option(x);
-          call.perform();
+          id(disp1).update();
 
 interval:
   - interval: 1s
