@@ -434,7 +434,7 @@ interval:
 
               // All other primary app screens (Clock Page 0, Music Page 2, Games Launcher Page 3, System Page 4):
               // Crown click puts device into Standby / turns off screen!
-              id(enter_standby_state).execute();
+              id(turn_screen_off).execute();
               return;
             }
           }
@@ -449,6 +449,25 @@ script:
           id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
           id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
           id(disp1).update();
+
+  - id: turn_screen_off
+    mode: restart
+    then:
+      - lambda: |-
+          id(display_power_state) = 2; // SCREEN_OFF
+          id(screensaver_start_time) = 0;
+          id(sleep_start_time) = millis();
+          id(display_brightness).turn_off().perform();
+          // Power down speaker amp to eliminate quiescent drain
+          id(speaker_enable).turn_off();
+          // Power down QMI8658 Gyroscope, keep Accelerometer active for motion pickup wake (~1.5mA savings)
+          uint8_t qmi_gyro_off[2] = {0x08, 0x01}; // CTRL7: aEN=1, gEN=0
+          id(bus_internal).write(0x6B, qmi_gyro_off, 2);
+          // On battery power, enable Wi-Fi modem sleep while screen is off to conserve energy
+          if (!id(usb_connected).state) {
+            extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+            esp_wifi_set_ps(1); // 1: WIFI_PS_MIN_MODEM
+          }
 
   - id: enter_standby_state
     mode: restart
@@ -488,11 +507,7 @@ script:
           // Instantly boost Wi-Fi radio to full performance (zero sleep latency)
           extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
           esp_wifi_set_ps(0); // 0: WIFI_PS_NONE
-          bool was_dark = (id(display_power_state) == 2);
-          if (was_dark && id(sleep_start_time) > 0 && (millis() - id(sleep_start_time) >= 30000)) {
-            id(apply_default_start_page).execute();
-            id(rebuild_active_deck).execute();
-          }
+
           id(sleep_start_time) = 0;
           id(screensaver_start_time) = 0;
           id(display_power_state) = 0; // ACTIVE

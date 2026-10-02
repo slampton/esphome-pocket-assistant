@@ -4931,7 +4931,7 @@ touchscreen:
 
             // Voice Assistant Modal Takeover Interception & Tap to Cancel
             // Completely blocks touch events from leaking through to underlying page (e.g. media play/pause)
-            if (id(va_active) || !id(va_status_text).empty()) {
+            if (id(va_active) || !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running()) {
               id(cancel_voice_assistant).execute();
               return;
             }

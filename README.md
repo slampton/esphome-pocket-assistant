@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v1.0.9-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.0.10-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -444,6 +444,16 @@ esphome-pocket-assistant/
   * In standby on battery with `Docked Only` or `Disabled`, touch polling is ignored to eliminate phantom pocket touches while preserving motion pickup and crown button wake.
 * **Voice Assistant Full Modal Touch Interception & Tap-to-Dismiss**:
   * Added full-screen touch interception during active Voice Assistant states (listening, thinking, responding), allowing users to tap anywhere on the screen to cleanly cancel Assist without click-through.
+
+### v1.0.10 (Top Crown Hardware Button Screen Control Standard & Wake Page Preservation)
+* **Top Crown Hardware Button Screen Control Standard**:
+  * Restored canonical screen control invariant for the physical Top Crown button (AXP2101 PEK line): on any primary app screen (Clock, Music player, Games launcher, System dashboard), a short click unconditionally executes `turn_screen_off` to turn the screen completely dark (`display_power_state = 2`), resolving the bug where it inadvertently triggered ambient screensaver while docked on USB power.
+  * Preserved verified contextual exceptions: exits active games back to launcher (`active_game = 0`), closes deep music overlays to Now Playing view (`music_overlay_mode = 0`), backs out of system submenus to dashboard (`system_menu_mode = 0`), and toggles Stopwatch Start/Stop (`gui_page == 1`). Once returned to the main app view, subsequent clicks turn the screen off.
+  * Long press (>1.5s) continues to initiate the 5-second abortable hibernation countdown, or unlocks device from pocket lock.
+* **Elimination of 30-Second Wake App Reset**:
+  * Removed legacy 30-second inactivity check from `wake_to_active_state` that previously forced `apply_default_start_page` upon waking from screen-off, resolving the issue where the device unexpectedly snapped back to the Clock or Stopwatch after brief sleep. The device now consistently wakes up on the exact page the user left off.
+* **Airtight Voice Assistant Modal Touch Guard**:
+  * Expanded full-screen touch cancellation in `on_touch` to verify `id(va).is_running()`, `id(va_tts_received)`, and `id(announcement_mixing_input).is_running()` alongside `va_active` and `va_status_text`, guaranteeing zero touch leak-through to underlying media player controls during speech playback or pipeline conclusion.
 
 ### v1.0.9 (Submenu Navigation Touch Disambiguation & Full-Width Caret Coverage)
 * **Submenu Bottom Navigation Touch Disambiguation**:
