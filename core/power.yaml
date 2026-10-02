@@ -73,8 +73,8 @@ binary_sensor:
       // Dual-Threshold In-Hand Detection:
       // While screen is active, 0.025g maintains active hold so screen never sleeps in your hand.
       // While screen is sleeping/standby, 0.15g requires a deliberate pickup motion to wake.
-      float thresh = (id(display_power_state) == 0) ? 0.025f : 0.15f;
-      const uint32_t active_ms = 8000;
+      float thresh = (id(display_power_state) == 0) ? 0.040f : 0.15f;
+      const uint32_t active_ms = (id(display_power_state) == 0) ? 3000 : 2000;
       static uint32_t last_active_time = 0;
       static bool is_active = false;
       uint32_t now_ms = millis();
@@ -688,3 +688,15 @@ script:
                      (id(gui_page) != 3 || !id(usb_connected).state);
           then:
             - script.execute: enter_standby_state
+          else:
+            - if:
+                condition:
+                  lambda: |-
+                    return (id(display_power_state) == 0) &&
+                           !id(ota_in_progress) &&
+                           !id(va).is_running() &&
+                           !id(stopwatch_running) &&
+                           (id(active_game) == 0);
+                then:
+                  - delay: 2s
+                  - script.execute: screen_sleep_timer

@@ -3352,11 +3352,11 @@ display:
           it.filled_rectangle(prev_btn_x - 14, art_center_y - 10, 3, 21, id(col_white));
           it.filled_triangle(prev_btn_x - 8, art_center_y, prev_btn_x + 6, art_center_y - 10, prev_btn_x + 6, art_center_y + 10, id(col_white));
 
-          // Left Flank Menu Button (☰): dropped to y = 292 for optical alignment with minus glyph
-          it.filled_circle(61, 292, 18, id(col_dark_gray));
-          it.circle(61, 292, 18, id(col_black));
+          // Left Flank Menu Button (☰): balanced at y = 286 (optical parity with minus glyph at y = 284)
+          it.filled_circle(61, 286, 18, id(col_dark_gray));
+          it.circle(61, 286, 18, id(col_black));
           for (int dy : {-4, 0, 4}) {
-            it.filled_rectangle(61 - 7, 292 + dy, 14, 2, id(col_white));
+            it.filled_rectangle(61 - 7, 286 + dy, 14, 2, id(col_white));
           }
 
           // Right Flank Volume Up (+): centered at x = 405, y = 140
@@ -5182,7 +5182,7 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 292) with 250ms tap debounce
+                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286) with 250ms tap debounce
                 } else if (touch.x <= prev_x_max && touch.y >= 255 && touch.y < 390) {
                   static uint32_t last_menu_tap = 0;
                   uint32_t now_tap = millis();
