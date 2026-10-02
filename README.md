@@ -108,7 +108,7 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 | **Screen Tap (Center)** | Music Player | Toggles Play / Pause. |
 | **Screen Tap (Right Flank)** | Music Player | Volume Up (+, top right), Volume Down (-, bottom right), Next Track (▶\|, middle right). |
 | **Screen Tap (Left Flank)** | Music Player | Previous Track (\|◀, middle left), Music Menu (☰, bottom left). |
-| **Subpage Tabs / Screen Tap** | Sky & Weather Page | 4-View Navigation: Dedicated tabs ([ CURRENT ] [ FORECAST ] [ SUN ] [ MOON ]), central screen tap cycle, and upper-right night sky Moon shortcut to Moon view. |
+| **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 system-sized pill buttons ([ Current | Forecast ] / [ Sun | Moon ]), central screen tap cycle, and upper-right night sky Moon shortcut to Moon view. |
 | **Bottom Bar (< / >)** | Main App Pages | Navigates through app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ Sky & Weather $\leftrightarrow$ System). |
 
 ---
