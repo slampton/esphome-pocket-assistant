@@ -440,7 +440,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Full Screen"
+    initial_option: ${default_art_mode}
     options:
       - "Full Screen"
       - "Letterbox"
@@ -616,7 +616,7 @@ button:
       - if:
           condition:
             lambda: |-
-              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running() ;
+              return id(va_active) || !id(va_status_text).empty();
           then:
             - script.execute: cancel_voice_assistant
           else:
@@ -1005,7 +1005,7 @@ binary_sensor:
                       - if:
                           condition:
                             lambda: |-
-                              return !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running();
+                              return id(va_active) || !id(va_status_text).empty();
                           then:
                             - script.execute: cancel_voice_assistant
                           else:
@@ -3482,7 +3482,7 @@ display:
           // Standardized 60px pitch (Slot 1 & 2: Speaker Actions; Slot 3: Blank separator; Slot 4: Library)
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), false);
           draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), false);
-          draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), "LIBRARY", id(col_white), false);
+          draw_pill_button(146, 320, 270, 18, id(theme_secondary), id(col_dark_gray), "LIBRARY", id(col_white), false);
 
           // Bottom Back to Player (Standardized at y = 375, r = 18)
           draw_back_button();
@@ -4931,7 +4931,7 @@ touchscreen:
 
             // Voice Assistant Modal Takeover Interception & Tap to Cancel
             // Completely blocks touch events from leaking through to underlying page (e.g. media play/pause)
-            if (id(va_active) || !id(va_status_text).empty() || id(va).is_running() || id(va_tts_received) || id(announcement_mixing_input).is_running()) {
+            if (id(va_active) || !id(va_status_text).empty()) {
               id(cancel_voice_assistant).execute();
               return;
             }
@@ -5224,8 +5224,8 @@ touchscreen:
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 4: LIBRARY (y: 275..330, x: 90..376) - Moved to Slot 4 (Slot 3 is blank visual separator)
-                } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 90 && touch.x <= 376) {
+                // Card 3.5: LIBRARY (y: 240..300, x: 120..346) - Redesigned 210px pill in Slot 3.5
+                } else if (touch.y >= 240 && touch.y <= 300 && touch.x >= 120 && touch.x <= 346) {
                   id(music_category_page) = 1;
                   id(music_overlay_mode) = 2; // Open Level 2 Library Categories Submenu
                   id(disp1).update();

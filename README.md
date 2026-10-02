@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v1.0.10-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.0.11-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -444,6 +444,18 @@ esphome-pocket-assistant/
   * In standby on battery with `Docked Only` or `Disabled`, touch polling is ignored to eliminate phantom pocket touches while preserving motion pickup and crown button wake.
 * **Voice Assistant Full Modal Touch Interception & Tap-to-Dismiss**:
   * Added full-screen touch interception during active Voice Assistant states (listening, thinking, responding), allowing users to tap anywhere on the screen to cleanly cancel Assist without click-through.
+
+### v1.0.11 (Voice Assistant Immediate Touch/Crown Unlock, Full-Screen Art Default & Music Menu Library Pill Redesign)
+* **Voice Assistant 30-Second Lockup Elimination (UI State Decoupling)**:
+  * Resolved critical ~30-second complete UI freeze following Voice Assistant cancellation/dismissal: removed lingering network socket checks (`id(va).is_running()`, `id(announcement_mixing_input).is_running()`) from the touch listener (`ui.yaml:4934`), physical top crown button handler (`power.yaml:388`), and Assist trigger buttons (`ui.yaml:619, 1008`).
+  * Interception and cancel checks now strictly evaluate local UI state flags: `id(va_active) || !id(va_status_text).empty()`. Because `cancel_voice_assistant` immediately clears both flags upon tap-to-dismiss or crown press, all UI touches (12h/24h toggle, bottom navigation, media controls) and crown button screen actions are restored with zero delay.
+* **Full-Screen Album Artwork as Canonical Default**:
+  * Established `default_art_mode: "Full Screen"` in top-level substitutions across all device configurations (`pocket-assistant.yaml` and `pocket-assistant-1.75c.yaml`).
+  * Wired `initial_option: ${default_art_mode}` into `select.music_fullscreen_art_mode` with full-screen fallback in display lambdas, ensuring clean initial deployments launch with immersive edge-to-edge artwork.
+* **Music Menu Level 1 "LIBRARY" Pill Redesign & Slot 3.5 Positioning**:
+  * Redesigned the primary "LIBRARY" action pill on Level 1 of the Music Menu to stand out prominently as the hero entry point: narrowed width from standard 282px down to 210px (`x1 = 146, x2 = 320, r = 18`), sitting exactly halfway between the 138px `< BACK` pill and standard 282px menu cards.
+  * Shifted vertical placement up from Slot 4 ($y = 300$) to Slot 3.5 ($y = 270$), providing 90px clear breathing room below Slot 2 (`SPEAKER TAKEOVER`) and 98px clear separation above `< BACK` ($y = 368$).
+  * Updated touch hitbox in `music_overlay_mode == 1` to $y \in [240, 300]$, $x \in [120, 346]$ with generous 30px+ clearance from adjacent touch targets.
 
 ### v1.0.10 (Top Crown Hardware Button Screen Control Standard & Wake Page Preservation)
 * **Top Crown Hardware Button Screen Control Standard**:
