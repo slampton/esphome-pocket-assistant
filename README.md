@@ -2,7 +2,7 @@
 
 > **A pocket-sized smart companion for Home Assistant featuring native Voice Assistant, universal active album art, and a first-of-its-kind dynamic Music Assistant library browser & multi-room remote.**
 
-[![Version](https://img.shields.io/badge/Version-v1.0.11-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.0.12-orange.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -444,6 +444,18 @@ esphome-pocket-assistant/
   * In standby on battery with `Docked Only` or `Disabled`, touch polling is ignored to eliminate phantom pocket touches while preserving motion pickup and crown button wake.
 * **Voice Assistant Full Modal Touch Interception & Tap-to-Dismiss**:
   * Added full-screen touch interception during active Voice Assistant states (listening, thinking, responding), allowing users to tap anywhere on the screen to cleanly cancel Assist without click-through.
+
+### v1.0.12 (Aurora Borealis Screensaver Default, Classic Red Second Hand, High-Legibility Digital Readout & Full-Span Breakout Paddle)
+* **Default Screensaver Configured to Aurora Borealis**:
+  * Established `default_screensaver_style: "Aurora Borealis"` in top-level substitutions across both `pocket-assistant.yaml` and `pocket-assistant-1.75c.yaml`.
+  * Configured `select.screensaver_style_select` with `initial_option: ${default_screensaver_style}` and updated empty-state display fallback to `"Aurora Borealis"`, ensuring fresh boots launch directly into the 3-wave plasma ribbon screensaver when docked.
+* **Classic Red Second Hand on Analog Clock Face**:
+  * Decoupled the second hand needle, counterweight, and center pinion cap on the Modern Roman Analog Clock face from `theme_secondary` and restored canonical high-visibility red (`col_red`). The hour hand (white) and minute hand (slate gray) remain distinct, providing clean, classic watchmaker contrast regardless of the selected system theme palette.
+* **High-Legibility Digital Time Complication on Analog Face**:
+  * Upgraded the digital time readout beneath the center hands from `font_small` (size 21) to `font_date` (size 27), the standard step-up typography tier. Perfectly centered at $y = 305$, the enlarged readout provides sharp, immediate legibility while maintaining balanced 72px clearance below the center pinion and 75px clearance above the battery gauge.
+* **Breakout Paddle Full-Span Edge Travel (Zero-Gap Geometry)**:
+  * Expanded the horizontal paddle travel bounds from $[140.0, 326.0]$ to $[65.0, 401.0]$ and tuned tilt sensitivity to $8.2\times$, completely eliminating the 76px dead zones at the screen perimeter.
+  * The 58px paddle now travels seamlessly from flush against the left circular bezel ($x = 36$) to flush against the right circular bezel ($x = 430$) at $y = 356$, allowing players to defend the full width of the arena without ball drop-through.
 
 ### v1.0.11 (Voice Assistant Immediate Touch/Crown Unlock, Full-Screen Art Default & Music Menu Library Pill Redesign)
 * **Voice Assistant 30-Second Lockup Elimination (UI State Decoupling)**:

@@ -421,7 +421,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Ambient Clock"
+    initial_option: ${default_screensaver_style}
     options:
       - "Ambient Clock"
       - "Aurora Borealis"
@@ -2288,7 +2288,7 @@ display:
         it.fill(id(col_bg));
 
         std::string ss_style = std::string(id(screensaver_style_select).current_option().c_str());
-        if (ss_style.empty()) ss_style = "Ambient Clock";
+        if (ss_style.empty()) ss_style = "Aurora Borealis";
 
         uint32_t now_ms = millis();
         auto now = id(ha_time).now();
@@ -2875,7 +2875,7 @@ display:
           if (h12 == 0) h12 = 12;
           snprintf(time_buf, sizeof(time_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "pm" : "am");
         }
-        it.print(cx, 305, id(font_small), id(col_slate), TextAlign::CENTER, time_buf);
+        it.print(cx, 305, id(font_date), id(col_slate), TextAlign::CENTER, time_buf);
 
         // Battery percentage in cyan in all states; golden charging bolt appears on left when plugged in
         if (!isnan(batt)) {
@@ -2922,7 +2922,7 @@ display:
                              id(col_slate));
         }
 
-        // Second Hand: Dynamic Theme Needle (length 168px) with 4px circular counterweight
+        // Second Hand: Bold Red Needle (length 168px) with 4px circular counterweight
         {
           float sin_s, cos_s;
           sincosf(s_angle, &sin_s, &cos_s);
@@ -2930,13 +2930,13 @@ display:
           int tip_y = cy - (int)(168.0f * cos_s);
           int tail_x = cx - (int)(30.0f * sin_s);
           int tail_y = cy + (int)(30.0f * cos_s);
-          it.line(tail_x, tail_y, tip_x, tip_y, id(theme_secondary));
-          it.filled_circle(tail_x, tail_y, 4, id(theme_secondary));
+          it.line(tail_x, tail_y, tip_x, tip_y, id(col_red));
+          it.filled_circle(tail_x, tail_y, 4, id(col_red));
         }
 
-        // Center Pinion Cap (White ring, themed center pip)
+        // Center Pinion Cap (White ring, red center pip)
         it.filled_circle(cx, cy, 7, id(col_white));
-        it.filled_circle(cx, cy, 4, id(theme_secondary));
+        it.filled_circle(cx, cy, 4, id(col_red));
         it.filled_circle(cx, cy, 2, id(col_dark_gray));
         }
       }
@@ -4160,9 +4160,9 @@ display:
           }
 
           // Paddle Physics: Exponential Moving Average (EMA) smoothing eliminates raw IMU jitter and jerking
-          float raw_target_x = cx + roll_delta * 6.8f;
-          if (raw_target_x < 140.0f) raw_target_x = 140.0f;
-          if (raw_target_x > 326.0f) raw_target_x = 326.0f;
+          float raw_target_x = cx + roll_delta * 8.2f;
+          if (raw_target_x < 65.0f) raw_target_x = 65.0f;
+          if (raw_target_x > 401.0f) raw_target_x = 401.0f;
 
           // 32% lerp per 50ms frame produces butter-smooth glide with zero lag
           smooth_paddle_x += (raw_target_x - smooth_paddle_x) * 0.32f;
