@@ -4073,11 +4073,6 @@ display:
       // PAGE 3: GAMES SUITE (LAUNCHER & 3 GAMES)
       // ==========================================
       } else if (id(gui_page) == 3) {
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(theme_primary));
-        it.circle(cx, cy, 227, id(theme_primary));
-        it.circle(cx, cy, 222, id(col_dark_gray));
-
         // Read real-time accelerometer / gyroscope tilt angles
         float roll = id(imu_roll).state;
         float raw_pitch = id(imu_pitch).state;
@@ -4925,10 +4920,6 @@ display:
       // PAGE 4: SYSTEM (STATUS & CONTROLS - RUST HIGHLIGHT)
       // ==========================================
       } else if (id(gui_page) == 4) {
-        // Minimalist Edge-to-Edge Definition: Subtle perimeter bezel guide
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 222, id(col_dark_gray));
-
         char buf[64];
 
         if (id(system_menu_mode) == 0) {
@@ -4938,14 +4929,14 @@ display:
           // Top Header: Pure iconic "SYSTEM" title (Theme Primary)
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
 
-          // Upper Zone: Pocket Assistant Version / Update badge (in Theme Secondary / Gold)
+          // Upper Zone: Pocket Assistant Version / Update badge (lowered to y=96 for balanced title buffer)
           bool has_update = id(ha_firmware_update_status).state == "ON";
           std::string lat_v = id(ha_firmware_latest_version).state;
           if (has_update) {
             snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
-            it.print(cx, 86, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+            it.print(cx, 96, id(font_small), id(col_gold), TextAlign::CENTER, buf);
           } else {
-            it.print(cx, 86, id(font_small), id(theme_secondary), TextAlign::CENTER, "Pocket Assistant v${version}");
+            it.print(cx, 96, id(font_small), id(theme_secondary), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
           // Center Zone: Buffered 2x3 Grid with Standardized Pill Height (r = 20) & 24px Center Gap
@@ -5295,11 +5286,6 @@ display:
         //   Subpage 3: Moon (Title "MOON" at y=56, normal & full-screen modes, soft feathered terminator)
         // Navigation: 2x2 System-Sized Pill Grid at bottom [ Current | Forecast ] / [ Sun | Moon ]
         // ==============================================================================
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(theme_primary));
-        it.circle(cx, cy, 227, id(theme_primary));
-        it.circle(cx, cy, 222, id(col_dark_gray));
-
         // Reusable Helper: Convert UTC ISO-8601 string to Local Time without timegm
         auto format_iso_time = [](const std::string& iso_str, bool is_24h) -> std::string {
           if (iso_str.empty() || iso_str == "unknown" || iso_str == "unavailable") return "--:--";
@@ -5353,32 +5339,38 @@ display:
           float t_high = id(ha_weather_high).state;
           float t_low = id(ha_weather_low).state;
 
-          bool is_clear_night = (cond == "clear-night" || (cond.find("night") != std::string::npos));
+          std::string s_state = id(ha_sun_state).state;
+          bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
 
-          // Visual Background: Atmospheric Origami / Celestial Stars & Moon
-          if (is_clear_night) {
+          // Clean Upper-Right Corner Pocket Coordinates (cx=336, cy=98)
+          const int cel_cx = 336;
+          const int cel_cy = 98;
+
+          if (is_night) {
             // Subtle twinkling starfield in upper sky (y: 40..150)
-            const int stars_x[14] = {75, 105, 88, 120, 375, 395, 335, 380, 95, 385, 115, 330, 68, 400};
-            const int stars_y[14] = {50, 75, 110, 140, 48, 75, 125, 145, 88, 110, 125, 55, 135, 130};
-            for (int k = 0; k < 14; k++) {
-              it.draw_pixel_at(stars_x[k], stars_y[k], (k % 3 == 0) ? Color(220, 235, 255) : Color(130, 155, 195));
-              if (k % 4 == 0) {
-                it.draw_pixel_at(stars_x[k] + 1, stars_y[k], Color(160, 190, 230));
-                it.draw_pixel_at(stars_x[k], stars_y[k] + 1, Color(160, 190, 230));
+            if (cond == "clear-night" || cond.find("night") != std::string::npos) {
+              const int stars_x[14] = {75, 105, 88, 120, 375, 395, 335, 380, 95, 385, 115, 330, 68, 400};
+              const int stars_y[14] = {50, 75, 110, 140, 48, 75, 125, 145, 88, 110, 125, 55, 135, 130};
+              for (int k = 0; k < 14; k++) {
+                it.draw_pixel_at(stars_x[k], stars_y[k], (k % 3 == 0) ? Color(220, 235, 255) : Color(130, 155, 195));
+                if (k % 4 == 0) {
+                  it.draw_pixel_at(stars_x[k] + 1, stars_y[k], Color(160, 190, 230));
+                  it.draw_pixel_at(stars_x[k], stars_y[k] + 1, Color(160, 190, 230));
+                }
               }
             }
 
-            // Interactive Corner Moon (50%+ enlarged: r = 23, cx = 346, cy = 86)
-            int om_cx = 346, om_cy = 86, om_r = 23;
-            it.filled_circle(om_cx, om_cy, om_r, Color(18, 22, 32));
-            it.circle(om_cx, om_cy, om_r, Color(60, 75, 100));
-            it.filled_circle(om_cx + 6, om_cy, om_r - 3, Color(225, 230, 240));
-            it.filled_circle(om_cx + 2, om_cy, om_r - 4, Color(18, 22, 32));
-          } else if (cond == "sunny") {
-            int os_cx = 346, os_cy = 86;
-            it.filled_circle(os_cx, os_cy, 21, Color(245, 165, 25));
-            it.filled_circle(os_cx, os_cy, 13, Color(255, 225, 90));
-            it.circle(os_cx, os_cy, 27, Color(140, 85, 15));
+            // Interactive Corner Moon (r = 22, cel_cx = 336, cel_cy = 98)
+            int om_r = 22;
+            it.filled_circle(cel_cx, cel_cy, om_r, Color(18, 22, 32));
+            it.circle(cel_cx, cel_cy, om_r, Color(60, 75, 100));
+            it.filled_circle(cel_cx + 5, cel_cy, om_r - 3, Color(225, 230, 240));
+            it.filled_circle(cel_cx + 1, cel_cy, om_r - 4, Color(18, 22, 32));
+          } else {
+            // Interactive Corner Sun (Daytime, cel_cx = 336, cel_cy = 98)
+            it.filled_circle(cel_cx, cel_cy, 20, Color(245, 165, 25));
+            it.filled_circle(cel_cx, cel_cy, 12, Color(255, 225, 90));
+            it.circle(cel_cx, cel_cy, 26, Color(140, 85, 15));
           }
 
           // Hero Temperature moved down to y = 82 so its top lines up with system title "FORECAST" at y = 43
@@ -5623,17 +5615,17 @@ display:
           float elev = id(ha_sun_elevation).state;
           float azim = id(ha_sun_azimuth).state;
 
-          // Scaled Celestial Solar Arc: Top at y = 84 (identical 28px buffer from title as Moon page)
-          // Center cx = 233, cy = 168, Radius = 84 (taller & wider)
+          // Scaled Celestial Solar Arc: Shrunk height by 5px (Radius 79) for 33px title buffer
+          // Center cx = 233, cy = 168, Radius = 79
           int arc_cy = 168;
-          int arc_r = 84;
+          int arc_r = 79;
 
           // Horizon Line at y = 168
-          for (int hx = 135; hx <= 331; hx += 8) {
+          for (int hx = 140; hx <= 326; hx += 8) {
             it.line(hx, arc_cy, hx + 4, arc_cy, id(col_gray));
           }
-          it.print(120, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
-          it.print(346, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
+          it.print(124, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
+          it.print(342, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
 
           // Day Arc (Above Horizon y <= 168, top apex at y = 84)
           for (int a = 0; a <= 180; a += 2) {
@@ -5811,7 +5803,7 @@ display:
         draw_sub_pill(89, 201, 356, "Sun", id(sky_weather_subpage) == 2);
         draw_sub_pill(265, 377, 356, "Moon", id(sky_weather_subpage) == 3);
       // ==============================================================================
-      // PAGE 6: TIMER & ALARM APP
+      // PAGE 6: TIMER & ALARM APP (v1.1 OVERHAUL)
       // ==============================================================================
       } else if (id(gui_page) == 6) {
         // ----------------------------------------------------------------------
@@ -5873,87 +5865,53 @@ display:
           }
         } else {
           // --------------------------------------------------------------------
-          // TOP SEGMENTED TABS: [ TIMER ]  [ ALARM ] (y = 52)
+          // STANDARDIZED TOP TITLE AT y = 56 ("TIMER" or "ALARM")
           // --------------------------------------------------------------------
           bool is_timer = (id(timer_alarm_subpage) == 0);
-          Color t_border = is_timer ? id(theme_primary) : id(col_dark_gray);
-          Color t_bg     = is_timer ? id(theme_primary) : Color(20, 24, 28);
-          Color t_text   = is_timer ? id(col_white) : id(col_gray);
-          draw_pill_button(115, 215, 52, 16, t_border, t_bg, "TIMER", t_text, false);
-
-          Color a_border = !is_timer ? id(theme_secondary) : id(col_dark_gray);
-          Color a_bg     = !is_timer ? id(theme_secondary) : Color(20, 24, 28);
-          Color a_text   = !is_timer ? id(col_black) : id(col_gray);
-          draw_pill_button(251, 351, 52, 16, a_border, a_bg, "ALARM", a_text, false);
+          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, is_timer ? "TIMER" : "ALARM");
 
           if (is_timer) {
             // ==================================================================
-            // SUBPAGE 0: COUNTDOWN TIMER (Circular Dial Stepper)
+            // SUBPAGE 0: COUNTDOWN TIMER (HERO BUTTON CENTERED AT y = 228)
             // ==================================================================
-            const int dial_cy = 205;
-            const float dial_r = 142.0f;
-
-            // Subtle dial track ring
-            it.circle(cx, dial_cy, (int)dial_r, Color(40, 50, 60));
-
-            // Dial 5-Minute Marker Pips (12 major divisions)
-            for (int m = 0; m < 60; m += 5) {
-              float s = DIAL_SIN[m];
-              float c = DIAL_COS[m];
-              int px = cx + (int)(dial_r * s);
-              int py = dial_cy - (int)(dial_r * c);
-              it.filled_circle(px, py, 3, id(col_dark_gray));
-            }
-
-            // Dial Setting Indicator Knob
-            int set_min = id(timer_duration_sec) / 60;
-            if (set_min > 60) set_min = 60;
-            float knob_rad = (set_min / 60.0f) * 2.0f * PI_F;
-            int kx = cx + (int)(dial_r * sinf(knob_rad));
-            int ky = dial_cy - (int)(dial_r * cosf(knob_rad));
-            it.filled_circle(kx, ky, 8, id(theme_secondary));
-            it.circle(kx, ky, 9, id(col_white));
-
-            // Big Center Digital Countdown Readout
+            // 1. Time Readout above Hero Button (y = 120, font_time)
             int disp_sec = id(timer_running) ? id(timer_remaining_sec) : id(timer_duration_sec);
             int m_part = disp_sec / 60;
             int s_part = disp_sec % 60;
             char t_str[16];
             snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
-            it.print(cx, dial_cy - 12, id(font_chrono_time), id(col_white), TextAlign::CENTER, t_str);
+            it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_str);
 
-            // Subtitle status
+            // Subtitle status (y = 168)
             if (id(timer_running)) {
-              it.print(cx, dial_cy + 22, id(font_micro), id(theme_secondary), TextAlign::CENTER, "COUNTING DOWN");
+              it.print(cx, 168, id(font_micro), id(theme_secondary), TextAlign::CENTER, "COUNTING DOWN");
             } else if (id(timer_paused)) {
-              it.print(cx, dial_cy + 22, id(font_micro), id(theme_primary), TextAlign::CENTER, "PAUSED");
+              it.print(cx, 168, id(font_micro), id(theme_primary), TextAlign::CENTER, "PAUSED");
             } else {
-              it.print(cx, dial_cy + 22, id(font_micro), id(col_gray), TextAlign::CENTER, "DIAL TO SET");
+              it.print(cx, 168, id(font_micro), id(col_gray), TextAlign::CENTER, "SET DURATION");
             }
 
-            // Flanking Quick Steppers (Active when stopped/idle)
+            // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide)
+            const int hero_y = 228;
             if (!id(timer_running) && !id(timer_paused)) {
-              draw_pill_button(62, 112, 266, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
-              draw_pill_button(126, 176, 266, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
-              draw_pill_button(290, 340, 266, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
-              draw_pill_button(354, 404, 266, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
-            }
-
-            // Primary Control Buttons (y = 330)
-            if (!id(timer_running) && !id(timer_paused)) {
-              draw_pill_button(153, 313, 330, 20, id(theme_primary), id(theme_primary), "START", id(col_white), false);
-              if (id(timer_duration_sec) != 300) {
-                draw_pill_button(180, 286, 372, 13, id(col_dark_gray), id(col_black), "RESET 5M", id(col_gray), false);
-              }
+              draw_pill_button(143, 323, hero_y, 22, id(theme_primary), id(theme_primary), "START", id(col_white), false);
             } else if (id(timer_running)) {
-              draw_pill_button(105, 215, 330, 18, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black), false);
-              draw_pill_button(251, 361, 330, 18, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
+              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black), false);
             } else if (id(timer_paused)) {
-              draw_pill_button(105, 215, 330, 18, id(theme_primary), id(theme_primary), "RESUME", id(col_white), false);
-              draw_pill_button(251, 361, 330, 18, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
+              draw_pill_button(143, 323, hero_y, 22, id(theme_primary), id(theme_primary), "RESUME", id(col_white), false);
             }
 
-            // Dynamic Perimeter Countdown Sweep Arc (r = 224..226)
+            // 3. Quick Steppers or Reset (y = 292)
+            if (!id(timer_running) && !id(timer_paused)) {
+              draw_pill_button(62, 112, 292, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
+              draw_pill_button(126, 176, 292, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
+              draw_pill_button(290, 340, 292, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
+              draw_pill_button(354, 404, 292, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+            } else {
+              draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
+            }
+
+            // 4. Dynamic Perimeter Progress Arc (r = 224..226)
             if (id(timer_running) || id(timer_paused)) {
               float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
               int sweep_ticks = (int)(frac * 60.0f);
@@ -5980,13 +5938,13 @@ display:
                 // Card Background (Stadium Pill)
                 Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
                 Color border_c = en ? id(theme_primary) : Color(45, 52, 60);
-                it.filled_circle(90, y_mid, 34, card_bg);
-                it.filled_circle(376, y_mid, 34, card_bg);
-                it.filled_rectangle(90, y_mid - 34, 286, 69, card_bg);
-                it.circle(90, y_mid, 34, border_c);
-                it.circle(376, y_mid, 34, border_c);
-                it.line(90, y_mid - 34, 376, y_mid - 34, border_c);
-                it.line(90, y_mid + 34, 376, y_mid + 34, border_c);
+                it.filled_circle(90, y_mid, 32, card_bg);
+                it.filled_circle(376, y_mid, 32, card_bg);
+                it.filled_rectangle(90, y_mid - 32, 286, 65, card_bg);
+                it.circle(90, y_mid, 32, border_c);
+                it.circle(376, y_mid, 32, border_c);
+                it.line(90, y_mid - 32, 376, y_mid - 32, border_c);
+                it.line(90, y_mid + 32, 376, y_mid + 32, border_c);
 
                 // Alarm Time String
                 char t_buf[16];
@@ -6020,21 +5978,21 @@ display:
                 it.filled_circle(knob_x, y_mid, 9, id(col_white));
               };
 
-              // Alarm 1: Weekdays default
-              draw_alarm_card(135, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
+              // Alarm 1: Weekdays default (y = 132)
+              draw_alarm_card(132, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
 
-              // Alarm 2: Weekends default
-              draw_alarm_card(235, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
+              // Alarm 2: Weekends default (y = 228)
+              draw_alarm_card(228, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
 
-              // Footnote & Snooze status
+              // Footnote & Snooze status (y = 296)
               if (id(alarm_snooze_until) > 0) {
                 auto now = id(ha_time).now();
                 int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
                 char snz_buf[48];
                 snprintf(snz_buf, sizeof(snz_buf), "SNOOZE ACTIVE: RINGS IN %dm %ds", rem_s / 60, rem_s % 60);
-                it.print(cx, 320, id(font_micro), id(theme_secondary), TextAlign::CENTER, snz_buf);
+                it.print(cx, 296, id(font_micro), id(theme_secondary), TextAlign::CENTER, snz_buf);
               } else {
-                it.print(cx, 320, id(font_micro), id(col_gray), TextAlign::CENTER, "Tap card to edit time & repeat");
+                it.print(cx, 296, id(font_micro), id(col_gray), TextAlign::CENTER, "Tap card to edit  •  Crown to snooze");
               }
             } else {
               // ----------------------------------------------------------------
@@ -6047,9 +6005,9 @@ display:
 
               char hdr_buf[32];
               snprintf(hdr_buf, sizeof(hdr_buf), "EDIT ALARM %d", edit_idx);
-              it.print(cx, 85, id(font_small), id(theme_primary), TextAlign::CENTER, hdr_buf);
+              it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
 
-              // Large Time Display
+              // Large Time Display (y = 115)
               char t_buf[16];
               char ap_buf[8] = "";
               if (id(is_24h_format)) {
@@ -6060,32 +6018,39 @@ display:
                 snprintf(t_buf, sizeof(t_buf), "%02d:%02d", h12, cur_m);
                 snprintf(ap_buf, sizeof(ap_buf), "%s", cur_h >= 12 ? "PM" : "AM");
               }
-              it.print(cx, 142, id(font_chrono_time), id(col_white), TextAlign::CENTER, t_buf);
+              it.print(cx, 115, id(font_chrono_time), id(col_white), TextAlign::CENTER, t_buf);
               if (!id(is_24h_format) && ap_buf[0] != 0) {
-                it.print(cx + 80, 148, id(font_small), id(theme_secondary), TextAlign::LEFT, ap_buf);
+                it.print(cx + 80, 122, id(font_small), id(theme_secondary), TextAlign::LEFT, ap_buf);
               }
 
-              // Stepper Controls
-              it.print(145, 185, id(font_micro), id(col_gray), TextAlign::CENTER, "HOUR");
-              draw_pill_button(80, 130, 210, 13, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
-              draw_pill_button(160, 210, 210, 13, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
+              // Stepper Controls (y = 175)
+              it.print(145, 155, id(font_micro), id(col_gray), TextAlign::CENTER, "HOUR");
+              draw_pill_button(80, 130, 178, 13, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
+              draw_pill_button(160, 210, 178, 13, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
 
-              it.print(321, 185, id(font_micro), id(col_gray), TextAlign::CENTER, "MINUTE");
-              draw_pill_button(256, 306, 210, 13, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
-              draw_pill_button(336, 386, 210, 13, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+              it.print(321, 155, id(font_micro), id(col_gray), TextAlign::CENTER, "MINUTE");
+              draw_pill_button(256, 306, 178, 13, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
+              draw_pill_button(336, 386, 178, 13, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
 
-              // Recurrence Pill: y = 265
+              // Recurrence Pill: y = 236
               const char* rec_names[4] = {"Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
-              draw_pill_button(133, 333, 265, 16, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
+              draw_pill_button(133, 333, 236, 16, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
 
-              // Done Button: y = 330
-              draw_pill_button(163, 303, 330, 18, id(theme_primary), id(theme_primary), "DONE", id(col_white), false);
+              // Done Button: y = 296
+              draw_pill_button(163, 303, 296, 18, id(theme_primary), id(theme_primary), "DONE", id(col_white), false);
             }
+          }
+
+          // --------------------------------------------------------------------
+          // STANDARDIZED BOTTOM NAVIGATION ROW (y = 356)
+          // Matching Sky & Weather App Standard: [ Timer ]  [ Alarm ]
+          // --------------------------------------------------------------------
+          if (id(alarm_edit_idx) == 0) {
+            draw_pill_button(89, 201, 356, 18, is_timer ? id(theme_primary) : id(theme_secondary), is_timer ? id(theme_primary) : id(col_dark_gray), "Timer", id(col_white), false);
+            draw_pill_button(265, 377, 356, 18, !is_timer ? id(theme_primary) : id(theme_secondary), !is_timer ? id(theme_primary) : id(col_dark_gray), "Alarm", id(col_white), false);
           }
         }
       }
-
-      // ==============================================================================
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
       // Guaranteed visibility over any page: stopwatch parchment, full-screen album art, etc.
       // ==============================================================================
@@ -6783,7 +6748,7 @@ touchscreen:
               };
               if (id(system_menu_mode) == 0) {
                 // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 70..100)
-                if (touch.y >= 70 && touch.y <= 100 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
+                if (touch.y >= 75 && touch.y <= 118 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
                 // Row 1 Left: "Display >" (y: 125..175, x: 65..230)
@@ -7142,9 +7107,16 @@ touchscreen:
                 id(disp1).update();
                 return;
               }
-              // Zone 3: Interactive Upper-Right Moon Shortcut in Current View (x: 310..385, y: 50..125)
-              if (id(sky_weather_subpage) == 0 && touch.x >= 310 && touch.x <= 385 && touch.y >= 50 && touch.y <= 125) {
-                id(sky_weather_subpage) = 3; // Jump directly to Moon View!
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 295..380, y: 60..135)
+              if (id(sky_weather_subpage) == 0 && touch.x >= 295 && touch.x <= 380 && touch.y >= 60 && touch.y <= 135) {
+                std::string s_state = id(ha_sun_state).state;
+                std::string cond = id(ha_weather_condition).state;
+                bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
+                if (is_night) {
+                  id(sky_weather_subpage) = 3; // Jump directly to Moon Page!
+                } else {
+                  id(sky_weather_subpage) = 2; // Jump directly to Sun Page!
+                }
                 id(disp1).update();
                 return;
               }
@@ -7156,16 +7128,15 @@ touchscreen:
               }
             } else if (id(gui_page) == 6) {
               // ----------------------------------------------------------------
-              // PAGE 6: TIMER & ALARM TOUCH ROUTING
+              // PAGE 6: TIMER & ALARM TOUCH ROUTING (v1.1 OVERHAUL)
               // ----------------------------------------------------------------
-              // Zone 1: Top Segmented Tabs (y: 32..72)
-              if (touch.y >= 32 && touch.y <= 72) {
-                if (touch.x >= 95 && touch.x <= 233) {
+              // Zone 1: Standardized Bottom 2-Pill Navigation (y: 336..385)
+              if (id(alarm_edit_idx) == 0 && touch.y >= 336 && touch.y <= 385) {
+                if (touch.x >= 70 && touch.x <= 220) {
                   id(timer_alarm_subpage) = 0; // Timer
-                  id(alarm_edit_idx) = 0;
                   id(disp1).update();
                   return;
-                } else if (touch.x > 233 && touch.x <= 371) {
+                } else if (touch.x >= 245 && touch.x <= 395) {
                   id(timer_alarm_subpage) = 1; // Alarm
                   id(disp1).update();
                   return;
@@ -7176,28 +7147,36 @@ touchscreen:
                 // ==============================================================
                 // SUBPAGE 0: COUNTDOWN TIMER TOUCH
                 // ==============================================================
-                // Zone 2: Circular Dial Angle Touch (Only when stopped/idle)
-                if (!id(timer_running) && !id(timer_paused)) {
-                  const int cx = 233;
-                  constexpr float PI_F = 3.14159265f;
-                  int dx = touch.x - cx;
-                  int dy = touch.y - 205;
-                  float dist = sqrtf((float)(dx * dx + dy * dy));
-                  if (dist >= 110.0f && dist <= 185.0f && touch.y <= 245) {
-                    // Angular conversion: 12 oclock = 0, clockwise positive
-                    float rad = atan2f((float)dx, (float)-dy);
-                    if (rad < 0.0f) rad += 2.0f * PI_F;
-                    int mins = (int)((rad / (2.0f * PI_F)) * 60.0f + 0.5f);
-                    if (mins < 1) mins = 1;
-                    if (mins > 60) mins = 60;
-                    id(timer_duration_sec) = mins * 60;
+                // Zone 2: Centered Hero Button (START / PAUSE / RESUME) (y: 202..254)
+                if (touch.y >= 202 && touch.y <= 254 && touch.x >= 125 && touch.x <= 341) {
+                  if (!id(timer_running) && !id(timer_paused)) {
+                    // START
+                    id(timer_running) = true;
+                    id(timer_paused) = false;
                     id(timer_remaining_sec) = id(timer_duration_sec);
+                    id(timer_target_ms) = millis() + (id(timer_duration_sec) * 1000);
+                    id(disp1).update();
+                    return;
+                  } else if (id(timer_running)) {
+                    // PAUSE
+                    id(timer_running) = false;
+                    id(timer_paused) = true;
+                    id(timer_remaining_sec) = (id(timer_target_ms) > millis()) ? ((id(timer_target_ms) - millis() + 999) / 1000) : 0;
+                    id(disp1).update();
+                    return;
+                  } else if (id(timer_paused)) {
+                    // RESUME
+                    id(timer_running) = true;
+                    id(timer_paused) = false;
+                    id(timer_target_ms) = millis() + (id(timer_remaining_sec) * 1000);
                     id(disp1).update();
                     return;
                   }
+                }
 
-                  // Zone 3: Quick Stepper Buttons (y: 248..286)
-                  if (touch.y >= 248 && touch.y <= 286) {
+                // Zone 3: Adjustment Pills or Reset (y: 272..315)
+                if (touch.y >= 272 && touch.y <= 315) {
+                  if (!id(timer_running) && !id(timer_paused)) {
                     if (touch.x >= 50 && touch.x <= 118) {
                       // -5m
                       id(timer_duration_sec) = std::max(60, id(timer_duration_sec) - 300);
@@ -7223,47 +7202,9 @@ touchscreen:
                       id(disp1).update();
                       return;
                     }
-                  }
-                }
-
-                // Zone 4: Action Controls (Start / Pause / Resume / Reset) (y: 310..355)
-                if (touch.y >= 310 && touch.y <= 355) {
-                  if (!id(timer_running) && !id(timer_paused)) {
-                    // START
-                    if (touch.x >= 135 && touch.x <= 331) {
-                      id(timer_running) = true;
-                      id(timer_paused) = false;
-                      id(timer_remaining_sec) = id(timer_duration_sec);
-                      id(timer_target_ms) = millis() + (id(timer_duration_sec) * 1000);
-                      id(disp1).update();
-                      return;
-                    }
-                  } else if (id(timer_running)) {
-                    if (touch.x >= 85 && touch.x <= 225) {
-                      // PAUSE
-                      id(timer_running) = false;
-                      id(timer_paused) = true;
-                      id(timer_remaining_sec) = (id(timer_target_ms) > millis()) ? ((id(timer_target_ms) - millis() + 999) / 1000) : 0;
-                      id(disp1).update();
-                      return;
-                    } else if (touch.x >= 240 && touch.x <= 380) {
-                      // RESET
-                      id(timer_running) = false;
-                      id(timer_paused) = false;
-                      id(timer_remaining_sec) = id(timer_duration_sec);
-                      id(disp1).update();
-                      return;
-                    }
-                  } else if (id(timer_paused)) {
-                    if (touch.x >= 85 && touch.x <= 225) {
-                      // RESUME
-                      id(timer_running) = true;
-                      id(timer_paused) = false;
-                      id(timer_target_ms) = millis() + (id(timer_remaining_sec) * 1000);
-                      id(disp1).update();
-                      return;
-                    } else if (touch.x >= 240 && touch.x <= 380) {
-                      // RESET
+                  } else {
+                    // RESET pill while running or paused
+                    if (touch.x >= 150 && touch.x <= 316) {
                       id(timer_running) = false;
                       id(timer_paused) = false;
                       id(timer_remaining_sec) = id(timer_duration_sec);
@@ -7273,39 +7214,41 @@ touchscreen:
                   }
                 }
 
-                // Zone 5: Quick Reset to 5M when stopped (y: 358..390)
-                if (!id(timer_running) && !id(timer_paused) && touch.y >= 358 && touch.y <= 390 && touch.x >= 160 && touch.x <= 306) {
-                  id(timer_duration_sec) = 300;
-                  id(timer_remaining_sec) = 300;
-                  id(disp1).update();
-                  return;
+                // Zone 4: Tap digits to reset duration to default 5m when stopped (y: 80..160, x: 120..346)
+                if (!id(timer_running) && !id(timer_paused) && touch.y >= 80 && touch.y <= 160 && touch.x >= 120 && touch.x <= 346) {
+                  if (id(timer_duration_sec) != 300) {
+                    id(timer_duration_sec) = 300;
+                    id(timer_remaining_sec) = 300;
+                    id(disp1).update();
+                    return;
+                  }
                 }
               } else {
                 // ==============================================================
                 // SUBPAGE 1: ALARM MANAGER TOUCH
                 // ==============================================================
                 if (id(alarm_edit_idx) == 0) {
-                  // Alarm 1 Toggle Switch (x: 305..385, y: 105..165)
-                  if (touch.y >= 105 && touch.y <= 165 && touch.x >= 305 && touch.x <= 385) {
+                  // Alarm 1 Toggle Switch (x: 305..385, y: 105..160)
+                  if (touch.y >= 105 && touch.y <= 160 && touch.x >= 305 && touch.x <= 385) {
                     id(alarm1_enabled) = !id(alarm1_enabled);
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 1 Card Area -> Enter Editor (x: 65..304, y: 95..175)
-                  if (touch.y >= 95 && touch.y <= 175 && touch.x >= 65 && touch.x <= 304) {
+                  // Alarm 1 Card Area -> Enter Editor (x: 65..304, y: 96..168)
+                  if (touch.y >= 96 && touch.y <= 168 && touch.x >= 65 && touch.x <= 304) {
                     id(alarm_edit_idx) = 1;
                     id(disp1).update();
                     return;
                   }
 
-                  // Alarm 2 Toggle Switch (x: 305..385, y: 205..265)
-                  if (touch.y >= 205 && touch.y <= 265 && touch.x >= 305 && touch.x <= 385) {
+                  // Alarm 2 Toggle Switch (x: 305..385, y: 200..255)
+                  if (touch.y >= 200 && touch.y <= 255 && touch.x >= 305 && touch.x <= 385) {
                     id(alarm2_enabled) = !id(alarm2_enabled);
                     id(disp1).update();
                     return;
                   }
-                  // Alarm 2 Card Area -> Enter Editor (x: 65..304, y: 195..275)
-                  if (touch.y >= 195 && touch.y <= 275 && touch.x >= 65 && touch.x <= 304) {
+                  // Alarm 2 Card Area -> Enter Editor (x: 65..304, y: 192..264)
+                  if (touch.y >= 192 && touch.y <= 264 && touch.x >= 65 && touch.x <= 304) {
                     id(alarm_edit_idx) = 2;
                     id(disp1).update();
                     return;
@@ -7317,8 +7260,8 @@ touchscreen:
                   int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
                   int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-                  // Hour Steppers (y: 195..230)
-                  if (touch.y >= 195 && touch.y <= 230) {
+                  // Hour Steppers (y: 160..195)
+                  if (touch.y >= 160 && touch.y <= 195) {
                     if (touch.x >= 65 && touch.x <= 145) {
                       cur_h = (cur_h + 23) % 24;
                       id(disp1).update();
@@ -7328,7 +7271,7 @@ touchscreen:
                       id(disp1).update();
                       return;
                     }
-                    // Minute Steppers (y: 195..230)
+                    // Minute Steppers (y: 160..195)
                     if (touch.x >= 240 && touch.x <= 320) {
                       cur_m = (cur_m + 55) % 60;
                       id(disp1).update();
@@ -7340,15 +7283,15 @@ touchscreen:
                     }
                   }
 
-                  // Recurrence Selector Button (y: 248..285, x: 115..351)
-                  if (touch.y >= 248 && touch.y <= 285 && touch.x >= 115 && touch.x <= 351) {
+                  // Recurrence Selector Button (y: 218..255, x: 115..351)
+                  if (touch.y >= 218 && touch.y <= 255 && touch.x >= 115 && touch.x <= 351) {
                     cur_rec = (cur_rec + 1) % 4;
                     id(disp1).update();
                     return;
                   }
 
-                  // Done Button (y: 312..350, x: 145..321)
-                  if (touch.y >= 312 && touch.y <= 350 && touch.x >= 145 && touch.x <= 321) {
+                  // Done Button (y: 280..320, x: 145..321)
+                  if (touch.y >= 280 && touch.y <= 320 && touch.x >= 145 && touch.x <= 321) {
                     id(alarm_edit_idx) = 0;
                     if (edit_idx == 1) id(alarm1_enabled) = true;
                     if (edit_idx == 2) id(alarm2_enabled) = true;
