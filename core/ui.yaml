@@ -1422,61 +1422,51 @@ binary_sensor:
     id: boot_button
     on_press:
       then:
-        - lambda: |-
-            if (id(is_locked)) return;
-            // Immediate in-game action trigger for zero-latency response
-            if (id(active_game) > 0) {
-              id(game_btn_pressed) = true;
-            }
-    on_click:
-      - min_length: 30ms
-        max_length: 2000ms
-        then:
-          - if:
-              condition:
-                lambda: 'return !id(is_locked);'
-              then:
-                - lambda: |-
-                    static uint32_t last_btn_click = 0;
-                    uint32_t now = millis();
-                    if (now - last_btn_click < 300) return;
-                    last_btn_click = now;
-                - if:
-                    condition:
-                      lambda: 'return id(active_game) > 0;'
-                    then:
-                      - lambda: 'id(game_btn_pressed) = true;'
-                    else:
-                      - if:
-                          condition:
-                            lambda: |-
-                              return id(va_active) || !id(va_status_text).empty();
-                          then:
-                            - script.execute: cancel_voice_assistant
-                          else:
-                            - lambda: |-
-                                // If waking from screen-off or standby, check Assist Screen Wake preference
-                                if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
-                                  if (id(va_wake_screen_switch).state) {
-                                    id(wake_to_active_state).execute();
-                                  }
-                                } else {
-                                  id(screen_sleep_timer).execute();
+        - if:
+            condition:
+              lambda: 'return !id(is_locked);'
+            then:
+              - lambda: |-
+                  static uint32_t last_btn_press = 0;
+                  uint32_t now = millis();
+                  if (now - last_btn_press < 250) return;
+                  last_btn_press = now;
+              - if:
+                  condition:
+                    lambda: 'return id(active_game) > 0;'
+                  then:
+                    - lambda: 'id(game_btn_pressed) = true;'
+                  else:
+                    - if:
+                        condition:
+                          lambda: |-
+                            return id(va_active) || !id(va_status_text).empty();
+                        then:
+                          - script.execute: cancel_voice_assistant
+                        else:
+                          - lambda: |-
+                              // If waking from screen-off or standby, check Assist Screen Wake preference
+                              if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
+                                if (id(va_wake_screen_switch).state) {
+                                  id(wake_to_active_state).execute();
                                 }
-                            - if:
-                                condition:
-                                  media_player.is_playing: pocket_music_player
-                                then:
-                                  - media_player.pause: pocket_music_player
-                                  - mixer_speaker.apply_ducking:
-                                      id: media_mixing_input
-                                      decibel_reduction: 50
-                                      duration: 0.1s
-                                  - delay: 150ms
-                                  - script.execute: pause_all_music
-                            - script.execute: route_i2s_to_mic
-                            - lambda: 'id(va_tts_received) = false;'
-                            - voice_assistant.start:
+                              } else {
+                                id(screen_sleep_timer).execute();
+                              }
+                          - if:
+                              condition:
+                                media_player.is_playing: pocket_music_player
+                              then:
+                                - media_player.pause: pocket_music_player
+                                - mixer_speaker.apply_ducking:
+                                    id: media_mixing_input
+                                    decibel_reduction: 50
+                                    duration: 0.1s
+                                - delay: 150ms
+                                - script.execute: pause_all_music
+                          - script.execute: route_i2s_to_mic
+                          - lambda: 'id(va_tts_received) = false;'
+                          - voice_assistant.start:
 
 text_sensor:
   # --------------------------------------------------------------------------
@@ -2627,6 +2617,7 @@ script:
           id(va_active) = false;
           id(gui_page) = id(return_page);
       - component.update: disp1
+      - delay: 200ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player
