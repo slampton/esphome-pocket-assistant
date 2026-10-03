@@ -321,18 +321,21 @@ voice_assistant:
           condition:
             lambda: 'return id(va_tts_received);'
           then:
-            # 1. Wait for audio stream to reach speaker and begin playing
+            # 1. Brief window for audio pipeline to engage if not already running
             - wait_until:
                 condition:
                   lambda: 'return id(announcement_mixing_input).is_running();'
-                timeout: 5s
+                timeout: 300ms
             # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
-            - wait_until:
+            - if:
                 condition:
-                  lambda: 'return !id(announcement_mixing_input).is_running();'
-                timeout: 180s
-            # 3. Clean 400ms settling flush for physical speaker & DAC FIFO drain
-            - delay: 400ms
+                  lambda: 'return id(announcement_mixing_input).is_running();'
+                then:
+                  - wait_until:
+                      condition:
+                        lambda: 'return !id(announcement_mixing_input).is_running();'
+                      timeout: 180s
+                  - delay: 400ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player

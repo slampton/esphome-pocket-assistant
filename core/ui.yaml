@@ -1429,7 +1429,7 @@ binary_sensor:
               id(game_btn_pressed) = true;
             }
     on_click:
-      - min_length: 50ms
+      - min_length: 30ms
         max_length: 2000ms
         then:
           - if:
@@ -2620,7 +2620,6 @@ script:
       - audio_dac.mute_on: es8311_dac
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
-      - voice_assistant.stop:
       - lambda: |-
           id(va_status_text) = "";
           id(va_tts_received) = false;
@@ -3871,16 +3870,45 @@ display:
                   }
                 }
               } else {
-                // Full Screen & Letterbox: Hardware-optimized native image blit (< 60ms)
-                it.image(0, 0, target_art);
-
-                // In Letterbox mode: Clean, solid cinema matte bars at top (y: 0..60) and bottom (y: 385..466)
-                if (is_letterbox) {
-                  it.filled_rectangle(0, 0, 466, 60, id(col_black));
-                  it.filled_rectangle(0, 385, 466, 81, id(col_black));
+                // Full Screen & Letterbox: Direct Row-Major Pointer Blit with CIRCLE_HW clipping (~5ms)
+                int start_y = is_letterbox ? 60 : 0;
+                int end_y = is_letterbox ? 385 : 466;
+                if (src_w == 466 && src_h == 466) {
+                  for (int y = start_y; y < end_y; y++) {
+                    int hw = CIRCLE_HW[y];
+                    int start_x = cx - hw;
+                    int end_x = cx + hw;
+                    const uint16_t *src_row = src_data + y * 466;
+                    for (int x = start_x; x <= end_x; x++) {
+                      uint16_t p = src_row[x];
+                      uint8_t r = (p & 0xF800) >> 8;
+                      uint8_t g = (p & 0x07E0) >> 3;
+                      uint8_t b = (p & 0x001F) << 3;
+                      it.draw_pixel_at(x, y, Color(r, g, b));
+                    }
+                  }
+                } else {
+                  int step_x = (src_w << 12) / 466;
+                  int step_y = (src_h << 12) / 466;
+                  int curr_y = start_y * step_y;
+                  for (int y = start_y; y < end_y; y++) {
+                    int sy = curr_y >> 12;
+                    curr_y += step_y;
+                    const uint16_t *src_row = src_data + sy * src_w;
+                    int hw = CIRCLE_HW[y];
+                    int start_x = cx - hw;
+                    int end_x = cx + hw;
+                    for (int x = start_x; x <= end_x; x++) {
+                      uint16_t p = src_row[(x * step_x) >> 12];
+                      uint8_t r = (p & 0xF800) >> 8;
+                      uint8_t g = (p & 0x07E0) >> 3;
+                      uint8_t b = (p & 0x001F) << 3;
+                      it.draw_pixel_at(x, y, Color(r, g, b));
+                    }
+                  }
                 }
 
-                // 50% Translucent Dither Scrim over metadata band (y: 320..395) using CIRCLE_HW
+                // 50% Translucent Dither Scrim over metadata band (y: 320..scrim_end)
                 int scrim_end = is_letterbox ? 385 : 395;
                 for (int y = 320; y < scrim_end; y++) {
                   int hw = CIRCLE_HW[y];
