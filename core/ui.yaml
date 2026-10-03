@@ -2634,15 +2634,9 @@ script:
   - id: cancel_voice_assistant
     then:
       - audio_dac.mute_on: es8311_dac
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: 50
-          duration: 0.1s
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
       - voice_assistant.stop:
-      - speaker.stop: va_speaker
-      - speaker.stop: announcement_mixing_input
       - lambda: |-
           id(va_status_text) = "";
           id(va_tts_received) = false;

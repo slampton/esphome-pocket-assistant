@@ -85,7 +85,7 @@ speaker:
         timeout: 1500ms
         buffer_duration: 2500ms
       - id: media_mixing_input
-        timeout: never
+        timeout: 1500ms
         buffer_duration: 1000ms
 
   - platform: resampler
@@ -148,12 +148,6 @@ media_player:
             id(active_game) = 0;
         - script.stop: mp_idle_debounce
         - script.stop: screen_sleep_timer
-        - mixer_speaker.apply_ducking:
-            id: announcement_mixing_input
-            decibel_reduction: 50
-            duration: 0.1s
-        - speaker.stop: announcement_mixing_input
-        - speaker.stop: va_speaker
         - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
         - audio_dac.mute_off: es8311_dac
@@ -225,10 +219,6 @@ voice_assistant:
       - mixer_speaker.apply_ducking:
           id: media_mixing_input
           decibel_reduction: 50
-          duration: 0.1s
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: 0
           duration: 0.1s
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
@@ -321,10 +311,6 @@ voice_assistant:
           }
   on_end:
     then:
-      - mixer_speaker.apply_ducking:
-          id: media_mixing_input
-          decibel_reduction: 0
-          duration: 1.0s
       - if:
           condition:
             lambda: 'return id(va_tts_received);'
@@ -332,22 +318,24 @@ voice_assistant:
             # 1. Wait for audio stream to reach speaker and begin playing
             - wait_until:
                 condition:
-                  lambda: 'return id(announcement_mixing_input).is_running();'
-                timeout: 5s
+                  lambda: |-
+                    return id(announcement_mixing_input).is_running() || id(physical_speaker).has_buffered_data();
+                timeout: 3s
             # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
             - wait_until:
                 condition:
                   lambda: |-
                     bool ann_done = !id(announcement_mixing_input).is_running();
                     bool spk_done = !id(physical_speaker).has_buffered_data();
-                    return ann_done && (spk_done || !id(pocket_music_player).is_idle());
+                    bool music_active = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                    return ann_done && (spk_done || music_active);
                 timeout: 180s
             # 3. Clean 300ms settling flush for physical speaker & DAC FIFO drain
             - delay: 300ms
       - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: 50
-          duration: 0.1s
+          id: media_mixing_input
+          decibel_reduction: 0
+          duration: 1.0s
       - if:
           condition:
             media_player.is_idle: pocket_music_player
@@ -373,10 +361,6 @@ script:
     mode: restart
     then:
       - script.execute: route_i2s_to_spk
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: 0
-          duration: 0.1s
       - while:
           condition:
             lambda: "return id(alarm_ringing) || id(timer_ringing);"
@@ -397,10 +381,6 @@ script:
       - rtttl.stop:
           id: alarm_rtttl
       - script.stop: play_alarm_sound
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: 50
-          duration: 0.1s
       - if:
           condition:
             media_player.is_idle: pocket_music_player
