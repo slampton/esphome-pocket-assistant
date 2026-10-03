@@ -1065,6 +1065,22 @@ interval:
             id(disp1).update();
           }
 
+          // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
+          // High-refresh fluid drift (10 FPS / 100ms) when audio is quiet
+          // Throttled (3.3 FPS / 300ms) when music, voice assistant, or alarms are active; 500ms during active TTS speech
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0) {
+            static uint32_t last_weather_disp_update = 0;
+            uint32_t now_w_ms = millis();
+            bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                              id(va_active) || !id(va_status_text).empty() ||
+                              id(alarm_ringing) || id(timer_ringing);
+            uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 100);
+            if (now_w_ms - last_weather_disp_update >= target_cadence) {
+              last_weather_disp_update = now_w_ms;
+              id(disp1).update();
+            }
+          }
+
   - interval: 250ms
     then:
       - lambda: |-
@@ -1100,10 +1116,7 @@ interval:
             id(disp1).update();
           }
 
-          // Dynamic atmospheric motion wallpaper cadence (4 FPS) exclusively on Weather Subpage 0
-          if (id(gui_page) == 5 && id(sky_weather_subpage) == 0 && id(display_power_state) == 0 && id(display_brightness).current_values.is_on()) {
-            id(disp1).update();
-          }
+// Dynamic atmospheric motion wallpaper now driven by adaptive audio-protected cadence in 50ms loop
 
   - interval: 1s
     then:
@@ -5513,9 +5526,14 @@ display:
           if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
             bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
 
-            // Reusable Volumetric Cumulus Renderer (Zero internal circle strokes!)
+            // Reusable Volumetric Cumulus Renderer (Zero internal circle strokes, with Bounding Culling & Integer SIMD Math)
             auto draw_cumulus = [&](int bx, int by, float scale, bool overcast_mode) {
-              static const int lobes[8][3] = {
+              // Bounding box pre-culling for entire cloud formation
+              int max_extent = (int)(95.0f * scale);
+              if (bx + max_extent < 0 || bx - max_extent >= 466 ||
+                  by + max_extent < 0 || by - max_extent >= 466) return;
+
+              static const int8_t lobes[8][3] = {
                 {-45,  10, 24},
                 {-25,  -5, 32},
                 {  5, -18, 40},
@@ -5531,61 +5549,83 @@ display:
               Color col_high   = is_night ? Color(36, 48, 64) : (overcast_mode ? Color(54, 76, 102) : Color(78, 108, 142));
               Color col_crest  = is_night ? Color(58, 74, 98) : (overcast_mode ? Color(75, 102, 132) : Color(110, 145, 185));
 
+              // Pre-scale all 8 lobe coordinates and radii once (pure integer math across all passes)
+              int16_t sc_x[8], sc_y[8], sc_r[8];
+              for (int i = 0; i < 8; i++) {
+                sc_x[i] = (int16_t)(lobes[i][0] * scale);
+                sc_y[i] = (int16_t)(lobes[i][1] * scale);
+                sc_r[i] = (int16_t)(lobes[i][2] * scale);
+              }
+              int16_t off_y_sh = (int16_t)(5.0f * scale);
+              int16_t off_r_bd = (int16_t)(2.0f * scale);
+              int16_t off_x_hi = (int16_t)(3.0f * scale);
+              int16_t off_y_hi = (int16_t)(3.0f * scale);
+              int16_t off_r_hi = (int16_t)(5.0f * scale);
+              int16_t off_x_cr = (int16_t)(4.0f * scale);
+              int16_t off_y_cr = (int16_t)(6.0f * scale);
+              int16_t off_r_cr = (int16_t)(9.0f * scale);
+
               // Pass 1: Volumetric Underbelly Shadow (Unified Silhouette)
               for (int i = 0; i < 8; i++) {
-                int sx = bx + (int)(lobes[i][0] * scale);
-                int sy = by + (int)((lobes[i][1] + 5) * scale);
-                int sr = (int)(lobes[i][2] * scale);
+                int sx = bx + sc_x[i];
+                int sy = by + sc_y[i] + off_y_sh;
+                int sr = sc_r[i];
+                if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
                 it.filled_circle(sx, sy, sr, col_shadow);
               }
 
               // Pass 2: Main Cloud Body
               for (int i = 0; i < 8; i++) {
-                int sx = bx + (int)(lobes[i][0] * scale);
-                int sy = by + (int)(lobes[i][1] * scale);
-                int sr = (int)((lobes[i][2] - 2) * scale);
+                int sx = bx + sc_x[i];
+                int sy = by + sc_y[i];
+                int sr = sc_r[i] - off_r_bd;
+                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
                 it.filled_circle(sx, sy, sr, col_body);
               }
 
               // Pass 3: Sunlit / Moonlit Upper Volume
               for (int i = 0; i < 5; i++) {
-                int sx = bx + (int)((lobes[i][0] + 3) * scale);
-                int sy = by + (int)((lobes[i][1] - 3) * scale);
-                int sr = (int)((lobes[i][2] - 5) * scale);
-                if (sr > 0) it.filled_circle(sx, sy, sr, col_high);
+                int sx = bx + sc_x[i] + off_x_hi;
+                int sy = by + sc_y[i] - off_y_hi;
+                int sr = sc_r[i] - off_r_hi;
+                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
+                it.filled_circle(sx, sy, sr, col_high);
               }
 
               // Pass 4: Top Crown Crests
               static const int crest_idx[3] = {1, 2, 3};
               for (int i = 0; i < 3; i++) {
                 int idx = crest_idx[i];
-                int sx = bx + (int)((lobes[idx][0] + 4) * scale);
-                int sy = by + (int)((lobes[idx][1] - 6) * scale);
-                int sr = (int)((lobes[idx][2] - 9) * scale);
-                if (sr > 0) it.filled_circle(sx, sy, sr, col_crest);
+                int sx = bx + sc_x[idx] + off_x_cr;
+                int sy = by + sc_y[idx] - off_y_cr;
+                int sr = sc_r[idx] - off_r_cr;
+                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
+                it.filled_circle(sx, sy, sr, col_crest);
               }
             };
 
             if (is_partly) {
               // Partly Cloudy: 4 distinct volumetric cumulus formations pre-scattered across all quadrants
+              // Cloud drift speed halved (4-9 px/sec) for graceful, cinematic fluidity
               static const int16_t pc_x[4] = { 80, 240, 130, 340 };
               static const int16_t pc_y[4] = { 80, 175, 270, 340 };
               static const float pc_scale[4] = { 1.05f, 0.90f, 0.82f, 0.75f };
-              static const int8_t pc_spd[4] = { 12, 16, 14, 18 };
+              static const int8_t pc_spd[4] = { 6, 8, 7, 9 };
 
               for (int i = 0; i < 4; i++) {
-                int x = ((pc_x[i] + 80) + (int)(now_ms * pc_spd[i] / 1000)) % 600 - 80;
+                int x = ((pc_x[i] + 80) + (int)((uint64_t)now_ms * (uint32_t)pc_spd[i] / 1000ULL)) % 600 - 80;
                 draw_cumulus(x, pc_y[i], pc_scale[i], false);
               }
             } else {
               // Cloudy / Overcast: Dense interlocking blanket of 10 large cumulus masses blanketing the sky
+              // Cloud drift speed halved (4-7 px/sec) for graceful, cinematic fluidity
               static const int16_t og_x[10] = {  80, 240, 400, 140, 320,  60, 230, 390, 150, 310 };
               static const int16_t og_y[10] = {  45,  40,  50, 145, 140, 245, 240, 250, 345, 340 };
               static const float og_scale[10] = { 1.35f, 1.45f, 1.30f, 1.40f, 1.50f, 1.35f, 1.45f, 1.35f, 1.35f, 1.40f };
-              static const int8_t og_spd[10] = { 8, 12, 10, 14, 9, 11, 13, 8, 10, 12 };
+              static const int8_t og_spd[10] = { 4, 6, 5, 7, 4, 5, 6, 4, 5, 6 };
 
               for (int i = 0; i < 10; i++) {
-                int x = ((og_x[i] + 80) + (int)(now_ms * og_spd[i] / 1000)) % 600 - 80;
+                int x = ((og_x[i] + 80) + (int)((uint64_t)now_ms * (uint32_t)og_spd[i] / 1000ULL)) % 600 - 80;
                 draw_cumulus(x, og_y[i], og_scale[i], true);
               }
             }
@@ -5613,7 +5653,7 @@ display:
             bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
             int count = is_heavy ? 40 : 26;
             for (int i = 0; i < count; i++) {
-              int ry = (RAIN_Y[i] + (int)(now_ms * RAIN_SPD[i] / 1000)) % 435 + 15;
+              int ry = (RAIN_Y[i] + (int)((uint64_t)now_ms * (uint32_t)RAIN_SPD[i] / 1000ULL)) % 435 + 15;
               int rx = (RAIN_X[i] - (ry - 15) / 5) % 410 + 28;
               Color rain_c = is_night ? Color(120, 160, 215) : Color(145, 185, 230);
               if (i % 2 == 0) rain_c = is_night ? Color(60, 90, 130) : Color(90, 130, 175);
@@ -5646,8 +5686,9 @@ display:
             };
 
             for (int i = 0; i < 36; i++) {
-              int sy = (SNOW_Y[i] + (int)(now_ms * SNOW_SPD[i] / 1000)) % 430 + 15;
+              int sy = (SNOW_Y[i] + (int)((uint64_t)now_ms * (uint32_t)SNOW_SPD[i] / 1000ULL)) % 430 + 15;
               int sx = SNOW_X[i] + (int)(sinf((float)now_ms * 0.0022f + SNOW_PHASE[i]) * 8.0f);
+              if (sx < 2 || sx > 463 || sy < 2 || sy > 463) continue;
 
               if (SNOW_TYPE[i] == 2) {
                 // Large 5x5 micro-crystal snowflake
