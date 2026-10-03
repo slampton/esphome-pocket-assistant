@@ -1613,6 +1613,16 @@ text_sensor:
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
+    id: ha_target_volume
+    entity_id: ${target_vol_sensor}
+    on_value:
+      then:
+        - lambda: |-
+            if (!std::isnan(x) && x >= 0.0f && x <= 1.0f) {
+              id(pocket_music_player).volume = x;
+            }
+
+  - platform: homeassistant
     id: ha_track_title
     entity_id: ${target_title_sensor}
     on_value:
@@ -1978,6 +1988,8 @@ script:
       - lambda: |-
           id(music_action_feedback) = "<< Prev Track";
           id(music_feedback_timer) = millis();
+          id(music_pos_base) = 0.0f;
+          id(music_pos_sync_time) = millis();
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
@@ -3859,49 +3871,25 @@ display:
                   }
                 }
               } else {
-                // Full Screen & Letterbox: High-performance row-major direct pointer engine
-                // Reads memory contiguously along PSRAM cache lines (>96% L1 cache hits)
-                int start_y = is_letterbox ? 60 : 0;
-                int end_y = is_letterbox ? 385 : 466;
-                int scrim_start = 320;
-                int scrim_end = is_letterbox ? 385 : 395;
+                // Full Screen & Letterbox: Hardware-optimized native image blit (< 60ms)
+                it.image(0, 0, target_art);
 
-                // Scale steps for non-466x466 art (1:1 when src_w == 466 && src_h == 466)
-                bool is_1to1 = (src_w == 466 && src_h == 466);
-                int step_x = is_1to1 ? 0 : ((src_w << 12) / 466);
-                int step_y = is_1to1 ? 0 : ((src_h << 12) / 466);
-
-                for (int y = start_y; y < end_y; y++) {
-                  int hw = CIRCLE_HW[y];
-                  int start_x = cx - hw;
-                  if (start_x < 0) start_x = 0;
-                  int end_x = cx + hw;
-                  if (end_x > 465) end_x = 465;
-
-                  int sy = is_1to1 ? y : ((y * step_y) >> 12);
-                  if (sy >= src_h) sy = src_h - 1;
-                  const uint16_t *src_row = src_data + sy * src_w;
-
-                  bool is_scrim_row = (y >= scrim_start && y < scrim_end);
-
-                  for (int x = start_x; x <= end_x; x++) {
-                    // Single-pass 50% dither scrim over metadata band: skip alternate pixels
-                    // Framebuffer was cleared to black at frame start, so skipped pixels remain pure OLED black
-                    if (is_scrim_row && (((x + y) & 1) == 0)) {
-                      continue;
-                    }
-
-                    uint16_t p = is_1to1 ? src_row[x] : src_row[(x * step_x) >> 12];
-                    uint8_t r = (p & 0xF800) >> 8;
-                    uint8_t g = (p & 0x07E0) >> 3;
-                    uint8_t b = (p & 0x001F) << 3;
-                    it.draw_pixel_at(x, y, Color(r, g, b));
-                  }
-                }
-
-                // In Letterbox mode: Clean, solid cinema matte bar at top (y: 0..60)
+                // In Letterbox mode: Clean, solid cinema matte bars at top (y: 0..60) and bottom (y: 385..466)
                 if (is_letterbox) {
                   it.filled_rectangle(0, 0, 466, 60, id(col_black));
+                  it.filled_rectangle(0, 385, 466, 81, id(col_black));
+                }
+
+                // 50% Translucent Dither Scrim over metadata band (y: 320..395) using CIRCLE_HW
+                int scrim_end = is_letterbox ? 385 : 395;
+                for (int y = 320; y < scrim_end; y++) {
+                  int hw = CIRCLE_HW[y];
+                  int start_x = cx - hw;
+                  if ((start_x + y) % 2 != 0) start_x++;
+                  int end_x = cx + hw;
+                  for (int x = start_x; x <= end_x; x += 2) {
+                    it.draw_pixel_at(x, y, id(col_black));
+                  }
                 }
               }
             }
@@ -6946,7 +6934,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_up).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
 
                 // Dedicated Header Tap Zone ("MUSIC" Title) & Upper-Left Flank: Open Category Menu
@@ -6980,7 +6968,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_down).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
 
                 // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212)

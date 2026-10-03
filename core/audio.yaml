@@ -214,6 +214,7 @@ voice_assistant:
   on_stt_end:
     then:
       - script.stop: screen_sleep_timer
+      - script.execute: route_i2s_to_spk
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
