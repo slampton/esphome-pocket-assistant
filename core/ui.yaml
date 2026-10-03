@@ -510,6 +510,33 @@ light:
 
 select:
   - platform: template
+    name: "Weather: Condition Simulation"
+    id: weather_sim_condition
+    icon: "mdi:weather-partly-cloudy"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Live (Home Assistant)"
+    options:
+      - "Live (Home Assistant)"
+      - "Clear Night"
+      - "Sunny / Clear Day"
+      - "Partly Cloudy (Day)"
+      - "Partly Cloudy (Night)"
+      - "Cloudy / Overcast (Day)"
+      - "Cloudy / Overcast (Night)"
+      - "Rainy (Day)"
+      - "Rainy (Night)"
+      - "Pouring / Heavy Rain"
+      - "Snow (Day)"
+      - "Snow (Night)"
+      - "Thunderstorm (Day)"
+      - "Thunderstorm (Night)"
+      - "Windy"
+    set_action:
+      - lambda: |-
+          id(disp1).update();
+  - platform: template
     name: "System: Screensaver Style"
     id: screensaver_style_select
     icon: "mdi:weather-night"
@@ -1070,6 +1097,11 @@ interval:
 
           // Periodic display refresh during active alarm or timer ringing
           if ((id(alarm_ringing) || id(timer_ringing)) && id(display_power_state) == 0) {
+            id(disp1).update();
+          }
+
+          // Dynamic atmospheric motion wallpaper cadence (4 FPS) exclusively on Weather Subpage 0
+          if (id(gui_page) == 5 && id(sky_weather_subpage) == 0 && id(display_power_state) == 0 && id(display_brightness).current_values.is_on()) {
             id(disp1).update();
           }
 
@@ -5356,7 +5388,7 @@ display:
         };
 
         // ----------------------------------------------------------------------
-        // SUBPAGE 0: CURRENT CONDITIONS & ATMOSPHERIC DIAGNOSTICS
+        // SUBPAGE 0: CURRENT CONDITIONS & ATMOSPHERIC MOTION WALLPAPER
         // ----------------------------------------------------------------------
         if (id(sky_weather_subpage) == 0) {
           float temp = id(ha_weather_temperature).state;
@@ -5366,26 +5398,195 @@ display:
           float t_low = id(ha_weather_low).state;
 
           std::string s_state = id(ha_sun_state).state;
-          bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
+          bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
 
-          // Clean Upper-Right Corner Pocket Coordinates (cx=346, cy=82, pulled in tighter to temperature)
+          // Condition Simulation Override from Home Assistant Dropdown
+          std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
+          if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
+            if (sim_opt == "Clear Night") {
+              cond = "clear-night";
+              is_night = true;
+            } else if (sim_opt == "Sunny / Clear Day") {
+              cond = "sunny";
+              is_night = false;
+            } else if (sim_opt == "Partly Cloudy (Day)") {
+              cond = "partlycloudy";
+              is_night = false;
+            } else if (sim_opt == "Partly Cloudy (Night)") {
+              cond = "partlycloudy";
+              is_night = true;
+            } else if (sim_opt == "Cloudy / Overcast (Day)") {
+              cond = "cloudy";
+              is_night = false;
+            } else if (sim_opt == "Cloudy / Overcast (Night)") {
+              cond = "cloudy";
+              is_night = true;
+            } else if (sim_opt == "Rainy (Day)") {
+              cond = "rainy";
+              is_night = false;
+            } else if (sim_opt == "Rainy (Night)") {
+              cond = "rainy";
+              is_night = true;
+            } else if (sim_opt == "Pouring / Heavy Rain") {
+              cond = "pouring";
+              is_night = false;
+            } else if (sim_opt == "Snow (Day)") {
+              cond = "snowy";
+              is_night = false;
+            } else if (sim_opt == "Snow (Night)") {
+              cond = "snowy";
+              is_night = true;
+            } else if (sim_opt == "Thunderstorm (Day)") {
+              cond = "lightning-rainy";
+              is_night = false;
+            } else if (sim_opt == "Thunderstorm (Night)") {
+              cond = "lightning-rainy";
+              is_night = true;
+            } else if (sim_opt == "Windy") {
+              cond = "windy";
+              is_night = false;
+            }
+          }
+
+          uint32_t now_ms = millis();
           const int cel_cx = 346;
           const int cel_cy = 82;
 
-          if (is_night) {
-            // Subtle twinkling starfield in upper sky (y: 40..150)
-            if (cond == "clear-night" || cond.find("night") != std::string::npos) {
-              const int stars_x[14] = {75, 105, 88, 120, 375, 395, 335, 380, 95, 385, 115, 330, 68, 400};
-              const int stars_y[14] = {50, 75, 110, 140, 48, 75, 125, 145, 88, 110, 125, 55, 135, 130};
-              for (int k = 0; k < 14; k++) {
-                it.draw_pixel_at(stars_x[k], stars_y[k], (k % 3 == 0) ? Color(220, 235, 255) : Color(130, 155, 195));
-                if (k % 4 == 0) {
-                  it.draw_pixel_at(stars_x[k] + 1, stars_y[k], Color(160, 190, 230));
-                  it.draw_pixel_at(stars_x[k], stars_y[k] + 1, Color(160, 190, 230));
-                }
+          // ====================================================================
+          // LAYER 0: ATMOSPHERIC CANVAS
+          // ====================================================================
+          if (!is_night) {
+            // Uniform Realistic Dim Daylight Blue background (daytime baseline)
+            Color day_bg = Color(28, 54, 84); // Clear / Calm daylight sky
+            if (cond.find("cloud") != std::string::npos && cond.find("partly") == std::string::npos && cond.find("mostlysunny") == std::string::npos) {
+              day_bg = Color(22, 38, 56); // Overcast slate sky
+            } else if (cond.find("rain") != std::string::npos || cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
+              day_bg = Color(18, 30, 46); // Stormy dark sky
+            }
+            it.filled_circle(cx, cy, 228, day_bg);
+          }
+
+          // ====================================================================
+          // LAYER 1: WEATHER MOTION WALLPAPER
+          // ====================================================================
+          // 1. NIGHT STARFIELD: 48-star twinkling field with text sanctuary
+          if (is_night && (cond == "clear-night" || cond == "clearnight" || cond == "sunny" || cond == "clear" || cond == "clear-day" || cond.find("partly") != std::string::npos)) {
+            static const int stars_x[48] = {
+              71, 108, 145, 182, 219, 256, 330, 367, 404, 91,
+              128, 65, 380, 417, 74, 111, 148, 333, 370, 407,
+              94, 131, 390, 77, 114, 151, 336, 373, 410, 97,
+              134, 400, 80, 117, 154, 339, 376, 413, 100, 137,
+              393, 83, 120, 157, 342, 379, 416, 103
+            };
+            static const int stars_y[48] = {
+              59, 88, 117, 146, 175, 49, 107, 136, 165, 194,
+              68, 97, 126, 155, 184, 58, 87, 116, 145, 174,
+              48, 77, 106, 135, 164, 193, 67, 96, 125, 154,
+              183, 57, 86, 115, 144, 173, 47, 76, 105, 134,
+              163, 192, 66, 95, 124, 153, 182, 56
+            };
+            for (int k = 0; k < 48; k++) {
+              int sx = stars_x[k];
+              int sy = stars_y[k];
+              // Temperature & Moon sanctuary bounds
+              if (sx >= 165 && sx <= 302 && sy >= 55 && sy <= 112) continue;
+              if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
+
+              float twinkle = sinf(now_ms * 0.003f + (float)k * 0.8f);
+              uint8_t br = (uint8_t)(155 + (int)(90.0f * twinkle));
+              Color star_c = (k % 3 == 0) ? Color(br, (uint8_t)(br * 0.94f), br) : Color((uint8_t)(br * 0.75f), (uint8_t)(br * 0.85f), br);
+              it.draw_pixel_at(sx, sy, star_c);
+              if (k % 7 == 0 && br > 215) {
+                it.draw_pixel_at(sx + 1, sy, Color(160, 190, 230));
+                it.draw_pixel_at(sx - 1, sy, Color(160, 190, 230));
+                it.draw_pixel_at(sx, sy + 1, Color(160, 190, 230));
+                it.draw_pixel_at(sx, sy - 1, Color(160, 190, 230));
               }
             }
+          }
 
+          // 2. CLOUDS: Volumetric 3D drifting puffs with lunar or solar glow
+          if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
+            bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos);
+            int c_drift = ((now_ms / 160) % 260) - 50;
+
+            static const int cp_x[8] = { 85, 115, 150, 188, 222, 130, 168, 205 };
+            static const int cp_y[8] = { 86,  73,  69,  76,  84,  96,  99,  92 };
+            static const int cp_r[8] = { 26,  34,  38,  36,  30,  30,  28,  26 };
+
+            int num_puffs = is_partly ? 5 : 8;
+            for (int p = 0; p < num_puffs; p++) {
+              int px = (cp_x[p] + c_drift) % 360 + 50;
+              int py = cp_y[p];
+              int pr = cp_r[p];
+
+              if (!is_night) {
+                // Daytime cloud: Soft shadow base + body + subtle silver highlight
+                it.filled_circle(px, py, pr, Color(42, 68, 96));
+                it.filled_circle(px - 1, py - 2, pr - 3, Color(62, 90, 122));
+                it.circle(px - 1, py - 2, pr - 3, Color(85, 118, 155));
+              } else {
+                // Nighttime cloud: Nocturnal charcoal base with silver lunar edge glow
+                it.filled_circle(px, py, pr, Color(16, 22, 30));
+                it.filled_circle(px - 1, py - 2, pr - 3, Color(26, 36, 48));
+                it.circle(px - 1, py - 2, pr - 3, Color(55, 75, 102));
+              }
+            }
+          }
+
+          // 3. RAIN: Dynamic angled falling streaks
+          if (cond.find("rain") != std::string::npos || cond.find("pouring") != std::string::npos || cond.find("drizzle") != std::string::npos) {
+            bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
+            int rain_count = is_heavy ? 40 : 24;
+            for (int i = 0; i < rain_count; i++) {
+              int x0 = (37 * i + 19) % 360 + 50;
+              int y0 = (i * 27) % 200;
+              int speed = 130 + (i % 3) * 45;
+              int len_r = (is_heavy ? 14 : 9) + (i % 3) * 4;
+              int ry = (y0 + (int)(now_ms * speed / 1000)) % 220 + 40;
+              int rx = (x0 - (ry - 40) / 4) % 380 + 45;
+              Color rain_c = is_night ? Color(110, 150, 205) : Color(145, 185, 230);
+              if (i % 2 == 0) rain_c = is_night ? Color(55, 85, 125) : Color(90, 130, 175);
+              it.line(rx, ry, rx - 3, ry + len_r, rain_c);
+            }
+          }
+
+          // 4. SNOW: Drifting snowflakes with gentle sine flutter
+          if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
+            for (int i = 0; i < 24; i++) {
+              int x0 = (53 * i + 23) % 350 + 55;
+              int y0 = (i * 31) % 200;
+              int speed = 35 + (i % 3) * 15;
+              float phase = (float)i * 1.3f;
+              int sy = (y0 + (int)(now_ms * speed / 1000)) % 220 + 40;
+              int sx = x0 + (int)(sinf((float)now_ms * 0.0025f + phase) * 8.0f);
+              Color flake_c = (i % 2 == 0) ? Color(245, 250, 255) : Color(185, 215, 245);
+              it.draw_pixel_at(sx, sy, flake_c);
+              if (i % 3 == 0) {
+                it.draw_pixel_at(sx + 1, sy, flake_c);
+                it.draw_pixel_at(sx - 1, sy, flake_c);
+                it.draw_pixel_at(sx, sy + 1, flake_c);
+                it.draw_pixel_at(sx, sy - 1, flake_c);
+              }
+            }
+          }
+
+          // 5. LIGHTNING: Periodic branching bolt flash during thunderstorms
+          if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
+            uint32_t flash_cycle = now_ms % 4200;
+            if (flash_cycle < 160) {
+              it.line(210, 44, 202, 68, Color(255, 255, 235));
+              it.line(202, 68, 214, 88, Color(255, 255, 235));
+              it.line(214, 88, 188, 118, Color(255, 255, 245));
+              it.line(188, 118, 168, 142, Color(255, 255, 255));
+              it.line(202, 68, 226, 84, Color(220, 235, 255)); // Branch
+            }
+          }
+
+          // ====================================================================
+          // LAYER 2: CELESTIAL CORNER POCKET ICON
+          // ====================================================================
+          if (is_night) {
             // Interactive Corner Moon with Astronomical Phase Accuracy (r = 22, cel_cx = 346, cel_cy = 82)
             int om_r = 22;
             float scale = 22.0f / 44.0f;
@@ -5450,19 +5651,22 @@ display:
             }
             it.circle(cel_cx, cel_cy, om_r, Color(45, 55, 70));
           } else {
-            // Interactive Corner Sun (Daytime, cel_cx = 336, cel_cy = 98)
+            // Interactive Corner Sun (Daytime, cel_cx = 346, cel_cy = 82)
             it.filled_circle(cel_cx, cel_cy, 20, Color(245, 165, 25));
             it.filled_circle(cel_cx, cel_cy, 12, Color(255, 225, 90));
             it.circle(cel_cx, cel_cy, 26, Color(140, 85, 15));
           }
 
-          // Hero Temperature moved down to y = 82 so its top lines up with system title "FORECAST" at y = 43
+          // ====================================================================
+          // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY
+          // ====================================================================
+          // Hero Temperature at y = 82 (always pure white for maximum pop)
           char temp_buf[16];
           if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
           it.print(cx, 82, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
-          // Condition Subtitle brought down to y = 140 for balanced spacing below temperature
+          // Condition Subtitle at y = 140
           auto format_cond = [](const std::string& c_in) -> std::string {
             if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
             if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "PARTLY CLOUDY";
@@ -5485,9 +5689,10 @@ display:
             return s;
           };
           std::string cond_title = format_cond(cond);
-          it.print(cx, 140, id(font_date), id(theme_primary), TextAlign::CENTER, cond_title.c_str());
+          Color cond_color = is_night ? id(theme_primary) : Color(255, 225, 110);
+          it.print(cx, 140, id(font_date), cond_color, TextAlign::CENTER, cond_title.c_str());
 
-          // Feels like / High-Low Line at y = 174 (expanded gap below condition subtitle)
+          // Feels like / High-Low Line at y = 174
           char fl_buf[64];
           if (!isnan(t_high) && !isnan(t_low) && !isnan(app_temp)) {
             snprintf(fl_buf, sizeof(fl_buf), "Feels %.0f°  •  H: %.0f°  L: %.0f°", app_temp, t_high, t_low);
@@ -5496,31 +5701,34 @@ display:
           } else {
             snprintf(fl_buf, sizeof(fl_buf), "Oakland, CA");
           }
-          it.print(cx, 174, id(font_small), id(col_slate), TextAlign::CENTER, fl_buf);
+          Color fl_color = is_night ? id(col_slate) : Color(195, 215, 235);
+          it.print(cx, 174, id(font_small), fl_color, TextAlign::CENTER, fl_buf);
 
-          // Horizontal divider at y = 202 (standardized to Sun page)
-          it.line(80, 202, 386, 202, id(col_dark_gray));
+          // Horizontal divider at y = 202
+          Color div_c = is_night ? id(col_dark_gray) : Color(45, 75, 105);
+          it.line(80, 202, 386, 202, div_c);
 
           // ----------------------------------------------------
           // PRIMARY METRICS: HUMIDITY & WIND ONLY
-          // Standardized: Titles in font_small at y = 220, Data in font_date at y = 248
           // ----------------------------------------------------
           float hum = id(ha_weather_humidity).state;
           float wspd = id(ha_weather_wind_speed).state;
           float wbear = id(ha_weather_wind_bearing).state;
 
+          Color label_c = is_night ? id(col_slate) : Color(165, 190, 215);
+
           // Column 1: HUMIDITY (Left x = 145)
-          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "HUMIDITY");
+          it.print(145, 220, id(font_small), label_c, TextAlign::CENTER, "HUMIDITY");
           char hum_str[16];
           if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
           else snprintf(hum_str, sizeof(hum_str), "--");
           it.print(145, 248, id(font_date), id(col_white), TextAlign::CENTER, hum_str);
 
-          // Center Divider between columns (y = 210..260, standardized to Sun page)
-          it.line(cx, 210, cx, 260, id(col_dark_gray));
+          // Center Divider between columns (y = 210..260)
+          it.line(cx, 210, cx, 260, div_c);
 
-          // Column 2: WIND (Right x = 321, font_date matching humidity)
-          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "WIND");
+          // Column 2: WIND (Right x = 321)
+          it.print(321, 220, id(font_small), label_c, TextAlign::CENTER, "WIND");
           char wind_str[32];
           if (!isnan(wspd)) {
             snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
@@ -5529,8 +5737,8 @@ display:
           }
           it.print(321, 248, id(font_date), id(col_white), TextAlign::CENTER, wind_str);
 
-          // Divider at y = 272 above bottom 2x2 buttons (standardized to Sun page)
-          it.line(80, 272, 386, 272, id(col_dark_gray));
+          // Divider at y = 272 above bottom 2x2 buttons
+          it.line(80, 272, 386, 272, div_c);
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
@@ -7235,7 +7443,12 @@ touchscreen:
               if (id(sky_weather_subpage) == 0 && touch.x >= 305 && touch.x <= 390 && touch.y >= 44 && touch.y <= 119) {
                 std::string s_state = id(ha_sun_state).state;
                 std::string cond = id(ha_weather_condition).state;
-                bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
+                bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
+                std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
+                if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
+                  if (sim_opt.find("(Night)") != std::string::npos || sim_opt == "Clear Night") is_night = true;
+                  else if (sim_opt.find("(Day)") != std::string::npos || sim_opt == "Sunny / Clear Day" || sim_opt == "Windy" || sim_opt == "Pouring / Heavy Rain") is_night = false;
+                }
                 if (is_night) {
                   id(sky_weather_subpage) = 3; // Jump directly to Moon Page!
                 } else {
