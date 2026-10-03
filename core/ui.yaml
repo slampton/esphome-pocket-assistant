@@ -5230,47 +5230,51 @@ display:
           draw_back_button();
         } else if (id(system_menu_mode) == 8) {
           // --------------------------------------------------
-          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Left-Aligned Monochromatic)
+          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Monochromatic Telemetry)
           // --------------------------------------------------
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM INFO");
-
-          // Left-aligned margin at x = 80 with consistent theme_primary palette
-          const int info_x = 80;
 
           // Line 1: Wi-Fi Signal & IP (Always White for pure contrast)
           float sig = id(pocket_wifi_signal).state;
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
-          it.print(info_x, 105, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Center the Wi-Fi readout under SYSTEM INFO as baseline, with all subsequent rows left-aligned to it
+          int x_off = 0, base = 0, text_w = 0, text_h = 0;
+          id(font_small)->measure(buf, &x_off, &base, &text_w, &text_h);
+          const int info_x = (text_w > 0) ? (cx - text_w / 2) : 88;
+
+          // Reduced top gap to match Clock & Time submenu (start y = 96, preserving 40px row-to-row spacing)
+          it.print(info_x, 96, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 2: Temperature (Dual C & F)
           float temp_c = id(imu_temp).state;
           float temp_f = temp_c * 1.8f + 32.0f;
           snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-          it.print(info_x, 145, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 136, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
-          it.print(info_x, 185, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 176, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 4: 3-Axis Acceleration (G-force)
           snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(info_x, 225, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 216, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 5: Battery Fuel Gauge & Power
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(info_x, 265, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 256, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 6: Hardware Platform, Memory & Firmware
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
           snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
-          it.print(info_x, 305, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 296, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Bottom Button: Standardized < BACK (y = 375, r = 18)
+          // Bottom Button: Standardized < BACK (y = 368, r = 16)
           draw_back_button();
 
         } else if (id(system_menu_mode) == 9) {
