@@ -236,7 +236,7 @@ globals:
   - id: active_deck_size
     type: int
     restore_value: no
-    initial_value: '5'
+    initial_value: '7'
   - id: current_deck_index
     type: int
     restore_value: no
@@ -1685,16 +1685,6 @@ script:
             float rank;
             bool enabled;
           };
-
-          // Default positions lock: Ensure System is always last (#7) and Timer & Alarm is #6
-          if (id(app_order_system).state <= id(app_order_timer).state) {
-            auto call_tim = id(app_order_timer).make_call();
-            call_tim.set_value(6.0f);
-            call_tim.perform();
-            auto call_sys = id(app_order_system).make_call();
-            call_sys.set_value(7.0f);
-            call_sys.perform();
-          }
 
           AppEntry pool[7] = {
             {0, id(app_order_clock).state, id(show_clock_switch).state},
