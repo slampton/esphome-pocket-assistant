@@ -520,9 +520,9 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Default"
+    initial_option: "Nebula"
     options:
-      - "Default"
+      - "Nebula"
       - "Solaris"
     set_action:
       - lambda: |-
@@ -3163,7 +3163,7 @@ display:
         uint32_t now_ms = millis();
         bool is_speaking = id(va_tts_received);
         bool is_thinking = (!is_speaking && id(va_status_text) == "Thinking...");
-        bool is_solaris = (id(va_visual_profile).state == "Solaris");
+        bool is_solaris = (std::string(id(va_visual_profile).current_option().c_str()) == "Solaris");
 
         // Profile-aware spectral gradient loop
         auto get_nuanced_radiation_color = [is_solaris](float t) -> Color {

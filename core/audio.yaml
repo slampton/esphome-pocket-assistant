@@ -256,7 +256,7 @@ voice_assistant:
   on_timer_started:
     then:
       - lambda: |-
-          ESP_LOGI("va_timer", "Timer started via Assist: %s (%u sec)", timer.name.c_str(), timer.total_seconds);
+          ESP_LOGI("va_timer", "Timer started via Assist: %s (%lu sec)", timer.name.c_str(), (unsigned long)timer.total_seconds);
           id(timer_duration_sec) = timer.total_seconds;
           id(timer_remaining_sec) = timer.seconds_left;
           id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
@@ -269,7 +269,7 @@ voice_assistant:
   on_timer_updated:
     then:
       - lambda: |-
-          ESP_LOGI("va_timer", "Timer updated via Assist: %s (left: %u sec, active: %d)", timer.name.c_str(), timer.seconds_left, timer.is_active);
+          ESP_LOGI("va_timer", "Timer updated via Assist: %s (left: %lu sec, active: %d)", timer.name.c_str(), (unsigned long)timer.seconds_left, timer.is_active);
           id(timer_remaining_sec) = timer.seconds_left;
           id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
           id(timer_running) = timer.is_active;
