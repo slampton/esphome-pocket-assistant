@@ -5509,74 +5509,124 @@ display:
             }
           }
 
-          // 2. FULL-SCREEN CLOUDS: Multi-tier floating puffs for Partly Cloudy, Dense blanket for Overcast
+          // 2. FULL-SCREEN VOLUMETRIC CLOUDS: Seamless Organic Cumulus (Partly) & Rolling Stratus Deck (Overcast)
           if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
             bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
 
             if (is_partly) {
-              // Partly Cloudy: 14 drifting cloud puffs randomized across upper, middle, and lower screen
-              int c_drift1 = ((now_ms / 150) % 360) - 50;
-              int c_drift2 = ((now_ms / 190) % 360) - 70;
-              int c_drift3 = ((now_ms / 140) % 360) - 40;
+              // ----------------------------------------------------------------
+              // PARTLY CLOUDY: Volumetric Multi-Pass Cumulus Clouds (Zero Wireframe Outlines)
+              // ----------------------------------------------------------------
+              Color col_shadow = is_night ? Color(14, 18, 25) : Color(34, 52, 74);
+              Color col_body   = is_night ? Color(24, 32, 44) : Color(54, 78, 106);
+              Color col_high   = is_night ? Color(40, 52, 70) : Color(78, 108, 142);
+              Color col_crest  = is_night ? Color(65, 82, 110) : Color(110, 145, 185);
 
-              static const int cp_x[14] = { 75, 115, 155, 195,  95, 140, 185, 230, 275,  85, 135, 185, 235, 285 };
-              static const int cp_y[14] = { 75,  68,  72,  80, 175, 168, 172, 165, 178, 285, 275, 282, 278, 288 };
-              static const int cp_r[14] = { 28,  36,  38,  30,  32,  40,  42,  36,  30,  30,  38,  40,  35,  28 };
+              auto draw_cumulus = [&](int bx, int by, float scale) {
+                static const int lobes[8][3] = {
+                  {-45,  10, 24},
+                  {-25,  -5, 32},
+                  {  5, -18, 40},
+                  { 35,  -8, 30},
+                  { 55,  10, 22},
+                  {-10,  15, 26},
+                  { 20,  15, 26},
+                  {  0,   8, 28}
+                };
 
-              for (int p = 0; p < 14; p++) {
-                int drift = (p < 4) ? c_drift1 : (p < 9 ? c_drift2 : c_drift3);
-                int px = (cp_x[p] + drift) % 380 + 40;
-                int py = cp_y[p];
-                int pr = cp_r[p];
+                // Pass 1: Volumetric Underbelly Shadow (Seamless Silhouette)
+                for (int i = 0; i < 8; i++) {
+                  int sx = bx + (int)(lobes[i][0] * scale);
+                  int sy = by + (int)((lobes[i][1] + 5) * scale);
+                  int sr = (int)(lobes[i][2] * scale);
+                  it.filled_circle(sx, sy, sr, col_shadow);
+                }
 
-                if (!is_night) {
-                  it.filled_circle(px, py, pr, Color(42, 68, 96));
-                  it.filled_circle(px - 1, py - 2, pr - 3, Color(62, 90, 122));
-                  it.circle(px - 1, py - 2, pr - 3, Color(85, 118, 155));
-                } else {
-                  it.filled_circle(px, py, pr, Color(16, 22, 30));
-                  it.filled_circle(px - 1, py - 2, pr - 3, Color(26, 36, 48));
-                  it.circle(px - 1, py - 2, pr - 3, Color(55, 75, 102));
+                // Pass 2: Main Cloud Body
+                for (int i = 0; i < 8; i++) {
+                  int sx = bx + (int)(lobes[i][0] * scale);
+                  int sy = by + (int)(lobes[i][1] * scale);
+                  int sr = (int)((lobes[i][2] - 2) * scale);
+                  it.filled_circle(sx, sy, sr, col_body);
+                }
+
+                // Pass 3: Sunlit / Moonlit Upper Volume
+                for (int i = 0; i < 5; i++) {
+                  int sx = bx + (int)((lobes[i][0] + 3) * scale);
+                  int sy = by + (int)((lobes[i][1] - 3) * scale);
+                  int sr = (int)((lobes[i][2] - 5) * scale);
+                  if (sr > 0) it.filled_circle(sx, sy, sr, col_high);
+                }
+
+                // Pass 4: Top Crown Crests
+                static const int crest_idx[3] = {1, 2, 3};
+                for (int i = 0; i < 3; i++) {
+                  int idx = crest_idx[i];
+                  int sx = bx + (int)((lobes[idx][0] + 4) * scale);
+                  int sy = by + (int)((lobes[idx][1] - 6) * scale);
+                  int sr = (int)((lobes[idx][2] - 9) * scale);
+                  if (sr > 0) it.filled_circle(sx, sy, sr, col_crest);
+                }
+              };
+
+              // 3 Distinct Parallax Cloud Clusters drifting at different altitudes
+              int drift1 = ((now_ms / 140) % 460) - 70;
+              int drift2 = ((now_ms / 190) % 460) - 100;
+              int drift3 = ((now_ms / 160) % 460) - 60;
+
+              draw_cumulus((120 + drift1) % 460 - 30,  85, 1.05f); // Upper Cluster
+              draw_cumulus((260 + drift2) % 460 - 30, 185, 0.90f); // Mid-Screen Cluster
+              draw_cumulus((140 + drift3) % 460 - 30, 295, 0.80f); // Lower Cluster
+
+            } else {
+              // ----------------------------------------------------------------
+              // CLOUDY / OVERCAST: Heavy Rolling Atmospheric Stratus Deck (Broad Masses, Zero Outlines)
+              // ----------------------------------------------------------------
+              Color col_shadow = is_night ? Color(12, 16, 22) : Color(26, 38, 54);
+              Color col_body   = is_night ? Color(20, 28, 38) : Color(40, 58, 80);
+              Color col_high   = is_night ? Color(36, 48, 64) : Color(58, 80, 108);
+
+              auto draw_stratus_capsule = [&](int x1, int x2, int y, int r, Color c) {
+                if (x2 < x1) std::swap(x1, x2);
+                it.filled_circle(x1, y, r, c);
+                it.filled_circle(x2, y, r, c);
+                it.filled_rectangle(x1, y - r, x2 - x1, r * 2 + 1, c);
+              };
+
+              static const int caps[14][4] = {
+                {  30, 170,  58, 30 }, { 180, 340,  50, 36 }, { 330, 440,  64, 28 },
+                {  20, 180, 118, 34 }, { 170, 350, 112, 40 }, { 320, 450, 126, 32 },
+                {  40, 220, 182, 36 }, { 190, 380, 176, 42 }, { 330, 460, 188, 34 },
+                {  30, 190, 252, 34 }, { 180, 360, 246, 38 }, { 310, 440, 258, 32 },
+                {  50, 230, 332, 36 }, { 210, 390, 326, 40 }
+              };
+
+              int s_drift = ((now_ms / 220) % 360) - 50;
+
+              // Pass 1: Deep Rolling Underbelly Shadow
+              for (int i = 0; i < 14; i++) {
+                int x1 = (caps[i][0] + s_drift) % 440 - 20;
+                int x2 = (caps[i][1] + s_drift) % 440 - 20;
+                if (x2 > x1) {
+                  draw_stratus_capsule(x1, x2, caps[i][2] + 6, caps[i][3], col_shadow);
                 }
               }
-            } else {
-              // Dense Overcast Blanket: 26 large overlapping cloud puffs completely covering the sky
-              int c_drift = ((now_ms / 210) % 380) - 60;
-              static const int og_x[26] = {
-                  80, 140, 200, 260, 320, 380,
-                  60, 120, 180, 240, 300, 360,
-                  75, 145, 215, 285, 355,
-                  85, 160, 235, 310, 380,
-                 100, 175, 250, 325
-              };
-              static const int og_y[26] = {
-                  55,  50,  58,  52,  56,  52,
-                 115, 110, 118, 112, 116, 112,
-                 180, 175, 182, 178, 176,
-                 250, 245, 252, 248, 246,
-                 330, 325, 332, 328
-              };
-              static const int og_r[26] = {
-                  42, 48, 45, 48, 44, 40,
-                  46, 52, 50, 54, 50, 46,
-                  48, 52, 50, 52, 48,
-                  46, 50, 52, 50, 44,
-                  44, 48, 50, 46
-              };
 
-              for (int p = 0; p < 26; p++) {
-                int px = (og_x[p] + c_drift) % 390 + 38;
-                int py = og_y[p];
-                int pr = og_r[p];
+              // Pass 2: Main Stratus Cloud Body
+              for (int i = 0; i < 14; i++) {
+                int x1 = (caps[i][0] + s_drift) % 440 - 20;
+                int x2 = (caps[i][1] + s_drift) % 440 - 20;
+                if (x2 > x1) {
+                  draw_stratus_capsule(x1, x2, caps[i][2], caps[i][3] - 2, col_body);
+                }
+              }
 
-                if (!is_night) {
-                  it.filled_circle(px, py, pr, Color(36, 56, 80));
-                  it.filled_circle(px - 1, py - 2, pr - 3, Color(52, 76, 104));
-                  it.circle(px - 1, py - 2, pr - 3, Color(75, 102, 134));
-                } else {
-                  it.filled_circle(px, py, pr, Color(14, 18, 26));
-                  it.filled_circle(px - 1, py - 2, pr - 3, Color(24, 32, 44));
-                  it.circle(px - 1, py - 2, pr - 3, Color(48, 64, 88));
+              // Pass 3: Diffuse Upper Atmospheric Highlights
+              for (int i = 0; i < 14; i++) {
+                int x1 = (caps[i][0] + s_drift) % 440 - 20 + 12;
+                int x2 = (caps[i][1] + s_drift) % 440 - 20 - 12;
+                if (x2 > x1) {
+                  draw_stratus_capsule(x1, x2, caps[i][2] - 4, caps[i][3] - 10, col_high);
                 }
               }
             }
