@@ -72,7 +72,7 @@ speaker:
     sample_rate: 16000
     bits_per_sample: 16bit
     channel: left
-    buffer_duration: 2500ms
+    buffer_duration: 1000ms
     timeout: 10s
 
   - id: mixing_speaker
@@ -83,17 +83,14 @@ speaker:
     source_speakers:
       - id: announcement_mixing_input
         timeout: 1500ms
-        buffer_duration: 2500ms
       - id: media_mixing_input
         timeout: 1500ms
-        buffer_duration: 2500ms
 
   - platform: resampler
     id: va_speaker
     output_speaker: announcement_mixing_input
     sample_rate: 16000
     bits_per_sample: 16
-    buffer_duration: 2500ms
     task_stack_in_psram: true
 
   - platform: resampler
@@ -101,7 +98,6 @@ speaker:
     output_speaker: media_mixing_input
     sample_rate: 16000
     bits_per_sample: 16
-    buffer_duration: 2500ms
     task_stack_in_psram: true
 
 
@@ -149,6 +145,12 @@ media_player:
             id(active_game) = 0;
         - script.stop: mp_idle_debounce
         - script.stop: screen_sleep_timer
+        - mixer_speaker.apply_ducking:
+            id: media_mixing_input
+            decibel_reduction: 0
+            duration: 0.1s
+        - speaker.stop: va_speaker
+        - speaker.stop: announcement_mixing_input
         - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
         - audio_dac.mute_off: es8311_dac
@@ -332,14 +334,15 @@ voice_assistant:
                 timeout: 180s
             # 3. Clean 300ms settling flush for physical speaker & DAC FIFO drain
             - delay: 300ms
-      - mixer_speaker.apply_ducking:
-          id: media_mixing_input
-          decibel_reduction: 0
-          duration: 1.0s
       - if:
           condition:
-            media_player.is_idle: pocket_music_player
+            media_player.is_playing: pocket_music_player
           then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 0
+                duration: 1.0s
+          else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
       - lambda: |-
@@ -383,7 +386,8 @@ script:
       - script.stop: play_alarm_sound
       - if:
           condition:
-            media_player.is_idle: pocket_music_player
+            not:
+              media_player.is_playing: pocket_music_player
           then:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
