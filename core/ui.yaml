@@ -5241,9 +5241,10 @@ display:
           snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
 
           // Center the Wi-Fi readout under SYSTEM INFO as baseline, with all subsequent rows left-aligned to it
-          int x_off = 0, base = 0, text_w = 0, text_h = 0;
-          id(font_small)->measure(buf, &x_off, &base, &text_w, &text_h);
-          const int info_x = (text_w > 0) ? (cx - text_w / 2) : 88;
+          // ESPHome BaseFont::measure signature is: measure(const char *str, int *width, int *x_offset, int *baseline, int *height)
+          int text_w = 0, x_off = 0, base = 0, text_h = 0;
+          id(font_small)->measure(buf, &text_w, &x_off, &base, &text_h);
+          const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 88;
 
           // Reduced top gap to match Clock & Time submenu (start y = 96, preserving 40px row-to-row spacing)
           it.print(info_x, 96, id(font_small), id(col_white), TextAlign::LEFT, buf);
@@ -5922,14 +5923,14 @@ display:
               it.print(cx, 168, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
             }
 
-            // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide)
+            // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide, black text on theme_secondary)
             const int hero_y = 228;
             if (!id(timer_running) && !id(timer_paused)) {
-              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(theme_primary));
+              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black));
             } else if (id(timer_running)) {
               draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black));
             } else if (id(timer_paused)) {
-              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(theme_primary));
+              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black));
             }
 
             // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14)
