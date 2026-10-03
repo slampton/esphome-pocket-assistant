@@ -1678,9 +1678,6 @@ script:
     mode: restart
     then:
       - media_player.pause: pocket_music_player
-      - speaker.stop: music_resampler
-      - speaker.stop: media_mixing_input
-      - speaker.stop: physical_speaker
       - mixer_speaker.apply_ducking:
           id: media_mixing_input
           decibel_reduction: 50
@@ -1697,16 +1694,10 @@ script:
   - id: throttled_disp_update
     mode: restart
     then:
-      - delay: 50ms
+      - delay: 35ms
       - if:
           condition:
-            lambda: |-
-              static uint32_t last_redraw = 0;
-              uint32_t now = millis();
-              if (now - last_redraw < 150) return false;
-              if (id(display_power_state) != 0 || id(gui_page) != 2) return false;
-              last_redraw = now;
-              return true;
+            lambda: 'return (id(display_power_state) == 0 && id(gui_page) == 2);'
           then:
             - component.update: disp1
 
@@ -1930,7 +1921,7 @@ script:
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: toggle_ha_music
-    mode: single
+    mode: restart
     then:
       - if:
           condition:
@@ -1960,7 +1951,7 @@ script:
                   - media_player.play: pocket_music_player
 
   - id: music_next_track
-    mode: single
+    mode: restart
     then:
       - delay: 0ms
       - lambda: |-
@@ -1972,7 +1963,7 @@ script:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_prev_track
-    mode: single
+    mode: restart
     then:
       - delay: 0ms
       - lambda: |-
@@ -2601,8 +2592,6 @@ script:
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
       - voice_assistant.stop:
-      - speaker.stop: va_speaker
-      - speaker.stop: announcement_mixing_input
       - lambda: |-
           id(va_status_text) = "";
           id(va_tts_received) = false;
@@ -6905,14 +6894,14 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_up).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
                 // Dedicated Header Tap Zone ("MUSIC" Title) & Upper-Left Flank: Open Category Menu
                 // Constrained to title center (x: 180..286, y <= 95) or upper-left corner (x <= prev_x_max, y < 155)
                 } else if ((touch.y <= 95 && touch.x >= 180 && touch.x <= 286) || (touch.x <= prev_x_max && touch.y < 155)) {
                   id(music_overlay_mode) = 1;
-                  id(throttled_disp_update).execute();
+                  id(disp1).update();
 
                 // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x, 212)
                 } else if (touch.x >= next_x_min && touch.y >= 175 && touch.y < 255) {
@@ -6923,7 +6912,7 @@ touchscreen:
                     id(music_action_feedback) = "Next Track >>";
                     id(music_feedback_timer) = now_tap;
                     id(music_next_track).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
                 // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) with 120ms rate-limit (clean bound y < 398)
@@ -6939,7 +6928,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_down).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
                 // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212)
@@ -6951,7 +6940,7 @@ touchscreen:
                     id(music_action_feedback) = "<< Prev Track";
                     id(music_feedback_timer) = now_tap;
                     id(music_prev_track).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
                 // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286) with 250ms tap debounce (clean bound y < 398)
@@ -6961,7 +6950,7 @@ touchscreen:
                   if (now_tap - last_menu_tap > 250) {
                     last_menu_tap = now_tap;
                     id(music_overlay_mode) = 1; // Open Level 1 Music Menu
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
                 // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Mode-aware generous zone (clean bound y < 398)
@@ -6975,7 +6964,7 @@ touchscreen:
                     id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(toggle_ha_music).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
                 }
               } else if (id(music_overlay_mode) == 1) {
