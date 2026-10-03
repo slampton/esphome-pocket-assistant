@@ -5388,7 +5388,7 @@ display:
         };
 
         // ----------------------------------------------------------------------
-        // SUBPAGE 0: CURRENT CONDITIONS & ATMOSPHERIC MOTION WALLPAPER
+        // SUBPAGE 0: CURRENT CONDITIONS & ATMOSPHERIC MOTION WALLPAPER (FULL-SCREEN ENGINE)
         // ----------------------------------------------------------------------
         if (id(sky_weather_subpage) == 0) {
           float temp = id(ha_weather_temperature).state;
@@ -5458,7 +5458,7 @@ display:
           if (!is_night) {
             // Uniform Realistic Dim Daylight Blue background (daytime baseline)
             Color day_bg = Color(28, 54, 84); // Clear / Calm daylight sky
-            if (cond.find("cloud") != std::string::npos && cond.find("partly") == std::string::npos && cond.find("mostlysunny") == std::string::npos) {
+            if (cond.find("cloud") != std::string::npos && cond.find("partly") == std::string::npos && cond.find("mostlysunny") == std::string::npos && cond.find("partlysunny") == std::string::npos) {
               day_bg = Color(22, 38, 56); // Overcast slate sky
             } else if (cond.find("rain") != std::string::npos || cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
               day_bg = Color(18, 30, 46); // Stormy dark sky
@@ -5467,29 +5467,33 @@ display:
           }
 
           // ====================================================================
-          // LAYER 1: WEATHER MOTION WALLPAPER
+          // LAYER 1: FULL-SCREEN WEATHER MOTION WALLPAPER
           // ====================================================================
-          // 1. NIGHT STARFIELD: 48-star twinkling field with text sanctuary
+          // 1. FULL-SCREEN NIGHT STARFIELD: 64 twinkling stars across entire canvas
           if (is_night && (cond == "clear-night" || cond == "clearnight" || cond == "sunny" || cond == "clear" || cond == "clear-day" || cond.find("partly") != std::string::npos)) {
-            static const int stars_x[48] = {
-              71, 108, 145, 182, 219, 256, 330, 367, 404, 91,
-              128, 65, 380, 417, 74, 111, 148, 333, 370, 407,
-              94, 131, 390, 77, 114, 151, 336, 373, 410, 97,
-              134, 400, 80, 117, 154, 339, 376, 413, 100, 137,
-              393, 83, 120, 157, 342, 379, 416, 103
+            static const int stars_x[64] = {
+              66, 113, 160, 207, 254, 301, 395,  89, 136, 183,
+              230, 277, 324, 371, 418,  69, 116, 351, 398,  92,
+              139, 186, 233, 280, 327, 374,  72, 119, 166, 213,
+              260, 307, 354, 401,  95, 142, 189, 236, 283, 330,
+              377,  75, 122, 169, 216, 263, 310, 357, 404,  98,
+              145, 192, 239, 286, 333, 380,  78, 125, 172, 219,
+              266, 313, 360, 407
             };
-            static const int stars_y[48] = {
-              59, 88, 117, 146, 175, 49, 107, 136, 165, 194,
-              68, 97, 126, 155, 184, 58, 87, 116, 145, 174,
-              48, 77, 106, 135, 164, 193, 67, 96, 125, 154,
-              183, 57, 86, 115, 144, 173, 47, 76, 105, 134,
-              163, 192, 66, 95, 124, 153, 182, 56
+            static const int stars_y[64] = {
+               60,  97, 134, 171, 208, 245, 319, 393,  73, 110,
+              147, 184, 221, 258, 295, 369, 406,  86, 123, 160,
+              197, 234, 271, 308, 345, 382,  62,  99, 136, 173,
+              210, 247, 284, 321, 395,  75, 112, 149, 186, 223,
+              260, 334, 371, 408,  88, 125, 162, 199, 236, 273,
+              310, 347, 384,  64, 101, 138, 212, 249, 286, 323,
+              360, 397,  77, 114
             };
-            for (int k = 0; k < 48; k++) {
+            for (int k = 0; k < 64; k++) {
               int sx = stars_x[k];
               int sy = stars_y[k];
               // Temperature & Moon sanctuary bounds
-              if (sx >= 165 && sx <= 302 && sy >= 55 && sy <= 112) continue;
+              if (sx >= 165 && sx <= 302 && sy >= 55 && sy <= 110) continue;
               if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
               float twinkle = sinf(now_ms * 0.003f + (float)k * 0.8f);
@@ -5505,81 +5509,159 @@ display:
             }
           }
 
-          // 2. CLOUDS: Volumetric 3D drifting puffs with lunar or solar glow
+          // 2. FULL-SCREEN CLOUDS: Multi-tier floating puffs for Partly Cloudy, Dense blanket for Overcast
           if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
-            bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos);
-            int c_drift = ((now_ms / 160) % 260) - 50;
+            bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
 
-            static const int cp_x[8] = { 85, 115, 150, 188, 222, 130, 168, 205 };
-            static const int cp_y[8] = { 86,  73,  69,  76,  84,  96,  99,  92 };
-            static const int cp_r[8] = { 26,  34,  38,  36,  30,  30,  28,  26 };
+            if (is_partly) {
+              // Partly Cloudy: 14 drifting cloud puffs randomized across upper, middle, and lower screen
+              int c_drift1 = ((now_ms / 150) % 360) - 50;
+              int c_drift2 = ((now_ms / 190) % 360) - 70;
+              int c_drift3 = ((now_ms / 140) % 360) - 40;
 
-            int num_puffs = is_partly ? 5 : 8;
-            for (int p = 0; p < num_puffs; p++) {
-              int px = (cp_x[p] + c_drift) % 360 + 50;
-              int py = cp_y[p];
-              int pr = cp_r[p];
+              static const int cp_x[14] = { 75, 115, 155, 195,  95, 140, 185, 230, 275,  85, 135, 185, 235, 285 };
+              static const int cp_y[14] = { 75,  68,  72,  80, 175, 168, 172, 165, 178, 285, 275, 282, 278, 288 };
+              static const int cp_r[14] = { 28,  36,  38,  30,  32,  40,  42,  36,  30,  30,  38,  40,  35,  28 };
 
-              if (!is_night) {
-                // Daytime cloud: Soft shadow base + body + subtle silver highlight
-                it.filled_circle(px, py, pr, Color(42, 68, 96));
-                it.filled_circle(px - 1, py - 2, pr - 3, Color(62, 90, 122));
-                it.circle(px - 1, py - 2, pr - 3, Color(85, 118, 155));
-              } else {
-                // Nighttime cloud: Nocturnal charcoal base with silver lunar edge glow
-                it.filled_circle(px, py, pr, Color(16, 22, 30));
-                it.filled_circle(px - 1, py - 2, pr - 3, Color(26, 36, 48));
-                it.circle(px - 1, py - 2, pr - 3, Color(55, 75, 102));
+              for (int p = 0; p < 14; p++) {
+                int drift = (p < 4) ? c_drift1 : (p < 9 ? c_drift2 : c_drift3);
+                int px = (cp_x[p] + drift) % 380 + 40;
+                int py = cp_y[p];
+                int pr = cp_r[p];
+
+                if (!is_night) {
+                  it.filled_circle(px, py, pr, Color(42, 68, 96));
+                  it.filled_circle(px - 1, py - 2, pr - 3, Color(62, 90, 122));
+                  it.circle(px - 1, py - 2, pr - 3, Color(85, 118, 155));
+                } else {
+                  it.filled_circle(px, py, pr, Color(16, 22, 30));
+                  it.filled_circle(px - 1, py - 2, pr - 3, Color(26, 36, 48));
+                  it.circle(px - 1, py - 2, pr - 3, Color(55, 75, 102));
+                }
+              }
+            } else {
+              // Dense Overcast Blanket: 26 large overlapping cloud puffs completely covering the sky
+              int c_drift = ((now_ms / 210) % 380) - 60;
+              static const int og_x[26] = {
+                  80, 140, 200, 260, 320, 380,
+                  60, 120, 180, 240, 300, 360,
+                  75, 145, 215, 285, 355,
+                  85, 160, 235, 310, 380,
+                 100, 175, 250, 325
+              };
+              static const int og_y[26] = {
+                  55,  50,  58,  52,  56,  52,
+                 115, 110, 118, 112, 116, 112,
+                 180, 175, 182, 178, 176,
+                 250, 245, 252, 248, 246,
+                 330, 325, 332, 328
+              };
+              static const int og_r[26] = {
+                  42, 48, 45, 48, 44, 40,
+                  46, 52, 50, 54, 50, 46,
+                  48, 52, 50, 52, 48,
+                  46, 50, 52, 50, 44,
+                  44, 48, 50, 46
+              };
+
+              for (int p = 0; p < 26; p++) {
+                int px = (og_x[p] + c_drift) % 390 + 38;
+                int py = og_y[p];
+                int pr = og_r[p];
+
+                if (!is_night) {
+                  it.filled_circle(px, py, pr, Color(36, 56, 80));
+                  it.filled_circle(px - 1, py - 2, pr - 3, Color(52, 76, 104));
+                  it.circle(px - 1, py - 2, pr - 3, Color(75, 102, 134));
+                } else {
+                  it.filled_circle(px, py, pr, Color(14, 18, 26));
+                  it.filled_circle(px - 1, py - 2, pr - 3, Color(24, 32, 44));
+                  it.circle(px - 1, py - 2, pr - 3, Color(48, 64, 88));
+                }
               }
             }
           }
 
-          // 3. RAIN: Dynamic angled falling streaks
+          // 3. FULL-SCREEN RAIN: 36/54 angled falling streaks across full display (y: 15..450)
           if (cond.find("rain") != std::string::npos || cond.find("pouring") != std::string::npos || cond.find("drizzle") != std::string::npos) {
             bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
-            int rain_count = is_heavy ? 40 : 24;
+            int rain_count = is_heavy ? 54 : 36;
             for (int i = 0; i < rain_count; i++) {
-              int x0 = (37 * i + 19) % 360 + 50;
-              int y0 = (i * 27) % 200;
-              int speed = 130 + (i % 3) * 45;
-              int len_r = (is_heavy ? 14 : 9) + (i % 3) * 4;
-              int ry = (y0 + (int)(now_ms * speed / 1000)) % 220 + 40;
-              int rx = (x0 - (ry - 40) / 4) % 380 + 45;
-              Color rain_c = is_night ? Color(110, 150, 205) : Color(145, 185, 230);
-              if (i % 2 == 0) rain_c = is_night ? Color(55, 85, 125) : Color(90, 130, 175);
+              int x0 = (37 * i + 19) % 390 + 38;
+              int y0 = (i * 31) % 430;
+              int speed = 150 + (i % 4) * 40;
+              int len_r = (is_heavy ? 15 : 10) + (i % 3) * 4;
+              int ry = (y0 + (int)(now_ms * speed / 1000)) % 435 + 15;
+              int rx = (x0 - (ry - 15) / 5) % 410 + 28;
+              Color rain_c = is_night ? Color(120, 160, 215) : Color(145, 185, 230);
+              if (i % 2 == 0) rain_c = is_night ? Color(60, 90, 130) : Color(90, 130, 175);
               it.line(rx, ry, rx - 3, ry + len_r, rain_c);
             }
           }
 
-          // 4. SNOW: Drifting snowflakes with gentle sine flutter
+          // 4. FULL-SCREEN CRYSTALLINE SNOW: 36 fluttering micro-crystal snowflakes (y: 15..445)
           if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
-            for (int i = 0; i < 24; i++) {
-              int x0 = (53 * i + 23) % 350 + 55;
-              int y0 = (i * 31) % 200;
-              int speed = 35 + (i % 3) * 15;
-              float phase = (float)i * 1.3f;
-              int sy = (y0 + (int)(now_ms * speed / 1000)) % 220 + 40;
-              int sx = x0 + (int)(sinf((float)now_ms * 0.0025f + phase) * 8.0f);
-              Color flake_c = (i % 2 == 0) ? Color(245, 250, 255) : Color(185, 215, 245);
-              it.draw_pixel_at(sx, sy, flake_c);
-              if (i % 3 == 0) {
-                it.draw_pixel_at(sx + 1, sy, flake_c);
-                it.draw_pixel_at(sx - 1, sy, flake_c);
-                it.draw_pixel_at(sx, sy + 1, flake_c);
-                it.draw_pixel_at(sx, sy - 1, flake_c);
+            for (int i = 0; i < 36; i++) {
+              int x0 = (47 * i + 23) % 390 + 38;
+              int y0 = (i * 29) % 430;
+              int speed = 35 + (i % 4) * 12;
+              float phase = (float)i * 1.15f;
+              int sy = (y0 + (int)(now_ms * speed / 1000)) % 430 + 15;
+              int sx = x0 + (int)(sinf((float)now_ms * 0.0022f + phase) * 8.0f);
+
+              if (i % 4 == 0) {
+                // Large 5x5 micro-crystal snowflake
+                Color c_core = Color(255, 255, 255);
+                Color c_arm  = is_night ? Color(215, 235, 255) : Color(230, 245, 255);
+                Color c_tip  = is_night ? Color(160, 195, 235) : Color(180, 215, 245);
+                it.draw_pixel_at(sx, sy, c_core);
+                it.draw_pixel_at(sx + 1, sy, c_arm); it.draw_pixel_at(sx + 2, sy, c_tip);
+                it.draw_pixel_at(sx - 1, sy, c_arm); it.draw_pixel_at(sx - 2, sy, c_tip);
+                it.draw_pixel_at(sx, sy + 1, c_arm); it.draw_pixel_at(sx, sy + 2, c_tip);
+                it.draw_pixel_at(sx, sy - 1, c_arm); it.draw_pixel_at(sx, sy - 2, c_tip);
+                it.draw_pixel_at(sx + 1, sy + 1, c_tip); it.draw_pixel_at(sx - 1, sy - 1, c_tip);
+                it.draw_pixel_at(sx + 1, sy - 1, c_tip); it.draw_pixel_at(sx - 1, sy + 1, c_tip);
+              } else if (i % 2 == 0) {
+                // Medium 3x3 crystalline plus
+                Color c_mid = Color(255, 255, 255);
+                Color c_tip = is_night ? Color(180, 215, 245) : Color(195, 225, 250);
+                it.draw_pixel_at(sx, sy, c_mid);
+                it.draw_pixel_at(sx + 1, sy, c_tip);
+                it.draw_pixel_at(sx - 1, sy, c_tip);
+                it.draw_pixel_at(sx, sy + 1, c_tip);
+                it.draw_pixel_at(sx, sy - 1, c_tip);
+              } else {
+                // Small distant 2x2 soft flake
+                Color c_dot = is_night ? Color(190, 220, 250) : Color(210, 235, 255);
+                it.draw_pixel_at(sx, sy, c_dot);
+                it.draw_pixel_at(sx + 1, sy, c_dot);
+                it.draw_pixel_at(sx, sy + 1, c_dot);
+                it.draw_pixel_at(sx + 1, sy + 1, c_dot);
               }
             }
           }
 
-          // 5. LIGHTNING: Periodic branching bolt flash during thunderstorms
+          // 5. THUNDERSTORM: Rain combined with dramatic branching lightning bolt strike
           if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
-            uint32_t flash_cycle = now_ms % 4200;
-            if (flash_cycle < 160) {
-              it.line(210, 44, 202, 68, Color(255, 255, 235));
-              it.line(202, 68, 214, 88, Color(255, 255, 235));
-              it.line(214, 88, 188, 118, Color(255, 255, 245));
-              it.line(188, 118, 168, 142, Color(255, 255, 255));
-              it.line(202, 68, 226, 84, Color(220, 235, 255)); // Branch
+            uint32_t flash_step = (now_ms / 250) % 18; // Repeats every 4.5 seconds
+            if (flash_step <= 1) {
+              // Frame 0: Sky flash burst + full branching bolt
+              if (flash_step == 0) {
+                it.filled_circle(cx, cy, 228, is_night ? Color(42, 58, 85) : Color(72, 98, 135));
+              }
+              // Main Jagged Bolt
+              Color bolt_c = Color(255, 255, 255);
+              Color glow_c = Color(180, 220, 255);
+              it.line(245, 25, 235, 60, bolt_c);
+              it.line(235, 60, 252, 95, bolt_c);
+              it.line(252, 95, 220, 140, bolt_c);
+              it.line(220, 140, 195, 190, bolt_c);
+              it.line(195, 190, 165, 250, bolt_c);
+              // Major Branches
+              it.line(235, 60, 275, 90, glow_c);
+              it.line(275, 90, 290, 125, glow_c);
+              it.line(220, 140, 180, 175, glow_c);
+              it.line(195, 190, 215, 225, glow_c);
             }
           }
 
@@ -5658,7 +5740,7 @@ display:
           }
 
           // ====================================================================
-          // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY
+          // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
           // ====================================================================
           // Hero Temperature at y = 82 (always pure white for maximum pop)
           char temp_buf[16];
@@ -5704,12 +5786,8 @@ display:
           Color fl_color = is_night ? id(col_slate) : Color(195, 215, 235);
           it.print(cx, 174, id(font_small), fl_color, TextAlign::CENTER, fl_buf);
 
-          // Horizontal divider at y = 202
-          Color div_c = is_night ? id(col_dark_gray) : Color(45, 75, 105);
-          it.line(80, 202, 386, 202, div_c);
-
           // ----------------------------------------------------
-          // PRIMARY METRICS: HUMIDITY & WIND ONLY
+          // PRIMARY METRICS: HUMIDITY & WIND ONLY (Open Air, Zero Grid Lines)
           // ----------------------------------------------------
           float hum = id(ha_weather_humidity).state;
           float wspd = id(ha_weather_wind_speed).state;
@@ -5724,9 +5802,6 @@ display:
           else snprintf(hum_str, sizeof(hum_str), "--");
           it.print(145, 248, id(font_date), id(col_white), TextAlign::CENTER, hum_str);
 
-          // Center Divider between columns (y = 210..260)
-          it.line(cx, 210, cx, 260, div_c);
-
           // Column 2: WIND (Right x = 321)
           it.print(321, 220, id(font_small), label_c, TextAlign::CENTER, "WIND");
           char wind_str[32];
@@ -5736,9 +5811,6 @@ display:
             snprintf(wind_str, sizeof(wind_str), "--");
           }
           it.print(321, 248, id(font_date), id(col_white), TextAlign::CENTER, wind_str);
-
-          // Divider at y = 272 above bottom 2x2 buttons
-          it.line(80, 272, 386, 272, div_c);
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
