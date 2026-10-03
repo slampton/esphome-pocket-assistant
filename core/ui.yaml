@@ -1007,7 +1007,7 @@ number:
     id: va_speech_anim_interval
     optimistic: true
     restore_value: true
-    min_value: 50
+    min_value: 75
     max_value: 800
     step: 25
     initial_value: 100
@@ -1062,7 +1062,7 @@ interval:
 
           // High-refresh fluid Voice Assistant loop
           // While Listening/Thinking: 50ms (20 FPS) fluid organic breathing (speaker silent, zero DMA contention)
-          // While Speaking: precisely paced by va_speech_anim_interval (default 100ms, range 50-800ms, restore_value enabled)
+          // While Speaking: precisely paced by va_speech_anim_interval (default 100ms, safe floor 75ms, restore_value enabled)
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
             static bool prev_tts_active = false;
@@ -1078,7 +1078,7 @@ interval:
             uint32_t cadence = 50;
             if (id(va_tts_received)) {
               cadence = (uint32_t)id(va_speech_anim_interval).state;
-              if (cadence < 50) cadence = 50;
+              if (cadence < 75) cadence = 75;
             }
             if (now_va_ms - last_va_anim_time >= cadence) {
               last_va_anim_time = now_va_ms;
