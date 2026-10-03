@@ -5904,11 +5904,11 @@ display:
             // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide)
             const int hero_y = 228;
             if (!id(timer_running) && !id(timer_paused)) {
-              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black), false);
+              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(theme_primary), false);
             } else if (id(timer_running)) {
               draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black), false);
             } else if (id(timer_paused)) {
-              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black), false);
+              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(theme_primary), false);
             }
 
             // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14)
@@ -6030,7 +6030,7 @@ display:
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
                 it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-                int ap_x = (h12 >= 10) ? (cx + 112) : (cx + 89);
+                int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
                 it.print(ap_x, 140, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
