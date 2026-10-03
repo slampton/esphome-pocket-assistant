@@ -5342,8 +5342,8 @@ display:
           std::string s_state = id(ha_sun_state).state;
           bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
 
-          // Clean Upper-Right Corner Pocket Coordinates (cx=352, cy=82, aligned to temperature row)
-          const int cel_cx = 352;
+          // Clean Upper-Right Corner Pocket Coordinates (cx=349, cy=82, shifted left 3px)
+          const int cel_cx = 349;
           const int cel_cy = 82;
 
           if (is_night) {
@@ -5975,16 +5975,16 @@ display:
                   snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
                 }
                 Color time_col = en ? id(col_white) : id(col_gray);
-                // Time & AM baselines shifted up 8px (y_mid + 4)
+                // Time & AM baselines (AM/PM brought in 60% tighter from x=215 to x=200)
                 it.print(92, y_mid + 4, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
                 if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(215, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
+                  it.print(200, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
                 }
 
-                // Recurrence Tag: shifted up 8px (y_mid + 21)
+                // Recurrence Tag: brought up to y_mid + 16 for equal 12px gap above and 13px gap below to pill boundary
                 char tag_buf[32];
                 snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-                it.print(92, y_mid + 21, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
+                it.print(92, y_mid + 16, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
                 // Toggle Switch Pill: shifted up 8px (center y_mid - 8, width 44, height 26)
                 Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
@@ -6030,7 +6030,7 @@ display:
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
                 it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-                int ap_x = (h12 >= 10) ? (cx + 124) : (cx + 100);
+                int ap_x = (h12 >= 10) ? (cx + 116) : (cx + 93);
                 it.print(ap_x, 140, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
@@ -7118,8 +7118,8 @@ touchscreen:
                 id(disp1).update();
                 return;
               }
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 311..396, y: 44..119)
-              if (id(sky_weather_subpage) == 0 && touch.x >= 311 && touch.x <= 396 && touch.y >= 44 && touch.y <= 119) {
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 308..393, y: 44..119)
+              if (id(sky_weather_subpage) == 0 && touch.x >= 308 && touch.x <= 393 && touch.y >= 44 && touch.y <= 119) {
                 std::string s_state = id(ha_sun_state).state;
                 std::string cond = id(ha_weather_condition).state;
                 bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
