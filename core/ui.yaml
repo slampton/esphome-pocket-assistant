@@ -1732,17 +1732,20 @@ script:
                 action: media_player.media_pause
                 data:
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - speaker.stop: music_resampler
+      - speaker.stop: media_mixing_input
+      - speaker.stop: physical_speaker
 
   - id: throttled_disp_update
     mode: restart
     then:
-      - delay: 60ms
+      - delay: 20ms
       - if:
           condition:
             lambda: |-
               static uint32_t last_redraw = 0;
               uint32_t now = millis();
-              if (now - last_redraw < 80) return false;
+              if (now - last_redraw < 35) return false;
               if (id(display_power_state) != 0 || id(gui_page) != 2) return false;
               last_redraw = now;
               return true;
@@ -2002,6 +2005,13 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Next Track >>";
           id(music_feedback_timer) = millis();
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+          then:
+            - speaker.stop: music_resampler
+            - speaker.stop: media_mixing_input
+            - speaker.stop: physical_speaker
       - homeassistant.action:
           action: media_player.media_next_track
           data:
@@ -2013,6 +2023,13 @@ script:
       - lambda: |-
           id(music_action_feedback) = "<< Prev Track";
           id(music_feedback_timer) = millis();
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+          then:
+            - speaker.stop: music_resampler
+            - speaker.stop: media_mixing_input
+            - speaker.stop: physical_speaker
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
@@ -6991,14 +7008,8 @@ touchscreen:
                 int prev_x_max = is_compact_touch ? 150 : 175;
                 int next_x_min = is_compact_touch ? 316 : 291;
 
-                // Dedicated Header Tap Zone ("MUSIC" & Active Speaker) & Upper-Left Flank: Open Category Menu
-                // Seamless coverage: y <= 95 (x: 120..346) OR upper-left quadrant (x <= prev_x_max, y < 155) opens Category Menu!
-                if ((touch.y <= 95 && touch.x >= 120 && touch.x <= 346) || (touch.x <= prev_x_max && touch.y < 155)) {
-                  id(music_overlay_mode) = 1;
-                  id(disp1).update();
-
-                // Right Flank Volume Up (+): Upper Right Quadrant (x >= next_x_min, y < 175) with 120ms rate-limit
-                } else if (touch.x >= next_x_min && touch.y < 175) {
+                // Right Flank Volume Up (+): Upper Right Quadrant (x >= next_x_min, y < 175) with 120ms rate-limit (Evaluated first to eliminate header overlap)
+                if (touch.x >= next_x_min && touch.y < 175) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_up_tap > 120) {
@@ -7010,8 +7021,14 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_up).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
+
+                // Dedicated Header Tap Zone ("MUSIC" Title) & Upper-Left Flank: Open Category Menu
+                // Constrained to title center (x: 180..286, y <= 95) or upper-left corner (x <= prev_x_max, y < 155)
+                } else if ((touch.y <= 95 && touch.x >= 180 && touch.x <= 286) || (touch.x <= prev_x_max && touch.y < 155)) {
+                  id(music_overlay_mode) = 1;
+                  id(throttled_disp_update).execute();
 
                 // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x, 212)
                 } else if (touch.x >= next_x_min && touch.y >= 175 && touch.y < 255) {
@@ -7022,7 +7039,7 @@ touchscreen:
                     id(music_action_feedback) = "Next Track >>";
                     id(music_feedback_timer) = now_tap;
                     id(music_next_track).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
 
                 // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) with 120ms rate-limit (clean bound y < 398)
@@ -7038,7 +7055,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_down).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
 
                 // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212)
@@ -7050,7 +7067,7 @@ touchscreen:
                     id(music_action_feedback) = "<< Prev Track";
                     id(music_feedback_timer) = now_tap;
                     id(music_prev_track).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
 
                 // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286) with 250ms tap debounce (clean bound y < 398)
@@ -7060,7 +7077,7 @@ touchscreen:
                   if (now_tap - last_menu_tap > 250) {
                     last_menu_tap = now_tap;
                     id(music_overlay_mode) = 1; // Open Level 1 Music Menu
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
 
                 // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Mode-aware generous zone (clean bound y < 398)
@@ -7074,7 +7091,7 @@ touchscreen:
                     id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(toggle_ha_music).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
                 }
               } else if (id(music_overlay_mode) == 1) {
