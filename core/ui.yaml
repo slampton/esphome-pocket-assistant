@@ -5963,7 +5963,7 @@ display:
                 it.filled_circle(376, y_mid, 44, card_bg);
                 it.filled_rectangle(90, y_mid - 44, 286, 89, card_bg);
 
-                // Alarm Time String
+                // Alarm Time String (All text and toggle elements shifted up 8px as a unit for vertical centering)
                 char t_buf[16];
                 char ap_buf[8] = "";
                 if (id(is_24h_format)) {
@@ -5975,25 +5975,25 @@ display:
                   snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
                 }
                 Color time_col = en ? id(col_white) : id(col_gray);
-                // Time & AM baselines aligned to bottom of the toggle switch icon (y_mid + 12)
-                it.print(92, y_mid + 12, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
+                // Time & AM baselines shifted up 8px (y_mid + 4)
+                it.print(92, y_mid + 4, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
                 if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(215, y_mid + 12, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
+                  it.print(215, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
                 }
 
-                // Recurrence Tag: positioned below shared baseline with clean separation
+                // Recurrence Tag: shifted up 8px (y_mid + 21)
                 char tag_buf[32];
                 snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-                it.print(92, y_mid + 29, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
+                it.print(92, y_mid + 21, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
-                // Toggle Switch Pill (x = 345, y_mid, width 44, height 26)
+                // Toggle Switch Pill: shifted up 8px (center y_mid - 8, width 44, height 26)
                 Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
-                it.filled_circle(330, y_mid, 12, sw_bg);
-                it.filled_circle(354, y_mid, 12, sw_bg);
-                it.filled_rectangle(330, y_mid - 12, 24, 25, sw_bg);
+                it.filled_circle(330, y_mid - 8, 12, sw_bg);
+                it.filled_circle(354, y_mid - 8, 12, sw_bg);
+                it.filled_rectangle(330, y_mid - 20, 24, 25, sw_bg);
                 // Toggle Knob
                 int knob_x = en ? 354 : 330;
-                it.filled_circle(knob_x, y_mid, 9, id(col_white));
+                it.filled_circle(knob_x, y_mid - 8, 9, id(col_white));
               };
 
               // Alarm 1: Weekdays default (y = 144)
@@ -6065,7 +6065,7 @@ display:
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
       // Guaranteed visibility over any page: stopwatch parchment, full-screen album art, etc.
       // ==============================================================================
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && ((id(system_menu_mode) == 0) || (id(gui_page) == 4 && id(system_menu_mode) == 1)) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1)) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && ((id(system_menu_mode) == 0) || (id(gui_page) == 4 && id(system_menu_mode) == 1)) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(alarm_ringing) || id(timer_ringing))) {
         bool is_stopwatch = (id(gui_page) == 1);
         Color chevron_col = is_stopwatch ? id(col_black) : id(col_white);
 
@@ -7239,8 +7239,8 @@ touchscreen:
                 // SUBPAGE 1: ALARM MANAGER TOUCH
                 // ==============================================================
                 if (id(alarm_edit_idx) == 0) {
-                  // Alarm 1 Toggle Switch (x: 305..385, y: 115..175)
-                  if (touch.y >= 115 && touch.y <= 175 && touch.x >= 305 && touch.x <= 385) {
+                  // Alarm 1 Toggle Switch (x: 305..385, y: 107..167)
+                  if (touch.y >= 107 && touch.y <= 167 && touch.x >= 305 && touch.x <= 385) {
                     id(alarm1_enabled) = !id(alarm1_enabled);
                     id(disp1).update();
                     return;
@@ -7252,8 +7252,8 @@ touchscreen:
                     return;
                   }
 
-                  // Alarm 2 Toggle Switch (x: 305..385, y: 225..285)
-                  if (touch.y >= 225 && touch.y <= 285 && touch.x >= 305 && touch.x <= 385) {
+                  // Alarm 2 Toggle Switch (x: 305..385, y: 217..277)
+                  if (touch.y >= 217 && touch.y <= 277 && touch.x >= 305 && touch.x <= 385) {
                     id(alarm2_enabled) = !id(alarm2_enabled);
                     id(disp1).update();
                     return;
