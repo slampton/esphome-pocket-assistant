@@ -1696,14 +1696,23 @@ text_sensor:
     type: artist
     name: "Now Playing Artist"
     id: track_artist
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
   - platform: sendspin
     type: title
     name: "Now Playing Title"
     id: track_title
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
   - platform: sendspin
     type: album
     name: "Now Playing Album"
     id: track_album
+    on_value:
+      then:
+        - script.execute: throttled_disp_update
 
 
 script:
@@ -2040,7 +2049,6 @@ script:
           id(music_feedback_timer) = millis();
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
           }
       - homeassistant.action:
           action: music_assistant.play_media
@@ -2069,7 +2077,6 @@ script:
           id(music_feedback_timer) = millis();
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
           }
       - homeassistant.action:
           action: music_assistant.play_media
@@ -2098,7 +2105,6 @@ script:
           id(music_feedback_timer) = millis();
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
           }
       - homeassistant.action:
           action: music_assistant.play_media
@@ -2127,7 +2133,6 @@ script:
           id(music_feedback_timer) = millis();
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
-            id(remote_album_art).release();
           }
       - homeassistant.action:
           action: music_assistant.play_media
@@ -6871,7 +6876,7 @@ touchscreen:
                 }
               }
             } else if (is_deck_nav) {
-              int nav_y_min = (id(gui_page) == 5 || id(gui_page) == 6) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
+              int nav_y_min = (id(gui_page) == 5 || id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
               if (touch.y >= nav_y_min) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -7005,7 +7010,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_up).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
                 // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x, 212)
@@ -7017,11 +7022,11 @@ touchscreen:
                     id(music_action_feedback) = "Next Track >>";
                     id(music_feedback_timer) = now_tap;
                     id(music_next_track).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
-                // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) with 120ms rate-limit
-                } else if (touch.x >= next_x_min && touch.y >= 255 && touch.y < 390) {
+                // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) with 120ms rate-limit (clean bound y < 398)
+                } else if (touch.x >= next_x_min && touch.y >= 255 && touch.y < 398) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > 120) {
@@ -7033,7 +7038,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_down).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
                 // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212)
@@ -7045,11 +7050,11 @@ touchscreen:
                     id(music_action_feedback) = "<< Prev Track";
                     id(music_feedback_timer) = now_tap;
                     id(music_prev_track).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
 
-                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286) with 250ms tap debounce
-                } else if (touch.x <= prev_x_max && touch.y >= 255 && touch.y < 390) {
+                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286) with 250ms tap debounce (clean bound y < 398)
+                } else if (touch.x <= prev_x_max && touch.y >= 255 && touch.y < 398) {
                   static uint32_t last_menu_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_menu_tap > 250) {
@@ -7058,8 +7063,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Mode-aware generous zone
-                } else if (touch.y >= 95 && touch.y < 390 && touch.x > prev_x_max && touch.x < next_x_min) {
+                // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Mode-aware generous zone (clean bound y < 398)
+                } else if (touch.y >= 95 && touch.y < 398 && touch.x > prev_x_max && touch.x < next_x_min) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > 250) {
@@ -7069,7 +7074,7 @@ touchscreen:
                     id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(toggle_ha_music).execute();
-                    id(throttled_disp_update).execute();
+                    id(disp1).update();
                   }
                 }
               } else if (id(music_overlay_mode) == 1) {
