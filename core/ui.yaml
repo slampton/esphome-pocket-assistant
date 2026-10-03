@@ -1453,8 +1453,17 @@ binary_sensor:
                                 } else {
                                   id(screen_sleep_timer).execute();
                                 }
-                            - script.execute: pause_all_music
-                            - delay: 100ms
+                            - if:
+                                condition:
+                                  media_player.is_playing: pocket_music_player
+                                then:
+                                  - media_player.pause: pocket_music_player
+                                  - mixer_speaker.apply_ducking:
+                                      id: media_mixing_input
+                                      decibel_reduction: 50
+                                      duration: 0.1s
+                                  - delay: 150ms
+                                  - script.execute: pause_all_music
                             - script.execute: route_i2s_to_mic
                             - lambda: 'id(va_tts_received) = false;'
                             - voice_assistant.start:

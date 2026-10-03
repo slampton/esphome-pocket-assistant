@@ -175,7 +175,12 @@ voice_assistant:
   auto_gain: 31dBFS
   on_listening:
     then:
-      - script.execute: pause_all_music
+      - if:
+          condition:
+            media_player.is_playing: pocket_music_player
+          then:
+            - script.execute: pause_all_music
+            - delay: 150ms
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_mic
@@ -318,20 +323,15 @@ voice_assistant:
             # 1. Wait for audio stream to reach speaker and begin playing
             - wait_until:
                 condition:
-                  lambda: |-
-                    return id(announcement_mixing_input).is_running() || id(physical_speaker).has_buffered_data();
-                timeout: 3s
+                  lambda: 'return id(announcement_mixing_input).is_running();'
+                timeout: 5s
             # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
             - wait_until:
                 condition:
-                  lambda: |-
-                    bool ann_done = !id(announcement_mixing_input).is_running();
-                    bool spk_done = !id(physical_speaker).has_buffered_data();
-                    bool music_active = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-                    return ann_done && (spk_done || music_active);
+                  lambda: 'return !id(announcement_mixing_input).is_running();'
                 timeout: 180s
-            # 3. Clean 300ms settling flush for physical speaker & DAC FIFO drain
-            - delay: 300ms
+            # 3. Clean 400ms settling flush for physical speaker & DAC FIFO drain
+            - delay: 400ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player
