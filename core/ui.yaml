@@ -2612,6 +2612,13 @@ script:
       - audio_dac.mute_on: es8311_dac
       - speaker.stop: va_speaker
       - speaker.stop: announcement_mixing_input
+      - if:
+          condition:
+            not:
+              media_player.is_playing: pocket_music_player
+          then:
+            - speaker.stop: mixing_speaker
+            - speaker.stop: physical_speaker
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
           id(va_status_text) = "";
@@ -2620,7 +2627,7 @@ script:
           id(va_active) = false;
           id(gui_page) = id(return_page);
       - component.update: disp1
-      - delay: 50ms
+      - delay: 80ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -2654,7 +2661,6 @@ script:
           esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
           esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
       - switch.turn_on: speaker_enable
-      - audio_dac.mute_off: es8311_dac
 
   - id: trigger_firmware_update
     mode: restart
