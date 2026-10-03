@@ -414,9 +414,9 @@ font:
 
 color:
   - id: theme_primary
-    hex: "456E8A"  # Default Steel Cyan Blue
+    hex: "6B8E9E"  # Default Soft Steel Ice Blue (Steel & Silver Palette)
   - id: theme_secondary
-    hex: "C59B27"  # Default Chrono Mustard Gold
+    hex: "C0C0C0"  # Default Brushed Silver (Steel & Silver Palette)
   - id: col_silver
     hex: "C0C0C0"  # Vintage Swiss brushed silver / steel
   - id: col_bg
@@ -567,7 +567,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Blue & Gold"
+    initial_option: "Steel & Silver"
     options:
       - "Steel & Silver"
       - "Pink & Gray"
@@ -1663,19 +1663,19 @@ script:
     then:
       - lambda: |-
           std::string p = std::string(id(theme_palette_select).current_option().c_str());
-          if (p == "Steel & Silver") {
-            id(theme_primary) = Color(107, 142, 158);  // Soft Steel Ice Blue #6B8E9E
-            id(theme_secondary) = Color(192, 192, 192);// Brushed Silver #C0C0C0
-          } else if (p == "Pink & Gray") {
+          if (p == "Pink & Gray") {
             id(theme_primary) = Color(168, 120, 132);  // Muted Ash Pink #A87884 (faint, gray undertones)
             id(theme_secondary) = Color(192, 192, 192);// Brushed Silver / Gray #C0C0C0
           } else if (p == "Green & Gold") {
             id(theme_primary) = Color(66, 116, 83);    // Heritage Sage Green #427453
             id(theme_secondary) = Color(197, 155, 39); // Chrono Mustard Gold #C59B27
-          } else {
-            // Blue & Gold (Default Classic): Steel Slate Blue + Chrono Gold
+          } else if (p == "Blue & Gold" || p == "Default Classic") {
             id(theme_primary) = Color(69, 110, 138);   // #456E8A Steel Cyan
             id(theme_secondary) = Color(197, 155, 39); // #C59B27 Vintage Gold
+          } else {
+            // Steel & Silver (Default for New Installs): Soft Steel Ice Blue + Brushed Silver
+            id(theme_primary) = Color(107, 142, 158);  // Soft Steel Ice Blue #6B8E9E
+            id(theme_secondary) = Color(192, 192, 192);// Brushed Silver #C0C0C0
           }
           if (id(display_power_state) == 0) id(disp1).update();
 
@@ -5902,7 +5902,7 @@ display:
             // SUBPAGE 0: COUNTDOWN TIMER (HERO BUTTON CENTERED AT y = 228)
             // ==================================================================
             // 1. Time Readout above Hero Button (y = 120, font_time)
-            int disp_sec = id(timer_running) ? id(timer_remaining_sec) : id(timer_duration_sec);
+            int disp_sec = (id(timer_running) || id(timer_paused)) ? id(timer_remaining_sec) : id(timer_duration_sec);
             int m_part = disp_sec / 60;
             int s_part = disp_sec % 60;
             char t_str[16];
