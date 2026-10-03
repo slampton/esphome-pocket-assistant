@@ -72,7 +72,7 @@ speaker:
     sample_rate: 16000
     bits_per_sample: 16bit
     channel: left
-    buffer_duration: 1000ms
+    buffer_duration: 200ms
     timeout: 10s
 
   - id: mixing_speaker
@@ -366,6 +366,7 @@ script:
     mode: restart
     then:
       - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
       - while:
           condition:
             lambda: "return id(alarm_ringing) || id(timer_ringing);"

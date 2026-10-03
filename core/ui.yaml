@@ -1440,6 +1440,10 @@ binary_sensor:
                     - if:
                         condition:
                           lambda: |-
+                            // If audio has finished playing, start a new query immediately rather than canceling
+                            if (id(va_tts_received) && !id(announcement_mixing_input).is_running()) {
+                              return false;
+                            }
                             return id(va_active) || !id(va_status_text).empty();
                         then:
                           - script.execute: cancel_voice_assistant
@@ -2608,16 +2612,19 @@ script:
   - id: cancel_voice_assistant
     then:
       - audio_dac.mute_on: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 50
+          duration: 0.1s
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
-      - lambda: |-
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_vad_active) = false;
           id(va_active) = false;
           id(gui_page) = id(return_page);
       - component.update: disp1
-      - delay: 200ms
+      - delay: 250ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -2651,7 +2658,6 @@ script:
           esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
           esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
       - switch.turn_on: speaker_enable
-      - audio_dac.mute_off: es8311_dac
 
   - id: trigger_firmware_update
     mode: restart
