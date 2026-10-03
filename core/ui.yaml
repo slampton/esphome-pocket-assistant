@@ -1429,7 +1429,7 @@ binary_sensor:
               - lambda: |-
                   static uint32_t last_btn_press = 0;
                   uint32_t now = millis();
-                  if (now - last_btn_press < 250) return;
+                  if (now - last_btn_press < 200) return;
                   last_btn_press = now;
               - if:
                   condition:
@@ -1462,10 +1462,12 @@ binary_sensor:
                                     id: media_mixing_input
                                     decibel_reduction: 50
                                     duration: 0.1s
-                                - delay: 150ms
+                                - delay: 100ms
                                 - script.execute: pause_all_music
                           - script.execute: route_i2s_to_mic
-                          - lambda: 'id(va_tts_received) = false;'
+                          - lambda: |-
+                              id(va_tts_received) = false;
+                              esphome::voice_assistant::abort_voice_assistant(id(va));
                           - voice_assistant.start:
 
 text_sensor:
@@ -1703,7 +1705,7 @@ script:
   - id: throttled_disp_update
     mode: restart
     then:
-      - delay: 35ms
+      - delay: 150ms
       - if:
           condition:
             lambda: 'return (id(display_power_state) == 0 && id(gui_page) == 2);'
@@ -2608,16 +2610,17 @@ script:
   - id: cancel_voice_assistant
     then:
       - audio_dac.mute_on: es8311_dac
+      - speaker.stop: va_speaker
+      - speaker.stop: announcement_mixing_input
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
-      - lambda: |-
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_vad_active) = false;
           id(va_active) = false;
           id(gui_page) = id(return_page);
       - component.update: disp1
-      - delay: 200ms
+      - delay: 50ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -6937,14 +6940,14 @@ touchscreen:
                 // Normal Player Mode
                 // ----------------------------------------------------
                 bool is_compact_touch = (std::string(id(music_fullscreen_art_mode).current_option().c_str()) == "Compact");
-                int prev_x_max = is_compact_touch ? 150 : 175;
-                int next_x_min = is_compact_touch ? 316 : 291;
+                int prev_x_max = is_compact_touch ? 150 : 160;
+                int next_x_min = is_compact_touch ? 316 : 306;
 
                 // Right Flank Volume Up (+): Upper Right Quadrant (x >= next_x_min, y < 175) with 120ms rate-limit (Evaluated first to eliminate header overlap)
                 if (touch.x >= next_x_min && touch.y < 175) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_up_tap > 120) {
+                  if (now_vol_tap - last_vol_up_tap >= 200) {
                     last_vol_up_tap = now_vol_tap;
                     id(vol_hud_direction) = 1;
                     id(vol_hud_timer) = now_vol_tap;
@@ -6978,7 +6981,7 @@ touchscreen:
                 } else if (touch.x >= next_x_min && touch.y >= 255 && touch.y < 398) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_dn_tap > 120) {
+                  if (now_vol_tap - last_vol_dn_tap >= 200) {
                     last_vol_dn_tap = now_vol_tap;
                     id(vol_hud_direction) = -1;
                     id(vol_hud_timer) = now_vol_tap;
@@ -7023,7 +7026,7 @@ touchscreen:
                     id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(toggle_ha_music).execute();
-                    id(disp1).update();
+                    id(throttled_disp_update).execute();
                   }
                 }
               } else if (id(music_overlay_mode) == 1) {

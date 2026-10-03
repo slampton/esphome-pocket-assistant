@@ -183,6 +183,8 @@ voice_assistant:
             - delay: 150ms
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
+      - speaker.stop: va_speaker
+      - speaker.stop: announcement_mixing_input
       - script.execute: route_i2s_to_mic
       - lambda: |-
           if (!id(va_active)) {
@@ -240,6 +242,8 @@ voice_assistant:
           ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
   on_error:
     then:
+      - speaker.stop: va_speaker
+      - speaker.stop: announcement_mixing_input
       - script.execute: route_i2s_to_mic
       - lambda: |-
           id(va_vad_active) = false;
@@ -346,6 +350,8 @@ voice_assistant:
                 duration: 1.0s
           else:
             - audio_dac.mute_on: es8311_dac
+            - speaker.stop: va_speaker
+            - speaker.stop: announcement_mixing_input
             - script.execute: route_i2s_to_mic
       - lambda: |-
           id(va_vad_active) = false;
