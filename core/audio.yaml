@@ -73,7 +73,8 @@ speaker:
     bits_per_sample: 16bit
     channel: left
     buffer_duration: 2500ms
-    timeout: 2500ms
+    task_stack_in_psram: true
+    timeout: 10s
 
   - id: mixing_speaker
     platform: mixer
@@ -118,7 +119,8 @@ media_source:
   - platform: sendspin
     id: sendspin_source
     task_stack_in_psram: true
-    decode_memory: internal
+    decode_memory: psram
+    buffer_size: 500000
 
 
 media_player:
@@ -152,8 +154,7 @@ media_player:
         - switch.turn_on: speaker_enable
         - audio_dac.mute_off: es8311_dac
         - light.turn_on: display_brightness
-        - delay: 300ms
-        - component.update: disp1
+        - script.execute: throttled_disp_update
     on_pause:
       then:
         - lambda: |-

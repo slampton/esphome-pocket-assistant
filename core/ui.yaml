@@ -1884,6 +1884,7 @@ script:
   - id: music_vol_up
     mode: restart
     then:
+      - delay: 0ms
       - if:
           condition:
             lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -1905,6 +1906,7 @@ script:
   - id: music_vol_down
     mode: restart
     then:
+      - delay: 0ms
       - if:
           condition:
             lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
@@ -1956,6 +1958,7 @@ script:
   - id: music_next_track
     mode: single
     then:
+      - delay: 0ms
       - lambda: |-
           id(music_action_feedback) = "Next Track >>";
           id(music_feedback_timer) = millis();
@@ -1967,6 +1970,7 @@ script:
   - id: music_prev_track
     mode: single
     then:
+      - delay: 0ms
       - lambda: |-
           id(music_action_feedback) = "<< Prev Track";
           id(music_feedback_timer) = millis();
@@ -2656,7 +2660,7 @@ display:
     model: CO5300
     spi_id: display_qspi
     bus_mode: quad
-    data_rate: 40MHz
+    data_rate: 80MHz
     reset_pin: GPIO1
     cs_pin: GPIO12
     dimensions:
