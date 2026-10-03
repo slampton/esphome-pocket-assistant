@@ -5465,6 +5465,18 @@ display:
           // Condition Subtitle brought down to y = 140 for balanced spacing below temperature
           auto format_cond = [](const std::string& c_in) -> std::string {
             if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
+            if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "PARTLY CLOUDY";
+            if (c_in == "mostlycloudy" || c_in == "mostly-cloudy") return "MOSTLY CLOUDY";
+            if (c_in == "mostlysunny" || c_in == "mostly-sunny") return "MOSTLY SUNNY";
+            if (c_in == "partlysunny" || c_in == "partly-sunny") return "PARTLY SUNNY";
+            if (c_in == "clear-night" || c_in == "clearnight") return "CLEAR NIGHT";
+            if (c_in == "clear-day" || c_in == "clearday" || c_in == "sunny") return "SUNNY";
+            if (c_in == "lightning-rainy" || c_in == "thunderstorm") return "THUNDERSTORM";
+            if (c_in == "lightning") return "LIGHTNING";
+            if (c_in == "snowy-rainy" || c_in == "sleet") return "SLEET / MIX";
+            if (c_in == "windy-variant" || c_in == "windy" || c_in == "breezy") return "WINDY";
+            if (c_in == "pouring" || c_in == "heavy-rain") return "HEAVY RAIN";
+            if (c_in == "exceptional") return "SEVERE ALERT";
             std::string s = c_in;
             for (char &c : s) {
               if (c == '-' || c == '_') c = ' ';
@@ -5608,7 +5620,7 @@ display:
             } else if (c_name == "clear-night") {
               it.filled_circle(gx + 2, gy, 8, Color(225, 235, 250));
               it.filled_circle(gx, gy, 7, Color(0, 0, 0));
-            } else if (c_name == "partlycloudy") {
+            } else if (c_name == "partlycloudy" || c_name == "partly-cloudy" || c_name == "mostlycloudy" || c_name == "mostlysunny" || c_name == "partlysunny") {
               it.filled_circle(gx - 4, gy - 4, 6, Color(245, 175, 30));
               it.filled_circle(gx + 2, gy + 1, 6, Color(175, 190, 210));
               it.filled_circle(gx - 3, gy + 2, 5, Color(155, 170, 190));
@@ -5641,16 +5653,25 @@ display:
           };
 
           auto format_fc_name = [](const std::string& c) -> std::string {
-            if (c == "partlycloudy") return "P.Cloudy";
-            if (c == "clear-night") return "Clear";
-            if (c == "sunny" || c == "clear-day") return "Sunny";
-            if (c == "rainy" || c == "pouring") return "Rain";
+            if (c == "partlycloudy" || c == "partly-cloudy") return "P.Cloudy";
+            if (c == "mostlycloudy" || c == "mostly-cloudy") return "M.Cloudy";
+            if (c == "mostlysunny" || c == "mostly-sunny") return "M.Sunny";
+            if (c == "partlysunny" || c == "partly-sunny") return "P.Sunny";
+            if (c == "clear-night" || c == "clearnight") return "Clear";
+            if (c == "sunny" || c == "clear-day" || c == "clearday" || c == "clear") return "Sunny";
+            if (c == "rainy" || c == "pouring" || c == "heavy-rain") return "Rain";
             if (c == "cloudy") return "Cloudy";
             if (c == "snowy") return "Snow";
-            if (c == "lightning" || c == "lightning-rainy") return "Storm";
-            if (c == "windy") return "Windy";
+            if (c == "lightning" || c == "lightning-rainy" || c == "thunderstorm") return "Storm";
+            if (c == "snowy-rainy" || c == "sleet") return "Sleet";
+            if (c == "windy" || c == "windy-variant" || c == "breezy") return "Windy";
+            if (c == "fog") return "Fog";
+            if (c == "hail") return "Hail";
             if (c.empty()) return "Fair";
             std::string s = c;
+            for (char &ch : s) {
+              if (ch == '-' || ch == '_') ch = ' ';
+            }
             s[0] = toupper(s[0]);
             return s;
           };
