@@ -72,8 +72,8 @@ speaker:
     sample_rate: 16000
     bits_per_sample: 16bit
     channel: left
-    buffer_duration: 1000ms
-    timeout: 1000ms
+    buffer_duration: 2500ms
+    timeout: 2500ms
 
   - id: mixing_speaker
     platform: mixer
@@ -329,10 +329,13 @@ voice_assistant:
             # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
             - wait_until:
                 condition:
-                  lambda: 'return !id(announcement_mixing_input).is_running();'
+                  lambda: |-
+                    bool ann_done = !id(announcement_mixing_input).is_running();
+                    bool spk_done = !id(physical_speaker).has_buffered_data();
+                    return ann_done && (spk_done || !id(pocket_music_player).is_idle());
                 timeout: 180s
-            # 3. Clean 400ms settling flush for physical speaker & DAC FIFO drain
-            - delay: 400ms
+            # 3. Clean 300ms settling flush for physical speaker & DAC FIFO drain
+            - delay: 300ms
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: 50
