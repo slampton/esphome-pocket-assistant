@@ -1317,6 +1317,16 @@ sensor:
             id(music_pos_sync_time) = millis();
             id(throttled_disp_update).execute();
 
+  - platform: homeassistant
+    id: ha_target_volume
+    entity_id: ${target_vol_sensor}
+    on_value:
+      then:
+        - lambda: |-
+            if (!std::isnan(x) && x >= 0.0f && x <= 1.0f) {
+              id(pocket_music_player).volume = x;
+            }
+
   - platform: wifi_signal
     name: "Wi-Fi Signal"
     id: pocket_wifi_signal
@@ -1611,16 +1621,6 @@ text_sensor:
     on_value:
       then:
         - script.execute: throttled_disp_update
-
-  - platform: homeassistant
-    id: ha_target_volume
-    entity_id: ${target_vol_sensor}
-    on_value:
-      then:
-        - lambda: |-
-            if (!std::isnan(x) && x >= 0.0f && x <= 1.0f) {
-              id(pocket_music_player).volume = x;
-            }
 
   - platform: homeassistant
     id: ha_track_title
