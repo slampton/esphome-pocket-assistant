@@ -1420,6 +1420,7 @@ binary_sensor:
             }
     on_click:
       - min_length: 50ms
+        max_length: 2000ms
         then:
           - if:
               condition:
@@ -1674,21 +1675,17 @@ text_sensor:
 
 script:
   - id: pause_all_music
-    mode: single
+    mode: restart
     then:
+      - media_player.pause: pocket_music_player
       - if:
           condition:
-            media_player.is_playing: pocket_music_player
-          then:
-            - media_player.pause: pocket_music_player
-      - if:
-          condition:
-            lambda: 'return (id(ha_target_state).state == "playing" && id(active_speaker_entity) != "${local_player_id}");'
+            lambda: 'return !id(active_speaker_entity).empty();'
           then:
             - homeassistant.action:
                 action: media_player.media_pause
                 data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();' 
 
   - id: throttled_disp_update
     mode: restart
