@@ -177,6 +177,7 @@ voice_assistant:
   auto_gain: 31dBFS
   on_listening:
     then:
+      - script.execute: pause_all_music
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_mic
@@ -263,8 +264,10 @@ voice_assistant:
           id(timer_running) = timer.is_active;
           id(timer_paused) = !timer.is_active;
           id(timer_ringing) = false;
-          if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0) {
-            id(disp1).update();
+          if (!id(va_active) && id(va_status_text).empty()) {
+            if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
+              id(disp1).update();
+            }
           }
   on_timer_updated:
     then:
@@ -274,8 +277,10 @@ voice_assistant:
           id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
           id(timer_running) = timer.is_active;
           id(timer_paused) = !timer.is_active;
-          if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0) {
-            id(disp1).update();
+          if (!id(va_active) && id(va_status_text).empty()) {
+            if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
+              id(disp1).update();
+            }
           }
   on_timer_cancelled:
     then:
@@ -285,42 +290,26 @@ voice_assistant:
           id(timer_paused) = false;
           id(timer_ringing) = false;
           id(timer_remaining_sec) = id(timer_duration_sec);
-          if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0) {
-            id(disp1).update();
+          if (!id(va_active) && id(va_status_text).empty()) {
+            if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
+              id(disp1).update();
+            }
           }
       - script.execute: stop_alarm_sound
   on_timer_finished:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer finished via Assist: %s", timer.name.c_str());
-          id(timer_running) = false;
-          id(timer_paused) = false;
-          id(timer_remaining_sec) = 0;
-          id(timer_ringing) = true;
-          id(gui_page) = 6;
-          id(timer_alarm_subpage) = 0;
-      - script.execute: wake_to_active_state
-      - script.execute: play_alarm_sound
-      - component.update: disp1
-  on_timer_tick:
-    then:
-      - lambda: |-
-          if (!timers.empty()) {
-            uint32_t min_left = UINT32_MAX;
-            bool any_active = false;
-            for (const auto& t : timers) {
-              if (t.seconds_left < min_left) {
-                min_left = t.seconds_left;
-                any_active = t.is_active;
-                id(timer_duration_sec) = t.total_seconds;
-              }
-            }
-            id(timer_remaining_sec) = min_left;
-            id(timer_running) = any_active;
-            id(timer_paused) = !any_active;
-            if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
-              id(disp1).update();
-            }
+          if (id(timer_running) && !id(timer_paused) && !id(timer_ringing)) {
+            id(timer_running) = false;
+            id(timer_paused) = false;
+            id(timer_remaining_sec) = 0;
+            id(timer_ringing) = true;
+            id(gui_page) = 6;
+            id(timer_alarm_subpage) = 0;
+            id(wake_to_active_state).execute();
+            id(play_alarm_sound).execute();
+            id(disp1).update();
           }
   on_end:
     then:

@@ -764,12 +764,8 @@ button:
           then:
             - script.execute: cancel_voice_assistant
           else:
-            - if:
-                condition:
-                  media_player.is_playing: pocket_music_player
-                then:
-                  - media_player.pause: pocket_music_player
-                  - delay: 200ms
+            - script.execute: pause_all_music
+            - delay: 100ms
             - script.execute: route_i2s_to_mic
             - light.turn_on: display_brightness
             - lambda: 'id(va_tts_received) = false;'
@@ -1037,13 +1033,13 @@ interval:
     then:
       - lambda: |-
           // Active Update Check animation refresh
-          if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0) {
+          if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
             id(disp1).update();
           }
 
           // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
           if (id(display_brightness).current_values.is_on()) {
-            if (id(gui_page) == 1 && id(stopwatch_running)) {
+            if (id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty()) {
 
 
               static uint32_t last_chrono_disp_update = 0;
@@ -1060,7 +1056,7 @@ interval:
     then:
       - lambda: |-
           // 20 FPS high-refresh physics loop exclusively for active games
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0) {
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
             id(disp1).update();
           }
 
@@ -1093,7 +1089,7 @@ interval:
           // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
           // High-refresh fluid drift (10 FPS / 100ms) when audio is quiet
           // Throttled (3.3 FPS / 300ms) when music, voice assistant, or alarms are active; 500ms during active TTS speech
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0) {
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_weather_disp_update = 0;
             uint32_t now_w_ms = millis();
             bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
@@ -1129,8 +1125,10 @@ interval:
               int rem = (id(timer_target_ms) - now_ms + 999) / 1000;
               if (rem != id(timer_remaining_sec)) {
                 id(timer_remaining_sec) = rem;
-                if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
-                  id(disp1).update();
+                if (!id(va_active) && id(va_status_text).empty()) {
+                  if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
+                    id(disp1).update();
+                  }
                 }
               }
             }
@@ -1138,7 +1136,9 @@ interval:
 
           // Periodic display refresh during active alarm or timer ringing
           if ((id(alarm_ringing) || id(timer_ringing)) && id(display_power_state) == 0) {
-            id(disp1).update();
+            if (!id(va_active) && id(va_status_text).empty()) {
+              id(disp1).update();
+            }
           }
 
 
@@ -1468,12 +1468,8 @@ binary_sensor:
                                 } else {
                                   id(screen_sleep_timer).execute();
                                 }
-                            - if:
-                                condition:
-                                  media_player.is_playing: pocket_music_player
-                                then:
-                                  - media_player.pause: pocket_music_player
-                                  - delay: 200ms
+                            - script.execute: pause_all_music
+                            - delay: 100ms
                             - script.execute: route_i2s_to_mic
                             - lambda: 'id(va_tts_received) = false;'
                             - voice_assistant.start:
@@ -1711,6 +1707,23 @@ text_sensor:
 
 
 script:
+  - id: pause_all_music
+    mode: single
+    then:
+      - if:
+          condition:
+            media_player.is_playing: pocket_music_player
+          then:
+            - media_player.pause: pocket_music_player
+      - if:
+          condition:
+            lambda: 'return (id(ha_target_state).state == "playing" && id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - homeassistant.action:
+                action: media_player.media_pause
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+
   - id: throttled_disp_update
     mode: restart
     then:
