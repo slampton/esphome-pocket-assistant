@@ -1732,9 +1732,6 @@ script:
                 action: media_player.media_pause
                 data:
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - speaker.stop: music_resampler
-      - speaker.stop: media_mixing_input
-      - speaker.stop: physical_speaker
 
   - id: throttled_disp_update
     mode: restart
@@ -2005,13 +2002,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Next Track >>";
           id(music_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
-          then:
-            - speaker.stop: music_resampler
-            - speaker.stop: media_mixing_input
-            - speaker.stop: physical_speaker
       - homeassistant.action:
           action: media_player.media_next_track
           data:
@@ -2023,13 +2013,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "<< Prev Track";
           id(music_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
-          then:
-            - speaker.stop: music_resampler
-            - speaker.stop: media_mixing_input
-            - speaker.stop: physical_speaker
       - homeassistant.action:
           action: media_player.media_previous_track
           data:
