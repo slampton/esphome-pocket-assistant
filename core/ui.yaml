@@ -407,6 +407,9 @@ font:
   - file: "gfonts://Roboto"
     id: font_small
     size: 21
+  - file: "gfonts://Roboto@700"
+    id: font_btn_bold
+    size: 26
 
 
 color:
@@ -2679,6 +2682,20 @@ display:
         // Perfectly centered text on midpoint of pill (x1 + x2) / 2 (zero bullet offset)
         int btn_cx = (x1 + x2) / 2;
         it.print(btn_cx, y_mid, id(font_small), text_c, TextAlign::CENTER, label);
+      };
+
+      // Hero Action Button Drawer with Bold Typography (size 26, weight 700)
+      auto draw_hero_button = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, Color text_c) {
+        it.filled_circle(x1, y_mid, r, border_c);
+        it.filled_circle(x2, y_mid, r, border_c);
+        it.filled_rectangle(x1, y_mid - r, x2 - x1, 2 * r + 1, border_c);
+
+        it.filled_circle(x1, y_mid, r - 2, bg_c);
+        it.filled_circle(x2, y_mid, r - 2, bg_c);
+        it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
+
+        int btn_cx = (x1 + x2) / 2;
+        it.print(btn_cx, y_mid, id(font_btn_bold), text_c, TextAlign::CENTER, label);
       };
 
       // Standardized Centered < BACK Button Helper across all submenus (y = 368, r = 16, 138px wide, theme accent)
@@ -5342,8 +5359,8 @@ display:
           std::string s_state = id(ha_sun_state).state;
           bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
 
-          // Clean Upper-Right Corner Pocket Coordinates (cx=349, cy=82, shifted left 3px)
-          const int cel_cx = 349;
+          // Clean Upper-Right Corner Pocket Coordinates (cx=346, cy=82, pulled in tighter to temperature)
+          const int cel_cx = 346;
           const int cel_cy = 82;
 
           if (is_night) {
@@ -5904,11 +5921,11 @@ display:
             // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide)
             const int hero_y = 228;
             if (!id(timer_running) && !id(timer_paused)) {
-              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(theme_primary), false);
+              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(theme_primary));
             } else if (id(timer_running)) {
-              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black), false);
+              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black));
             } else if (id(timer_paused)) {
-              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(theme_primary), false);
+              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(theme_primary));
             }
 
             // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14)
@@ -5949,6 +5966,8 @@ display:
               const char* rec_labels[4] = {"Daily", "Weekdays", "Weekends", "Once"};
 
               auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
+                bool is_snoozed = (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == idx || id(alarm_ringing_idx) == 0));
+
                 // Card Background (Clean 2px Stadium Pill - zero inner circular artifacts)
                 Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
                 Color border_c = en ? id(theme_secondary) : Color(45, 52, 60);
@@ -5962,6 +5981,12 @@ display:
                 it.filled_circle(90, y_mid, 44, card_bg);
                 it.filled_circle(376, y_mid, 44, card_bg);
                 it.filled_rectangle(90, y_mid - 44, 286, 89, card_bg);
+
+                if (is_snoozed) {
+                  // Active Snooze Dismiss Overlay across configuration pill
+                  draw_pill_button(110, 356, y_mid, 22, id(theme_secondary), id(theme_secondary), "DISMISS SNOOZE", id(col_black), false);
+                  return;
+                }
 
                 // Alarm Time String (All text and toggle elements shifted up 8px as a unit for vertical centering)
                 char t_buf[16];
@@ -6002,12 +6027,13 @@ display:
               // Alarm 2: Weekends default (y = 254)
               draw_alarm_card(254, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
 
-              // Snooze Status (only shown when an alarm is actively snoozed)
+              // Snooze Status (only shown when an alarm is actively snoozed; identifies active alarm)
               if (id(alarm_snooze_until) > 0) {
                 auto now = id(ha_time).now();
                 int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
+                int snz_idx = (id(alarm_ringing_idx) > 0) ? id(alarm_ringing_idx) : 1;
                 char snz_buf[48];
-                snprintf(snz_buf, sizeof(snz_buf), "Snoozed (%dm %ds)", rem_s / 60, rem_s % 60);
+                snprintf(snz_buf, sizeof(snz_buf), "Alarm %d Snoozed (%dm %ds)", snz_idx, rem_s / 60, rem_s % 60);
                 it.print(cx, 316, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
               }
             } else {
@@ -7118,8 +7144,8 @@ touchscreen:
                 id(disp1).update();
                 return;
               }
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 308..393, y: 44..119)
-              if (id(sky_weather_subpage) == 0 && touch.x >= 308 && touch.x <= 393 && touch.y >= 44 && touch.y <= 119) {
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 305..390, y: 44..119)
+              if (id(sky_weather_subpage) == 0 && touch.x >= 305 && touch.x <= 390 && touch.y >= 44 && touch.y <= 119) {
                 std::string s_state = id(ha_sun_state).state;
                 std::string cond = id(ha_weather_condition).state;
                 bool is_night = (s_state == "below_horizon" || cond == "clear-night" || (cond.find("night") != std::string::npos));
@@ -7239,28 +7265,53 @@ touchscreen:
                 // SUBPAGE 1: ALARM MANAGER TOUCH
                 // ==============================================================
                 if (id(alarm_edit_idx) == 0) {
-                  // Alarm 1 Toggle Switch (x: 305..385, y: 107..167)
-                  if (touch.y >= 107 && touch.y <= 167 && touch.x >= 305 && touch.x <= 385) {
-                    id(alarm1_enabled) = !id(alarm1_enabled);
-                    id(disp1).update();
-                    return;
-                  }
-                  // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 98..190)
-                  if (touch.y >= 98 && touch.y <= 190 && touch.x >= 50 && touch.x <= 304) {
-                    id(alarm_edit_idx) = 1;
-                    id(disp1).update();
-                    return;
+                  // Alarm 1 Touch Interception (If Alarm 1 is snoozed, tapping dismisses snooze without altering schedule)
+                  if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == 1 || id(alarm_ringing_idx) == 0)) {
+                    if (touch.y >= 98 && touch.y <= 190 && touch.x >= 50 && touch.x <= 385) {
+                      id(alarm_snooze_until) = 0;
+                      id(disp1).update();
+                      return;
+                    }
+                  } else {
+                    // Alarm 1 Toggle Switch (x: 305..385, y: 107..167)
+                    if (touch.y >= 107 && touch.y <= 167 && touch.x >= 305 && touch.x <= 385) {
+                      id(alarm1_enabled) = !id(alarm1_enabled);
+                      id(disp1).update();
+                      return;
+                    }
+                    // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 98..190)
+                    if (touch.y >= 98 && touch.y <= 190 && touch.x >= 50 && touch.x <= 304) {
+                      id(alarm_edit_idx) = 1;
+                      id(disp1).update();
+                      return;
+                    }
                   }
 
-                  // Alarm 2 Toggle Switch (x: 305..385, y: 217..277)
-                  if (touch.y >= 217 && touch.y <= 277 && touch.x >= 305 && touch.x <= 385) {
-                    id(alarm2_enabled) = !id(alarm2_enabled);
-                    id(disp1).update();
-                    return;
+                  // Alarm 2 Touch Interception (If Alarm 2 is snoozed, tapping dismisses snooze without altering schedule)
+                  if (id(alarm_snooze_until) > 0 && id(alarm_ringing_idx) == 2) {
+                    if (touch.y >= 208 && touch.y <= 300 && touch.x >= 50 && touch.x <= 385) {
+                      id(alarm_snooze_until) = 0;
+                      id(disp1).update();
+                      return;
+                    }
+                  } else {
+                    // Alarm 2 Toggle Switch (x: 305..385, y: 217..277)
+                    if (touch.y >= 217 && touch.y <= 277 && touch.x >= 305 && touch.x <= 385) {
+                      id(alarm2_enabled) = !id(alarm2_enabled);
+                      id(disp1).update();
+                      return;
+                    }
+                    // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 208..300)
+                    if (touch.y >= 208 && touch.y <= 300 && touch.x >= 50 && touch.x <= 304) {
+                      id(alarm_edit_idx) = 2;
+                      id(disp1).update();
+                      return;
+                    }
                   }
-                  // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 208..300)
-                  if (touch.y >= 208 && touch.y <= 300 && touch.x >= 50 && touch.x <= 304) {
-                    id(alarm_edit_idx) = 2;
+
+                  // Tapping the snooze countdown text at y = 316 also dismisses snooze
+                  if (id(alarm_snooze_until) > 0 && touch.y >= 301 && touch.y <= 335 && touch.x >= 80 && touch.x <= 386) {
+                    id(alarm_snooze_until) = 0;
                     id(disp1).update();
                     return;
                   }
