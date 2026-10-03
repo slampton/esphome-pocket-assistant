@@ -399,21 +399,33 @@ font:
   - file: "gfonts://Roboto"
     id: font_chrono_time
     size: 38
+    glyphs:
+      - '0123456789:.- sAMP'
   - file: "gfonts://Roboto"
     id: font_micro
     size: 14
+    glyphs:
+      - ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~°•—–…‘’“”±·áéíóúàèìòùäëïöüâêîôûñçÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛÑÇ'
   - file: "gfonts://Roboto"
     id: font_time
     size: 77
+    glyphs:
+      - '0123456789:.- %°'
   - file: "gfonts://Roboto"
     id: font_date
     size: 27
+    glyphs:
+      - ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~°•—–…‘’“”±·áéíóúàèìòùäëïöüâêîôûñçÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛÑÇ'
   - file: "gfonts://Roboto"
     id: font_small
     size: 21
+    glyphs:
+      - ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~°•—–…‘’“”±·áéíóúàèìòùäëïöüâêîôûñçÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛÑÇ'
   - file: "gfonts://Roboto@700"
     id: font_btn_bold
     size: 26
+    glyphs:
+      - ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~°•—–…‘’“”±·áéíóúàèìòùäëïöüâêîôûñçÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛÑÇ'
 
 
 color:
@@ -1225,106 +1237,70 @@ sensor:
     entity_id: ${sun_entity}
     attribute: elevation
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_sun_azimuth
     entity_id: ${sun_entity}
     attribute: azimuth
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_temperature
     entity_id: ${weather_entity}
     attribute: temperature
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_apparent_temp
     entity_id: ${weather_entity}
     attribute: apparent_temperature
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_humidity
     entity_id: ${weather_entity}
     attribute: humidity
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_pressure
     entity_id: ${weather_entity}
     attribute: pressure
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_wind_speed
     entity_id: ${weather_entity}
     attribute: wind_speed
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_wind_bearing
     entity_id: ${weather_entity}
     attribute: wind_bearing
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_cloud_coverage
     entity_id: ${weather_entity}
     attribute: cloud_coverage
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_visibility
     entity_id: ${weather_entity}
     attribute: visibility
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_high
     entity_id: ${weather_high_sensor}
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_low
     entity_id: ${weather_low_sensor}
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
 
   - platform: homeassistant
@@ -1351,31 +1327,38 @@ sensor:
     type: acceleration_x
     name: "Accel X"
     id: accel_x
+    internal: true
   - platform: motion
     motion_id: imu
     type: acceleration_y
     name: "Accel Y"
     id: accel_y
+    internal: true
   - platform: motion
     motion_id: imu
     type: acceleration_z
     name: "Accel Z"
     id: accel_z
+    internal: true
   - platform: motion
     motion_id: imu
     type: roll
     name: "Roll"
     id: imu_roll
+    internal: true
   - platform: motion
     motion_id: imu
     type: pitch
     name: "Pitch"
     id: imu_pitch
+    internal: true
 
   - platform: qmi8658
     name: "IMU Temperature"
     id: imu_temp
     entity_category: diagnostic
+    filters:
+      - delta: 0.5
 
   - platform: template
     name: "Dynamic Motion Delta"
@@ -1383,6 +1366,7 @@ sensor:
     unit_of_measurement: "g"
     accuracy_decimals: 3
     update_interval: 200ms
+    internal: true
     lambda: |-
       if (id(is_locked)) return 0.0f;
       float x = id(accel_x).state;
@@ -1483,78 +1467,51 @@ text_sensor:
     entity_id: ${sun_entity}
     attribute: next_rising
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_sun_next_setting
     entity_id: ${sun_entity}
     attribute: next_setting
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_sun_next_noon
     entity_id: ${sun_entity}
     attribute: next_noon
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_sun_next_dawn
     entity_id: ${sun_entity}
     attribute: next_dawn
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_sun_next_dusk
     entity_id: ${sun_entity}
     attribute: next_dusk
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_moon_phase
     entity_id: ${moon_entity}
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_condition
     entity_id: ${weather_entity}
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_temp_unit
     entity_id: ${weather_entity}
     attribute: temperature_unit
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_weather_forecast_5d
     entity_id: ${weather_forecast_5d_sensor}
     internal: true
-    on_value:
-      then:
-        - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_sun_state
@@ -1736,13 +1693,13 @@ script:
   - id: throttled_disp_update
     mode: restart
     then:
-      - delay: 20ms
+      - delay: 50ms
       - if:
           condition:
             lambda: |-
               static uint32_t last_redraw = 0;
               uint32_t now = millis();
-              if (now - last_redraw < 35) return false;
+              if (now - last_redraw < 150) return false;
               if (id(display_power_state) != 0 || id(gui_page) != 2) return false;
               last_redraw = now;
               return true;
@@ -2629,7 +2586,6 @@ script:
             - audio_dac.mute_on: es8311_dac
             - switch.turn_off: speaker_enable
             - script.execute: route_i2s_to_mic
-            - component.update: disp1
 
   - id: cancel_voice_assistant
     then:
@@ -6727,7 +6683,7 @@ touchscreen:
       number: GPIO11
       mode: INPUT_PULLUP
     reset_pin: GPIO2
-    update_interval: 16ms
+    update_interval: 50ms
     transform:
       mirror_x: true
       mirror_y: true
@@ -6744,7 +6700,13 @@ touchscreen:
               id(disp1).update();
               return;
             }
-            id(screen_sleep_timer).execute(); // Activity watchdog reset on every valid touch
+            // Rate-limit sleep timer reset to avoid restarting script 60x/sec during drags
+            static uint32_t last_touch_activity = 0;
+            uint32_t now_touch = millis();
+            if (now_touch - last_touch_activity > 1000) {
+              last_touch_activity = now_touch;
+              id(screen_sleep_timer).execute(); // Activity watchdog reset on valid touch
+            }
             // Standby Wake Handling: Guarded by tap_wake_mode (Always On, Docked Only, Disabled)
             if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
               std::string tw_mode = std::string(id(tap_wake_mode).current_option().c_str());
