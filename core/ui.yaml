@@ -514,6 +514,22 @@ light:
 
 select:
   - platform: template
+    name: "Voice: Visual Profile"
+    id: va_visual_profile
+    icon: "mdi:palette-swatch-outline"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Default"
+    options:
+      - "Default"
+      - "Solaris"
+    set_action:
+      - lambda: |-
+          id(va_visual_profile).publish_state(x);
+          id(disp1).update();
+
+  - platform: template
     name: "Weather: Condition Simulation"
     id: weather_sim_condition
     icon: "mdi:weather-partly-cloudy"
@@ -3147,19 +3163,41 @@ display:
         uint32_t now_ms = millis();
         bool is_speaking = id(va_tts_received);
         bool is_thinking = (!is_speaking && id(va_status_text) == "Thinking...");
+        bool is_solaris = (id(va_visual_profile).state == "Solaris");
 
-        // Strict Blue-Purple-Pink Spectral Gradient Helper (Zero yellow, green, or red)
-        auto get_nuanced_radiation_color = [](float t) -> Color {
+        // Profile-aware spectral gradient loop
+        auto get_nuanced_radiation_color = [is_solaris](float t) -> Color {
           t = t - floorf(t);
-          if (t < 0.333f) {
-            float k = t / 0.333f;
-            return Color((uint8_t)(138.0f * k), (uint8_t)(229.0f * (1.0f - k) + 43.0f * k), (uint8_t)(255.0f * (1.0f - k) + 226.0f * k));
-          } else if (t < 0.667f) {
-            float k = (t - 0.333f) / 0.334f;
-            return Color((uint8_t)(138.0f + 86.0f * k), (uint8_t)(43.0f + 21.0f * k), (uint8_t)(226.0f + 25.0f * k));
+          if (is_solaris) {
+            // Solaris Spectral Loop: Emerald Green -> Sunburst Yellow -> Solar Orange -> Emerald Green
+            if (t < 0.333f) {
+              float k = t / 0.333f;
+              return Color((uint8_t)(35.0f * (1.0f - k) + 255.0f * k),
+                           (uint8_t)(210.0f * (1.0f - k) + 220.0f * k),
+                           (uint8_t)(110.0f * (1.0f - k) + 30.0f * k));
+            } else if (t < 0.667f) {
+              float k = (t - 0.333f) / 0.334f;
+              return Color((uint8_t)(255.0f * (1.0f - k) + 250.0f * k),
+                           (uint8_t)(220.0f * (1.0f - k) + 100.0f * k),
+                           (uint8_t)(30.0f * (1.0f - k) + 15.0f * k));
+            } else {
+              float k = (t - 0.667f) / 0.333f;
+              return Color((uint8_t)(250.0f * (1.0f - k) + 35.0f * k),
+                           (uint8_t)(100.0f * (1.0f - k) + 210.0f * k),
+                           (uint8_t)(15.0f * (1.0f - k) + 110.0f * k));
+            }
           } else {
-            float k = (t - 0.667f) / 0.333f;
-            return Color((uint8_t)(224.0f * (1.0f - k)), (uint8_t)(64.0f * (1.0f - k) + 229.0f * k), 255);
+            // Default Spectral Loop: Soft Cyan -> Royal Purple -> Pink/Magenta -> Soft Cyan
+            if (t < 0.333f) {
+              float k = t / 0.333f;
+              return Color((uint8_t)(138.0f * k), (uint8_t)(229.0f * (1.0f - k) + 43.0f * k), (uint8_t)(255.0f * (1.0f - k) + 226.0f * k));
+            } else if (t < 0.667f) {
+              float k = (t - 0.333f) / 0.334f;
+              return Color((uint8_t)(138.0f + 86.0f * k), (uint8_t)(43.0f + 21.0f * k), (uint8_t)(226.0f + 25.0f * k));
+            } else {
+              float k = (t - 0.667f) / 0.333f;
+              return Color((uint8_t)(224.0f * (1.0f - k)), (uint8_t)(64.0f * (1.0f - k) + 229.0f * k), 255);
+            }
           }
         };
 
@@ -3167,26 +3205,20 @@ display:
           // ====================================================
           // STATE 3: SPEAKING (TTS) — RADIATING EXPANDING HARMONIC BANDS
           // ====================================================
-          // 5 Out-of-phase expanding radiating bands (2000ms cycle) with dynamic thickness, glossy crests, and radial edge fade
           for (int w = 0; w < 5; w++) {
             uint32_t wave_t = (now_ms + w * 400) % 2000;
-            float progress = (float)wave_t / 2000.0f; // 0.0 -> 1.0 radial expansion
+            float progress = (float)wave_t / 2000.0f;
             int r_center = 36 + (int)(progress * 180.0f);
 
-            // Dynamic Band Width: swells from 4px near core up to 8-12px in mid-burst, tapering near perimeter
             float width_factor = sinf(progress * PI_F);
             int base_w = (w % 2 == 0) ? 7 : 4;
             int band_w = base_w + (int)(5.0f * width_factor);
             if (band_w < 3) band_w = 3;
             int half_w = band_w / 2;
 
-            // Spectral phase across the blue-purple-pink loop
             float wave_color_phase = (float)w * 0.20f + progress * 0.30f + (float)(now_ms % 4000) / 4000.0f;
-
-            // Soft radial fade as band expands toward perimeter (fades smoothly to black)
             float fade = 1.0f - (progress * 0.45f);
 
-            // Draw clean gradient-shaded pillowed band with glossy highlight crest
             for (int d = -half_w; d <= half_w; d++) {
               int r_curr = r_center + d;
               if (r_curr < 34 || r_curr > 226) continue;
@@ -3197,7 +3229,6 @@ display:
 
               Color stroke_col;
               if (edge_dist < 0.35f) {
-                // High-gloss center crest with luminance pop
                 stroke_col = Color(
                   (uint8_t)((base_col.red * 0.70f + 255.0f * 0.30f) * fade),
                   (uint8_t)((base_col.green * 0.70f + 255.0f * 0.30f) * fade),
@@ -3218,8 +3249,8 @@ display:
           float core_pulse = sinf((float)(now_ms % 800) * (2.0f * PI_F / 800.0f));
           int core_r = 22 + (int)(4.0f * core_pulse);
 
-          Color aura_col = get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f);
-          Color body_col = get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f + 0.33f);
+          Color aura_col = is_solaris ? Color(255, 220, 30) : get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f);
+          Color body_col = is_solaris ? Color(250, 100, 15) : get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f + 0.33f);
 
           it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
           it.circle(cx, cy, core_r + 4, aura_col);
@@ -3228,7 +3259,7 @@ display:
           it.filled_circle(cx, cy, core_r, body_col);
 
           if (core_r > 6) {
-            Color inner_tone = Color(
+            Color inner_tone = is_solaris ? Color(255, 220, 30) : Color(
               (uint8_t)(body_col.red * 0.82f + 35),
               (uint8_t)(body_col.green * 0.82f + 35),
               (uint8_t)(body_col.blue * 0.82f + 35)
@@ -3238,80 +3269,95 @@ display:
 
         } else if (is_thinking) {
           // ====================================================
-          // STATE 2: THINKING — EXPANDED QUANTUM CONSTELLATION
+          // STATE 2: THINKING — EXPANDED QUANTUM / SOLAR CONSTELLATION
           // ====================================================
-          // Broad expansive orbital rings filling display canvas
           it.circle(cx, cy, 68, id(col_dark_gray));
           it.circle(cx, cy, 114, id(col_dark_gray));
 
           float spin_cw = (float)(now_ms % 1100) * (2.0f * PI_F / 1100.0f);
           float spin_ccw = -(float)(now_ms % 1100) * (2.0f * PI_F / 1100.0f);
 
-          // Inner CW orbit stars (Cyan & White with sparkle cross tips) at r=68
+          Color inner_star_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
+          Color outer_star_col = is_solaris ? Color(35, 210, 110) : id(col_purple);
+          Color outer_star_body = is_solaris ? Color(35, 210, 110) : id(col_magenta);
+          Color outer_star_aura = is_solaris ? Color(255, 220, 30) : id(col_purple);
+          Color text_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
+
+          // Inner CW orbit stars (4-point sparkle tips at r=68)
           for (int i = 0; i < 4; i++) {
             float ang = spin_cw + i * (PI_F / 2.0f);
             float s_node, c_node;
             sincosf(ang, &s_node, &c_node);
             int nx = cx + (int)(68.0f * c_node);
             int ny = cy + (int)(68.0f * s_node);
-            // Sparkle cross tips
-            it.horizontal_line(nx - 4, ny, 9, id(col_cyan));
-            it.vertical_line(nx, ny - 4, 9, id(col_cyan));
-            it.filled_circle(nx, ny, 3, id(col_cyan));
+            it.horizontal_line(nx - 4, ny, 9, inner_star_col);
+            it.vertical_line(nx, ny - 4, 9, inner_star_col);
+            it.filled_circle(nx, ny, 3, inner_star_col);
             it.filled_circle(nx, ny, 1, id(col_white));
           }
 
-          // Outer CCW orbit stars (Magenta & Purple with sparkle cross tips) at r=114
+          // Outer CCW orbit stars (4-point sparkle tips at r=114)
           for (int i = 0; i < 4; i++) {
             float ang = spin_ccw + i * (PI_F / 2.0f) + (PI_F / 4.0f);
             float s_node, c_node;
             sincosf(ang, &s_node, &c_node);
             int nx = cx + (int)(114.0f * c_node);
             int ny = cy + (int)(114.0f * s_node);
-            // Sparkle cross tips
-            it.horizontal_line(nx - 5, ny, 11, id(col_purple));
-            it.vertical_line(nx, ny - 5, 11, id(col_purple));
-            it.filled_circle(nx, ny, 4, id(col_magenta));
-            it.filled_circle(nx, ny, 2, id(col_purple));
+            it.horizontal_line(nx - 5, ny, 11, outer_star_col);
+            it.vertical_line(nx, ny - 5, 11, outer_star_col);
+            it.filled_circle(nx, ny, 4, outer_star_body);
+            it.filled_circle(nx, ny, 2, outer_star_aura);
             it.filled_circle(nx, ny, 1, id(col_white));
           }
 
-          // Cognitive Pulse Core - Consistent Layered Depth
+          // Cognitive Pulse Core
           float pulse = sinf((float)(now_ms % 600) * (2.0f * PI_F / 600.0f));
           int core_r = 24 + (int)(5.0f * pulse);
 
+          Color core_ring_col = is_solaris ? Color(255, 220, 30) : id(col_purple);
+          Color core_fill_col = is_solaris ? Color(250, 100, 15) : id(col_cyan);
+
           it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
-          it.circle(cx, cy, core_r + 5, id(col_purple));
-          it.circle(cx, cy, core_r + 4, id(col_purple));
-          it.circle(cx, cy, core_r + 3, id(col_purple));
-          it.filled_circle(cx, cy, core_r, id(col_cyan));
+          it.circle(cx, cy, core_r + 5, core_ring_col);
+          it.circle(cx, cy, core_r + 4, core_ring_col);
+          it.circle(cx, cy, core_r + 3, core_ring_col);
+          it.filled_circle(cx, cy, core_r, core_fill_col);
 
           if (core_r > 6) {
-            Color inner_tone = Color(30, 200, 230);
+            Color inner_tone = is_solaris ? Color(255, 220, 30) : Color(30, 200, 230);
             it.circle(cx, cy - 1, core_r - 3, inner_tone);
           }
 
-          it.print(cx, cy + 140, id(font_small), id(col_cyan), TextAlign::CENTER, "Thinking...");
+          it.print(cx, 380, id(font_small), text_col, TextAlign::CENTER, "Thinking...");
 
         } else {
           // ====================================================
           // STATE 1: LISTENING — ROBUST ATTENTIVE LIVING CORE
           // ====================================================
-          // Dynamic VAD expansion factor: expands core & aura when user is actively speaking
           float vad_boost = id(va_vad_active) ? 6.0f : 0.0f;
           float pulse = sinf((float)(now_ms % 1600) * (2.0f * PI_F / 1600.0f));
+
+          Color outer_halo_col = is_solaris ? Color(35, 210, 110) : id(col_purple);
+          Color mid_ring_col = is_solaris ? Color(255, 220, 30) : id(col_light_blue);
+          Color mid_ring_inner = is_solaris ? Color(255, 220, 30) : id(col_cyan);
+          Color sat_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
+          Color sat_aura = is_solaris ? Color(255, 220, 30) : id(col_light_blue);
+          Color core_aura_col = is_solaris ? Color(255, 220, 30) : id(col_purple);
+          Color core_ring_col = is_solaris ? Color(255, 220, 30) : id(col_light_blue);
+          Color core_fill_col = is_solaris ? Color(250, 100, 15) : id(col_cyan);
+          Color text_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
 
           // 1. Broad Outer Attentive Halo (r=118..126)
           int outer_halo_r = 118 + (int)(8.0f * pulse + vad_boost);
           it.circle(cx, cy, outer_halo_r + 1, id(col_dark_gray));
-          it.circle(cx, cy, outer_halo_r, id(col_purple));
-          it.circle(cx, cy, outer_halo_r - 1, id(col_purple));
+          it.circle(cx, cy, outer_halo_r, outer_halo_col);
+          it.circle(cx, cy, outer_halo_r - 1, outer_halo_col);
 
           // 2. Harmonic Acoustic Wave Ring (r=74..82)
           int mid_ring_r = 74 + (int)(5.0f * pulse + vad_boost * 0.5f);
           it.circle(cx, cy, mid_ring_r + 1, id(col_dark_gray));
-          it.circle(cx, cy, mid_ring_r, id(col_light_blue));
-          it.circle(cx, cy, mid_ring_r - 1, id(col_cyan));
+          it.circle(cx, cy, mid_ring_r, mid_ring_col);
+          it.circle(cx, cy, mid_ring_r - 1, mid_ring_inner);
 
           // 3. 4 Orbital Satellites revolving at 3.2s pace at r=mid_ring_r
           float orbit_ang = (float)(now_ms % 3200) * (2.0f * PI_F / 3200.0f);
@@ -3321,9 +3367,9 @@ display:
             sincosf(ang, &s_node, &c_node);
             int nx = cx + (int)((float)mid_ring_r * c_node);
             int ny = cy + (int)((float)mid_ring_r * s_node);
-            it.horizontal_line(nx - 3, ny, 7, id(col_light_blue));
-            it.vertical_line(nx, ny - 3, 7, id(col_light_blue));
-            it.filled_circle(nx, ny, 4, id(col_cyan));
+            it.horizontal_line(nx - 3, ny, 7, sat_aura);
+            it.vertical_line(nx, ny - 3, 7, sat_aura);
+            it.filled_circle(nx, ny, 4, sat_col);
             it.filled_circle(nx, ny, 2, id(col_white));
           }
 
@@ -3332,23 +3378,23 @@ display:
           int aura_r = 44 + (int)(8.0f * pulse + vad_boost * 1.2f);
 
           it.circle(cx, cy, aura_r + 2, id(col_dark_gray));
-          it.circle(cx, cy, aura_r + 1, id(col_purple));
-          it.circle(cx, cy, aura_r, id(col_purple));
-          it.circle(cx, cy, aura_r - 1, id(col_purple));
+          it.circle(cx, cy, aura_r + 1, core_aura_col);
+          it.circle(cx, cy, aura_r, core_aura_col);
+          it.circle(cx, cy, aura_r - 1, core_aura_col);
 
           it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
-          it.circle(cx, cy, core_r + 4, id(col_light_blue));
-          it.circle(cx, cy, core_r + 3, id(col_light_blue));
-          it.circle(cx, cy, core_r + 2, id(col_light_blue));
-          it.filled_circle(cx, cy, core_r, id(col_cyan));
+          it.circle(cx, cy, core_r + 4, core_ring_col);
+          it.circle(cx, cy, core_r + 3, core_ring_col);
+          it.circle(cx, cy, core_r + 2, core_ring_col);
+          it.filled_circle(cx, cy, core_r, core_fill_col);
 
           if (core_r > 6) {
-            Color inner_tone = Color(30, 200, 230);
+            Color inner_tone = is_solaris ? Color(255, 220, 30) : Color(30, 200, 230);
             it.circle(cx, cy - 1, core_r - 3, inner_tone);
           }
 
           const char *status_str = id(va_status_text).empty() ? "Listening..." : id(va_status_text).c_str();
-          it.print(cx, cy + 140, id(font_small), id(col_cyan), TextAlign::CENTER, status_str);
+          it.print(cx, 380, id(font_small), text_col, TextAlign::CENTER, status_str);
         }
         return;
       }
