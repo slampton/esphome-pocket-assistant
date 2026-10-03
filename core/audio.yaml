@@ -72,8 +72,8 @@ speaker:
     sample_rate: 16000
     bits_per_sample: 16bit
     channel: left
-    buffer_duration: 500ms
-    timeout: 1000ms
+    buffer_duration: 1000ms
+    timeout: 10s
 
   - id: mixing_speaker
     platform: mixer
@@ -183,15 +183,6 @@ voice_assistant:
             - delay: 150ms
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
-      - audio_dac.mute_on: es8311_dac
-      - speaker.stop: va_speaker
-      - speaker.stop: announcement_mixing_input
-      - if:
-          condition:
-            not:
-              media_player.is_playing: pocket_music_player
-          then:
-            - speaker.stop: physical_speaker
       - script.execute: route_i2s_to_mic
       - lambda: |-
           if (!id(va_active)) {
@@ -249,15 +240,6 @@ voice_assistant:
           ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
   on_error:
     then:
-      - audio_dac.mute_on: es8311_dac
-      - speaker.stop: va_speaker
-      - speaker.stop: announcement_mixing_input
-      - if:
-          condition:
-            not:
-              media_player.is_playing: pocket_music_player
-          then:
-            - speaker.stop: physical_speaker
       - script.execute: route_i2s_to_mic
       - lambda: |-
           id(va_vad_active) = false;
@@ -364,9 +346,6 @@ voice_assistant:
                 duration: 1.0s
           else:
             - audio_dac.mute_on: es8311_dac
-            - speaker.stop: va_speaker
-            - speaker.stop: announcement_mixing_input
-            - speaker.stop: physical_speaker
             - script.execute: route_i2s_to_mic
       - lambda: |-
           id(va_vad_active) = false;
@@ -387,7 +366,6 @@ script:
     mode: restart
     then:
       - script.execute: route_i2s_to_spk
-      - audio_dac.mute_off: es8311_dac
       - while:
           condition:
             lambda: "return id(alarm_ringing) || id(timer_ringing);"
@@ -414,9 +392,6 @@ script:
               media_player.is_playing: pocket_music_player
           then:
             - audio_dac.mute_on: es8311_dac
-            - speaker.stop: va_speaker
-            - speaker.stop: announcement_mixing_input
-            - speaker.stop: physical_speaker
             - script.execute: route_i2s_to_mic
 
 number:
