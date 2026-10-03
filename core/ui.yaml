@@ -5904,11 +5904,11 @@ display:
             // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide)
             const int hero_y = 228;
             if (!id(timer_running) && !id(timer_paused)) {
-              draw_pill_button(143, 323, hero_y, 22, id(theme_primary), id(theme_primary), "START", id(col_white), false);
+              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black), false);
             } else if (id(timer_running)) {
               draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black), false);
             } else if (id(timer_paused)) {
-              draw_pill_button(143, 323, hero_y, 22, id(theme_primary), id(theme_primary), "RESUME", id(col_white), false);
+              draw_pill_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black), false);
             }
 
             // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14)
@@ -5951,7 +5951,7 @@ display:
               auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
                 // Card Background (Clean 2px Stadium Pill - zero inner circular artifacts)
                 Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
-                Color border_c = en ? id(theme_primary) : Color(45, 52, 60);
+                Color border_c = en ? id(theme_secondary) : Color(45, 52, 60);
 
                 // Outer border pill (r = 46, 92px tall for enhanced readability)
                 it.filled_circle(90, y_mid, 46, border_c);
@@ -5975,16 +5975,16 @@ display:
                   snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
                 }
                 Color time_col = en ? id(col_white) : id(col_gray);
-                // Time & AM baselines (AM/PM brought in 60% tighter from x=215 to x=200)
+                // Time & AM baselines (AM/PM brought in tighter to x=194)
                 it.print(92, y_mid + 4, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
                 if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(200, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
+                  it.print(194, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
                 }
 
-                // Recurrence Tag: brought up to y_mid + 16 for equal 12px gap above and 13px gap below to pill boundary
+                // Recurrence Tag: centered vertically with equal whitespace above and below (y_mid + 14)
                 char tag_buf[32];
                 snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-                it.print(92, y_mid + 16, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
+                it.print(92, y_mid + 14, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
                 // Toggle Switch Pill: shifted up 8px (center y_mid - 8, width 44, height 26)
                 Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
@@ -6030,7 +6030,7 @@ display:
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
                 it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-                int ap_x = (h12 >= 10) ? (cx + 116) : (cx + 93);
+                int ap_x = (h12 >= 10) ? (cx + 112) : (cx + 89);
                 it.print(ap_x, 140, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
