@@ -6005,7 +6005,7 @@ display:
           it.print(321, 218, id(font_small), label_c, TextAlign::CENTER, "WIND");
           char wind_str[32];
           if (!isnan(wspd)) {
-            snprintf(wind_str, sizeof(wind_str), "%.0f MPH %s", roundf(wspd), get_cardinal(wbear));
+            snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
           } else {
             snprintf(wind_str, sizeof(wind_str), "--");
           }
@@ -6440,18 +6440,16 @@ display:
           it.line(80, 202, 386, 202, id(col_dark_gray));
 
           // Telemetry Row: Titles in font_small at y = 220, Data in font_date at y = 248 (standardized to Sun page)
-          // Expanded Phase Column: Divider shifted to x=215, giving generous room for 2-word phase names
-          it.print(138, 218, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
+          it.print(145, 218, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
           char illum_buf[16];
           snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
-          it.print(138, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, illum_buf);
+          it.print(145, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, illum_buf);
 
-          // Center Divider shifted to x = 215 to provide generous breathing room for lunar phase
-          it.line(215, 208, 215, 266, id(col_dark_gray));
+          // Center Divider between columns (y = 208..266, standardized to Sun page)
+          it.line(cx, 208, cx, 266, id(col_dark_gray));
 
-          it.print(325, 218, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
-          // Uniform typography: font_small for all lunar phase names (consistent size across entire month)
-          it.print(325, 258, id(font_small), id(col_white), TextAlign::BASELINE_CENTER, mp_label.c_str());
+          it.print(321, 218, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
+          it.print(321, 258, (mp_label.length() > 11 ? id(font_small) : id(font_date)), id(col_white), TextAlign::BASELINE_CENTER, mp_label.c_str());
 
           // Divider at y = 272 above bottom 2x2 buttons (standardized to Sun page)
           it.line(80, 272, 386, 272, id(col_dark_gray));
