@@ -11,8 +11,9 @@ inline void abort_voice_assistant(VoiceAssistant *va) {
   if (va != nullptr) {
     va->request_stop();
   }
+#if defined(USE_API)
   if (api::global_api_server != nullptr) {
-    for (auto &client : api::global_api_server->get_clients()) {
+    for (auto &client : api::global_api_server->active_clients()) {
       if (client != nullptr) {
         api::VoiceAssistantRequest msg;
         msg.start = false;
@@ -20,6 +21,7 @@ inline void abort_voice_assistant(VoiceAssistant *va) {
       }
     }
   }
+#endif
 }
 
 } // namespace voice_assistant
