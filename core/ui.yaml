@@ -1103,18 +1103,29 @@ interval:
           }
 
           // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
-          // High-refresh fluid drift (10 FPS / 100ms) when audio is quiet
-          // Throttled (3.3 FPS / 300ms) when music, voice assistant, or alarms are active; 500ms during active TTS speech
+          // High-refresh fluid drift (8 FPS / 120ms) when animated weather (partly cloudy, rain, snow, lightning, wind, stars) is active
+          // Overcast / Cloudy is a static high-density blanket (zero animation overdraw, 100% touch responsiveness)
           if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
-            static uint32_t last_weather_disp_update = 0;
-            uint32_t now_w_ms = millis();
-            bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                              id(va_active) || !id(va_status_text).empty() ||
-                              id(alarm_ringing) || id(timer_ringing);
-            uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 100);
-            if (now_w_ms - last_weather_disp_update >= target_cadence) {
-              last_weather_disp_update = now_w_ms;
-              id(disp1).update();
+            std::string w_cond = id(ha_weather_condition).state;
+            std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
+            if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
+              if (sim_opt.find("Cloudy / Overcast") != std::string::npos) w_cond = "cloudy";
+              else if (sim_opt.find("Partly Cloudy") != std::string::npos) w_cond = "partlycloudy";
+            }
+            bool is_dense_overcast = (w_cond.find("cloud") != std::string::npos || w_cond.find("overcast") != std::string::npos) &&
+                                     (w_cond.find("partly") == std::string::npos && w_cond.find("mostlysunny") == std::string::npos && w_cond.find("partlysunny") == std::string::npos);
+
+            if (!is_dense_overcast) {
+              static uint32_t last_weather_disp_update = 0;
+              uint32_t now_w_ms = millis();
+              bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                id(va_active) || !id(va_status_text).empty() ||
+                                id(alarm_ringing) || id(timer_ringing);
+              uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 120);
+              if (now_w_ms - last_weather_disp_update >= target_cadence) {
+                last_weather_disp_update = now_w_ms;
+                id(disp1).update();
+              }
             }
           }
 
@@ -5755,16 +5766,14 @@ display:
                 draw_cumulus(x, pc_y[i], pc_scale[i], false);
               }
             } else {
-              // Cloudy / Overcast: Dense interlocking blanket of 6 large cumulus masses blanketing the sky
-              // Streamlined to eliminate redundant inner overdraw while preserving complete seamless cover
-              static const int16_t og_x[6] = {  80, 290, 150, 360,  90, 300 };
-              static const int16_t og_y[6] = {  45,  45, 160, 165, 285, 290 };
-              static const float og_scale[6] = { 1.45f, 1.45f, 1.45f, 1.45f, 1.45f, 1.45f };
-              static const int8_t og_spd[6] = { 4, 6, 5, 6, 4, 5 };
+              // Cloudy / Overcast: Dense static blanket of 8 interlocking cloud masses blanketing the entire sky
+              // Static canopy with zero animation overdraw, providing rich layered coverage and 100% UI responsiveness
+              static const int16_t og_x[8] = {  60, 240, 400, 110, 290, 430,  80, 280 };
+              static const int16_t og_y[8] = {  50,  40,  60, 160, 150, 180, 275, 285 };
+              static const float og_scale[8] = { 1.55f, 1.65f, 1.50f, 1.60f, 1.70f, 1.55f, 1.50f, 1.65f };
 
-              for (int i = 0; i < 6; i++) {
-                int x = ((og_x[i] + 80) + (int)((uint64_t)now_ms * (uint32_t)og_spd[i] / 1000ULL)) % 600 - 80;
-                draw_cumulus(x, og_y[i], og_scale[i], true);
+              for (int i = 0; i < 8; i++) {
+                draw_cumulus(og_x[i], og_y[i], og_scale[i], true);
               }
             }
           }
