@@ -6481,7 +6481,7 @@ display:
             }
             it.print(cx, 160, id(font_time), id(col_white), TextAlign::CENTER, cur_t_buf);
             if (!id(is_24h_format) && ampm_buf[0] != 0) {
-              it.print(cx + 80, 178, id(font_small), id(theme_secondary), TextAlign::BASELINE_LEFT, ampm_buf);
+              it.print(cx + 120, 175, id(font_date), id(theme_secondary), TextAlign::LEFT, ampm_buf);
             }
 
             // Recurrence info
@@ -6690,8 +6690,8 @@ display:
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
                 it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-                int ap_x = (h12 >= 10) ? (cx + 66) : (cx + 52);
-                it.print(ap_x, 149, id(font_small), id(theme_secondary), TextAlign::BASELINE_LEFT, ap);
+                int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
+                it.print(ap_x, 140, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
               // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
@@ -7033,35 +7033,50 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls (Optimized: Zero Contention with Navigation)
+            // Page 1: Stopwatch Screen Tap Controls (Large Centered Hitbox & Debounced Pushers)
             if (id(gui_page) == 1) {
-              // 1. Bottom Control Buttons: LAP & RESET (y: 280..368, buttons centered at y=328, r=38)
-              if (touch.y >= 280 && touch.y <= 368 && touch.x >= 120 && touch.x <= 346) {
-                if (touch.x < 233) {
-                  // LAP Button (Left half, center x=179, y=328, r=38)
-                  if (id(stopwatch_running)) {
-                    id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
+              // 1. Bottom Pushers: LAP & RESET (y: 280..372, x: 110..356)
+              if (touch.y >= 280 && touch.y <= 372 && touch.x >= 110 && touch.x <= 356) {
+                static uint32_t last_btn_tap = 0;
+                uint32_t now_btn = millis();
+                if (now_btn - last_btn_tap > 250) {
+                  last_btn_tap = now_btn;
+                  if (touch.x < 233) {
+                    // LAP Pusher (Left half, centered at x=179, y=328, r=38)
+                    if (id(stopwatch_running)) {
+                      // Running: record / update split time
+                      id(stopwatch_lap_ms) = now_btn - id(stopwatch_start_time);
+                    } else if (id(stopwatch_lap_ms) > 0) {
+                      // Stopped: tap LAP clears existing split readout
+                      id(stopwatch_lap_ms) = 0;
+                    }
+                  } else {
+                    // RESET Pusher (Right half, centered at x=287, y=328, r=38)
+                    id(stopwatch_running) = false;
+                    id(stopwatch_elapsed_ms) = 0;
+                    id(stopwatch_lap_ms) = 0;
                   }
-                } else {
-                  // RESET Button (Right half, center x=287, y=328, r=38)
-                  id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = 0;
-                  id(stopwatch_lap_ms) = 0;
+                  id(disp1).update();
                 }
-                id(disp1).update();
-              // 2. Central Chrono Dial Face: START/STOP (y < 370 prevents encroaching on navigation)
-              } else if (touch.x >= 100 && touch.x <= 366 && touch.y < 370) {
+                return;
+              // 2. Large Central Dial Face: START/STOP (y < 280, x: 70..396: preserves left/right margins)
+              } else if (touch.y >= 45 && touch.y < 280 && touch.x >= 70 && touch.x <= 396) {
+                static uint32_t last_chrono_tap = 0;
                 uint32_t now_tap = millis();
-                if (!id(stopwatch_running)) {
-                  id(stopwatch_running) = true;
-                  id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
-                  id(sleep_start_time) = 0;
-                  id(display_brightness).turn_on().perform();
-                } else {
-                  id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
+                if (now_tap - last_chrono_tap > 250) {
+                  last_chrono_tap = now_tap;
+                  if (!id(stopwatch_running)) {
+                    id(stopwatch_running) = true;
+                    id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
+                    id(sleep_start_time) = 0;
+                    id(display_brightness).turn_on().perform();
+                  } else {
+                    id(stopwatch_running) = false;
+                    id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
+                  }
+                  id(disp1).update();
                 }
-                id(disp1).update();
+                return;
               }
             // Page 2: Music (Player Controls OR Speaker/Preset Overlay)
             } else if (id(gui_page) == 2) {

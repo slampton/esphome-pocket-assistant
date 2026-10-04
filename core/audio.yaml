@@ -417,6 +417,11 @@ script:
                 id: announcement_mixing_input
                 decibel_reduction: 50
                 duration: 0.1s
+            - lambda: |-
+                float v = id(pocket_music_player).volume;
+                if (!std::isnan(v) && v > 0.0f) {
+                  id(pocket_music_player).make_call().set_volume(v).perform();
+                }
           else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
