@@ -4489,7 +4489,10 @@ display:
             }
 
             if (sunk_count >= 5 || time_remaining <= 0) {
-              round_over = true;
+              if (!round_over) {
+                round_over = true;
+                id(play_game_over_sound).execute();
+              }
               if (sunk_count >= 5) {
                 game_score += time_remaining * 35;
               }
@@ -4674,7 +4677,10 @@ display:
               arrow_y = -1.0f;
 
               if (arrows_left <= 0) {
-                round_over = true;
+                if (!round_over) {
+                  round_over = true;
+                  id(play_game_over_sound).execute();
+                }
                 if (arch_score > id(high_score_archery)) {
                   id(high_score_archery) = arch_score;
                   is_new_high = true;
@@ -4869,7 +4875,10 @@ display:
                 lives_left--;
                 ball_launched = false;
                 if (lives_left <= 0) {
-                  round_over = true;
+                  if (!round_over) {
+                    round_over = true;
+                    id(play_game_over_sound).execute();
+                  }
                   if (bo_score > id(high_score_breakout)) {
                     id(high_score_breakout) = bo_score;
                     is_new_high = true;
@@ -4879,7 +4888,10 @@ display:
 
               // Win Condition: All Bricks Cleared
               if (bricks_remaining == 0) {
-                round_over = true;
+                if (!round_over) {
+                  round_over = true;
+                  id(play_game_over_sound).execute();
+                }
                 bo_score += lives_left * 250; // Lives bonus
                 if (bo_score > id(high_score_breakout)) {
                   id(high_score_breakout) = bo_score;
@@ -5353,10 +5365,11 @@ display:
           snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
           draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
 
-          // Button 3: Active Speaker Target (y = 240, r = 18)
-          std::string spk_target = "Speaker: " + id(active_speaker_name);
-          if (spk_target.length() > 24) spk_target = spk_target.substr(0, 22) + "..";
-          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), spk_target.c_str(), id(col_white), false);
+          // Button 3: Independent Alert Volume (y = 240, r = 18)
+          char alert_vol_str[32];
+          int a_cur = (int)std::round(id(alert_volume).state);
+          snprintf(alert_vol_str, sizeof(alert_vol_str), "Alert Vol: %d%%", a_cur);
+          draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), alert_vol_str, id(col_white), false);
 
           // Button 4: Voice Assistant Screen Wake Toggle (y = 300, r = 18)
           bool va_scr = id(va_wake_screen_switch).state;
@@ -7077,6 +7090,7 @@ touchscreen:
                   if (id(stopwatch_running)) {
                     // Running: record / update split time
                     id(stopwatch_lap_ms) = now_lap - id(stopwatch_start_time);
+                    id(play_lap_sound).execute();
                   } else if (id(stopwatch_lap_ms) > 0) {
                     // Stopped: tap LAP clears existing split readout
                     id(stopwatch_lap_ms) = 0;
@@ -7764,11 +7778,14 @@ touchscreen:
                   id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
                   id(disp1).update();
-                // Card 3: Active Speaker Target Jump to Music Menu (y: 215..270, x: 90..376)
+                // Card 3: Independent Alert Volume Step (y: 215..270, x: 90..376)
                 } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 90 && touch.x <= 376) {
-                  id(gui_page) = 2;
-                  id(music_overlay_mode) = 1;
-                  id(system_menu_mode) = 0;
+                  int cur_a = (int)std::round(id(alert_volume).state);
+                  int nxt_a = cur_a + 10;
+                  if (nxt_a > 100) nxt_a = 50;
+                  auto call = id(alert_volume).make_call();
+                  call.set_value((float)nxt_a);
+                  call.perform();
                   id(disp1).update();
                 // Card 4: Voice Assistant Screen Wake Toggle (y: 275..330, x: 90..376)
                 } else if (touch.y >= 275 && touch.y <= 330 && touch.x >= 90 && touch.x <= 376) {

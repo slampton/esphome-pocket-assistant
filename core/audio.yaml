@@ -1,5 +1,11 @@
 # Core Subsystem: Audio & Voice Assistant
 
+globals:
+  - id: prev_media_volume
+    type: float
+    restore_value: no
+    initial_value: '-1.0f'
+
 i2s_audio:
   - id: i2s_input_bus
     i2s_lrclk_pin:
@@ -369,7 +375,16 @@ script:
   - id: play_alarm_sound
     mode: restart
     then:
+      - lambda: |-
+          if (id(prev_media_volume) < 0.0f) {
+            float v = id(pocket_music_player).volume;
+            if (std::isnan(v) || v <= 0.0f) v = 0.70f;
+            id(prev_media_volume) = v;
+          }
       - script.execute: route_i2s_to_spk
+      - audio_dac.set_volume:
+          id: es8311_dac
+          volume: !lambda "return id(alert_volume).state / 100.0f;"
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
@@ -389,7 +404,7 @@ script:
           then:
             - rtttl.play:
                 id: alarm_rtttl
-                rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
+                rtttl: "alarm:d=16,o=5,b=150:c,e,g,c6,p,c,e,g,c6,p,c,e,g,c6"
             - wait_until:
                 condition:
                   not:
@@ -405,6 +420,19 @@ script:
       - script.stop: play_alarm_sound
       - if:
           condition:
+            lambda: "return id(prev_media_volume) >= 0.0f;"
+          then:
+            - audio_dac.set_volume:
+                id: es8311_dac
+                volume: !lambda "return id(prev_media_volume);"
+            - lambda: |-
+                float pv = id(prev_media_volume);
+                id(prev_media_volume) = -1.0f;
+                if (!std::isnan(pv) && pv > 0.0f) {
+                  id(pocket_music_player).make_call().set_volume(pv).perform();
+                }
+      - if:
+          condition:
             lambda: |-
               return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
                      (id(ha_target_state).state == "playing");
@@ -417,11 +445,80 @@ script:
                 id: announcement_mixing_input
                 decibel_reduction: 50
                 duration: 0.1s
-            - lambda: |-
-                float v = id(pocket_music_player).volume;
-                if (!std::isnan(v) && v > 0.0f) {
-                  id(pocket_music_player).make_call().set_volume(v).perform();
-                }
+          else:
+            - audio_dac.mute_on: es8311_dac
+            - script.execute: route_i2s_to_mic
+
+  - id: play_lap_sound
+    mode: restart
+    then:
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.05s
+      - rtttl.play:
+          id: alarm_rtttl
+          rtttl: "lap:d=32,o=5,b=240:c6"
+      - wait_until:
+          condition:
+            not:
+              rtttl.is_playing:
+          timeout: 1s
+      - if:
+          condition:
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                     (id(ha_target_state).state == "playing");
+          then:
+            - mixer_speaker.apply_ducking:
+                id: announcement_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
+          else:
+            - audio_dac.mute_on: es8311_dac
+            - script.execute: route_i2s_to_mic
+
+  - id: play_game_over_sound
+    mode: restart
+    then:
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.05s
+      - if:
+          condition:
+            media_player.is_playing: pocket_music_player
+          then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 20
+                duration: 0.1s
+      - rtttl.play:
+          id: alarm_rtttl
+          rtttl: "gover:d=16,o=4,b=180:g,e,c"
+      - wait_until:
+          condition:
+            not:
+              rtttl.is_playing:
+          timeout: 2s
+      - if:
+          condition:
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                     (id(ha_target_state).state == "playing");
+          then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 0
+                duration: 0.2s
+            - mixer_speaker.apply_ducking:
+                id: announcement_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
           else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
@@ -439,4 +536,18 @@ number:
     unit_of_measurement: "%"
     mode: slider
     icon: "mdi:volume-step"
+    entity_category: config
+
+  - platform: template
+    name: "Audio: Alert Volume"
+    id: alert_volume
+    optimistic: true
+    min_value: 20
+    max_value: 100
+    step: 5
+    initial_value: 80
+    restore_value: true
+    unit_of_measurement: "%"
+    mode: slider
+    icon: "mdi:volume-high"
     entity_category: config
