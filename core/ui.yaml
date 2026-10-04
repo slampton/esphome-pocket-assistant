@@ -5994,22 +5994,22 @@ display:
 
           Color label_c = is_night ? id(col_slate) : Color(165, 190, 215);
 
-          // Column 1: HUMIDITY (Left x = 145)
-          it.print(145, 220, id(font_small), label_c, TextAlign::CENTER, "HUMIDITY");
+          // Column 1: HUMIDITY (Left x = 145, expanded 13px vertical buffer)
+          it.print(145, 218, id(font_small), label_c, TextAlign::CENTER, "HUMIDITY");
           char hum_str[16];
           if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
           else snprintf(hum_str, sizeof(hum_str), "--");
-          it.print(145, 252, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, hum_str);
+          it.print(145, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, hum_str);
 
-          // Column 2: WIND (Right x = 321)
-          it.print(321, 220, id(font_small), label_c, TextAlign::CENTER, "WIND");
+          // Column 2: WIND (Right x = 321, expanded 13px vertical buffer)
+          it.print(321, 218, id(font_small), label_c, TextAlign::CENTER, "WIND");
           char wind_str[32];
           if (!isnan(wspd)) {
             snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
           } else {
             snprintf(wind_str, sizeof(wind_str), "--");
           }
-          it.print(321, 252, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, wind_str);
+          it.print(321, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, wind_str);
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
@@ -6251,13 +6251,13 @@ display:
           std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
           std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
 
-          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
-          it.print(145, 252, id(font_date), id(col_warm_gold), TextAlign::BASELINE_CENTER, s_rise.c_str());
+          it.print(145, 218, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
+          it.print(145, 258, id(font_date), id(col_warm_gold), TextAlign::BASELINE_CENTER, s_rise.c_str());
 
-          it.line(cx, 210, cx, 260, id(col_dark_gray));
+          it.line(cx, 208, cx, 266, id(col_dark_gray));
 
-          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
-          it.print(321, 252, id(font_date), id(col_warm_gold), TextAlign::BASELINE_CENTER, s_set.c_str());
+          it.print(321, 218, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
+          it.print(321, 258, id(font_date), id(col_warm_gold), TextAlign::BASELINE_CENTER, s_set.c_str());
 
           // Divider at y = 272 above bottom 2x2 buttons
           it.line(80, 272, 386, 272, id(col_dark_gray));
@@ -6440,16 +6440,16 @@ display:
           it.line(80, 202, 386, 202, id(col_dark_gray));
 
           // Telemetry Row: Titles in font_small at y = 220, Data in font_date at y = 248 (standardized to Sun page)
-          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
+          it.print(145, 218, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
           char illum_buf[16];
           snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
-          it.print(145, 252, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, illum_buf);
+          it.print(145, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, illum_buf);
 
-          // Center Divider between columns (y = 210..260, standardized to Sun page)
-          it.line(cx, 210, cx, 260, id(col_dark_gray));
+          // Center Divider between columns (y = 208..266, standardized to Sun page)
+          it.line(cx, 208, cx, 266, id(col_dark_gray));
 
-          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
-          it.print(321, 252, (mp_label.length() > 11 ? id(font_small) : id(font_date)), id(col_white), TextAlign::BASELINE_CENTER, mp_label.c_str());
+          it.print(321, 218, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
+          it.print(321, 258, (mp_label.length() > 11 ? id(font_small) : id(font_date)), id(col_white), TextAlign::BASELINE_CENTER, mp_label.c_str());
 
           // Divider at y = 272 above bottom 2x2 buttons (standardized to Sun page)
           it.line(80, 272, 386, 272, id(col_dark_gray));
