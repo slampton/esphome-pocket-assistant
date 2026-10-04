@@ -3853,11 +3853,10 @@ display:
             if (src_data != nullptr && src_w > 0 && src_h > 0) {
               rendered_art = true;
               if (is_compact) {
-                // Compact mode: Downscale to 216x216 centered at (cx - 108, 104) via row-wise draw_pixels_at
+                // Compact mode: Downscale 466x466 to 216x216 centered at (cx - 108, 104)
                 int step_x = (src_w << 12) / 216;
                 int step_y = (src_h << 12) / 216;
                 int curr_y = 0;
-                uint16_t row_buf[216];
                 for (int y = 0; y < 216; y++) {
                   int sy = curr_y >> 12;
                   curr_y += step_y;
@@ -3865,13 +3864,16 @@ display:
                   int py = 104 + y;
                   int curr_x = 0;
                   for (int x = 0; x < 216; x++) {
-                    row_buf[x] = src_row[curr_x >> 12];
+                    uint16_t p = src_row[curr_x >> 12];
+                    uint8_t r = (p & 0xF800) >> 8;
+                    uint8_t g = (p & 0x07E0) >> 3;
+                    uint8_t b = (p & 0x001F) << 3;
+                    it.draw_pixel_at(125 + x, py, Color(r, g, b));
                     curr_x += step_x;
                   }
-                  it.draw_pixels_at(125, py, 216, 1, reinterpret_cast<const uint8_t *>(row_buf), display::ColorOrder::COLOR_ORDER_RGB, display::ColorBitness::COLOR_BITNESS_565, false);
                 }
               } else {
-                // Full Screen & Letterbox: Direct Row-Major Pointer Blit with CIRCLE_HW clipping (~5ms)
+                // Full Screen & Letterbox: Direct Row-Major Pointer Reads with CIRCLE_HW clipping
                 int start_y = is_letterbox ? 60 : 0;
                 int end_y = is_letterbox ? 385 : 466;
                 if (src_w == 466 && src_h == 466) {
@@ -3879,15 +3881,19 @@ display:
                     int hw = CIRCLE_HW[y];
                     int start_x = cx - hw;
                     int end_x = cx + hw;
-                    int w = end_x - start_x + 1;
-                    const uint8_t *row_ptr = reinterpret_cast<const uint8_t *>(src_data + y * 466 + start_x);
-                    it.draw_pixels_at(start_x, y, w, 1, row_ptr, display::ColorOrder::COLOR_ORDER_RGB, display::ColorBitness::COLOR_BITNESS_565, false);
+                    const uint16_t *src_row = src_data + y * 466;
+                    for (int x = start_x; x <= end_x; x++) {
+                      uint16_t p = src_row[x];
+                      uint8_t r = (p & 0xF800) >> 8;
+                      uint8_t g = (p & 0x07E0) >> 3;
+                      uint8_t b = (p & 0x001F) << 3;
+                      it.draw_pixel_at(x, y, Color(r, g, b));
+                    }
                   }
                 } else {
                   int step_x = (src_w << 12) / 466;
                   int step_y = (src_h << 12) / 466;
                   int curr_y = start_y * step_y;
-                  uint16_t row_buf[466];
                   for (int y = start_y; y < end_y; y++) {
                     int sy = curr_y >> 12;
                     curr_y += step_y;
@@ -3895,11 +3901,13 @@ display:
                     int hw = CIRCLE_HW[y];
                     int start_x = cx - hw;
                     int end_x = cx + hw;
-                    int w = end_x - start_x + 1;
-                    for (int x = 0; x < w; x++) {
-                      row_buf[x] = src_row[((start_x + x) * step_x) >> 12];
+                    for (int x = start_x; x <= end_x; x++) {
+                      uint16_t p = src_row[(x * step_x) >> 12];
+                      uint8_t r = (p & 0xF800) >> 8;
+                      uint8_t g = (p & 0x07E0) >> 3;
+                      uint8_t b = (p & 0x001F) << 3;
+                      it.draw_pixel_at(x, y, Color(r, g, b));
                     }
-                    it.draw_pixels_at(start_x, y, w, 1, reinterpret_cast<const uint8_t *>(row_buf), display::ColorOrder::COLOR_ORDER_RGB, display::ColorBitness::COLOR_BITNESS_565, false);
                   }
                 }
 
