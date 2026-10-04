@@ -91,7 +91,7 @@ speaker:
     task_stack_in_psram: true
     source_speakers:
       - id: announcement_mixing_input
-        timeout: 1000ms
+        timeout: 250ms
       - id: media_mixing_input
         timeout: 1500ms
 
@@ -151,6 +151,10 @@ media_player:
             id: media_mixing_input
             decibel_reduction: 0
             duration: 0.1s
+        - mixer_speaker.apply_ducking:
+            id: announcement_mixing_input
+            decibel_reduction: 50
+            duration: 0.1s
         - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
         - audio_dac.mute_off: es8311_dac
@@ -188,9 +192,10 @@ voice_assistant:
       - script.execute: route_i2s_to_mic
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
-          decibel_reduction: 0
-          duration: 0.1s
+          decibel_reduction: 50
+          duration: 0.05s
       - lambda: |-
+          id(announcement_mixing_input).stop();
           if (!id(va_active)) {
             id(return_page) = id(gui_page);
             id(va_active) = true;
@@ -252,7 +257,12 @@ voice_assistant:
   on_error:
     then:
       - script.execute: route_i2s_to_mic
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 50
+          duration: 0.05s
       - lambda: |-
+          id(announcement_mixing_input).stop();
           id(va_vad_active) = false;
           id(va_tts_received) = false;
           id(va_active) = false;

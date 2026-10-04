@@ -1102,6 +1102,50 @@ interval:
             }
           }
 
+          // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
+          // High-refresh fluid drift (10 FPS / 100ms) for animated conditions (partly cloudy, rain, snow, lightning, wind, night stars)
+          // Overcast/Cloudy and Sunny/Clear Day are 100% static (zero continuous redraws, zero CPU overhead)
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
+            std::string w_cond = id(ha_weather_condition).state;
+            std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
+            if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
+              if (sim_opt.find("Cloudy / Overcast") != std::string::npos) w_cond = "cloudy";
+              else if (sim_opt.find("Partly Cloudy") != std::string::npos) w_cond = "partlycloudy";
+              else if (sim_opt.find("Sunny / Clear Day") != std::string::npos) w_cond = "sunny";
+              else if (sim_opt.find("Clear Night") != std::string::npos) w_cond = "clear-night";
+            }
+
+            bool is_night_w = (id(ha_sun_state).state == "below_horizon" || w_cond.find("night") != std::string::npos);
+            bool has_weather_anim = false;
+
+            if (w_cond.find("partly") != std::string::npos || w_cond.find("mostlysunny") != std::string::npos || w_cond.find("partlysunny") != std::string::npos) {
+              has_weather_anim = true; // Partly cloudy drift
+            } else if (w_cond.find("rain") != std::string::npos || w_cond.find("pouring") != std::string::npos || w_cond.find("drizzle") != std::string::npos) {
+              has_weather_anim = true; // Rain streaks
+            } else if (w_cond.find("snow") != std::string::npos || w_cond.find("sleet") != std::string::npos) {
+              has_weather_anim = true; // Snowflakes
+            } else if (w_cond.find("lightning") != std::string::npos || w_cond.find("thunder") != std::string::npos) {
+              has_weather_anim = true; // Lightning flash
+            } else if (w_cond.find("wind") != std::string::npos) {
+              has_weather_anim = true; // Wind
+            } else if (is_night_w && (w_cond == "clear-night" || w_cond == "clearnight" || w_cond == "sunny" || w_cond == "clear" || w_cond == "clear-day")) {
+              has_weather_anim = true; // Twinkling stars at night
+            }
+
+            if (has_weather_anim) {
+              static uint32_t last_weather_disp_update = 0;
+              uint32_t now_w_ms = millis();
+              bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                id(va_active) || !id(va_status_text).empty() ||
+                                id(alarm_ringing) || id(timer_ringing);
+              uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 100);
+              if (now_w_ms - last_weather_disp_update >= target_cadence) {
+                last_weather_disp_update = now_w_ms;
+                id(disp1).update();
+              }
+            }
+          }
+
 
 
   - interval: 250ms
@@ -2628,8 +2672,13 @@ script:
     then:
       - script.stop: va_tts_drain_and_finish
       - audio_dac.mute_on: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 50
+          duration: 0.05s
       - voice_assistant.stop:
       - lambda: |-
+          id(announcement_mixing_input).stop();
           esphome::voice_assistant::abort_voice_assistant(id(va));
           id(va_status_text) = "";
           id(va_tts_received) = false;
@@ -5645,15 +5694,42 @@ display:
             }
           }
 
-          // 2. ATMOSPHERIC CLOUD FORMATIONS (STATIC SCULPTED ORGANIC CANOPY)
+          // 2. ATMOSPHERIC CLOUD FORMATIONS (SCULPTED ORGANIC CANOPY)
           if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
             bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
 
-            auto draw_cloud = [&](int bx, int by, float scale, bool overcast_mode) {
-              Color c_shadow = is_night ? Color(14, 20, 28) : (overcast_mode ? Color(22, 36, 52) : Color(28, 48, 72));
-              Color c_body   = is_night ? Color(28, 40, 56) : (overcast_mode ? Color(42, 62, 86) : Color(55, 82, 115));
-              Color c_high   = is_night ? Color(48, 64, 88) : (overcast_mode ? Color(65, 90, 120) : Color(85, 118, 155));
-              Color c_rim    = is_night ? Color(80, 105, 140) : (overcast_mode ? Color(100, 130, 165) : Color(130, 165, 205));
+            auto draw_cloud = [&](int bx, int by, float scale, bool overcast_mode, bool is_bg_tier) {
+              Color c_shadow, c_body, c_high, c_rim;
+              if (is_night) {
+                if (is_bg_tier) {
+                  c_shadow = Color(10, 14, 20);
+                  c_body   = Color(18, 26, 36);
+                  c_high   = Color(32, 44, 60);
+                  c_rim    = Color(50, 70, 95);
+                } else {
+                  c_shadow = Color(14, 20, 28);
+                  c_body   = Color(28, 40, 56);
+                  c_high   = Color(48, 64, 88);
+                  c_rim    = Color(80, 105, 140);
+                }
+              } else if (overcast_mode) {
+                if (is_bg_tier) {
+                  c_shadow = Color(14, 22, 34);
+                  c_body   = Color(24, 38, 54);
+                  c_high   = Color(36, 54, 76);
+                  c_rim    = Color(55, 78, 105);
+                } else {
+                  c_shadow = Color(20, 32, 46);
+                  c_body   = Color(36, 54, 76);
+                  c_high   = Color(56, 80, 110);
+                  c_rim    = Color(88, 118, 155);
+                }
+              } else {
+                c_shadow = Color(28, 48, 72);
+                c_body   = Color(55, 82, 115);
+                c_high   = Color(85, 118, 155);
+                c_rim    = Color(130, 165, 205);
+              }
 
               int hw = (int)(36.0f * scale);
               int br = (int)(14.0f * scale);
@@ -5717,13 +5793,24 @@ display:
             };
 
             if (is_partly) {
-              // Partly Cloudy: 2 sculpted formations flanking the hero temperature & sun
-              draw_cloud(95, 90, 1.12f, false);
-              draw_cloud(340, 142, 0.92f, false);
+              // Partly Cloudy: 2 sculpted clouds with subtle horizontal drift (4-6 px/sec)
+              int x1 = ((95 + 80) + (int)((uint64_t)now_ms * 4ULL / 1000ULL)) % 626 - 80;
+              int x2 = ((340 + 80) + (int)((uint64_t)now_ms * 6ULL / 1000ULL)) % 626 - 80;
+              draw_cloud(x1, 90, 1.12f, false, false);
+              draw_cloud(x2, 142, 0.92f, false, false);
             } else {
-              // Cloudy / Overcast: 2 majestic clouds flanking the hero temperature
-              draw_cloud(95, 88, 1.18f, true);
-              draw_cloud(350, 92, 1.18f, true);
+              // Cloudy / Overcast: Dense static 2-tier canopy filling the screen
+              // Tier 0: Deep atmospheric horizon & edge billows
+              draw_cloud(233,  40, 1.45f, true, true);  // Top crown behind temp
+              draw_cloud( 55, 135, 1.40f, true, true);  // Mid-left edge
+              draw_cloud(410, 140, 1.40f, true, true);  // Mid-right edge
+              draw_cloud(233, 280, 1.50f, true, true);  // Lower horizon behind divider
+
+              // Tier 1: Foreground volumetric cloud canopy framing the sky
+              draw_cloud( 85,  72, 1.25f, true, false); // Upper-left billow
+              draw_cloud(380,  76, 1.25f, true, false); // Upper-right billow
+              draw_cloud( 65, 225, 1.20f, true, false); // Lower-left flank
+              draw_cloud(400, 230, 1.20f, true, false); // Lower-right flank
             }
           }
 
