@@ -61,28 +61,15 @@ struct VA_ContinueConversation_Tag {
 };
 template struct Rob<VA_ContinueConversation_Tag, &esphome::voice_assistant::VoiceAssistant::continue_conversation_>;
 
-struct VA_Speaker_Tag {
-  typedef esphome::speaker::Speaker *esphome::voice_assistant::VoiceAssistant::*type;
-  friend type get(VA_Speaker_Tag);
-};
-template struct Rob<VA_Speaker_Tag, &esphome::voice_assistant::VoiceAssistant::speaker_>;
-
 namespace esphome {
 namespace voice_assistant {
 
 inline void abort_voice_assistant(VoiceAssistant *va) {
   if (va != nullptr) {
-    // 1. Stop announcement speaker and discard all unplayed audio data immediately
-    auto *spk = va->*get(VA_Speaker_Tag());
-    if (spk != nullptr) {
-      spk->stop();
-    }
-
-    // 2. Request local voice assistant stop and reset conversation
     va->request_stop();
     va->reset_conversation_id();
 
-    // 3. Directly reset buffers and flags via template accessor
+    // Directly reset buffers and flags via template accessor
     va->*get(VA_BufSize_Tag()) = 0;
     va->*get(VA_BufIndex_Tag()) = 0;
     va->*get(VA_BytesReceived_Tag()) = 0;
@@ -95,7 +82,6 @@ inline void abort_voice_assistant(VoiceAssistant *va) {
     (va->*get(VA_SetState_Tag()))(State::IDLE, State::IDLE);
   }
 
-  // 4. Broadcast cancel request to Home Assistant to abort server pipeline
   if (api::global_api_server != nullptr) {
     for (auto &client : api::global_api_server->active_clients()) {
       api::VoiceAssistantRequest msg;
