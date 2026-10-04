@@ -26,6 +26,7 @@ substitutions:
   friendly_name: "Pocket Assistant"
   version: "1.1"
   local_player_id: "media_player.pocket_assistant"
+  weather_entity: "weather.home" # Replace with your Home Assistant weather entity (e.g. weather.home)
 
 packages:
   remote_pocket_assistant:
@@ -39,7 +40,19 @@ packages:
 1. Adopt the discovered `pocket-assistant` device under **Settings -> Devices & Services**.
 2. **Music Metadata Mirroring**: Copy `homeassistant/packages/music_assistant_esphome_mirror.yaml` into your `/config/packages/` directory and reload Template Entities under **Developer Tools -> YAML**.
 3. **Library Browsing Blueprint**: Import `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant (**Settings -> Automations & Scenes -> Blueprints**), create a script from it, and save it as `script.music_assistant_browse`.
-4. **Weather & Sky Companion Package**: Copy `homeassistant/packages/pocket_assistant_weather_mirror.yaml` into your `/config/packages/` directory for astronomical and 5-day forecast sensor synchronization.
+4. **Weather & Sky Companion Package**: Copy `homeassistant/packages/pocket_assistant_weather_mirror.yaml` into your `/config/packages/` directory. If your Home Assistant weather entity is not `weather.oakland`, replace all occurrences of `weather.oakland` in that file with your own local weather entity (e.g., `weather.home`). Reload Template Entities under **Developer Tools -> YAML**.
+
+### Common Substitutions
+When adopting via remote package or customizing the firmware, you can override these substitutions in your YAML:
+
+| Substitution | Default | Description |
+| :--- | :--- | :--- |
+| `weather_entity` | `weather.oakland` | Your Home Assistant weather entity (e.g., `weather.home`, `weather.forecast_home`). |
+| `local_player_id` | `media_player.pocket_assistant` | Entity ID for Pocket Assistant's local media player in Home Assistant. |
+| `sun_entity` | `sun.sun` | Home Assistant Sun integration entity (built-in core default). |
+| `moon_entity` | `sensor.moon_phase` | Home Assistant Moon integration entity. |
+| `default_start_app` | `Clock` | Starting application deck view on boot (`Clock`, `Stopwatch`, `Music`, `Games`, `System`, `Weather`, `Timer`). |
+| `default_art_mode` | `Full Screen` | Default album art layout (`Full Screen`, `Letterbox`, `Compact`). |
 
 ---
 
