@@ -462,71 +462,6 @@ script:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
 
-  - id: play_lap_sound
-    mode: restart
-    then:
-      - if:
-          condition:
-            lambda: 'return !id(i2s_on_speaker);'
-          then:
-            - script.execute: route_i2s_to_spk
-            - delay: 40ms
-      - switch.turn_on: speaker_enable
-      # Zero-transient sequence: Mute DAC before I2S clocks start
-      - if:
-          condition:
-            lambda: |-
-              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                       (id(ha_target_state).state == "playing"));
-          then:
-            - audio_dac.mute_on: es8311_dac
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: !lambda |-
-            float v = id(alert_volume).state;
-            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
-            if (v > 100.0f) v = 100.0f;
-            if (v < 20.0f) v = 20.0f;
-            return (100.0f - v) * 0.18f;
-          duration: 0.01s
-      # Silent lead-in pause (16p = ~62.5ms at b=240) so I2S clocks start into digital silence
-      - rtttl.play:
-          id: alarm_rtttl
-          rtttl: "lap:d=16,o=5,b=240:16p,c6,p,e6"
-      # Wait 35ms for clocks to settle and PLL to lock
-      - delay: 35ms
-      # Unmute DAC smoothly with active clocks
-      - audio_dac.mute_off: es8311_dac
-      - delay: 50ms
-      - wait_until:
-          condition:
-            not:
-              rtttl.is_playing:
-          timeout: 1s
-      - wait_until:
-          condition:
-            lambda: 'return !id(announcement_mixing_input).is_running();'
-          timeout: 1s
-      - delay: 250ms
-      - if:
-          condition:
-            lambda: |-
-              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                       (id(ha_target_state).state == "playing"));
-          then:
-            - audio_dac.mute_on: es8311_dac
-      - if:
-          condition:
-            lambda: |-
-              return (id(gui_page) == 1) || id(stopwatch_running) ||
-                     (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                     (id(ha_target_state).state == "playing");
-          then:
-            - delay: 0ms
-          else:
-            - delay: 10ms
-            - script.execute: route_i2s_to_mic
-
   - id: play_game_over_sound
     mode: restart
     then:
@@ -535,16 +470,8 @@ script:
             lambda: 'return !id(i2s_on_speaker);'
           then:
             - script.execute: route_i2s_to_spk
-            - delay: 40ms
       - switch.turn_on: speaker_enable
-      # Zero-transient sequence: Mute DAC before I2S clocks start
-      - if:
-          condition:
-            lambda: |-
-              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                       (id(ha_target_state).state == "playing"));
-          then:
-            - audio_dac.mute_on: es8311_dac
+      - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
@@ -562,15 +489,10 @@ script:
                 id: media_mixing_input
                 decibel_reduction: 20
                 duration: 0.1s
-      # Celebratory Ta-da! victory fanfare (16p silent lead-in ~83ms at b=180 -> G5 -> C6 -> E6 sustained)
+      # Celebratory Ta-da! victory fanfare (G5 -> C6 -> E6 sustained)
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "tada:d=16,o=5,b=180:16p,8g,8c6,4e6"
-      # Wait 35ms for clocks to settle and PLL to lock
-      - delay: 35ms
-      # Unmute DAC smoothly with active clocks
-      - audio_dac.mute_off: es8311_dac
-      - delay: 50ms
+          rtttl: "tada:d=16,o=5,b=180:8g,8c6,4e6"
       - wait_until:
           condition:
             not:
@@ -580,7 +502,6 @@ script:
           condition:
             lambda: 'return !id(announcement_mixing_input).is_running();'
           timeout: 1s
-      - delay: 300ms
       - if:
           condition:
             lambda: |-
@@ -600,7 +521,6 @@ script:
                 decibel_reduction: 0
                 duration: 0.2s
           else:
-            - delay: 10ms
             - script.execute: route_i2s_to_mic
 
 number:

@@ -1102,48 +1102,7 @@ interval:
             }
           }
 
-          // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
-          // High-refresh fluid drift (8 FPS / 120ms) STRICTLY when animated weather (partly cloudy, rain, snow, lightning, wind, night stars) is active
-          // Sunny / Clear Day and Overcast / Cloudy are static (zero animation overdraw, 100% touch responsiveness, no bus saturation)
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
-            std::string w_cond = id(ha_weather_condition).state;
-            std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
-            if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
-              if (sim_opt.find("Cloudy / Overcast") != std::string::npos) w_cond = "cloudy";
-              else if (sim_opt.find("Partly Cloudy") != std::string::npos) w_cond = "partlycloudy";
-              else if (sim_opt.find("Sunny / Clear Day") != std::string::npos) w_cond = "sunny";
-              else if (sim_opt.find("Clear Night") != std::string::npos) w_cond = "clear-night";
-            }
 
-            bool is_night_w = (id(ha_sun_state).state == "below_horizon" || w_cond.find("night") != std::string::npos);
-            bool has_weather_anim = false;
-            if (w_cond.find("partly") != std::string::npos || w_cond.find("mostlysunny") != std::string::npos || w_cond.find("partlysunny") != std::string::npos) {
-              has_weather_anim = true; // Partly cloudy drift
-            } else if (w_cond.find("rain") != std::string::npos || w_cond.find("pouring") != std::string::npos || w_cond.find("drizzle") != std::string::npos) {
-              has_weather_anim = true; // Rain streaks
-            } else if (w_cond.find("snow") != std::string::npos || w_cond.find("sleet") != std::string::npos) {
-              has_weather_anim = true; // Snowflakes
-            } else if (w_cond.find("lightning") != std::string::npos || w_cond.find("thunder") != std::string::npos) {
-              has_weather_anim = true; // Lightning flash
-            } else if (w_cond.find("wind") != std::string::npos) {
-              has_weather_anim = true; // Wind
-            } else if (is_night_w && (w_cond == "clear-night" || w_cond == "clearnight" || w_cond == "sunny" || w_cond == "clear" || w_cond == "clear-day")) {
-              has_weather_anim = true; // Twinkling stars at night
-            }
-
-            if (has_weather_anim) {
-              static uint32_t last_weather_disp_update = 0;
-              uint32_t now_w_ms = millis();
-              bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                                id(va_active) || !id(va_status_text).empty() ||
-                                id(alarm_ringing) || id(timer_ringing);
-              uint32_t target_cadence = id(va_tts_received) ? 600 : (audio_busy ? 450 : 350);
-              if (now_w_ms - last_weather_disp_update >= target_cadence) {
-                last_weather_disp_update = now_w_ms;
-                id(disp1).update();
-              }
-            }
-          }
 
   - interval: 250ms
     then:
@@ -5686,114 +5645,85 @@ display:
             }
           }
 
-          // 2. FULL-SCREEN VOLUMETRIC CLOUDS: Seamless Organic Cumulus (Partly) & Rolling Cumulus Blanket (Overcast)
+          // 2. ATMOSPHERIC CLOUD FORMATIONS (STATIC SCULPTED ORGANIC CANOPY)
           if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
             bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
 
-            // Reusable Volumetric Cumulus Renderer (Zero internal circle strokes, with Bounding Culling & Integer SIMD Math)
-            auto draw_cumulus = [&](int bx, int by, float scale, bool overcast_mode) {
-              // Bounding box pre-culling for entire cloud formation
-              int max_extent = (int)(95.0f * scale);
-              if (bx + max_extent < 0 || bx - max_extent >= 466 ||
-                  by + max_extent < 0 || by - max_extent >= 466) return;
+            auto draw_cloud = [&](int bx, int by, float scale, bool overcast_mode) {
+              Color c_shadow = is_night ? Color(14, 20, 28) : (overcast_mode ? Color(22, 36, 52) : Color(28, 48, 72));
+              Color c_body   = is_night ? Color(28, 40, 56) : (overcast_mode ? Color(42, 62, 86) : Color(55, 82, 115));
+              Color c_high   = is_night ? Color(48, 64, 88) : (overcast_mode ? Color(65, 90, 120) : Color(85, 118, 155));
+              Color c_rim    = is_night ? Color(80, 105, 140) : (overcast_mode ? Color(100, 130, 165) : Color(130, 165, 205));
 
-              static const int8_t lobes[8][3] = {
-                {-45,  10, 24},
-                {-25,  -5, 32},
-                {  5, -18, 40},
-                { 35,  -8, 30},
-                { 55,  10, 22},
-                {-10,  15, 26},
-                { 20,  15, 26},
-                {  0,   8, 28}
+              int hw = (int)(36.0f * scale);
+              int br = (int)(14.0f * scale);
+
+              static const int8_t lobes_rel[4][3] = {
+                {-28,  -4, 16}, // Left shoulder
+                {-12, -12, 22}, // Left-center dome
+                { 10, -16, 26}, // Hero peak dome
+                { 28,  -6, 18}, // Right shoulder
               };
 
-              Color col_shadow = is_night ? Color(12, 16, 22) : (overcast_mode ? Color(24, 38, 56) : Color(34, 52, 74));
-              Color col_body   = is_night ? Color(20, 28, 38) : (overcast_mode ? Color(38, 56, 78) : Color(54, 78, 106));
-              Color col_high   = is_night ? Color(36, 48, 64) : (overcast_mode ? Color(54, 76, 102) : Color(78, 108, 142));
-              Color col_crest  = is_night ? Color(58, 74, 98) : (overcast_mode ? Color(75, 102, 132) : Color(110, 145, 185));
-
-              // Pre-scale all 8 lobe coordinates and radii once (pure integer math across all passes)
-              int16_t sc_x[8], sc_y[8], sc_r[8];
-              for (int i = 0; i < 8; i++) {
-                sc_x[i] = (int16_t)(lobes[i][0] * scale);
-                sc_y[i] = (int16_t)(lobes[i][1] * scale);
-                sc_r[i] = (int16_t)(lobes[i][2] * scale);
-              }
-              int16_t off_y_sh = (int16_t)(5.0f * scale);
-              int16_t off_r_bd = (int16_t)(2.0f * scale);
-              int16_t off_x_hi = (int16_t)(3.0f * scale);
-              int16_t off_y_hi = (int16_t)(3.0f * scale);
-              int16_t off_r_hi = (int16_t)(5.0f * scale);
-              int16_t off_x_cr = (int16_t)(4.0f * scale);
-              int16_t off_y_cr = (int16_t)(6.0f * scale);
-              int16_t off_r_cr = (int16_t)(9.0f * scale);
-
-              // Pass 1: Volumetric Underbelly Shadow (Unified Silhouette on bottom lobes)
-              static const int shadow_idx[4] = {0, 5, 6, 7};
+              // Pass 1: Volumetric Underbelly Shadow (Offset down)
+              int s_dy = std::max(2, (int)(3.0f * scale));
+              it.filled_circle(bx - hw, by + s_dy, br, c_shadow);
+              it.filled_circle(bx + hw, by + s_dy, br, c_shadow);
+              it.filled_rectangle(bx - hw, by + s_dy - br, 2 * hw + 1, 2 * br + 1, c_shadow);
               for (int i = 0; i < 4; i++) {
-                int idx = shadow_idx[i];
-                int sx = bx + sc_x[idx];
-                int sy = by + sc_y[idx] + off_y_sh;
-                int sr = sc_r[idx];
-                if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-                it.filled_circle(sx, sy, sr, col_shadow);
+                int dx = (int)(lobes_rel[i][0] * scale);
+                int dy = (int)(lobes_rel[i][1] * scale);
+                int r  = (int)(lobes_rel[i][2] * scale);
+                it.filled_circle(bx + dx, by + dy + s_dy, r, c_shadow);
               }
 
               // Pass 2: Main Cloud Body
-              for (int i = 0; i < 8; i++) {
-                int sx = bx + sc_x[i];
-                int sy = by + sc_y[i];
-                int sr = sc_r[i] - off_r_bd;
-                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-                it.filled_circle(sx, sy, sr, col_body);
-              }
-
-              // Pass 3: Sunlit / Moonlit Upper Volume
-              static const int high_idx[4] = {1, 2, 3, 4};
+              it.filled_circle(bx - hw, by, br, c_body);
+              it.filled_circle(bx + hw, by, br, c_body);
+              it.filled_rectangle(bx - hw, by - br, 2 * hw + 1, 2 * br + 1, c_body);
               for (int i = 0; i < 4; i++) {
-                int idx = high_idx[i];
-                int sx = bx + sc_x[idx] + off_x_hi;
-                int sy = by + sc_y[idx] - off_y_hi;
-                int sr = sc_r[idx] - off_r_hi;
-                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-                it.filled_circle(sx, sy, sr, col_high);
+                int dx = (int)(lobes_rel[i][0] * scale);
+                int dy = (int)(lobes_rel[i][1] * scale);
+                int r  = (int)(lobes_rel[i][2] * scale);
+                it.filled_circle(bx + dx, by + dy, r, c_body);
               }
 
-              // Pass 4: Top Crown Crests
-              static const int crest_idx[2] = {2, 3};
-              for (int i = 0; i < 2; i++) {
-                int idx = crest_idx[i];
-                int sx = bx + sc_x[idx] + off_x_cr;
-                int sy = by + sc_y[idx] - off_y_cr;
-                int sr = sc_r[idx] - off_r_cr;
-                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-                it.filled_circle(sx, sy, sr, col_crest);
+              // Pass 3: Sunlit / Moonlit Upper Volume Highlights
+              int h_dx = -std::max(1, (int)(2.0f * scale));
+              int h_dy = -std::max(2, (int)(3.0f * scale));
+              for (int i = 1; i < 4; i++) {
+                int dx = (int)(lobes_rel[i][0] * scale);
+                int dy = (int)(lobes_rel[i][1] * scale);
+                int hr = (int)(lobes_rel[i][2] * scale) - std::max(2, (int)(4.0f * scale));
+                if (hr > 0) {
+                  it.filled_circle(bx + dx + h_dx, by + dy + h_dy, hr, c_high);
+                }
+              }
+
+              // Pass 4: Top Crown Crest on Hero Dome
+              int peak_dx = (int)(lobes_rel[2][0] * scale);
+              int peak_dy = (int)(lobes_rel[2][1] * scale);
+              int pr = (int)(lobes_rel[2][2] * scale) - std::max(1, (int)(3.0f * scale));
+              if (pr > 0) {
+                for (int a_deg = 210; a_deg <= 330; a_deg += 15) {
+                  float a_rad1 = a_deg * (PI_F / 180.0f);
+                  float a_rad2 = (a_deg + 15) * (PI_F / 180.0f);
+                  it.line(bx + peak_dx + h_dx + (int)(pr * cosf(a_rad1)),
+                          by + peak_dy + h_dy + (int)(pr * sinf(a_rad1)),
+                          bx + peak_dx + h_dx + (int)(pr * cosf(a_rad2)),
+                          by + peak_dy + h_dy + (int)(pr * sinf(a_rad2)), c_rim);
+                }
               }
             };
 
             if (is_partly) {
-              // Partly Cloudy: 4 distinct volumetric cumulus formations pre-scattered across all quadrants
-              // Cloud drift speed halved (4-9 px/sec) for graceful, cinematic fluidity
-              static const int16_t pc_x[4] = { 80, 240, 130, 340 };
-              static const int16_t pc_y[4] = { 80, 175, 270, 340 };
-              static const float pc_scale[4] = { 1.05f, 0.90f, 0.82f, 0.75f };
-              static const int8_t pc_spd[4] = { 6, 8, 7, 9 };
-
-              for (int i = 0; i < 4; i++) {
-                int x = ((pc_x[i] + 80) + (int)((uint64_t)now_ms * (uint32_t)pc_spd[i] / 1000ULL)) % 600 - 80;
-                draw_cumulus(x, pc_y[i], pc_scale[i], false);
-              }
+              // Partly Cloudy: 2 sculpted formations flanking the hero temperature & sun
+              draw_cloud(95, 90, 1.12f, false);
+              draw_cloud(340, 142, 0.92f, false);
             } else {
-              // Cloudy / Overcast: Dense static blanket of 8 interlocking cloud masses blanketing the entire sky
-              // Static canopy with zero animation overdraw, providing rich layered coverage and 100% UI responsiveness
-              static const int16_t og_x[8] = {  60, 240, 400, 110, 290, 430,  80, 280 };
-              static const int16_t og_y[8] = {  50,  40,  60, 160, 150, 180, 275, 285 };
-              static const float og_scale[8] = { 1.55f, 1.65f, 1.50f, 1.60f, 1.70f, 1.55f, 1.50f, 1.65f };
-
-              for (int i = 0; i < 8; i++) {
-                draw_cumulus(og_x[i], og_y[i], og_scale[i], true);
-              }
+              // Cloudy / Overcast: 2 majestic clouds flanking the hero temperature
+              draw_cloud(95, 88, 1.18f, true);
+              draw_cloud(350, 92, 1.18f, true);
             }
           }
 
@@ -6914,7 +6844,7 @@ touchscreen:
       number: GPIO11
       mode: INPUT_PULLUP
     reset_pin: GPIO2
-    update_interval: 10ms
+    update_interval: 50ms
     transform:
       mirror_x: true
       mirror_y: true
@@ -7069,7 +6999,7 @@ touchscreen:
                 }
               }
             } else if (is_deck_nav) {
-              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 5) ? 382 : ((id(gui_page) == 1) ? 375 : 380));
+              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
               if (touch.y >= nav_y_min) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -7088,7 +7018,7 @@ touchscreen:
                       id(gui_page) = get_slot(next_idx);
                     }
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
-                    if (id(gui_page) == 1 || id(gui_page) == 3) {
+                    if (id(gui_page) == 3) {
                       id(route_i2s_to_spk).execute();
                     }
                     id(disp1).update();
@@ -7163,7 +7093,6 @@ touchscreen:
                   if (id(stopwatch_running)) {
                     // Running: record / update split time
                     id(stopwatch_lap_ms) = now_lap - id(stopwatch_start_time);
-                    id(play_lap_sound).execute();
                   } else if (id(stopwatch_lap_ms) > 0) {
                     // Stopped: tap LAP clears existing split readout
                     id(stopwatch_lap_ms) = 0;
@@ -7194,7 +7123,6 @@ touchscreen:
                     id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
                     id(sleep_start_time) = 0;
                     id(display_brightness).turn_on().perform();
-                    id(route_i2s_to_spk).execute();
                   } else {
                     id(stopwatch_running) = false;
                     id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
