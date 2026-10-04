@@ -1,4 +1,4 @@
-# Pocket Assistant
+# ⏱️ Pocket Assistant
 
 A local-first handheld companion and media remote for Home Assistant and Music Assistant, built on the Waveshare 1.75" circular AMOLED ESP32-S3 development board.
 
@@ -8,7 +8,7 @@ A local-first handheld companion and media remote for Home Assistant and Music A
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-Pocket Assistant started as a personal home lab project to explore what is possible when pairing modern ESP32-S3 hardware with Home Assistant, Music Assistant, and ESPHome. Rather than acting as a passive sensor display or an audio satellite alone, it combines local playback, multi-room speaker handoff, interactive library browsing, Voice Assistant support, and power-efficient sleep states in a circular handheld form factor.
+Pocket Assistant started as a personal home lab project to explore what is possible when pairing modern ESP32-S3 hardware with Home Assistant, Music Assistant, and ESPHome. Rather than acting as a passive sensor display or an audio satellite alone, it combines local playback, multi-room speaker handoff, interactive library browsing, Voice Assistant support, dedicated timekeeping apps, and power-efficient sleep states in a circular handheld form factor.
 
 ---
 
@@ -39,6 +39,7 @@ packages:
 1. Adopt the discovered `pocket-assistant` device under **Settings -> Devices & Services**.
 2. **Music Metadata Mirroring**: Copy `homeassistant/packages/music_assistant_esphome_mirror.yaml` into your `/config/packages/` directory and reload Template Entities under **Developer Tools -> YAML**.
 3. **Library Browsing Blueprint**: Import `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant (**Settings -> Automations & Scenes -> Blueprints**), create a script from it, and save it as `script.music_assistant_browse`.
+4. **Weather & Sky Companion Package**: Copy `homeassistant/packages/pocket_assistant_weather_mirror.yaml` into your `/config/packages/` directory for astronomical and 5-day forecast sensor synchronization.
 
 ---
 
@@ -52,22 +53,29 @@ packages:
 * **4-Slot Library Browser**: Browse Music Assistant favorites, playlists, artists, albums, radio, podcasts, and audiobooks on-device with dual-action play (`▶`) and drill-down (`>`) touch cards.
 
 ### Voice Assistant Satellite
-* **Push-to-Talk Assist**: Side button instantly routes audio to the ES7210 microphone, pauses local music, and activates the Assist satellite pipeline.
-* **Dynamic Audio Ducking**: Software mixer ducks local playback by 20 dB during Voice Assistant speech synthesis.
+* **Push-to-Talk Assist**: Physical side button instantly routes audio to the ES7210 microphone, pauses local music, and activates the Assist satellite pipeline.
+* **Dynamic Audio Ducking & Un-Ducking**: FreeRTOS software mixer ducks local media playback by 50 dB during Voice Assistant speech synthesis, timer alerts, and alarm chimes, automatically un-ducking and re-synchronizing DAC hardware gain upon dismissal.
 * **Hardware & Touch Dismissal**: Physical side button immediately halts and mutes an active voice session; full-screen touch modal interception allows tapping the glass to dismiss without triggering background app controls.
 
 ### Multi-Tier Power Management
-* **Tier 1 (Active)**: Full 40MHz QSPI AMOLED rendering and sensor polling.
+* **Tier 1 (Active)**: Full 80MHz QSPI AMOLED rendering and sensor polling.
 * **Tier 2 (Display Standby)**: Screen turns off after an inactivity timeout (default 15s on battery), powering down the speaker amplifier and gyroscope while keeping the accelerometer active. Wakes in under 50ms upon physical pickup or top crown click.
-* **Tier 3 (Deep Sleep Hibernation)**: Enters ultra-low-power sleep (<50µA) via deliberate crown long-press (>1.5s with a 5-second abortable countdown) or extended standby inactivity. Hardware pad holds isolate display, touch, and amplifier lines to eliminate battery drain.
+* **Tier 3 (Deep Sleep Hibernation)**: Enters ultra-low-power sleep (<40µA) via deliberate crown long-press (>1.5s with a 5-second abortable countdown) or extended standby inactivity. Hardware pad holds and PMU rail shutdown isolate display, touch, and amplifier lines to preserve battery life.
 * **Docked Screensaver Mode**: When connected to USB-C power, the device can optionally run an ambient screensaver (defaulting to the kinetic Aurora Borealis plasma ribbon) without entering deep sleep.
 
 ### Graphics & System Engine
-* **High-Throughput QSPI Bus**: 40MHz Quad-SPI display interface pushes full 466×466 frames in ~12ms, maintaining over 88% CPU idle headroom.
-* **Zero-Dead-Zone Touch Handling**: Continuous touch boundary tessellation across the entire round screen prevents dropped taps and misdirected inputs.
+* **High-Throughput QSPI Bus**: 80MHz Quad-SPI display interface pushes full 466×466 frames in ~12ms, maintaining over 90% CPU idle headroom.
+* **100 Hz Zero-Dead-Zone Touch Handling**: CST9220 capacitive controller is polled at 100 Hz (10ms interval) with 140ms hardware debounce and zero-millisecond FreeRTOS yielding. Continuous touch boundary tessellation across the entire round screen prevents dropped taps and misdirected inputs.
 * **Touch Priority Yielding**: Hardware touch interrupt pin (GPIO11) is monitored during rendering; display redraws yield instantly when a touch is detected, eliminating input latency.
 * **Radial OTA Progress Indicator**: Full-screen 360° circular progress arc with smooth 10 FPS interpolation and an orbiting pip during firmware updates.
-* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with buffered hero temp, balanced 5-Day aligned forecast, lowered Sun arc with daytime marker, and high-contrast lunar telemetry Moon view), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), Countdown Timer & Multi-Alarm Suite (circular dial stepper interface, local RTC/millis countdown, Home Assistant Voice Assistant integration, recurring alarms for weekdays vs. weekends, 5-minute crown button snooze, and radial perimeter progress and alert strobe arcs), and a 2-tier hierarchical system diagnostic hub.
+* **Integrated Apps (7 Dedicated Decks)**:
+  * **Clock Faces (Page 0)**: Modern analog horology with Roman numerals, elevated system-color date line, and clean digital watch face with battery percentage, charging telemetry, and perimeter seconds track.
+  * **Vintage Heuer Chronograph Stopwatch (Page 1)**: Mechanical split-lap (rattrapante) chronometer with dual subdials, high-contrast red split readout and ghost hand, precomputed chord rendering for zero touch latency, full-dial touch start/stop surface, and physical crown pusher support with dwell compensation.
+  * **Music Player & Remote (Page 2)**: Full-screen album art, multi-room speaker handoff, heads-up volume HUD, and server-side paginated library browser.
+  * **6-Axis Motion Games (Page 3)**: IMU-driven physical simulations including Marble Maze, Archery Target with synthetic wind physics, and Breakout with edge-to-edge paddle defense.
+  * **System Diagnostic Hub (Page 4)**: 2-tier hierarchical dashboard monitoring real-time WiFi RSSI, battery voltage, charging metrics, internal temperatures, memory heap/PSRAM, and on-device settings.
+  * **Sky & Weather Suite (Page 5)**: 4-view astronomical and atmospheric companion featuring Current conditions (hero temperature, weather icon, humidity, wind), 5-Day forecast, Solar Tracker (daytime marker, sunrise/sunset), and Lunar Observatory (real-time moon phase graphics and illumination percentage).
+  * **Countdown Timer & Multi-Alarm Suite (Page 6)**: Rotary dial stepper interface for rapid countdown timers, recurring alarms (daily, weekdays, weekends), audible ringers, pulsing perimeter alert arcs, 5-minute crown snooze, and physical/touch dismissal.
 
 ---
 
@@ -81,6 +89,16 @@ To resolve this, firmware configures two independent master I2S buses and dynami
 * `route_i2s_to_spk`: Connects clock lines to internal I2S1 peripheral signals during playback.
 
 This enables collision-free operation between local playback and Voice Assistant without requiring hardware board modifications.
+
+### Precomputed Trigonometric Lookup Tables
+Rendering complex circular dial geometry, 50% dither scrims, and mechanical hands at high refresh rates on an embedded MCU can quickly starve the main loop if trigonometric functions (`sinf`, `cosf`, `sqrtf`) are computed per-pixel or per-frame.
+
+To eliminate floating-point bottlenecks:
+* A 223-entry chord table (`CHRONO_CHORD`) and `horizontal_line` rendering replace dynamic per-row square root calculations on the stopwatch dial, cutting execution time to `<0.1ms`.
+* Static string arrays for dial numbers (`CHRONO_NUM_STRS`, `SUB_NUM_STRS`) replace runtime `snprintf` formatters.
+* 60-tick and 10-tick sine/cosine lookup tables (`DIAL_SIN`, `DIAL_COS`) drive the analog hands and dial markers across all clock and gauge faces.
+
+This optimization ensures display rendering occupies a minimal CPU window, leaving over 95% of processing cycles available for touch processing and network streaming.
 
 ### Server-Side Pagination for Music Assistant
 Microcontrollers have limited RAM and cannot parse massive multi-megabyte JSON payloads from large music libraries without stalling the main loop and causing audio glitches.
@@ -103,15 +121,17 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 | **Top Crown (Short Click)** | Standby (Screen Off) | Wakes display to active brightness. |
 | **Top Crown (Short Click)** | Stopwatch Page | Mechanical chronograph Start / Stop (with 200ms latency compensation). |
 | **Top Crown (Short Click)** | Timer Page | Toggles Timer Start / Pause / Resume. |
-| **Top Crown (Short Click)** | Submenus / Overlays / Games | Back / Exit to parent application. |
+| **Top Crown (Short Click)** | Submenus / Overlays / Games / Modals | Back / Exit to parent application. |
 | **Top Crown (Short Click)** | Main App Pages | Enters screen standby immediately. |
-| **Top Crown (Long Press >1.5s)** | Any Screen | Starts 5-second abortable Hibernation Countdown. |
+| **Top Crown (Long Press >1.5s)** | Any Screen | Starts 5-second abortable Hibernation Countdown (or unlocks device if locked). |
 | **Side Button (Click)** | Normal / Standby | Activates Voice Assistant (listening mode). |
 | **Side Button (Click)** | Voice Assistant Active | Cancels Voice Assistant immediately and mutes audio. |
+| **Side Button (Click)** | Active Game | Game-specific action / launch button. |
 | **Screen Tap (Center)** | Music Player | Toggles Play / Pause. |
+| **Screen Tap (Dial Face)** | Stopwatch Page | Toggles Start / Stop across full dial surface ($y \in [40..374], x \in [50..416]$). |
 | **Screen Tap (Right Flank)** | Music Player | Volume Up (+, top right), Volume Down (-, bottom right), Next Track (▶\|, middle right). |
 | **Screen Tap (Left Flank)** | Music Player | Previous Track (\|◀, middle left), Music Menu (☰, bottom left). |
-| **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 system-sized pill buttons ([ Current | Forecast ] / [ Sun | Moon ]), central screen tap cycles sequentially through all 4 views (Current $\rightarrow$ Forecast $\rightarrow$ Sun $\rightarrow$ Moon), and upper-right night sky Moon shortcut. |
+| **Subpage Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 pill buttons ([ Current \| Forecast ] / [ Sun \| Moon ]), central screen tap cycles sequentially (Current $\rightarrow$ Forecast $\rightarrow$ Sun $\rightarrow$ Moon), upper-right Moon shortcut. |
 | **Bottom Bar (< / >)** | Main App Pages | Navigates through app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ System $\leftrightarrow$ Sky & Weather $\leftrightarrow$ Timer & Alarm). |
 
 ---
@@ -123,6 +143,8 @@ esphome-pocket-assistant/
 ├── pocket-assistant.yaml          # Master node configuration & substitutions
 ├── pocket-assistant-1.75c.yaml    # Standalone 1.75C board entry configuration
 ├── va_cancel_helper.h             # C++ Voice Assistant cancellation hook
+├── manifest.json                  # Web installer hardware manifest
+├── index.html                     # WebSerial browser installer interface
 ├── LICENSE                        # Apache 2.0 open-source license
 ├── README.md                      # Project documentation
 ├── boards/
@@ -139,6 +161,18 @@ esphome-pocket-assistant/
         ├── music_assistant_esphome_mirror.yaml # Drop-in HA helper & sensor package
         └── pocket_assistant_weather_mirror.yaml # Companion HA weather mirror package
 ```
+
+---
+
+## Development & AI Transparency
+
+AI tools were used during the development and documentation of this project.
+
+* **Human-Directed & Hardware-Verified**: Every schematic, bus architecture, GPIO matrix route, and register map is validated directly on physical Waveshare ESP32-S3-Touch-AMOLED-1.75C hardware. No unverified code is committed.
+* **How AI Was Utilized**: AI assistance was used for rapid prototyping, mathematical modeling (such as trigonometric vector math for the mechanical chronometer dial and UI layout geometry), automated AST schema validation, and technical documentation.
+* **Local-First & Open Standards**: All firmware architecture adheres strictly to native ESPHome standards, local-first principles, and official Home Assistant design patterns.
+
+Feedback, peer review, and pull requests from the community are always welcome.
 
 ---
 
