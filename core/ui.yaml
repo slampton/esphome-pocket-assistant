@@ -5678,14 +5678,14 @@ display:
                 draw_cumulus(x, pc_y[i], pc_scale[i], false);
               }
             } else {
-              // Cloudy / Overcast: Dense interlocking blanket of 10 large cumulus masses blanketing the sky
-              // Cloud drift speed halved (4-7 px/sec) for graceful, cinematic fluidity
-              static const int16_t og_x[10] = {  80, 240, 400, 140, 320,  60, 230, 390, 150, 310 };
-              static const int16_t og_y[10] = {  45,  40,  50, 145, 140, 245, 240, 250, 345, 340 };
-              static const float og_scale[10] = { 1.35f, 1.45f, 1.30f, 1.40f, 1.50f, 1.35f, 1.45f, 1.35f, 1.35f, 1.40f };
-              static const int8_t og_spd[10] = { 4, 6, 5, 7, 4, 5, 6, 4, 5, 6 };
+              // Cloudy / Overcast: Dense interlocking blanket of 6 large cumulus masses blanketing the sky
+              // Streamlined to eliminate redundant inner overdraw while preserving complete seamless cover
+              static const int16_t og_x[6] = {  80, 290, 150, 360,  90, 300 };
+              static const int16_t og_y[6] = {  45,  45, 160, 165, 285, 290 };
+              static const float og_scale[6] = { 1.45f, 1.45f, 1.45f, 1.45f, 1.45f, 1.45f };
+              static const int8_t og_spd[6] = { 4, 6, 5, 6, 4, 5 };
 
-              for (int i = 0; i < 10; i++) {
+              for (int i = 0; i < 6; i++) {
                 int x = ((og_x[i] + 80) + (int)((uint64_t)now_ms * (uint32_t)og_spd[i] / 1000ULL)) % 600 - 80;
                 draw_cumulus(x, og_y[i], og_scale[i], true);
               }
@@ -5837,40 +5837,65 @@ display:
 
             auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
 
+            static uint16_t corner_moon_cache[45][45];
+            static double corner_moon_cached_cycle = -1.0;
+
+            if (corner_moon_cached_cycle < 0.0 || fabs(cycle - corner_moon_cached_cycle) > 0.002) {
+              corner_moon_cached_cycle = cycle;
+              for (int my = -om_r; my <= om_r; my++) {
+                int w_line = (int)sqrtf((float)(om_r * om_r - my * my));
+                float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
+
+                for (int mx = -om_r; mx <= om_r; mx++) {
+                  if (abs(mx) > w_line) {
+                    corner_moon_cache[my + om_r][mx + om_r] = 0;
+                    continue;
+                  }
+                  float r_dist = sqrtf((float)(mx * mx + my * my));
+                  float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((om_r + 2) * (om_r + 2))));
+                  float base_lum = 205.0f + 25.0f * sphere_dim;
+
+                  // Scaled Maria
+                  if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
+                  else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
+                  else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
+                  else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
+                  else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
+                  else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
+                  else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
+
+                  float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
+                  float penumbra = 3.5f;
+                  float shadow;
+                  if (dist_to_term > penumbra) shadow = 1.0f;
+                  else if (dist_to_term < -penumbra) shadow = 0.0f;
+                  else {
+                    float t = (dist_to_term + penumbra) / (2.0f * penumbra);
+                    shadow = t * t * (3.0f - 2.0f * t);
+                  }
+
+                  float final_lum = base_lum * shadow + 14.0f * (1.0f - shadow);
+                  uint8_t c = (uint8_t)fminf(255.0f, final_lum);
+                  uint8_t r = (shadow < 0.05f) ? 12 : c;
+                  uint8_t g = (shadow < 0.05f) ? 16 : (uint8_t)(c * 0.98f);
+                  uint8_t b = (shadow < 0.05f) ? 24 : (uint8_t)(c * 0.94f);
+                  uint16_t rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+                  corner_moon_cache[my + om_r][mx + om_r] = rgb565;
+                }
+              }
+            }
+
             it.circle(cel_cx, cel_cy, om_r + 1, Color(35, 45, 60));
 
+            // Instant Cached Moon Blit (Zero transcendental calculations per frame)
             for (int my = -om_r; my <= om_r; my++) {
               int w_line = (int)sqrtf((float)(om_r * om_r - my * my));
-              float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
-
               for (int mx = -w_line; mx <= w_line; mx++) {
-                float r_dist = sqrtf((float)(mx * mx + my * my));
-                float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((om_r + 2) * (om_r + 2))));
-                float base_lum = 205.0f + 25.0f * sphere_dim;
-
-                // Scaled Maria
-                if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
-                else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
-                else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
-                else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
-                else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
-                else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
-                else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
-
-                float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
-                float penumbra = 3.5f;
-                float shadow;
-                if (dist_to_term > penumbra) shadow = 1.0f;
-                else if (dist_to_term < -penumbra) shadow = 0.0f;
-                else {
-                  float t = (dist_to_term + penumbra) / (2.0f * penumbra);
-                  shadow = t * t * (3.0f - 2.0f * t);
-                }
-
-                float final_lum = base_lum * shadow + 14.0f * (1.0f - shadow);
-                uint8_t c = (uint8_t)fminf(255.0f, final_lum);
-                Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
-                it.draw_pixel_at(cel_cx + mx, cel_cy + my, p_col);
+                uint16_t rgb = corner_moon_cache[my + om_r][mx + om_r];
+                uint8_t r = ((rgb >> 11) & 0x1F) << 3;
+                uint8_t g = ((rgb >> 5) & 0x3F) << 2;
+                uint8_t b = (rgb & 0x1F) << 3;
+                it.draw_pixel_at(cel_cx + mx, cel_cy + my, Color(r, g, b));
               }
             }
             it.circle(cel_cx, cel_cy, om_r, Color(45, 55, 70));
@@ -6247,6 +6272,10 @@ display:
           }
 
           auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
+          auto hash2 = [](float x, float y) {
+            float n = sinf(x * 12.9898f + y * 78.233f) * 43758.5453f;
+            return n - floorf(n);
+          };
 
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
 
@@ -6255,43 +6284,126 @@ display:
           int moon_r = 52;
           float scale = 52.0f / 44.0f;
 
-          // Render Scaled Detailed Moon Disc (Diameter 104px, 33px title buffer matching Sun page)
+          // Photorealistic Lunar Disc Buffer Cache (105x105, 21.5 KB static buffer)
+          static uint16_t moon_disc_cache[105][105];
+          static double moon_disc_cached_cycle = -1.0;
+
+          if (moon_disc_cached_cycle < 0.0 || fabs(cycle - moon_disc_cached_cycle) > 0.002) {
+            moon_disc_cached_cycle = cycle;
+            for (int my = -moon_r; my <= moon_r; my++) {
+              int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
+              float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
+              float rough = (hash2((float)my * 2.3f, 13.7f) - 0.5f) * 0.9f * scale;
+              float x_term_rugged = x_term + rough;
+
+              for (int mx = -moon_r; mx <= moon_r; mx++) {
+                if (abs(mx) > w_line) {
+                  moon_disc_cache[my + moon_r][mx + moon_r] = 0;
+                  continue;
+                }
+
+                float r_dist = sqrtf((float)(mx * mx + my * my));
+                float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
+                float micro = (hash2((float)mx * 0.35f, (float)my * 0.35f) - 0.5f) * 7.0f;
+                float base_lum = 212.0f + 18.0f * sphere_dim + micro;
+
+                auto add_mare = [&](int cx_m, int cy_m, float rad, float intensity) {
+                  float dist = sqrtf((float)d2(mx, my, (int)(cx_m * scale), (int)(cy_m * scale)));
+                  float r_scaled = rad * scale;
+                  if (dist < r_scaled) {
+                    float falloff = (1.0f - dist / r_scaled);
+                    falloff = falloff * falloff * (3.0f - 2.0f * falloff);
+                    base_lum -= intensity * falloff;
+                  }
+                };
+
+                // Organic Basaltic Maria
+                add_mare(17, -4, 18.0f, 52.0f); // Oceanus Procellarum
+                add_mare(23, 5, 15.0f, 50.0f);
+                add_mare(14, 11, 13.0f, 46.0f);
+                add_mare(8, -15, 15.0f, 58.0f); // Mare Imbrium
+                add_mare(-11, -14, 13.0f, 56.0f); // Mare Serenitatis
+                add_mare(-18, 1, 15.0f, 54.0f); // Mare Tranquillitatis
+
+                // Mare Crisium (Oval basin)
+                int cx_cr = (int)(-26 * scale);
+                int cy_cr = (int)(-7 * scale);
+                int dx_cr = mx - cx_cr;
+                int dy_cr = my - cy_cr;
+                float d_cr = sqrtf((float)(dx_cr * dx_cr * 1.5f + dy_cr * dy_cr));
+                if (d_cr < 8.5f * scale) {
+                  float f = 1.0f - d_cr / (8.5f * scale);
+                  base_lum -= 62.0f * f * f;
+                }
+
+                add_mare(13, 17, 13.0f, 50.0f); // Mare Nubium
+                add_mare(25, 13, 10.0f, 46.0f); // Mare Humorum
+                add_mare(-18, 14, 12.0f, 50.0f); // Mare Foecunditatis
+                add_mare(-8, 18, 10.0f, 48.0f); // Mare Nectaris
+
+                // 3D Impact Craters & Ejecta Rays
+                int d_ar = d2(mx, my, (int)(22 * scale), (int)(-12 * scale)); // Aristarchus
+                if (d_ar < (int)(8 * scale * scale)) base_lum += 46.0f;
+
+                int d_kep = d2(mx, my, (int)(17 * scale), (int)(-3 * scale)); // Kepler
+                if (d_kep < (int)(10 * scale * scale)) base_lum += 34.0f;
+
+                int d_cop = d2(mx, my, (int)(7 * scale), (int)(-2 * scale)); // Copernicus
+                if (d_cop < (int)(12 * scale * scale)) {
+                  base_lum += 42.0f;
+                } else if (d_cop < (int)(55 * scale * scale)) {
+                  float f_cop = 1.0f - sqrtf((float)d_cop) / (7.4f * scale);
+                  base_lum += 20.0f * f_cop;
+                }
+
+                // Tycho (Southern giant with bright central peak & radial ray ejecta)
+                int ty_x = (int)(-5 * scale);
+                int ty_y = (int)(26 * scale);
+                int d_ty = d2(mx, my, ty_x, ty_y);
+                if (d_ty < (int)(8 * scale * scale)) {
+                  base_lum = 250.0f;
+                } else if (d_ty < (int)(600 * scale * scale)) {
+                  float r_ang = atan2f((float)(my - ty_y), (float)(mx - ty_x));
+                  float ray1 = cosf(r_ang * 4.0f + 0.3f);
+                  float ray2 = cosf(r_ang * 7.0f - 0.5f);
+                  float ray_val = std::max(ray1, ray2);
+                  if (ray_val > 0.85f) {
+                    float decay = 1.0f - sqrtf((float)d_ty) / (24.5f * scale);
+                    if (decay > 0.0f) base_lum += 24.0f * decay * ((ray_val - 0.85f) / 0.15f);
+                  }
+                }
+
+                // Rugged Terminator Horizon & Soft Penumbra
+                float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term_rugged) : (x_term_rugged - (float)mx);
+                float penumbra = 5.5f * scale;
+                float shadow;
+                if (dist_to_term > penumbra) shadow = 1.0f;
+                else if (dist_to_term < -penumbra) shadow = 0.0f;
+                else {
+                  float t = (dist_to_term + penumbra) / (2.0f * penumbra);
+                  shadow = t * t * (3.0f - 2.0f * t);
+                }
+
+                float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
+                uint8_t c = (uint8_t)fminf(255.0f, fmaxf(0.0f, final_lum));
+                uint8_t r = (shadow < 0.05f) ? 10 : c;
+                uint8_t g = (shadow < 0.05f) ? 14 : (uint8_t)(c * 0.98f);
+                uint8_t b = (shadow < 0.05f) ? 20 : (uint8_t)(c * 0.94f);
+                uint16_t rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+                moon_disc_cache[my + moon_r][mx + moon_r] = rgb565;
+              }
+            }
+          }
+
+          // Blit Pre-Rendered Photorealistic Lunar Disc
           for (int my = -moon_r; my <= moon_r; my++) {
             int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
-            float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
-
             for (int mx = -w_line; mx <= w_line; mx++) {
-              float r_dist = sqrtf((float)(mx * mx + my * my));
-              float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
-              float base_lum = 205.0f + 25.0f * sphere_dim;
-
-              // Scaled Maria
-              if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
-              else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
-              else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
-              else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
-              else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
-              else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
-              else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
-
-              // Scaled Tycho Crater & Ray System
-              if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(16 * scale * scale)) base_lum = 245.0f;
-              else if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(144 * scale * scale) && abs((my - (int)(28 * scale)) - 1.5f * (mx + (int)(4 * scale))) < (2.0f * scale)) base_lum += 24.0f;
-
-              float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
-              float penumbra = 8.0f * scale;
-              float shadow;
-              if (dist_to_term > penumbra) shadow = 1.0f;
-              else if (dist_to_term < -penumbra) shadow = 0.0f;
-              else {
-                float t = (dist_to_term + penumbra) / (2.0f * penumbra);
-                shadow = t * t * (3.0f - 2.0f * t);
-              }
-
-              float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
-              uint8_t c = (uint8_t)fminf(255.0f, final_lum);
-              Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
-              it.draw_pixel_at(moon_cx + mx, moon_cy + my, p_col);
+              uint16_t rgb = moon_disc_cache[my + moon_r][mx + moon_r];
+              uint8_t r = ((rgb >> 11) & 0x1F) << 3;
+              uint8_t g = ((rgb >> 5) & 0x3F) << 2;
+              uint8_t b = (rgb & 0x1F) << 3;
+              it.draw_pixel_at(moon_cx + mx, moon_cy + my, Color(r, g, b));
             }
           }
           it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
@@ -6455,17 +6567,26 @@ display:
               draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
             }
 
-            // 4. Dynamic Perimeter Progress Arc (r = 224..226)
+            // 4. Dynamic Perimeter Progress Arc (r = 224..225, Continuous Horological Arc)
+            it.circle(cx, cy, 224, id(col_dark_gray));
             if (id(timer_running) || id(timer_paused)) {
               float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
-              int sweep_ticks = (int)(frac * 60.0f);
-              if (sweep_ticks > 60) sweep_ticks = 60;
-              Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
-              for (int t = 0; t <= sweep_ticks; t++) {
-                int idx = t % 60;
-                int ax = cx + (int)(224.0f * DIAL_SIN[idx]);
-                int ay = cy - (int)(224.0f * DIAL_COS[idx]);
-                it.filled_circle(ax, ay, 2, arc_c);
+              if (frac < 0.0f) frac = 0.0f;
+              if (frac > 1.0f) frac = 1.0f;
+              if (frac > 0.005f) {
+                float end_a = frac * 2.0f * PI_F;
+                float step = 0.035f;
+                Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
+                for (float a = 0.0f; a < end_a; a += step) {
+                  float next_a = std::min(a + step, end_a);
+                  float s1, c1, s2, c2;
+                  sincosf(a, &s1, &c1);
+                  sincosf(next_a, &s2, &c2);
+                  it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
+                          cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), arc_c);
+                  it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
+                          cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), arc_c);
+                }
               }
             }
           } else {
@@ -7302,32 +7423,32 @@ touchscreen:
                 return l_pat > c_pat;
               };
               if (id(system_menu_mode) == 0) {
-                // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 70..100)
-                if (touch.y >= 75 && touch.y <= 118 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
+                // Main Telemetry View: tap Version line to open Software Update Screen (y: 70..118, x: 80..386)
+                if (touch.y >= 70 && touch.y <= 118 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Row 1 Left: "Display >" (y: 125..175, x: 65..230)
-                } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 65 && touch.x <= 230) {
+                // Row 1 Left: "Display >" (y: 119..179, x: 60..232)
+                } else if (touch.y >= 119 && touch.y < 180 && touch.x >= 60 && touch.x < 233) {
                   id(system_menu_mode) = 2; // Open Display Submenu
                   id(disp1).update();
-                // Row 1 Right: "Clock >" (y: 125..175, x: 236..405)
-                } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 236 && touch.x <= 405) {
+                // Row 1 Right: "Clock >" (y: 119..179, x: 233..405)
+                } else if (touch.y >= 119 && touch.y < 180 && touch.x >= 233 && touch.x <= 405) {
                   id(system_menu_mode) = 9; // Open Clock & Time Submenu
                   id(disp1).update();
-                // Row 2 Left: "Sleep & Wake >" (y: 185..235, x: 65..230)
-                } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 65 && touch.x <= 230) {
+                // Row 2 Left: "Sleep & Wake >" (y: 180..239, x: 60..232)
+                } else if (touch.y >= 180 && touch.y < 240 && touch.x >= 60 && touch.x < 233) {
                   id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
                   id(disp1).update();
-                // Row 2 Right: "Audio >" (y: 185..235, x: 236..405)
-                } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 236 && touch.x <= 405) {
+                // Row 2 Right: "Audio >" (y: 180..239, x: 233..405)
+                } else if (touch.y >= 180 && touch.y < 240 && touch.x >= 233 && touch.x <= 405) {
                   id(system_menu_mode) = 7; // Open Audio & Media Submenu
                   id(disp1).update();
-                // Row 3 Left: "Actions >" (y: 245..295, x: 65..230)
-                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 65 && touch.x <= 230) {
+                // Row 3 Left: "Actions >" (y: 240..305, x: 60..232)
+                } else if (touch.y >= 240 && touch.y <= 305 && touch.x >= 60 && touch.x < 233) {
                   id(system_menu_mode) = 3; // Open System Actions Submenu
                   id(disp1).update();
-                // Row 3 Right: "Info >" (y: 245..295, x: 236..405)
-                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 236 && touch.x <= 405) {
+                // Row 3 Right: "Info >" (y: 240..305, x: 233..405)
+                } else if (touch.y >= 240 && touch.y <= 305 && touch.x >= 233 && touch.x <= 405) {
                   id(system_menu_mode) = 8; // Open System Info Submenu
                   id(disp1).update();
                 }

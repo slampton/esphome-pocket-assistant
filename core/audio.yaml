@@ -371,6 +371,18 @@ script:
     then:
       - script.execute: route_i2s_to_spk
       - audio_dac.mute_off: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.1s
+      - if:
+          condition:
+            media_player.is_playing: pocket_music_player
+          then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
       - while:
           condition:
             lambda: "return id(alarm_ringing) || id(timer_ringing);"
@@ -393,9 +405,17 @@ script:
       - script.stop: play_alarm_sound
       - if:
           condition:
-            not:
-              media_player.is_playing: pocket_music_player
+            media_player.is_playing: pocket_music_player
           then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 0
+                duration: 0.5s
+            - mixer_speaker.apply_ducking:
+                id: announcement_mixing_input
+                decibel_reduction: 50
+                duration: 0.5s
+          else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
 
