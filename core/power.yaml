@@ -566,6 +566,8 @@ script:
           id(bus_internal).write(0x6B, qmi_full_on, 2);
       - script.execute: sync_display_brightness
       - script.execute: screen_sleep_timer
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
       - component.update: disp1
 
   - id: start_hibernation_countdown

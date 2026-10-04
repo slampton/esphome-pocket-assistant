@@ -121,12 +121,12 @@ esphome:
         - media_player.pause: pocket_music_player
         - online_image.release: remote_album_art
         - lambda: 'id(current_loaded_art_url) = "";'
-        - script.execute: route_i2s_to_mic
+        - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
         - audio_dac.set_volume:
             id: es8311_dac
-            volume: 70%
-        - audio_dac.mute_on: es8311_dac
+            volume: 85%
+        - audio_dac.mute_off: es8311_dac
         - script.execute: apply_default_start_page
         - script.execute: rebuild_active_deck
         - script.execute: apply_theme_preset

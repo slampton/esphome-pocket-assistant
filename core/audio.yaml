@@ -8,7 +8,7 @@ globals:
   - id: i2s_on_speaker
     type: bool
     restore_value: no
-    initial_value: 'false'
+    initial_value: 'true'
 
 i2s_audio:
   - id: i2s_input_bus
@@ -392,11 +392,12 @@ script:
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
-            // Calibrated alert volume scale: 0dB at 100%, 12dB at 40%, 16dB at 20%
+            // Calibrated alert volume scale: 0dB at 100%, 10.8dB at 40%, 14.4dB at 20%
             float v = id(alert_volume).state;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
             if (v > 100.0f) v = 100.0f;
             if (v < 20.0f) v = 20.0f;
-            return (100.0f - v) * 0.20f;
+            return (100.0f - v) * 0.18f;
           duration: 0.05s
       - if:
           condition:
@@ -469,13 +470,14 @@ script:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
             float v = id(alert_volume).state;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
             if (v > 100.0f) v = 100.0f;
             if (v < 20.0f) v = 20.0f;
-            return (100.0f - v) * 0.20f;
+            return (100.0f - v) * 0.18f;
           duration: 0.01s
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "lap:d=16,o=5,b=240:c6,p,e6"
+          rtttl: "lap:d=16,o=5,b=240:32p,c6,p,e6"
       - delay: 50ms
       - wait_until:
           condition:
@@ -518,9 +520,10 @@ script:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
             float v = id(alert_volume).state;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
             if (v > 100.0f) v = 100.0f;
             if (v < 20.0f) v = 20.0f;
-            return (100.0f - v) * 0.20f;
+            return (100.0f - v) * 0.18f;
           duration: 0.01s
       - if:
           condition:
@@ -530,9 +533,10 @@ script:
                 id: media_mixing_input
                 decibel_reduction: 20
                 duration: 0.1s
+      # Celebratory Ta-da! victory fanfare (30ms rest -> G5 -> C6 -> E6 sustained)
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "gover:d=8,o=5,b=150:g,e,c"
+          rtttl: "tada:d=16,o=5,b=180:32p,8g,8c6,4e6"
       - delay: 50ms
       - wait_until:
           condition:
