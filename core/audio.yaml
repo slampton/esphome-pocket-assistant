@@ -334,25 +334,16 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
+      # Wait for any trailing mixer samples to drain before switching clocks/restoring UI
       - if:
           condition:
-            lambda: 'return id(va_tts_received);'
+            lambda: 'return id(announcement_mixing_input).is_running();'
           then:
-            # 1. Wait up to 5s for audio stream to reach mixer
             - wait_until:
                 condition:
-                  lambda: 'return id(announcement_mixing_input).is_running();'
-                timeout: 5s
-            # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
-            - if:
-                condition:
-                  lambda: 'return id(announcement_mixing_input).is_running();'
-                then:
-                  - wait_until:
-                      condition:
-                        lambda: 'return !id(announcement_mixing_input).is_running();'
-                      timeout: 180s
-                  - delay: 400ms
+                  lambda: 'return !id(announcement_mixing_input).is_running();'
+                timeout: 3s
+            - delay: 100ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player
