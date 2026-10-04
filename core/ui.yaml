@@ -1137,7 +1137,7 @@ interval:
               bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
                                 id(va_active) || !id(va_status_text).empty() ||
                                 id(alarm_ringing) || id(timer_ringing);
-              uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 120);
+              uint32_t target_cadence = id(va_tts_received) ? 600 : (audio_busy ? 450 : 350);
               if (now_w_ms - last_weather_disp_update >= target_cadence) {
                 last_weather_disp_update = now_w_ms;
                 id(disp1).update();
@@ -5729,11 +5729,13 @@ display:
               int16_t off_y_cr = (int16_t)(6.0f * scale);
               int16_t off_r_cr = (int16_t)(9.0f * scale);
 
-              // Pass 1: Volumetric Underbelly Shadow (Unified Silhouette)
-              for (int i = 0; i < 8; i++) {
-                int sx = bx + sc_x[i];
-                int sy = by + sc_y[i] + off_y_sh;
-                int sr = sc_r[i];
+              // Pass 1: Volumetric Underbelly Shadow (Unified Silhouette on bottom lobes)
+              static const int shadow_idx[4] = {0, 5, 6, 7};
+              for (int i = 0; i < 4; i++) {
+                int idx = shadow_idx[i];
+                int sx = bx + sc_x[idx];
+                int sy = by + sc_y[idx] + off_y_sh;
+                int sr = sc_r[idx];
                 if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
                 it.filled_circle(sx, sy, sr, col_shadow);
               }
@@ -5748,17 +5750,19 @@ display:
               }
 
               // Pass 3: Sunlit / Moonlit Upper Volume
-              for (int i = 0; i < 5; i++) {
-                int sx = bx + sc_x[i] + off_x_hi;
-                int sy = by + sc_y[i] - off_y_hi;
-                int sr = sc_r[i] - off_r_hi;
+              static const int high_idx[4] = {1, 2, 3, 4};
+              for (int i = 0; i < 4; i++) {
+                int idx = high_idx[i];
+                int sx = bx + sc_x[idx] + off_x_hi;
+                int sy = by + sc_y[idx] - off_y_hi;
+                int sr = sc_r[idx] - off_r_hi;
                 if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
                 it.filled_circle(sx, sy, sr, col_high);
               }
 
               // Pass 4: Top Crown Crests
-              static const int crest_idx[3] = {1, 2, 3};
-              for (int i = 0; i < 3; i++) {
+              static const int crest_idx[2] = {2, 3};
+              for (int i = 0; i < 2; i++) {
                 int idx = crest_idx[i];
                 int sx = bx + sc_x[idx] + off_x_cr;
                 int sy = by + sc_y[idx] - off_y_cr;
@@ -7065,7 +7069,7 @@ touchscreen:
                 }
               }
             } else if (is_deck_nav) {
-              int nav_y_min = (id(gui_page) == 5 || id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
+              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 5) ? 382 : ((id(gui_page) == 1) ? 375 : 380));
               if (touch.y >= nav_y_min) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -7086,7 +7090,6 @@ touchscreen:
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                     if (id(gui_page) == 1 || id(gui_page) == 3) {
                       id(route_i2s_to_spk).execute();
-                      id(es8311_dac).set_mute_off();
                     }
                     id(disp1).update();
                   }
@@ -7192,7 +7195,6 @@ touchscreen:
                     id(sleep_start_time) = 0;
                     id(display_brightness).turn_on().perform();
                     id(route_i2s_to_spk).execute();
-                    id(es8311_dac).set_mute_off();
                   } else {
                     id(stopwatch_running) = false;
                     id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
@@ -7532,7 +7534,6 @@ touchscreen:
                     id(toggle_ha_music).execute();
                   }
                   id(route_i2s_to_spk).execute();
-                  id(es8311_dac).set_mute_off();
                 }
                 id(disp1).update();
               } else {
@@ -7916,8 +7917,8 @@ touchscreen:
                 id(disp1).update();
                 return;
               }
-              // Zone 2: Row 2 of 2x2 Grid (y: 330..398) -> Sun (Left) | Moon (Right)
-              if (touch.y >= 330 && touch.y <= 398) {
+              // Zone 2: Row 2 of 2x2 Grid (y: 330..380) -> Sun (Left) | Moon (Right)
+              if (touch.y >= 330 && touch.y <= 380) {
                 if (touch.x < 233) {
                   id(sky_weather_subpage) = 2; // Sun
                 } else {

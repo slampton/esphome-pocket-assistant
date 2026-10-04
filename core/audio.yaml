@@ -384,7 +384,13 @@ script:
             id(prev_media_volume) = v;
           }
       - script.execute: route_i2s_to_spk
-      - audio_dac.mute_off: es8311_dac
+      - if:
+          condition:
+            lambda: |-
+              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                       (id(ha_target_state).state == "playing"));
+          then:
+            - audio_dac.mute_on: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
@@ -409,7 +415,9 @@ script:
           then:
             - rtttl.play:
                 id: alarm_rtttl
-                rtttl: "alarm:d=16,o=5,b=150:c,e,g,c6,p,c,e,g,c6,p,c,e,g,c6"
+                rtttl: "alarm:d=16,o=5,b=150:16p,c,e,g,c6,p,c,e,g,c6,p,c,e,g,c6"
+            - delay: 35ms
+            - audio_dac.mute_off: es8311_dac
             - wait_until:
                 condition:
                   not:
@@ -423,6 +431,13 @@ script:
       - rtttl.stop:
           id: alarm_rtttl
       - script.stop: play_alarm_sound
+      - if:
+          condition:
+            lambda: |-
+              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                       (id(ha_target_state).state == "playing"));
+          then:
+            - audio_dac.mute_on: es8311_dac
       - if:
           condition:
             lambda: "return id(prev_media_volume) >= 0.0f;"
@@ -457,10 +472,31 @@ script:
             - script.execute: route_i2s_to_spk
             - delay: 40ms
       - switch.turn_on: speaker_enable
-      - audio_dac.mute_off: es8311_dac
+      # Zero-transient sequence: Mute DAC before I2S clocks start
+      - if:
+          condition:
+            lambda: |-
+              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                       (id(ha_target_state).state == "playing"));
+          then:
+            - audio_dac.mute_on: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: !lambda |-
+            float v = id(alert_volume).state;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
+            if (v > 100.0f) v = 100.0f;
+            if (v < 20.0f) v = 20.0f;
+            return (100.0f - v) * 0.18f;
+          duration: 0.01s
+      # Silent lead-in pause (16p = ~62.5ms at b=240) so I2S clocks start into digital silence
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "lap:d=16,o=5,b=240:32p,c6,p,e6"
+          rtttl: "lap:d=16,o=5,b=240:16p,c6,p,e6"
+      # Wait 35ms for clocks to settle and PLL to lock
+      - delay: 35ms
+      # Unmute DAC smoothly with active clocks
+      - audio_dac.mute_off: es8311_dac
       - delay: 50ms
       - wait_until:
           condition:
@@ -471,7 +507,14 @@ script:
           condition:
             lambda: 'return !id(announcement_mixing_input).is_running();'
           timeout: 1s
-      - delay: 350ms
+      - delay: 250ms
+      - if:
+          condition:
+            lambda: |-
+              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                       (id(ha_target_state).state == "playing"));
+          then:
+            - audio_dac.mute_on: es8311_dac
       - if:
           condition:
             lambda: |-
@@ -481,7 +524,6 @@ script:
           then:
             - delay: 0ms
           else:
-            - audio_dac.mute_on: es8311_dac
             - delay: 10ms
             - script.execute: route_i2s_to_mic
 
@@ -495,7 +537,23 @@ script:
             - script.execute: route_i2s_to_spk
             - delay: 40ms
       - switch.turn_on: speaker_enable
-      - audio_dac.mute_off: es8311_dac
+      # Zero-transient sequence: Mute DAC before I2S clocks start
+      - if:
+          condition:
+            lambda: |-
+              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                       (id(ha_target_state).state == "playing"));
+          then:
+            - audio_dac.mute_on: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: !lambda |-
+            float v = id(alert_volume).state;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
+            if (v > 100.0f) v = 100.0f;
+            if (v < 20.0f) v = 20.0f;
+            return (100.0f - v) * 0.18f;
+          duration: 0.01s
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -504,10 +562,14 @@ script:
                 id: media_mixing_input
                 decibel_reduction: 20
                 duration: 0.1s
-      # Celebratory Ta-da! victory fanfare (30ms rest -> G5 -> C6 -> E6 sustained)
+      # Celebratory Ta-da! victory fanfare (16p silent lead-in ~83ms at b=180 -> G5 -> C6 -> E6 sustained)
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "tada:d=16,o=5,b=180:32p,8g,8c6,4e6"
+          rtttl: "tada:d=16,o=5,b=180:16p,8g,8c6,4e6"
+      # Wait 35ms for clocks to settle and PLL to lock
+      - delay: 35ms
+      # Unmute DAC smoothly with active clocks
+      - audio_dac.mute_off: es8311_dac
       - delay: 50ms
       - wait_until:
           condition:
@@ -518,7 +580,14 @@ script:
           condition:
             lambda: 'return !id(announcement_mixing_input).is_running();'
           timeout: 1s
-      - delay: 400ms
+      - delay: 300ms
+      - if:
+          condition:
+            lambda: |-
+              return !((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                       (id(ha_target_state).state == "playing"));
+          then:
+            - audio_dac.mute_on: es8311_dac
       - if:
           condition:
             lambda: |-
@@ -531,7 +600,6 @@ script:
                 decibel_reduction: 0
                 duration: 0.2s
           else:
-            - audio_dac.mute_on: es8311_dac
             - delay: 10ms
             - script.execute: route_i2s_to_mic
 
