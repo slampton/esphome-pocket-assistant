@@ -88,7 +88,7 @@ speaker:
     task_stack_in_psram: true
     source_speakers:
       - id: announcement_mixing_input
-        timeout: 250ms
+        timeout: 1000ms
       - id: media_mixing_input
         timeout: 1500ms
 
@@ -382,14 +382,14 @@ script:
             id(prev_media_volume) = v;
           }
       - script.execute: route_i2s_to_spk
-      - audio_dac.set_volume:
-          id: es8311_dac
-          volume: !lambda "return id(alert_volume).state / 100.0f;"
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
-          decibel_reduction: 0
-          duration: 0.1s
+          decibel_reduction: !lambda |-
+            // Headroom attenuation: 6dB base attenuation at 100%, down to 30dB at 20%
+            float v = id(alert_volume).state;
+            return 6.0f + (100.0f - v) * 0.30f;
+          duration: 0.05s
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -422,9 +422,6 @@ script:
           condition:
             lambda: "return id(prev_media_volume) >= 0.0f;"
           then:
-            - audio_dac.set_volume:
-                id: es8311_dac
-                volume: !lambda "return id(prev_media_volume);"
             - lambda: |-
                 float pv = id(prev_media_volume);
                 id(prev_media_volume) = -1.0f;
@@ -456,16 +453,20 @@ script:
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
-          decibel_reduction: 0
-          duration: 0.05s
+          decibel_reduction: !lambda |-
+            float v = id(alert_volume).state;
+            return 6.0f + (100.0f - v) * 0.30f;
+          duration: 0.02s
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "lap:d=32,o=5,b=240:c6"
+          rtttl: "lap:d=16,o=5,b=200:c6"
+      - delay: 180ms
       - wait_until:
           condition:
             not:
               rtttl.is_playing:
-          timeout: 1s
+          timeout: 500ms
+      - delay: 150ms
       - if:
           condition:
             lambda: |-
@@ -487,8 +488,10 @@ script:
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
-          decibel_reduction: 0
-          duration: 0.05s
+          decibel_reduction: !lambda |-
+            float v = id(alert_volume).state;
+            return 6.0f + (100.0f - v) * 0.30f;
+          duration: 0.02s
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -499,12 +502,14 @@ script:
                 duration: 0.1s
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "gover:d=16,o=4,b=180:g,e,c"
+          rtttl: "gover:d=8,o=4,b=160:g,e,c"
+      - delay: 600ms
       - wait_until:
           condition:
             not:
               rtttl.is_playing:
-          timeout: 2s
+          timeout: 1s
+      - delay: 150ms
       - if:
           condition:
             lambda: |-
