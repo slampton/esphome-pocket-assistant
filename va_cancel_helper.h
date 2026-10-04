@@ -10,7 +10,7 @@ inline void abort_voice_assistant(VoiceAssistant *va) {
     va->reset_conversation_id();
   }
   if (api::global_api_server != nullptr) {
-    for (auto *client : api::global_api_server->get_clients()) {
+    for (auto &client : api::global_api_server->active_clients()) {
       api::VoiceAssistantRequest msg;
       msg.start = false;
       bool sent = client->send_message(msg);
