@@ -127,6 +127,17 @@ esphome:
             id: es8311_dac
             volume: 90%
         - audio_dac.mute_off: es8311_dac
+        - lambda: |-
+            if (std::isnan(id(alert_volume).state) || id(alert_volume).state < 20.0f || id(alert_volume).state > 100.0f) {
+              id(alert_volume).publish_state(80.0f);
+            }
+        - mixer_speaker.apply_ducking:
+            id: announcement_mixing_input
+            decibel_reduction: !lambda |-
+              float v = id(alert_volume).state;
+              if (std::isnan(v) || v < 20.0f || v > 100.0f) v = 80.0f;
+              return (100.0f - v) * 0.18f;
+            duration: 0.05s
         - script.execute: apply_default_start_page
         - script.execute: rebuild_active_deck
         - script.execute: apply_theme_preset

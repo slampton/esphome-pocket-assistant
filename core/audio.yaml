@@ -134,7 +134,7 @@ media_player:
       speaker: music_resampler
       sources:
         - sendspin_source
-    volume_initial: 70%
+    volume_initial: 60%
     volume_increment: 2%
     volume_min: 10%
     volume_max: 90%
@@ -150,10 +150,6 @@ media_player:
         - mixer_speaker.apply_ducking:
             id: media_mixing_input
             decibel_reduction: 0
-            duration: 0.1s
-        - mixer_speaker.apply_ducking:
-            id: announcement_mixing_input
-            decibel_reduction: 50
             duration: 0.1s
         - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
@@ -241,6 +237,7 @@ voice_assistant:
           duration: 0.1s
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
+      - switch.turn_on: speaker_enable
       - audio_dac.mute_off: es8311_dac
       - lambda: |-
           id(va_vad_active) = false;
@@ -383,7 +380,7 @@ script:
       - lambda: |-
           if (id(prev_media_volume) < 0.0f) {
             float v = id(pocket_music_player).volume;
-            if (std::isnan(v) || v <= 0.0f) v = 0.70f;
+            if (std::isnan(v) || v <= 0.0f) v = 0.60f;
             id(prev_media_volume) = v;
           }
       - script.execute: route_i2s_to_spk
@@ -446,10 +443,6 @@ script:
                 id: media_mixing_input
                 decibel_reduction: 0
                 duration: 0.1s
-            - mixer_speaker.apply_ducking:
-                id: announcement_mixing_input
-                decibel_reduction: 50
-                duration: 0.1s
           else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
@@ -463,15 +456,8 @@ script:
           then:
             - script.execute: route_i2s_to_spk
             - delay: 40ms
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: !lambda |-
-            float v = id(alert_volume).state;
-            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
-            if (v > 100.0f) v = 100.0f;
-            if (v < 20.0f) v = 20.0f;
-            return (100.0f - v) * 0.18f;
-          duration: 0.01s
+      - switch.turn_on: speaker_enable
+      - audio_dac.mute_off: es8311_dac
       - rtttl.play:
           id: alarm_rtttl
           rtttl: "lap:d=16,o=5,b=240:32p,c6,p,e6"
@@ -493,10 +479,7 @@ script:
                      (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
                      (id(ha_target_state).state == "playing");
           then:
-            - mixer_speaker.apply_ducking:
-                id: announcement_mixing_input
-                decibel_reduction: 50
-                duration: 0.1s
+            - delay: 0ms
           else:
             - audio_dac.mute_on: es8311_dac
             - delay: 10ms
@@ -511,15 +494,8 @@ script:
           then:
             - script.execute: route_i2s_to_spk
             - delay: 40ms
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: !lambda |-
-            float v = id(alert_volume).state;
-            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
-            if (v > 100.0f) v = 100.0f;
-            if (v < 20.0f) v = 20.0f;
-            return (100.0f - v) * 0.18f;
-          duration: 0.01s
+      - switch.turn_on: speaker_enable
+      - audio_dac.mute_off: es8311_dac
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -554,10 +530,6 @@ script:
                 id: media_mixing_input
                 decibel_reduction: 0
                 duration: 0.2s
-            - mixer_speaker.apply_ducking:
-                id: announcement_mixing_input
-                decibel_reduction: 50
-                duration: 0.1s
           else:
             - audio_dac.mute_on: es8311_dac
             - delay: 10ms
@@ -591,3 +563,14 @@ number:
     mode: slider
     icon: "mdi:volume-high"
     entity_category: config
+    on_value:
+      then:
+        - mixer_speaker.apply_ducking:
+            id: announcement_mixing_input
+            decibel_reduction: !lambda |-
+              float v = x;
+              if (std::isnan(v) || v <= 0.0f) v = 80.0f;
+              if (v > 100.0f) v = 100.0f;
+              if (v < 20.0f) v = 20.0f;
+              return (100.0f - v) * 0.18f;
+            duration: 0.05s

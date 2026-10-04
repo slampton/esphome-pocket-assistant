@@ -1103,19 +1103,35 @@ interval:
           }
 
           // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
-          // High-refresh fluid drift (8 FPS / 120ms) when animated weather (partly cloudy, rain, snow, lightning, wind, stars) is active
-          // Overcast / Cloudy is a static high-density blanket (zero animation overdraw, 100% touch responsiveness)
+          // High-refresh fluid drift (8 FPS / 120ms) STRICTLY when animated weather (partly cloudy, rain, snow, lightning, wind, night stars) is active
+          // Sunny / Clear Day and Overcast / Cloudy are static (zero animation overdraw, 100% touch responsiveness, no bus saturation)
           if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
             std::string w_cond = id(ha_weather_condition).state;
             std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
             if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
               if (sim_opt.find("Cloudy / Overcast") != std::string::npos) w_cond = "cloudy";
               else if (sim_opt.find("Partly Cloudy") != std::string::npos) w_cond = "partlycloudy";
+              else if (sim_opt.find("Sunny / Clear Day") != std::string::npos) w_cond = "sunny";
+              else if (sim_opt.find("Clear Night") != std::string::npos) w_cond = "clear-night";
             }
-            bool is_dense_overcast = (w_cond.find("cloud") != std::string::npos || w_cond.find("overcast") != std::string::npos) &&
-                                     (w_cond.find("partly") == std::string::npos && w_cond.find("mostlysunny") == std::string::npos && w_cond.find("partlysunny") == std::string::npos);
 
-            if (!is_dense_overcast) {
+            bool is_night_w = (id(ha_sun_state).state == "below_horizon" || w_cond.find("night") != std::string::npos);
+            bool has_weather_anim = false;
+            if (w_cond.find("partly") != std::string::npos || w_cond.find("mostlysunny") != std::string::npos || w_cond.find("partlysunny") != std::string::npos) {
+              has_weather_anim = true; // Partly cloudy drift
+            } else if (w_cond.find("rain") != std::string::npos || w_cond.find("pouring") != std::string::npos || w_cond.find("drizzle") != std::string::npos) {
+              has_weather_anim = true; // Rain streaks
+            } else if (w_cond.find("snow") != std::string::npos || w_cond.find("sleet") != std::string::npos) {
+              has_weather_anim = true; // Snowflakes
+            } else if (w_cond.find("lightning") != std::string::npos || w_cond.find("thunder") != std::string::npos) {
+              has_weather_anim = true; // Lightning flash
+            } else if (w_cond.find("wind") != std::string::npos) {
+              has_weather_anim = true; // Wind
+            } else if (is_night_w && (w_cond == "clear-night" || w_cond == "clearnight" || w_cond == "sunny" || w_cond == "clear" || w_cond == "clear-day")) {
+              has_weather_anim = true; // Twinkling stars at night
+            }
+
+            if (has_weather_anim) {
               static uint32_t last_weather_disp_update = 0;
               uint32_t now_w_ms = millis();
               bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
@@ -2653,10 +2669,6 @@ script:
     then:
       - script.stop: va_tts_drain_and_finish
       - audio_dac.mute_on: es8311_dac
-      - mixer_speaker.apply_ducking:
-          id: announcement_mixing_input
-          decibel_reduction: 50
-          duration: 0.1s
       - voice_assistant.stop:
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
@@ -2710,8 +2722,10 @@ script:
                 esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
                 esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
                 id(i2s_on_speaker) = true;
-            - switch.turn_on: speaker_enable
-            - delay: 40ms
+            - delay: 20ms
+      - switch.turn_on: speaker_enable
+      - audio_dac.mute_off: es8311_dac
+      - delay: 20ms
 
   - id: trigger_firmware_update
     mode: restart
@@ -5414,7 +5428,8 @@ display:
 
           // Button 3: Independent Alert Volume (y = 240, r = 18)
           char alert_vol_str[32];
-          int a_cur = (int)std::round(id(alert_volume).state);
+          float a_st = id(alert_volume).state;
+          int a_cur = (std::isnan(a_st) || a_st < 20.0f) ? 80 : (int)std::round(a_st);
           snprintf(alert_vol_str, sizeof(alert_vol_str), "Alert Vol: %d%%", a_cur);
           draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), alert_vol_str, id(col_white), false);
 
@@ -7838,7 +7853,8 @@ touchscreen:
                   id(disp1).update();
                 // Card 3: Independent Alert Volume Step (y: 215..270, x: 90..376)
                 } else if (touch.y >= 215 && touch.y <= 270 && touch.x >= 90 && touch.x <= 376) {
-                  int cur_a = (int)std::round(id(alert_volume).state);
+                  float cur_a_f = id(alert_volume).state;
+                  int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 80 : (int)std::round(cur_a_f);
                   int nxt_a = cur_a + 10;
                   if (nxt_a > 100) nxt_a = 50;
                   auto call = id(alert_volume).make_call();
