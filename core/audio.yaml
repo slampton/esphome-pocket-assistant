@@ -405,16 +405,18 @@ script:
       - script.stop: play_alarm_sound
       - if:
           condition:
-            media_player.is_playing: pocket_music_player
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                     (id(ha_target_state).state == "playing");
           then:
             - mixer_speaker.apply_ducking:
                 id: media_mixing_input
                 decibel_reduction: 0
-                duration: 0.5s
+                duration: 0.1s
             - mixer_speaker.apply_ducking:
                 id: announcement_mixing_input
                 decibel_reduction: 50
-                duration: 0.5s
+                duration: 0.1s
           else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
