@@ -153,8 +153,6 @@ media_player:
             id: announcement_mixing_input
             decibel_reduction: 50
             duration: 0.1s
-        - speaker.stop: announcement_mixing_input
-        - speaker.stop: va_speaker
         - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
         - audio_dac.mute_off: es8311_dac
@@ -252,6 +250,7 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
+      - script.execute: va_tts_drain_and_finish
   on_error:
     then:
       - script.execute: route_i2s_to_mic
@@ -331,7 +330,11 @@ voice_assistant:
           }
   on_end:
     then:
-      - script.execute: va_tts_drain_and_finish
+      - if:
+          condition:
+            lambda: 'return !id(va_tts_received);'
+          then:
+            - script.execute: va_tts_drain_and_finish
 
 
 script:
@@ -357,8 +360,6 @@ script:
                         lambda: 'return !id(announcement_mixing_input).is_running();'
                       timeout: 180s
                   - delay: 400ms
-            - speaker.stop: announcement_mixing_input
-            - speaker.stop: va_speaker
       - if:
           condition:
             media_player.is_playing: pocket_music_player

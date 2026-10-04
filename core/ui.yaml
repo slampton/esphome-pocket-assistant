@@ -2614,8 +2614,6 @@ script:
           id: announcement_mixing_input
           decibel_reduction: 50
           duration: 0.1s
-      - speaker.stop: announcement_mixing_input
-      - speaker.stop: va_speaker
       - voice_assistant.stop:
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
@@ -6943,18 +6941,17 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                // Mode-aware symmetrical flank partition:
-                // Full Screen / Letterbox: Prev (124, 212), Play (233, 212), Next (342, 212)
-                // Midpoint between Prev and Play = 178. Midpoint between Play and Next = 288.
-                // Distance from center (233) is exactly 55px on both sides, creating symmetric finger-memory.
-                bool is_compact_touch = (std::string(id(music_fullscreen_art_mode).current_option().c_str()) == "Compact");
-                const int prev_x_bound = is_compact_touch ? 168 : 178;
-                const int next_x_bound = is_compact_touch ? 298 : 288;
-                const int flank_y_top = 175;
-                const int flank_y_bottom = 250;
+                // ----------------------------------------------------
+                // Generous Voronoi Touch Tessellation
+                // ----------------------------------------------------
+                // Dedicated Header Tap Zone ("MUSIC" Title): Open Category Menu
+                // Constrained strictly to top title area (x: 160..306, y <= 95)
+                if (touch.y <= 95 && touch.x >= 160 && touch.x <= 306) {
+                  id(music_overlay_mode) = 1;
+                  id(disp1).update();
 
-                // Right Flank Volume Up (+): Upper Right Quadrant (center 405, 140) with 120ms rate-limit (Evaluated first to eliminate header overlap)
-                if (touch.x >= next_x_bound && touch.y < flank_y_top) {
+                // Right Flank Volume Up (+): Generous Upper-Right Quadrant (center 405, 140; touches x >= 300, y < 185)
+                } else if (touch.x >= 300 && touch.y < 185) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_up_tap > 120) {
@@ -6969,14 +6966,8 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Dedicated Header Tap Zone ("MUSIC" Title) & Upper-Left Flank: Open Category Menu
-                // Constrained to title center (x: 180..286, y <= 95) or upper-left corner (x <= prev_x_bound, y < flank_y_top)
-                } else if ((touch.y <= 95 && touch.x >= 180 && touch.x <= 286) || (touch.x <= prev_x_bound && touch.y < flank_y_top)) {
-                  id(music_overlay_mode) = 1;
-                  id(disp1).update();
-
-                // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x, 212, y: 175..250)
-                } else if (touch.x >= next_x_bound && touch.y >= flank_y_top && touch.y < flank_y_bottom) {
+                // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x 342, 212; y: 185..240, x >= 280)
+                } else if (touch.x >= 280 && touch.y >= 185 && touch.y < 240) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > 250) {
@@ -6987,8 +6978,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Right Flank Volume Down (-): Lower Right Quadrant (center 405, 284) with 120ms rate-limit (clean bound y < 398)
-                } else if (touch.x >= next_x_bound && touch.y >= flank_y_bottom && touch.y < 398) {
+                // Right Flank Volume Down (-): Generous Lower-Right Quadrant (center 405, 284; touches x >= 300, y >= 240, clean bound y < 398)
+                } else if (touch.x >= 300 && touch.y >= 240 && touch.y < 398) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > 120) {
@@ -7003,8 +6994,8 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212, y: 175..250, mirrored parity with Next Track)
-                } else if (touch.x <= prev_x_bound && touch.y >= flank_y_top && touch.y < flank_y_bottom) {
+                // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x 124, 212; y: 185..240, x <= 165)
+                } else if (touch.x <= 165 && touch.y >= 185 && touch.y < 240) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_prev_tap > 250) {
@@ -7015,8 +7006,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286) with 250ms tap debounce (clean bound y < 398)
-                } else if (touch.x <= prev_x_bound && touch.y >= flank_y_bottom && touch.y < 398) {
+                // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286; x <= 165, y >= 240, clean bound y < 398)
+                } else if (touch.x <= 165 && touch.y >= 240 && touch.y < 398) {
                   static uint32_t last_menu_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_menu_tap > 250) {
@@ -7025,8 +7016,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Perfectly bounded between prev_x_bound and next_x_bound (110px wide)
-                } else if (touch.y >= 95 && touch.y < 398 && touch.x > prev_x_bound && touch.x < next_x_bound) {
+                // Center Hero Album Art & Play / Pause toggle: Generous Center Zone (y: 95..398)
+                } else if (touch.y >= 95 && touch.y < 398) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > 250) {
