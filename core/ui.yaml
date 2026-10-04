@@ -6811,7 +6811,7 @@ touchscreen:
       number: GPIO11
       mode: INPUT_PULLUP
     reset_pin: GPIO2
-    update_interval: 50ms
+    update_interval: 20ms
     transform:
       mirror_x: true
       mirror_y: true
@@ -7035,37 +7035,46 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls (Large Centered Hitbox & Debounced Pushers)
+            // Page 1: Stopwatch Screen Tap Controls (Instant Precision Response)
             if (id(gui_page) == 1) {
-              // 1. Bottom Pushers: LAP & RESET (y: 280..372, x: 110..356)
-              if (touch.y >= 280 && touch.y <= 372 && touch.x >= 110 && touch.x <= 356) {
-                static uint32_t last_btn_tap = 0;
-                uint32_t now_btn = millis();
-                if (now_btn - last_btn_tap > 350) {
-                  last_btn_tap = now_btn;
-                  if (touch.x < 233) {
-                    // LAP Pusher (Left half, centered at x=179, y=328, r=38)
-                    if (id(stopwatch_running)) {
-                      // Running: record / update split time
-                      id(stopwatch_lap_ms) = now_btn - id(stopwatch_start_time);
-                    } else if (id(stopwatch_lap_ms) > 0) {
-                      // Stopped: tap LAP clears existing split readout
-                      id(stopwatch_lap_ms) = 0;
-                    }
-                  } else {
-                    // RESET Pusher (Right half, centered at x=287, y=328, r=38)
-                    id(stopwatch_running) = false;
-                    id(stopwatch_elapsed_ms) = 0;
+              int dx_lap = touch.x - 179;
+              int dy_lap = touch.y - 328;
+              int dx_rst = touch.x - 287;
+              int dy_rst = touch.y - 328;
+
+              // 1. LAP Pusher: Radial Circular Hitbox (center 179, 328, r=44)
+              if (dx_lap * dx_lap + dy_lap * dy_lap <= 44 * 44) {
+                static uint32_t last_lap_tap = 0;
+                uint32_t now_lap = millis();
+                if (now_lap - last_lap_tap > 180) {
+                  last_lap_tap = now_lap;
+                  if (id(stopwatch_running)) {
+                    // Running: record / update split time
+                    id(stopwatch_lap_ms) = now_lap - id(stopwatch_start_time);
+                  } else if (id(stopwatch_lap_ms) > 0) {
+                    // Stopped: tap LAP clears existing split readout
                     id(stopwatch_lap_ms) = 0;
                   }
                   id(disp1).update();
                 }
                 return;
-              // 2. Large Central Dial Face: START/STOP (y < 280, x: 70..396: preserves left/right margins)
-              } else if (touch.y >= 45 && touch.y < 280 && touch.x >= 70 && touch.x <= 396) {
+              // 2. RESET Pusher: Radial Circular Hitbox (center 287, 328, r=44)
+              } else if (dx_rst * dx_rst + dy_rst * dy_rst <= 44 * 44) {
+                static uint32_t last_rst_tap = 0;
+                uint32_t now_rst = millis();
+                if (now_rst - last_rst_tap > 180) {
+                  last_rst_tap = now_rst;
+                  id(stopwatch_running) = false;
+                  id(stopwatch_elapsed_ms) = 0;
+                  id(stopwatch_lap_ms) = 0;
+                  id(disp1).update();
+                }
+                return;
+              // 3. Precision START/STOP: Entire Dial Surface (y: 45..374, x: 70..396)
+              } else if (touch.y >= 45 && touch.y < 375 && touch.x >= 70 && touch.x <= 396) {
                 static uint32_t last_chrono_tap = 0;
                 uint32_t now_tap = millis();
-                if (now_tap - last_chrono_tap > 400) {
+                if (now_tap - last_chrono_tap > 180) {
                   last_chrono_tap = now_tap;
                   if (!id(stopwatch_running)) {
                     id(stopwatch_running) = true;
