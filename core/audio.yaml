@@ -5,6 +5,10 @@ globals:
     type: float
     restore_value: no
     initial_value: '-1.0f'
+  - id: i2s_on_speaker
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 i2s_audio:
   - id: i2s_input_bus
@@ -388,9 +392,11 @@ script:
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
-            // Headroom attenuation: 6dB base attenuation at 100%, down to 30dB at 20%
+            // Calibrated alert volume scale: 0dB at 100%, 12dB at 40%, 16dB at 20%
             float v = id(alert_volume).state;
-            return 6.0f + (100.0f - v) * 0.30f;
+            if (v > 100.0f) v = 100.0f;
+            if (v < 20.0f) v = 20.0f;
+            return (100.0f - v) * 0.20f;
           duration: 0.05s
       - if:
           condition:
@@ -451,16 +457,22 @@ script:
   - id: play_lap_sound
     mode: restart
     then:
-      - script.execute: route_i2s_to_spk
-      - delay: 50ms
-      - audio_dac.mute_off: es8311_dac
-      - delay: 10ms
+      - if:
+          condition:
+            lambda: 'return !id(i2s_on_speaker);'
+          then:
+            - script.execute: route_i2s_to_spk
+            - delay: 40ms
+            - audio_dac.mute_off: es8311_dac
+            - delay: 10ms
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
             float v = id(alert_volume).state;
-            return 6.0f + (100.0f - v) * 0.30f;
-          duration: 0.02s
+            if (v > 100.0f) v = 100.0f;
+            if (v < 20.0f) v = 20.0f;
+            return (100.0f - v) * 0.20f;
+          duration: 0.01s
       - rtttl.play:
           id: alarm_rtttl
           rtttl: "lap:d=16,o=5,b=240:c6,p,e6"
@@ -478,7 +490,8 @@ script:
       - if:
           condition:
             lambda: |-
-              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+              return (id(gui_page) == 1) || id(stopwatch_running) ||
+                     (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
                      (id(ha_target_state).state == "playing");
           then:
             - mixer_speaker.apply_ducking:
@@ -493,16 +506,22 @@ script:
   - id: play_game_over_sound
     mode: restart
     then:
-      - script.execute: route_i2s_to_spk
-      - delay: 50ms
-      - audio_dac.mute_off: es8311_dac
-      - delay: 10ms
+      - if:
+          condition:
+            lambda: 'return !id(i2s_on_speaker);'
+          then:
+            - script.execute: route_i2s_to_spk
+            - delay: 40ms
+            - audio_dac.mute_off: es8311_dac
+            - delay: 10ms
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
             float v = id(alert_volume).state;
-            return 6.0f + (100.0f - v) * 0.30f;
-          duration: 0.02s
+            if (v > 100.0f) v = 100.0f;
+            if (v < 20.0f) v = 20.0f;
+            return (100.0f - v) * 0.20f;
+          duration: 0.01s
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -528,7 +547,8 @@ script:
       - if:
           condition:
             lambda: |-
-              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+              return (id(gui_page) == 3) ||
+                     (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
                      (id(ha_target_state).state == "playing");
           then:
             - mixer_speaker.apply_ducking:

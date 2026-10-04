@@ -2675,20 +2675,32 @@ script:
   - id: route_i2s_to_mic
     mode: restart
     then:
-      - audio_dac.mute_on: es8311_dac
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
-          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
-          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
+      - if:
+          condition:
+            lambda: 'return id(i2s_on_speaker);'
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - delay: 10ms
+            - lambda: |-
+                esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
+                esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
+                esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
+                id(i2s_on_speaker) = false;
 
   - id: route_i2s_to_spk
     mode: restart
     then:
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
-          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
-          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
-      - switch.turn_on: speaker_enable
+      - if:
+          condition:
+            lambda: 'return !id(i2s_on_speaker);'
+          then:
+            - lambda: |-
+                esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
+                esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
+                esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+                id(i2s_on_speaker) = true;
+            - switch.turn_on: speaker_enable
+            - delay: 40ms
 
   - id: trigger_firmware_update
     mode: restart
@@ -5266,7 +5278,7 @@ display:
           // Button 1: Hibernate Now (y = 120, r = 18)
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "Hibernate Now", id(col_white), false);
 
-          // Button 2: Auto-Sleep Timeout Cycler (y = 180, r = 18)
+          // Button 2: Auto-Hibernate Timeout Cycler (y = 180, r = 18)
           char s_buf[32];
           std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
           snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
@@ -7048,6 +7060,10 @@ touchscreen:
                       id(gui_page) = get_slot(next_idx);
                     }
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
+                    if (id(gui_page) == 1 || id(gui_page) == 3) {
+                      id(route_i2s_to_spk).execute();
+                      id(es8311_dac).set_mute_off();
+                    }
                     id(disp1).update();
                   }
                 }
@@ -7151,6 +7167,8 @@ touchscreen:
                     id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
                     id(sleep_start_time) = 0;
                     id(display_brightness).turn_on().perform();
+                    id(route_i2s_to_spk).execute();
+                    id(es8311_dac).set_mute_off();
                   } else {
                     id(stopwatch_running) = false;
                     id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
@@ -7482,14 +7500,15 @@ touchscreen:
                   }
                 }
                 if (id(active_game) > 0) {
-                  // Pause background music and mute DAC for dedicated game resources
+                  // Pause background music and pre-prime speaker pipeline for instant game sounds
                   if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
                     call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                     call.perform();
                     id(toggle_ha_music).execute();
-                    id(es8311_dac).set_mute_on();
                   }
+                  id(route_i2s_to_spk).execute();
+                  id(es8311_dac).set_mute_off();
                 }
                 id(disp1).update();
               } else {
@@ -7627,7 +7646,7 @@ touchscreen:
                   } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
                     id(prevent_deep_sleep_switch).toggle();
                     id(disp1).update();
-                  // Slot 4: Auto-Sleep Deep Sleep Timeout (y: 275..328, x: 90..376)
+                  // Slot 4: Auto-Hibernate Timeout (y: 275..328, x: 90..376)
                   } else if (touch.y >= 275 && touch.y <= 328 && touch.x >= 90 && touch.x <= 376) {
                     std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
                     std::string nxt_as = "5 min";
@@ -7715,7 +7734,7 @@ touchscreen:
                 // Card 1: Hibernate Now (y: 95..148, x: 90..376)
                 if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
                   id(start_hibernation_countdown).execute();
-                // Card 2: Auto-Sleep Timeout Cycler (y: 155..208, x: 90..376)
+                // Card 2: Auto-Hibernate Timeout Cycler (y: 155..208, x: 90..376)
                 } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
                   std::string nxt = "5 min";

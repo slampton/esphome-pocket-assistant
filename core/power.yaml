@@ -150,7 +150,7 @@ sensor:
 
 button:
   - platform: template
-    name: "Power: Enter Deep Sleep"
+    name: "Power: Enter Hibernate"
     id: enter_deep_sleep_btn
     icon: "mdi:sleep"
     entity_category: config
@@ -179,7 +179,7 @@ switch:
       - lambda: 'id(docked_screensaver_switch).publish_state(false);'
 
   - platform: template
-    name: "Power: Prevent Deep Sleep"
+    name: "Power: Prevent Hibernate"
     id: prevent_deep_sleep_switch
     entity_category: config
     icon: "mdi:sleep-off"
@@ -446,6 +446,8 @@ interval:
                   id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
                   id(sleep_start_time) = 0;
                   id(display_brightness).turn_on().perform();
+                  id(route_i2s_to_spk).execute();
+                  id(es8311_dac).set_mute_off();
                 } else {
                   id(stopwatch_running) = false;
                   uint32_t now_stop = millis();
