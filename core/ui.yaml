@@ -1440,10 +1440,6 @@ binary_sensor:
                     - if:
                         condition:
                           lambda: |-
-                            // If audio has finished playing, start a new query immediately rather than canceling
-                            if (id(va_tts_received) && !id(announcement_mixing_input).is_running()) {
-                              return false;
-                            }
                             return id(va_active) || !id(va_status_text).empty();
                         then:
                           - script.execute: cancel_voice_assistant
@@ -2610,7 +2606,9 @@ script:
             - script.execute: route_i2s_to_mic
 
   - id: cancel_voice_assistant
+    mode: restart
     then:
+      - script.stop: va_tts_drain_and_finish
       - audio_dac.mute_on: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
@@ -2624,7 +2622,7 @@ script:
           id(va_active) = false;
           id(gui_page) = id(return_page);
       - component.update: disp1
-      - delay: 250ms
+      - delay: 100ms
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -6943,10 +6941,10 @@ touchscreen:
                 // Normal Player Mode
                 // ----------------------------------------------------
                 bool is_compact_touch = (std::string(id(music_fullscreen_art_mode).current_option().c_str()) == "Compact");
-                int prev_x_max = is_compact_touch ? 150 : 175;
-                int next_x_min = is_compact_touch ? 316 : 291;
+                int prev_x_max = is_compact_touch ? 165 : 185;
+                int next_x_min = is_compact_touch ? 300 : 280;
 
-                // Right Flank Volume Up (+): Upper Right Quadrant (x >= next_x_min, y < 175) with 120ms rate-limit (Evaluated first to eliminate header overlap)
+                // Right Flank Volume Up (+): Upper Right Quadrant (center 405, 140) with 120ms rate-limit (Evaluated first to eliminate header overlap)
                 if (touch.x >= next_x_min && touch.y < 175) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
@@ -6963,13 +6961,13 @@ touchscreen:
                   }
 
                 // Dedicated Header Tap Zone ("MUSIC" Title) & Upper-Left Flank: Open Category Menu
-                // Constrained to title center (x: 180..286, y <= 95) or upper-left corner (x <= prev_x_max, y < 155)
-                } else if ((touch.y <= 95 && touch.x >= 180 && touch.x <= 286) || (touch.x <= prev_x_max && touch.y < 155)) {
+                // Constrained to title center (x: 180..286, y <= 95) or upper-left corner (x <= prev_x_max, y < 140)
+                } else if ((touch.y <= 95 && touch.x >= 180 && touch.x <= 286) || (touch.x <= prev_x_max && touch.y < 140)) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
 
                 // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x, 212)
-                } else if (touch.x >= next_x_min && touch.y >= 175 && touch.y < 255) {
+                } else if (touch.x >= (next_x_min - 15) && touch.y >= 175 && touch.y < 255) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > 250) {
@@ -6996,8 +6994,8 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212)
-                } else if (touch.x <= prev_x_max && touch.y >= 155 && touch.y < 255) {
+                // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x, 212, generous y: 140..255)
+                } else if (touch.x <= (prev_x_max + 15) && touch.y >= 140 && touch.y < 255) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_prev_tap > 250) {
@@ -7019,7 +7017,7 @@ touchscreen:
                   }
 
                 // Center Hero Album Art & Play / Pause toggle (center 233, 212) - Mode-aware generous zone (clean bound y < 398)
-                } else if (touch.y >= 95 && touch.y < 398 && touch.x > prev_x_max && touch.x < next_x_min) {
+                } else if (touch.y >= 95 && touch.y < 398 && touch.x > (prev_x_max + 15) && touch.x < (next_x_min - 15)) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > 250) {

@@ -184,6 +184,10 @@ voice_assistant:
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_mic
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.1s
       - lambda: |-
           if (!id(va_active)) {
             id(return_page) = id(gui_page);
@@ -225,6 +229,10 @@ voice_assistant:
       - mixer_speaker.apply_ducking:
           id: media_mixing_input
           decibel_reduction: 50
+          duration: 0.1s
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
           duration: 0.1s
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
@@ -317,15 +325,22 @@ voice_assistant:
           }
   on_end:
     then:
+      - script.execute: va_tts_drain_and_finish
+
+
+script:
+  - id: va_tts_drain_and_finish
+    mode: restart
+    then:
       - if:
           condition:
             lambda: 'return id(va_tts_received);'
           then:
-            # 1. Brief window for audio pipeline to engage if not already running
+            # 1. Wait up to 5s for audio stream to reach mixer
             - wait_until:
                 condition:
                   lambda: 'return id(announcement_mixing_input).is_running();'
-                timeout: 300ms
+                timeout: 5s
             # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
             - if:
                 condition:
@@ -359,9 +374,6 @@ voice_assistant:
             binary_sensor.is_off: pickup_detected
           then:
             - script.execute: screen_sleep_timer
-
-
-script:
   - id: play_alarm_sound
     mode: restart
     then:
