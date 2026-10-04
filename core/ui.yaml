@@ -2728,6 +2728,23 @@ display:
         0.309017f, 0.406737f, 0.500000f, 0.587785f, 0.669131f, 0.743145f,
         0.809017f, 0.866025f, 0.913545f, 0.951057f, 0.978148f, 0.994522f
       };
+      // Fast Chord Table for Radius 222 (Aged Parchment Dial Fill without sqrtf)
+      static constexpr int16_t CHRONO_CHORD[223] = {
+        222, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221,
+        221, 221, 221, 221, 221, 221, 220, 220, 220, 220, 220, 220, 220, 220, 219, 219,
+        219, 219, 219, 219, 219, 218, 218, 218, 218, 218, 217, 217, 217, 217, 217, 216,
+        216, 216, 216, 216, 215, 215, 215, 215, 214, 214, 214, 214, 213, 213, 213, 212,
+        212, 212, 211, 211, 211, 211, 210, 210, 210, 209, 209, 208, 208, 208, 207, 207,
+        207, 206, 206, 205, 205, 205, 204, 204, 203, 203, 202, 202, 202, 201, 201, 200,
+        200, 199, 199, 198, 198, 197, 197, 196, 196, 195, 195, 194, 193, 193, 192, 192,
+        191, 191, 190, 189, 189, 188, 188, 187, 186, 186, 185, 184, 184, 183, 182, 182,
+        181, 180, 179, 179, 178, 177, 176, 176, 175, 174, 173, 173, 172, 171, 170, 169,
+        168, 168, 167, 166, 165, 164, 163, 162, 161, 160, 159, 158, 157, 156, 155, 154,
+        153, 152, 151, 150, 149, 148, 147, 146, 145, 143, 142, 141, 140, 139, 137, 136,
+        135, 133, 132, 131, 129, 128, 127, 125, 124, 122, 121, 119, 118, 116, 114, 113,
+        111, 109, 107, 106, 104, 102, 100, 98, 96, 94, 92, 89, 87, 85, 82, 80,
+        77, 74, 72, 69, 65, 62, 59, 55, 51, 46, 41, 36, 29, 21, 0
+      };
       static constexpr float SUB_SIN[10] = {
         0.000000f, 0.587785f, 0.951057f, 0.951057f, 0.587785f,
         0.000000f, -0.587785f, -0.951057f, -0.951057f, -0.587785f
@@ -3438,11 +3455,19 @@ display:
                 it.line(cx + (int)(216 * s), cy - (int)(216 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_gray));
               }
             }
-            // Highlight active second tick in theme primary
-            float s_sec = DIAL_SIN[sec % 60];
-            float c_sec = DIAL_COS[sec % 60];
-            it.line(cx + (int)(208 * s_sec), cy - (int)(208 * c_sec), cx + (int)(220 * s_sec), cy - (int)(220 * c_sec), id(theme_primary));
-            it.line(cx + (int)(208 * s_sec) + 1, cy - (int)(208 * c_sec), cx + (int)(220 * s_sec) + 1, cy - (int)(220 * c_sec), id(theme_primary));
+            // Highlight active second tick in theme primary (enlarged +25% in length & width for crisp visibility)
+            int sec_idx = sec % 60;
+            float s_sec = DIAL_SIN[sec_idx];
+            float c_sec = DIAL_COS[sec_idx];
+            float perp_x = -c_sec;
+            float perp_y = -s_sec;
+            for (int w = -1; w <= 1; w++) {
+              int x1 = cx + (int)(205.0f * s_sec + w * perp_x);
+              int y1 = cy - (int)(205.0f * c_sec - w * perp_y);
+              int x2 = cx + (int)(220.0f * s_sec + w * perp_x);
+              int y2 = cy - (int)(220.0f * c_sec - w * perp_y);
+              it.line(x1, y1, x2, y2, id(theme_primary));
+            }
 
             // Date Header: "MON, SEP 28" (Theme Primary)
             it.strftime(cx, 130, id(font_date), id(theme_primary), TextAlign::CENTER, "%a, %b %d", now);
@@ -3467,14 +3492,14 @@ display:
             }
             it.print(cx, 262, id(font_small), id(theme_secondary), TextAlign::CENTER, sec_buf);
 
-            // Battery telemetry in cyan with charging bolt / battery gauge
+            // Battery telemetry in cyan with charging bolt / battery gauge (standardized to y = 380, static across faces)
             if (!isnan(batt)) {
               char batt_str[16];
               snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
               int text_x = cx + 8;
-              it.print(text_x, 340, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
+              it.print(text_x, 380, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
               int bx = text_x - (batt >= 100.0f ? 36 : 28);
-              int by = 340;
+              int by = 380;
               if (id(batt_charging).state) {
                 it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
                 it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
@@ -3592,7 +3617,10 @@ display:
         it.circle(cx, cy, 223, id(col_silver));
 
         // Authentic 1970s Vintage Aged Parchment / Warm Opaline Off-White Dial
-        it.filled_circle(cx, cy, 222, Color(216, 206, 184));
+                for (int dy = -222; dy <= 222; dy++) {
+          int16_t hw = CHRONO_CHORD[abs(dy)];
+          it.horizontal_line(cx - hw, cy + dy, 2 * hw + 1, Color(216, 206, 184));
+        }
 
         // Outer Chapter Track Boundaries (Bold double ring)
         it.circle(cx, cy, 220, id(col_black));
@@ -3627,14 +3655,13 @@ display:
           }
         }
 
-        // Bold Perimeter Numerals (5..55: Fast LUT Lookups)
+        // Bold Perimeter Numerals (5..55: Zero Runtime snprintf)
+        static const char* const CHRONO_NUM_STRS[11] = {"5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"};
         for (int s = 5; s <= 55; s += 5) {
           float t_sin = DIAL_SIN[s];
           float t_cos = DIAL_COS[s];
-          char num_str[8];
-          snprintf(num_str, sizeof(num_str), "%d", s);
           it.print(cx + (int)(170.0f * t_sin), cy - (int)(170.0f * t_cos),
-                   id(font_small), id(col_black), TextAlign::CENTER, num_str);
+                   id(font_small), id(col_black), TextAlign::CENTER, CHRONO_NUM_STRS[(s / 5) - 1]);
         }
 
         // Vintage Title at Top: STOPWATCH (clean, non-overlapping)
@@ -3671,14 +3698,13 @@ display:
           }
         }
 
-        // Subdial Markings: 0, 2, 4, 6, 8 (Fast SUB_SIN/COS LUT Lookups)
+        // Subdial Markings: 0, 2, 4, 6, 8 (Zero Runtime snprintf)
+        static const char* const SUB_NUM_STRS[5] = {"0", "2", "4", "6", "8"};
         for (int i = 0; i < 10; i += 2) {
           float s_i = SUB_SIN[i];
           float c_i = SUB_COS[i];
-          char sub_num[4];
-          snprintf(sub_num, sizeof(sub_num), "%d", i);
           it.print(sub_cx + (int)(28.0f * s_i), sub_cy - (int)(28.0f * c_i),
-                   id(font_small), id(col_black), TextAlign::CENTER, sub_num);
+                   id(font_small), id(col_black), TextAlign::CENTER, SUB_NUM_STRS[i / 2]);
         }
 
         it.print(sub_cx, sub_cy + 14, id(font_micro), id(col_slate), TextAlign::CENTER, "1/10 SEC");
@@ -6811,7 +6837,7 @@ touchscreen:
       number: GPIO11
       mode: INPUT_PULLUP
     reset_pin: GPIO2
-    update_interval: 20ms
+    update_interval: 10ms
     transform:
       mirror_x: true
       mirror_y: true
@@ -7035,18 +7061,18 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls (Instant Precision Response)
+            // Page 1: Stopwatch Screen Tap Controls (Instant Precision Response: 140ms Debounce)
             if (id(gui_page) == 1) {
               int dx_lap = touch.x - 179;
               int dy_lap = touch.y - 328;
               int dx_rst = touch.x - 287;
               int dy_rst = touch.y - 328;
 
-              // 1. LAP Pusher: Radial Circular Hitbox (center 179, 328, r=44)
-              if (dx_lap * dx_lap + dy_lap * dy_lap <= 44 * 44) {
+              // 1. LAP Pusher: Radial Circular Hitbox (center 179, 328, r=46)
+              if (dx_lap * dx_lap + dy_lap * dy_lap <= 46 * 46) {
                 static uint32_t last_lap_tap = 0;
                 uint32_t now_lap = millis();
-                if (now_lap - last_lap_tap > 180) {
+                if (now_lap - last_lap_tap > 140) {
                   last_lap_tap = now_lap;
                   if (id(stopwatch_running)) {
                     // Running: record / update split time
@@ -7058,11 +7084,11 @@ touchscreen:
                   id(disp1).update();
                 }
                 return;
-              // 2. RESET Pusher: Radial Circular Hitbox (center 287, 328, r=44)
-              } else if (dx_rst * dx_rst + dy_rst * dy_rst <= 44 * 44) {
+              // 2. RESET Pusher: Radial Circular Hitbox (center 287, 328, r=46)
+              } else if (dx_rst * dx_rst + dy_rst * dy_rst <= 46 * 46) {
                 static uint32_t last_rst_tap = 0;
                 uint32_t now_rst = millis();
-                if (now_rst - last_rst_tap > 180) {
+                if (now_rst - last_rst_tap > 140) {
                   last_rst_tap = now_rst;
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
@@ -7070,11 +7096,11 @@ touchscreen:
                   id(disp1).update();
                 }
                 return;
-              // 3. Precision START/STOP: Entire Dial Surface (y: 45..374, x: 70..396)
-              } else if (touch.y >= 45 && touch.y < 375 && touch.x >= 70 && touch.x <= 396) {
+              // 3. Precision START/STOP: Broad Dial Surface (y: 40..374, x: 50..416)
+              } else if (touch.y >= 40 && touch.y < 375 && touch.x >= 50 && touch.x <= 416) {
                 static uint32_t last_chrono_tap = 0;
                 uint32_t now_tap = millis();
-                if (now_tap - last_chrono_tap > 180) {
+                if (now_tap - last_chrono_tap > 140) {
                   last_chrono_tap = now_tap;
                   if (!id(stopwatch_running)) {
                     id(stopwatch_running) = true;
