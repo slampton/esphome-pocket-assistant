@@ -357,6 +357,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: ringing_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: va_active
     type: bool
     restore_value: no
@@ -1126,7 +1130,9 @@ interval:
               id(timer_running) = false;
               id(timer_paused) = false;
               id(timer_remaining_sec) = 0;
+              id(return_page) = id(gui_page);
               id(timer_ringing) = true;
+              id(ringing_start_ms) = millis();
               id(gui_page) = 6;
               id(timer_alarm_subpage) = 0;
               id(wake_to_active_state).execute();
@@ -1146,9 +1152,19 @@ interval:
             }
           }
 
-          // Periodic display refresh during active alarm or timer ringing
+          // Periodic display refresh & 3-minute auto-silence timeout during active alarm or timer ringing
           if ((id(alarm_ringing) || id(timer_ringing)) && id(display_power_state) == 0) {
-            if (!id(va_active) && id(va_status_text).empty()) {
+            if (id(ringing_start_ms) > 0 && (millis() - id(ringing_start_ms) > 180000)) {
+              // 3-minute unacknowledged timeout: auto-silence to prevent battery exhaustion
+              ESP_LOGW("alarm", "Alert unacknowledged after 3 minutes! Auto-silencing.");
+              id(alarm_ringing) = false;
+              id(timer_ringing) = false;
+              id(ringing_start_ms) = 0;
+              id(stop_alarm_sound).execute();
+              id(gui_page) = id(return_page);
+              id(disp1).update();
+              id(screen_sleep_timer).execute();
+            } else if (!id(va_active) && id(va_status_text).empty()) {
               id(disp1).update();
             }
           }
@@ -1160,6 +1176,10 @@ interval:
           // ------------------------------------------------------------------
           // ALARM ENGINE: SCHEDULE EVALUATION & SNOOZE CHECK
           // ------------------------------------------------------------------
+          if (id(is_hibernating)) {
+            return; // Suppress alarms during deep sleep / hibernate
+          }
+
           auto now = id(ha_time).now();
           if (now.is_valid()) {
             uint32_t now_epoch = now.timestamp;
@@ -1167,7 +1187,9 @@ interval:
             // 1. Snooze expiration check
             if (id(alarm_snooze_until) > 0 && now_epoch >= id(alarm_snooze_until)) {
               id(alarm_snooze_until) = 0;
+              id(return_page) = id(gui_page);
               id(alarm_ringing) = true;
+              id(ringing_start_ms) = millis();
               id(gui_page) = 6;
               id(timer_alarm_subpage) = 1;
               id(wake_to_active_state).execute();
@@ -1206,8 +1228,10 @@ interval:
 
               if (triggered) {
                 id(alarm_last_fired_min) = now.minute;
+                id(return_page) = id(gui_page);
                 id(alarm_ringing) = true;
                 id(alarm_ringing_idx) = trig_idx;
+                id(ringing_start_ms) = millis();
                 id(gui_page) = 6;
                 id(timer_alarm_subpage) = 1;
                 id(wake_to_active_state).execute();
@@ -6903,14 +6927,18 @@ touchscreen:
                     id(alarm_snooze_until) = (millis() / 1000) + 300;
                   }
                   id(alarm_ringing) = false;
+                  id(ringing_start_ms) = 0;
                   id(stop_alarm_sound).execute();
+                  id(gui_page) = id(return_page);
                   id(disp1).update();
                   return;
                 }
                 // DISMISS button: y in [345..395], x in [120..346]
                 if (touch.y >= 345 && touch.y <= 395 && touch.x >= 120 && touch.x <= 346) {
                   id(alarm_ringing) = false;
+                  id(ringing_start_ms) = 0;
                   id(stop_alarm_sound).execute();
+                  id(gui_page) = id(return_page);
                   id(disp1).update();
                   return;
                 }
@@ -6918,7 +6946,9 @@ touchscreen:
                 // DISMISS button: y in [305..355], x in [110..356]
                 if (touch.y >= 305 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
                   id(timer_ringing) = false;
+                  id(ringing_start_ms) = 0;
                   id(stop_alarm_sound).execute();
+                  id(gui_page) = id(return_page);
                   id(disp1).update();
                   return;
                 }

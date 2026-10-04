@@ -210,9 +210,13 @@ api:
     - action: cancel_timer
       then:
         - lambda: |-
+            if (id(timer_ringing)) {
+              id(gui_page) = id(return_page);
+            }
             id(timer_running) = false;
             id(timer_paused) = false;
             id(timer_ringing) = false;
+            id(ringing_start_ms) = 0;
             id(timer_remaining_sec) = id(timer_duration_sec);
             id(stop_alarm_sound).execute();
             id(disp1).update();

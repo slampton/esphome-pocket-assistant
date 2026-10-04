@@ -319,7 +319,9 @@ voice_assistant:
             id(timer_running) = false;
             id(timer_paused) = false;
             id(timer_remaining_sec) = 0;
+            id(return_page) = id(gui_page);
             id(timer_ringing) = true;
+            id(ringing_start_ms) = millis();
             id(gui_page) = 6;
             id(timer_alarm_subpage) = 0;
             id(wake_to_active_state).execute();
@@ -450,7 +452,9 @@ script:
     mode: restart
     then:
       - script.execute: route_i2s_to_spk
+      - delay: 50ms
       - audio_dac.mute_off: es8311_dac
+      - delay: 10ms
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
@@ -459,14 +463,18 @@ script:
           duration: 0.02s
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "lap:d=16,o=5,b=200:c6"
-      - delay: 180ms
+          rtttl: "lap:d=16,o=5,b=240:c6,p,e6"
+      - delay: 50ms
       - wait_until:
           condition:
             not:
               rtttl.is_playing:
-          timeout: 500ms
-      - delay: 150ms
+          timeout: 1s
+      - wait_until:
+          condition:
+            lambda: 'return !id(announcement_mixing_input).is_running();'
+          timeout: 1s
+      - delay: 350ms
       - if:
           condition:
             lambda: |-
@@ -479,13 +487,16 @@ script:
                 duration: 0.1s
           else:
             - audio_dac.mute_on: es8311_dac
+            - delay: 10ms
             - script.execute: route_i2s_to_mic
 
   - id: play_game_over_sound
     mode: restart
     then:
       - script.execute: route_i2s_to_spk
+      - delay: 50ms
       - audio_dac.mute_off: es8311_dac
+      - delay: 10ms
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
@@ -502,14 +513,18 @@ script:
                 duration: 0.1s
       - rtttl.play:
           id: alarm_rtttl
-          rtttl: "gover:d=8,o=4,b=160:g,e,c"
-      - delay: 600ms
+          rtttl: "gover:d=8,o=5,b=150:g,e,c"
+      - delay: 50ms
       - wait_until:
           condition:
             not:
               rtttl.is_playing:
+          timeout: 2s
+      - wait_until:
+          condition:
+            lambda: 'return !id(announcement_mixing_input).is_running();'
           timeout: 1s
-      - delay: 150ms
+      - delay: 400ms
       - if:
           condition:
             lambda: |-
@@ -526,6 +541,7 @@ script:
                 duration: 0.1s
           else:
             - audio_dac.mute_on: es8311_dac
+            - delay: 10ms
             - script.execute: route_i2s_to_mic
 
 number:
