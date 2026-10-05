@@ -4018,8 +4018,15 @@ display:
           // --------------------------------------------------
           // VIEW 0: NOW PLAYING MUSIC PLAYER
           // --------------------------------------------------
-          // Standardized Title baseline (y = 50) & Buffered Active Speaker Indicator (y = 74)
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
+          std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+          if (art_mode.empty()) art_mode = "Full Screen";
+          bool is_compact = (art_mode == "Compact");
+          bool is_letterbox = (art_mode == "Letterbox");
+
+          // Title & Active Speaker Indicator: Rendered only on Compact View (suppressed on Full Screen & Letterbox)
+          if (is_compact) {
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
+          }
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
           bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
@@ -4032,7 +4039,9 @@ display:
           } else if (millis() < 4000) {
             spk_label = "[CONNECTING...]";
           }
-          it.print(cx, 74, id(font_small), is_feedback ? id(theme_primary) : ((is_remote && millis() >= 4000) ? id(theme_secondary) : id(col_slate)), TextAlign::CENTER, spk_label.c_str());
+          if (is_compact) {
+            it.print(cx, 74, id(font_small), is_feedback ? id(theme_primary) : ((is_remote && millis() >= 4000) ? id(theme_secondary) : id(col_slate)), TextAlign::CENTER, spk_label.c_str());
+          }
 
           // Perfectly Centered Album Art: 216x216 centered across horizontal centerline (cx = 233, art_center_y = 212), spans y = 104 to 320
           const int art_center_y = 212;
@@ -4056,11 +4065,6 @@ display:
               target_art = id(remote_album_art);
             }
           }
-
-          std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-          if (art_mode.empty()) art_mode = "Full Screen";
-          bool is_compact = (art_mode == "Compact");
-          bool is_letterbox = (art_mode == "Letterbox");
 
           bool rendered_art = false;
           if (has_art && target_art != nullptr) {
@@ -4300,13 +4304,13 @@ display:
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
-          // LEVEL 1: SPEAKER SELECTION MENU (Standardized 60px Pitch)
+          // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch)
           // --------------------------------------------------
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SPEAKER");
 
-          // Standardized 60px pitch (Slot 1 & 2: Speaker Actions)
-          draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), false);
-          draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER TAKEOVER", id(col_white), false);
+          // Standardized 58px pitch (Slot 1 & 2: Speaker Actions, standard y=104 & y=162 buffers)
+          draw_pill_button(110, 356, 104, 18, id(theme_secondary), id(col_dark_gray), "HANDOFF", id(col_white), false);
+          draw_pill_button(110, 356, 162, 18, id(theme_secondary), id(col_dark_gray), "TAKEOVER", id(col_white), false);
 
           // Bottom Back to Player (Standardized at y = 408, r = 16)
           draw_back_button();
@@ -7218,9 +7222,9 @@ touchscreen:
                 const int prev_x_max = is_compact ? 124 : 175;
                 const int next_x_min = is_compact ? 342 : 291;
 
-                // Dedicated Header Tap Zone ("MUSIC" Title): Open Library Categories Menu
+                // Dedicated Header Tap Zone ("MUSIC" Title): Open Library Categories Menu (Compact View only)
                 // Constrained strictly to top title area (x: 160..306, y <= 95)
-                if (touch.y <= 95 && touch.x >= 160 && touch.x <= 306) {
+                if (is_compact && touch.y <= 95 && touch.x >= 160 && touch.x <= 306) {
                   id(music_category_page) = 1;
                   id(music_overlay_mode) = 2;
                   id(disp1).update();
@@ -7302,8 +7306,8 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Center Hero Album Art & Play / Pause toggle: Generous Center Zone (y: 95..380)
-                } else if (touch.y >= 95 && touch.y < 380) {
+                // Center Hero Album Art & Play / Pause toggle: Generous Center Zone (y: 95..380 for Compact, y: 0..380 for Full/Letterbox)
+                } else if ((is_compact ? touch.y >= 95 : touch.y >= 0) && touch.y < 380) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > 250) {
@@ -7318,24 +7322,24 @@ touchscreen:
                 }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
-                // LEVEL 1: SPEAKER SELECTION MENU (Standardized 60px Pitch)
+                // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch)
                 // ----------------------------------------------------
-                // Card 1: SPEAKER HANDOFF (y: 95..150, x: 90..376)
-                if (touch.y >= 95 && touch.y <= 150 && touch.x >= 90 && touch.x <= 376) {
+                // Card 1: HANDOFF (y: 75..133, x: 75..395, pill at y=104)
+                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 75 && touch.x <= 395) {
                   id(selected_category_mode) = "speakers";
                   id(selected_category_title) = "HANDOFF";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 2: SPEAKER TAKEOVER (y: 155..210, x: 90..376)
-                } else if (touch.y >= 155 && touch.y <= 210 && touch.x >= 90 && touch.x <= 376) {
+                // Card 2: TAKEOVER (y: 134..191, x: 75..395, pill at y=162)
+                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 75 && touch.x <= 395) {
                   id(selected_category_mode) = "speaker_takeover";
                   id(selected_category_title) = "TAKEOVER";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
                 // Top Header area tap: Return to Player View
-                } else if (touch.y <= 95 && touch.x >= 120 && touch.x <= 346) {
+                } else if (touch.y <= 74 && touch.x >= 120 && touch.x <= 346) {
                   id(music_overlay_mode) = 0; // Return to Player View
                   id(disp1).update();
                 // Ultra-Forgiving < BACK Button (y: 335..450, x: 80..386) -> Returns to Player View
