@@ -633,8 +633,6 @@ select:
     initial_option: "Always"
     options:
       - "Always"
-      - "Music Only"
-      - "System Only"
       - "Never"
     set_action:
       - lambda: |-
@@ -4323,18 +4321,20 @@ display:
             draw_pill_button(110, 356, 162, 18, id(theme_secondary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), false);
           }
 
-          // Flank Navigation Chevrons (< and >) at y = 220 indicating edge-tap paging
-          // Left chevron (<) at x = 44, y = 220
-          it.line(44 + 4, 220 - 8, 44 - 4, 220, id(theme_secondary));
-          it.line(44 + 5, 220 - 8, 44 - 3, 220, id(theme_secondary));
-          it.line(44 + 4, 220 + 8, 44 - 4, 220, id(theme_secondary));
-          it.line(44 + 5, 220 + 8, 44 - 3, 220, id(theme_secondary));
-
-          // Right chevron (>) at x = 422, y = 220
-          it.line(422 - 4, 220 - 8, 422 + 4, 220, id(theme_secondary));
-          it.line(422 - 5, 220 - 8, 422 + 3, 220, id(theme_secondary));
-          it.line(422 - 4, 220 + 8, 422 + 4, 220, id(theme_secondary));
-          it.line(422 - 5, 220 + 8, 422 + 3, 220, id(theme_secondary));
+          // Flank Navigation Chevrons: Directional 2-Page Navigation at y = 220
+          if (id(music_category_page) == 1) {
+            // Page 1: Right chevron (>) only at x = 422, y = 220
+            it.line(422 - 4, 220 - 8, 422 + 4, 220, id(theme_secondary));
+            it.line(422 - 5, 220 - 8, 422 + 3, 220, id(theme_secondary));
+            it.line(422 - 4, 220 + 8, 422 + 4, 220, id(theme_secondary));
+            it.line(422 - 5, 220 + 8, 422 + 3, 220, id(theme_secondary));
+          } else {
+            // Page 2: Left chevron (<) only at x = 44, y = 220
+            it.line(44 + 4, 220 - 8, 44 - 4, 220, id(theme_secondary));
+            it.line(44 + 5, 220 - 8, 44 - 3, 220, id(theme_secondary));
+            it.line(44 + 4, 220 + 8, 44 - 4, 220, id(theme_secondary));
+            it.line(44 + 5, 220 + 8, 44 - 3, 220, id(theme_secondary));
+          }
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
@@ -4417,7 +4417,7 @@ display:
               }
 
               std::string disp_name = name;
-              if (disp_name.length() > 26) disp_name = disp_name.substr(0, 24) + "..";
+              if (disp_name.length() > 18) disp_name = disp_name.substr(0, 16) + "..";
               // Left-aligned title with generous space across the full pill width
               it.print(130, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
             }
@@ -5415,18 +5415,20 @@ display:
             draw_pill_button(110, 356, 220, 20, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
           }
 
-          // Flank Navigation Chevrons (< and >) at y = 220 indicating edge-tap paging
-          // Left chevron (<) at x = 44, y = 220
-          it.line(44 + 4, 220 - 8, 44 - 4, 220, id(theme_secondary));
-          it.line(44 + 5, 220 - 8, 44 - 3, 220, id(theme_secondary));
-          it.line(44 + 4, 220 + 8, 44 - 4, 220, id(theme_secondary));
-          it.line(44 + 5, 220 + 8, 44 - 3, 220, id(theme_secondary));
-
-          // Right chevron (>) at x = 422, y = 220
-          it.line(422 - 4, 220 - 8, 422 + 4, 220, id(theme_secondary));
-          it.line(422 - 5, 220 - 8, 422 + 3, 220, id(theme_secondary));
-          it.line(422 - 4, 220 + 8, 422 + 4, 220, id(theme_secondary));
-          it.line(422 - 5, 220 + 8, 422 + 3, 220, id(theme_secondary));
+          // Flank Navigation Chevrons: Directional 2-Page Navigation at y = 220
+          if (id(sleep_menu_page) == 1) {
+            // Page 1: Right chevron (>) only at x = 422, y = 220
+            it.line(422 - 4, 220 - 8, 422 + 4, 220, id(theme_secondary));
+            it.line(422 - 5, 220 - 8, 422 + 3, 220, id(theme_secondary));
+            it.line(422 - 4, 220 + 8, 422 + 4, 220, id(theme_secondary));
+            it.line(422 - 5, 220 + 8, 422 + 3, 220, id(theme_secondary));
+          } else {
+            // Page 2: Left chevron (<) only at x = 44, y = 220
+            it.line(44 + 4, 220 - 8, 44 - 4, 220, id(theme_secondary));
+            it.line(44 + 5, 220 - 8, 44 - 3, 220, id(theme_secondary));
+            it.line(44 + 4, 220 + 8, 44 - 4, 220, id(theme_secondary));
+            it.line(44 + 5, 220 + 8, 44 - 3, 220, id(theme_secondary));
+          }
 
           // Submenu < BACK Button nestled lower at y = 408 (r = 16) with generous 34px buffer below Slot 5
           draw_pill_button(180, 286, 408, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
@@ -6927,8 +6929,7 @@ display:
         std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
         if (cnt_mode.empty()) cnt_mode = "Always";
 
-        bool show_in_music = (cnt_mode == "Always" || cnt_mode == "Music Only");
-        bool show_in_deck = (cnt_mode == "Always" || cnt_mode == "System Only");
+        bool show_in_deck = (cnt_mode != "Never");
 
         char pg_buf[16] = {0};
         bool draw_pg = false;
@@ -7092,8 +7093,10 @@ touchscreen:
             if (id(gui_page) == 2 && id(music_overlay_mode) > 1 && touch.y >= 70 && touch.y <= 365) {
               if (touch.x < 75) {
                 if (id(music_overlay_mode) == 2) {
-                  id(music_category_page) = (id(music_category_page) == 1) ? 2 : 1;
-                  id(disp1).update();
+                  if (id(music_category_page) == 2) {
+                    id(music_category_page) = 1;
+                    id(disp1).update();
+                  }
                 } else if (id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
                     if (id(music_browse_page) > 1) {
@@ -7108,8 +7111,10 @@ touchscreen:
                 return;
               } else if (touch.x > 395) {
                 if (id(music_overlay_mode) == 2) {
-                  id(music_category_page) = (id(music_category_page) >= 2) ? 1 : 2;
-                  id(disp1).update();
+                  if (id(music_category_page) == 1) {
+                    id(music_category_page) = 2;
+                    id(disp1).update();
+                  }
                 } else if (id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
                     if (id(music_browse_page) < id(music_browse_total_pages)) {
@@ -7588,17 +7593,21 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
-                // Mode 1: Sleep & Wake Submenu (5-Pill Layout, 2 Pages, Edge-Tap Navigation)
-                // Left Flank Navigation (<): Page Cycle (x < 95, y: 70..375)
+                // Mode 1: Sleep & Wake Submenu (5-Pill Layout, 2 Pages, Directional Edge-Tap Navigation)
+                // Left Flank Navigation (<): Go to Page 1 (only valid on Page 2)
                 if (touch.x < 95 && touch.y >= 70 && touch.y <= 375) {
-                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
-                  id(disp1).update();
+                  if (id(sleep_menu_page) == 2) {
+                    id(sleep_menu_page) = 1;
+                    id(disp1).update();
+                  }
                   return;
                 }
-                // Right Flank Navigation (>): Page Cycle (x > 371, y: 70..375)
+                // Right Flank Navigation (>): Go to Page 2 (only valid on Page 1)
                 if (touch.x > 371 && touch.y >= 70 && touch.y <= 375) {
-                  id(sleep_menu_page) = (id(sleep_menu_page) >= 2) ? 1 : 2;
-                  id(disp1).update();
+                  if (id(sleep_menu_page) == 1) {
+                    id(sleep_menu_page) = 2;
+                    id(disp1).update();
+                  }
                   return;
                 }
 
