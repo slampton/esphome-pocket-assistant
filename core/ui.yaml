@@ -3285,60 +3285,53 @@ display:
           return;
 
         // --------------------------------------------------
-        // STYLE 4: MATRIX CYBER RAIN (Chunky Phosphor Glyph Droplets)
+        // STYLE 4: MATRIX CYBER RAIN (Zero Initial Diagonal Lines Pre-Scattered Engine)
         // --------------------------------------------------
         } else if (ss_style == "Matrix Rain") {
-          struct RainCol {
-            int x;
-            float head_y;
-            float speed;
-            int len;
+          // Pre-scattered non-monotonic phase offsets across 20 cascading streams (eliminates initial diagonal banding)
+          static const int16_t MATRIX_X[20] = {
+             65,  95, 125, 125, 155, 155, 185, 185, 215, 215,
+            245, 245, 275, 275, 305, 305, 335, 335, 365, 395
           };
-          static RainCol cols[12];
-          static bool rain_init = false;
-          if (!rain_init) {
-            uint32_t r_seed = 987654321;
-            for (int i = 0; i < 12; i++) {
-              r_seed = r_seed * 1664525u + 1013904223u;
-              cols[i].x = 65 + i * 30;
-              cols[i].head_y = (float)((int)(r_seed % 550) - 150);
-              r_seed = r_seed * 1664525u + 1013904223u;
-              cols[i].speed = 7.0f + (float)(r_seed % 6);
-              cols[i].len = 9 + (i % 5);
-            }
-            rain_init = true;
-          }
+          static const int16_t MATRIX_Y[20] = {
+            280, 620, 110, 520, 390, 780,  50, 460, 310, 710,
+            160, 570, 420,  20, 240, 650,  90, 490, 350, 180
+          };
+          static const uint8_t MATRIX_SPD[20] = {
+             95, 115, 105, 130, 120,  95, 110, 135, 125, 100,
+            105, 130, 115, 140, 100, 125, 120, 105, 110, 100
+          };
+          static const uint8_t MATRIX_LEN[20] = {
+             10,  11,   9,  12,  13,  10,  11,  14,  12,  11,
+             14,  10,  11,  13,  12,   9,  10,  12,  11,  10
+          };
 
-          for (int i = 0; i < 12; i++) {
-            cols[i].head_y += cols[i].speed;
-            int lead_y = (int)cols[i].head_y;
+          for (int i = 0; i < 20; i++) {
+            int lead_y = (MATRIX_Y[i] + (int)((uint64_t)now_ms * (uint32_t)MATRIX_SPD[i] / 1000ULL)) % 820 - 120;
+            int sx = MATRIX_X[i];
+            int slen = MATRIX_LEN[i];
 
-            if (lead_y - cols[i].len * 16 > 460) {
-              cols[i].head_y = -35.0f - (float)((now_ms + i * 43) % 120);
-              cols[i].speed = 7.0f + (float)((now_ms + i * 17) % 6);
-            }
-
-            for (int j = 0; j < cols[i].len; j++) {
+            for (int j = 0; j < slen; j++) {
               int gy = lead_y - j * 16;
-              int dx = cols[i].x - cx; int dy = gy - cy;
+              int dx = sx - cx; int dy = gy - cy;
               if (dx * dx + dy * dy < 51529 && gy > 10 && gy < 456) {
                 if (j == 0) {
                   // Bold white lead droplet with neon green aura
-                  it.filled_rectangle(cols[i].x - 3, gy - 5, 7, 11, Color(140, 255, 140));
-                  it.filled_rectangle(cols[i].x - 2, gy - 4, 5, 9, Color(255, 255, 255));
+                  it.filled_rectangle(sx - 3, gy - 5, 7, 11, Color(140, 255, 140));
+                  it.filled_rectangle(sx - 2, gy - 4, 5, 9, Color(255, 255, 255));
                 } else if (j <= 2) {
                   // Electric lime green upper trail
-                  it.filled_rectangle(cols[i].x - 3, gy - 5, 6, 10, Color(40, 255, 80));
-                  it.filled_rectangle(cols[i].x - 2, gy - 4, 4, 8, Color(160, 255, 180));
+                  it.filled_rectangle(sx - 3, gy - 5, 6, 10, Color(40, 255, 80));
+                  it.filled_rectangle(sx - 2, gy - 4, 4, 8, Color(160, 255, 180));
                 } else if (j <= 5) {
                   // Emerald matrix green
-                  it.filled_rectangle(cols[i].x - 2, gy - 4, 5, 8, Color(20, 200, 50));
+                  it.filled_rectangle(sx - 2, gy - 4, 5, 8, Color(20, 200, 50));
                 } else if (j <= 8) {
                   // Phosphor mid-green
-                  it.filled_rectangle(cols[i].x - 2, gy - 3, 4, 6, Color(10, 130, 30));
+                  it.filled_rectangle(sx - 2, gy - 3, 4, 6, Color(10, 130, 30));
                 } else {
                   // Fading phosphor trail
-                  it.filled_rectangle(cols[i].x - 1, gy - 2, 3, 4, Color(5, 65, 15));
+                  it.filled_rectangle(sx - 1, gy - 2, 3, 4, Color(5, 65, 15));
                 }
               }
             }
