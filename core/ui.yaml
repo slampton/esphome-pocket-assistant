@@ -5735,15 +5735,12 @@ display:
               draw_cumulus(370, 180, 0.85f, false); // Mid-Right flank (beside telemetry cards)
               draw_cumulus(100, 255, 0.80f, false); // Lower-Left flank (above subpage navigation pills)
             } else {
-              // Cloudy / Overcast: Natural, organically scattered atmospheric cloud cover
-              // Asymmetrical layout across varied depths & altitudes; lower edge clear of navigation deck
-              draw_cumulus(105,  45, 1.20f, true);  // Upper-Left billowing canopy
-              draw_cumulus(255,  35, 1.25f, true);  // High Center-Right drifting bank
-              draw_cumulus(390,  65, 1.05f, true);  // Upper-Right flanking cloud
-              draw_cumulus( 55, 145, 1.15f, true);  // Mid-Left sweeping formation
-              draw_cumulus(410, 160, 1.10f, true);  // Mid-Right layered bank
-              draw_cumulus(145, 220, 0.90f, true);  // Asymmetrical lower-mid wisp (above pills)
-              draw_cumulus(340, 228, 0.85f, true);  // Lower-Right drifting bank (above pills)
+              // Cloudy / Overcast: 4 grand overlapping cumulus canopies filling the atmospheric sky
+              // Naturally billow across upper and mid-lower flanks; center shadow valley preserves high text contrast
+              draw_cumulus(115,  40, 2.10f, true);  // Grand Upper-Left canopy
+              draw_cumulus(350,  60, 1.95f, true);  // Grand Upper-Right billowing bank
+              draw_cumulus(100, 225, 1.85f, true);  // Grand Mid-Lower Left rolling bank
+              draw_cumulus(345, 235, 1.80f, true);  // Grand Mid-Lower Right rolling bank
             }
           }
 
@@ -6892,7 +6889,7 @@ touchscreen:
                 }
               }
             } else if (is_deck_nav) {
-              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 5) ? 385 : ((id(gui_page) == 1) ? 375 : 380));
+              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
               if (touch.y >= nav_y_min) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -7706,7 +7703,7 @@ touchscreen:
 
               // Zone 1: Row 1 of 2x2 Grid (y: 282..332) -> Current (Left) | Forecast (Right)
               if (touch.y >= 282 && touch.y <= 332) {
-                if (now_w_touch - last_weather_touch > 150) {
+                if (now_w_touch - last_weather_touch > 120) {
                   last_weather_touch = now_w_touch;
                   int target = (touch.x < 233) ? 0 : 1;
                   if (id(sky_weather_subpage) != target) {
@@ -7716,9 +7713,9 @@ touchscreen:
                 }
                 return;
               }
-              // Zone 2: Row 2 of 2x2 Grid (y: 333..384) -> Sun (Left) | Moon (Right)
-              if (touch.y >= 333 && touch.y <= 384) {
-                if (now_w_touch - last_weather_touch > 150) {
+              // Zone 2: Row 2 of 2x2 Grid (y: 333..379) -> Sun (Left) | Moon (Right)
+              if (touch.y >= 333 && touch.y <= 379) {
+                if (now_w_touch - last_weather_touch > 120) {
                   last_weather_touch = now_w_touch;
                   int target = (touch.x < 233) ? 2 : 3;
                   if (id(sky_weather_subpage) != target) {
@@ -7730,7 +7727,7 @@ touchscreen:
               }
               // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 305..390, y: 44..119)
               if (id(sky_weather_subpage) == 0 && touch.x >= 305 && touch.x <= 390 && touch.y >= 44 && touch.y <= 119) {
-                if (now_w_touch - last_weather_touch > 150) {
+                if (now_w_touch - last_weather_touch > 120) {
                   last_weather_touch = now_w_touch;
                   std::string s_state = id(ha_sun_state).state;
                   std::string cond = id(ha_weather_condition).state;
@@ -7750,7 +7747,7 @@ touchscreen:
               }
               // Zone 4: Central Screen Tap (y: 50..281) -> Cycles sequentially through all views (0 -> 1 -> 2 -> 3 -> 0)
               if (touch.y >= 50 && touch.y < 282) {
-                if (now_w_touch - last_weather_touch > 200) {
+                if (now_w_touch - last_weather_touch > 180) {
                   last_weather_touch = now_w_touch;
                   id(sky_weather_subpage) = (id(sky_weather_subpage) + 1) % 4;
                   id(disp1).update();
