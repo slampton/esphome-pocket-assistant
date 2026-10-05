@@ -7500,7 +7500,9 @@ touchscreen:
             // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER
             // Paged submenus: y >= 399 with zero dead zone (x < 233 is Left, x >= 233 is Right).
             //   The < BACK button occupies y <= 398, eliminating all cross-talk!
-            // Main App Deck: Universal y >= 380 across ALL pages with zero dead zone (x < 233 is Left, x >= 233 is Right).
+            // Main App Deck: y >= 380 by default, elevated to y >= 400 on Pages 5 (Sky & Weather) & 6 (Timer & Alarm)
+            //   to afford a generous +23px downward thumb cushion below bottom pills (y: 326..399) without
+            //   sacrificing a 66px tall deck navigation hit zone (y: 400..465) around chevrons at y=424.
             // ==========================================
             bool is_deck_nav = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                !(id(gui_page) == 3 && id(active_game) > 0) &&
@@ -7509,7 +7511,8 @@ touchscreen:
                                !(id(alarm_ringing) || id(timer_ringing));
 
             if (is_deck_nav) {
-              if (touch.y >= 380) {
+              int deck_y_thresh = (id(gui_page) == 5 || id(gui_page) == 6) ? 400 : 380;
+              if (touch.y >= deck_y_thresh) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
                 uint32_t now_flip = millis();
@@ -8465,8 +8468,9 @@ touchscreen:
                 }
                 return;
               }
-              // Zone 2: Row 2 of 2x2 Grid (y: 326..379) -> Sun (Left) | Moon (Right)
-              if (touch.y >= 326 && touch.y <= 379) {
+              // Zone 2: Row 2 of 2x2 Grid (y: 326..399) -> Sun (Left) | Moon (Right)
+              // Generous downward thumb cushion (+23px into black area below pill y=376)
+              if (touch.y >= 326 && touch.y <= 399) {
                 if (now_w_touch - last_weather_touch > 120) {
                   last_weather_touch = now_w_touch;
                   int target = (touch.x < 233) ? 2 : 3;
@@ -8510,8 +8514,9 @@ touchscreen:
               // ----------------------------------------------------------------
               // PAGE 6: TIMER & ALARM TOUCH ROUTING (v1.1 OVERHAUL)
               // ----------------------------------------------------------------
-              // Zone 1: Standardized In-App 2-Pill Navigation (y: 326..379) -> Timer (Left) | Alarm (Right)
-              if (id(alarm_edit_idx) == 0 && touch.y >= 326 && touch.y <= 379) {
+              // Zone 1: Standardized In-App 2-Pill Navigation (y: 326..399) -> Timer (Left) | Alarm (Right)
+              // Generous downward thumb cushion (+23px into black area below pill y=376)
+              if (id(alarm_edit_idx) == 0 && touch.y >= 326 && touch.y <= 399) {
                 static uint32_t last_ta_sub_touch = 0;
                 uint32_t now_ta = millis();
                 if (now_ta - last_ta_sub_touch > 120) {
