@@ -4357,6 +4357,30 @@ display:
           // Standardized Category/Item Title at y = 50 (matching OS standard)
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, id(selected_category_title).c_str());
 
+          // Pixel-accurate dynamic text truncation using font_small measurement
+          auto fit_text_to_width = [&](const std::string &str, int max_w) -> std::string {
+            if (str.empty()) return "";
+            int w = 0, x_off = 0, base = 0, text_h = 0;
+            id(font_small)->measure(str.c_str(), &w, &x_off, &base, &text_h);
+            if (w <= max_w) return str;
+
+            std::string cur = str;
+            if (cur.length() > 32) {
+              while (cur.length() > 30) {
+                while (!cur.empty() && (static_cast<unsigned char>(cur.back()) & 0xC0) == 0x80) cur.pop_back();
+                if (!cur.empty()) cur.pop_back();
+              }
+            }
+            while (!cur.empty()) {
+              std::string test_str = cur + "..";
+              id(font_small)->measure(test_str.c_str(), &w, &x_off, &base, &text_h);
+              if (w <= max_w) return test_str;
+              while (!cur.empty() && (static_cast<unsigned char>(cur.back()) & 0xC0) == 0x80) cur.pop_back();
+              if (!cur.empty()) cur.pop_back();
+            }
+            return "..";
+          };
+
           // Dual-Action or Unified Slot Drawer
           auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &id_str, const std::string &mtype, bool is_act) {
             if (name.empty()) return;
@@ -4379,9 +4403,8 @@ display:
               it.filled_circle(373, y_mid, 20, id(col_dark_gray));
               it.filled_rectangle(154, y_mid - 20, 219, 41, id(col_dark_gray));
 
-              std::string disp_name = name;
-              if (disp_name.length() > 18) disp_name = disp_name.substr(0, 16) + "..";
-              // Clean Left-Alignment for easy scanning across albums and artists
+              // Dynamic pixel measurement: max 196px width (stops 10px before hamburger icon at x=366)
+              std::string disp_name = fit_text_to_width(name, 196);
               it.print(160, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, disp_name.c_str());
 
               // Drilldown Hamburger Icon [ ☰ ] on right end (Denotes detailed content / sub-items below)
@@ -4416,9 +4439,8 @@ display:
                 it.filled_triangle(108, y_mid - 6, 108, y_mid + 6, 118, y_mid, icon_c);
               }
 
-              std::string disp_name = name;
-              if (disp_name.length() > 18) disp_name = disp_name.substr(0, 16) + "..";
-              // Left-aligned title with generous space across the full pill width
+              // Dynamic pixel measurement: max 218px width (stops cleanly before right cap at x=350)
+              std::string disp_name = fit_text_to_width(name, 218);
               it.print(130, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
             }
           };
