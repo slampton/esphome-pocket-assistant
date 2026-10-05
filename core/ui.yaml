@@ -5758,10 +5758,10 @@ display:
                 if (bx + max_extent < 0 || bx - max_extent >= 466 || by + max_extent < 0 || by - max_extent >= 466) return;
                 for (uint8_t p = 0; p < n_passes; p++) {
                   uint8_t idx = passes[p].idx;
-                  int sr = (int)(lobes[idx][2] * scale) + (int)(passes[p].dr * scale);
+                  int sr = (int)((lobes[idx][2] + passes[p].dr) * scale);
                   if (sr <= 0) continue;
-                  int sx = bx + (int)(lobes[idx][0] * scale) + (int)(passes[p].dx * scale);
-                  int sy = by + (int)(lobes[idx][1] * scale) + (int)(passes[p].dy * scale);
+                  int sx = bx + (int)((lobes[idx][0] + passes[p].dx) * scale);
+                  int sy = by + (int)((lobes[idx][1] + passes[p].dy) * scale);
                   if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
                   it.filled_circle(sx, sy, sr, pal[passes[p].col_type]);
                 }
@@ -6912,14 +6912,9 @@ touchscreen:
 
             // ==========================================
             // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER
-            // High-priority deck flipping (y >= 380 on deck pages, y >= 375 on stopwatch)
-            // Multi-page submenus protect center < BACK button (x: 160..306) from chevron interference
-            // ==========================================
-            // ==========================================
-            // UNIVERSAL BOTTOM NAVIGATION TOUCH HANDLER
             // Paged submenus: y >= 399 with zero dead zone (x < 233 is Left, x >= 233 is Right).
             //   The < BACK button occupies y <= 398, eliminating all cross-talk!
-            // Main App Deck: y >= 380 (y >= 375 on stopwatch) with zero dead zone (x < 233 is Left, x >= 233 is Right).
+            // Main App Deck: Universal y >= 380 across ALL pages with zero dead zone (x < 233 is Left, x >= 233 is Right).
             // ==========================================
             bool is_deck_nav = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                !(id(gui_page) == 3 && id(active_game) > 0) &&
@@ -6971,8 +6966,7 @@ touchscreen:
                 }
               }
             } else if (is_deck_nav) {
-              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
-              if (touch.y >= nav_y_min) {
+              if (touch.y >= 380) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
                 uint32_t now_flip = millis();
@@ -7120,7 +7114,7 @@ touchscreen:
                   }
 
                 // Right Flank Volume Down (-): Generous Lower-Right Quadrant (center 405, 284; touches x >= 300, y >= 240, clean bound y < 398)
-                } else if (touch.x >= 300 && touch.y >= 240 && touch.y < 398) {
+                } else if (touch.x >= 300 && touch.y >= 240 && touch.y < 380) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > 120) {
@@ -7148,7 +7142,7 @@ touchscreen:
                   }
 
                 // Left Flank Menu Button (☰): Lower Left Quadrant (center 61, 286; x <= 165, y >= 240, clean bound y < 398)
-                } else if (touch.x <= 165 && touch.y >= 240 && touch.y < 398) {
+                } else if (touch.x <= 165 && touch.y >= 240 && touch.y < 380) {
                   static uint32_t last_menu_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_menu_tap > 250) {
@@ -7158,7 +7152,7 @@ touchscreen:
                   }
 
                 // Center Hero Album Art & Play / Pause toggle: Generous Center Zone (y: 95..398)
-                } else if (touch.y >= 95 && touch.y < 398) {
+                } else if (touch.y >= 95 && touch.y < 380) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > 250) {
@@ -7840,17 +7834,19 @@ touchscreen:
               // ----------------------------------------------------------------
               // PAGE 6: TIMER & ALARM TOUCH ROUTING (v1.1 OVERHAUL)
               // ----------------------------------------------------------------
-              // Zone 1: Standardized Bottom 2-Pill Navigation (y: 336..385)
-              if (id(alarm_edit_idx) == 0 && touch.y >= 336 && touch.y <= 385) {
-                if (touch.x >= 70 && touch.x <= 220) {
-                  id(timer_alarm_subpage) = 0; // Timer
-                  id(disp1).update();
-                  return;
-                } else if (touch.x >= 245 && touch.x <= 395) {
-                  id(timer_alarm_subpage) = 1; // Alarm
-                  id(disp1).update();
-                  return;
+              // Zone 1: Standardized In-App 2-Pill Navigation (y: 333..379) -> Timer (Left) | Alarm (Right)
+              if (id(alarm_edit_idx) == 0 && touch.y >= 333 && touch.y <= 379) {
+                static uint32_t last_ta_sub_touch = 0;
+                uint32_t now_ta = millis();
+                if (now_ta - last_ta_sub_touch > 120) {
+                  last_ta_sub_touch = now_ta;
+                  int target = (touch.x < 233) ? 0 : 1;
+                  if (id(timer_alarm_subpage) != target) {
+                    id(timer_alarm_subpage) = target;
+                    id(disp1).update();
+                  }
                 }
+                return;
               }
 
               if (id(timer_alarm_subpage) == 0) {
