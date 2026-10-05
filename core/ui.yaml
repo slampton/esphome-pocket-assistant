@@ -5687,25 +5687,28 @@ display:
               int16_t off_y_cr = (int16_t)(6.0f * scale);
               int16_t off_r_cr = (int16_t)(9.0f * scale);
 
-              // Pass 1: Volumetric Underbelly Shadow (Unified Silhouette)
-              for (int i = 0; i < 8; i++) {
-                int sx = bx + sc_x[i];
-                int sy = by + sc_y[i] + off_y_sh;
-                int sr = sc_r[i];
+              // Pass 1: Volumetric Underbelly Shadow (Lower perimeter lobes: 0, 4, 5, 6, 7; upper crowns 100% hidden)
+              static const uint8_t shadow_lobes[5] = {0, 4, 5, 6, 7};
+              for (int i = 0; i < 5; i++) {
+                uint8_t idx = shadow_lobes[i];
+                int sx = bx + sc_x[idx];
+                int sy = by + sc_y[idx] + off_y_sh;
+                int sr = sc_r[idx];
                 if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
                 it.filled_circle(sx, sy, sr, col_shadow);
               }
 
-              // Pass 2: Main Cloud Body
-              for (int i = 0; i < 8; i++) {
-                int sx = bx + sc_x[i];
-                int sy = by + sc_y[i];
-                int sr = sc_r[i] - off_r_bd;
+              // Pass 2: Main Cloud Body Base (Lower & mid lobes: 0, 4, 5, 6, 7)
+              for (int i = 0; i < 5; i++) {
+                uint8_t idx = shadow_lobes[i];
+                int sx = bx + sc_x[idx];
+                int sy = by + sc_y[idx];
+                int sr = sc_r[idx] - off_r_bd;
                 if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
                 it.filled_circle(sx, sy, sr, col_body);
               }
 
-              // Pass 3: Sunlit / Moonlit Upper Volume
+              // Pass 3: Sunlit / Moonlit Upper Volume (Flanks & upper crests: 0, 1, 2, 3, 4)
               for (int i = 0; i < 5; i++) {
                 int sx = bx + sc_x[i] + off_x_hi;
                 int sy = by + sc_y[i] - off_y_hi;
@@ -5714,10 +5717,10 @@ display:
                 it.filled_circle(sx, sy, sr, col_high);
               }
 
-              // Pass 4: Top Crown Crests
-              static const int crest_idx[3] = {1, 2, 3};
+              // Pass 4: Top Crown Crests (High puffy crests: 1, 2, 3)
+              static const uint8_t crest_idx[3] = {1, 2, 3};
               for (int i = 0; i < 3; i++) {
-                int idx = crest_idx[i];
+                uint8_t idx = crest_idx[i];
                 int sx = bx + sc_x[idx] + off_x_cr;
                 int sy = by + sc_y[idx] - off_y_cr;
                 int sr = sc_r[idx] - off_r_cr;
@@ -5727,19 +5730,20 @@ display:
             };
 
             if (is_partly) {
-              // Partly Cloudy: 3 beautifully composed static cumulus formations framing the central telemetry sanctuary
+              // Partly Cloudy: Locked-in 3 beautifully composed static cumulus formations framing central sanctuary
               draw_cumulus(95, 95, 0.95f, false);   // Upper-Left flank (opposite celestial pocket icon)
               draw_cumulus(370, 180, 0.85f, false); // Mid-Right flank (beside telemetry cards)
               draw_cumulus(100, 255, 0.80f, false); // Lower-Left flank (above subpage navigation pills)
             } else {
-              // Cloudy / Overcast: Dense atmospheric static blanket covering upper, mid, and lower sky
-              draw_cumulus(80, 50, 1.30f, true);    // Upper-Left canopy
-              draw_cumulus(233, 40, 1.40f, true);   // Top center canopy
-              draw_cumulus(385, 50, 1.30f, true);   // Upper-Right canopy
-              draw_cumulus(70, 160, 1.35f, true);   // Mid-Left flank
-              draw_cumulus(395, 165, 1.35f, true);  // Mid-Right flank
-              draw_cumulus(110, 260, 1.25f, true);  // Lower-Left sky
-              draw_cumulus(355, 260, 1.25f, true);  // Lower-Right sky
+              // Cloudy / Overcast: Natural, organically scattered atmospheric cloud cover
+              // Asymmetrical layout across varied depths & altitudes; lower edge clear of navigation deck
+              draw_cumulus(105,  45, 1.20f, true);  // Upper-Left billowing canopy
+              draw_cumulus(255,  35, 1.25f, true);  // High Center-Right drifting bank
+              draw_cumulus(390,  65, 1.05f, true);  // Upper-Right flanking cloud
+              draw_cumulus( 55, 145, 1.15f, true);  // Mid-Left sweeping formation
+              draw_cumulus(410, 160, 1.10f, true);  // Mid-Right layered bank
+              draw_cumulus(145, 220, 0.90f, true);  // Asymmetrical lower-mid wisp (above pills)
+              draw_cumulus(340, 228, 0.85f, true);  // Lower-Right drifting bank (above pills)
             }
           }
 
@@ -6888,7 +6892,7 @@ touchscreen:
                 }
               }
             } else if (is_deck_nav) {
-              int nav_y_min = (id(gui_page) == 5 || id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
+              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 5) ? 385 : ((id(gui_page) == 1) ? 375 : 380));
               if (touch.y >= nav_y_min) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -7696,49 +7700,61 @@ touchscreen:
                 }
               }
             } else if (id(gui_page) == 5) {
-              // Page 5: Sky & Weather 4-View Suite Touch Routing (2x2 Bottom Grid)
-              // Zone 1: Row 1 of 2x2 Grid (y: 282..329) -> Current (Left) | Forecast (Right)
-              if (touch.y >= 282 && touch.y <= 329) {
-                if (touch.x < 233) {
-                  id(sky_weather_subpage) = 0; // Current
-                } else {
-                  id(sky_weather_subpage) = 1; // Forecast
+              // Page 5: Sky & Weather 4-View Suite Touch Routing (2x2 Bottom Grid & Celestial Shortcut)
+              static uint32_t last_weather_touch = 0;
+              uint32_t now_w_touch = millis();
+
+              // Zone 1: Row 1 of 2x2 Grid (y: 282..332) -> Current (Left) | Forecast (Right)
+              if (touch.y >= 282 && touch.y <= 332) {
+                if (now_w_touch - last_weather_touch > 150) {
+                  last_weather_touch = now_w_touch;
+                  int target = (touch.x < 233) ? 0 : 1;
+                  if (id(sky_weather_subpage) != target) {
+                    id(sky_weather_subpage) = target;
+                    id(disp1).update();
+                  }
                 }
-                id(disp1).update();
                 return;
               }
-              // Zone 2: Row 2 of 2x2 Grid (y: 330..398) -> Sun (Left) | Moon (Right)
-              if (touch.y >= 330 && touch.y <= 398) {
-                if (touch.x < 233) {
-                  id(sky_weather_subpage) = 2; // Sun
-                } else {
-                  id(sky_weather_subpage) = 3; // Moon
+              // Zone 2: Row 2 of 2x2 Grid (y: 333..384) -> Sun (Left) | Moon (Right)
+              if (touch.y >= 333 && touch.y <= 384) {
+                if (now_w_touch - last_weather_touch > 150) {
+                  last_weather_touch = now_w_touch;
+                  int target = (touch.x < 233) ? 2 : 3;
+                  if (id(sky_weather_subpage) != target) {
+                    id(sky_weather_subpage) = target;
+                    id(disp1).update();
+                  }
                 }
-                id(disp1).update();
                 return;
               }
               // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x: 305..390, y: 44..119)
               if (id(sky_weather_subpage) == 0 && touch.x >= 305 && touch.x <= 390 && touch.y >= 44 && touch.y <= 119) {
-                std::string s_state = id(ha_sun_state).state;
-                std::string cond = id(ha_weather_condition).state;
-                bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
-                std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
-                if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
-                  if (sim_opt.find("(Night)") != std::string::npos || sim_opt == "Clear Night") is_night = true;
-                  else if (sim_opt.find("(Day)") != std::string::npos || sim_opt == "Sunny / Clear Day" || sim_opt == "Windy" || sim_opt == "Pouring / Heavy Rain") is_night = false;
+                if (now_w_touch - last_weather_touch > 150) {
+                  last_weather_touch = now_w_touch;
+                  std::string s_state = id(ha_sun_state).state;
+                  std::string cond = id(ha_weather_condition).state;
+                  bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
+                  std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
+                  if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
+                    if (sim_opt.find("(Night)") != std::string::npos || sim_opt == "Clear Night") is_night = true;
+                    else if (sim_opt.find("(Day)") != std::string::npos || sim_opt == "Sunny / Clear Day" || sim_opt == "Windy" || sim_opt == "Pouring / Heavy Rain") is_night = false;
+                  }
+                  int target = is_night ? 3 : 2;
+                  if (id(sky_weather_subpage) != target) {
+                    id(sky_weather_subpage) = target;
+                    id(disp1).update();
+                  }
                 }
-                if (is_night) {
-                  id(sky_weather_subpage) = 3; // Jump directly to Moon Page!
-                } else {
-                  id(sky_weather_subpage) = 2; // Jump directly to Sun Page!
-                }
-                id(disp1).update();
                 return;
               }
               // Zone 4: Central Screen Tap (y: 50..281) -> Cycles sequentially through all views (0 -> 1 -> 2 -> 3 -> 0)
               if (touch.y >= 50 && touch.y < 282) {
-                id(sky_weather_subpage) = (id(sky_weather_subpage) + 1) % 4;
-                id(disp1).update();
+                if (now_w_touch - last_weather_touch > 200) {
+                  last_weather_touch = now_w_touch;
+                  id(sky_weather_subpage) = (id(sky_weather_subpage) + 1) % 4;
+                  id(disp1).update();
+                }
                 return;
               }
             } else if (id(gui_page) == 6) {
