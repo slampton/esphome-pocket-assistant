@@ -17,6 +17,14 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: drilldown_artist_page
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: drilldown_album_page
+    type: int
+    restore_value: no
+    initial_value: '1'
   - id: music_overlay_mode
     type: int
     restore_value: no
@@ -7381,6 +7389,7 @@ touchscreen:
                     id(selected_category_mode) = "artist";
                     id(selected_category_title) = "ARTISTS";
                     id(music_browse_page) = 1;
+                    id(drilldown_artist_page) = 1;
                     id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
                   }
@@ -7390,6 +7399,7 @@ touchscreen:
                     id(selected_category_mode) = "album";
                     id(selected_category_title) = "ALBUMS";
                     id(music_browse_page) = 1;
+                    id(drilldown_album_page) = 1;
                     id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
                   }
@@ -7421,6 +7431,7 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_1_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_1_name);
                         id(music_browse_page) = 1;
@@ -7428,6 +7439,7 @@ touchscreen:
                       } else {
                         id(drilldown_album_id) = id(slot_1_id);
                         id(drilldown_album_name) = id(slot_1_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_1_name);
@@ -7446,6 +7458,7 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_2_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_2_name);
                         id(music_browse_page) = 1;
@@ -7453,6 +7466,7 @@ touchscreen:
                       } else {
                         id(drilldown_album_id) = id(slot_2_id);
                         id(drilldown_album_name) = id(slot_2_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_2_name);
@@ -7471,6 +7485,7 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_3_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_3_name);
                         id(music_browse_page) = 1;
@@ -7478,6 +7493,7 @@ touchscreen:
                       } else {
                         id(drilldown_album_id) = id(slot_3_id);
                         id(drilldown_album_name) = id(slot_3_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_3_name);
@@ -7496,6 +7512,7 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_4_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_4_name);
                         id(music_browse_page) = 1;
@@ -7503,6 +7520,7 @@ touchscreen:
                       } else {
                         id(drilldown_album_id) = id(slot_4_id);
                         id(drilldown_album_name) = id(slot_4_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_4_name);
@@ -7521,6 +7539,7 @@ touchscreen:
                     } else if (is_drill && touch.x > 130) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_5_name);
+                        id(drilldown_artist_page) = id(music_browse_page);
                         id(selected_category_mode) = "artist_albums";
                         id(selected_category_title) = id(slot_5_name);
                         id(music_browse_page) = 1;
@@ -7528,6 +7547,7 @@ touchscreen:
                       } else {
                         id(drilldown_album_id) = id(slot_5_id);
                         id(drilldown_album_name) = id(slot_5_name);
+                        id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = id(selected_category_mode);
                         id(selected_category_mode) = "album_tracks";
                         id(selected_category_title) = id(slot_5_name);
@@ -7543,16 +7563,18 @@ touchscreen:
                   if (id(selected_category_mode) == "album_tracks") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
-                    id(music_browse_page) = 1;
+                    id(music_browse_page) = std::max(1, id(drilldown_album_page));
                     id(fetch_music_browse).execute();
                   } else if (id(selected_category_mode) == "artist_albums") {
                     id(selected_category_mode) = "artist";
                     id(selected_category_title) = "ARTISTS";
-                    id(music_browse_page) = 1;
+                    id(music_browse_page) = std::max(1, id(drilldown_artist_page));
                     id(fetch_music_browse).execute();
                   } else if (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover") {
                     id(music_overlay_mode) = 1; // Return to Top-Level Menu
                   } else {
+                    id(drilldown_artist_page) = 1;
+                    id(drilldown_album_page) = 1;
                     id(music_overlay_mode) = 2; // Return to Library Categories Submenu
                   }
                   id(disp1).update();
