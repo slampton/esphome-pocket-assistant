@@ -2838,9 +2838,9 @@ display:
         it.print(btn_cx, y_mid, id(font_btn_bold), text_c, TextAlign::CENTER, label);
       };
 
-      // Standardized Centered < BACK Button Helper across all submenus (y = 368, r = 16, 138px wide, theme accent)
+      // Standardized Centered < BACK Button Helper across all submenus (y = 408, r = 16, 106px wide, theme accent)
       auto draw_back_button = [&]() {
-        draw_pill_button(180, 286, 368, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
+        draw_pill_button(180, 286, 408, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
       };
 
       // Semantic Version Comparison Helper (Rejects ESPHome 2026.x CalVer; strictly tests major.minor.patch)
@@ -5271,7 +5271,7 @@ display:
           snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
           draw_pill_button(110, 356, 284, 18, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
 
-          // Bottom Button: Standardized < BACK (y = 375, r = 18)
+          // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
 
         } else if (id(system_menu_mode) == 3) {
@@ -5295,7 +5295,7 @@ display:
           // Button 4: Software Update (y = 284, r = 18)
           draw_pill_button(110, 356, 284, 18, id(theme_secondary), id(col_dark_gray), "Software Update >", id(col_white), false);
 
-          // Bottom Button: Standardized < BACK (y = 375, r = 18)
+          // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
 
                 } else if (id(system_menu_mode) == 4) {
@@ -5419,7 +5419,7 @@ display:
           snprintf(va_scr_label, sizeof(va_scr_label), "Voice Screen: %s", va_scr ? "ON" : "OFF");
           draw_pill_button(110, 356, 284, 18, id(theme_secondary), id(col_dark_gray), va_scr_label, id(col_white), false);
 
-          // Standardized Centered < BACK Button at y = 375 (r = 18)
+          // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
         } else if (id(system_menu_mode) == 8) {
           // --------------------------------------------------
@@ -5439,36 +5439,36 @@ display:
           id(font_small)->measure(buf, &text_w, &x_off, &base, &text_h);
           const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 88;
 
-          // Standardized top gap below y=50 title (start y = 88, preserving 40px row-to-row spacing)
-          it.print(info_x, 88, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          // Standardized top gap below y=50 title (start y = 78, preserving 40px row-to-row spacing)
+          it.print(info_x, 78, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 2: Temperature (Dual C & F)
           float temp_c = id(imu_temp).state;
           float temp_f = temp_c * 1.8f + 32.0f;
           snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-          it.print(info_x, 128, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 118, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
-          it.print(info_x, 168, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 158, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 4: 3-Axis Acceleration (G-force)
           snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(info_x, 208, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 198, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 5: Battery Fuel Gauge & Power
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(info_x, 248, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 238, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 6: Hardware Platform, Memory & Firmware
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
           snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
-          it.print(info_x, 288, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 278, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Bottom Button: Standardized < BACK (y = 368, r = 16)
+          // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
 
         } else if (id(system_menu_mode) == 9) {
@@ -5488,7 +5488,7 @@ display:
           // Button 3: Time Sync Status (y = 224, r = 18)
           draw_pill_button(110, 356, 224, 18, id(theme_secondary), id(col_dark_gray), "Sync: Home Assistant", id(col_white), false);
 
-          // Bottom Button: Standardized < BACK (y = 375, r = 18)
+          // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
         }
       } else if (id(gui_page) == 5) {
@@ -7519,16 +7519,11 @@ touchscreen:
                   }
                 }
 
-                // Submenu < BACK Button nestled lower at y = 408 (y: 385..428, x: 150..316)
-                if (touch.y >= 385 && touch.y <= 428 && touch.x >= 150 && touch.x <= 316) {
-                  id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
+                // Submenu < BACK Button: Ultra-generous touch zone extending to bottom chin (y >= 365, x: 80..386)
+                if (touch.y >= 365 && touch.x >= 80 && touch.x <= 386) {
+                  id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(sleep_menu_page) = 1;
                   id(disp1).update();
-                  return;
-                }
-
-                // Bottom Dead Zone (y > 428) to absorb touches near the chin
-                if (touch.y > 428) {
                   return;
                 }
               } else if (id(system_menu_mode) == 2) {
@@ -7587,8 +7582,8 @@ touchscreen:
                   call.set_option(nxt_so);
                   call.perform();
                   id(disp1).update();
-                // Standardized < BACK Button at y = 368 (y: 335..450, x: 80..386)
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
+                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
@@ -7618,9 +7613,9 @@ touchscreen:
                 } else if (touch.y >= 259 && touch.y <= 314 && touch.x >= 90 && touch.x <= 376) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Standardized < BACK (y: 335..450, x: 80..386)
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
-                  id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
+                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
+                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                  id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 4) {
@@ -7651,10 +7646,10 @@ touchscreen:
                     id(check_firmware_update).execute();
                     id(disp1).update();
                   }
-                // Standardized < BACK (y: 350..400, x: 120..346)
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
+                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
                   id(update_check_state) = 0; // Reset checking state
-                  id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
+                  id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 6) {
@@ -7704,19 +7699,19 @@ touchscreen:
                 } else if (touch.y >= 259 && touch.y <= 314 && touch.x >= 90 && touch.x <= 376) {
                   id(va_wake_screen_switch).toggle();
                   id(disp1).update();
-                // Standardized < BACK (y: 335..450, x: 80..386)
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
+                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 8) {
                 // Mode 8: System Info Submenu
-                // Standardized < BACK (y: 350..400, x: 120..346)
-                if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
+                if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 } else {
-                  id(disp1).update(); // Tap anywhere to refresh telemetry
+                  id(disp1).update(); // Tap anywhere else to refresh telemetry
                 }
               } else if (id(system_menu_mode) == 9) {
                 // Mode 9: Clock & Time Submenu (Standardized 60px Pitch, 16px Elevation)
@@ -7737,8 +7732,8 @@ touchscreen:
                 // Card 3: Time Sync Status (y: 199..254, x: 90..376, pill at y=224)
                 } else if (touch.y >= 199 && touch.y <= 254 && touch.x >= 90 && touch.x <= 376) {
                   id(disp1).update();
-                // Standardized < BACK (y: 335..450, x: 80..386)
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
+                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
