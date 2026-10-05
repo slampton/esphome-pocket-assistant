@@ -3704,8 +3704,8 @@ display:
                    id(font_small), id(col_black), TextAlign::CENTER, num_str);
         }
 
-        // Vintage Title at Top: STOPWATCH (clean, non-overlapping)
-        it.print(cx, 66, id(font_small), id(col_black), TextAlign::CENTER, "STOPWATCH");
+        // Vintage Title at Top: STOPWATCH (clean, non-overlapping, elevated to y=58)
+        it.print(cx, 58, id(font_small), id(col_black), TextAlign::CENTER, "STOPWATCH");
 
         uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
         int mins = (total_ms / 60000) % 60;
@@ -3858,17 +3858,12 @@ display:
       // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
       // ==========================================
       } else if (id(gui_page) == 2) {
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(theme_primary));
-        it.circle(cx, cy, 227, id(theme_primary));
-        it.circle(cx, cy, 222, id(col_dark_gray));
-
         if (id(music_overlay_mode) == 0) {
           // --------------------------------------------------
           // VIEW 0: NOW PLAYING MUSIC PLAYER
           // --------------------------------------------------
-          // Elevated Title baseline (y = 54) & Buffered Active Speaker Indicator (y = 80)
-          it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
+          // Standardized Title baseline (y = 50) & Buffered Active Speaker Indicator (y = 74)
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
           bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
@@ -3881,7 +3876,7 @@ display:
           } else if (millis() < 4000) {
             spk_label = "[CONNECTING...]";
           }
-          it.print(cx, 80, id(font_small), is_feedback ? id(theme_primary) : ((is_remote && millis() >= 4000) ? id(theme_secondary) : id(col_slate)), TextAlign::CENTER, spk_label.c_str());
+          it.print(cx, 74, id(font_small), is_feedback ? id(theme_primary) : ((is_remote && millis() >= 4000) ? id(theme_secondary) : id(col_slate)), TextAlign::CENTER, spk_label.c_str());
 
           // Perfectly Centered Album Art: 216x216 centered across horizontal centerline (cx = 233, art_center_y = 212), spans y = 104 to 320
           const int art_center_y = 212;
@@ -4140,7 +4135,7 @@ display:
           // --------------------------------------------------
           // LEVEL 1: TOP-LEVEL SELECTION MENU (Standardized 60px Pitch)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC MENU");
 
           // Standardized 60px pitch (Slot 1 & 2: Speaker Actions; Slot 3: Blank separator; Slot 4: Library)
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "SPEAKER HANDOFF", id(col_white), false);
@@ -4155,7 +4150,7 @@ display:
           // LEVEL 2: LIBRARY CATEGORIES SUBMENU (2 Pages, 4 Items per page, 55px Pitch)
           // --------------------------------------------------
           // Standardized Title at y = 56 (aligned across all OS menus)
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "LIBRARY");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "LIBRARY");
 
           if (id(music_category_page) == 1) {
             // Page 1: Favorites, Playlists, Artists, Albums (Standardized 60px pitch, r = 18)
@@ -4180,7 +4175,7 @@ display:
           bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
 
           // Standardized Category/Item Title at y = 56 (matching OS standard)
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, id(selected_category_title).c_str());
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, id(selected_category_title).c_str());
 
           // Dual-Action or Unified Slot Drawer
           auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &id_str, const std::string &mtype, bool is_act) {
@@ -4295,7 +4290,7 @@ display:
         // ----------------------------------------------------
         if (id(active_game) == 0) {
           // Standardized Title at y = 56 (aligned across all OS menus)
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
 
           // Reusable Game Card: Left-aligned title with generous 35px padding (x = 145) & right-aligned white high score
           auto draw_game_card = [&](int y_mid, const char* title, int high_score) {
@@ -4329,7 +4324,7 @@ display:
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
         // ----------------------------------------------------
         } else if (id(active_game) == 1) {
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MARBLES");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MARBLES");
 
           struct SimBall {
             float x, y, vx, vy, r;
@@ -4600,7 +4595,7 @@ display:
         // GAME 2: ARCHERY (TILT AIM & TARGET PRACTICE)
         // ----------------------------------------------------
         } else if (id(active_game) == 2) {
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "ARCHERY");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ARCHERY");
 
           static int arch_score = 0;
           static int arrows_left = 10;
@@ -4773,7 +4768,7 @@ display:
         // GAME 3: BREAKOUT (CIRCULAR ARC PADDLE & BRICK BREAKER)
         // ----------------------------------------------------
         } else if (id(active_game) == 3) {
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "BREAKOUT");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "BREAKOUT");
 
           struct BreakoutBrick {
             int x, y, w, h;
@@ -4992,7 +4987,7 @@ display:
         // GAME 4: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
         } else {
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "CHOMP");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "CHOMP");
 
           static int treat_score = 0;
           static float treat_x = cx + 60.0f;
@@ -5116,17 +5111,17 @@ display:
           // --------------------------------------------------
           // VIEW 0: MAIN SYSTEM OBSERVATIONAL DASHBOARD (2x3 Grid)
           // --------------------------------------------------
-          // Top Header: Pure iconic "SYSTEM" title (Theme Primary)
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
+          // Top Header: Pure iconic "SYSTEM" title (Theme Primary, standardized at y=50)
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
 
-          // Upper Zone: Pocket Assistant Version / Update badge (midpoint y=91 between y=86 and y=96; standard white)
+          // Upper Zone: Pocket Assistant Version / Update badge (elevated to y=86 for comfortable 36px title buffer)
           bool has_update = id(ha_firmware_update_status).state == "ON";
           std::string lat_v = id(ha_firmware_latest_version).state;
           if (has_update) {
             snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
-            it.print(cx, 91, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+            it.print(cx, 86, id(font_small), id(col_gold), TextAlign::CENTER, buf);
           } else {
-            it.print(cx, 91, id(font_small), id(col_white), TextAlign::CENTER, "Pocket Assistant v${version}");
+            it.print(cx, 86, id(font_small), id(col_white), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
           // Center Zone: Buffered 2x3 Grid with Standardized Pill Height (r = 20) & 24px Center Gap
@@ -5174,62 +5169,62 @@ display:
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
           // VIEW 1: SLEEP & WAKE SUBMENU (5-Pill Standard Architecture, Shifted Down, r = 20)
-          // Standard title at y = 56, Slot 1-5 at y = 106, 164, 222, 280, 338, < BACK at y = 408, Dots at y = 440
+          // Standard title at y = 50, Slot 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
 
           if (id(sleep_menu_page) == 1) {
             // Page 1: Wake Gestures & Docked Screensaver (Slots 1-5, 58px pitch, r = 20)
             char m_buf[32];
             std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
             snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
-            draw_pill_button(110, 356, 106, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
+            draw_pill_button(110, 356, 104, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
 
             char t_buf[32];
             std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
             snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-            draw_pill_button(110, 356, 164, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
+            draw_pill_button(110, 356, 162, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
 
             std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
-            draw_pill_button(110, 356, 222, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
+            draw_pill_button(110, 356, 220, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
 
             std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
             char sty_buf[32];
             snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Solar Flare" ? "Solar" : s_style.c_str())));
-            draw_pill_button(110, 356, 280, 20, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
+            draw_pill_button(110, 356, 278, 20, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
 
             char sst_buf[32];
             std::string sst_opt = std::string(id(screensaver_docked_timeout).current_option().c_str());
             snprintf(sst_buf, sizeof(sst_buf), "Dock Inact: %s", sst_opt.c_str());
-            draw_pill_button(110, 356, 338, 20, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
+            draw_pill_button(110, 356, 336, 20, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
           } else {
             // Page 2: Inactivity & Power Timeouts (Slots 1-3, 58px pitch, r = 20)
             char so_buf[32];
             std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
             snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
-            draw_pill_button(110, 356, 106, 20, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
+            draw_pill_button(110, 356, 104, 20, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
 
             std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
-            draw_pill_button(110, 356, 164, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
+            draw_pill_button(110, 356, 162, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
 
             char s_buf[32];
             std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
             snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
-            draw_pill_button(110, 356, 222, 20, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
+            draw_pill_button(110, 356, 220, 20, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
           }
 
-          // Flank Navigation Chevrons (< and >) at y = 222 indicating edge-tap paging
-          // Left chevron (<) at x = 44, y = 222
-          it.line(44 + 4, 222 - 8, 44 - 4, 222, id(theme_secondary));
-          it.line(44 + 5, 222 - 8, 44 - 3, 222, id(theme_secondary));
-          it.line(44 + 4, 222 + 8, 44 - 4, 222, id(theme_secondary));
-          it.line(44 + 5, 222 + 8, 44 - 3, 222, id(theme_secondary));
+          // Flank Navigation Chevrons (< and >) at y = 220 indicating edge-tap paging
+          // Left chevron (<) at x = 44, y = 220
+          it.line(44 + 4, 220 - 8, 44 - 4, 220, id(theme_secondary));
+          it.line(44 + 5, 220 - 8, 44 - 3, 220, id(theme_secondary));
+          it.line(44 + 4, 220 + 8, 44 - 4, 220, id(theme_secondary));
+          it.line(44 + 5, 220 + 8, 44 - 3, 220, id(theme_secondary));
 
-          // Right chevron (>) at x = 422, y = 222
-          it.line(422 - 4, 222 - 8, 422 + 4, 222, id(theme_secondary));
-          it.line(422 - 5, 222 - 8, 422 + 3, 222, id(theme_secondary));
-          it.line(422 - 4, 222 + 8, 422 + 4, 222, id(theme_secondary));
-          it.line(422 - 5, 222 + 8, 422 + 3, 222, id(theme_secondary));
+          // Right chevron (>) at x = 422, y = 220
+          it.line(422 - 4, 220 - 8, 422 + 4, 220, id(theme_secondary));
+          it.line(422 - 5, 220 - 8, 422 + 3, 220, id(theme_secondary));
+          it.line(422 - 4, 220 + 8, 422 + 4, 220, id(theme_secondary));
+          it.line(422 - 5, 220 + 8, 422 + 3, 220, id(theme_secondary));
 
           // Submenu < BACK Button nestled lower at y = 408 (r = 16) with generous 34px buffer below Slot 5
           draw_pill_button(180, 286, 408, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
@@ -5246,7 +5241,7 @@ display:
           // --------------------------------------------------
           // VIEW 2: DISPLAY SUBMENU (Gold Standard 60px Pitch)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "DISPLAY");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "DISPLAY");
 
           // Button 1: Auto-Brightness Mode Cycler (y = 120, r = 18)
           std::string ab_mode = std::string(id(auto_brightness_mode).current_option().c_str());
@@ -5284,9 +5279,9 @@ display:
 
         } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
-          // VIEW 3: SYSTEM ACTIONS SUBMENU
+          // VIEW 3: ACTIONS SUBMENU
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM ACTIONS");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ACTIONS");
 
           // Button 1: Hibernate Now (y = 120, r = 18)
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "Hibernate Now", id(col_white), false);
@@ -5322,7 +5317,7 @@ display:
           // --------------------------------------------------
           // VIEW 5: SOFTWARE UPDATE SCREEN
           // --------------------------------------------------
-          it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "UPDATE");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "UPDATE");
 
           // Version Information
           char cur_buf[32];
@@ -5398,9 +5393,9 @@ display:
 
         } else if (id(system_menu_mode) == 7) {
           // --------------------------------------------------
-          // VIEW 7: AUDIO & MEDIA SUBMENU
+          // VIEW 7: AUDIO SUBMENU
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO & MEDIA");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO");
 
           // Button 1: Album Art Style Cycler (y = 120, r = 18)
           std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
@@ -5433,7 +5428,7 @@ display:
           // --------------------------------------------------
           // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Monochromatic Telemetry)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM INFO");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM INFO");
 
           // Line 1: Wi-Fi Signal & IP (Always White for pure contrast)
           float sig = id(pocket_wifi_signal).state;
@@ -5483,7 +5478,7 @@ display:
           // --------------------------------------------------
           // VIEW 9: CLOCK & TIME SUBMENU (Spacious 60px Pitch)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "CLOCK & TIME");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "CLOCK & TIME");
 
           // Button 1: Clock Face Style Cycler (y = 120, r = 18)
           std::string cf_label = id(clock_face_digital) ? "Clock Face: Digital" : "Clock Face: Analog";
@@ -6056,9 +6051,9 @@ display:
         // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
         // ----------------------------------------------------------------------
         else if (id(sky_weather_subpage) == 1) {
-          // Standardized Title at y = 56
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "FORECAST");
-          it.line(80, 78, 386, 78, id(col_dark_gray));
+          // Standardized Title at y = 50
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "FORECAST");
+          it.line(80, 72, 386, 72, id(col_dark_gray));
 
           struct DayForecast {
             std::string day;
@@ -6233,8 +6228,8 @@ display:
         // SUBPAGE 2: SUN (TITLE "SUN", BUFFERED LOWER ARC, DAYTIME-ONLY SUN)
         // ----------------------------------------------------------------------
         else if (id(sky_weather_subpage) == 2) {
-          // Standardized Title at y = 56
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SUN");
+          // Standardized Title at y = 50
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SUN");
 
           float elev = id(ha_sun_elevation).state;
           float azim = id(ha_sun_azimuth).state;
@@ -6342,7 +6337,7 @@ display:
 
           auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
 
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
 
           int moon_cx = cx;
           int moon_cy = 141;
@@ -6489,18 +6484,18 @@ display:
           }
         } else {
           // --------------------------------------------------------------------
-          // STANDARDIZED TOP TITLE AT y = 56 ("TIMER", "ALARM", or "EDIT ALARM X")
+          // STANDARDIZED TOP TITLE AT y = 50 ("TIMER", "ALARM", or "EDIT ALARM X")
           // --------------------------------------------------------------------
           bool is_timer = (id(timer_alarm_subpage) == 0);
           if (is_timer) {
-            it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
           } else {
             if (id(alarm_edit_idx) == 0) {
-              it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
+              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
             } else {
               char hdr_buf[32];
               snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", id(alarm_edit_idx));
-              it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
+              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
             }
           }
 
@@ -7427,8 +7422,8 @@ touchscreen:
                 if (touch.x >= 95 && touch.x <= 371) {
                   if (id(sleep_menu_page) == 1) {
                     // Page 1: Wake & Screensaver (Slots 1-5, 58px pitch)
-                    // Slot 1: Motion Wake Cycler (y: 77..135, pill at y=106)
-                    if (touch.y >= 77 && touch.y <= 135) {
+                    // Slot 1: Motion Wake Cycler (y: 75..133, pill at y=104)
+                    if (touch.y >= 75 && touch.y <= 133) {
                       std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
                       std::string nxt = "Always On";
                       if (cur == "Always On") nxt = "Docked Only";
@@ -7439,8 +7434,8 @@ touchscreen:
                       call.perform();
                       id(disp1).update();
                       return;
-                    // Slot 2: Tap Wake Cycler (y: 136..193, pill at y=164)
-                    } else if (touch.y >= 136 && touch.y <= 193) {
+                    // Slot 2: Tap Wake Cycler (y: 134..191, pill at y=162)
+                    } else if (touch.y >= 134 && touch.y <= 191) {
                       std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
                       std::string nxt = "Always On";
                       if (cur == "Always On") nxt = "Docked Only";
@@ -7451,13 +7446,13 @@ touchscreen:
                       call.perform();
                       id(disp1).update();
                       return;
-                    // Slot 3: Docked Screensaver Toggle (y: 194..251, pill at y=222)
-                    } else if (touch.y >= 194 && touch.y <= 251) {
+                    // Slot 3: Docked Screensaver Toggle (y: 192..249, pill at y=220)
+                    } else if (touch.y >= 192 && touch.y <= 249) {
                       id(docked_screensaver_switch).toggle();
                       id(disp1).update();
                       return;
-                    // Slot 4: Screensaver Style Cycler (y: 252..309, pill at y=280)
-                    } else if (touch.y >= 252 && touch.y <= 309) {
+                    // Slot 4: Screensaver Style Cycler (y: 250..307, pill at y=278)
+                    } else if (touch.y >= 250 && touch.y <= 307) {
                       std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
                       std::string nxt_s = "Ambient Clock";
                       if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
@@ -7471,8 +7466,8 @@ touchscreen:
                       call.perform();
                       id(disp1).update();
                       return;
-                    // Slot 5: Docked Inactivity Timeout Cycler (y: 310..367, pill at y=338)
-                    } else if (touch.y >= 310 && touch.y <= 367) {
+                    // Slot 5: Docked Inactivity Timeout Cycler (y: 308..365, pill at y=336)
+                    } else if (touch.y >= 308 && touch.y <= 365) {
                       std::string cur_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
                       std::string nxt_to = "Never";
                       if (cur_to == "10s") nxt_to = "15s";
@@ -7489,8 +7484,8 @@ touchscreen:
                     }
                   } else {
                     // Page 2: Inactivity & Power Timeouts (Slots 1-3, 58px pitch)
-                    // Slot 1: Screen Off Timeout (y: 77..135, pill at y=106)
-                    if (touch.y >= 77 && touch.y <= 135) {
+                    // Slot 1: Screen Off Timeout (y: 75..133, pill at y=104)
+                    if (touch.y >= 75 && touch.y <= 133) {
                       std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
                       std::string nxt_so = "15s";
                       if (cur_so == "10s") nxt_so = "15s";
@@ -7504,13 +7499,13 @@ touchscreen:
                       call.perform();
                       id(disp1).update();
                       return;
-                    // Slot 2: Stay Awake Mode (y: 136..193, pill at y=164)
-                    } else if (touch.y >= 136 && touch.y <= 193) {
+                    // Slot 2: Stay Awake Mode (y: 134..191, pill at y=162)
+                    } else if (touch.y >= 134 && touch.y <= 191) {
                       id(prevent_deep_sleep_switch).toggle();
                       id(disp1).update();
                       return;
-                    // Slot 3: Auto-Sleep Deep Sleep Timeout (y: 194..251, pill at y=222)
-                    } else if (touch.y >= 194 && touch.y <= 251) {
+                    // Slot 3: Auto-Sleep Deep Sleep Timeout (y: 192..249, pill at y=220)
+                    } else if (touch.y >= 192 && touch.y <= 249) {
                       std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
                       std::string nxt_as = "5 min";
                       if (cur_as == "5 min") nxt_as = "10 min";
