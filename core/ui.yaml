@@ -1457,17 +1457,8 @@ binary_sensor:
                               } else {
                                 id(screen_sleep_timer).execute();
                               }
-                          - if:
-                              condition:
-                                media_player.is_playing: pocket_music_player
-                              then:
-                                - media_player.pause: pocket_music_player
-                                - mixer_speaker.apply_ducking:
-                                    id: media_mixing_input
-                                    decibel_reduction: 50
-                                    duration: 0.1s
-                                - delay: 150ms
-                                - script.execute: pause_all_music
+                          - script.execute: pause_all_music
+                          - delay: 150ms
                           - script.execute: route_i2s_to_mic
                           - lambda: 'id(va_tts_received) = false;'
                           - voice_assistant.start:
@@ -1691,21 +1682,70 @@ script:
     mode: restart
     then:
       - lambda: |-
-          id(va_resume_music_after) = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-      - media_player.pause: pocket_music_player
-      - mixer_speaker.apply_ducking:
-          id: media_mixing_input
-          decibel_reduction: 50
-          duration: 0.1s
+          bool local_active = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+          bool remote_active = (!id(active_speaker_entity).empty() && (id(active_speaker_entity) != "${local_player_id}") && (id(ha_target_state).state == "playing"));
+          if (local_active || remote_active) {
+            id(va_resume_music_after) = true;
+          }
+          ESP_LOGI("audio", "pause_all_music: local=%d, remote=%d -> va_resume_music_after=%d", local_active, remote_active, id(va_resume_music_after));
       - if:
           condition:
-            lambda: 'return !id(active_speaker_entity).empty();'
+            lambda: 'return id(va_resume_music_after);'
           then:
-            - homeassistant.action:
-                action: media_player.media_pause
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();' 
+            - media_player.pause: pocket_music_player
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
+            - if:
+                condition:
+                  lambda: 'return !id(active_speaker_entity).empty();'
+                then:
+                  - homeassistant.action:
+                      action: media_player.media_pause
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
+  - id: resume_music_after_va
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(va_resume_music_after);'
+          then:
+            - lambda: |-
+                id(va_resume_music_after) = false;
+                ESP_LOGI("audio", "resume_music_after_va: restoring playback for %s", id(active_speaker_entity).c_str());
+            - if:
+                condition:
+                  lambda: 'return !id(active_speaker_entity).empty() && (id(active_speaker_entity) != "${local_player_id}");'
+                then:
+                  - homeassistant.action:
+                      action: media_player.media_play
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  - audio_dac.mute_on: es8311_dac
+                  - script.execute: route_i2s_to_mic
+                else:
+                  - script.execute: route_i2s_to_spk
+                  - audio_dac.mute_off: es8311_dac
+                  - switch.turn_on: speaker_enable
+                  - mixer_speaker.apply_ducking:
+                      id: media_mixing_input
+                      decibel_reduction: 0
+                      duration: 0.5s
+                  - if:
+                      condition:
+                        lambda: 'return !id(active_speaker_entity).empty();'
+                      then:
+                        - homeassistant.action:
+                            action: media_player.media_play
+                            data:
+                              entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  - media_player.play: pocket_music_player
+          else:
+            - audio_dac.mute_on: es8311_dac
+            - script.execute: route_i2s_to_mic
   - id: throttled_disp_update
     mode: restart
     then:
@@ -2638,28 +2678,12 @@ script:
           id(gui_page) = id(return_page);
       - component.update: disp1
       - delay: 100ms
-      - if:
-          condition:
-            lambda: 'return id(va_resume_music_after);'
-          then:
-            - lambda: 'id(va_resume_music_after) = false;'
-            - script.execute: route_i2s_to_spk
-            - audio_dac.mute_off: es8311_dac
-            - switch.turn_on: speaker_enable
-            - media_player.play: pocket_music_player
-            - mixer_speaker.apply_ducking:
-                id: media_mixing_input
-                decibel_reduction: 0
-                duration: 0.5s
-          else:
-            - audio_dac.mute_on: es8311_dac
-            - script.execute: route_i2s_to_mic
+      - script.execute: resume_music_after_va
       - if:
           condition:
             binary_sensor.is_off: pickup_detected
           then:
             - script.execute: screen_sleep_timer
-
   - id: route_i2s_to_mic
     mode: restart
     then:

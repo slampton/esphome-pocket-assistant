@@ -173,7 +173,9 @@ voice_assistant:
     then:
       - if:
           condition:
-            media_player.is_playing: pocket_music_player
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                     (!id(active_speaker_entity).empty() && id(ha_target_state).state == "playing");
           then:
             - script.execute: pause_all_music
             - delay: 150ms
@@ -244,22 +246,8 @@ voice_assistant:
       - script.execute: va_tts_drain_and_finish
   on_error:
     then:
-      - if:
-          condition:
-            lambda: 'return id(va_resume_music_after);'
-          then:
-            - lambda: 'id(va_resume_music_after) = false;'
-            - script.execute: route_i2s_to_spk
-            - audio_dac.mute_off: es8311_dac
-            - switch.turn_on: speaker_enable
-            - media_player.play: pocket_music_player
-            - mixer_speaker.apply_ducking:
-                id: media_mixing_input
-                decibel_reduction: 0
-                duration: 0.5s
-          else:
-            - audio_dac.mute_on: es8311_dac
-            - script.execute: route_i2s_to_mic
+      - script.stop: va_tts_drain_and_finish
+      - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
           id(va_tts_received) = false;
@@ -338,7 +326,7 @@ voice_assistant:
     then:
       - if:
           condition:
-            lambda: 'return !id(va_tts_received);'
+            lambda: 'return !id(va_tts_received) && id(va_active);'
           then:
             - script.execute: va_tts_drain_and_finish
 
@@ -357,22 +345,7 @@ script:
                   lambda: 'return !id(announcement_mixing_input).is_running();'
                 timeout: 3s
             - delay: 100ms
-      - if:
-          condition:
-            lambda: 'return id(va_resume_music_after);'
-          then:
-            - lambda: 'id(va_resume_music_after) = false;'
-            - script.execute: route_i2s_to_spk
-            - audio_dac.mute_off: es8311_dac
-            - switch.turn_on: speaker_enable
-            - media_player.play: pocket_music_player
-            - mixer_speaker.apply_ducking:
-                id: media_mixing_input
-                decibel_reduction: 0
-                duration: 0.8s
-          else:
-            - audio_dac.mute_on: es8311_dac
-            - script.execute: route_i2s_to_mic
+      - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "";
