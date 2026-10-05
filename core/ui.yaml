@@ -5735,12 +5735,94 @@ display:
               draw_cumulus(370, 180, 0.85f, false); // Mid-Right flank (beside telemetry cards)
               draw_cumulus(100, 255, 0.80f, false); // Lower-Left flank (above subpage navigation pills)
             } else {
-              // Cloudy / Overcast: 4 grand overlapping cumulus canopies filling the atmospheric sky
-              // Naturally billow across upper and mid-lower flanks; center shadow valley preserves high text contrast
-              draw_cumulus(115,  40, 2.10f, true);  // Grand Upper-Left canopy
-              draw_cumulus(350,  60, 1.95f, true);  // Grand Upper-Right billowing bank
-              draw_cumulus(100, 225, 1.85f, true);  // Grand Mid-Lower Left rolling bank
-              draw_cumulus(345, 235, 1.80f, true);  // Grand Mid-Lower Right rolling bank
+              // Cloudy / Overcast: 4 unique asymmetrical grand canopies with deep multi-tonal volumetric shading
+              // Z-Order: BL (towering top-left) -> BR (lower bank) -> TR (huge descending bottom-right) -> TL (overlapping canopy)
+              struct CloudPass {
+                uint8_t idx;
+                int8_t dx;
+                int8_t dy;
+                int8_t dr;
+                uint8_t col_type; // 0=shadow, 1=body, 2=mid, 3=high, 4=crest, 5=bright
+              };
+
+              Color c_shad = is_night ? Color(12, 16, 22) : Color(24, 38, 56);
+              Color c_body = is_night ? Color(20, 28, 38) : Color(38, 56, 78);
+              Color c_mid  = is_night ? Color(28, 38, 50) : Color(46, 66, 90);
+              Color c_high = is_night ? Color(38, 50, 66) : Color(56, 78, 104);
+              Color c_crst = is_night ? Color(58, 74, 98) : Color(76, 104, 134);
+              Color c_brgt = is_night ? Color(68, 86, 112) : Color(90, 120, 154);
+              Color pal[6] = {c_shad, c_body, c_mid, c_high, c_crst, c_brgt};
+
+              auto draw_asym_cloud = [&](int bx, int by, float scale, const int8_t lobes[][3], uint8_t n_lobes, const CloudPass passes[], uint8_t n_passes) {
+                int max_extent = (int)(115.0f * scale);
+                if (bx + max_extent < 0 || bx - max_extent >= 466 || by + max_extent < 0 || by - max_extent >= 466) return;
+                for (uint8_t p = 0; p < n_passes; p++) {
+                  uint8_t idx = passes[p].idx;
+                  int sr = (int)(lobes[idx][2] * scale) + (int)(passes[p].dr * scale);
+                  if (sr <= 0) continue;
+                  int sx = bx + (int)(lobes[idx][0] * scale) + (int)(passes[p].dx * scale);
+                  int sy = by + (int)(lobes[idx][1] * scale) + (int)(passes[p].dy * scale);
+                  if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
+                  it.filled_circle(sx, sy, sr, pal[passes[p].col_type]);
+                }
+              };
+
+              // 1. BL: Bottom-Left Cloud (Towering top-left billows reaching upward towards center)
+              static const int8_t lobes_bl[8][3] = {
+                {-48, -32, 42}, {-20, -26, 38}, {-56, -10, 34}, {  8, -14, 30},
+                {-36,  12, 28}, {-10,  18, 28}, { 16,  12, 24}, { 36,   0, 22}
+              };
+              static const CloudPass passes_bl[19] = {
+                {4, 0, 5, 0, 0}, {5, 0, 5, 0, 0}, {6, 0, 5, 0, 0}, {7, 0, 5, 0, 0}, {2, 0, 5, 0, 0},
+                {4, 0, 0, -2, 1}, {5, 0, 0, -2, 1}, {6, 0, 0, -2, 1}, {7, 0, 0, -2, 1}, {2, 0, 0, -2, 1},
+                {0, 0, 0, -2, 1}, {1, 0, 0, -2, 1}, {3, 0, 0, -2, 1},
+                {2, 2, -2, -4, 2}, {3, 2, -2, -4, 2},
+                {0, 3, -3, -5, 3}, {1, 3, -3, -5, 3},
+                {0, 5, -5, -8, 5}, {1, 4, -4, -8, 4}
+              };
+              draw_asym_cloud(105, 230, 1.85f, lobes_bl, 8, passes_bl, 19);
+
+              // 2. BR: Bottom-Right Cloud (Anchored lower-right foundation bank)
+              static const int8_t lobes_br[7][3] = {
+                {-36,  -4, 28}, {-12, -14, 32}, { 14, -18, 34}, { 38,  -8, 28},
+                {-25,  12, 24}, {  2,  16, 26}, { 28,  12, 24}
+              };
+              static const CloudPass passes_br[15] = {
+                {4, 0, 5, 0, 0}, {5, 0, 5, 0, 0}, {6, 0, 5, 0, 0}, {0, 0, 5, 0, 0},
+                {4, 0, 0, -2, 1}, {5, 0, 0, -2, 1}, {6, 0, 0, -2, 1}, {0, 0, 0, -2, 1},
+                {1, 0, 0, -2, 1}, {2, 0, 0, -2, 1}, {3, 0, 0, -2, 1},
+                {1, 2, -3, -5, 2}, {2, 2, -3, -5, 3}, {3, 2, -2, -5, 2},
+                {2, 4, -5, -8, 4}
+              };
+              draw_asym_cloud(345, 240, 1.75f, lobes_br, 7, passes_br, 15);
+
+              // 3. TR: Top-Right Cloud (Descending bottom-right titan lobes sweeping down over BR)
+              static const int8_t lobes_tr[8][3] = {
+                {-35, -14, 30}, {-10, -22, 36}, { 18, -16, 34}, {-45,   4, 26},
+                { 14,  16, 34}, { 38,  32, 40}, { 52,  52, 32}, {-15,  12, 26}
+              };
+              static const CloudPass passes_tr[20] = {
+                {3, 0, 5, 0, 0}, {7, 0, 5, 0, 0}, {4, 0, 5, 0, 0}, {5, 0, 5, 0, 0}, {6, 0, 5, 0, 0},
+                {3, 0, 0, -2, 1}, {7, 0, 0, -2, 1}, {0, 0, 0, -2, 1}, {1, 0, 0, -2, 1}, {2, 0, 0, -2, 1},
+                {4, 0, 0, -2, 1}, {5, 0, 0, -2, 1}, {6, 0, 0, -2, 1},
+                {0, 3, -3, -5, 2}, {1, 3, -3, -5, 3}, {2, 3, -3, -5, 3}, {5, 3, -2, -5, 2},
+                {1, 4, -5, -8, 5}, {2, 4, -5, -8, 4}, {5, 4, -4, -8, 4}
+              };
+              draw_asym_cloud(350,  65, 1.85f, lobes_tr, 8, passes_tr, 20);
+
+              // 4. TL: Top-Left Cloud (Overlapping canopy reaching down across BL)
+              static const int8_t lobes_tl[8][3] = {
+                {-42,   6, 26}, {-22, -14, 34}, { 10, -22, 38}, { 38,  -8, 30},
+                { 52,   8, 24}, {-14,  18, 30}, { 16,  20, 26}, {  0,   6, 28}
+              };
+              static const CloudPass passes_tl[20] = {
+                {0, 0, 5, 0, 0}, {4, 0, 5, 0, 0}, {5, 0, 5, 0, 0}, {6, 0, 5, 0, 0}, {7, 0, 5, 0, 0},
+                {0, 0, 0, -2, 1}, {4, 0, 0, -2, 1}, {5, 0, 0, -2, 1}, {6, 0, 0, -2, 1}, {7, 0, 0, -2, 1},
+                {1, 0, 0, -2, 1}, {2, 0, 0, -2, 1}, {3, 0, 0, -2, 1},
+                {0, 3, -3, -5, 2}, {1, 3, -3, -5, 3}, {2, 3, -3, -5, 3}, {3, 3, -3, -5, 2},
+                {1, 4, -5, -8, 4}, {2, 4, -5, -8, 5}, {3, 4, -5, -8, 4}
+              };
+              draw_asym_cloud(120,  42, 2.05f, lobes_tl, 8, passes_tl, 20);
             }
           }
 
