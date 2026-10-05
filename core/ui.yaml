@@ -5439,34 +5439,34 @@ display:
           id(font_small)->measure(buf, &text_w, &x_off, &base, &text_h);
           const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 88;
 
-          // Standardized top gap below y=50 title (start y = 78, preserving 40px row-to-row spacing)
-          it.print(info_x, 78, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          // Standardized top gap below y=50 title (start y = 84, matching standard pill top boundary y=84 while preserving 40px row spacing)
+          it.print(info_x, 84, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 2: Temperature (Dual C & F)
           float temp_c = id(imu_temp).state;
           float temp_f = temp_c * 1.8f + 32.0f;
           snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-          it.print(info_x, 118, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 124, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
           snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
-          it.print(info_x, 158, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 164, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 4: 3-Axis Acceleration (G-force)
           snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(info_x, 198, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 204, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 5: Battery Fuel Gauge & Power
           float v_batt = id(batt_voltage).state;
           snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(info_x, 238, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 244, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 6: Hardware Platform, Memory & Firmware
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
           snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
-          it.print(info_x, 278, id(font_small), id(col_white), TextAlign::LEFT, buf);
+          it.print(info_x, 284, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
@@ -6500,25 +6500,25 @@ display:
             // ==================================================================
             // SUBPAGE 0: COUNTDOWN TIMER (HERO BUTTON CENTERED AT y = 228)
             // ==================================================================
-            // 1. Time Readout above Hero Button (y = 106, font_time, elevated by 14px to match title buffer)
+            // 1. Time Readout above Hero Button (y = 120, font_time, standardized buffer below y=50 title)
             int disp_sec = (id(timer_running) || id(timer_paused)) ? id(timer_remaining_sec) : id(timer_duration_sec);
             int m_part = disp_sec / 60;
             int s_part = disp_sec % 60;
             char t_str[16];
             snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
-            it.print(cx, 106, id(font_time), id(col_white), TextAlign::CENTER, t_str);
+            it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_str);
 
-            // Subtitle status (y = 154, elevated by 14px)
+            // Subtitle status (y = 168)
             if (id(timer_running)) {
-              it.print(cx, 154, id(font_small), id(theme_secondary), TextAlign::CENTER, "Countdown");
+              it.print(cx, 168, id(font_small), id(theme_secondary), TextAlign::CENTER, "Countdown");
             } else if (id(timer_paused)) {
-              it.print(cx, 154, id(font_small), id(theme_primary), TextAlign::CENTER, "Paused");
+              it.print(cx, 168, id(font_small), id(theme_primary), TextAlign::CENTER, "Paused");
             } else {
-              it.print(cx, 154, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
+              it.print(cx, 168, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
             }
 
-            // 2. Centered Hero Action Button (y = 214, r = 22, 180px wide, black text on theme_secondary)
-            const int hero_y = 214;
+            // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide, black text on theme_secondary)
+            const int hero_y = 228;
             if (!id(timer_running) && !id(timer_paused)) {
               draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black));
             } else if (id(timer_running)) {
@@ -6527,18 +6527,18 @@ display:
               draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black));
             }
 
-            // 3. Quick Steppers with Natural Gap or Reset (y = 278, r = 14, leaving generous 44px gap above nav buttons)
+            // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14, leaving generous 30px gap above nav buttons)
             if (!id(timer_running) && !id(timer_paused)) {
               // -5m: span 48..126
-              draw_pill_button(62, 112, 278, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
+              draw_pill_button(62, 112, 292, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
               // -1m: moved inward to span 140..204 (14px natural gap from -5m)
-              draw_pill_button(154, 190, 278, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
+              draw_pill_button(154, 190, 292, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
               // +1m: moved inward to span 262..326 (14px natural gap to +5m)
-              draw_pill_button(276, 312, 278, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
+              draw_pill_button(276, 312, 292, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
               // +5m: span 340..418
-              draw_pill_button(354, 404, 278, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+              draw_pill_button(354, 404, 292, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
             } else {
-              draw_pill_button(170, 296, 278, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
+              draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
             }
 
             // 4. Dynamic Perimeter Progress Arc (r = 224..226)
@@ -6644,19 +6644,19 @@ display:
               int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
               int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-              // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, bumped up 5px to y=131
+              // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, standardized at y=120 to match timer buffer
               char t_buf[16];
               if (id(is_24h_format)) {
                 snprintf(t_buf, sizeof(t_buf), "%02d:%02d", cur_h, cur_m);
-                it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
               } else {
                 int h12 = cur_h % 12;
                 if (h12 == 0) h12 = 12;
                 snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
                 const char* ap = (cur_h >= 12) ? "PM" : "AM";
-                it.print(cx, 131, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+                it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
                 int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
-                it.print(ap_x, 140, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
+                it.print(ap_x, 129, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
               }
 
               // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
@@ -7820,7 +7820,7 @@ touchscreen:
                 // SUBPAGE 0: COUNTDOWN TIMER TOUCH
                 // ==============================================================
                 // Zone 2: Centered Hero Button (START / PAUSE / RESUME) (y: 188..240, button at y=214)
-                if (touch.y >= 188 && touch.y <= 240 && touch.x >= 125 && touch.x <= 341) {
+                if (touch.y >= 202 && touch.y <= 254 && touch.x >= 125 && touch.x <= 341) {
                   if (!id(timer_running) && !id(timer_paused)) {
                     // START
                     id(timer_running) = true;
@@ -7847,7 +7847,7 @@ touchscreen:
                 }
 
                 // Zone 3: Adjustment Pills or Reset with natural gap spacing (y: 258..301, pills at y=278)
-                if (touch.y >= 258 && touch.y <= 301) {
+                if (touch.y >= 272 && touch.y <= 315) {
                   if (!id(timer_running) && !id(timer_paused)) {
                     if (touch.x >= 40 && touch.x <= 133) {
                       // -5m (span 48..126)
@@ -7887,7 +7887,7 @@ touchscreen:
                 }
 
                 // Zone 4: Tap digits to reset duration to default 5m when stopped (y: 66..146, x: 120..346)
-                if (!id(timer_running) && !id(timer_paused) && touch.y >= 66 && touch.y <= 146 && touch.x >= 120 && touch.x <= 346) {
+                if (!id(timer_running) && !id(timer_paused) && touch.y >= 80 && touch.y <= 160 && touch.x >= 120 && touch.x <= 346) {
                   if (id(timer_duration_sec) != 300) {
                     id(timer_duration_sec) = 300;
                     id(timer_remaining_sec) = 300;
@@ -7986,8 +7986,8 @@ touchscreen:
                     return;
                   }
 
-                  // Standardized System < BACK Button (y: 335..398, x: 80..386, matching draw_back_button at y=368)
-                  if (touch.y >= 335 && touch.y <= 398 && touch.x >= 80 && touch.x <= 386) {
+                  // Standardized System < BACK Button at y = 408 (generous chin-to-bezel touch zone y >= 340, x: 80..386)
+                  if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
                     id(alarm_edit_idx) = 0;
                     if (edit_idx == 1) id(alarm1_enabled) = true;
                     if (edit_idx == 2) id(alarm2_enabled) = true;
