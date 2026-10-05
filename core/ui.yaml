@@ -393,6 +393,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: va_resume_music_after
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 
 font:
@@ -776,14 +780,8 @@ button:
           then:
             - script.execute: cancel_voice_assistant
           else:
-            - if:
-                condition:
-                  media_player.is_playing: pocket_music_player
-                then:
-                  - mixer_speaker.apply_ducking:
-                      id: media_mixing_input
-                      decibel_reduction: 50
-                      duration: 0.1s
+            - script.execute: pause_all_music
+            - delay: 100ms
             - script.execute: route_i2s_to_mic
             - light.turn_on: display_brightness
             - lambda: 'id(va_tts_received) = false;'
@@ -1463,10 +1461,13 @@ binary_sensor:
                               condition:
                                 media_player.is_playing: pocket_music_player
                               then:
+                                - media_player.pause: pocket_music_player
                                 - mixer_speaker.apply_ducking:
                                     id: media_mixing_input
                                     decibel_reduction: 50
                                     duration: 0.1s
+                                - delay: 150ms
+                                - script.execute: pause_all_music
                           - script.execute: route_i2s_to_mic
                           - lambda: 'id(va_tts_received) = false;'
                           - voice_assistant.start:
@@ -1686,6 +1687,25 @@ text_sensor:
 
 
 script:
+  - id: pause_all_music
+    mode: restart
+    then:
+      - lambda: |-
+          id(va_resume_music_after) = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+      - media_player.pause: pocket_music_player
+      - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 50
+          duration: 0.1s
+      - if:
+          condition:
+            lambda: 'return !id(active_speaker_entity).empty();'
+          then:
+            - homeassistant.action:
+                action: media_player.media_pause
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();' 
+
   - id: throttled_disp_update
     mode: restart
     then:
@@ -2620,13 +2640,19 @@ script:
       - delay: 100ms
       - if:
           condition:
-            media_player.is_playing: pocket_music_player
+            lambda: 'return id(va_resume_music_after);'
           then:
+            - lambda: 'id(va_resume_music_after) = false;'
+            - script.execute: route_i2s_to_spk
+            - audio_dac.mute_off: es8311_dac
+            - switch.turn_on: speaker_enable
+            - media_player.play: pocket_music_player
             - mixer_speaker.apply_ducking:
                 id: media_mixing_input
                 decibel_reduction: 0
-                duration: 0.1s
+                duration: 0.5s
           else:
+            - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
       - if:
           condition:
