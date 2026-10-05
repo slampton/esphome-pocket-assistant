@@ -384,9 +384,7 @@ interval:
                   id(alarm_snooze_until) = (millis() / 1000) + 300;
                 }
                 id(alarm_ringing) = false;
-                id(ringing_start_ms) = 0;
                 id(stop_alarm_sound).execute();
-                id(gui_page) = id(return_page);
                 id(disp1).update();
                 id(screen_sleep_timer).execute();
                 return;
@@ -394,9 +392,7 @@ interval:
               if (id(timer_ringing)) {
                 // Crown short click Dismisses timer alarm
                 id(timer_ringing) = false;
-                id(ringing_start_ms) = 0;
                 id(stop_alarm_sound).execute();
-                id(gui_page) = id(return_page);
                 id(disp1).update();
                 id(screen_sleep_timer).execute();
                 return;
@@ -564,8 +560,6 @@ script:
           id(bus_internal).write(0x6B, qmi_full_on, 2);
       - script.execute: sync_display_brightness
       - script.execute: screen_sleep_timer
-      - script.execute: route_i2s_to_spk
-      - audio_dac.mute_off: es8311_dac
       - component.update: disp1
 
   - id: start_hibernation_countdown

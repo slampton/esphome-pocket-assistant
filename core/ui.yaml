@@ -357,10 +357,6 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
-  - id: ringing_start_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
   - id: va_active
     type: bool
     restore_value: no
@@ -1103,50 +1099,20 @@ interval:
           }
 
           // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
-          // High-refresh fluid drift (10 FPS / 100ms) for animated conditions (partly cloudy, rain, snow, lightning, wind, night stars)
-          // Overcast/Cloudy and Sunny/Clear Day are 100% static (zero continuous redraws, zero CPU overhead)
+          // High-refresh fluid drift (10 FPS / 100ms) when audio is quiet
+          // Throttled (3.3 FPS / 300ms) when music, voice assistant, or alarms are active; 500ms during active TTS speech
           if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
-            std::string w_cond = id(ha_weather_condition).state;
-            std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
-            if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
-              if (sim_opt.find("Cloudy / Overcast") != std::string::npos) w_cond = "cloudy";
-              else if (sim_opt.find("Partly Cloudy") != std::string::npos) w_cond = "partlycloudy";
-              else if (sim_opt.find("Sunny / Clear Day") != std::string::npos) w_cond = "sunny";
-              else if (sim_opt.find("Clear Night") != std::string::npos) w_cond = "clear-night";
-            }
-
-            bool is_night_w = (id(ha_sun_state).state == "below_horizon" || w_cond.find("night") != std::string::npos);
-            bool has_weather_anim = false;
-
-            if (w_cond.find("partly") != std::string::npos || w_cond.find("mostlysunny") != std::string::npos || w_cond.find("partlysunny") != std::string::npos) {
-              has_weather_anim = true; // Partly cloudy drift
-            } else if (w_cond.find("rain") != std::string::npos || w_cond.find("pouring") != std::string::npos || w_cond.find("drizzle") != std::string::npos) {
-              has_weather_anim = true; // Rain streaks
-            } else if (w_cond.find("snow") != std::string::npos || w_cond.find("sleet") != std::string::npos) {
-              has_weather_anim = true; // Snowflakes
-            } else if (w_cond.find("lightning") != std::string::npos || w_cond.find("thunder") != std::string::npos) {
-              has_weather_anim = true; // Lightning flash
-            } else if (w_cond.find("wind") != std::string::npos) {
-              has_weather_anim = true; // Wind
-            } else if (is_night_w && (w_cond == "clear-night" || w_cond == "clearnight" || w_cond == "sunny" || w_cond == "clear" || w_cond == "clear-day")) {
-              has_weather_anim = true; // Twinkling stars at night
-            }
-
-            if (has_weather_anim) {
-              static uint32_t last_weather_disp_update = 0;
-              uint32_t now_w_ms = millis();
-              bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                                id(va_active) || !id(va_status_text).empty() ||
-                                id(alarm_ringing) || id(timer_ringing);
-              uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 100);
-              if (now_w_ms - last_weather_disp_update >= target_cadence) {
-                last_weather_disp_update = now_w_ms;
-                id(disp1).update();
-              }
+            static uint32_t last_weather_disp_update = 0;
+            uint32_t now_w_ms = millis();
+            bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                              id(va_active) || !id(va_status_text).empty() ||
+                              id(alarm_ringing) || id(timer_ringing);
+            uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 100);
+            if (now_w_ms - last_weather_disp_update >= target_cadence) {
+              last_weather_disp_update = now_w_ms;
+              id(disp1).update();
             }
           }
-
-
 
   - interval: 250ms
     then:
@@ -1160,9 +1126,7 @@ interval:
               id(timer_running) = false;
               id(timer_paused) = false;
               id(timer_remaining_sec) = 0;
-              id(return_page) = id(gui_page);
               id(timer_ringing) = true;
-              id(ringing_start_ms) = millis();
               id(gui_page) = 6;
               id(timer_alarm_subpage) = 0;
               id(wake_to_active_state).execute();
@@ -1182,19 +1146,9 @@ interval:
             }
           }
 
-          // Periodic display refresh & 3-minute auto-silence timeout during active alarm or timer ringing
+          // Periodic display refresh during active alarm or timer ringing
           if ((id(alarm_ringing) || id(timer_ringing)) && id(display_power_state) == 0) {
-            if (id(ringing_start_ms) > 0 && (millis() - id(ringing_start_ms) > 180000)) {
-              // 3-minute unacknowledged timeout: auto-silence to prevent battery exhaustion
-              ESP_LOGW("alarm", "Alert unacknowledged after 3 minutes! Auto-silencing.");
-              id(alarm_ringing) = false;
-              id(timer_ringing) = false;
-              id(ringing_start_ms) = 0;
-              id(stop_alarm_sound).execute();
-              id(gui_page) = id(return_page);
-              id(disp1).update();
-              id(screen_sleep_timer).execute();
-            } else if (!id(va_active) && id(va_status_text).empty()) {
+            if (!id(va_active) && id(va_status_text).empty()) {
               id(disp1).update();
             }
           }
@@ -1206,10 +1160,6 @@ interval:
           // ------------------------------------------------------------------
           // ALARM ENGINE: SCHEDULE EVALUATION & SNOOZE CHECK
           // ------------------------------------------------------------------
-          if (id(is_hibernating)) {
-            return; // Suppress alarms during deep sleep / hibernate
-          }
-
           auto now = id(ha_time).now();
           if (now.is_valid()) {
             uint32_t now_epoch = now.timestamp;
@@ -1217,9 +1167,7 @@ interval:
             // 1. Snooze expiration check
             if (id(alarm_snooze_until) > 0 && now_epoch >= id(alarm_snooze_until)) {
               id(alarm_snooze_until) = 0;
-              id(return_page) = id(gui_page);
               id(alarm_ringing) = true;
-              id(ringing_start_ms) = millis();
               id(gui_page) = 6;
               id(timer_alarm_subpage) = 1;
               id(wake_to_active_state).execute();
@@ -1258,10 +1206,8 @@ interval:
 
               if (triggered) {
                 id(alarm_last_fired_min) = now.minute;
-                id(return_page) = id(gui_page);
                 id(alarm_ringing) = true;
                 id(alarm_ringing_idx) = trig_idx;
-                id(ringing_start_ms) = millis();
                 id(gui_page) = 6;
                 id(timer_alarm_subpage) = 1;
                 id(wake_to_active_state).execute();
@@ -2675,10 +2621,9 @@ script:
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: 50
-          duration: 0.05s
+          duration: 0.1s
       - voice_assistant.stop:
       - lambda: |-
-          id(announcement_mixing_input).stop();
           esphome::voice_assistant::abort_voice_assistant(id(va));
           id(va_status_text) = "";
           id(va_tts_received) = false;
@@ -2706,34 +2651,20 @@ script:
   - id: route_i2s_to_mic
     mode: restart
     then:
-      - if:
-          condition:
-            lambda: 'return id(i2s_on_speaker);'
-          then:
-            - audio_dac.mute_on: es8311_dac
-            - delay: 10ms
-            - lambda: |-
-                esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
-                esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
-                esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
-                id(i2s_on_speaker) = false;
+      - audio_dac.mute_on: es8311_dac
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
+          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
+          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
 
   - id: route_i2s_to_spk
     mode: restart
     then:
-      - if:
-          condition:
-            lambda: 'return !id(i2s_on_speaker);'
-          then:
-            - lambda: |-
-                esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
-                esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
-                esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
-                id(i2s_on_speaker) = true;
-            - delay: 20ms
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
+          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
+          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
       - switch.turn_on: speaker_enable
-      - audio_dac.mute_off: es8311_dac
-      - delay: 20ms
 
   - id: trigger_firmware_update
     mode: restart
@@ -2796,23 +2727,6 @@ display:
         -0.309017f, -0.207912f, -0.104528f, 0.000000f, 0.104528f, 0.207912f,
         0.309017f, 0.406737f, 0.500000f, 0.587785f, 0.669131f, 0.743145f,
         0.809017f, 0.866025f, 0.913545f, 0.951057f, 0.978148f, 0.994522f
-      };
-      // Fast Chord Table for Radius 222 (Aged Parchment Dial Fill without sqrtf)
-      static constexpr int16_t CHRONO_CHORD[223] = {
-        222, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221, 221,
-        221, 221, 221, 221, 221, 221, 220, 220, 220, 220, 220, 220, 220, 220, 219, 219,
-        219, 219, 219, 219, 219, 218, 218, 218, 218, 218, 217, 217, 217, 217, 217, 216,
-        216, 216, 216, 216, 215, 215, 215, 215, 214, 214, 214, 214, 213, 213, 213, 212,
-        212, 212, 211, 211, 211, 211, 210, 210, 210, 209, 209, 208, 208, 208, 207, 207,
-        207, 206, 206, 205, 205, 205, 204, 204, 203, 203, 202, 202, 202, 201, 201, 200,
-        200, 199, 199, 198, 198, 197, 197, 196, 196, 195, 195, 194, 193, 193, 192, 192,
-        191, 191, 190, 189, 189, 188, 188, 187, 186, 186, 185, 184, 184, 183, 182, 182,
-        181, 180, 179, 179, 178, 177, 176, 176, 175, 174, 173, 173, 172, 171, 170, 169,
-        168, 168, 167, 166, 165, 164, 163, 162, 161, 160, 159, 158, 157, 156, 155, 154,
-        153, 152, 151, 150, 149, 148, 147, 146, 145, 143, 142, 141, 140, 139, 137, 136,
-        135, 133, 132, 131, 129, 128, 127, 125, 124, 122, 121, 119, 118, 116, 114, 113,
-        111, 109, 107, 106, 104, 102, 100, 98, 96, 94, 92, 89, 87, 85, 82, 80,
-        77, 74, 72, 69, 65, 62, 59, 55, 51, 46, 41, 36, 29, 21, 0
       };
       static constexpr float SUB_SIN[10] = {
         0.000000f, 0.587785f, 0.951057f, 0.951057f, 0.587785f,
@@ -3524,19 +3438,11 @@ display:
                 it.line(cx + (int)(216 * s), cy - (int)(216 * c), cx + (int)(220 * s), cy - (int)(220 * c), id(col_gray));
               }
             }
-            // Highlight active second tick in theme primary (enlarged +25% in length & width for crisp visibility)
-            int sec_idx = sec % 60;
-            float s_sec = DIAL_SIN[sec_idx];
-            float c_sec = DIAL_COS[sec_idx];
-            float perp_x = -c_sec;
-            float perp_y = -s_sec;
-            for (int w = -1; w <= 1; w++) {
-              int x1 = cx + (int)(205.0f * s_sec + w * perp_x);
-              int y1 = cy - (int)(205.0f * c_sec - w * perp_y);
-              int x2 = cx + (int)(220.0f * s_sec + w * perp_x);
-              int y2 = cy - (int)(220.0f * c_sec - w * perp_y);
-              it.line(x1, y1, x2, y2, id(theme_primary));
-            }
+            // Highlight active second tick in theme primary
+            float s_sec = DIAL_SIN[sec % 60];
+            float c_sec = DIAL_COS[sec % 60];
+            it.line(cx + (int)(208 * s_sec), cy - (int)(208 * c_sec), cx + (int)(220 * s_sec), cy - (int)(220 * c_sec), id(theme_primary));
+            it.line(cx + (int)(208 * s_sec) + 1, cy - (int)(208 * c_sec), cx + (int)(220 * s_sec) + 1, cy - (int)(220 * c_sec), id(theme_primary));
 
             // Date Header: "MON, SEP 28" (Theme Primary)
             it.strftime(cx, 130, id(font_date), id(theme_primary), TextAlign::CENTER, "%a, %b %d", now);
@@ -3561,14 +3467,14 @@ display:
             }
             it.print(cx, 262, id(font_small), id(theme_secondary), TextAlign::CENTER, sec_buf);
 
-            // Battery telemetry in cyan with charging bolt / battery gauge (standardized to y = 380, static across faces)
+            // Battery telemetry in cyan with charging bolt / battery gauge
             if (!isnan(batt)) {
               char batt_str[16];
               snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
               int text_x = cx + 8;
-              it.print(text_x, 380, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
+              it.print(text_x, 340, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
               int bx = text_x - (batt >= 100.0f ? 36 : 28);
-              int by = 380;
+              int by = 340;
               if (id(batt_charging).state) {
                 it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
                 it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
@@ -3594,7 +3500,7 @@ display:
         }
 
         // Formatted date (white) and digital time complication (uniform slate gray)
-        it.strftime(cx, 104, id(font_date), id(theme_primary), TextAlign::CENTER, "%a, %b %d", now);
+        it.strftime(cx, 118, id(font_date), id(col_white), TextAlign::CENTER, "%a, %b %d", now);
         char time_buf[16];
         if (id(is_24h_format)) {
           snprintf(time_buf, sizeof(time_buf), "%02d:%02d", now.hour, now.minute);
@@ -3686,10 +3592,7 @@ display:
         it.circle(cx, cy, 223, id(col_silver));
 
         // Authentic 1970s Vintage Aged Parchment / Warm Opaline Off-White Dial
-                for (int dy = -222; dy <= 222; dy++) {
-          int16_t hw = CHRONO_CHORD[abs(dy)];
-          it.horizontal_line(cx - hw, cy + dy, 2 * hw + 1, Color(216, 206, 184));
-        }
+        it.filled_circle(cx, cy, 222, Color(216, 206, 184));
 
         // Outer Chapter Track Boundaries (Bold double ring)
         it.circle(cx, cy, 220, id(col_black));
@@ -3724,13 +3627,14 @@ display:
           }
         }
 
-        // Bold Perimeter Numerals (5..55: Zero Runtime snprintf)
-        static const char* const CHRONO_NUM_STRS[11] = {"5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"};
+        // Bold Perimeter Numerals (5..55: Fast LUT Lookups)
         for (int s = 5; s <= 55; s += 5) {
           float t_sin = DIAL_SIN[s];
           float t_cos = DIAL_COS[s];
+          char num_str[8];
+          snprintf(num_str, sizeof(num_str), "%d", s);
           it.print(cx + (int)(170.0f * t_sin), cy - (int)(170.0f * t_cos),
-                   id(font_small), id(col_black), TextAlign::CENTER, CHRONO_NUM_STRS[(s / 5) - 1]);
+                   id(font_small), id(col_black), TextAlign::CENTER, num_str);
         }
 
         // Vintage Title at Top: STOPWATCH (clean, non-overlapping)
@@ -3767,13 +3671,14 @@ display:
           }
         }
 
-        // Subdial Markings: 0, 2, 4, 6, 8 (Zero Runtime snprintf)
-        static const char* const SUB_NUM_STRS[5] = {"0", "2", "4", "6", "8"};
+        // Subdial Markings: 0, 2, 4, 6, 8 (Fast SUB_SIN/COS LUT Lookups)
         for (int i = 0; i < 10; i += 2) {
           float s_i = SUB_SIN[i];
           float c_i = SUB_COS[i];
+          char sub_num[4];
+          snprintf(sub_num, sizeof(sub_num), "%d", i);
           it.print(sub_cx + (int)(28.0f * s_i), sub_cy - (int)(28.0f * c_i),
-                   id(font_small), id(col_black), TextAlign::CENTER, SUB_NUM_STRS[i / 2]);
+                   id(font_small), id(col_black), TextAlign::CENTER, sub_num);
         }
 
         it.print(sub_cx, sub_cy + 14, id(font_micro), id(col_slate), TextAlign::CENTER, "1/10 SEC");
@@ -3798,14 +3703,14 @@ display:
         snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
         it.print(cx, 248, id(font_chrono_time), id(col_black), TextAlign::CENTER, chrono_buf);
 
-        // Display lap time readout if recorded (high-contrast racing red at y=272)
+        // Display lap time readout if recorded (centered at y=272, well clear of pushers)
         if (id(stopwatch_lap_ms) > 0) {
           int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
           int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
           int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
           char lap_buf[32];
           snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
-          it.print(cx, 272, id(font_small), id(col_red), TextAlign::CENTER, lap_buf);
+          it.print(cx, 272, id(font_small), id(theme_secondary), TextAlign::CENTER, lap_buf);
         }
 
         // ----------------------------------------------------
@@ -3815,9 +3720,8 @@ display:
           float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
           float l_sin, l_cos;
           sincosf(lap_angle, &l_sin, &l_cos);
-          it.line(cx, cy, cx + (int)(150.0f * l_sin), cy - (int)(150.0f * l_cos), id(col_red));
-          it.line(cx + 1, cy, cx + (int)(150.0f * l_sin) + 1, cy - (int)(150.0f * l_cos), id(col_red));
-          it.filled_circle(cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), 4, id(col_red));
+          it.line(cx, cy, cx + (int)(150.0f * l_sin), cy - (int)(150.0f * l_cos), id(theme_secondary));
+          it.circle(cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), 4, id(theme_secondary));
         }
 
         // ----------------------------------------------------
@@ -3874,8 +3778,7 @@ display:
         // LAP Button (Inboard radius 38px, diameter 76px)
         it.filled_circle(btn_lap_x, btn_y, 38, id(col_dark_gray));
         it.circle(btn_lap_x, btn_y, 38, id(col_black));
-        Color lap_ring_c = (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_silver);
-        it.circle(btn_lap_x, btn_y, 37, lap_ring_c);
+        it.circle(btn_lap_x, btn_y, 37, id(col_silver));
         it.print(btn_lap_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "LAP");
 
         // RESET Button (Inboard radius 38px, diameter 76px)
@@ -3898,7 +3801,7 @@ display:
           // VIEW 0: NOW PLAYING MUSIC PLAYER
           // --------------------------------------------------
           // Elevated Title baseline (y = 54) & Buffered Active Speaker Indicator (y = 80)
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
+          it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
           bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
@@ -4558,10 +4461,7 @@ display:
             }
 
             if (sunk_count >= 5 || time_remaining <= 0) {
-              if (!round_over) {
-                round_over = true;
-                id(play_game_over_sound).execute();
-              }
+              round_over = true;
               if (sunk_count >= 5) {
                 game_score += time_remaining * 35;
               }
@@ -4746,10 +4646,7 @@ display:
               arrow_y = -1.0f;
 
               if (arrows_left <= 0) {
-                if (!round_over) {
-                  round_over = true;
-                  id(play_game_over_sound).execute();
-                }
+                round_over = true;
                 if (arch_score > id(high_score_archery)) {
                   id(high_score_archery) = arch_score;
                   is_new_high = true;
@@ -4944,10 +4841,7 @@ display:
                 lives_left--;
                 ball_launched = false;
                 if (lives_left <= 0) {
-                  if (!round_over) {
-                    round_over = true;
-                    id(play_game_over_sound).execute();
-                  }
+                  round_over = true;
                   if (bo_score > id(high_score_breakout)) {
                     id(high_score_breakout) = bo_score;
                     is_new_high = true;
@@ -4957,10 +4851,7 @@ display:
 
               // Win Condition: All Bricks Cleared
               if (bricks_remaining == 0) {
-                if (!round_over) {
-                  round_over = true;
-                  id(play_game_over_sound).execute();
-                }
+                round_over = true;
                 bo_score += lives_left * 250; // Lives bonus
                 if (bo_score > id(high_score_breakout)) {
                   id(high_score_breakout) = bo_score;
@@ -5311,7 +5202,7 @@ display:
           // Button 1: Hibernate Now (y = 120, r = 18)
           draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), "Hibernate Now", id(col_white), false);
 
-          // Button 2: Auto-Hibernate Timeout Cycler (y = 180, r = 18)
+          // Button 2: Auto-Sleep Timeout Cycler (y = 180, r = 18)
           char s_buf[32];
           std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
           snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
@@ -5342,7 +5233,7 @@ display:
           // --------------------------------------------------
           // VIEW 5: SOFTWARE UPDATE SCREEN
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "UPDATE");
+          it.print(cx, 54, id(font_date), id(theme_primary), TextAlign::CENTER, "UPDATE");
 
           // Version Information
           char cur_buf[32];
@@ -5694,123 +5585,112 @@ display:
             }
           }
 
-          // 2. ATMOSPHERIC CLOUD FORMATIONS (SCULPTED ORGANIC CANOPY)
+          // 2. FULL-SCREEN VOLUMETRIC CLOUDS: Seamless Organic Cumulus (Partly) & Rolling Cumulus Blanket (Overcast)
           if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
             bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
 
-            auto draw_cloud = [&](int bx, int by, float scale, bool overcast_mode, bool is_bg_tier) {
-              Color c_shadow, c_body, c_high, c_rim;
-              if (is_night) {
-                if (is_bg_tier) {
-                  c_shadow = Color(10, 14, 20);
-                  c_body   = Color(18, 26, 36);
-                  c_high   = Color(32, 44, 60);
-                  c_rim    = Color(50, 70, 95);
-                } else {
-                  c_shadow = Color(14, 20, 28);
-                  c_body   = Color(28, 40, 56);
-                  c_high   = Color(48, 64, 88);
-                  c_rim    = Color(80, 105, 140);
-                }
-              } else if (overcast_mode) {
-                if (is_bg_tier) {
-                  c_shadow = Color(14, 22, 34);
-                  c_body   = Color(24, 38, 54);
-                  c_high   = Color(36, 54, 76);
-                  c_rim    = Color(55, 78, 105);
-                } else {
-                  c_shadow = Color(20, 32, 46);
-                  c_body   = Color(36, 54, 76);
-                  c_high   = Color(56, 80, 110);
-                  c_rim    = Color(88, 118, 155);
-                }
-              } else {
-                c_shadow = Color(28, 48, 72);
-                c_body   = Color(55, 82, 115);
-                c_high   = Color(85, 118, 155);
-                c_rim    = Color(130, 165, 205);
-              }
+            // Reusable Volumetric Cumulus Renderer (Zero internal circle strokes, with Bounding Culling & Integer SIMD Math)
+            auto draw_cumulus = [&](int bx, int by, float scale, bool overcast_mode) {
+              // Bounding box pre-culling for entire cloud formation
+              int max_extent = (int)(95.0f * scale);
+              if (bx + max_extent < 0 || bx - max_extent >= 466 ||
+                  by + max_extent < 0 || by - max_extent >= 466) return;
 
-              int hw = (int)(36.0f * scale);
-              int br = (int)(14.0f * scale);
-
-              static const int8_t lobes_rel[4][3] = {
-                {-28,  -4, 16}, // Left shoulder
-                {-12, -12, 22}, // Left-center dome
-                { 10, -16, 26}, // Hero peak dome
-                { 28,  -6, 18}, // Right shoulder
+              static const int8_t lobes[8][3] = {
+                {-45,  10, 24},
+                {-25,  -5, 32},
+                {  5, -18, 40},
+                { 35,  -8, 30},
+                { 55,  10, 22},
+                {-10,  15, 26},
+                { 20,  15, 26},
+                {  0,   8, 28}
               };
 
-              // Pass 1: Volumetric Underbelly Shadow (Offset down)
-              int s_dy = std::max(2, (int)(3.0f * scale));
-              it.filled_circle(bx - hw, by + s_dy, br, c_shadow);
-              it.filled_circle(bx + hw, by + s_dy, br, c_shadow);
-              it.filled_rectangle(bx - hw, by + s_dy - br, 2 * hw + 1, 2 * br + 1, c_shadow);
-              for (int i = 0; i < 4; i++) {
-                int dx = (int)(lobes_rel[i][0] * scale);
-                int dy = (int)(lobes_rel[i][1] * scale);
-                int r  = (int)(lobes_rel[i][2] * scale);
-                it.filled_circle(bx + dx, by + dy + s_dy, r, c_shadow);
+              Color col_shadow = is_night ? Color(12, 16, 22) : (overcast_mode ? Color(24, 38, 56) : Color(34, 52, 74));
+              Color col_body   = is_night ? Color(20, 28, 38) : (overcast_mode ? Color(38, 56, 78) : Color(54, 78, 106));
+              Color col_high   = is_night ? Color(36, 48, 64) : (overcast_mode ? Color(54, 76, 102) : Color(78, 108, 142));
+              Color col_crest  = is_night ? Color(58, 74, 98) : (overcast_mode ? Color(75, 102, 132) : Color(110, 145, 185));
+
+              // Pre-scale all 8 lobe coordinates and radii once (pure integer math across all passes)
+              int16_t sc_x[8], sc_y[8], sc_r[8];
+              for (int i = 0; i < 8; i++) {
+                sc_x[i] = (int16_t)(lobes[i][0] * scale);
+                sc_y[i] = (int16_t)(lobes[i][1] * scale);
+                sc_r[i] = (int16_t)(lobes[i][2] * scale);
+              }
+              int16_t off_y_sh = (int16_t)(5.0f * scale);
+              int16_t off_r_bd = (int16_t)(2.0f * scale);
+              int16_t off_x_hi = (int16_t)(3.0f * scale);
+              int16_t off_y_hi = (int16_t)(3.0f * scale);
+              int16_t off_r_hi = (int16_t)(5.0f * scale);
+              int16_t off_x_cr = (int16_t)(4.0f * scale);
+              int16_t off_y_cr = (int16_t)(6.0f * scale);
+              int16_t off_r_cr = (int16_t)(9.0f * scale);
+
+              // Pass 1: Volumetric Underbelly Shadow (Unified Silhouette)
+              for (int i = 0; i < 8; i++) {
+                int sx = bx + sc_x[i];
+                int sy = by + sc_y[i] + off_y_sh;
+                int sr = sc_r[i];
+                if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
+                it.filled_circle(sx, sy, sr, col_shadow);
               }
 
               // Pass 2: Main Cloud Body
-              it.filled_circle(bx - hw, by, br, c_body);
-              it.filled_circle(bx + hw, by, br, c_body);
-              it.filled_rectangle(bx - hw, by - br, 2 * hw + 1, 2 * br + 1, c_body);
-              for (int i = 0; i < 4; i++) {
-                int dx = (int)(lobes_rel[i][0] * scale);
-                int dy = (int)(lobes_rel[i][1] * scale);
-                int r  = (int)(lobes_rel[i][2] * scale);
-                it.filled_circle(bx + dx, by + dy, r, c_body);
+              for (int i = 0; i < 8; i++) {
+                int sx = bx + sc_x[i];
+                int sy = by + sc_y[i];
+                int sr = sc_r[i] - off_r_bd;
+                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
+                it.filled_circle(sx, sy, sr, col_body);
               }
 
-              // Pass 3: Sunlit / Moonlit Upper Volume Highlights
-              int h_dx = -std::max(1, (int)(2.0f * scale));
-              int h_dy = -std::max(2, (int)(3.0f * scale));
-              for (int i = 1; i < 4; i++) {
-                int dx = (int)(lobes_rel[i][0] * scale);
-                int dy = (int)(lobes_rel[i][1] * scale);
-                int hr = (int)(lobes_rel[i][2] * scale) - std::max(2, (int)(4.0f * scale));
-                if (hr > 0) {
-                  it.filled_circle(bx + dx + h_dx, by + dy + h_dy, hr, c_high);
-                }
+              // Pass 3: Sunlit / Moonlit Upper Volume
+              for (int i = 0; i < 5; i++) {
+                int sx = bx + sc_x[i] + off_x_hi;
+                int sy = by + sc_y[i] - off_y_hi;
+                int sr = sc_r[i] - off_r_hi;
+                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
+                it.filled_circle(sx, sy, sr, col_high);
               }
 
-              // Pass 4: Top Crown Crest on Hero Dome
-              int peak_dx = (int)(lobes_rel[2][0] * scale);
-              int peak_dy = (int)(lobes_rel[2][1] * scale);
-              int pr = (int)(lobes_rel[2][2] * scale) - std::max(1, (int)(3.0f * scale));
-              if (pr > 0) {
-                for (int a_deg = 210; a_deg <= 330; a_deg += 15) {
-                  float a_rad1 = a_deg * (PI_F / 180.0f);
-                  float a_rad2 = (a_deg + 15) * (PI_F / 180.0f);
-                  it.line(bx + peak_dx + h_dx + (int)(pr * cosf(a_rad1)),
-                          by + peak_dy + h_dy + (int)(pr * sinf(a_rad1)),
-                          bx + peak_dx + h_dx + (int)(pr * cosf(a_rad2)),
-                          by + peak_dy + h_dy + (int)(pr * sinf(a_rad2)), c_rim);
-                }
+              // Pass 4: Top Crown Crests
+              static const int crest_idx[3] = {1, 2, 3};
+              for (int i = 0; i < 3; i++) {
+                int idx = crest_idx[i];
+                int sx = bx + sc_x[idx] + off_x_cr;
+                int sy = by + sc_y[idx] - off_y_cr;
+                int sr = sc_r[idx] - off_r_cr;
+                if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
+                it.filled_circle(sx, sy, sr, col_crest);
               }
             };
 
             if (is_partly) {
-              // Partly Cloudy: 2 sculpted clouds with subtle horizontal drift (4-6 px/sec)
-              int x1 = ((95 + 80) + (int)((uint64_t)now_ms * 4ULL / 1000ULL)) % 626 - 80;
-              int x2 = ((340 + 80) + (int)((uint64_t)now_ms * 6ULL / 1000ULL)) % 626 - 80;
-              draw_cloud(x1, 90, 1.12f, false, false);
-              draw_cloud(x2, 142, 0.92f, false, false);
-            } else {
-              // Cloudy / Overcast: Dense static 2-tier canopy filling the screen
-              // Tier 0: Deep atmospheric horizon & edge billows
-              draw_cloud(233,  40, 1.45f, true, true);  // Top crown behind temp
-              draw_cloud( 55, 135, 1.40f, true, true);  // Mid-left edge
-              draw_cloud(410, 140, 1.40f, true, true);  // Mid-right edge
-              draw_cloud(233, 280, 1.50f, true, true);  // Lower horizon behind divider
+              // Partly Cloudy: 4 distinct volumetric cumulus formations pre-scattered across all quadrants
+              // Cloud drift speed halved (4-9 px/sec) for graceful, cinematic fluidity
+              static const int16_t pc_x[4] = { 80, 240, 130, 340 };
+              static const int16_t pc_y[4] = { 80, 175, 270, 340 };
+              static const float pc_scale[4] = { 1.05f, 0.90f, 0.82f, 0.75f };
+              static const int8_t pc_spd[4] = { 6, 8, 7, 9 };
 
-              // Tier 1: Foreground volumetric cloud canopy framing the sky
-              draw_cloud( 85,  72, 1.25f, true, false); // Upper-left billow
-              draw_cloud(380,  76, 1.25f, true, false); // Upper-right billow
-              draw_cloud( 65, 225, 1.20f, true, false); // Lower-left flank
-              draw_cloud(400, 230, 1.20f, true, false); // Lower-right flank
+              for (int i = 0; i < 4; i++) {
+                int x = ((pc_x[i] + 80) + (int)((uint64_t)now_ms * (uint32_t)pc_spd[i] / 1000ULL)) % 600 - 80;
+                draw_cumulus(x, pc_y[i], pc_scale[i], false);
+              }
+            } else {
+              // Cloudy / Overcast: Dense interlocking blanket of 10 large cumulus masses blanketing the sky
+              // Cloud drift speed halved (4-7 px/sec) for graceful, cinematic fluidity
+              static const int16_t og_x[10] = {  80, 240, 400, 140, 320,  60, 230, 390, 150, 310 };
+              static const int16_t og_y[10] = {  45,  40,  50, 145, 140, 245, 240, 250, 345, 340 };
+              static const float og_scale[10] = { 1.35f, 1.45f, 1.30f, 1.40f, 1.50f, 1.35f, 1.45f, 1.35f, 1.35f, 1.40f };
+              static const int8_t og_spd[10] = { 4, 6, 5, 7, 4, 5, 6, 4, 5, 6 };
+
+              for (int i = 0; i < 10; i++) {
+                int x = ((og_x[i] + 80) + (int)((uint64_t)now_ms * (uint32_t)og_spd[i] / 1000ULL)) % 600 - 80;
+                draw_cumulus(x, og_y[i], og_scale[i], true);
+              }
             }
           }
 
@@ -5959,65 +5839,40 @@ display:
 
             auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
 
-            static uint16_t corner_moon_cache[45][45];
-            static double corner_moon_cached_cycle = -1.0;
-
-            if (corner_moon_cached_cycle < 0.0 || fabs(cycle - corner_moon_cached_cycle) > 0.002) {
-              corner_moon_cached_cycle = cycle;
-              for (int my = -om_r; my <= om_r; my++) {
-                int w_line = (int)sqrtf((float)(om_r * om_r - my * my));
-                float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
-
-                for (int mx = -om_r; mx <= om_r; mx++) {
-                  if (abs(mx) > w_line) {
-                    corner_moon_cache[my + om_r][mx + om_r] = 0;
-                    continue;
-                  }
-                  float r_dist = sqrtf((float)(mx * mx + my * my));
-                  float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((om_r + 2) * (om_r + 2))));
-                  float base_lum = 205.0f + 25.0f * sphere_dim;
-
-                  // Scaled Maria
-                  if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
-                  else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
-                  else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
-                  else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
-                  else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
-                  else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
-                  else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
-
-                  float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
-                  float penumbra = 3.5f;
-                  float shadow;
-                  if (dist_to_term > penumbra) shadow = 1.0f;
-                  else if (dist_to_term < -penumbra) shadow = 0.0f;
-                  else {
-                    float t = (dist_to_term + penumbra) / (2.0f * penumbra);
-                    shadow = t * t * (3.0f - 2.0f * t);
-                  }
-
-                  float final_lum = base_lum * shadow + 14.0f * (1.0f - shadow);
-                  uint8_t c = (uint8_t)fminf(255.0f, final_lum);
-                  uint8_t r = (shadow < 0.05f) ? 12 : c;
-                  uint8_t g = (shadow < 0.05f) ? 16 : (uint8_t)(c * 0.98f);
-                  uint8_t b = (shadow < 0.05f) ? 24 : (uint8_t)(c * 0.94f);
-                  uint16_t rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-                  corner_moon_cache[my + om_r][mx + om_r] = rgb565;
-                }
-              }
-            }
-
             it.circle(cel_cx, cel_cy, om_r + 1, Color(35, 45, 60));
 
-            // Instant Cached Moon Blit (Zero transcendental calculations per frame)
             for (int my = -om_r; my <= om_r; my++) {
               int w_line = (int)sqrtf((float)(om_r * om_r - my * my));
+              float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
+
               for (int mx = -w_line; mx <= w_line; mx++) {
-                uint16_t rgb = corner_moon_cache[my + om_r][mx + om_r];
-                uint8_t r = ((rgb >> 11) & 0x1F) << 3;
-                uint8_t g = ((rgb >> 5) & 0x3F) << 2;
-                uint8_t b = (rgb & 0x1F) << 3;
-                it.draw_pixel_at(cel_cx + mx, cel_cy + my, Color(r, g, b));
+                float r_dist = sqrtf((float)(mx * mx + my * my));
+                float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((om_r + 2) * (om_r + 2))));
+                float base_lum = 205.0f + 25.0f * sphere_dim;
+
+                // Scaled Maria
+                if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
+                else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
+                else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
+                else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
+                else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
+                else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
+                else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
+
+                float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
+                float penumbra = 3.5f;
+                float shadow;
+                if (dist_to_term > penumbra) shadow = 1.0f;
+                else if (dist_to_term < -penumbra) shadow = 0.0f;
+                else {
+                  float t = (dist_to_term + penumbra) / (2.0f * penumbra);
+                  shadow = t * t * (3.0f - 2.0f * t);
+                }
+
+                float final_lum = base_lum * shadow + 14.0f * (1.0f - shadow);
+                uint8_t c = (uint8_t)fminf(255.0f, final_lum);
+                Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
+                it.draw_pixel_at(cel_cx + mx, cel_cy + my, p_col);
               }
             }
             it.circle(cel_cx, cel_cy, om_r, Color(45, 55, 70));
@@ -6088,22 +5943,22 @@ display:
 
           Color label_c = is_night ? id(col_slate) : Color(165, 190, 215);
 
-          // Column 1: HUMIDITY (Left x = 145, expanded 13px vertical buffer)
-          it.print(145, 218, id(font_small), label_c, TextAlign::CENTER, "HUMIDITY");
+          // Column 1: HUMIDITY (Left x = 145)
+          it.print(145, 220, id(font_small), label_c, TextAlign::CENTER, "HUMIDITY");
           char hum_str[16];
           if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
           else snprintf(hum_str, sizeof(hum_str), "--");
-          it.print(145, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, hum_str);
+          it.print(145, 248, id(font_date), id(col_white), TextAlign::CENTER, hum_str);
 
-          // Column 2: WIND (Right x = 321, expanded 13px vertical buffer)
-          it.print(321, 218, id(font_small), label_c, TextAlign::CENTER, "WIND");
+          // Column 2: WIND (Right x = 321)
+          it.print(321, 220, id(font_small), label_c, TextAlign::CENTER, "WIND");
           char wind_str[32];
           if (!isnan(wspd)) {
             snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
           } else {
             snprintf(wind_str, sizeof(wind_str), "--");
           }
-          it.print(321, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, wind_str);
+          it.print(321, 248, id(font_date), id(col_white), TextAlign::CENTER, wind_str);
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
@@ -6345,13 +6200,13 @@ display:
           std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
           std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
 
-          it.print(145, 218, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
-          it.print(145, 258, id(font_date), id(col_warm_gold), TextAlign::BASELINE_CENTER, s_rise.c_str());
+          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
+          it.print(145, 248, id(font_date), id(col_warm_gold), TextAlign::CENTER, s_rise.c_str());
 
-          it.line(cx, 208, cx, 266, id(col_dark_gray));
+          it.line(cx, 210, cx, 260, id(col_dark_gray));
 
-          it.print(321, 218, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
-          it.print(321, 258, id(font_date), id(col_warm_gold), TextAlign::BASELINE_CENTER, s_set.c_str());
+          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
+          it.print(321, 248, id(font_date), id(col_warm_gold), TextAlign::CENTER, s_set.c_str());
 
           // Divider at y = 272 above bottom 2x2 buttons
           it.line(80, 272, 386, 272, id(col_dark_gray));
@@ -6394,10 +6249,6 @@ display:
           }
 
           auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
-          auto hash2 = [](float x, float y) {
-            float n = sinf(x * 12.9898f + y * 78.233f) * 43758.5453f;
-            return n - floorf(n);
-          };
 
           it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
 
@@ -6406,126 +6257,43 @@ display:
           int moon_r = 52;
           float scale = 52.0f / 44.0f;
 
-          // Photorealistic Lunar Disc Buffer Cache (105x105, 21.5 KB static buffer)
-          static uint16_t moon_disc_cache[105][105];
-          static double moon_disc_cached_cycle = -1.0;
-
-          if (moon_disc_cached_cycle < 0.0 || fabs(cycle - moon_disc_cached_cycle) > 0.002) {
-            moon_disc_cached_cycle = cycle;
-            for (int my = -moon_r; my <= moon_r; my++) {
-              int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
-              float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
-              float rough = (hash2((float)my * 2.3f, 13.7f) - 0.5f) * 0.9f * scale;
-              float x_term_rugged = x_term + rough;
-
-              for (int mx = -moon_r; mx <= moon_r; mx++) {
-                if (abs(mx) > w_line) {
-                  moon_disc_cache[my + moon_r][mx + moon_r] = 0;
-                  continue;
-                }
-
-                float r_dist = sqrtf((float)(mx * mx + my * my));
-                float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
-                float micro = (hash2((float)mx * 0.35f, (float)my * 0.35f) - 0.5f) * 7.0f;
-                float base_lum = 212.0f + 18.0f * sphere_dim + micro;
-
-                auto add_mare = [&](int cx_m, int cy_m, float rad, float intensity) {
-                  float dist = sqrtf((float)d2(mx, my, (int)(cx_m * scale), (int)(cy_m * scale)));
-                  float r_scaled = rad * scale;
-                  if (dist < r_scaled) {
-                    float falloff = (1.0f - dist / r_scaled);
-                    falloff = falloff * falloff * (3.0f - 2.0f * falloff);
-                    base_lum -= intensity * falloff;
-                  }
-                };
-
-                // Organic Basaltic Maria
-                add_mare(17, -4, 18.0f, 52.0f); // Oceanus Procellarum
-                add_mare(23, 5, 15.0f, 50.0f);
-                add_mare(14, 11, 13.0f, 46.0f);
-                add_mare(8, -15, 15.0f, 58.0f); // Mare Imbrium
-                add_mare(-11, -14, 13.0f, 56.0f); // Mare Serenitatis
-                add_mare(-18, 1, 15.0f, 54.0f); // Mare Tranquillitatis
-
-                // Mare Crisium (Oval basin)
-                int cx_cr = (int)(-26 * scale);
-                int cy_cr = (int)(-7 * scale);
-                int dx_cr = mx - cx_cr;
-                int dy_cr = my - cy_cr;
-                float d_cr = sqrtf((float)(dx_cr * dx_cr * 1.5f + dy_cr * dy_cr));
-                if (d_cr < 8.5f * scale) {
-                  float f = 1.0f - d_cr / (8.5f * scale);
-                  base_lum -= 62.0f * f * f;
-                }
-
-                add_mare(13, 17, 13.0f, 50.0f); // Mare Nubium
-                add_mare(25, 13, 10.0f, 46.0f); // Mare Humorum
-                add_mare(-18, 14, 12.0f, 50.0f); // Mare Foecunditatis
-                add_mare(-8, 18, 10.0f, 48.0f); // Mare Nectaris
-
-                // 3D Impact Craters & Ejecta Rays
-                int d_ar = d2(mx, my, (int)(22 * scale), (int)(-12 * scale)); // Aristarchus
-                if (d_ar < (int)(8 * scale * scale)) base_lum += 46.0f;
-
-                int d_kep = d2(mx, my, (int)(17 * scale), (int)(-3 * scale)); // Kepler
-                if (d_kep < (int)(10 * scale * scale)) base_lum += 34.0f;
-
-                int d_cop = d2(mx, my, (int)(7 * scale), (int)(-2 * scale)); // Copernicus
-                if (d_cop < (int)(12 * scale * scale)) {
-                  base_lum += 42.0f;
-                } else if (d_cop < (int)(55 * scale * scale)) {
-                  float f_cop = 1.0f - sqrtf((float)d_cop) / (7.4f * scale);
-                  base_lum += 20.0f * f_cop;
-                }
-
-                // Tycho (Southern giant with bright central peak & radial ray ejecta)
-                int ty_x = (int)(-5 * scale);
-                int ty_y = (int)(26 * scale);
-                int d_ty = d2(mx, my, ty_x, ty_y);
-                if (d_ty < (int)(8 * scale * scale)) {
-                  base_lum = 250.0f;
-                } else if (d_ty < (int)(600 * scale * scale)) {
-                  float r_ang = atan2f((float)(my - ty_y), (float)(mx - ty_x));
-                  float ray1 = cosf(r_ang * 4.0f + 0.3f);
-                  float ray2 = cosf(r_ang * 7.0f - 0.5f);
-                  float ray_val = std::max(ray1, ray2);
-                  if (ray_val > 0.85f) {
-                    float decay = 1.0f - sqrtf((float)d_ty) / (24.5f * scale);
-                    if (decay > 0.0f) base_lum += 24.0f * decay * ((ray_val - 0.85f) / 0.15f);
-                  }
-                }
-
-                // Rugged Terminator Horizon & Soft Penumbra
-                float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term_rugged) : (x_term_rugged - (float)mx);
-                float penumbra = 5.5f * scale;
-                float shadow;
-                if (dist_to_term > penumbra) shadow = 1.0f;
-                else if (dist_to_term < -penumbra) shadow = 0.0f;
-                else {
-                  float t = (dist_to_term + penumbra) / (2.0f * penumbra);
-                  shadow = t * t * (3.0f - 2.0f * t);
-                }
-
-                float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
-                uint8_t c = (uint8_t)fminf(255.0f, fmaxf(0.0f, final_lum));
-                uint8_t r = (shadow < 0.05f) ? 10 : c;
-                uint8_t g = (shadow < 0.05f) ? 14 : (uint8_t)(c * 0.98f);
-                uint8_t b = (shadow < 0.05f) ? 20 : (uint8_t)(c * 0.94f);
-                uint16_t rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-                moon_disc_cache[my + moon_r][mx + moon_r] = rgb565;
-              }
-            }
-          }
-
-          // Blit Pre-Rendered Photorealistic Lunar Disc
+          // Render Scaled Detailed Moon Disc (Diameter 104px, 33px title buffer matching Sun page)
           for (int my = -moon_r; my <= moon_r; my++) {
             int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
+            float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
+
             for (int mx = -w_line; mx <= w_line; mx++) {
-              uint16_t rgb = moon_disc_cache[my + moon_r][mx + moon_r];
-              uint8_t r = ((rgb >> 11) & 0x1F) << 3;
-              uint8_t g = ((rgb >> 5) & 0x3F) << 2;
-              uint8_t b = (rgb & 0x1F) << 3;
-              it.draw_pixel_at(moon_cx + mx, moon_cy + my, Color(r, g, b));
+              float r_dist = sqrtf((float)(mx * mx + my * my));
+              float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
+              float base_lum = 205.0f + 25.0f * sphere_dim;
+
+              // Scaled Maria
+              if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
+              else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
+              else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
+              else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
+              else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
+              else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
+              else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
+
+              // Scaled Tycho Crater & Ray System
+              if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(16 * scale * scale)) base_lum = 245.0f;
+              else if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(144 * scale * scale) && abs((my - (int)(28 * scale)) - 1.5f * (mx + (int)(4 * scale))) < (2.0f * scale)) base_lum += 24.0f;
+
+              float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
+              float penumbra = 8.0f * scale;
+              float shadow;
+              if (dist_to_term > penumbra) shadow = 1.0f;
+              else if (dist_to_term < -penumbra) shadow = 0.0f;
+              else {
+                float t = (dist_to_term + penumbra) / (2.0f * penumbra);
+                shadow = t * t * (3.0f - 2.0f * t);
+              }
+
+              float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
+              uint8_t c = (uint8_t)fminf(255.0f, final_lum);
+              Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
+              it.draw_pixel_at(moon_cx + mx, moon_cy + my, p_col);
             }
           }
           it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
@@ -6534,16 +6302,16 @@ display:
           it.line(80, 202, 386, 202, id(col_dark_gray));
 
           // Telemetry Row: Titles in font_small at y = 220, Data in font_date at y = 248 (standardized to Sun page)
-          it.print(145, 218, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
+          it.print(145, 220, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
           char illum_buf[16];
           snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
-          it.print(145, 258, id(font_date), id(col_white), TextAlign::BASELINE_CENTER, illum_buf);
+          it.print(145, 248, id(font_date), id(col_white), TextAlign::CENTER, illum_buf);
 
-          // Center Divider between columns (y = 208..266, standardized to Sun page)
-          it.line(cx, 208, cx, 266, id(col_dark_gray));
+          // Center Divider between columns (y = 210..260, standardized to Sun page)
+          it.line(cx, 210, cx, 260, id(col_dark_gray));
 
-          it.print(321, 218, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
-          it.print(321, 258, (mp_label.length() > 11 ? id(font_small) : id(font_date)), id(col_white), TextAlign::BASELINE_CENTER, mp_label.c_str());
+          it.print(321, 220, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
+          it.print(321, 248, (mp_label.length() > 11 ? id(font_small) : id(font_date)), id(col_white), TextAlign::CENTER, mp_label.c_str());
 
           // Divider at y = 272 above bottom 2x2 buttons (standardized to Sun page)
           it.line(80, 272, 386, 272, id(col_dark_gray));
@@ -6689,26 +6457,17 @@ display:
               draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
             }
 
-            // 4. Dynamic Perimeter Progress Arc (r = 224..225, Continuous Horological Arc)
-            it.circle(cx, cy, 224, id(col_dark_gray));
+            // 4. Dynamic Perimeter Progress Arc (r = 224..226)
             if (id(timer_running) || id(timer_paused)) {
               float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
-              if (frac < 0.0f) frac = 0.0f;
-              if (frac > 1.0f) frac = 1.0f;
-              if (frac > 0.005f) {
-                float end_a = frac * 2.0f * PI_F;
-                float step = 0.035f;
-                Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
-                for (float a = 0.0f; a < end_a; a += step) {
-                  float next_a = std::min(a + step, end_a);
-                  float s1, c1, s2, c2;
-                  sincosf(a, &s1, &c1);
-                  sincosf(next_a, &s2, &c2);
-                  it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
-                          cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), arc_c);
-                  it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
-                          cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), arc_c);
-                }
+              int sweep_ticks = (int)(frac * 60.0f);
+              if (sweep_ticks > 60) sweep_ticks = 60;
+              Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
+              for (int t = 0; t <= sweep_ticks; t++) {
+                int idx = t % 60;
+                int ax = cx + (int)(224.0f * DIAL_SIN[idx]);
+                int ay = cy - (int)(224.0f * DIAL_COS[idx]);
+                it.filled_circle(ax, ay, 2, arc_c);
               }
             }
           } else {
@@ -6984,18 +6743,14 @@ touchscreen:
                     id(alarm_snooze_until) = (millis() / 1000) + 300;
                   }
                   id(alarm_ringing) = false;
-                  id(ringing_start_ms) = 0;
                   id(stop_alarm_sound).execute();
-                  id(gui_page) = id(return_page);
                   id(disp1).update();
                   return;
                 }
                 // DISMISS button: y in [345..395], x in [120..346]
                 if (touch.y >= 345 && touch.y <= 395 && touch.x >= 120 && touch.x <= 346) {
                   id(alarm_ringing) = false;
-                  id(ringing_start_ms) = 0;
                   id(stop_alarm_sound).execute();
-                  id(gui_page) = id(return_page);
                   id(disp1).update();
                   return;
                 }
@@ -7003,9 +6758,7 @@ touchscreen:
                 // DISMISS button: y in [305..355], x in [110..356]
                 if (touch.y >= 305 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
                   id(timer_ringing) = false;
-                  id(ringing_start_ms) = 0;
                   id(stop_alarm_sound).execute();
-                  id(gui_page) = id(return_page);
                   id(disp1).update();
                   return;
                 }
@@ -7086,7 +6839,7 @@ touchscreen:
                 }
               }
             } else if (is_deck_nav) {
-              int nav_y_min = (id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
+              int nav_y_min = (id(gui_page) == 5 || id(gui_page) == 6 || id(gui_page) == 2) ? 400 : ((id(gui_page) == 1) ? 375 : 380);
               if (touch.y >= nav_y_min) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -7105,9 +6858,6 @@ touchscreen:
                       id(gui_page) = get_slot(next_idx);
                     }
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
-                    if (id(gui_page) == 3) {
-                      id(route_i2s_to_spk).execute();
-                    }
                     id(disp1).update();
                   }
                 }
@@ -7164,59 +6914,35 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls (Instant Precision Response: 140ms Debounce)
+            // Page 1: Stopwatch Screen Tap Controls (Optimized: Zero Contention with Navigation)
             if (id(gui_page) == 1) {
-              int dx_lap = touch.x - 179;
-              int dy_lap = touch.y - 328;
-              int dx_rst = touch.x - 287;
-              int dy_rst = touch.y - 328;
-
-              // 1. LAP Pusher: Radial Circular Hitbox (center 179, 328, r=46)
-              if (dx_lap * dx_lap + dy_lap * dy_lap <= 46 * 46) {
-                static uint32_t last_lap_tap = 0;
-                uint32_t now_lap = millis();
-                if (now_lap - last_lap_tap > 140) {
-                  last_lap_tap = now_lap;
+              // 1. Bottom Control Buttons: LAP & RESET (y: 280..368, buttons centered at y=328, r=38)
+              if (touch.y >= 280 && touch.y <= 368 && touch.x >= 120 && touch.x <= 346) {
+                if (touch.x < 233) {
+                  // LAP Button (Left half, center x=179, y=328, r=38)
                   if (id(stopwatch_running)) {
-                    // Running: record / update split time
-                    id(stopwatch_lap_ms) = now_lap - id(stopwatch_start_time);
-                  } else if (id(stopwatch_lap_ms) > 0) {
-                    // Stopped: tap LAP clears existing split readout
-                    id(stopwatch_lap_ms) = 0;
+                    id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
                   }
-                  id(disp1).update();
-                }
-                return;
-              // 2. RESET Pusher: Radial Circular Hitbox (center 287, 328, r=46)
-              } else if (dx_rst * dx_rst + dy_rst * dy_rst <= 46 * 46) {
-                static uint32_t last_rst_tap = 0;
-                uint32_t now_rst = millis();
-                if (now_rst - last_rst_tap > 140) {
-                  last_rst_tap = now_rst;
+                } else {
+                  // RESET Button (Right half, center x=287, y=328, r=38)
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
                   id(stopwatch_lap_ms) = 0;
-                  id(disp1).update();
                 }
-                return;
-              // 3. Precision START/STOP: Broad Dial Surface (y: 40..374, x: 50..416)
-              } else if (touch.y >= 40 && touch.y < 375 && touch.x >= 50 && touch.x <= 416) {
-                static uint32_t last_chrono_tap = 0;
+                id(disp1).update();
+              // 2. Central Chrono Dial Face: START/STOP (y < 370 prevents encroaching on navigation)
+              } else if (touch.x >= 100 && touch.x <= 366 && touch.y < 370) {
                 uint32_t now_tap = millis();
-                if (now_tap - last_chrono_tap > 140) {
-                  last_chrono_tap = now_tap;
-                  if (!id(stopwatch_running)) {
-                    id(stopwatch_running) = true;
-                    id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
-                    id(sleep_start_time) = 0;
-                    id(display_brightness).turn_on().perform();
-                  } else {
-                    id(stopwatch_running) = false;
-                    id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
-                  }
-                  id(disp1).update();
+                if (!id(stopwatch_running)) {
+                  id(stopwatch_running) = true;
+                  id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
+                  id(sleep_start_time) = 0;
+                  id(display_brightness).turn_on().perform();
+                } else {
+                  id(stopwatch_running) = false;
+                  id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
                 }
-                return;
+                id(disp1).update();
               }
             // Page 2: Music (Player Controls OR Speaker/Preset Overlay)
             } else if (id(gui_page) == 2) {
@@ -7541,14 +7267,14 @@ touchscreen:
                   }
                 }
                 if (id(active_game) > 0) {
-                  // Pause background music and pre-prime speaker pipeline for instant game sounds
+                  // Pause background music and mute DAC for dedicated game resources
                   if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
                     call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                     call.perform();
                     id(toggle_ha_music).execute();
+                    id(es8311_dac).set_mute_on();
                   }
-                  id(route_i2s_to_spk).execute();
                 }
                 id(disp1).update();
               } else {
@@ -7578,32 +7304,32 @@ touchscreen:
                 return l_pat > c_pat;
               };
               if (id(system_menu_mode) == 0) {
-                // Main Telemetry View: tap Version line to open Software Update Screen (y: 70..118, x: 80..386)
-                if (touch.y >= 70 && touch.y <= 118 && touch.x >= 80 && touch.x <= 386) {
+                // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 70..100)
+                if (touch.y >= 75 && touch.y <= 118 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Row 1 Left: "Display >" (y: 119..179, x: 60..232)
-                } else if (touch.y >= 119 && touch.y < 180 && touch.x >= 60 && touch.x < 233) {
+                // Row 1 Left: "Display >" (y: 125..175, x: 65..230)
+                } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 2; // Open Display Submenu
                   id(disp1).update();
-                // Row 1 Right: "Clock >" (y: 119..179, x: 233..405)
-                } else if (touch.y >= 119 && touch.y < 180 && touch.x >= 233 && touch.x <= 405) {
+                // Row 1 Right: "Clock >" (y: 125..175, x: 236..405)
+                } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 9; // Open Clock & Time Submenu
                   id(disp1).update();
-                // Row 2 Left: "Sleep & Wake >" (y: 180..239, x: 60..232)
-                } else if (touch.y >= 180 && touch.y < 240 && touch.x >= 60 && touch.x < 233) {
+                // Row 2 Left: "Sleep & Wake >" (y: 185..235, x: 65..230)
+                } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
                   id(disp1).update();
-                // Row 2 Right: "Audio >" (y: 180..239, x: 233..405)
-                } else if (touch.y >= 180 && touch.y < 240 && touch.x >= 233 && touch.x <= 405) {
+                // Row 2 Right: "Audio >" (y: 185..235, x: 236..405)
+                } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 7; // Open Audio & Media Submenu
                   id(disp1).update();
-                // Row 3 Left: "Actions >" (y: 240..305, x: 60..232)
-                } else if (touch.y >= 240 && touch.y <= 305 && touch.x >= 60 && touch.x < 233) {
+                // Row 3 Left: "Actions >" (y: 245..295, x: 65..230)
+                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 65 && touch.x <= 230) {
                   id(system_menu_mode) = 3; // Open System Actions Submenu
                   id(disp1).update();
-                // Row 3 Right: "Info >" (y: 240..305, x: 233..405)
-                } else if (touch.y >= 240 && touch.y <= 305 && touch.x >= 233 && touch.x <= 405) {
+                // Row 3 Right: "Info >" (y: 245..295, x: 236..405)
+                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 8; // Open System Info Submenu
                   id(disp1).update();
                 }
@@ -7686,7 +7412,7 @@ touchscreen:
                   } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
                     id(prevent_deep_sleep_switch).toggle();
                     id(disp1).update();
-                  // Slot 4: Auto-Hibernate Timeout (y: 275..328, x: 90..376)
+                  // Slot 4: Auto-Sleep Deep Sleep Timeout (y: 275..328, x: 90..376)
                   } else if (touch.y >= 275 && touch.y <= 328 && touch.x >= 90 && touch.x <= 376) {
                     std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
                     std::string nxt_as = "5 min";
@@ -7774,7 +7500,7 @@ touchscreen:
                 // Card 1: Hibernate Now (y: 95..148, x: 90..376)
                 if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
                   id(start_hibernation_countdown).execute();
-                // Card 2: Auto-Hibernate Timeout Cycler (y: 155..208, x: 90..376)
+                // Card 2: Auto-Sleep Timeout Cycler (y: 155..208, x: 90..376)
                 } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
                   std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
                   std::string nxt = "5 min";
@@ -7932,8 +7658,8 @@ touchscreen:
                 id(disp1).update();
                 return;
               }
-              // Zone 2: Row 2 of 2x2 Grid (y: 330..380) -> Sun (Left) | Moon (Right)
-              if (touch.y >= 330 && touch.y <= 380) {
+              // Zone 2: Row 2 of 2x2 Grid (y: 330..398) -> Sun (Left) | Moon (Right)
+              if (touch.y >= 330 && touch.y <= 398) {
                 if (touch.x < 233) {
                   id(sky_weather_subpage) = 2; // Sun
                 } else {
