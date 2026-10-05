@@ -3347,19 +3347,29 @@ display:
           return;
 
         // --------------------------------------------------
-        // STYLE 5: SOLAR FLARE (Pulsing Living Sun & Dynamic Coronal Loops)
+        // STYLE 5: SOLAR FLARE (Pulsing Living Sun & Radiating Coronal Waves)
         // --------------------------------------------------
         } else if (ss_style == "Solar Flare") {
           float t = now_ms * 0.0015f;
 
+          // Anti-burn-in orbital drift: solar anchor wanders smoothly by +/- 6px over a 30s cycle
+          int scx = cx + (int)(sinf(t * 0.20f) * 6.0f);
+          int scy = cy + (int)(cosf(t * 0.16f) * 6.0f);
+
           // Living solar core pulsation (r0 breathes between 56 and 68)
           float r0 = 62.0f + 6.0f * sinf(t * 1.5f);
 
-          // 1. Coronal Mass Ejection (CME Shockwaves traveling outward to bezel)
-          int cme_r = (int)((now_ms % 2800) / 2800.0f * 220.0f);
-          if (cme_r > (int)r0 + 20) {
-            it.circle(cx, cy, cme_r, Color(110, 20, 5));
-            it.circle(cx, cy, cme_r - 2, Color(160, 45, 10));
+          // 1. Radiating Coronal Mass Ejection Pulses (3 staggered expansion waves rippling outward to bezel)
+          for (int w = 0; w < 3; w++) {
+            float phase = fmodf((float)now_ms + (float)w * 950.0f, 2850.0f) / 2850.0f;
+            int cme_r = (int)((r0 + 10.0f) + phase * (220.0f - (r0 + 10.0f)));
+            float fade = 1.0f - phase;
+            uint8_t c_red = (uint8_t)(220.0f * fade);
+            uint8_t c_grn = (uint8_t)(90.0f * fade * fade);
+            if (cme_r > (int)r0 + 10) {
+              it.circle(scx, scy, cme_r, Color(c_red < 20 ? 20 : c_red, c_grn < 5 ? 5 : c_grn, 5));
+              it.circle(scx, scy, cme_r - 2, Color((uint8_t)(c_red * 0.7f), (uint8_t)(c_grn * 0.7f), 2));
+            }
           }
 
           // 2. Coronal Streamers (36 radial plasma rays modulated by harmonic waves)
@@ -3369,18 +3379,20 @@ display:
             float ca = cosf(theta);
 
             float L = 35.0f + 25.0f * sinf(theta * 4.0f + t * 2.4f) + 18.0f * cosf(theta * 7.0f - t * 1.8f) + 12.0f * sinf(theta * 11.0f + t * 3.2f);
-            int in_x = cx + (int)((r0 + 6.0f) * ca);
-            int in_y = cy + (int)((r0 + 6.0f) * sa);
-            int mid_x = cx + (int)((r0 + 6.0f + L * 0.6f) * ca);
-            int mid_y = cy + (int)((r0 + 6.0f + L * 0.6f) * sa);
-            int out_x = cx + (int)((r0 + 6.0f + L) * ca);
-            int out_y = cy + (int)((r0 + 6.0f + L) * sa);
+            int in_x = scx + (int)((r0 + 4.0f) * ca);
+            int in_y = scy + (int)((r0 + 4.0f) * sa);
+            int mid_x = scx + (int)((r0 + 4.0f + L * 0.6f) * ca);
+            int mid_y = scy + (int)((r0 + 4.0f + L * 0.6f) * sa);
+            int out_x = scx + (int)((r0 + 4.0f + L) * ca);
+            int out_y = scy + (int)((r0 + 4.0f + L) * sa);
 
-            it.line(in_x, in_y, mid_x, mid_y, Color(245, 95, 15));
-            it.line(mid_x, mid_y, out_x, out_y, Color(255, 205, 35));
+            it.line(in_x, in_y, mid_x, mid_y, Color(225, 75, 10));
+            it.line(mid_x, mid_y, out_x, out_y, Color(255, 185, 25));
 
+            // Golden flare sparks at tip (NO WHITE)
             if (L > 65.0f) {
-              it.filled_circle(out_x, out_y, 2, Color(255, 255, 255));
+              it.draw_pixel_at(out_x, out_y, Color(255, 220, 45));
+              it.draw_pixel_at(out_x + 1, out_y, Color(255, 180, 20));
             }
           }
 
@@ -3391,12 +3403,12 @@ display:
               float prog = (float)step / 8.0f;
               float cur_ang = center_ang - arc_span * 0.5f + arc_span * prog;
               float h_factor = 4.0f * prog * (1.0f - prog);
-              float cur_r = (r0 + 8.0f) + (peak_r - (r0 + 8.0f)) * h_factor;
-              float lx = cx + cur_r * cosf(cur_ang);
-              float ly = cy + cur_r * sinf(cur_ang);
+              float cur_r = (r0 + 6.0f) + (peak_r - (r0 + 6.0f)) * h_factor;
+              float lx = scx + cur_r * cosf(cur_ang);
+              float ly = scy + cur_r * sinf(cur_ang);
               if (step > 0) {
-                it.line((int)prev_lx, (int)prev_ly, (int)lx, (int)ly, Color(255, 195, 30));
-                it.line((int)prev_lx, (int)prev_ly + 1, (int)lx, (int)ly + 1, Color(255, 80, 10));
+                it.line((int)prev_lx, (int)prev_ly, (int)lx, (int)ly, Color(255, 175, 25));
+                it.line((int)prev_lx, (int)prev_ly + 1, (int)lx, (int)ly + 1, Color(220, 60, 5));
               }
               prev_lx = lx; prev_ly = ly;
             }
@@ -3406,21 +3418,36 @@ display:
           draw_prominence_loop(t * 0.5f + 2.2f, 175.0f + 25.0f * cosf(t * 1.1f), 0.70f);
           draw_prominence_loop(t * 0.5f + 4.3f, 145.0f + 18.0f * sinf(t * 1.9f), 0.50f);
 
-          // 4. Concentric Sun Body & Photosphere Layers
-          it.filled_circle(cx, cy, (int)(r0 + 16.0f), Color(160, 25, 10));  // Chromosphere glow
-          it.filled_circle(cx, cy, (int)(r0 + 8.0f), Color(245, 100, 10));  // Fiery orange mantle
-          it.filled_circle(cx, cy, (int)r0, Color(255, 195, 25));           // Radiant gold photosphere
-          it.filled_circle(cx, cy, (int)(r0 - 18.0f), Color(255, 255, 230));// White-hot fusion core
+          // 4. Redesigned Solar Body & Radiating Core (NO STATIC WHITE!)
+          // Concentric breathing gradients strictly in yellow, orange, and crimson red
+          it.filled_circle(scx, scy, (int)(r0 + 14.0f), Color(160, 25, 10));  // Chromosphere glow (Crimson)
+          it.filled_circle(scx, scy, (int)(r0 + 4.0f),  Color(235, 80, 10));  // Fiery orange mantle
+          it.filled_circle(scx, scy, (int)(r0 - 6.0f),  Color(255, 155, 20)); // Radiant golden-orange photosphere
 
-          // 5. Convection Granulation Vortices (Rotating flares on solar surface)
+          // Radiating Core Expansion Pulses (concentric waves rippling outward through the core)
+          for (int cp = 0; cp < 2; cp++) {
+            float cp_phase = fmodf(t * 0.9f + (float)cp * 0.5f, 1.0f);
+            int cp_r = (int)(4.0f + cp_phase * (r0 - 12.0f));
+            uint8_t cr = (uint8_t)(255.0f - 30.0f * cp_phase);
+            uint8_t cg = (uint8_t)(210.0f * (1.0f - 0.55f * cp_phase));
+            uint8_t cb = (uint8_t)(35.0f * (1.0f - cp_phase));
+            it.filled_circle(scx, scy, cp_r, Color(cr, cg, cb));
+          }
+
+          // 5. Convection Granulation Vortices (Swirling solar granules in warm gold/orange)
           for (int k = 0; k < 4; k++) {
             float c_ang = t * 0.8f + k * (PI_F / 2.0f);
-            float c_rad = 22.0f + 10.0f * sinf(t * 2.0f + (float)k);
-            int vx = cx + (int)(cosf(c_ang) * c_rad);
-            int vy = cy + (int)(sinf(c_ang) * c_rad);
-            it.filled_circle(vx, vy, 10, Color(255, 230, 120));
-            it.filled_circle(vx, vy, 6, Color(255, 255, 240));
+            float c_rad = 18.0f + 8.0f * sinf(t * 1.8f + (float)k);
+            int vx = scx + (int)(cosf(c_ang) * c_rad);
+            int vy = scy + (int)(sinf(c_ang) * c_rad);
+            uint8_t gran_g = (uint8_t)(160.0f + 50.0f * sinf(t * 2.0f + (float)k));
+            it.filled_circle(vx, vy, 8, Color(255, gran_g, 20));
           }
+
+          // Absolute Center: Dynamic Pulsing Fusion Eye (Continuously shifts between gold, orange, and red)
+          int eye_r = (int)(7.0f + 3.0f * sinf(t * 2.6f));
+          uint8_t eye_g = (uint8_t)(120.0f + 70.0f * sinf(t * 2.2f));
+          it.filled_circle(scx, scy, eye_r, Color(255, eye_g, 15));
           return;
         }
       }
