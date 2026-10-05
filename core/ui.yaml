@@ -6006,21 +6006,21 @@ display:
           Color label_c = is_night ? id(col_slate) : Color(165, 190, 215);
 
           // Column 1: HUMIDITY (Left x = 145)
-          it.print(145, 210, id(font_micro), label_c, TextAlign::CENTER, "HUMIDITY");
+          it.print(145, 216, id(font_small), label_c, TextAlign::CENTER, "HUMIDITY");
           char hum_str[16];
           if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
           else snprintf(hum_str, sizeof(hum_str), "--");
-          it.print(145, 236, id(font_small), id(col_white), TextAlign::CENTER, hum_str);
+          it.print(145, 248, id(font_small), id(col_white), TextAlign::CENTER, hum_str);
 
           // Column 2: WIND (Right x = 321)
-          it.print(321, 210, id(font_micro), label_c, TextAlign::CENTER, "WIND");
+          it.print(321, 216, id(font_small), label_c, TextAlign::CENTER, "WIND");
           char wind_str[32];
           if (!isnan(wspd)) {
             snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
           } else {
             snprintf(wind_str, sizeof(wind_str), "--");
           }
-          it.print(321, 236, id(font_small), id(col_white), TextAlign::CENTER, wind_str);
+          it.print(321, 248, id(font_small), id(col_white), TextAlign::CENTER, wind_str);
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
@@ -6258,20 +6258,20 @@ display:
           // Horizontal divider at y = 196
           it.line(80, 196, 386, 196, id(col_dark_gray));
 
-          // Telemetry Row: Sunrise and Sunset (Titles in font_micro, Times in font_small)
+          // Telemetry Row: Sunrise and Sunset (Titles in font_small, Times in font_small)
           std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
           std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
 
-          it.print(145, 210, id(font_micro), id(col_slate), TextAlign::CENTER, "SUNRISE");
-          it.print(145, 236, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_rise.c_str());
+          it.print(145, 216, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
+          it.print(145, 248, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_rise.c_str());
 
-          it.line(cx, 204, cx, 252, id(col_dark_gray));
+          it.line(cx, 204, cx, 260, id(col_dark_gray));
 
-          it.print(321, 210, id(font_micro), id(col_slate), TextAlign::CENTER, "SUNSET");
-          it.print(321, 236, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_set.c_str());
+          it.print(321, 216, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
+          it.print(321, 248, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_set.c_str());
 
-          // Divider at y = 260 above bottom 2x2 buttons
-          it.line(80, 260, 386, 260, id(col_dark_gray));
+          // Divider at y = 266 above bottom 2x2 buttons
+          it.line(80, 266, 386, 266, id(col_dark_gray));
         }
         // ----------------------------------------------------------------------
         // SUBPAGE 3: MOON (DEFAULT LUNAR TELEMETRY VIEW ONLY)
@@ -6363,20 +6363,20 @@ display:
           // Horizontal divider at y = 196 (standardized to Sun page)
           it.line(80, 196, 386, 196, id(col_dark_gray));
 
-          // Telemetry Row: Titles in font_micro at y = 210, Data in font_small at y = 236 (standardized to Sun page)
-          it.print(145, 210, id(font_micro), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
+          // Telemetry Row: Titles in font_small at y = 216, Data in font_small at y = 248 (standardized to Sun page)
+          it.print(145, 216, id(font_small), id(col_slate), TextAlign::CENTER, "ILLUMINATION");
           char illum_buf[16];
           snprintf(illum_buf, sizeof(illum_buf), "%d%%", illum_pct);
-          it.print(145, 236, id(font_small), id(col_white), TextAlign::CENTER, illum_buf);
+          it.print(145, 248, id(font_small), id(col_white), TextAlign::CENTER, illum_buf);
 
-          // Center Divider between columns (y = 204..252, standardized to Sun page)
-          it.line(cx, 204, cx, 252, id(col_dark_gray));
+          // Center Divider between columns (y = 204..260, standardized to Sun page)
+          it.line(cx, 204, cx, 260, id(col_dark_gray));
 
-          it.print(321, 210, id(font_micro), id(col_slate), TextAlign::CENTER, "PHASE");
-          it.print(321, 236, id(font_small), id(col_white), TextAlign::CENTER, mp_label.c_str());
+          it.print(321, 216, id(font_small), id(col_slate), TextAlign::CENTER, "PHASE");
+          it.print(321, 248, id(font_small), id(col_white), TextAlign::CENTER, mp_label.c_str());
 
-          // Divider at y = 260 above bottom 2x2 buttons (standardized to Sun page)
-          it.line(80, 260, 386, 260, id(col_dark_gray));
+          // Divider at y = 266 above bottom 2x2 buttons (standardized to Sun page)
+          it.line(80, 266, 386, 266, id(col_dark_gray));
         }
         // ==============================================================================
         // SUBPAGE BUTTONS: STANDARDIZED 2x2 SYSTEM PILL GRID (y = 296, 356, r = 20)
