@@ -420,6 +420,13 @@ interval:
               } else if (id(gui_page) == 2 && id(music_overlay_mode) > 0) {
                 // In Music Menu overlay -> close overlay back to Now Playing player
                 id(music_overlay_mode) = 0;
+                id(music_hud_active) = true;
+                id(music_hud_timer) = millis();
+                id(disp1).update();
+                return;
+              } else if (id(gui_page) == 2 && id(music_hud_active)) {
+                // In Full Screen / Letterbox Music HUD -> dismiss HUD back to clean art
+                id(music_hud_active) = false;
                 id(disp1).update();
                 return;
               } else if (id(gui_page) == 4 && id(system_menu_mode) > 0) {
