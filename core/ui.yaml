@@ -3285,28 +3285,36 @@ display:
           return;
 
         // --------------------------------------------------
-        // STYLE 4: MATRIX CYBER RAIN (Zero Initial Diagonal Lines Pre-Scattered Engine)
+        // STYLE 4: MATRIX CYBER RAIN (Full-Bleed Pre-Scattered Engine: 19 Columns, x: 17..449)
         // --------------------------------------------------
         } else if (ss_style == "Matrix Rain") {
-          // Pre-scattered non-monotonic phase offsets across 20 cascading streams (eliminates initial diagonal banding)
-          static const int16_t MATRIX_X[20] = {
-             65,  95, 125, 125, 155, 155, 185, 185, 215, 215,
-            245, 245, 275, 275, 305, 305, 335, 335, 365, 395
+          // Full-bleed edge-to-edge cyber rain: 31 streams across 19 columns (x: 17..449, zero flank void)
+          static const int16_t MATRIX_X[31] = {
+             17,  41,  65,  89,  89, 113, 113, 137, 137, 161,
+            161, 185, 185, 209, 209, 233, 233, 257, 257, 281,
+            281, 305, 305, 329, 329, 353, 353, 377, 401, 425,
+            449
           };
-          static const int16_t MATRIX_Y[20] = {
-            280, 620, 110, 520, 390, 780,  50, 460, 310, 710,
-            160, 570, 420,  20, 240, 650,  90, 490, 350, 180
+          static const int16_t MATRIX_Y[31] = {
+            340, 610, 150, 420,  20, 260, 680,  90, 510, 370,
+            790, 180, 590,  40, 460, 290, 710, 120, 540, 390,
+            810, 210, 630,  70, 480, 320, 740, 160, 580, 240,
+            470
           };
-          static const uint8_t MATRIX_SPD[20] = {
-             95, 115, 105, 130, 120,  95, 110, 135, 125, 100,
-            105, 130, 115, 140, 100, 125, 120, 105, 110, 100
+          static const uint8_t MATRIX_SPD[31] = {
+            132, 129, 124, 137, 108, 109, 126, 108, 123, 111,
+            105, 123, 118, 125, 110, 120, 108, 122, 114, 102,
+            134, 116, 112, 119, 122, 120, 137,  95, 108, 101,
+             96
           };
-          static const uint8_t MATRIX_LEN[20] = {
-             10,  11,   9,  12,  13,  10,  11,  14,  12,  11,
-             14,  10,  11,  13,  12,   9,  10,  12,  11,  10
+          static const uint8_t MATRIX_LEN[31] = {
+              9,  10,   8,  12,  12,  10,  13,  10,   8,   9,
+              8,  12,   9,  10,  13,  11,   8,  11,   9,  13,
+             13,  13,  11,   9,   8,  13,  11,  11,  12,  10,
+             10
           };
 
-          for (int i = 0; i < 20; i++) {
+          for (int i = 0; i < 31; i++) {
             int lead_y = (MATRIX_Y[i] + (int)((uint64_t)now_ms * (uint32_t)MATRIX_SPD[i] / 1000ULL)) % 820 - 120;
             int sx = MATRIX_X[i];
             int slen = MATRIX_LEN[i];
