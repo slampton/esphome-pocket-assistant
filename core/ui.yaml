@@ -5165,52 +5165,73 @@ display:
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
-          // VIEW 1: SLEEP & WAKE SUBMENU (Standardized 60px Pitch, 2 Pages)
+          // VIEW 1: SLEEP & WAKE SUBMENU (5-Pill Architecture, Standard 60px Pitch, r = 20)
           // --------------------------------------------------
-          it.print(cx, 56, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
 
           if (id(sleep_menu_page) == 1) {
-            // Page 1: Gestures & Screensaver Style (Standard 60px pitch, r = 18)
+            // Page 1: Wake Gestures & Docked Screensaver (Slots 1-5 at 60px pitch, r = 20)
             char m_buf[32];
             std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
             snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
-            draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
+            draw_pill_button(110, 356, 94, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
 
             char t_buf[32];
             std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
             snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-            draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
+            draw_pill_button(110, 356, 154, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
 
             std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
-            draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
+            draw_pill_button(110, 356, 214, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
 
             std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
             char sty_buf[32];
             snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Solar Flare" ? "Solar" : s_style.c_str())));
-            draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
-          } else {
-            // Page 2: Inactivity & Power Timeouts (Standard 60px pitch, r = 18)
-            char so_buf[32];
-            std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
-            snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
-            draw_pill_button(110, 356, 120, 18, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
+            draw_pill_button(110, 356, 274, 20, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
 
             char sst_buf[32];
             std::string sst_opt = std::string(id(screensaver_docked_timeout).current_option().c_str());
             snprintf(sst_buf, sizeof(sst_buf), "Dock Inact: %s", sst_opt.c_str());
-            draw_pill_button(110, 356, 180, 18, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
+            draw_pill_button(110, 356, 334, 20, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
+          } else {
+            // Page 2: Inactivity & Power Timeouts (Slots 1-3 at 60px pitch, r = 20)
+            char so_buf[32];
+            std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
+            snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
+            draw_pill_button(110, 356, 94, 20, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
 
             std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
-            draw_pill_button(110, 356, 240, 18, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
+            draw_pill_button(110, 356, 154, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
 
             char s_buf[32];
             std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
             snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
-            draw_pill_button(110, 356, 300, 18, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
+            draw_pill_button(110, 356, 214, 20, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
           }
 
-          // Standardized Centered < BACK Button at y = 375 (r = 18)
-          draw_back_button();
+          // Flank Navigation Chevrons (< and >) at y = 214 indicating edge-tap paging
+          // Left chevron (<) at x = 44, y = 214
+          it.line(44 + 4, 214 - 8, 44 - 4, 214, id(theme_secondary));
+          it.line(44 + 5, 214 - 8, 44 - 3, 214, id(theme_secondary));
+          it.line(44 + 4, 214 + 8, 44 - 4, 214, id(theme_secondary));
+          it.line(44 + 5, 214 + 8, 44 - 3, 214, id(theme_secondary));
+
+          // Right chevron (>) at x = 422, y = 214
+          it.line(422 - 4, 214 - 8, 422 + 4, 214, id(theme_secondary));
+          it.line(422 - 5, 214 - 8, 422 + 3, 214, id(theme_secondary));
+          it.line(422 - 4, 214 + 8, 422 + 4, 214, id(theme_secondary));
+          it.line(422 - 5, 214 + 8, 422 + 3, 214, id(theme_secondary));
+
+          // Submenu < BACK Button at y = 390 (r = 16)
+          draw_pill_button(180, 286, 390, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
+
+          // Pagination Dots at y = 426
+          int dot1_r = (id(sleep_menu_page) == 1) ? 3 : 2;
+          int dot2_r = (id(sleep_menu_page) == 2) ? 3 : 2;
+          Color dot1_c = (id(sleep_menu_page) == 1) ? id(theme_primary) : id(col_slate);
+          Color dot2_c = (id(sleep_menu_page) == 2) ? id(theme_primary) : id(col_slate);
+          it.filled_circle(226, 426, dot1_r, dot1_c);
+          it.filled_circle(240, 426, dot2_r, dot2_c);
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
@@ -6668,7 +6689,7 @@ display:
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
       // Guaranteed visibility over any page: stopwatch parchment, full-screen album art, etc.
       // ==============================================================================
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && ((id(system_menu_mode) == 0) || (id(gui_page) == 4 && id(system_menu_mode) == 1)) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(alarm_ringing) || id(timer_ringing))) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) == 1) && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(alarm_ringing) || id(timer_ringing))) {
         bool is_stopwatch = (id(gui_page) == 1);
         Color chevron_col = is_stopwatch ? id(col_black) : id(col_white);
 
@@ -6716,11 +6737,7 @@ display:
             snprintf(pg_buf, sizeof(pg_buf), "%d / %d", id(music_browse_page), id(music_browse_total_pages));
             draw_pg = true;
           }
-        } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-          if (show_in_deck) {
-            snprintf(pg_buf, sizeof(pg_buf), "%d / 2", id(sleep_menu_page));
-            draw_pg = true;
-          }
+
         } else {
           if (show_in_deck) {
             int total = id(active_deck_size);
@@ -6852,8 +6869,7 @@ touchscreen:
                                !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) &&
                                !(id(alarm_ringing) || id(timer_ringing));
 
-            bool is_paged_submenu = (id(gui_page) == 2 && (id(music_overlay_mode) == 2 || id(music_overlay_mode) == 3)) ||
-                                    (id(gui_page) == 4 && id(system_menu_mode) == 1);
+            bool is_paged_submenu = (id(gui_page) == 2 && (id(music_overlay_mode) == 2 || id(music_overlay_mode) == 3));
 
             if (is_paged_submenu && touch.y >= 399) {
               if (touch.x < 233) {
@@ -6862,10 +6878,7 @@ touchscreen:
                   id(music_category_page) = (id(music_category_page) == 1) ? 2 : 1;
                   id(disp1).update();
                   return;
-                } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
-                  id(disp1).update();
-                  return;
+
                 } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
                     if (id(music_browse_page) > 1) id(music_browse_page)--;
@@ -6881,10 +6894,7 @@ touchscreen:
                   id(music_category_page) = (id(music_category_page) >= 2) ? 1 : 2;
                   id(disp1).update();
                   return;
-                } else if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
-                  id(sleep_menu_page) = (id(sleep_menu_page) >= 2) ? 1 : 2;
-                  id(disp1).update();
-                  return;
+
                 } else if (id(gui_page) == 2 && id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
                     if (id(music_browse_page) < id(music_browse_total_pages)) id(music_browse_page)++;
@@ -7390,105 +7400,135 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
-                // Mode 1: Sleep & Wake Submenu (2 Pages, 4 slots each at 60px pitch)
-                if (id(sleep_menu_page) == 1) {
-                  // Page 1
-                  // Slot 1: Motion Wake Cycler (y: 95..148, x: 90..376) - cycles Always On -> Docked Only -> Disabled
-                  if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
-                    std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
-                    std::string nxt = "Always On";
-                    if (cur == "Always On") nxt = "Docked Only";
-                    else if (cur == "Docked Only") nxt = "Disabled";
-                    else nxt = "Always On";
-                    auto call = id(pickup_wake_mode).make_call();
-                    call.set_option(nxt);
-                    call.perform();
-                    id(disp1).update();
-                  // Slot 2: Tap Wake Cycler (y: 155..208, x: 90..376) - cycles Always On -> Docked Only -> Disabled
-                  } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
-                    std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
-                    std::string nxt = "Always On";
-                    if (cur == "Always On") nxt = "Docked Only";
-                    else if (cur == "Docked Only") nxt = "Disabled";
-                    else nxt = "Always On";
-                    auto call = id(tap_wake_mode).make_call();
-                    call.set_option(nxt);
-                    call.perform();
-                    id(disp1).update();
-                  // Slot 3: Docked Screensaver Toggle (y: 215..268, x: 90..376)
-                  } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
-                    id(docked_screensaver_switch).toggle();
-                    id(disp1).update();
-                  // Slot 4: Screensaver Style Cycler (y: 275..328, x: 90..376)
-                  } else if (touch.y >= 275 && touch.y <= 328 && touch.x >= 90 && touch.x <= 376) {
-                    std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
-                    std::string nxt_s = "Ambient Clock";
-                    if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
-                    else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
-                    else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
-                    else if (cur_s == "Matrix Rain") nxt_s = "Solar Flare";
-                    else if (cur_s == "Solar Flare") nxt_s = "Screen Off";
-                    else if (cur_s == "Screen Off") nxt_s = "Ambient Clock";
-                    auto call = id(screensaver_style_select).make_call();
-                    call.set_option(nxt_s);
-                    call.perform();
-                    id(disp1).update();
-                  }
-                } else {
-                  // Page 2
-                  // Slot 1: Screen Off Timeout (y: 95..148, x: 90..376)
-                  if (touch.y >= 95 && touch.y <= 148 && touch.x >= 90 && touch.x <= 376) {
-                    std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
-                    std::string nxt_so = "15s";
-                    if (cur_so == "10s") nxt_so = "15s";
-                    else if (cur_so == "15s") nxt_so = "30s";
-                    else if (cur_so == "30s") nxt_so = "1 min";
-                    else if (cur_so == "1 min") nxt_so = "2 min";
-                    else if (cur_so == "2 min") nxt_so = "Never";
-                    else if (cur_so == "Never") nxt_so = "10s";
-                    auto call = id(display_off_timeout).make_call();
-                    call.set_option(nxt_so);
-                    call.perform();
-                    id(disp1).update();
-                  // Slot 2: Docked Inactivity Timeout (y: 155..208, x: 90..376)
-                  } else if (touch.y >= 155 && touch.y <= 208 && touch.x >= 90 && touch.x <= 376) {
-                    std::string cur_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
-                    std::string nxt_to = "Never";
-                    if (cur_to == "10s") nxt_to = "15s";
-                    else if (cur_to == "15s") nxt_to = "30s";
-                    else if (cur_to == "30s") nxt_to = "1 min";
-                    else if (cur_to == "1 min") nxt_to = "5 min";
-                    else if (cur_to == "5 min") nxt_to = "Never";
-                    else if (cur_to == "Never") nxt_to = "10s";
-                    auto call = id(screensaver_docked_timeout).make_call();
-                    call.set_option(nxt_to);
-                    call.perform();
-                    id(disp1).update();
-                  // Slot 3: Stay Awake Mode (y: 215..268, x: 90..376)
-                  } else if (touch.y >= 215 && touch.y <= 268 && touch.x >= 90 && touch.x <= 376) {
-                    id(prevent_deep_sleep_switch).toggle();
-                    id(disp1).update();
-                  // Slot 4: Auto-Sleep Deep Sleep Timeout (y: 275..328, x: 90..376)
-                  } else if (touch.y >= 275 && touch.y <= 328 && touch.x >= 90 && touch.x <= 376) {
-                    std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
-                    std::string nxt_as = "5 min";
-                    if (cur_as == "5 min") nxt_as = "10 min";
-                    else if (cur_as == "10 min") nxt_as = "15 min";
-                    else if (cur_as == "15 min") nxt_as = "30 min";
-                    else if (cur_as == "30 min") nxt_as = "Disabled";
-                    else if (cur_as == "Disabled") nxt_as = "5 min";
-                    auto call = id(sleep_timeout_mode).make_call();
-                    call.set_option(nxt_as);
-                    call.perform();
-                    id(disp1).update();
+                // Mode 1: Sleep & Wake Submenu (5-Pill Layout, 2 Pages, Edge-Tap Navigation)
+                // Left Flank Navigation (<): Page Cycle (x < 95, y: 70..360)
+                if (touch.x < 95 && touch.y >= 70 && touch.y <= 360) {
+                  id(sleep_menu_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
+                  id(disp1).update();
+                  return;
+                }
+                // Right Flank Navigation (>): Page Cycle (x > 371, y: 70..360)
+                if (touch.x > 371 && touch.y >= 70 && touch.y <= 360) {
+                  id(sleep_menu_page) = (id(sleep_menu_page) >= 2) ? 1 : 2;
+                  id(disp1).update();
+                  return;
+                }
+
+                // Central Button Hit-Testing (x: 95..371)
+                if (touch.x >= 95 && touch.x <= 371) {
+                  if (id(sleep_menu_page) == 1) {
+                    // Page 1: Wake & Screensaver (Slots 1-5, 60px pitch)
+                    // Slot 1: Motion Wake Cycler (y: 70..124, pill at y=94)
+                    if (touch.y >= 70 && touch.y <= 124) {
+                      std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
+                      std::string nxt = "Always On";
+                      if (cur == "Always On") nxt = "Docked Only";
+                      else if (cur == "Docked Only") nxt = "Disabled";
+                      else nxt = "Always On";
+                      auto call = id(pickup_wake_mode).make_call();
+                      call.set_option(nxt);
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    // Slot 2: Tap Wake Cycler (y: 130..184, pill at y=154)
+                    } else if (touch.y >= 130 && touch.y <= 184) {
+                      std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
+                      std::string nxt = "Always On";
+                      if (cur == "Always On") nxt = "Docked Only";
+                      else if (cur == "Docked Only") nxt = "Disabled";
+                      else nxt = "Always On";
+                      auto call = id(tap_wake_mode).make_call();
+                      call.set_option(nxt);
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    // Slot 3: Docked Screensaver Toggle (y: 190..244, pill at y=214)
+                    } else if (touch.y >= 190 && touch.y <= 244) {
+                      id(docked_screensaver_switch).toggle();
+                      id(disp1).update();
+                      return;
+                    // Slot 4: Screensaver Style Cycler (y: 250..304, pill at y=274)
+                    } else if (touch.y >= 250 && touch.y <= 304) {
+                      std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
+                      std::string nxt_s = "Ambient Clock";
+                      if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
+                      else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
+                      else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
+                      else if (cur_s == "Matrix Rain") nxt_s = "Solar Flare";
+                      else if (cur_s == "Solar Flare") nxt_s = "Screen Off";
+                      else if (cur_s == "Screen Off") nxt_s = "Ambient Clock";
+                      auto call = id(screensaver_style_select).make_call();
+                      call.set_option(nxt_s);
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    // Slot 5: Docked Inactivity Timeout Cycler (y: 310..364, pill at y=334)
+                    } else if (touch.y >= 310 && touch.y <= 364) {
+                      std::string cur_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
+                      std::string nxt_to = "Never";
+                      if (cur_to == "10s") nxt_to = "15s";
+                      else if (cur_to == "15s") nxt_to = "30s";
+                      else if (cur_to == "30s") nxt_to = "1 min";
+                      else if (cur_to == "1 min") nxt_to = "5 min";
+                      else if (cur_to == "5 min") nxt_to = "Never";
+                      else if (cur_to == "Never") nxt_to = "10s";
+                      auto call = id(screensaver_docked_timeout).make_call();
+                      call.set_option(nxt_to);
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    }
+                  } else {
+                    // Page 2: Inactivity & Power Timeouts (Slots 1-3, 60px pitch)
+                    // Slot 1: Screen Off Timeout (y: 70..124, pill at y=94)
+                    if (touch.y >= 70 && touch.y <= 124) {
+                      std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
+                      std::string nxt_so = "15s";
+                      if (cur_so == "10s") nxt_so = "15s";
+                      else if (cur_so == "15s") nxt_so = "30s";
+                      else if (cur_so == "30s") nxt_so = "1 min";
+                      else if (cur_so == "1 min") nxt_so = "2 min";
+                      else if (cur_so == "2 min") nxt_so = "Never";
+                      else if (cur_so == "Never") nxt_so = "10s";
+                      auto call = id(display_off_timeout).make_call();
+                      call.set_option(nxt_so);
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    // Slot 2: Stay Awake Mode (y: 130..184, pill at y=154)
+                    } else if (touch.y >= 130 && touch.y <= 184) {
+                      id(prevent_deep_sleep_switch).toggle();
+                      id(disp1).update();
+                      return;
+                    // Slot 3: Auto-Sleep Deep Sleep Timeout (y: 190..244, pill at y=214)
+                    } else if (touch.y >= 190 && touch.y <= 244) {
+                      std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
+                      std::string nxt_as = "5 min";
+                      if (cur_as == "5 min") nxt_as = "10 min";
+                      else if (cur_as == "10 min") nxt_as = "15 min";
+                      else if (cur_as == "15 min") nxt_as = "30 min";
+                      else if (cur_as == "30 min") nxt_as = "Disabled";
+                      else if (cur_as == "Disabled") nxt_as = "5 min";
+                      auto call = id(sleep_timeout_mode).make_call();
+                      call.set_option(nxt_as);
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    }
                   }
                 }
 
-                // Standardized Centered < BACK Button at y = 368 (y: 335..398, x: 80..386)
-                if (touch.y >= 335 && touch.y <= 398 && touch.x >= 80 && touch.x <= 386) {
+                // Submenu < BACK Button at y = 390 (y: 368..412, x: 150..316)
+                if (touch.y >= 368 && touch.y <= 412 && touch.x >= 150 && touch.x <= 316) {
                   id(system_menu_mode) = 0; // Return to Main Telemetry Dashboard
                   id(sleep_menu_page) = 1;
                   id(disp1).update();
+                  return;
+                }
+
+                // Bottom Dead Zone (y > 412) to absorb touches near the chin
+                if (touch.y > 412) {
+                  return;
                 }
               } else if (id(system_menu_mode) == 2) {
                 // Mode 2: Display Submenu (Gold Standard 60px Pitch)
