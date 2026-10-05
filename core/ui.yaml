@@ -4653,40 +4653,49 @@ display:
         float roll_delta = roll - zero_roll;
 
         // ----------------------------------------------------
-        // STATE 0: GAMES MENU LAUNCHER (Horizontal Carousel Suite)
+        // STATE 0: GAMES MENU LAUNCHER (Refined Centered Carousel)
         // ----------------------------------------------------
         if (id(active_game) == 0) {
-          // Standardized Title at y = 50 (aligned across all OS menus)
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
+          // Standardized Title at y = 44 (aligned across all OS menus)
+          it.print(cx, 44, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
 
-          // 4 Pagination Indicator Dots at y = 72
+          // 4 Pagination Indicator Dots at y = 68 (Active is White to match Game Title)
           int dot_spacing = 16;
           int start_dot_x = cx - 24;
           for (int i = 0; i < 4; i++) {
             int dx = start_dot_x + i * dot_spacing;
             if (i == id(game_carousel_idx)) {
-              it.filled_circle(dx - 4, 72, 3, id(theme_primary));
-              it.filled_circle(dx + 4, 72, 3, id(theme_primary));
-              it.filled_rectangle(dx - 4, 69, 9, 7, id(theme_primary));
+              it.filled_circle(dx - 4, 68, 3, id(col_white));
+              it.filled_circle(dx + 4, 68, 3, id(col_white));
+              it.filled_rectangle(dx - 4, 65, 9, 7, id(col_white));
             } else {
-              it.filled_circle(dx, 72, 2, id(col_slate));
+              it.filled_circle(dx, 68, 2, id(col_slate));
             }
           }
 
           // Flank Navigation Chevrons: Directional Carousel at y = 220 (x = 36 and x = 430)
-          // Left chevron (<) at x = 36, y = 220
           it.line(36 + 4, 220 - 9, 36 - 4, 220, id(theme_secondary));
           it.line(36 + 5, 220 - 9, 36 - 3, 220, id(theme_secondary));
           it.line(36 + 4, 220 + 9, 36 - 4, 220, id(theme_secondary));
           it.line(36 + 5, 220 + 9, 36 - 3, 220, id(theme_secondary));
 
-          // Right chevron (>) at x = 430, y = 220
           it.line(430 - 4, 220 - 9, 430 + 4, 220, id(theme_secondary));
           it.line(430 - 5, 220 - 9, 430 + 3, 220, id(theme_secondary));
           it.line(430 - 4, 220 + 9, 430 + 4, 220, id(theme_secondary));
           it.line(430 - 5, 220 + 9, 430 + 3, 220, id(theme_secondary));
 
-          int card_cy = 165;
+          // Clean Capsule Drawer Lambda (eliminates overlapping circle artifacts)
+          auto draw_capsule = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c) {
+            it.filled_circle(x1, y_mid, r, border_c);
+            it.filled_circle(x2, y_mid, r, border_c);
+            it.filled_rectangle(x1, y_mid - r, x2 - x1, 2 * r + 1, border_c);
+
+            it.filled_circle(x1, y_mid, r - 2, bg_c);
+            it.filled_circle(x2, y_mid, r - 2, bg_c);
+            it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
+          };
+
+          int card_cy = 196; // Dead center of display area
           const char* game_title = "MARBLES";
           const char* game_desc = "Tilt to Sink All Marbles";
           int best_score = id(high_score_marbles);
@@ -4700,21 +4709,21 @@ display:
             best_score = id(high_score_marbles);
 
             // Recessed circular arena dish
-            it.filled_circle(cx, card_cy, 56, Color(18, 24, 28));
-            it.circle(cx, card_cy, 56, id(col_slate));
-            it.circle(cx, card_cy, 55, id(col_slate));
-            it.circle(cx, card_cy, 50, Color(30, 40, 48));
+            it.filled_circle(cx, card_cy, 52, Color(18, 24, 28));
+            it.circle(cx, card_cy, 52, id(col_slate));
+            it.circle(cx, card_cy, 51, id(col_slate));
+            it.circle(cx, card_cy, 46, Color(30, 40, 48));
 
             // Center drop hole with depth ring
-            it.filled_circle(cx, card_cy, 16, id(col_black));
-            it.circle(cx, card_cy, 16, Color(45, 55, 65));
+            it.filled_circle(cx, card_cy, 15, id(col_black));
             it.circle(cx, card_cy, 15, Color(45, 55, 65));
+            it.circle(cx, card_cy, 14, Color(45, 55, 65));
 
             // Subtle spiral swirl grooves
             for (int a = 0; a < 4; a++) {
               float sa = a * 1.570796f;
-              it.line(cx + (int)(cosf(sa) * 20.0f), card_cy + (int)(sinf(sa) * 20.0f),
-                      cx + (int)(cosf(sa + 0.8f) * 44.0f), card_cy + (int)(sinf(sa + 0.8f) * 44.0f), Color(35, 45, 55));
+              it.line(cx + (int)(cosf(sa) * 18.0f), card_cy + (int)(sinf(sa) * 18.0f),
+                      cx + (int)(cosf(sa + 0.8f) * 40.0f), card_cy + (int)(sinf(sa + 0.8f) * 40.0f), Color(35, 45, 55));
             }
 
             // 5 Lustrous 3D Marbles
@@ -4725,11 +4734,11 @@ display:
               it.circle(mx - 1, my - 1, r - 2, hi_c);
               it.filled_circle(mx - r / 3, my - r / 3, 2, id(col_white)); // specular dot
             };
-            draw_marble_3d(cx - 26, card_cy - 20, 14, id(col_red), Color(255, 138, 128));
-            draw_marble_3d(cx + 24, card_cy - 24, 13, id(col_cyan), Color(180, 255, 255));
-            draw_marble_3d(cx - 22, card_cy + 24, 12, id(col_green), Color(185, 246, 202));
-            draw_marble_3d(cx + 26, card_cy + 20, 14, id(col_gold), Color(255, 245, 157));
-            draw_marble_3d(cx + 2, card_cy - 34, 11, id(col_magenta), Color(248, 187, 208));
+            draw_marble_3d(cx - 24, card_cy - 18, 13, id(col_red), Color(255, 138, 128));
+            draw_marble_3d(cx + 22, card_cy - 22, 12, id(col_cyan), Color(180, 255, 255));
+            draw_marble_3d(cx - 20, card_cy + 22, 11, id(col_green), Color(185, 246, 202));
+            draw_marble_3d(cx + 24, card_cy + 18, 13, id(col_gold), Color(255, 245, 157));
+            draw_marble_3d(cx + 2, card_cy - 31, 10, id(col_magenta), Color(248, 187, 208));
 
           // ------------------------------------------------------------------
           // GAME 1: ARCHERY
@@ -4740,37 +4749,37 @@ display:
             best_score = id(high_score_archery);
 
             // Recurve bow on the left
-            it.line(cx - 52, card_cy - 54, cx - 52, card_cy + 54, id(col_silver));
-            for (int i = -54; i <= 54; i++) {
-              int curve = (int)(18.0f * (1.0f - ((float)i / 54.0f) * ((float)i / 54.0f)));
+            it.line(cx - 52, card_cy - 50, cx - 52, card_cy + 50, id(col_silver));
+            for (int i = -50; i <= 50; i++) {
+              int curve = (int)(17.0f * (1.0f - ((float)i / 50.0f) * ((float)i / 50.0f)));
               int bx = cx - 52 + curve;
               int by = card_cy + i;
               it.draw_pixel_at(bx, by, id(col_warm_gold));
               it.draw_pixel_at(bx + 1, by, id(col_gold));
               it.draw_pixel_at(bx + 2, by, id(col_warm_gold));
             }
-            it.filled_rectangle(cx - 35, card_cy - 8, 5, 17, id(col_slate));
+            it.filled_rectangle(cx - 36, card_cy - 8, 5, 17, id(col_slate));
 
             // Concentric Target centered at (cx + 8, card_cy)
             int tx = cx + 8, ty = card_cy;
-            it.filled_circle(tx, ty, 48, id(col_white));
-            it.circle(tx, ty, 48, id(col_gray));
-            it.filled_circle(tx, ty, 39, Color(20, 20, 20));
-            it.circle(tx, ty, 39, id(col_slate));
-            it.filled_circle(tx, ty, 30, id(col_cyan));
-            it.circle(tx, ty, 30, Color(0, 180, 210));
-            it.filled_circle(tx, ty, 21, id(col_red));
-            it.circle(tx, ty, 21, Color(180, 20, 20));
-            it.filled_circle(tx, ty, 12, id(col_gold));
-            it.circle(tx, ty, 12, id(col_warm_gold));
+            it.filled_circle(tx, ty, 45, id(col_white));
+            it.circle(tx, ty, 45, id(col_gray));
+            it.filled_circle(tx, ty, 36, Color(20, 20, 20));
+            it.circle(tx, ty, 36, id(col_slate));
+            it.filled_circle(tx, ty, 27, id(col_cyan));
+            it.circle(tx, ty, 27, Color(0, 180, 210));
+            it.filled_circle(tx, ty, 18, id(col_red));
+            it.circle(tx, ty, 18, Color(180, 20, 20));
+            it.filled_circle(tx, ty, 10, id(col_gold));
+            it.circle(tx, ty, 10, id(col_warm_gold));
             it.filled_circle(tx, ty, 4, id(col_red));
             it.draw_pixel_at(tx, ty, id(col_white));
 
             // Arrow hitting bullseye at an angle
-            it.line(cx - 45, card_cy + 42, tx, ty, id(col_white));
-            it.line(cx - 44, card_cy + 43, tx + 1, ty + 1, id(col_slate));
-            it.line(cx - 51, card_cy + 38, cx - 43, card_cy + 46, id(col_red));
-            it.line(cx - 49, card_cy + 48, cx - 41, card_cy + 40, id(col_gold));
+            it.line(cx - 42, card_cy + 39, tx, ty, id(col_white));
+            it.line(cx - 41, card_cy + 40, tx + 1, ty + 1, id(col_slate));
+            it.line(cx - 48, card_cy + 35, cx - 40, card_cy + 43, id(col_red));
+            it.line(cx - 46, card_cy + 45, cx - 38, card_cy + 37, id(col_gold));
             it.line(tx + 4, ty - 8, tx + 8, ty - 12, id(col_gold));
             it.line(tx + 8, ty + 4, tx + 14, ty + 6, id(col_gold));
             it.line(tx - 6, ty - 8, tx - 10, ty - 12, id(col_gold));
@@ -4786,7 +4795,7 @@ display:
             // Brick Grid (3 rows of 4 bricks)
             int b_w = 26, b_h = 11, gap_x = 4, gap_y = 5;
             int start_bx = cx - (int)(2.0f * b_w + 1.5f * gap_x);
-            int start_by = card_cy - 48;
+            int start_by = card_cy - 46;
             Color row_c[3] = {id(col_gold), id(col_cyan), id(col_orange)};
             Color row_hi[3] = {Color(255, 245, 157), Color(180, 255, 255), Color(255, 183, 77)};
             for (int r = 0; r < 3; r++) {
@@ -4819,7 +4828,7 @@ display:
             it.filled_circle(ball_x - 2, ball_y - 2, 2, id(col_white));
 
             // Paddle at bottom of card
-            int pad_y = card_cy + 44, pad_w = 64;
+            int pad_y = card_cy + 42, pad_w = 64;
             it.filled_circle(cx - pad_w / 2 + 6, pad_y + 6, 6, id(theme_primary));
             it.filled_circle(cx + pad_w / 2 - 6, pad_y + 6, 6, id(theme_primary));
             it.filled_rectangle(cx - pad_w / 2 + 6, pad_y, pad_w - 12, 13, id(theme_primary));
@@ -4830,27 +4839,39 @@ display:
             it.filled_rectangle(cx - pad_w / 2 + 16, pad_y + 4, pad_w - 32, 5, id(col_white));
 
           // ------------------------------------------------------------------
-          // GAME 3: CHOMP (Kids)
+          // GAME 3: CHOMP FOR KIDS
           // ------------------------------------------------------------------
           } else {
-            game_title = "CHOMP";
+            game_title = "CHOMP FOR KIDS";
             game_desc = "Tilt & Tap to Feed Monster";
             best_score = id(high_score_chomp);
 
-            int mx = cx - 18, my = card_cy, mr = 44;
-            // Body circle with wedge mouth
+            int mx = cx - 18, my = card_cy, mr = 42;
+            // Body circle with wedge mouth (NO circle line cutting across mouth)
             it.filled_circle(mx, my, mr, id(col_cyan));
             it.filled_triangle(mx, my, mx + 48, my - 28, mx + 48, my + 28, id(col_bg));
-            it.circle(mx, my, mr, id(col_white));
-            it.line(mx, my, mx + 40, my - 25, id(col_white));
-            it.line(mx, my, mx + 40, my + 25, id(col_white));
+
+            // Draw white outline ONLY along the outer arc (35 deg to 325 deg)
+            for (int deg = 35; deg <= 325; deg++) {
+              float rad = deg * 0.0174533f;
+              it.draw_pixel_at(mx + (int)(cosf(rad) * mr), my + (int)(sinf(rad) * mr), id(col_white));
+              it.draw_pixel_at(mx + (int)(cosf(rad) * (mr - 1)), my + (int)(sinf(rad) * (mr - 1)), id(col_white));
+            }
+            int m_top_x = mx + (int)(cosf(35.0f * 0.0174533f) * mr);
+            int m_top_y = my + (int)(sinf(35.0f * 0.0174533f) * mr);
+            int m_bot_x = mx + (int)(cosf(325.0f * 0.0174533f) * mr);
+            int m_bot_y = my + (int)(sinf(325.0f * 0.0174533f) * mr);
+            it.line(mx, my, m_top_x, m_top_y, id(col_white));
+            it.line(mx + 1, my, m_top_x + 1, m_top_y, id(col_white));
+            it.line(mx, my, m_bot_x, m_bot_y, id(col_white));
+            it.line(mx + 1, my, m_bot_x + 1, m_bot_y, id(col_white));
 
             // Cute Teeth
-            it.filled_triangle(mx + 10, my - 22, mx + 20, my - 12, mx + 22, my - 24, id(col_white));
-            it.filled_triangle(mx + 10, my + 22, mx + 20, my + 12, mx + 22, my + 24, id(col_white));
+            it.filled_triangle(mx + 8, my - 20, mx + 17, my - 11, mx + 20, my - 22, id(col_white));
+            it.filled_triangle(mx + 8, my + 20, mx + 17, my + 11, mx + 20, my + 22, id(col_white));
 
             // Big Expressive Eye
-            int ex = mx + 2, ey = my - 22;
+            int ex = mx + 2, ey = my - 20;
             it.filled_circle(ex, ey, 12, id(col_white));
             it.circle(ex, ey, 12, id(col_dark_gray));
             it.filled_circle(ex + 4, ey - 1, 6, id(col_black));
@@ -4888,41 +4909,24 @@ display:
           }
 
           // ------------------------------------------------------------------
-          // SHARED CAROUSEL CARD FOOTER
+          // SHARED CAROUSEL CARD TYPOGRAPHY & CONTROLS
           // ------------------------------------------------------------------
-          // Title at y = 252 (28px Bold)
-          it.print(cx, 252, id(font_btn_bold), id(col_white), TextAlign::CENTER, game_title);
+          // 1. Game Title ABOVE ICON at y = 98 (Centered, Bold, White)
+          it.print(cx, 98, id(font_btn_bold), id(col_white), TextAlign::CENTER, game_title);
 
-          // Description at y = 284
-          it.print(cx, 284, id(font_small), id(col_slate), TextAlign::CENTER, game_desc);
+          // 2. Instructions below icon at y = 278
+          it.print(cx, 278, id(font_small), id(col_slate), TextAlign::CENTER, game_desc);
 
-          // Best Score Badge at y = 318
-          int badge_w = 120, badge_h = 26;
-          int bx0 = cx - badge_w / 2, by0 = 318 - badge_h / 2;
-          it.filled_circle(bx0 + 13, by0 + 13, 13, id(col_dark_gray));
-          it.filled_circle(bx0 + badge_w - 13, by0 + 13, 13, id(col_dark_gray));
-          it.filled_rectangle(bx0 + 13, by0, badge_w - 26, badge_h + 1, id(col_dark_gray));
-          it.circle(bx0 + 13, by0 + 13, 13, id(col_slate));
-          it.circle(bx0 + badge_w - 13, by0 + 13, 13, id(col_slate));
-          it.line(bx0 + 13, by0, bx0 + badge_w - 13, by0, id(col_slate));
-          it.line(bx0 + 13, by0 + badge_h, bx0 + badge_w - 13, by0 + badge_h, id(col_slate));
+          // 3. Clean High Score Pill at y = 318 (size 21 font_small, zero line overlap)
+          draw_capsule(cx - 95, cx + 95, 318, 15, id(col_slate), id(col_dark_gray));
           char sc_buf[32];
-          if (best_score > 0) snprintf(sc_buf, sizeof(sc_buf), "BEST  %d", best_score);
-          else snprintf(sc_buf, sizeof(sc_buf), "BEST  --");
-          it.print(cx, 318, id(font_micro), id(col_gold), TextAlign::CENTER, sc_buf);
+          if (best_score > 0) snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: %d", best_score);
+          else snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: --");
+          it.print(cx, 318, id(font_small), id(col_gold), TextAlign::CENTER, sc_buf);
 
-          // Start Action Pill at y = 356
-          int pw = 140, ph = 30;
-          int px0 = cx - pw / 2, py0 = 356 - ph / 2;
-          it.filled_circle(px0 + 15, py0 + 15, 15, id(col_dark_gray));
-          it.filled_circle(px0 + pw - 15, py0 + 15, 15, id(col_dark_gray));
-          it.filled_rectangle(px0 + 15, py0, pw - 30, ph + 1, id(col_dark_gray));
-          it.circle(px0 + 15, py0 + 15, 15, id(theme_primary));
-          it.circle(px0 + pw - 15, py0 + 15, 15, id(theme_primary));
-          it.line(px0 + 15, py0, px0 + pw - 15, py0, id(theme_primary));
-          it.line(px0 + 15, py0 + ph, px0 + pw - 15, py0 + ph, id(theme_primary));
-          it.print(cx, 356, id(font_btn_bold), id(col_white), TextAlign::CENTER, "START GAME");
-
+          // 4. Start Action Pill at y = 362 (size 26 font_btn_bold)
+          draw_capsule(cx - 80, cx + 80, 362, 16, id(theme_primary), id(col_dark_gray));
+          it.print(cx, 362, id(font_btn_bold), id(col_white), TextAlign::CENTER, "START GAME");
           // Physical top crown button exits directly to watchface
 
         // ----------------------------------------------------
@@ -5592,7 +5596,7 @@ display:
         // GAME 4: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
         } else {
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "CHOMP");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "CHOMP FOR KIDS");
 
           static int treat_score = 0;
           static float treat_x = cx + 60.0f;
