@@ -121,7 +121,9 @@ esphome:
       then:
         - media_player.pause: pocket_music_player
         - online_image.release: remote_album_art
-        - lambda: 'id(current_loaded_art_url) = "";'
+        - lambda: |-
+            id(current_loaded_art_url) = "";
+            id(album_art_loaded) = false;
         - script.execute: route_i2s_to_mic
         - switch.turn_on: speaker_enable
         - audio_dac.set_volume:

@@ -37,6 +37,10 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  - id: album_art_loaded
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: music_category_page
     type: int
     restore_value: no
@@ -520,6 +524,7 @@ image:
     current_image:
       id: album_art
     on_image_display:
+      - lambda: 'id(album_art_loaded) = true;'
       - script.execute: throttled_disp_update
 
   - platform: online_image
@@ -529,6 +534,7 @@ image:
     resize: 466x466
     url: "${initial_art_url}"
     on_download_finished:
+      - lambda: 'id(album_art_loaded) = true;'
       - script.execute: throttled_disp_update
 
 
@@ -635,6 +641,22 @@ select:
       - "Full Screen"
       - "Letterbox"
       - "Compact"
+    set_action:
+      - lambda: |-
+          id(disp1).update();
+
+  - platform: template
+    name: "System: Music Overlay Style"
+    id: music_overlay_style
+    icon: "mdi:television-guide"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Art Only"
+    options:
+      - "Art Only"
+      - "Art + Metadata"
+      - "Always Visible"
     set_action:
       - lambda: |-
           id(disp1).update();
@@ -1083,12 +1105,17 @@ interval:
             id(disp1).update();
           }
 
-          // Music Overlay HUD Auto-Dismissal (3.0s timeout in Full Screen / Letterbox)
+          // Music Overlay HUD Auto-Dismissal (5.0s timeout in Full Screen / Letterbox)
           if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_hud_active)) {
-            if (millis() - id(music_hud_timer) >= 3000) {
+            if (millis() - id(music_hud_timer) >= 5000) {
               id(music_hud_active) = false;
               id(disp1).update();
             }
+          }
+
+          // Smooth animation refresh while Music loading screen is active
+          if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && !id(album_art_loaded) && (millis() < 15000 || !id(current_loaded_art_url).empty()) && !id(va_active) && id(va_status_text).empty()) {
+            id(disp1).update();
           }
 
           // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
@@ -1700,7 +1727,9 @@ text_sensor:
             condition:
               lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
             then:
-              - lambda: 'id(current_loaded_art_url) = "";'
+              - lambda: |-
+                  id(current_loaded_art_url) = "";
+                  id(album_art_loaded) = false;
               - online_image.release: remote_album_art
               - script.execute: throttled_disp_update
             else:
@@ -4047,6 +4076,15 @@ display:
           bool is_compact = (art_mode == "Compact");
           bool is_letterbox = (art_mode == "Letterbox");
 
+          std::string overlay_mode = std::string(id(music_overlay_style).current_option().c_str());
+          if (overlay_mode.empty()) overlay_mode = "Art Only";
+
+          bool always_visible = is_compact || (overlay_mode == "Always Visible");
+          bool show_meta_always = always_visible || (overlay_mode == "Art + Metadata");
+
+          bool show_controls = always_visible || id(music_hud_active);
+          bool show_metadata = show_meta_always || id(music_hud_active);
+
           // Title & Active Speaker Indicator: Rendered only on Compact View (suppressed on Full Screen & Letterbox)
           if (is_compact) {
             it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
@@ -4067,27 +4105,46 @@ display:
             it.print(cx, 74, id(font_small), is_feedback ? id(theme_primary) : ((is_remote && millis() >= 4000) ? id(theme_secondary) : id(col_slate)), TextAlign::CENTER, spk_label.c_str());
           }
 
-          // Perfectly Centered Album Art: 216x216 centered across horizontal centerline (cx = 233, art_center_y = 212), spans y = 104 to 320
           const int art_center_y = 212;
 
-          bool has_art = false;
+          bool has_art = id(album_art_loaded);
           esphome::image::Image *target_art = nullptr;
-          if (is_remote) {
-            has_art = (id(remote_album_art).get_width() > 0);
-            if (has_art) {
+          if (has_art) {
+            if (is_remote) {
               target_art = id(remote_album_art);
-            } else if (id(album_art).get_width() > 0) {
-              has_art = true;
+              if (target_art->get_width() == 0) target_art = id(album_art);
+            } else {
               target_art = id(album_art);
+              if (target_art->get_width() == 0) target_art = id(remote_album_art);
             }
-          } else {
-            has_art = (id(album_art).get_width() > 0);
-            if (has_art) {
-              target_art = id(album_art);
-            } else if (id(remote_album_art).get_width() > 0) {
-              has_art = true;
-              target_art = id(remote_album_art);
+          }
+
+          // Dedicated Loading Screen on Initial Boot / Art Ingestion
+          bool is_loading = !has_art && (millis() < 15000 || id(ha_target_state).state.empty() || id(ha_target_state).state == "unavailable" || id(ha_target_state).state == "unknown" || !id(current_loaded_art_url).empty());
+
+          if (is_loading) {
+            // Elegant loading screen with animated vinyl orbit
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
+
+            // Vinyl silhouette
+            it.filled_circle(cx, 195, 64, id(col_dark_gray));
+            it.circle(cx, 195, 64, id(col_black));
+            it.circle(cx, 195, 63, id(col_gray));
+            it.circle(cx, 195, 48, id(col_black));
+            it.circle(cx, 195, 32, id(col_black));
+            it.filled_circle(cx, 195, 12, id(theme_primary));
+
+            // Animated orbit dot
+            float spin_a = (millis() % 2000) * (2.0f * PI_F / 2000.0f);
+            it.filled_circle(cx + (int)(74.0f * cosf(spin_a)), 195 + (int)(74.0f * sinf(spin_a)), 4, id(theme_secondary));
+
+            it.print(cx, 290, id(font_small), id(col_white), TextAlign::CENTER, "LOADING MUSIC...");
+            std::string load_status = "Connecting to Music Assistant...";
+            if (!id(active_speaker_name).empty() && id(active_speaker_name) != "None") {
+              load_status = "[" + id(active_speaker_name) + "]";
             }
+            it.print(cx, 318, id(font_small), id(theme_secondary), TextAlign::CENTER, load_status.c_str());
+            return;
           }
 
           bool rendered_art = false;
@@ -4157,9 +4214,22 @@ display:
                   }
                 }
 
-                // 50% Translucent Dither Scrim across art canvas when HUD is active in Full Screen / Letterbox
+                // Scrim handling based on HUD and Metadata visibility
                 if (id(music_hud_active)) {
+                  // Full 50% Translucent Dither Scrim across art canvas when controls are summoned
                   for (int y = start_y; y < end_y; y++) {
+                    int hw = CIRCLE_HW[y];
+                    int start_x = cx - hw;
+                    if ((start_x + y) % 2 != 0) start_x++;
+                    int end_x = cx + hw;
+                    for (int x = start_x; x <= end_x; x += 2) {
+                      it.draw_pixel_at(x, y, id(col_black));
+                    }
+                  }
+                } else if (show_metadata) {
+                  // Subtle bottom metadata scrim when metadata is set to always show without controls
+                  int scrim_end = is_letterbox ? 385 : 395;
+                  for (int y = 320; y < scrim_end; y++) {
                     int hw = CIRCLE_HW[y];
                     int start_x = cx - hw;
                     if ((start_x + y) % 2 != 0) start_x++;
@@ -4182,8 +4252,6 @@ display:
             it.circle(cx, art_center_y, 32, id(col_bg));
             it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
           }
-
-          bool show_controls = is_compact || id(music_hud_active);
 
           if (show_controls) {
             // Flank Control Buttons in High-Contrast Dark Gray Circular Capsules (Radius 18)
@@ -4255,6 +4323,9 @@ display:
               it.filled_rectangle(cx + 3, art_center_y - 13, 6, 26, id(theme_primary));
             }
 
+          }
+
+          if (show_metadata) {
             // Real-time track progress calculation
             float dur = id(ha_media_duration).state;
             float current_pos = id(music_pos_base);
@@ -5668,34 +5739,40 @@ display:
 
         } else if (id(system_menu_mode) == 7) {
           // --------------------------------------------------
-          // VIEW 7: AUDIO SUBMENU
+          // VIEW 7: AUDIO SUBMENU (Standardized 58px Pitch, 5 Slots)
           // --------------------------------------------------
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO");
 
-          // Button 1: Album Art Style Cycler (y = 104, r = 18, standardized 54px title-to-pill buffer)
+          // Button 1: Album Art Style Cycler (Slot 1, y = 104, r = 18)
           std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
           char fs_label[32];
           snprintf(fs_label, sizeof(fs_label), "Art: %s", cur_mode.c_str());
           draw_pill_button(110, 356, 104, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
 
-          // Button 2: Hardware Speaker Volume (y = 164, r = 18)
+          // Button 2: Music Overlay Style Cycler (Slot 2, y = 162, r = 18)
+          std::string cur_ov = std::string(id(music_overlay_style).current_option().c_str());
+          char ov_label[32];
+          snprintf(ov_label, sizeof(ov_label), "Overlay: %s", cur_ov.c_str());
+          draw_pill_button(110, 356, 162, 18, id(theme_secondary), id(col_dark_gray), ov_label, id(col_white), false);
+
+          // Button 3: Hardware Speaker Volume (Slot 3, y = 220, r = 18)
           char spk_vol[32];
           int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
           snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
-          draw_pill_button(110, 356, 164, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
+          draw_pill_button(110, 356, 220, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
 
-          // Button 3: Independent Alert Volume (y = 224, r = 18)
+          // Button 4: Independent Alert Volume (Slot 4, y = 278, r = 18)
           char alert_vol_str[32];
           float a_st = id(alert_volume).state;
           int a_cur = (std::isnan(a_st) || a_st < 20.0f) ? 80 : (int)std::round(a_st);
           snprintf(alert_vol_str, sizeof(alert_vol_str), "Alert Vol: %d%%", a_cur);
-          draw_pill_button(110, 356, 224, 18, id(theme_secondary), id(col_dark_gray), alert_vol_str, id(col_white), false);
+          draw_pill_button(110, 356, 278, 18, id(theme_secondary), id(col_dark_gray), alert_vol_str, id(col_white), false);
 
-          // Button 4: Voice Assistant Screen Wake Toggle (y = 284, r = 18)
+          // Button 5: Voice Assistant Screen Wake Toggle (Slot 5, y = 336, r = 18)
           bool va_scr = id(va_wake_screen_switch).state;
           char va_scr_label[32];
           snprintf(va_scr_label, sizeof(va_scr_label), "Voice Screen: %s", va_scr ? "ON" : "OFF");
-          draw_pill_button(110, 356, 284, 18, id(theme_secondary), id(col_dark_gray), va_scr_label, id(col_white), false);
+          draw_pill_button(110, 356, 336, 18, id(theme_secondary), id(col_dark_gray), va_scr_label, id(col_white), false);
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
@@ -6969,7 +7046,9 @@ display:
       // Guaranteed visibility over any page: stopwatch parchment, full-screen album art, etc.
       // ==============================================================================
       std::string current_art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-      bool music_clean_art = (id(gui_page) == 2 && (current_art_mode != "Compact") && !id(music_hud_active));
+      std::string current_overlay_mode = std::string(id(music_overlay_style).current_option().c_str());
+      bool show_meta_in_deck = (current_overlay_mode == "Art + Metadata" || current_overlay_mode == "Always Visible");
+      bool music_clean_art = (id(gui_page) == 2 && (current_art_mode != "Compact") && !show_meta_in_deck && !id(music_hud_active));
 
       if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(alarm_ringing) || id(timer_ringing))) {
         bool is_stopwatch = (id(gui_page) == 1);
@@ -7258,8 +7337,12 @@ touchscreen:
                 const int prev_x_max = is_compact ? 124 : 175;
                 const int next_x_min = is_compact ? 342 : 291;
 
-                if (!is_compact && !id(music_hud_active)) {
-                  // Single tap on glass wakes/summons HUD in Full Screen / Letterbox
+                std::string overlay_mode = std::string(id(music_overlay_style).current_option().c_str());
+                if (overlay_mode.empty()) overlay_mode = "Art Only";
+                bool hud_enabled = !is_compact && (overlay_mode != "Always Visible");
+
+                if (hud_enabled && !id(music_hud_active)) {
+                  // Single tap on glass wakes/summons controls in Full Screen / Letterbox
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
                   id(disp1).update();
@@ -7369,8 +7452,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Empty space tap dismisses HUD (Full Screen / Letterbox when HUD is active)
-                } else if (!is_compact && id(music_hud_active)) {
+                // Empty space tap dismisses controls (Full Screen / Letterbox when HUD is active)
+                } else if (hud_enabled && id(music_hud_active)) {
                   id(music_hud_active) = false;
                   id(disp1).update();
                 }
@@ -7983,9 +8066,9 @@ touchscreen:
                   }
                 }
               } else if (id(system_menu_mode) == 7) {
-                // Mode 7: Audio Submenu (Standardized 60px Pitch, 16px Elevation)
-                // Card 1: Album Art Style Cycler (y: 79..134, x: 90..376, pill at y=104)
-                if (touch.y >= 79 && touch.y <= 134 && touch.x >= 90 && touch.x <= 376) {
+                // Mode 7: Audio Submenu (Standardized 58px Pitch, 5 Slots)
+                // Card 1: Album Art Style Cycler (y: 75..133, x: 75..395, pill at y=104)
+                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 75 && touch.x <= 395) {
                   std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
                   std::string nxt_mode = "Letterbox";
                   if (cur_mode == "Full Screen") nxt_mode = "Letterbox";
@@ -7995,16 +8078,27 @@ touchscreen:
                   call.set_option(nxt_mode);
                   call.perform();
                   id(disp1).update();
-                // Card 2: Hardware Speaker Volume Step (y: 139..194, x: 90..376, pill at y=164)
-                } else if (touch.y >= 139 && touch.y <= 194 && touch.x >= 90 && touch.x <= 376) {
+                // Card 2: Music Overlay Style Cycler (y: 134..191, x: 75..395, pill at y=162)
+                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 75 && touch.x <= 395) {
+                  std::string cur_ov = std::string(id(music_overlay_style).current_option().c_str());
+                  std::string nxt_ov = "Art + Metadata";
+                  if (cur_ov == "Art Only") nxt_ov = "Art + Metadata";
+                  else if (cur_ov == "Art + Metadata") nxt_ov = "Always Visible";
+                  else nxt_ov = "Art Only";
+                  auto call = id(music_overlay_style).make_call();
+                  call.set_option(nxt_ov);
+                  call.perform();
+                  id(disp1).update();
+                // Card 3: Hardware Speaker Volume Step (y: 192..249, x: 75..395, pill at y=220)
+                } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 75 && touch.x <= 395) {
                   float cur_vol = id(pocket_music_player).volume;
                   float new_vol = cur_vol + 0.10f;
                   if (new_vol > 0.90f) new_vol = 0.10f;
                   id(pocket_music_player).volume = new_vol;
-                id(pocket_music_player).make_call().set_volume(new_vol).perform();
+                  id(pocket_music_player).make_call().set_volume(new_vol).perform();
                   id(disp1).update();
-                // Card 3: Independent Alert Volume Step (y: 199..254, x: 90..376, pill at y=224)
-                } else if (touch.y >= 199 && touch.y <= 254 && touch.x >= 90 && touch.x <= 376) {
+                // Card 4: Independent Alert Volume Step (y: 250..307, x: 75..395, pill at y=278)
+                } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 75 && touch.x <= 395) {
                   float cur_a_f = id(alert_volume).state;
                   int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 80 : (int)std::round(cur_a_f);
                   int nxt_a = cur_a + 10;
@@ -8013,12 +8107,12 @@ touchscreen:
                   call.set_value((float)nxt_a);
                   call.perform();
                   id(disp1).update();
-                // Card 4: Voice Assistant Screen Wake Toggle (y: 259..314, x: 90..376, pill at y=284)
-                } else if (touch.y >= 259 && touch.y <= 314 && touch.x >= 90 && touch.x <= 376) {
+                // Card 5: Voice Assistant Screen Wake Toggle (y: 308..365, x: 75..395, pill at y=336)
+                } else if (touch.y >= 308 && touch.y <= 365 && touch.x >= 75 && touch.x <= 395) {
                   id(va_wake_screen_switch).toggle();
                   id(disp1).update();
-                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
-                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized generous < BACK Button at y = 408 (y >= 366, x: 80..386)
+                } else if (touch.y >= 366 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
