@@ -534,7 +534,9 @@ image:
     resize: 466x466
     url: "${initial_art_url}"
     on_download_finished:
-      - lambda: 'id(album_art_loaded) = true;'
+      - lambda: |-
+          id(current_loaded_art_url) = id(ha_target_art_url).state;
+          id(album_art_loaded) = true;
       - script.execute: throttled_disp_update
 
 
@@ -1681,12 +1683,9 @@ text_sensor:
                 return (x != "${local_player_id}") &&
                        !id(ha_target_art_url).state.empty() &&
                        (id(ha_target_art_url).state != "none") &&
-                       (id(ha_target_art_url).state != id(current_loaded_art_url) || id(remote_album_art).get_width() == 0);
+                       (id(ha_target_art_url).state != id(current_loaded_art_url));
             then:
-              - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
-              - online_image.set_url:
-                  id: remote_album_art
-                  url: !lambda 'return id(ha_target_art_url).state;'
+              - script.execute: fetch_remote_art_debounced
 
   - platform: homeassistant
     id: ha_target_state
@@ -1727,6 +1726,7 @@ text_sensor:
             condition:
               lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
             then:
+              - script.stop: fetch_remote_art_debounced
               - lambda: |-
                   id(current_loaded_art_url) = "";
                   id(album_art_loaded) = false;
@@ -1735,14 +1735,9 @@ text_sensor:
             else:
               - if:
                   condition:
-                    lambda: |-
-                      return (id(active_speaker_entity) != "${local_player_id}") &&
-                             (x != id(current_loaded_art_url) || id(remote_album_art).get_width() == 0);
+                    lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
                   then:
-                    - lambda: 'id(current_loaded_art_url) = x;'
-                    - online_image.set_url:
-                        id: remote_album_art
-                        url: !lambda 'return x;'
+                    - script.execute: fetch_remote_art_debounced
 
   - platform: sendspin
     type: artist
@@ -1836,6 +1831,24 @@ script:
           else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
+  - id: fetch_remote_art_debounced
+    mode: restart
+    then:
+      - delay: 600ms
+      - if:
+          condition:
+            lambda: |-
+              return (id(active_speaker_entity) != "${local_player_id}") &&
+                     !id(ha_target_art_url).state.empty() &&
+                     (id(ha_target_art_url).state != "none") &&
+                     (id(ha_target_art_url).state != "unknown") &&
+                     (id(ha_target_art_url).state != "unavailable") &&
+                     (id(ha_target_art_url).state != id(current_loaded_art_url));
+          then:
+            - online_image.set_url:
+                id: remote_album_art
+                url: !lambda 'return id(ha_target_art_url).state;'
+
   - id: throttled_disp_update
     mode: restart
     then:
@@ -4111,8 +4124,14 @@ display:
           esphome::image::Image *target_art = nullptr;
           if (has_art) {
             if (is_remote) {
-              target_art = id(remote_album_art);
-              if (target_art->get_width() == 0) target_art = id(album_art);
+              // Seamless Handover: Prefer remote art if already synced to target URL; preserve local art while remote art downloads
+              if (id(current_loaded_art_url) == id(ha_target_art_url).state && id(remote_album_art).get_width() > 0) {
+                target_art = id(remote_album_art);
+              } else if (id(album_art).get_width() > 0) {
+                target_art = id(album_art);
+              } else {
+                target_art = id(remote_album_art);
+              }
             } else {
               target_art = id(album_art);
               if (target_art->get_width() == 0) target_art = id(remote_album_art);
