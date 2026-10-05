@@ -4310,19 +4310,21 @@ display:
             // Full Screen & Letterbox position buttons at (124, 342) for comfortable thumb reach with 57px Play gap
             const int prev_btn_x = is_compact ? 102 : 124;
             const int next_btn_x = is_compact ? 364 : 342;
+            const int left_flank_x = 71;   // Inward ergonomic shift (+10px from 61, clearing curved glass bezel fringe)
+            const int right_flank_x = 395; // Inward ergonomic shift (-10px from 405, symmetrical 162px from cx=233)
             Color btn_rim_col = is_compact ? id(col_black) : id(col_gray);
 
-            // Left Flank Speaker Button (🔊): centered at x = 61, y = 140 (symmetrically matching Volume Up at x = 405, y = 140)
-            it.filled_circle(61, 140, 18, id(col_dark_gray));
-            it.circle(61, 140, 18, id(col_black));
-            if (!is_compact) it.circle(61, 140, 17, btn_rim_col);
-            it.filled_rectangle(61 - 8, 140 - 4, 4, 9, id(col_white));
-            it.filled_triangle(61 - 6, 140, 61 + 1, 140 - 8, 61 + 1, 140 + 8, id(col_white));
-            it.filled_rectangle(61 - 5, 140 - 4, 6, 9, id(col_white));
-            it.line(61 + 4, 140 - 4, 61 + 6, 140, id(col_white));
-            it.line(61 + 6, 140, 61 + 4, 140 + 4, id(col_white));
-            it.line(61 + 8, 140 - 7, 61 + 11, 140, id(col_white));
-            it.line(61 + 11, 140, 61 + 8, 140 + 7, id(col_white));
+            // Left Flank Speaker Button (🔊): centered at x = left_flank_x (71), y = 140 (symmetrically matching Volume Up at x = right_flank_x (395), y = 140)
+            it.filled_circle(left_flank_x, 140, 18, id(col_dark_gray));
+            it.circle(left_flank_x, 140, 18, id(col_black));
+            if (!is_compact) it.circle(left_flank_x, 140, 17, btn_rim_col);
+            it.filled_rectangle(left_flank_x - 8, 140 - 4, 4, 9, id(col_white));
+            it.filled_triangle(left_flank_x - 6, 140, left_flank_x + 1, 140 - 8, left_flank_x + 1, 140 + 8, id(col_white));
+            it.filled_rectangle(left_flank_x - 5, 140 - 4, 6, 9, id(col_white));
+            it.line(left_flank_x + 4, 140 - 4, left_flank_x + 6, 140, id(col_white));
+            it.line(left_flank_x + 6, 140, left_flank_x + 4, 140 + 4, id(col_white));
+            it.line(left_flank_x + 8, 140 - 7, left_flank_x + 11, 140, id(col_white));
+            it.line(left_flank_x + 11, 140, left_flank_x + 8, 140 + 7, id(col_white));
 
             // Left Flank Previous Track (|◀): centered at x = prev_btn_x, y = 212
             it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
@@ -4332,19 +4334,19 @@ display:
             it.filled_triangle(prev_btn_x - 8, art_center_y, prev_btn_x + 6, art_center_y - 10, prev_btn_x + 6, art_center_y + 10, id(col_white));
 
             // Left Flank Library Button (☰): balanced at y = 286 (optical parity with minus glyph at y = 284)
-            it.filled_circle(61, 286, 18, id(col_dark_gray));
-            it.circle(61, 286, 18, id(col_black));
-            if (!is_compact) it.circle(61, 286, 17, btn_rim_col);
+            it.filled_circle(left_flank_x, 286, 18, id(col_dark_gray));
+            it.circle(left_flank_x, 286, 18, id(col_black));
+            if (!is_compact) it.circle(left_flank_x, 286, 17, btn_rim_col);
             for (int dy : {-4, 0, 4}) {
-              it.filled_rectangle(61 - 7, 286 + dy, 14, 2, id(col_white));
+              it.filled_rectangle(left_flank_x - 7, 286 + dy, 14, 2, id(col_white));
             }
 
-            // Right Flank Volume Up (+): centered at x = 405, y = 140
-            it.filled_circle(405, 140, 18, id(col_dark_gray));
-            it.circle(405, 140, 18, id(col_black));
-            if (!is_compact) it.circle(405, 140, 17, btn_rim_col);
-            it.filled_rectangle(405 - 7, 140 - 1, 15, 3, id(col_white));
-            it.filled_rectangle(405 - 1, 140 - 7, 3, 15, id(col_white));
+            // Right Flank Volume Up (+): centered at x = right_flank_x (395), y = 140
+            it.filled_circle(right_flank_x, 140, 18, id(col_dark_gray));
+            it.circle(right_flank_x, 140, 18, id(col_black));
+            if (!is_compact) it.circle(right_flank_x, 140, 17, btn_rim_col);
+            it.filled_rectangle(right_flank_x - 7, 140 - 1, 15, 3, id(col_white));
+            it.filled_rectangle(right_flank_x - 1, 140 - 7, 3, 15, id(col_white));
 
             // Right Flank Next Track (▶|): centered at x = next_btn_x, y = 212
             it.filled_circle(next_btn_x, art_center_y, 18, id(col_dark_gray));
@@ -4353,11 +4355,11 @@ display:
             it.filled_triangle(next_btn_x + 8, art_center_y, next_btn_x - 6, art_center_y - 10, next_btn_x - 6, art_center_y + 10, id(col_white));
             it.filled_rectangle(next_btn_x + 11, art_center_y - 10, 3, 21, id(col_white));
 
-            // Right Flank Volume Down (-): centered at x = 405, y = 284
-            it.filled_circle(405, 284, 18, id(col_dark_gray));
-            it.circle(405, 284, 18, id(col_black));
-            if (!is_compact) it.circle(405, 284, 17, btn_rim_col);
-            it.filled_rectangle(405 - 7, 284 - 1, 15, 3, id(col_white));
+            // Right Flank Volume Down (-): centered at x = right_flank_x (395), y = 284
+            it.filled_circle(right_flank_x, 284, 18, id(col_dark_gray));
+            it.circle(right_flank_x, 284, 18, id(col_black));
+            if (!is_compact) it.circle(right_flank_x, 284, 17, btn_rim_col);
+            it.filled_rectangle(right_flank_x - 7, 284 - 1, 15, 3, id(col_white));
 
             // Center Hero Play/Pause Button: High-Contrast Dark Gray Circular Capsule (Radius 34)
             // Displays Play badge ▶ when paused, and Pause badge ❚❚ when playing across all 3 art modes
@@ -7629,8 +7631,8 @@ touchscreen:
                 // ----------------------------------------------------
                 std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
                 bool is_compact = (art_mode == "Compact");
-                const int prev_x_max = is_compact ? 124 : 175;
-                const int next_x_min = is_compact ? 342 : 291;
+                const int prev_x_max = is_compact ? 130 : 185; // Inward expanded touch threshold (+10px from 175)
+                const int next_x_min = is_compact ? 336 : 281; // Inward expanded touch threshold (-10px from 291)
 
                 std::string overlay_mode = std::string(id(music_overlay_style).current_option().c_str());
                 if (overlay_mode.empty()) overlay_mode = "Art Only";
@@ -7649,11 +7651,11 @@ touchscreen:
                   id(music_overlay_mode) = 2;
                   id(disp1).update();
 
-                // Left Flank Speaker Button (🔊): Upper-Left Quadrant (center 61, 140; touches x <= prev_x_max, y < 185)
+                // Left Flank Speaker Button (🔊): Upper-Left Quadrant (center 71, 140; touches x <= prev_x_max, y < 185)
                 } else if (touch.x <= prev_x_max && touch.y < 185) {
                   static uint32_t last_spk_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_spk_tap > 250) {
+                  if (now_tap - last_spk_tap > 120) {
                     last_spk_tap = now_tap;
                     id(music_overlay_mode) = 1; // Open Speaker Menu (Handoff / Takeover)
                     id(music_hud_active) = false;
@@ -7664,7 +7666,7 @@ touchscreen:
                 } else if (touch.x <= prev_x_max && touch.y >= 185 && touch.y < 240) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_prev_tap > 250) {
+                  if (now_tap - last_prev_tap > 150) {
                     last_prev_tap = now_tap;
                     id(music_action_feedback) = "<< Prev Track";
                     id(music_feedback_timer) = now_tap;
@@ -7673,11 +7675,11 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Left Flank Library Button (☰): Lower-Left Quadrant (center 61, 286; x <= prev_x_max, y >= 240, y < 380)
+                // Left Flank Library Button (☰): Lower-Left Quadrant (center 71, 286; x <= prev_x_max, y >= 240, y < 380)
                 } else if (touch.x <= prev_x_max && touch.y >= 240 && touch.y < 380) {
                   static uint32_t last_menu_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_menu_tap > 250) {
+                  if (now_tap - last_menu_tap > 120) {
                     last_menu_tap = now_tap;
                     id(music_category_page) = 1;
                     id(music_overlay_mode) = 2; // Open Level 2 Library Categories Menu
@@ -7685,7 +7687,7 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Right Flank Volume Up (+): Generous Upper-Right Quadrant (center 405, 140; touches x >= next_x_min, y < 185)
+                // Right Flank Volume Up (+): Generous Upper-Right Quadrant (center 395, 140; touches x >= next_x_min, y < 185)
                 } else if (touch.x >= next_x_min && touch.y < 185) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
@@ -7706,7 +7708,7 @@ touchscreen:
                 } else if (touch.x >= next_x_min && touch.y >= 185 && touch.y < 240) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_next_tap > 250) {
+                  if (now_tap - last_next_tap > 150) {
                     last_next_tap = now_tap;
                     id(music_action_feedback) = "Next Track >>";
                     id(music_feedback_timer) = now_tap;
@@ -7715,7 +7717,7 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Right Flank Volume Down (-): Generous Lower-Right Quadrant (center 405, 284; touches x >= next_x_min, y >= 240, clean bound y < 380)
+                // Right Flank Volume Down (-): Generous Lower-Right Quadrant (center 395, 284; touches x >= next_x_min, y >= 240, clean bound y < 380)
                 } else if (touch.x >= next_x_min && touch.y >= 240 && touch.y < 380) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
@@ -7736,7 +7738,7 @@ touchscreen:
                 } else if (is_compact ? (touch.y >= 95 && touch.y < 380) : (touch.y >= 140 && touch.y <= 284)) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
-                  if (now_pp - last_pp_tap > 250) {
+                  if (now_pp - last_pp_tap > 150) {
                     last_pp_tap = now_pp;
                     bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
                                       (id(ha_target_state).state == "playing");
@@ -7747,10 +7749,15 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Empty space tap dismisses controls (Full Screen / Letterbox when HUD is active)
+                // Soft Dismissal: Only deliberate taps in the central album art column dismiss the HUD
+                // (flank near-misses keep controls visible and reset the 5.0s dismissal watchdog)
                 } else if (hud_enabled && id(music_hud_active)) {
-                  id(music_hud_active) = false;
-                  id(disp1).update();
+                  if (touch.x >= 186 && touch.x <= 280 && (touch.y < 140 || touch.y > 284)) {
+                    id(music_hud_active) = false;
+                    id(disp1).update();
+                  } else {
+                    id(music_hud_timer) = millis();
+                  }
                 }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
