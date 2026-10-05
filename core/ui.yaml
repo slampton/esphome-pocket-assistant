@@ -776,8 +776,14 @@ button:
           then:
             - script.execute: cancel_voice_assistant
           else:
-            - script.execute: pause_all_music
-            - delay: 100ms
+            - if:
+                condition:
+                  media_player.is_playing: pocket_music_player
+                then:
+                  - mixer_speaker.apply_ducking:
+                      id: media_mixing_input
+                      decibel_reduction: 50
+                      duration: 0.1s
             - script.execute: route_i2s_to_mic
             - light.turn_on: display_brightness
             - lambda: 'id(va_tts_received) = false;'
@@ -1457,13 +1463,10 @@ binary_sensor:
                               condition:
                                 media_player.is_playing: pocket_music_player
                               then:
-                                - media_player.pause: pocket_music_player
                                 - mixer_speaker.apply_ducking:
                                     id: media_mixing_input
                                     decibel_reduction: 50
                                     duration: 0.1s
-                                - delay: 150ms
-                                - script.execute: pause_all_music
                           - script.execute: route_i2s_to_mic
                           - lambda: 'id(va_tts_received) = false;'
                           - voice_assistant.start:
@@ -1683,23 +1686,6 @@ text_sensor:
 
 
 script:
-  - id: pause_all_music
-    mode: restart
-    then:
-      - media_player.pause: pocket_music_player
-      - mixer_speaker.apply_ducking:
-          id: media_mixing_input
-          decibel_reduction: 50
-          duration: 0.1s
-      - if:
-          condition:
-            lambda: 'return !id(active_speaker_entity).empty();'
-          then:
-            - homeassistant.action:
-                action: media_player.media_pause
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();' 
-
   - id: throttled_disp_update
     mode: restart
     then:

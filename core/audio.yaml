@@ -175,8 +175,10 @@ voice_assistant:
           condition:
             media_player.is_playing: pocket_music_player
           then:
-            - script.execute: pause_all_music
-            - delay: 150ms
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_mic
@@ -244,6 +246,14 @@ voice_assistant:
       - script.execute: va_tts_drain_and_finish
   on_error:
     then:
+      - if:
+          condition:
+            media_player.is_playing: pocket_music_player
+          then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 0
+                duration: 0.5s
       - script.execute: route_i2s_to_mic
       - lambda: |-
           id(va_vad_active) = false;
