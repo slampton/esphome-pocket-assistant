@@ -3155,7 +3155,7 @@ script:
             - lambda: |-
                 id(menu_scroll_step)++;
                 id(disp1).update();
-            - delay: 24ms
+            - delay: 28ms
       - delay: 30ms
       - lambda: |-
           id(menu_scroll_active) = false;
@@ -4338,12 +4338,12 @@ display:
           // --------------------------------------------------
           // VIEW 0: NOW PLAYING MUSIC PLAYER
           // --------------------------------------------------
-          std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+          const std::string &art_mode = id(music_fullscreen_art_mode).state;
           if (art_mode.empty()) art_mode = "Full Screen";
           bool is_compact = (art_mode == "Compact");
           bool is_letterbox = (art_mode == "Letterbox");
 
-          std::string overlay_mode = std::string(id(music_overlay_style).current_option().c_str());
+          const std::string &overlay_mode = id(music_overlay_style).state;
           if (overlay_mode.empty()) overlay_mode = "Art Only";
 
           bool always_visible = is_compact || (overlay_mode == "Always Visible");
@@ -6208,43 +6208,30 @@ display:
           }
 
           auto draw_sleep_item = [&](int idx, int y) {
+            char m_buf[32];
+            const char* label = m_buf;
             if (idx == 0) {
-              char m_buf[32];
-              std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
-              snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
+              snprintf(m_buf, sizeof(m_buf), "Motion: %s", id(pickup_wake_mode).state.c_str());
             } else if (idx == 1) {
-              char t_buf[32];
-              std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
-              snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
+              snprintf(m_buf, sizeof(m_buf), "Tap: %s", id(tap_wake_mode).state.c_str());
             } else if (idx == 2) {
-              std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
+              label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
             } else if (idx == 3) {
-              std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
-              char sty_buf[32];
-              snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Solar Flare" ? "Solar" : s_style.c_str())));
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
+              const char* s_style = id(screensaver_style_select).state.c_str();
+              const char* short_s = (strcmp(s_style, "Aurora Borealis") == 0) ? "Aurora" :
+                                    ((strcmp(s_style, "Matrix Rain") == 0) ? "Matrix" :
+                                    ((strcmp(s_style, "Solar Flare") == 0) ? "Solar" : s_style));
+              snprintf(m_buf, sizeof(m_buf), "Style: %s", short_s);
             } else if (idx == 4) {
-              char sst_buf[32];
-              std::string sst_opt = std::string(id(screensaver_docked_timeout).current_option().c_str());
-              snprintf(sst_buf, sizeof(sst_buf), "Dock Inact: %s", sst_opt.c_str());
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
+              snprintf(m_buf, sizeof(m_buf), "Dock Inact: %s", id(screensaver_docked_timeout).state.c_str());
             } else if (idx == 5) {
-              char so_buf[32];
-              std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
-              snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
+              snprintf(m_buf, sizeof(m_buf), "Screen Off: %s", id(display_off_timeout).state.c_str());
             } else if (idx == 6) {
-              std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
+              label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
             } else if (idx == 7) {
-              char s_buf[32];
-              std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
-              snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
-              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
+              snprintf(m_buf, sizeof(m_buf), "Auto-Hibernate: %s", id(sleep_timeout_mode).state.c_str());
             }
+            draw_pill_button(110, 356, y, 18, id(theme_secondary), id(col_dark_gray), label, id(col_white), false);
           };
 
           for (int i = 0; i < 8; i++) {
@@ -6297,7 +6284,7 @@ display:
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "DISPLAY");
 
           // Button 1: Auto-Brightness Mode Cycler (y = 104, r = 18, standardized 54px title-to-pill buffer)
-          std::string ab_mode = std::string(id(auto_brightness_mode).current_option().c_str());
+          const std::string &ab_mode = id(auto_brightness_mode).state;
           char ab_buf[32];
           snprintf(ab_buf, sizeof(ab_buf), "Auto Bright: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
           draw_pill_button(110, 356, 104, 18, id(theme_secondary), id(col_dark_gray), ab_buf, id(col_white), false);
@@ -6305,7 +6292,7 @@ display:
           // Button 2: Manual / Day Brightness Preset Cycler (y = 164, r = 18, grayed out if Auto Bright is active)
           bool auto_bri_active = (ab_mode != "Disabled");
           char b_buf[32];
-          std::string bri_p = std::string(id(display_brightness_preset).current_option().c_str());
+          const std::string &bri_p = id(display_brightness_preset).state;
           if (bri_p.empty()) bri_p = "90%";
           snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
           if (auto_bri_active) {
@@ -6316,14 +6303,14 @@ display:
 
           // Button 3: Color Palette Cycler (y = 224, r = 18)
           char th_buf[32];
-          std::string th_p = std::string(id(theme_palette_select).current_option().c_str());
+          const std::string &th_p = id(theme_palette_select).state;
           if (th_p == "Default Classic") th_p = "Blue & Gold";
           snprintf(th_buf, sizeof(th_buf), "Palette: %s", th_p.c_str());
           draw_pill_button(110, 356, 224, 18, id(theme_secondary), id(col_dark_gray), th_buf, id(col_white), false);
 
           // Button 4: Screen Off Inactivity Timeout Cycler (y = 284, r = 18)
           char so_buf[32];
-          std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
+          const std::string &so_p = id(display_off_timeout).state;
           snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
           draw_pill_button(110, 356, 284, 18, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
 
@@ -6341,7 +6328,7 @@ display:
 
           // Button 2: Auto-Sleep Timeout Cycler (y = 164, r = 18)
           char s_buf[32];
-          std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
+          const std::string &cur_s = id(sleep_timeout_mode).state;
           snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
           draw_pill_button(110, 356, 164, 18, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
 
@@ -6451,13 +6438,13 @@ display:
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "AUDIO");
 
           // Button 1: Album Art Style Cycler (Slot 1, y = 104, r = 18)
-          std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+          const std::string &cur_mode = id(music_fullscreen_art_mode).state;
           char fs_label[32];
           snprintf(fs_label, sizeof(fs_label), "Art: %s", cur_mode.c_str());
           draw_pill_button(110, 356, 104, 18, id(theme_secondary), id(col_dark_gray), fs_label, id(col_white), false);
 
           // Button 2: Music Overlay Style Cycler (Slot 2, y = 162, r = 18)
-          std::string cur_ov = std::string(id(music_overlay_style).current_option().c_str());
+          const std::string &cur_ov = id(music_overlay_style).state;
           char ov_label[32];
           snprintf(ov_label, sizeof(ov_label), "Overlay: %s", cur_ov.c_str());
           draw_pill_button(110, 356, 162, 18, id(theme_secondary), id(col_dark_gray), ov_label, id(col_white), false);
@@ -7752,8 +7739,8 @@ display:
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
       // Guaranteed visibility over any page: stopwatch parchment, full-screen album art, etc.
       // ==============================================================================
-      std::string current_art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
-      std::string current_overlay_mode = std::string(id(music_overlay_style).current_option().c_str());
+      const std::string &current_art_mode = id(music_fullscreen_art_mode).state;
+      const std::string &current_overlay_mode = id(music_overlay_style).state;
       bool show_meta_in_deck = (current_overlay_mode == "Art + Metadata" || current_overlay_mode == "Always Visible");
       bool music_clean_art = (id(gui_page) == 2 && (current_art_mode != "Compact") && !show_meta_in_deck && !id(music_hud_active));
 
@@ -8054,12 +8041,12 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode
                 // ----------------------------------------------------
-                std::string art_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+                const std::string &art_mode = id(music_fullscreen_art_mode).state;
                 bool is_compact = (art_mode == "Compact");
                 const int prev_x_max = is_compact ? 130 : 185; // Inward expanded touch threshold (+10px from 175)
                 const int next_x_min = is_compact ? 336 : 281; // Inward expanded touch threshold (-10px from 291)
 
-                std::string overlay_mode = std::string(id(music_overlay_style).current_option().c_str());
+                const std::string &overlay_mode = id(music_overlay_style).state;
                 if (overlay_mode.empty()) overlay_mode = "Art Only";
                 bool hud_enabled = !is_compact && (overlay_mode != "Always Visible");
 
@@ -8952,7 +8939,7 @@ touchscreen:
                 // Mode 7: Audio Submenu (Standardized 58px Pitch, 5 Slots)
                 // Card 1: Album Art Style Cycler (y: 75..133, x: 75..395, pill at y=104)
                 if (touch.y >= 75 && touch.y <= 133 && touch.x >= 75 && touch.x <= 395) {
-                  std::string cur_mode = std::string(id(music_fullscreen_art_mode).current_option().c_str());
+                  const std::string &cur_mode = id(music_fullscreen_art_mode).state;
                   std::string nxt_mode = "Letterbox";
                   if (cur_mode == "Full Screen") nxt_mode = "Letterbox";
                   else if (cur_mode == "Letterbox") nxt_mode = "Compact";
@@ -8963,7 +8950,7 @@ touchscreen:
                   id(disp1).update();
                 // Card 2: Music Overlay Style Cycler (y: 134..191, x: 75..395, pill at y=162)
                 } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 75 && touch.x <= 395) {
-                  std::string cur_ov = std::string(id(music_overlay_style).current_option().c_str());
+                  const std::string &cur_ov = id(music_overlay_style).state;
                   std::string nxt_ov = "Art + Metadata";
                   if (cur_ov == "Art Only") nxt_ov = "Art + Metadata";
                   else if (cur_ov == "Art + Metadata") nxt_ov = "Always Visible";
