@@ -3000,11 +3000,15 @@ script:
             - lambda: |-
                 id(menu_scroll_step)++;
                 id(disp1).update();
-            - delay: 18ms
-      - delay: 25ms
+            - delay: 24ms
+      - delay: 30ms
       - lambda: |-
           id(menu_scroll_active) = false;
-          id(sleep_menu_page) = id(menu_scroll_target_page);
+          if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
+            id(sleep_menu_page) = id(menu_scroll_target_page);
+          } else if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
+            id(music_category_page) = id(menu_scroll_target_page);
+          }
           id(menu_scroll_step) = 0;
 
 display:
@@ -4548,62 +4552,97 @@ display:
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
-          // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch)
+          // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch, Narrowed Pills x: 150..316)
           // --------------------------------------------------
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SPEAKER");
 
-          // Standardized 58px pitch (Slot 1 & 2: Speaker Actions, standard y=104 & y=162 buffers)
-          draw_pill_button(110, 356, 104, 18, id(theme_secondary), id(col_dark_gray), "HANDOFF", id(col_white), false);
-          draw_pill_button(110, 356, 162, 18, id(theme_secondary), id(col_dark_gray), "TAKEOVER", id(col_white), false);
+          // Standardized 58px pitch (Slot 1 & 2: Speaker Actions, narrowed pills matching Library standard)
+          draw_pill_button(150, 316, 104, 18, id(theme_secondary), id(col_dark_gray), "HANDOFF", id(col_white), false);
+          draw_pill_button(150, 316, 162, 18, id(theme_secondary), id(col_dark_gray), "TAKEOVER", id(col_white), false);
 
           // Bottom Back to Player (Standardized at y = 408, r = 16)
           draw_back_button();
 
         } else if (id(music_overlay_mode) == 2) {
           // --------------------------------------------------
-          // LEVEL 2: LIBRARY CATEGORIES SUBMENU (2 Pages, 5 Items max, Standardized 58px Pitch)
+          // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Continuous 7-Item Vertical Scroll Architecture)
+          // Standardized Title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
+          // Model A: 4-Step Eased 116px (2-Pill) Dynamic Scroll Animation with Clean Viewport Masking
+          // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
+          // Narrowed Pill Width: x1 = 150, x2 = 316 (Calibrated from AUDIOBOOKS padding)
           // --------------------------------------------------
-          // Standardized Title at y = 50 (aligned across all OS menus)
+          static const int SCROLL_EASE_116[5] = {0, 25, 63, 99, 116};
+
+          int current_offset = 0;
+          if (id(menu_scroll_active)) {
+            int cur_step = id(menu_scroll_step);
+            if (cur_step < 0) cur_step = 0;
+            if (cur_step > 4) cur_step = 4;
+            int shift = SCROLL_EASE_116[cur_step];
+            if (id(menu_scroll_dir) == 1) {
+              // Scrolling Down: offset moves from 0 to 116
+              current_offset = shift;
+            } else {
+              // Scrolling Up: offset moves from 116 down to 0
+              current_offset = 116 - shift;
+            }
+          } else {
+            current_offset = (id(music_category_page) == 2) ? 116 : 0;
+          }
+
+          auto draw_library_item = [&](int idx, int y) {
+            const char* label = "";
+            if (idx == 0) label = "FAVORITES";
+            else if (idx == 1) label = "PLAYLISTS";
+            else if (idx == 2) label = "ARTISTS";
+            else if (idx == 3) label = "ALBUMS";
+            else if (idx == 4) label = "PODCASTS";
+            else if (idx == 5) label = "RADIO";
+            else if (idx == 6) label = "AUDIOBOOKS";
+            draw_pill_button(150, 316, y, 18, id(theme_secondary), id(col_dark_gray), label, id(col_white), false);
+          };
+
+          for (int i = 0; i < 7; i++) {
+            int y = 104 + i * 58 - current_offset;
+            if (y >= 50 && y <= 390) {
+              draw_library_item(i, y);
+            }
+          }
+
+          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
+          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
+          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
+
+          // Standardized Centered Title at y = 50
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "LIBRARY");
-
-          if (id(music_category_page) == 1) {
-            // Page 1: Favorites, Playlists, Artists, Albums, Podcasts (Standardized 58px pitch, r = 18)
-            draw_pill_button(110, 356, 104, 18, id(theme_secondary), id(col_dark_gray), "FAVORITES", id(col_white), false);
-            draw_pill_button(110, 356, 162, 18, id(theme_secondary), id(col_dark_gray), "PLAYLISTS", id(col_white), false);
-            draw_pill_button(110, 356, 220, 18, id(theme_secondary), id(col_dark_gray), "ARTISTS", id(col_white), false);
-            draw_pill_button(110, 356, 278, 18, id(theme_secondary), id(col_dark_gray), "ALBUMS", id(col_white), false);
-            draw_pill_button(110, 356, 336, 18, id(theme_secondary), id(col_dark_gray), "PODCASTS", id(col_white), false);
-          } else {
-            // Page 2: Radio, Audiobooks (Standardized 58px pitch, r = 18)
-            draw_pill_button(110, 356, 104, 18, id(theme_secondary), id(col_dark_gray), "RADIO", id(col_white), false);
-            draw_pill_button(110, 356, 162, 18, id(theme_secondary), id(col_dark_gray), "AUDIOBOOKS", id(col_white), false);
-          }
-
-          // Flank Navigation Chevrons: Directional 2-Page Navigation at y = 220 (Optimized Edge Position)
-          if (id(music_category_page) == 1) {
-            // Page 1: Right chevron (>) only at x = 430, y = 220
-            it.line(430 - 4, 220 - 8, 430 + 4, 220, id(theme_secondary));
-            it.line(430 - 5, 220 - 8, 430 + 3, 220, id(theme_secondary));
-            it.line(430 - 4, 220 + 8, 430 + 4, 220, id(theme_secondary));
-            it.line(430 - 5, 220 + 8, 430 + 3, 220, id(theme_secondary));
-          } else {
-            // Page 2: Left chevron (<) only at x = 36, y = 220
-            it.line(36 + 4, 220 - 8, 36 - 4, 220, id(theme_secondary));
-            it.line(36 + 5, 220 - 8, 36 - 3, 220, id(theme_secondary));
-            it.line(36 + 4, 220 + 8, 36 - 4, 220, id(theme_secondary));
-            it.line(36 + 5, 220 + 8, 36 - 3, 220, id(theme_secondary));
-          }
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
 
-          // Pagination Dots nestled at bottom curve y = 440
-          int dot1_r = (id(music_category_page) == 1) ? 3 : 2;
-          int dot2_r = (id(music_category_page) == 2) ? 3 : 2;
-          Color dot1_c = (id(music_category_page) == 1) ? id(theme_primary) : id(col_slate);
-          Color dot2_c = (id(music_category_page) == 2) ? id(theme_primary) : id(col_slate);
+          // Stationary Pagination Dots nestled at bottom curve y = 440
+          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(music_category_page);
+          int dot1_r = (current_dot_page == 1) ? 3 : 2;
+          int dot2_r = (current_dot_page == 2) ? 3 : 2;
+          Color dot1_c = (current_dot_page == 1) ? id(theme_primary) : id(col_slate);
+          Color dot2_c = (current_dot_page == 2) ? id(theme_primary) : id(col_slate);
           it.filled_circle(226, 440, dot1_r, dot1_c);
           it.filled_circle(240, 440, dot2_r, dot2_c);
+
+          // Option 1 Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
+          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(music_category_page);
+          if (active_chevron_page == 1) {
+            // Page 1: Down chevron (▼) at x = 415, y = 278 (Slot 4 level)
+            it.line(415, 283, 407, 275, id(theme_secondary));
+            it.line(415, 282, 407, 274, id(theme_secondary));
+            it.line(415, 283, 423, 275, id(theme_secondary));
+            it.line(415, 282, 423, 274, id(theme_secondary));
+          } else {
+            // Page 2: Up chevron (▲) at x = 415, y = 162 (Slot 2 level)
+            it.line(415, 157, 407, 165, id(theme_secondary));
+            it.line(415, 158, 407, 166, id(theme_secondary));
+            it.line(415, 157, 423, 165, id(theme_secondary));
+            it.line(415, 158, 423, 166, id(theme_secondary));
+          }
 
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
@@ -4646,28 +4685,29 @@ display:
             if (is_drill) {
               // ----------------------------------------------
               // DRILLABLE ITEM: DUAL INLINE BUTTONS (PLAY ▶ + BROWSE >)
+              // Shifted 16px left (play center 82, body 138..357) to clear right-flank chevrons at x=415
               // ----------------------------------------------
-              // Left Discrete Circular Play Button (center 98, y_mid, radius 18)
-              it.filled_circle(98, y_mid, 18, id(col_dark_gray));
-              it.circle(98, y_mid, 18, id(theme_primary));
-              it.filled_triangle(95, y_mid - 6, 95, y_mid + 6, 104, y_mid, id(theme_primary));
+              // Left Discrete Circular Play Button (center 82, y_mid, radius 18)
+              it.filled_circle(82, y_mid, 18, id(col_dark_gray));
+              it.circle(82, y_mid, 18, id(theme_primary));
+              it.filled_triangle(79, y_mid - 6, 79, y_mid + 6, 88, y_mid, id(theme_primary));
 
-              // Right Card Body with Name and > Drilldown Chevron (x: 136..391, r = 18 matching standard pill height)
-              it.filled_circle(154, y_mid, 18, id(theme_secondary));
-              it.filled_circle(373, y_mid, 18, id(theme_secondary));
-              it.filled_rectangle(154, y_mid - 18, 219, 37, id(theme_secondary));
+              // Right Card Body with Name and > Drilldown Chevron (x: 120..375, r = 18 matching standard pill height)
+              it.filled_circle(138, y_mid, 18, id(theme_secondary));
+              it.filled_circle(357, y_mid, 18, id(theme_secondary));
+              it.filled_rectangle(138, y_mid - 18, 219, 37, id(theme_secondary));
 
-              it.filled_circle(154, y_mid, 16, id(col_dark_gray));
-              it.filled_circle(373, y_mid, 16, id(col_dark_gray));
-              it.filled_rectangle(154, y_mid - 16, 219, 33, id(col_dark_gray));
+              it.filled_circle(138, y_mid, 16, id(col_dark_gray));
+              it.filled_circle(357, y_mid, 16, id(col_dark_gray));
+              it.filled_rectangle(138, y_mid - 16, 219, 33, id(col_dark_gray));
 
-              // Dynamic pixel measurement: max 196px width (stops 10px before hamburger icon at x=366)
+              // Dynamic pixel measurement: max 196px width (stops 10px before hamburger icon at x=350)
               std::string disp_name = fit_text_to_width(name, 196);
-              it.print(160, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, disp_name.c_str());
+              it.print(144, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, disp_name.c_str());
 
-              // Drilldown Hamburger Icon [ ☰ ] on right end (Denotes detailed content / sub-items below)
+              // Drilldown Hamburger Icon [ ☰ ] on right end (x: 350..363)
               for (int dy : {-4, 0, 4}) {
-                it.filled_rectangle(366, y_mid + dy, 13, 2, id(theme_secondary));
+                it.filled_rectangle(350, y_mid + dy, 13, 2, id(theme_secondary));
               }
             } else {
               // ----------------------------------------------
@@ -4710,19 +4750,22 @@ display:
           draw_slot_card(278, id(slot_4_name), id(slot_4_id), id(slot_4_type), id(slot_4_active));
           draw_slot_card(336, id(slot_5_name), id(slot_5_id), id(slot_5_type), id(slot_5_active));
 
-          // Flank Navigation Chevrons (< and >) at y = 220 if multi-page (Optimized Edge Position)
+          // Option 1 Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
           if (id(music_browse_total_pages) > 1) {
-            // Left chevron (<) at x = 36, y = 220
-            it.line(36 + 4, 220 - 8, 36 - 4, 220, id(theme_secondary));
-            it.line(36 + 5, 220 - 8, 36 - 3, 220, id(theme_secondary));
-            it.line(36 + 4, 220 + 8, 36 - 4, 220, id(theme_secondary));
-            it.line(36 + 5, 220 + 8, 36 - 3, 220, id(theme_secondary));
-
-            // Right chevron (>) at x = 430, y = 220
-            it.line(430 - 4, 220 - 8, 430 + 4, 220, id(theme_secondary));
-            it.line(430 - 5, 220 - 8, 430 + 3, 220, id(theme_secondary));
-            it.line(430 - 4, 220 + 8, 430 + 4, 220, id(theme_secondary));
-            it.line(430 - 5, 220 + 8, 430 + 3, 220, id(theme_secondary));
+            // Up chevron (▲) at x = 415, y = 162 if not on first page
+            if (id(music_browse_page) > 1) {
+              it.line(415, 157, 407, 165, id(theme_secondary));
+              it.line(415, 158, 407, 166, id(theme_secondary));
+              it.line(415, 157, 423, 165, id(theme_secondary));
+              it.line(415, 158, 423, 166, id(theme_secondary));
+            }
+            // Down chevron (▼) at x = 415, y = 278 if not on last page
+            if (id(music_browse_page) < id(music_browse_total_pages)) {
+              it.line(415, 283, 407, 275, id(theme_secondary));
+              it.line(415, 282, 407, 274, id(theme_secondary));
+              it.line(415, 283, 423, 275, id(theme_secondary));
+              it.line(415, 282, 423, 274, id(theme_secondary));
+            }
           }
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
@@ -7662,44 +7705,61 @@ touchscreen:
               }
             }
 
-            // Edge tap support for one-handed navigation in Browse Library & Item Browser (Flank Carrots at x=36 and x=430)
+            // Edge tap support for one-handed navigation in Browse Library & Item Browser (Option 1 Right-Flank Chevrons)
             if (id(gui_page) == 2 && id(music_overlay_mode) > 1 && touch.y >= 70 && touch.y <= 365) {
               if (touch.x < 75) {
+                return; // Left flank has no chevrons in vertical navigation
+              } else if (touch.x >= 375) {
                 if (id(music_overlay_mode) == 2) {
-                  if (id(music_category_page) == 2) {
-                    id(music_category_page) = 1;
-                    id(disp1).update();
+                  if (id(menu_scroll_active)) return;
+                  static uint32_t last_cat_scroll = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_cat_scroll > 250) {
+                    last_cat_scroll = now_s;
+                    if (id(music_category_page) == 1) {
+                      // Page 1: Scroll Down by 2 items (116px) to reveal Page 2
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = 1;
+                      id(menu_scroll_target_page) = 2;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    } else if (id(music_category_page) == 2) {
+                      // Page 2: Scroll Up by 2 items (116px) to reveal Page 1
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = -1;
+                      id(menu_scroll_target_page) = 1;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    }
                   }
+                  return;
                 } else if (id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
-                    if (id(music_browse_page) > 1) {
-                      id(music_browse_page)--;
-                    } else {
-                      id(music_browse_page) = id(music_browse_total_pages);
+                    static uint32_t last_browse_scroll = 0;
+                    uint32_t now_b = millis();
+                    if (now_b - last_browse_scroll > 250) {
+                      last_browse_scroll = now_b;
+                      if (id(music_browse_page) == 1) {
+                        id(music_browse_page)++;
+                        id(fetch_music_browse).execute();
+                        id(disp1).update();
+                      } else if (id(music_browse_page) >= id(music_browse_total_pages)) {
+                        id(music_browse_page)--;
+                        id(fetch_music_browse).execute();
+                        id(disp1).update();
+                      } else {
+                        if (touch.y < 220) {
+                          id(music_browse_page)--;
+                        } else {
+                          id(music_browse_page)++;
+                        }
+                        id(fetch_music_browse).execute();
+                        id(disp1).update();
+                      }
                     }
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
                   }
+                  return;
                 }
-                return;
-              } else if (touch.x > 395) {
-                if (id(music_overlay_mode) == 2) {
-                  if (id(music_category_page) == 1) {
-                    id(music_category_page) = 2;
-                    id(disp1).update();
-                  }
-                } else if (id(music_overlay_mode) == 3) {
-                  if (id(music_browse_total_pages) > 1) {
-                    if (id(music_browse_page) < id(music_browse_total_pages)) {
-                      id(music_browse_page)++;
-                    } else {
-                      id(music_browse_page) = 1;
-                    }
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                }
-                return;
               }
             }
 
@@ -7770,6 +7830,8 @@ touchscreen:
                 // Constrained strictly to top title area (x: 160..306, y <= 95)
                 } else if (is_compact && touch.y <= 95 && touch.x >= 160 && touch.x <= 306) {
                   id(music_category_page) = 1;
+                  id(menu_scroll_active) = false;
+                  id(menu_scroll_step) = 0;
                   id(music_overlay_mode) = 2;
                   id(disp1).update();
 
@@ -7883,17 +7945,17 @@ touchscreen:
                 }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
-                // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch)
+                // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch, Narrowed Pills x: 150..316)
                 // ----------------------------------------------------
-                // Card 1: HANDOFF (y: 75..133, x: 75..395, pill at y=104)
-                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 75 && touch.x <= 395) {
+                // Card 1: HANDOFF (y: 75..133, x: 100..366, pill at y=104)
+                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 100 && touch.x <= 366) {
                   id(selected_category_mode) = "speakers";
                   id(selected_category_title) = "HANDOFF";
                   id(music_browse_page) = 1;
                   id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 2: TAKEOVER (y: 134..191, x: 75..395, pill at y=162)
-                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 75 && touch.x <= 395) {
+                // Card 2: TAKEOVER (y: 134..191, x: 100..366, pill at y=162)
+                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 100 && touch.x <= 366) {
                   id(selected_category_mode) = "speaker_takeover";
                   id(selected_category_title) = "TAKEOVER";
                   id(music_browse_page) = 1;
@@ -7914,67 +7976,69 @@ touchscreen:
                 }
               } else if (id(music_overlay_mode) == 2) {
                 // ----------------------------------------------------
-                // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Standardized 58px Pitch, 5 Slots)
+                // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Continuous 7-Item Vertical Scroll Architecture)
                 // ----------------------------------------------------
-                // Card 1: Favorites / Radio (y: 75..133, x: 75..395, pill at y=104)
-                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 75 && touch.x <= 395) {
-                  if (id(music_category_page) == 1) {
+                if (id(menu_scroll_active)) return;
+
+                // Reusable Item Action Dispatcher for all 7 library categories
+                auto trigger_library_item = [&](int idx) {
+                  if (idx == 0) {
                     id(selected_category_mode) = "favorites";
                     id(selected_category_title) = "FAVORITES";
-                  } else {
-                    id(selected_category_mode) = "radio";
-                    id(selected_category_title) = "RADIO";
-                  }
-                  id(music_browse_page) = 1;
-                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
-                  id(fetch_music_browse).execute();
-                // Card 2: Playlists / Audiobooks (y: 134..191, x: 75..395, pill at y=162)
-                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 75 && touch.x <= 395) {
-                  if (id(music_category_page) == 1) {
+                  } else if (idx == 1) {
                     id(selected_category_mode) = "playlist";
                     id(selected_category_title) = "PLAYLISTS";
-                  } else {
+                  } else if (idx == 2) {
+                    id(selected_category_mode) = "artist";
+                    id(selected_category_title) = "ARTISTS";
+                    id(drilldown_artist_page) = 1;
+                  } else if (idx == 3) {
+                    id(selected_category_mode) = "album";
+                    id(selected_category_title) = "ALBUMS";
+                    id(drilldown_album_page) = 1;
+                  } else if (idx == 4) {
+                    id(selected_category_mode) = "podcast";
+                    id(selected_category_title) = "PODCASTS";
+                  } else if (idx == 5) {
+                    id(selected_category_mode) = "radio";
+                    id(selected_category_title) = "RADIO";
+                  } else if (idx == 6) {
                     id(selected_category_mode) = "audiobook";
                     id(selected_category_title) = "AUDIOBOOKS";
                   }
                   id(music_browse_page) = 1;
-                  id(music_overlay_mode) = 3;
+                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
                   id(fetch_music_browse).execute();
-                // Card 3: Artists (y: 192..249, x: 75..395, pill at y=220) - Page 1 Only
-                } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 75 && touch.x <= 395) {
-                  if (id(music_category_page) == 1) {
-                    id(selected_category_mode) = "artist";
-                    id(selected_category_title) = "ARTISTS";
-                    id(music_browse_page) = 1;
-                    id(drilldown_artist_page) = 1;
-                    id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
+                };
+
+                // Central Button Hit-Testing (x: 100..366 across Slots 1-5, narrowed pills)
+                if (touch.x >= 100 && touch.x <= 366) {
+                  int slot_idx = -1;
+                  if (touch.y >= 75 && touch.y <= 133) slot_idx = 0;       // Slot 1 (y=104)
+                  else if (touch.y >= 134 && touch.y <= 191) slot_idx = 1; // Slot 2 (y=162)
+                  else if (touch.y >= 192 && touch.y <= 249) slot_idx = 2; // Slot 3 (y=220)
+                  else if (touch.y >= 250 && touch.y <= 307) slot_idx = 3; // Slot 4 (y=278)
+                  else if (touch.y >= 308 && touch.y <= 365) slot_idx = 4; // Slot 5 (y=336)
+
+                  if (slot_idx >= 0) {
+                    // Page 1: item_idx = slot_idx (items 0..4: Favorites, Playlists, Artists, Albums, Podcasts)
+                    // Page 2: item_idx = slot_idx + 2 (items 2..6: Artists, Albums, Podcasts, Radio, Audiobooks)
+                    int item_idx = (id(music_category_page) == 1) ? slot_idx : (slot_idx + 2);
+                    trigger_library_item(item_idx);
+                    return;
                   }
-                // Card 4: Albums (y: 250..307, x: 75..395, pill at y=278) - Page 1 Only
-                } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 75 && touch.x <= 395) {
-                  if (id(music_category_page) == 1) {
-                    id(selected_category_mode) = "album";
-                    id(selected_category_title) = "ALBUMS";
-                    id(music_browse_page) = 1;
-                    id(drilldown_album_page) = 1;
-                    id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
-                  }
-                // Card 5: Podcasts (y: 308..365, x: 75..395, pill at y=336) - Page 1 Only
-                } else if (touch.y >= 308 && touch.y <= 365 && touch.x >= 75 && touch.x <= 395) {
-                  if (id(music_category_page) == 1) {
-                    id(selected_category_mode) = "podcast";
-                    id(selected_category_title) = "PODCASTS";
-                    id(music_browse_page) = 1;
-                    id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
-                  }
+                }
+
                 // Standardized Centered < BACK Button at y = 408 (y >= 365, x: 80..386) -> Returns to Player View
-                } else if (touch.y >= 365 && touch.x >= 80 && touch.x <= 386) {
+                if (touch.y >= 365 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 0; // Return to Player View
+                  id(music_category_page) = 1;
+                  id(menu_scroll_active) = false;
+                  id(menu_scroll_step) = 0;
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
                   id(disp1).update();
+                  return;
                 }
               } else if (id(music_overlay_mode) == 3) {
                 // ----------------------------------------------------
@@ -7982,12 +8046,12 @@ touchscreen:
                 // ----------------------------------------------------
                 bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
 
-                // Card 1 (y: 75..133, x: 75..395, slot at y=104)
-                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 75 && touch.x <= 395) {
+                // Card 1 (y: 75..133, x: 45..375, slot at y=104)
+                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_1_id).empty()) {
-                    if (is_drill && touch.x <= 130) {
+                    if (is_drill && touch.x <= 118) {
                       id(play_music_slot_1).execute();
-                    } else if (is_drill && touch.x > 130) {
+                    } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_1_name);
                         id(drilldown_artist_page) = id(music_browse_page);
@@ -8009,12 +8073,12 @@ touchscreen:
                       id(select_music_slot_1).execute();
                     }
                   }
-                // Card 2 (y: 134..191, x: 75..395, slot at y=162)
-                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 75 && touch.x <= 395) {
+                // Card 2 (y: 134..191, x: 45..375, slot at y=162)
+                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_2_id).empty()) {
-                    if (is_drill && touch.x <= 130) {
+                    if (is_drill && touch.x <= 118) {
                       id(play_music_slot_2).execute();
-                    } else if (is_drill && touch.x > 130) {
+                    } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_2_name);
                         id(drilldown_artist_page) = id(music_browse_page);
@@ -8036,12 +8100,12 @@ touchscreen:
                       id(select_music_slot_2).execute();
                     }
                   }
-                // Card 3 (y: 192..249, x: 75..395, slot at y=220)
-                } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 75 && touch.x <= 395) {
+                // Card 3 (y: 192..249, x: 45..375, slot at y=220)
+                } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_3_id).empty()) {
-                    if (is_drill && touch.x <= 130) {
+                    if (is_drill && touch.x <= 118) {
                       id(play_music_slot_3).execute();
-                    } else if (is_drill && touch.x > 130) {
+                    } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_3_name);
                         id(drilldown_artist_page) = id(music_browse_page);
@@ -8063,12 +8127,12 @@ touchscreen:
                       id(select_music_slot_3).execute();
                     }
                   }
-                // Card 4 (y: 250..307, x: 75..395, slot at y=278)
-                } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 75 && touch.x <= 395) {
+                // Card 4 (y: 250..307, x: 45..375, slot at y=278)
+                } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_4_id).empty()) {
-                    if (is_drill && touch.x <= 130) {
+                    if (is_drill && touch.x <= 118) {
                       id(play_music_slot_4).execute();
-                    } else if (is_drill && touch.x > 130) {
+                    } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_4_name);
                         id(drilldown_artist_page) = id(music_browse_page);
@@ -8090,12 +8154,12 @@ touchscreen:
                       id(select_music_slot_4).execute();
                     }
                   }
-                // Card 5 (y: 308..365, x: 75..395, slot at y=336)
-                } else if (touch.y >= 308 && touch.y <= 365 && touch.x >= 75 && touch.x <= 395) {
+                // Card 5 (y: 308..365, x: 45..375, slot at y=336)
+                } else if (touch.y >= 308 && touch.y <= 365 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_5_id).empty()) {
-                    if (is_drill && touch.x <= 130) {
+                    if (is_drill && touch.x <= 118) {
                       id(play_music_slot_5).execute();
-                    } else if (is_drill && touch.x > 130) {
+                    } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
                         id(drilldown_artist_name) = id(slot_5_name);
                         id(drilldown_artist_page) = id(music_browse_page);
@@ -8134,6 +8198,9 @@ touchscreen:
                   } else {
                     id(drilldown_artist_page) = 1;
                     id(drilldown_album_page) = 1;
+                    id(music_category_page) = 1;
+                    id(menu_scroll_active) = false;
+                    id(menu_scroll_step) = 0;
                     id(music_overlay_mode) = 2; // Return to Library Categories Submenu
                   }
                   id(disp1).update();
