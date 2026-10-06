@@ -5073,9 +5073,9 @@ display:
           // Bottom Viewport Mask (ensures pure AMOLED black behind START button)
           it.filled_rectangle(0, 280, 466, 186, id(col_bg));
 
-          // Taller Action Button: "START" at y = 330 (r = 22, height = 44px, font_btn_bold)
-          draw_capsule(cx - 55, cx + 55, 330, 22, id(theme_primary), id(col_dark_gray));
-          it.print(cx, 330, id(font_btn_bold), id(col_white), TextAlign::CENTER, "START");
+          // Taller Action Button: "START" at y = 352 (r = 22, height = 44px, font_btn_bold)
+          draw_capsule(cx - 55, cx + 55, 352, 22, id(theme_primary), id(col_dark_gray));
+          it.print(cx, 352, id(font_btn_bold), id(col_white), TextAlign::CENTER, "START");
 
           // Right Flank Navigation Chevrons: Option 1 Vertical Chevrons (x = 415, Up at 162, Down at 278)
           // Always visible in true continuous carousel mode
@@ -7684,7 +7684,7 @@ touchscreen:
                                !(id(alarm_ringing) || id(timer_ringing));
 
             if (is_deck_nav) {
-              int deck_y_thresh = (id(gui_page) == 5 || id(gui_page) == 6) ? 400 : 380;
+              int deck_y_thresh = (id(gui_page) == 3 || id(gui_page) == 5 || id(gui_page) == 6) ? 400 : 380;
               if (touch.y >= deck_y_thresh) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -8248,8 +8248,8 @@ touchscreen:
                   return;
                 }
 
-                // 3. Center Card & START Button Tap: Launch Selected Game (x: 75..374, y: 90..375)
-                if (touch.x >= 75 && touch.x < 375 && touch.y >= 90 && touch.y <= 375) {
+                // 3. Center Card & START Button Tap: Launch Selected Game (x: 75..374, y: 90..390)
+                if (touch.x >= 75 && touch.x < 375 && touch.y >= 90 && touch.y <= 390) {
                   id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp)
                   if (id(active_game) > 0) {
                     // Pause background music and mute DAC for dedicated game resources
