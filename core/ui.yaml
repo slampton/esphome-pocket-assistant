@@ -1725,6 +1725,26 @@ text_sensor:
     entity_id: ${target_state_sensor}
     on_value:
       then:
+        - if:
+            condition:
+              lambda: |-
+                return (id(active_speaker_entity) != "${local_player_id}" &&
+                        id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING &&
+                        x != "playing");
+            then:
+              - lambda: |-
+                  id(active_speaker_entity) = "${local_player_id}";
+                  id(active_speaker_name) = "${friendly_name}";
+                  id(current_loaded_art_url) = "";
+                  id(album_art_loaded) = (id(album_art).get_width() > 0);
+                  id(music_action_feedback) = "Active: ${friendly_name}";
+                  id(music_feedback_timer) = millis();
+              - online_image.release: remote_album_art
+              - homeassistant.action:
+                  action: input_text.set_value
+                  data:
+                    entity_id: ${active_speaker_helper}
+                    value: "${local_player_id}"
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
@@ -2341,7 +2361,20 @@ script:
           data:
             entity_id: !lambda 'return id(target_speaker_id).c_str();'
       - lambda: |-
+          // If unjoining active controlled speaker, or unjoining local player, or if local player is playing, revert control to local
+          if (id(target_speaker_id) == id(active_speaker_entity) || id(target_speaker_id) == "${local_player_id}" || id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+            id(active_speaker_entity) = "${local_player_id}";
+            id(active_speaker_name) = "${friendly_name}";
+            id(current_loaded_art_url) = "";
+            id(album_art_loaded) = (id(album_art).get_width() > 0);
+          }
           id(music_overlay_mode) = 0;
+      - homeassistant.action:
+          action: input_text.set_value
+          data:
+            entity_id: ${active_speaker_helper}
+            value: !lambda 'return id(active_speaker_entity).c_str();'
+      - online_image.release: remote_album_art
       - component.update: disp1
 
 
@@ -4393,7 +4426,7 @@ display:
           }
 
           // Dedicated Loading Screen on Initial Boot / Art Ingestion
-          bool is_loading = !has_art && (millis() < 15000 || id(ha_target_state).state.empty() || id(ha_target_state).state == "unavailable" || id(ha_target_state).state == "unknown" || (is_remote && !id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(current_loaded_art_url) != id(ha_target_art_url).state));
+          bool is_loading = !has_art && (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) && (millis() < 15000 || (is_remote && (id(ha_target_state).state.empty() || id(ha_target_state).state == "unavailable" || id(ha_target_state).state == "unknown" || (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(current_loaded_art_url) != id(ha_target_art_url).state))));
 
           if (is_loading) {
             // Elegant loading screen with animated vinyl orbit
@@ -8088,8 +8121,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Left Flank Library Button (☰): Lower-Left Quadrant (center 71, 286; x <= prev_x_max, y >= 240, y < 380)
-                } else if (touch.x <= prev_x_max && touch.y >= 240 && touch.y < 380) {
+                // Left Flank Library Button (☰): Lower-Left Quadrant (center 71, 286; x <= 215, y >= 240, y < 380)
+                } else if (touch.x <= (is_compact ? 130 : 215) && touch.y >= 240 && touch.y < 380) {
                   static uint32_t last_menu_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_menu_tap > 120) {
@@ -8130,8 +8163,8 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Right Flank Volume Down (-): Generous Lower-Right Quadrant (center 395, 284; touches x >= next_x_min, y >= 240, clean bound y < 380)
-                } else if (touch.x >= next_x_min && touch.y >= 240 && touch.y < 380) {
+                // Right Flank Volume Down (-): Generous Lower-Right Quadrant (center 395, 284; touches x >= 251, y >= 240, clean bound y < 380)
+                } else if (touch.x >= (is_compact ? 336 : 251) && touch.y >= 240 && touch.y < 380) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > 120) {
@@ -8165,7 +8198,7 @@ touchscreen:
                 // Soft Dismissal: Only deliberate taps in the central album art column dismiss the HUD
                 // (flank near-misses keep controls visible and reset the 5.0s dismissal watchdog)
                 } else if (hud_enabled && id(music_hud_active)) {
-                  if (touch.x >= 186 && touch.x <= 280 && (touch.y < 140 || touch.y > 284)) {
+                  if (touch.x >= 216 && touch.x <= 250 && (touch.y < 140 || touch.y > 284)) {
                     id(music_hud_active) = false;
                     id(disp1).update();
                   } else {
