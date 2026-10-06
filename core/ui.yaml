@@ -2995,13 +2995,13 @@ script:
     mode: restart
     then:
       - repeat:
-          count: 5
+          count: 4
           then:
             - lambda: |-
                 id(menu_scroll_step)++;
                 id(disp1).update();
-            - delay: 30ms
-      - delay: 40ms
+            - delay: 18ms
+      - delay: 25ms
       - lambda: |-
           id(menu_scroll_active) = false;
           id(sleep_menu_page) = id(menu_scroll_target_page);
@@ -5893,16 +5893,16 @@ display:
           // --------------------------------------------------
           // VIEW 1: SLEEP & WAKE SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
           // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
-          // Model A: 5-Step Eased 174px (3-Pill) Dynamic Scroll Animation with Clean Viewport Masking
+          // Model A: 4-Step Eased 174px (3-Pill) High-Cadence Snap-Slide Animation (~125ms) with Clean Viewport Masking
           // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           // --------------------------------------------------
-          static const int SCROLL_EASE_174[6] = {0, 32, 78, 126, 158, 174};
+          static const int SCROLL_EASE_174[5] = {0, 38, 95, 148, 174};
 
           int current_offset = 0;
           if (id(menu_scroll_active)) {
             int cur_step = id(menu_scroll_step);
             if (cur_step < 0) cur_step = 0;
-            if (cur_step > 5) cur_step = 5;
+            if (cur_step > 4) cur_step = 4;
             int shift = SCROLL_EASE_174[cur_step];
             if (id(menu_scroll_dir) == 1) {
               // Scrolling Down: offset moves from 0 to 174
