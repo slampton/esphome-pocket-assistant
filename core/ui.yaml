@@ -1,5 +1,10 @@
 # Core Subsystem: Display Engine & UI Router
 
+substitutions:
+  default_album_sort: "Alphabetical"
+  default_podcast_sort: "Newest on Top"
+  target_media_type_sensor: "sensor.pocket_assistant_target_media_type"
+
 globals:
   - id: drilldown_artist_name
     type: std::string
@@ -691,7 +696,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: 
+    initial_option: ${default_album_sort}
     options:
       - "Alphabetical"
       - "Newest on Top"
@@ -707,7 +712,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: 
+    initial_option: ${default_podcast_sort}
     options:
       - "Newest on Top"
       - "Oldest on Top"
@@ -1787,7 +1792,7 @@ text_sensor:
 
   - platform: homeassistant
     id: ha_target_media_type
-    entity_id: 
+    entity_id: ${target_media_type_sensor}
     on_value:
       then:
         - lambda: |-
