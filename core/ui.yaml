@@ -2489,20 +2489,24 @@ script:
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
             media_id: !lambda |-
-              std::string s_id = (id(selected_music_slot) == 1) ? id(slot_1_id) :
-                                 (id(selected_music_slot) == 2) ? id(slot_2_id) :
-                                 (id(selected_music_slot) == 3) ? id(slot_3_id) :
-                                 (id(selected_music_slot) == 4) ? id(slot_4_id) : id(slot_5_id);
-              return s_id.c_str();
+              switch (id(selected_music_slot)) {
+                case 1: return id(slot_1_id).c_str();
+                case 2: return id(slot_2_id).c_str();
+                case 3: return id(slot_3_id).c_str();
+                case 4: return id(slot_4_id).c_str();
+                default: return id(slot_5_id).c_str();
+              }
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-              std::string s_type = (id(selected_music_slot) == 1) ? id(slot_1_type) :
-                                   (id(selected_music_slot) == 2) ? id(slot_2_type) :
-                                   (id(selected_music_slot) == 3) ? id(slot_3_type) :
-                                   (id(selected_music_slot) == 4) ? id(slot_4_type) : id(slot_5_type);
-              return s_type.c_str();
+              switch (id(selected_music_slot)) {
+                case 1: return id(slot_1_type).c_str();
+                case 2: return id(slot_2_type).c_str();
+                case 3: return id(slot_3_type).c_str();
+                case 4: return id(slot_4_type).c_str();
+                default: return id(slot_5_type).c_str();
+              }
       - if:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
@@ -2545,11 +2549,13 @@ script:
                 action: music_assistant.transfer_queue
                 data:
                   entity_id: !lambda |-
-                    std::string s_id = (id(selected_music_slot) == 1) ? id(slot_1_id) :
-                                       (id(selected_music_slot) == 2) ? id(slot_2_id) :
-                                       (id(selected_music_slot) == 3) ? id(slot_3_id) :
-                                       (id(selected_music_slot) == 4) ? id(slot_4_id) : id(slot_5_id);
-                    return s_id.c_str();
+                    switch (id(selected_music_slot)) {
+                      case 1: return id(slot_1_id).c_str();
+                      case 2: return id(slot_2_id).c_str();
+                      case 3: return id(slot_3_id).c_str();
+                      case 4: return id(slot_4_id).c_str();
+                      default: return id(slot_5_id).c_str();
+                    }
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: !lambda |-
                     bool source_playing = false;
@@ -2664,20 +2670,24 @@ script:
                       data:
                         entity_id: !lambda 'return id(active_speaker_entity).c_str();'
                         media_id: !lambda |-
-                          std::string s_id = (id(selected_music_slot) == 1) ? id(slot_1_id) :
-                                             (id(selected_music_slot) == 2) ? id(slot_2_id) :
-                                             (id(selected_music_slot) == 3) ? id(slot_3_id) :
-                                             (id(selected_music_slot) == 4) ? id(slot_4_id) : id(slot_5_id);
-                          return s_id.c_str();
+                          switch (id(selected_music_slot)) {
+                            case 1: return id(slot_1_id).c_str();
+                            case 2: return id(slot_2_id).c_str();
+                            case 3: return id(slot_3_id).c_str();
+                            case 4: return id(slot_4_id).c_str();
+                            default: return id(slot_5_id).c_str();
+                          }
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
                           if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-                          std::string s_type = (id(selected_music_slot) == 1) ? id(slot_1_type) :
-                                               (id(selected_music_slot) == 2) ? id(slot_2_type) :
-                                               (id(selected_music_slot) == 3) ? id(slot_3_type) :
-                                               (id(selected_music_slot) == 4) ? id(slot_4_type) : id(slot_5_type);
-                          return s_type.c_str();
+                          switch (id(selected_music_slot)) {
+                            case 1: return id(slot_1_type).c_str();
+                            case 2: return id(slot_2_type).c_str();
+                            case 3: return id(slot_3_type).c_str();
+                            case 4: return id(slot_4_type).c_str();
+                            default: return id(slot_5_type).c_str();
+                          }
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
