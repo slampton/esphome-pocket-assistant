@@ -1725,26 +1725,6 @@ text_sensor:
     entity_id: ${target_state_sensor}
     on_value:
       then:
-        - if:
-            condition:
-              lambda: |-
-                return (id(active_speaker_entity) != "${local_player_id}" &&
-                        id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING &&
-                        x != "playing");
-            then:
-              - lambda: |-
-                  id(active_speaker_entity) = "${local_player_id}";
-                  id(active_speaker_name) = "${friendly_name}";
-                  id(current_loaded_art_url) = "";
-                  id(album_art_loaded) = (id(album_art).get_width() > 0);
-                  id(music_action_feedback) = "Active: ${friendly_name}";
-                  id(music_feedback_timer) = millis();
-              - online_image.release: remote_album_art
-              - homeassistant.action:
-                  action: input_text.set_value
-                  data:
-                    entity_id: ${active_speaker_helper}
-                    value: "${local_player_id}"
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
@@ -2362,7 +2342,7 @@ script:
             entity_id: !lambda 'return id(target_speaker_id).c_str();'
       - lambda: |-
           // If unjoining active controlled speaker, or unjoining local player, or if local player is playing, revert control to local
-          if (id(target_speaker_id) == id(active_speaker_entity) || id(target_speaker_id) == "${local_player_id}" || id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+          if (id(target_speaker_id) == id(active_speaker_entity) || id(target_speaker_id) == "${local_player_id}") {
             id(active_speaker_entity) = "${local_player_id}";
             id(active_speaker_name) = "${friendly_name}";
             id(current_loaded_art_url) = "";
@@ -4425,8 +4405,8 @@ display:
             }
           }
 
-          // Dedicated Loading Screen on Initial Boot / Art Ingestion
-          bool is_loading = !has_art && (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) && (millis() < 15000 || (is_remote && (id(ha_target_state).state.empty() || id(ha_target_state).state == "unavailable" || id(ha_target_state).state == "unknown" || (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(current_loaded_art_url) != id(ha_target_art_url).state))));
+          // Dedicated Loading Screen on Initial Boot / Art Ingestion (never blocks active playback controls)
+          bool is_loading = !has_art && !is_playing && (millis() < 15000 || (is_remote && (id(ha_target_state).state.empty() || id(ha_target_state).state == "unavailable" || id(ha_target_state).state == "unknown" || (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(current_loaded_art_url) != id(ha_target_art_url).state))));
 
           if (is_loading) {
             // Elegant loading screen with animated vinyl orbit
