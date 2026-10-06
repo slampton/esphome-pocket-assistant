@@ -116,6 +116,30 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 
 ---
 
+## Home Assistant Integration & Configuration
+
+### 1. Weather Configuration & Generalization
+Pocket Assistant supports any Home Assistant weather integration (Met.no, Pirate Weather, OpenWeatherMap, AccuWeather, NWS, etc.).
+
+* **Current Conditions & Live Atmospheric Telemetry**: The main weather view subscribes directly to your primary Home Assistant weather entity via the `weather_entity` substitution (default: `weather.forecast_home`). In your ESPHome node configuration (`pocket-assistant.yaml`), override `weather_entity` with your preferred weather entity:
+  ```yaml
+  substitutions:
+    name: "pocket-assistant"
+    friendly_name: "Pocket Assistant"
+    weather_entity: "weather.home"  # Set to your primary Home Assistant weather entity
+  ```
+* **5-Day Daily Forecast & High/Low Mirror**: Under modern Home Assistant architecture, weather entities retrieve forecast arrays via the `weather.get_forecasts` action rather than legacy state attributes. To supply the 5-day forecast view on Pocket Assistant, install the companion package (`homeassistant/packages/pocket_assistant_weather_mirror.yaml`) or create the corresponding update automation in Home Assistant. This extracts daily high/low and serialized 5-day forecast strings into:
+  * `sensor.pocket_assistant_weather_high`
+  * `sensor.pocket_assistant_weather_low`
+  * `sensor.pocket_assistant_weather_forecast_5d`
+  * Controlled dynamically via `input_text.pocket_assistant_weather_entity`.
+
+### 2. Music Assistant Integration
+* **Active Speaker Mirror**: `homeassistant/packages/music_assistant_esphome_mirror.yaml` mirrors media metadata (title, artist, album, duration, position, volume, and art URL) from whichever speaker is selected in `input_text.pocket_assistant_active_speaker`.
+* **Discovery & Browsing**: Import the script blueprint `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant to enable server-side pagination for speakers, favorites, playlists, artists, albums, radio, podcasts, and audiobooks.
+
+---
+
 ## Repository Structure
 
 ```text

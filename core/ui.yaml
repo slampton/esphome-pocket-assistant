@@ -6751,10 +6751,12 @@ display:
           char fl_buf[64];
           if (!isnan(t_high) && !isnan(t_low) && !isnan(app_temp)) {
             snprintf(fl_buf, sizeof(fl_buf), "Feels %.0f°  •  H: %.0f°  L: %.0f°", app_temp, t_high, t_low);
+          } else if (!isnan(t_high) && !isnan(t_low)) {
+            snprintf(fl_buf, sizeof(fl_buf), "H: %.0f°  L: %.0f°", t_high, t_low);
           } else if (!isnan(app_temp)) {
-            snprintf(fl_buf, sizeof(fl_buf), "Feels like %.0f°  •  Oakland", app_temp);
+            snprintf(fl_buf, sizeof(fl_buf), "Feels like %.0f°", app_temp);
           } else {
-            snprintf(fl_buf, sizeof(fl_buf), "Oakland, CA");
+            snprintf(fl_buf, sizeof(fl_buf), "Current Weather");
           }
           Color fl_color = is_night ? id(col_slate) : Color(195, 215, 235);
           it.print(cx, 174, id(font_small), fl_color, TextAlign::CENTER, fl_buf);
