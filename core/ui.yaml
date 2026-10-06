@@ -4314,52 +4314,100 @@ display:
             const int right_flank_x = 395; // Inward ergonomic shift (-10px from 405, symmetrical 162px from cx=233)
             Color btn_rim_col = is_compact ? id(col_black) : id(col_gray);
 
-            // Left Flank Speaker Button (🔊): centered at x = left_flank_x (71), y = 140 (symmetrically matching Volume Up at x = right_flank_x (395), y = 140)
-            it.filled_circle(left_flank_x, 140, 18, id(col_dark_gray));
-            it.circle(left_flank_x, 140, 18, id(col_black));
-            if (!is_compact) it.circle(left_flank_x, 140, 17, btn_rim_col);
-            it.filled_rectangle(left_flank_x - 8, 140 - 4, 4, 9, id(col_white));
-            it.filled_triangle(left_flank_x - 6, 140, left_flank_x + 1, 140 - 8, left_flank_x + 1, 140 + 8, id(col_white));
-            it.filled_rectangle(left_flank_x - 5, 140 - 4, 6, 9, id(col_white));
-            it.line(left_flank_x + 4, 140 - 4, left_flank_x + 6, 140, id(col_white));
-            it.line(left_flank_x + 6, 140, left_flank_x + 4, 140 + 4, id(col_white));
-            it.line(left_flank_x + 8, 140 - 7, left_flank_x + 11, 140, id(col_white));
-            it.line(left_flank_x + 11, 140, left_flank_x + 8, 140 + 7, id(col_white));
+            // Reusable Vector Glyph Renderers with Shadow Offsets (ox, oy)
+            auto draw_speaker_glyph = [&](int ox, int oy, Color c) {
+              int sx = left_flank_x + ox;
+              int sy = 140 + oy;
+              it.filled_rectangle(sx - 8, sy - 4, 4, 9, c);
+              it.filled_triangle(sx - 6, sy, sx + 1, sy - 8, sx + 1, sy + 8, c);
+              it.filled_rectangle(sx - 5, sy - 4, 6, 9, c);
+              it.line(sx + 4, sy - 4, sx + 6, sy, c);
+              it.line(sx + 6, sy, sx + 4, sy + 4, c);
+              it.line(sx + 8, sy - 7, sx + 11, sy, c);
+              it.line(sx + 11, sy, sx + 8, sy + 7, c);
+            };
 
-            // Left Flank Previous Track (|◀): centered at x = prev_btn_x, y = 212
-            it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
-            it.circle(prev_btn_x, art_center_y, 18, id(col_black));
-            if (!is_compact) it.circle(prev_btn_x, art_center_y, 17, btn_rim_col);
-            it.filled_rectangle(prev_btn_x - 14, art_center_y - 10, 3, 21, id(col_white));
-            it.filled_triangle(prev_btn_x - 8, art_center_y, prev_btn_x + 6, art_center_y - 10, prev_btn_x + 6, art_center_y + 10, id(col_white));
+            auto draw_prev_glyph = [&](int ox, int oy, Color c) {
+              int px = prev_btn_x + ox;
+              int py = art_center_y + oy;
+              it.filled_rectangle(px - 14, py - 10, 3, 21, c);
+              it.filled_triangle(px - 8, py, px + 6, py - 10, px + 6, py + 10, c);
+            };
 
-            // Left Flank Library Button (☰): balanced at y = 286 (optical parity with minus glyph at y = 284)
-            it.filled_circle(left_flank_x, 286, 18, id(col_dark_gray));
-            it.circle(left_flank_x, 286, 18, id(col_black));
-            if (!is_compact) it.circle(left_flank_x, 286, 17, btn_rim_col);
-            for (int dy : {-4, 0, 4}) {
-              it.filled_rectangle(left_flank_x - 7, 286 + dy, 14, 2, id(col_white));
+            auto draw_library_glyph = [&](int ox, int oy, Color c) {
+              int lx = left_flank_x + ox;
+              int ly = 286 + oy;
+              for (int dy : {-4, 0, 4}) {
+                it.filled_rectangle(lx - 7, ly + dy, 14, 2, c);
+              }
+            };
+
+            auto draw_vol_up_glyph = [&](int ox, int oy, Color c) {
+              int vx = right_flank_x + ox;
+              int vy = 140 + oy;
+              it.filled_rectangle(vx - 7, vy - 1, 15, 3, c);
+              it.filled_rectangle(vx - 1, vy - 7, 3, 15, c);
+            };
+
+            auto draw_next_glyph = [&](int ox, int oy, Color c) {
+              int nx = next_btn_x + ox;
+              int ny = art_center_y + oy;
+              it.filled_triangle(nx + 8, ny, nx - 6, ny - 10, nx - 6, ny + 10, c);
+              it.filled_rectangle(nx + 11, ny - 10, 3, 21, c);
+            };
+
+            auto draw_vol_dn_glyph = [&](int ox, int oy, Color c) {
+              int vx = right_flank_x + ox;
+              int vy = 284 + oy;
+              it.filled_rectangle(vx - 7, vy - 1, 15, 3, c);
+            };
+
+            if (is_compact) {
+              // Compact View: Traditional Solid Dark Gray Circular Capsules (Radius 18) Flanking 216x216 Art
+              it.filled_circle(left_flank_x, 140, 18, id(col_dark_gray));
+              it.circle(left_flank_x, 140, 18, id(col_black));
+              draw_speaker_glyph(0, 0, id(col_white));
+
+              it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
+              it.circle(prev_btn_x, art_center_y, 18, id(col_black));
+              draw_prev_glyph(0, 0, id(col_white));
+
+              it.filled_circle(left_flank_x, 286, 18, id(col_dark_gray));
+              it.circle(left_flank_x, 286, 18, id(col_black));
+              draw_library_glyph(0, 0, id(col_white));
+
+              it.filled_circle(right_flank_x, 140, 18, id(col_dark_gray));
+              it.circle(right_flank_x, 140, 18, id(col_black));
+              draw_vol_up_glyph(0, 0, id(col_white));
+
+              it.filled_circle(next_btn_x, art_center_y, 18, id(col_dark_gray));
+              it.circle(next_btn_x, art_center_y, 18, id(col_black));
+              draw_next_glyph(0, 0, id(col_white));
+
+              it.filled_circle(right_flank_x, 284, 18, id(col_dark_gray));
+              it.circle(right_flank_x, 284, 18, id(col_black));
+              draw_vol_dn_glyph(0, 0, id(col_white));
+            } else {
+              // Full Screen & Letterbox: Modern Floating YouTube-Style Vector Glyphs with 1px Drop Shadows
+              // Eliminates heavy dark circular backing; lets the album art breathe with razor-sharp contrast
+              draw_speaker_glyph(1, 1, id(col_black));
+              draw_speaker_glyph(0, 0, id(col_white));
+
+              draw_prev_glyph(1, 1, id(col_black));
+              draw_prev_glyph(0, 0, id(col_white));
+
+              draw_library_glyph(1, 1, id(col_black));
+              draw_library_glyph(0, 0, id(col_white));
+
+              draw_vol_up_glyph(1, 1, id(col_black));
+              draw_vol_up_glyph(0, 0, id(col_white));
+
+              draw_next_glyph(1, 1, id(col_black));
+              draw_next_glyph(0, 0, id(col_white));
+
+              draw_vol_dn_glyph(1, 1, id(col_black));
+              draw_vol_dn_glyph(0, 0, id(col_white));
             }
-
-            // Right Flank Volume Up (+): centered at x = right_flank_x (395), y = 140
-            it.filled_circle(right_flank_x, 140, 18, id(col_dark_gray));
-            it.circle(right_flank_x, 140, 18, id(col_black));
-            if (!is_compact) it.circle(right_flank_x, 140, 17, btn_rim_col);
-            it.filled_rectangle(right_flank_x - 7, 140 - 1, 15, 3, id(col_white));
-            it.filled_rectangle(right_flank_x - 1, 140 - 7, 3, 15, id(col_white));
-
-            // Right Flank Next Track (▶|): centered at x = next_btn_x, y = 212
-            it.filled_circle(next_btn_x, art_center_y, 18, id(col_dark_gray));
-            it.circle(next_btn_x, art_center_y, 18, id(col_black));
-            if (!is_compact) it.circle(next_btn_x, art_center_y, 17, btn_rim_col);
-            it.filled_triangle(next_btn_x + 8, art_center_y, next_btn_x - 6, art_center_y - 10, next_btn_x - 6, art_center_y + 10, id(col_white));
-            it.filled_rectangle(next_btn_x + 11, art_center_y - 10, 3, 21, id(col_white));
-
-            // Right Flank Volume Down (-): centered at x = right_flank_x (395), y = 284
-            it.filled_circle(right_flank_x, 284, 18, id(col_dark_gray));
-            it.circle(right_flank_x, 284, 18, id(col_black));
-            if (!is_compact) it.circle(right_flank_x, 284, 17, btn_rim_col);
-            it.filled_rectangle(right_flank_x - 7, 284 - 1, 15, 3, id(col_white));
 
             // Center Hero Play/Pause Button: High-Contrast Dark Gray Circular Capsule (Radius 34)
             // Displays Play badge ▶ when paused, and Pause badge ❚❚ when playing across all 3 art modes
