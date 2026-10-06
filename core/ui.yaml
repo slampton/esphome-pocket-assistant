@@ -5004,19 +5004,19 @@ display:
             it.print(cx, 76, id(font_small), id(theme_secondary), TextAlign::CENTER, "CURRENTLY CONTROLLING");
             bool is_remote = (id(target_speaker_id) != "${local_player_id}");
             if (is_remote) {
-              draw_pill_button(110, 356, 126, 18, id(theme_secondary), id(col_dark_gray), "TRANSFER TO LOCAL", id(col_white), false);
-              draw_pill_button(110, 356, 184, 18, id(theme_secondary), id(col_dark_gray), "UNJOIN AUDIO", id(col_white), false);
-              draw_pill_button(110, 356, 242, 18, id(theme_secondary), id(col_dark_gray), "STOP PLAYBACK", id(col_white), false);
+              draw_pill_button(110, 356, 142, 18, id(theme_secondary), id(col_dark_gray), "TRANSFER TO LOCAL", id(col_white), false);
+              draw_pill_button(110, 356, 200, 18, id(theme_secondary), id(col_dark_gray), "UNJOIN AUDIO", id(col_white), false);
+              draw_pill_button(110, 356, 258, 18, id(theme_secondary), id(col_dark_gray), "STOP PLAYBACK", id(col_white), false);
             } else {
-              draw_pill_button(110, 356, 140, 18, id(theme_secondary), id(col_dark_gray), "UNJOIN AUDIO", id(col_white), false);
-              draw_pill_button(110, 356, 210, 18, id(theme_secondary), id(col_dark_gray), "STOP PLAYBACK", id(col_white), false);
+              draw_pill_button(110, 356, 160, 18, id(theme_secondary), id(col_dark_gray), "UNJOIN AUDIO", id(col_white), false);
+              draw_pill_button(110, 356, 230, 18, id(theme_secondary), id(col_dark_gray), "STOP PLAYBACK", id(col_white), false);
             }
           } else {
             it.print(cx, 76, id(font_small), id(col_slate), TextAlign::CENTER, "SPEAKER ACTIONS");
-            draw_pill_button(110, 356, 114, 18, id(theme_secondary), id(col_dark_gray), "TRANSFER QUEUE", id(col_white), false);
-            draw_pill_button(110, 356, 172, 18, id(theme_secondary), id(col_dark_gray), "CONTROL ONLY", id(col_white), false);
-            draw_pill_button(110, 356, 230, 18, id(theme_secondary), id(col_dark_gray), "JOIN AUDIO", id(col_white), false);
-            draw_pill_button(110, 356, 288, 18, id(theme_secondary), id(col_dark_gray), "UNJOIN / DETACH", id(col_white), false);
+            draw_pill_button(110, 356, 130, 18, id(theme_secondary), id(col_dark_gray), "TRANSFER QUEUE", id(col_white), false);
+            draw_pill_button(110, 356, 188, 18, id(theme_secondary), id(col_dark_gray), "CONTROL ONLY", id(col_white), false);
+            draw_pill_button(110, 356, 246, 18, id(theme_secondary), id(col_dark_gray), "JOIN AUDIO", id(col_white), false);
+            draw_pill_button(110, 356, 304, 18, id(theme_secondary), id(col_dark_gray), "UNJOIN / DETACH", id(col_white), false);
           }
 
           // Bottom Back Button (y = 408) -> Returns to Speakers Browser
@@ -8495,50 +8495,50 @@ touchscreen:
                 // ----------------------------------------------------
                 bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
                 if (!is_current) {
-                  // Pill 1: TRANSFER QUEUE (y: 85..143, x: 100..366, center y = 114)
-                  if (touch.y >= 85 && touch.y <= 143 && touch.x >= 100 && touch.x <= 366) {
+                  // Pill 1: TRANSFER QUEUE (y: 100..159, x: 100..366, center y = 130)
+                  if (touch.y >= 100 && touch.y <= 159 && touch.x >= 100 && touch.x <= 366) {
                     id(pax_transfer_to_target).execute();
                     return;
-                  // Pill 2: CONTROL ONLY (y: 144..201, x: 100..366, center y = 172)
-                  } else if (touch.y >= 144 && touch.y <= 201 && touch.x >= 100 && touch.x <= 366) {
+                  // Pill 2: CONTROL ONLY (y: 160..217, x: 100..366, center y = 188)
+                  } else if (touch.y >= 160 && touch.y <= 217 && touch.x >= 100 && touch.x <= 366) {
                     id(pax_control_target).execute();
                     return;
-                  // Pill 3: JOIN AUDIO (y: 202..259, x: 100..366, center y = 230)
-                  } else if (touch.y >= 202 && touch.y <= 259 && touch.x >= 100 && touch.x <= 366) {
+                  // Pill 3: JOIN AUDIO (y: 218..275, x: 100..366, center y = 246)
+                  } else if (touch.y >= 218 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
                     id(pax_join_target).execute();
                     return;
-                  // Pill 4: UNJOIN / DETACH (y: 260..317, x: 100..366, center y = 288)
-                  } else if (touch.y >= 260 && touch.y <= 317 && touch.x >= 100 && touch.x <= 366) {
+                  // Pill 4: UNJOIN / DETACH (y: 276..335, x: 100..366, center y = 304)
+                  } else if (touch.y >= 276 && touch.y <= 335 && touch.x >= 100 && touch.x <= 366) {
                     id(pax_unjoin_target).execute();
                     return;
                   }
                 } else {
                   bool is_remote = (id(target_speaker_id) != "${local_player_id}");
                   if (is_remote) {
-                    // Pill 1: TRANSFER TO LOCAL (y: 95..155, x: 100..366, center y = 126)
-                    if (touch.y >= 95 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                    // Pill 1: TRANSFER TO LOCAL (y: 110..170, x: 100..366, center y = 142)
+                    if (touch.y >= 110 && touch.y <= 170 && touch.x >= 100 && touch.x <= 366) {
                       id(target_speaker_id) = "${local_player_id}";
                       id(target_speaker_name) = "${friendly_name}";
                       id(pax_transfer_to_target).execute();
                       return;
-                    // Pill 2: UNJOIN AUDIO (y: 156..213, x: 100..366, center y = 184)
-                    } else if (touch.y >= 156 && touch.y <= 213 && touch.x >= 100 && touch.x <= 366) {
+                    // Pill 2: UNJOIN AUDIO (y: 171..228, x: 100..366, center y = 200)
+                    } else if (touch.y >= 171 && touch.y <= 228 && touch.x >= 100 && touch.x <= 366) {
                       id(pax_unjoin_target).execute();
                       return;
-                    // Pill 3: STOP PLAYBACK (y: 214..275, x: 100..366, center y = 242)
-                    } else if (touch.y >= 214 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                    // Pill 3: STOP PLAYBACK (y: 229..295, x: 100..366, center y = 258)
+                    } else if (touch.y >= 229 && touch.y <= 295 && touch.x >= 100 && touch.x <= 366) {
                       id(toggle_ha_music).execute();
                       id(music_overlay_mode) = 0;
                       id(disp1).update();
                       return;
                     }
                   } else {
-                    // Pill 1: UNJOIN AUDIO (y: 105..175, x: 100..366, center y = 140)
-                    if (touch.y >= 105 && touch.y <= 175 && touch.x >= 100 && touch.x <= 366) {
+                    // Pill 1: UNJOIN AUDIO (y: 120..194, x: 100..366, center y = 160)
+                    if (touch.y >= 120 && touch.y <= 194 && touch.x >= 100 && touch.x <= 366) {
                       id(pax_unjoin_target).execute();
                       return;
-                    // Pill 2: STOP PLAYBACK (y: 176..250, x: 100..366, center y = 210)
-                    } else if (touch.y >= 176 && touch.y <= 250 && touch.x >= 100 && touch.x <= 366) {
+                    // Pill 2: STOP PLAYBACK (y: 195..275, x: 100..366, center y = 230)
+                    } else if (touch.y >= 195 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
                       id(toggle_ha_music).execute();
                       id(music_overlay_mode) = 0;
                       id(disp1).update();
