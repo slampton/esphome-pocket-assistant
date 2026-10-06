@@ -455,6 +455,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '1'
+  - id: menu_scroll_step
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 font:
   - file: "gfonts://Roboto"
@@ -2991,14 +2995,17 @@ script:
     mode: restart
     then:
       - repeat:
-          count: 6
+          count: 5
           then:
-            - delay: 35ms
-            - component.update: disp1
+            - lambda: |-
+                id(menu_scroll_step)++;
+                id(disp1).update();
+            - delay: 30ms
+      - delay: 40ms
       - lambda: |-
           id(menu_scroll_active) = false;
           id(sleep_menu_page) = id(menu_scroll_target_page);
-          id(disp1).update();
+          id(menu_scroll_step) = 0;
 
 display:
   - platform: mipi_spi
@@ -5884,83 +5891,80 @@ display:
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
-          // VIEW 1: SLEEP & WAKE SUBMENU (5-Pill Standard Architecture, Shifted Down, r = 20)
-          // Standard title at y = 50, Slot 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
-          // Model A: 210ms Page-Push Transition Animation with Clean Viewport Masking
-          // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
+          // VIEW 1: SLEEP & WAKE SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
+          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
+          // Model A: 5-Step Eased 174px (3-Pill) Dynamic Scroll Animation with Clean Viewport Masking
+          // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           // --------------------------------------------------
-          auto draw_sleep_p1 = [&](int dy) {
-            char m_buf[32];
-            std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
-            snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
-            draw_pill_button(110, 356, 104 + dy, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
+          static const int SCROLL_EASE_174[6] = {0, 32, 78, 126, 158, 174};
 
-            char t_buf[32];
-            std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
-            snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
-            draw_pill_button(110, 356, 162 + dy, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
-
-            std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
-            draw_pill_button(110, 356, 220 + dy, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
-
-            std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
-            char sty_buf[32];
-            snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Solar Flare" ? "Solar" : s_style.c_str())));
-            draw_pill_button(110, 356, 278 + dy, 20, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
-
-            char sst_buf[32];
-            std::string sst_opt = std::string(id(screensaver_docked_timeout).current_option().c_str());
-            snprintf(sst_buf, sizeof(sst_buf), "Dock Inact: %s", sst_opt.c_str());
-            draw_pill_button(110, 356, 336 + dy, 20, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
-          };
-
-          auto draw_sleep_p2 = [&](int dy) {
-            char so_buf[32];
-            std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
-            snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
-            draw_pill_button(110, 356, 104 + dy, 20, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
-
-            std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
-            draw_pill_button(110, 356, 162 + dy, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
-
-            char s_buf[32];
-            std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
-            snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
-            draw_pill_button(110, 356, 220 + dy, 20, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
-          };
-
+          int current_offset = 0;
           if (id(menu_scroll_active)) {
-            float elapsed = (float)(millis() - id(menu_scroll_start_ms));
-            float progress = elapsed / 210.0f;
-            if (progress < 0.0f) progress = 0.0f;
-            if (progress > 1.0f) progress = 1.0f;
-            // Quarter-sine ease-out
-            float ease = sinf(progress * 1.5707963f);
-            int shift = (int)(ease * 290.0f);
-            int p1_shift = 0;
-            int p2_shift = 0;
+            int cur_step = id(menu_scroll_step);
+            if (cur_step < 0) cur_step = 0;
+            if (cur_step > 5) cur_step = 5;
+            int shift = SCROLL_EASE_174[cur_step];
             if (id(menu_scroll_dir) == 1) {
-              // Scrolling Down: Page 1 slides UP, Page 2 slides UP into view from below
-              p1_shift = -shift;
-              p2_shift = 290 - shift;
+              // Scrolling Down: offset moves from 0 to 174
+              current_offset = shift;
             } else {
-              // Scrolling Up: Page 2 slides DOWN, Page 1 slides DOWN into view from above
-              p2_shift = shift;
-              p1_shift = -290 + shift;
+              // Scrolling Up: offset moves from 174 down to 0
+              current_offset = 174 - shift;
             }
-            draw_sleep_p1(p1_shift);
-            draw_sleep_p2(p2_shift);
-
-            // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
-            it.filled_rectangle(0, 0, 466, 75, id(col_bg));
-            it.filled_rectangle(0, 370, 466, 96, id(col_bg));
           } else {
-            if (id(sleep_menu_page) == 1) {
-              draw_sleep_p1(0);
-            } else {
-              draw_sleep_p2(0);
+            current_offset = (id(sleep_menu_page) == 2) ? 174 : 0;
+          }
+
+          auto draw_sleep_item = [&](int idx, int y) {
+            if (idx == 0) {
+              char m_buf[32];
+              std::string cur_m = std::string(id(pickup_wake_mode).current_option().c_str());
+              snprintf(m_buf, sizeof(m_buf), "Motion: %s", cur_m.c_str());
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), m_buf, id(col_white), false);
+            } else if (idx == 1) {
+              char t_buf[32];
+              std::string cur_t = std::string(id(tap_wake_mode).current_option().c_str());
+              snprintf(t_buf, sizeof(t_buf), "Tap: %s", cur_t.c_str());
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), t_buf, id(col_white), false);
+            } else if (idx == 2) {
+              std::string ss_label = id(docked_screensaver_switch).state ? "Screensaver: On" : "Screensaver: Off";
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), ss_label.c_str(), id(col_white), false);
+            } else if (idx == 3) {
+              std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
+              char sty_buf[32];
+              snprintf(sty_buf, sizeof(sty_buf), "Style: %s", s_style == "Aurora Borealis" ? "Aurora" : (s_style == "Matrix Rain" ? "Matrix" : (s_style == "Solar Flare" ? "Solar" : s_style.c_str())));
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), sty_buf, id(col_white), false);
+            } else if (idx == 4) {
+              char sst_buf[32];
+              std::string sst_opt = std::string(id(screensaver_docked_timeout).current_option().c_str());
+              snprintf(sst_buf, sizeof(sst_buf), "Dock Inact: %s", sst_opt.c_str());
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), sst_buf, id(col_white), false);
+            } else if (idx == 5) {
+              char so_buf[32];
+              std::string so_p = std::string(id(display_off_timeout).current_option().c_str());
+              snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), so_buf, id(col_white), false);
+            } else if (idx == 6) {
+              std::string ps_label = id(prevent_deep_sleep_switch).state ? "Stay Awake: On" : "Stay Awake: Off";
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), ps_label.c_str(), id(col_white), false);
+            } else if (idx == 7) {
+              char s_buf[32];
+              std::string cur_s = std::string(id(sleep_timeout_mode).current_option().c_str());
+              snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
+              draw_pill_button(110, 356, y, 20, id(theme_secondary), id(col_dark_gray), s_buf, id(col_white), false);
+            }
+          };
+
+          for (int i = 0; i < 8; i++) {
+            int y = 104 + i * 58 - current_offset;
+            if (y >= 50 && y <= 390) {
+              draw_sleep_item(i, y);
             }
           }
+
+          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
+          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
+          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
 
           // Stationary Title at y = 50
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SLEEP & WAKE");
@@ -5978,20 +5982,20 @@ display:
           it.filled_circle(240, 440, dot2_r, dot2_c);
 
           // Option 1 Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-          if (!id(menu_scroll_active)) {
-            if (id(sleep_menu_page) == 1) {
-              // Page 1: Down chevron (▼) at x = 415, y = 278 (Slot 4 level)
-              it.line(415, 283, 407, 275, id(theme_secondary));
-              it.line(415, 282, 407, 274, id(theme_secondary));
-              it.line(415, 283, 423, 275, id(theme_secondary));
-              it.line(415, 282, 423, 274, id(theme_secondary));
-            } else {
-              // Page 2: Up chevron (▲) at x = 415, y = 162 (Slot 2 level)
-              it.line(415, 157, 407, 165, id(theme_secondary));
-              it.line(415, 158, 407, 166, id(theme_secondary));
-              it.line(415, 157, 423, 165, id(theme_secondary));
-              it.line(415, 158, 423, 166, id(theme_secondary));
-            }
+          // Displayed immediately for target direction so there is zero latency or delay
+          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(sleep_menu_page);
+          if (active_chevron_page == 1) {
+            // Page 1: Down chevron (▼) at x = 415, y = 278 (Slot 4 level)
+            it.line(415, 283, 407, 275, id(theme_secondary));
+            it.line(415, 282, 407, 274, id(theme_secondary));
+            it.line(415, 283, 423, 275, id(theme_secondary));
+            it.line(415, 282, 423, 274, id(theme_secondary));
+          } else {
+            // Page 2: Up chevron (▲) at x = 415, y = 162 (Slot 2 level)
+            it.line(415, 157, 407, 165, id(theme_secondary));
+            it.line(415, 158, 407, 166, id(theme_secondary));
+            it.line(415, 157, 423, 165, id(theme_secondary));
+            it.line(415, 158, 423, 166, id(theme_secondary));
           }
 
         } else if (id(system_menu_mode) == 2) {
@@ -8226,7 +8230,7 @@ touchscreen:
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
-                // Mode 1: Sleep & Wake Submenu (5-Pill Layout, 2 Pages, Vertical Model A Scroll Navigation)
+                // Mode 1: Sleep & Wake Submenu (Continuous 8-Item Vertical Scroll Architecture)
                 // Drop touch inputs during active scroll animation to avoid race conditions
                 if (id(menu_scroll_active)) return;
 
@@ -8238,21 +8242,19 @@ touchscreen:
                   if (now_s - last_scroll_tap > 250) {
                     last_scroll_tap = now_s;
                     if (id(sleep_menu_page) == 1) {
-                      // Page 1: Scroll Down to Page 2
+                      // Page 1: Scroll Down by 3 items (174px) to reveal bottom of list (Page 2)
                       id(menu_scroll_active) = true;
                       id(menu_scroll_dir) = 1;
                       id(menu_scroll_target_page) = 2;
-                      id(menu_scroll_start_ms) = now_s;
+                      id(menu_scroll_step) = 0;
                       id(menu_scroll_transition).execute();
-                      id(disp1).update();
                     } else if (id(sleep_menu_page) == 2) {
-                      // Page 2: Scroll Up to Page 1
+                      // Page 2: Scroll Up by 3 items (174px) to reveal top of list (Page 1)
                       id(menu_scroll_active) = true;
                       id(menu_scroll_dir) = -1;
                       id(menu_scroll_target_page) = 1;
-                      id(menu_scroll_start_ms) = now_s;
+                      id(menu_scroll_step) = 0;
                       id(menu_scroll_transition).execute();
-                      id(disp1).update();
                     }
                   }
                   return;
@@ -8263,107 +8265,105 @@ touchscreen:
                   return;
                 }
 
-                // Central Button Hit-Testing (x: 95..371)
+                // Reusable Item Action Dispatcher for all 8 items
+                auto trigger_sleep_item = [&](int idx) {
+                  if (idx == 0) {
+                    // Slot 1 (Page 1): Motion Wake Cycler
+                    std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
+                    std::string nxt = (cur == "Always On") ? "Docked Only" : ((cur == "Docked Only") ? "Disabled" : "Always On");
+                    auto call = id(pickup_wake_mode).make_call();
+                    call.set_option(nxt);
+                    call.perform();
+                    id(disp1).update();
+                  } else if (idx == 1) {
+                    // Slot 2 (Page 1): Tap Wake Cycler
+                    std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
+                    std::string nxt = (cur == "Always On") ? "Docked Only" : ((cur == "Docked Only") ? "Disabled" : "Always On");
+                    auto call = id(tap_wake_mode).make_call();
+                    call.set_option(nxt);
+                    call.perform();
+                    id(disp1).update();
+                  } else if (idx == 2) {
+                    // Slot 3 (Page 1): Docked Screensaver Toggle
+                    id(docked_screensaver_switch).toggle();
+                    id(disp1).update();
+                  } else if (idx == 3) {
+                    // Slot 4 (Page 1) / Slot 1 (Page 2): Screensaver Style Cycler
+                    std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
+                    std::string nxt_s = "Ambient Clock";
+                    if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
+                    else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
+                    else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
+                    else if (cur_s == "Matrix Rain") nxt_s = "Solar Flare";
+                    else if (cur_s == "Solar Flare") nxt_s = "Screen Off";
+                    else if (cur_s == "Screen Off") nxt_s = "Ambient Clock";
+                    auto call = id(screensaver_style_select).make_call();
+                    call.set_option(nxt_s);
+                    call.perform();
+                    id(disp1).update();
+                  } else if (idx == 4) {
+                    // Slot 5 (Page 1) / Slot 2 (Page 2): Docked Inactivity Timeout Cycler
+                    std::string cur_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
+                    std::string nxt_to = "Never";
+                    if (cur_to == "10s") nxt_to = "15s";
+                    else if (cur_to == "15s") nxt_to = "30s";
+                    else if (cur_to == "30s") nxt_to = "1 min";
+                    else if (cur_to == "1 min") nxt_to = "5 min";
+                    else if (cur_to == "5 min") nxt_to = "Never";
+                    else if (cur_to == "Never") nxt_to = "10s";
+                    auto call = id(screensaver_docked_timeout).make_call();
+                    call.set_option(nxt_to);
+                    call.perform();
+                    id(disp1).update();
+                  } else if (idx == 5) {
+                    // Slot 3 (Page 2): Screen Off Timeout Cycler
+                    std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
+                    std::string nxt_so = "15s";
+                    if (cur_so == "10s") nxt_so = "15s";
+                    else if (cur_so == "15s") nxt_so = "30s";
+                    else if (cur_so == "30s") nxt_so = "1 min";
+                    else if (cur_so == "1 min") nxt_so = "2 min";
+                    else if (cur_so == "2 min") nxt_so = "Never";
+                    else if (cur_so == "Never") nxt_so = "10s";
+                    auto call = id(display_off_timeout).make_call();
+                    call.set_option(nxt_so);
+                    call.perform();
+                    id(disp1).update();
+                  } else if (idx == 6) {
+                    // Slot 4 (Page 2): Stay Awake Mode Switch
+                    id(prevent_deep_sleep_switch).toggle();
+                    id(disp1).update();
+                  } else if (idx == 7) {
+                    // Slot 5 (Page 2): Auto-Hibernate Timeout Cycler
+                    std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
+                    std::string nxt_as = "5 min";
+                    if (cur_as == "5 min") nxt_as = "10 min";
+                    else if (cur_as == "10 min") nxt_as = "15 min";
+                    else if (cur_as == "15 min") nxt_as = "30 min";
+                    else if (cur_as == "30 min") nxt_as = "Disabled";
+                    else if (cur_as == "Disabled") nxt_as = "5 min";
+                    auto call = id(sleep_timeout_mode).make_call();
+                    call.set_option(nxt_as);
+                    call.perform();
+                    id(disp1).update();
+                  }
+                };
+
+                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
                 if (touch.x >= 95 && touch.x <= 371) {
-                  if (id(sleep_menu_page) == 1) {
-                    // Page 1: Wake & Screensaver (Slots 1-5, 58px pitch)
-                    // Slot 1: Motion Wake Cycler (y: 75..133, pill at y=104)
-                    if (touch.y >= 75 && touch.y <= 133) {
-                      std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
-                      std::string nxt = "Always On";
-                      if (cur == "Always On") nxt = "Docked Only";
-                      else if (cur == "Docked Only") nxt = "Disabled";
-                      else nxt = "Always On";
-                      auto call = id(pickup_wake_mode).make_call();
-                      call.set_option(nxt);
-                      call.perform();
-                      id(disp1).update();
-                      return;
-                    // Slot 2: Tap Wake Cycler (y: 134..191, pill at y=162)
-                    } else if (touch.y >= 134 && touch.y <= 191) {
-                      std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
-                      std::string nxt = "Always On";
-                      if (cur == "Always On") nxt = "Docked Only";
-                      else if (cur == "Docked Only") nxt = "Disabled";
-                      else nxt = "Always On";
-                      auto call = id(tap_wake_mode).make_call();
-                      call.set_option(nxt);
-                      call.perform();
-                      id(disp1).update();
-                      return;
-                    // Slot 3: Docked Screensaver Toggle (y: 192..249, pill at y=220)
-                    } else if (touch.y >= 192 && touch.y <= 249) {
-                      id(docked_screensaver_switch).toggle();
-                      id(disp1).update();
-                      return;
-                    // Slot 4: Screensaver Style Cycler (y: 250..307, pill at y=278)
-                    } else if (touch.y >= 250 && touch.y <= 307) {
-                      std::string cur_s = std::string(id(screensaver_style_select).current_option().c_str());
-                      std::string nxt_s = "Ambient Clock";
-                      if (cur_s == "Ambient Clock") nxt_s = "Aurora Borealis";
-                      else if (cur_s == "Aurora Borealis") nxt_s = "Starfield";
-                      else if (cur_s == "Starfield") nxt_s = "Matrix Rain";
-                      else if (cur_s == "Matrix Rain") nxt_s = "Solar Flare";
-                      else if (cur_s == "Solar Flare") nxt_s = "Screen Off";
-                      else if (cur_s == "Screen Off") nxt_s = "Ambient Clock";
-                      auto call = id(screensaver_style_select).make_call();
-                      call.set_option(nxt_s);
-                      call.perform();
-                      id(disp1).update();
-                      return;
-                    // Slot 5: Docked Inactivity Timeout Cycler (y: 308..365, pill at y=336)
-                    } else if (touch.y >= 308 && touch.y <= 365) {
-                      std::string cur_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
-                      std::string nxt_to = "Never";
-                      if (cur_to == "10s") nxt_to = "15s";
-                      else if (cur_to == "15s") nxt_to = "30s";
-                      else if (cur_to == "30s") nxt_to = "1 min";
-                      else if (cur_to == "1 min") nxt_to = "5 min";
-                      else if (cur_to == "5 min") nxt_to = "Never";
-                      else if (cur_to == "Never") nxt_to = "10s";
-                      auto call = id(screensaver_docked_timeout).make_call();
-                      call.set_option(nxt_to);
-                      call.perform();
-                      id(disp1).update();
-                      return;
-                    }
-                  } else {
-                    // Page 2: Inactivity & Power Timeouts (Slots 1-3, 58px pitch)
-                    // Slot 1: Screen Off Timeout (y: 75..133, pill at y=104)
-                    if (touch.y >= 75 && touch.y <= 133) {
-                      std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
-                      std::string nxt_so = "15s";
-                      if (cur_so == "10s") nxt_so = "15s";
-                      else if (cur_so == "15s") nxt_so = "30s";
-                      else if (cur_so == "30s") nxt_so = "1 min";
-                      else if (cur_so == "1 min") nxt_so = "2 min";
-                      else if (cur_so == "2 min") nxt_so = "Never";
-                      else if (cur_so == "Never") nxt_so = "10s";
-                      auto call = id(display_off_timeout).make_call();
-                      call.set_option(nxt_so);
-                      call.perform();
-                      id(disp1).update();
-                      return;
-                    // Slot 2: Stay Awake Mode (y: 134..191, pill at y=162)
-                    } else if (touch.y >= 134 && touch.y <= 191) {
-                      id(prevent_deep_sleep_switch).toggle();
-                      id(disp1).update();
-                      return;
-                    // Slot 3: Auto-Sleep Deep Sleep Timeout (y: 192..249, pill at y=220)
-                    } else if (touch.y >= 192 && touch.y <= 249) {
-                      std::string cur_as = std::string(id(sleep_timeout_mode).current_option().c_str());
-                      std::string nxt_as = "5 min";
-                      if (cur_as == "5 min") nxt_as = "10 min";
-                      else if (cur_as == "10 min") nxt_as = "15 min";
-                      else if (cur_as == "15 min") nxt_as = "30 min";
-                      else if (cur_as == "30 min") nxt_as = "Disabled";
-                      else if (cur_as == "Disabled") nxt_as = "5 min";
-                      auto call = id(sleep_timeout_mode).make_call();
-                      call.set_option(nxt_as);
-                      call.perform();
-                      id(disp1).update();
-                      return;
-                    }
+                  int slot_idx = -1;
+                  if (touch.y >= 75 && touch.y <= 133) slot_idx = 0;       // Slot 1 (y=104)
+                  else if (touch.y >= 134 && touch.y <= 191) slot_idx = 1; // Slot 2 (y=162)
+                  else if (touch.y >= 192 && touch.y <= 249) slot_idx = 2; // Slot 3 (y=220)
+                  else if (touch.y >= 250 && touch.y <= 307) slot_idx = 3; // Slot 4 (y=278)
+                  else if (touch.y >= 308 && touch.y <= 365) slot_idx = 4; // Slot 5 (y=336)
+
+                  if (slot_idx >= 0) {
+                    // Page 1: item index = slot_idx (items 0..4)
+                    // Page 2: item index = slot_idx + 3 (items 3..7)
+                    int item_idx = (id(sleep_menu_page) == 1) ? slot_idx : (slot_idx + 3);
+                    trigger_sleep_item(item_idx);
+                    return;
                   }
                 }
 
@@ -8372,6 +8372,7 @@ touchscreen:
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(sleep_menu_page) = 1;
                   id(menu_scroll_active) = false;
+                  id(menu_scroll_step) = 0;
                   id(disp1).update();
                   return;
                 }
