@@ -4544,11 +4544,11 @@ display:
       // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
       // ==========================================
       } else if (id(gui_page) == 2) {
-        // Pixel-accurate dynamic text truncation using font_small measurement across all music views
-        auto fit_text_to_width = [&](const std::string &str, int max_w) -> std::string {
-          if (str.empty()) return "";
+        // Generalized dynamic text truncation with custom font measurement
+        auto fit_text_to_width_font = [&](const std::string &str, int max_w, auto font) -> std::string {
+          if (str.empty() || font == nullptr) return "";
           int w = 0, x_off = 0, base = 0, text_h = 0;
-          id(font_small)->measure(str.c_str(), &w, &x_off, &base, &text_h);
+          font->measure(str.c_str(), &w, &x_off, &base, &text_h);
           if (w <= max_w) return str;
 
           std::string cur = str;
@@ -4560,12 +4560,34 @@ display:
           }
           while (!cur.empty()) {
             std::string test_str = cur + "..";
-            id(font_small)->measure(test_str.c_str(), &w, &x_off, &base, &text_h);
+            font->measure(test_str.c_str(), &w, &x_off, &base, &text_h);
             if (w <= max_w) return test_str;
             while (!cur.empty() && (static_cast<unsigned char>(cur.back()) & 0xC0) == 0x80) cur.pop_back();
             if (!cur.empty()) cur.pop_back();
           }
           return "..";
+        };
+
+        // Shared fit_text_to_width for pill bodies using font_small
+        auto fit_text_to_width = [&](const std::string &str, int max_w) -> std::string {
+          return fit_text_to_width_font(str, max_w, id(font_small));
+        };
+
+        // Standardized Menu Header Drawer at y = 50:
+        // Centers short titles (<= 220px) at cx = 233 (e.g. PODCASTS, ALBUMS, SPEAKERS, LIBRARY).
+        // For long titles (> 220px, e.g. "WTF with Marc Maron", long artist/album/speaker names),
+        // anchors text from the left at x = 110 (aligning with pill button caps below) so the
+        // entire beginning is legible, naturally truncating with ".." within max 246px before the right edge.
+        auto draw_menu_header = [&](int y_pos, const std::string &title) {
+          if (title.empty()) return;
+          int w = 0, x_off = 0, base = 0, text_h = 0;
+          id(font_date)->measure(title.c_str(), &w, &x_off, &base, &text_h);
+          if (w <= 220) {
+            it.print(cx, y_pos, id(font_date), id(theme_primary), TextAlign::CENTER, title.c_str());
+          } else {
+            std::string disp_title = fit_text_to_width_font(title, 246, id(font_date));
+            it.print(110, y_pos, id(font_date), id(theme_primary), TextAlign::CENTER_LEFT, disp_title.c_str());
+          }
         };
 
         if (id(music_overlay_mode) == 0) {
@@ -5059,7 +5081,7 @@ display:
           // LEVEL 1: SPEAKERS BROWSER (Direct 5-Slot Speaker Inventory)
           // Standardized Title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408
           // --------------------------------------------------
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SPEAKERS");
+          draw_menu_header(50, "SPEAKERS");
 
           auto draw_speaker_card = [&](int y_mid, const std::string &name, const std::string &id_str, bool is_act) {
             if (name.empty()) return;
@@ -5163,7 +5185,7 @@ display:
           it.filled_rectangle(0, 370, 466, 96, id(col_bg));
 
           // Standardized Centered Title at y = 50
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "LIBRARY");
+          draw_menu_header(50, "LIBRARY");
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
@@ -5202,7 +5224,7 @@ display:
           bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
 
           // Standardized Category/Item Title at y = 50 (matching OS standard)
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, id(selected_category_title).c_str());
+          draw_menu_header(50, id(selected_category_title));
 
           // Using shared fit_text_to_width defined at page 2 scope
 
@@ -5335,8 +5357,7 @@ display:
           // --------------------------------------------------
           std::string spk_title = id(target_speaker_name);
           if (spk_title.empty()) spk_title = "SPEAKER";
-          std::string fitted_title = fit_text_to_width(spk_title, 240);
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, fitted_title.c_str());
+          draw_menu_header(50, spk_title);
 
           bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
           if (is_current) {
