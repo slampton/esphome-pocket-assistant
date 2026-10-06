@@ -2259,8 +2259,8 @@ script:
           if (id(music_pos_sync_time) > 0) {
             cur_pos += (float)(millis() - id(music_pos_sync_time)) / 1000.0f;
           }
-          float dur = id(music_dur_total);
-          float new_pos = (dur > 0.0f) ? std::min(dur, cur_pos + 30.0f) : (cur_pos + 30.0f);
+          float dur = id(ha_media_duration).state;
+          float new_pos = (!std::isnan(dur) && dur > 0.0f) ? std::min(dur, cur_pos + 30.0f) : (cur_pos + 30.0f);
           id(music_pos_base) = new_pos;
           id(music_pos_sync_time) = millis();
       - homeassistant.action:
