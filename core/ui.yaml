@@ -7776,23 +7776,32 @@ touchscreen:
             } else if (id(gui_page) == 2) {
               if (id(music_overlay_mode) == 0) {
                 // ----------------------------------------------------
-                // Normal Player Mode
+                // Normal Player Mode (Dedicated Radial Geometry & Clean HUD Dismissal)
                 // ----------------------------------------------------
                 std::string art_mode = id(music_fullscreen_art_mode).current_option();
                 bool is_compact = (art_mode == "Compact");
-                const int prev_x_max = is_compact ? 130 : 185; // Inward expanded touch threshold (+10px from 175)
-                const int next_x_min = is_compact ? 336 : 281; // Inward expanded touch threshold (-10px from 291)
+                const int prev_btn_x = is_compact ? 102 : 124;
+                const int next_btn_x = is_compact ? 364 : 342;
+                const int left_flank_x = 71;
+                const int right_flank_x = 395;
+                const int btn_y_top = 140;
+                const int btn_y_mid = 212;
+                const int btn_y_bot = 286;
+                const int btn_y_vol_dn = 284;
 
                 std::string overlay_mode = id(music_overlay_style).current_option();
                 if (overlay_mode.empty()) overlay_mode = "Art Only";
                 bool hud_enabled = !is_compact && (overlay_mode != "Always Visible");
 
+                // CASE A: HUD is enabled but currently dormant (hidden)
                 if (hud_enabled && !id(music_hud_active)) {
-                  // Direct center tap: toggle play/pause immediately without requiring a 2nd click
-                  if (touch.x >= 180 && touch.x <= 286 && touch.y >= 160 && touch.y <= 264) {
+                  // Direct center tap bypass: toggle play/pause immediately without requiring a 2nd click
+                  int dx_pp = touch.x - 233;
+                  int dy_pp = touch.y - btn_y_mid;
+                  if (dx_pp * dx_pp + dy_pp * dy_pp <= 2500) { // 50px radius around center (233, 212)
                     static uint32_t last_hud_pp = 0;
                     uint32_t now_pp = millis();
-                    if (now_pp - last_hud_pp > 150) {
+                    if (now_pp - last_hud_pp > 200) {
                       last_hud_pp = now_pp;
                       bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
                                         (id(ha_target_state).state == "playing");
@@ -7801,40 +7810,41 @@ touchscreen:
                       id(toggle_ha_music).execute();
                     }
                   }
+                  // Wake the HUD on any tap across the canvas
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
                   id(disp1).update();
                   return;
+                }
 
-                // Dedicated Header Tap Zone ("MUSIC" Title): Open Library Categories Menu (Compact View only)
-                // Constrained strictly to top title area (x: 160..306, y <= 95)
-                } else if (is_compact && touch.y <= 95 && touch.x >= 160 && touch.x <= 306) {
-                  id(music_category_page) = 1;
-                  id(menu_scroll_active) = false;
-                  id(menu_scroll_step) = 0;
-                  id(music_overlay_mode) = 2;
-                  id(disp1).update();
+                // CASE B: HUD is active (controls displayed) OR Compact view (controls always visible)
 
-                // Left Flank Speaker Button (🔊): Upper-Left Quadrant (center 71, 140; touches x <= prev_x_max, y < 185)
-                } else if (touch.x <= prev_x_max && touch.y < 185) {
-                  static uint32_t last_spk_tap = 0;
-                  uint32_t now_tap = millis();
-                  if (now_tap - last_spk_tap > 120) {
-                    last_spk_tap = now_tap;
-                    id(selected_category_mode) = "speakers";
-                    id(selected_category_title) = "SPEAKERS";
-                    id(music_browse_page) = 1;
-                    id(music_overlay_mode) = 1; // Open Speakers Browser directly
-                    id(fetch_music_browse).execute();
-                    id(music_hud_active) = false;
+                // 1. Center Hero Play/Pause Button (Self-contained 48px radius around 233, 212; button radius is 34px)
+                int dx_pp = touch.x - 233;
+                int dy_pp = touch.y - btn_y_mid;
+                if (dx_pp * dx_pp + dy_pp * dy_pp <= 2304) { // 48px radius
+                  static uint32_t last_pp_tap = 0;
+                  uint32_t now_pp = millis();
+                  if (now_pp - last_pp_tap > 200) {
+                    last_pp_tap = now_pp;
+                    bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                      (id(ha_target_state).state == "playing");
+                    id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
+                    id(music_feedback_timer) = now_pp;
+                    id(music_hud_timer) = now_pp;
+                    id(toggle_ha_music).execute();
                     id(disp1).update();
                   }
+                  return;
+                }
 
-                // Left Flank Previous Track (|◀) / -10s Replay: Middle Left Horizon (center prev_btn_x 102/124, 212; y: 185..240, x <= prev_x_max)
-                } else if (touch.x <= prev_x_max && touch.y >= 185 && touch.y < 240) {
+                // 2. Previous Track (|◀) / -10s Replay (40px radius around prev_btn_x, 212)
+                int dx_prev = touch.x - prev_btn_x;
+                int dy_prev = touch.y - btn_y_mid;
+                if (dx_prev * dx_prev + dy_prev * dy_prev <= 1600) { // 40px radius
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_prev_tap > 150) {
+                  if (now_tap - last_prev_tap > 200) {
                     last_prev_tap = now_tap;
                     bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
                                             id(active_playback_media_type) == "podcast_episode" || 
@@ -7850,41 +7860,16 @@ touchscreen:
                     id(music_hud_timer) = now_tap;
                     id(disp1).update();
                   }
+                  return;
+                }
 
-                // Left Flank Library Button (☰): Lower-Left Quadrant (center 71, 286; x <= 215, y >= 240, y < 380)
-                } else if (touch.x <= (is_compact ? 130 : 215) && touch.y >= 240 && touch.y < 380) {
-                  static uint32_t last_menu_tap = 0;
-                  uint32_t now_tap = millis();
-                  if (now_tap - last_menu_tap > 120) {
-                    last_menu_tap = now_tap;
-                    id(music_category_page) = 1;
-                    id(music_overlay_mode) = 2; // Open Level 2 Library Categories Menu
-                    id(music_hud_active) = false;
-                    id(disp1).update();
-                  }
-
-                // Right Flank Volume Up (+): Generous Upper-Right Quadrant (center 395, 140; touches x >= next_x_min, y < 185)
-                } else if (touch.x >= next_x_min && touch.y < 185) {
-                  static uint32_t last_vol_up_tap = 0;
-                  uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_up_tap > 120) {
-                    last_vol_up_tap = now_vol_tap;
-                    id(vol_hud_direction) = 1;
-                    id(vol_hud_timer) = now_vol_tap;
-                    id(music_hud_timer) = now_vol_tap;
-                    int v_step = (int)id(volume_step_size).state;
-                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                    id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
-                    id(music_feedback_timer) = now_vol_tap;
-                    id(music_vol_up).execute();
-                    id(throttled_disp_update).execute();
-                  }
-
-                // Right Flank Next Track (▶|) / +30s Skip: Middle Right Horizon (center next_btn_x 364/342, 212; y: 185..240, x >= next_x_min)
-                } else if (touch.x >= next_x_min && touch.y >= 185 && touch.y < 240) {
+                // 3. Next Track (▶|) / +30s Skip (40px radius around next_btn_x, 212)
+                int dx_next = touch.x - next_btn_x;
+                int dy_next = touch.y - btn_y_mid;
+                if (dx_next * dx_next + dy_next * dy_next <= 1600) { // 40px radius
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
-                  if (now_tap - last_next_tap > 150) {
+                  if (now_tap - last_next_tap > 200) {
                     last_next_tap = now_tap;
                     bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
                                             id(active_playback_media_type) == "podcast_episode" || 
@@ -7900,12 +7885,72 @@ touchscreen:
                     id(music_hud_timer) = now_tap;
                     id(disp1).update();
                   }
+                  return;
+                }
 
-                // Right Flank Volume Down (-): Generous Lower-Right Quadrant (center 395, 284; touches x >= 251, y >= 240, clean bound y < 380)
-                } else if (touch.x >= (is_compact ? 336 : 251) && touch.y >= 240 && touch.y < 380) {
+                // 4. Speaker Button (🔊): Upper-Left Quadrant (40px radius around 71, 140)
+                int dx_spk = touch.x - left_flank_x;
+                int dy_spk = touch.y - btn_y_top;
+                if (dx_spk * dx_spk + dy_spk * dy_spk <= 1600) { // 40px radius
+                  static uint32_t last_spk_tap = 0;
+                  uint32_t now_tap = millis();
+                  if (now_tap - last_spk_tap > 200) {
+                    last_spk_tap = now_tap;
+                    id(selected_category_mode) = "speakers";
+                    id(selected_category_title) = "SPEAKERS";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 1; // Open Speakers Browser directly
+                    id(fetch_music_browse).execute();
+                    id(music_hud_active) = false;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // 5. Library Button (☰): Lower-Left Quadrant (40px radius around 71, 286)
+                int dx_lib = touch.x - left_flank_x;
+                int dy_lib = touch.y - btn_y_bot;
+                if (dx_lib * dx_lib + dy_lib * dy_lib <= 1600) { // 40px radius
+                  static uint32_t last_menu_tap = 0;
+                  uint32_t now_tap = millis();
+                  if (now_tap - last_menu_tap > 200) {
+                    last_menu_tap = now_tap;
+                    id(music_category_page) = 1;
+                    id(music_overlay_mode) = 2; // Open Level 2 Library Categories Menu
+                    id(music_hud_active) = false;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // 6. Volume Up (+) Button: Upper-Right Quadrant (40px radius around 395, 140)
+                int dx_vup = touch.x - right_flank_x;
+                int dy_vup = touch.y - btn_y_top;
+                if (dx_vup * dx_vup + dy_vup * dy_vup <= 1600) { // 40px radius
+                  static uint32_t last_vol_up_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_up_tap > 150) {
+                    last_vol_up_tap = now_vol_tap;
+                    id(vol_hud_direction) = 1;
+                    id(vol_hud_timer) = now_vol_tap;
+                    id(music_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    id(music_vol_up).execute();
+                    id(throttled_disp_update).execute();
+                  }
+                  return;
+                }
+
+                // 7. Volume Down (-) Button: Lower-Right Quadrant (40px radius around 395, 284)
+                int dx_vdn = touch.x - right_flank_x;
+                int dy_vdn = touch.y - btn_y_vol_dn;
+                if (dx_vdn * dx_vdn + dy_vdn * dy_vdn <= 1600) { // 40px radius
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_dn_tap > 120) {
+                  if (now_vol_tap - last_vol_dn_tap > 150) {
                     last_vol_dn_tap = now_vol_tap;
                     id(vol_hud_direction) = -1;
                     id(vol_hud_timer) = now_vol_tap;
@@ -7917,32 +7962,32 @@ touchscreen:
                     id(music_vol_down).execute();
                     id(throttled_disp_update).execute();
                   }
+                  return;
+                }
 
-                // Center Hero Album Art & Play / Pause toggle: Generous Center Zone (y: 95..380 for Compact, y: 140..284 for Full/Letterbox)
-                } else if (is_compact ? (touch.y >= 95 && touch.y < 380) : (touch.y >= 140 && touch.y <= 284)) {
-                  static uint32_t last_pp_tap = 0;
-                  uint32_t now_pp = millis();
-                  if (now_pp - last_pp_tap > 150) {
-                    last_pp_tap = now_pp;
-                    bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                                      (id(ha_target_state).state == "playing");
-                    id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
-                    id(music_feedback_timer) = now_pp;
-                    id(music_hud_timer) = now_pp;
-                    id(toggle_ha_music).execute();
-                    id(disp1).update();
-                  }
+                // 8. Compact View Only: Dedicated Header Tap Zone ("MUSIC" Title at top x: 160..306, y <= 90)
+                if (is_compact && touch.y <= 90 && touch.x >= 160 && touch.x <= 306) {
+                  id(music_category_page) = 1;
+                  id(menu_scroll_active) = false;
+                  id(menu_scroll_step) = 0;
+                  id(music_overlay_mode) = 2;
+                  id(disp1).update();
+                  return;
+                }
 
-                // Soft Dismissal: Only deliberate taps in the central album art column dismiss the HUD
-                // (flank near-misses keep controls visible and reset the 5.0s dismissal watchdog)
-                } else if (hud_enabled && id(music_hud_active)) {
-                  if (touch.x >= 216 && touch.x <= 250 && (touch.y < 140 || touch.y > 284)) {
+                // 9. Full Screen / Letterbox: Tap anywhere on canvas/metadata/album art outside the 7 control buttons
+                // Predictably and immediately dismisses the active HUD
+                if (hud_enabled && id(music_hud_active)) {
+                  static uint32_t last_dismiss_tap = 0;
+                  uint32_t now_dis = millis();
+                  if (now_dis - last_dismiss_tap > 200) {
+                    last_dismiss_tap = now_dis;
                     id(music_hud_active) = false;
                     id(disp1).update();
-                  } else {
-                    id(music_hud_timer) = millis();
                   }
+                  return;
                 }
+              }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
                 // LEVEL 1: SPEAKERS BROWSER (Direct 5-Slot Speaker Inventory)
@@ -7967,7 +8012,7 @@ touchscreen:
                 }
 
                 // Central Speaker Slots 1..5 Tap -> Opens Contextual Action Sheet (mode 4)
-                if (touch.x >= 100 && touch.x <= 366) {
+                if (touch.x >= 85 && touch.x <= 370) {
                   int slot_idx = -1;
                   if (touch.y >= 75 && touch.y <= 133) slot_idx = 1;
                   else if (touch.y >= 134 && touch.y <= 191) slot_idx = 2;
@@ -8048,8 +8093,8 @@ touchscreen:
                   id(fetch_music_browse).execute();
                 };
 
-                // Central Button Hit-Testing (x: 100..366 across Slots 1-5, narrowed pills)
-                if (touch.x >= 100 && touch.x <= 366) {
+                // Central Button Hit-Testing (x: 85..370 across Slots 1-5, narrowed pills)
+                if (touch.x >= 85 && touch.x <= 370) {
                   int slot_idx = -1;
                   if (touch.y >= 75 && touch.y <= 133) slot_idx = 0;       // Slot 1 (y=104)
                   else if (touch.y >= 134 && touch.y <= 191) slot_idx = 1; // Slot 2 (y=162)
@@ -8085,7 +8130,7 @@ touchscreen:
                 bool is_podcast_list = (id(selected_category_mode) == "podcast");
 
                 // Card 1 (y: 75..133, x: 45..375, slot at y=104)
-                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 45 && touch.x <= 375) {
+                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 45 && touch.x <= 370) {
                   if (!id(slot_1_id).empty()) {
                     if (is_podcast_list) {
                       id(drilldown_album_id) = id(slot_1_id);
@@ -8121,7 +8166,7 @@ touchscreen:
                     }
                   }
                 // Card 2 (y: 134..191, x: 45..375, slot at y=162)
-                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 45 && touch.x <= 375) {
+                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 45 && touch.x <= 370) {
                   if (!id(slot_2_id).empty()) {
                     if (is_podcast_list) {
                       id(drilldown_album_id) = id(slot_2_id);
@@ -8157,7 +8202,7 @@ touchscreen:
                     }
                   }
                 // Card 3 (y: 192..249, x: 45..375, slot at y=220)
-                } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 45 && touch.x <= 375) {
+                } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 45 && touch.x <= 370) {
                   if (!id(slot_3_id).empty()) {
                     if (is_podcast_list) {
                       id(drilldown_album_id) = id(slot_3_id);
@@ -8193,7 +8238,7 @@ touchscreen:
                     }
                   }
                 // Card 4 (y: 250..307, x: 45..375, slot at y=278)
-                } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 45 && touch.x <= 375) {
+                } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 45 && touch.x <= 370) {
                   if (!id(slot_4_id).empty()) {
                     if (is_podcast_list) {
                       id(drilldown_album_id) = id(slot_4_id);
@@ -8229,7 +8274,7 @@ touchscreen:
                     }
                   }
                 // Card 5 (y: 308..374, x: 45..375, slot at y=336)
-                } else if (touch.y >= 308 && touch.y <= 374 && touch.x >= 45 && touch.x <= 375) {
+                } else if (touch.y >= 308 && touch.y <= 374 && touch.x >= 45 && touch.x <= 370) {
                   if (!id(slot_5_id).empty()) {
                     if (is_podcast_list) {
                       id(drilldown_album_id) = id(slot_5_id);
@@ -8295,19 +8340,19 @@ touchscreen:
                 bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
                 if (!is_current) {
                   // Pill 1: TRANSFER QUEUE (y: 100..159, x: 100..366, center y = 130)
-                  if (touch.y >= 100 && touch.y <= 159 && touch.x >= 100 && touch.x <= 366) {
+                  if (touch.y >= 100 && touch.y <= 159 && touch.x >= 85 && touch.x <= 370) {
                     id(speaker_transfer_to_target).execute();
                     return;
                   // Pill 2: CONTROL ONLY (y: 160..217, x: 100..366, center y = 188)
-                  } else if (touch.y >= 160 && touch.y <= 217 && touch.x >= 100 && touch.x <= 366) {
+                  } else if (touch.y >= 160 && touch.y <= 217 && touch.x >= 85 && touch.x <= 370) {
                     id(speaker_control_target).execute();
                     return;
                   // Pill 3: JOIN AUDIO (y: 218..275, x: 100..366, center y = 246)
-                  } else if (touch.y >= 218 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                  } else if (touch.y >= 218 && touch.y <= 275 && touch.x >= 85 && touch.x <= 370) {
                     id(speaker_join_target).execute();
                     return;
                   // Pill 4: UNJOIN / DETACH (y: 276..335, x: 100..366, center y = 304)
-                  } else if (touch.y >= 276 && touch.y <= 335 && touch.x >= 100 && touch.x <= 366) {
+                  } else if (touch.y >= 276 && touch.y <= 350 && touch.x >= 85 && touch.x <= 370) {
                     id(speaker_unjoin_target).execute();
                     return;
                   }
@@ -8315,17 +8360,17 @@ touchscreen:
                   bool is_remote = (id(target_speaker_id) != "${local_player_id}");
                   if (is_remote) {
                     // Pill 1: TRANSFER TO LOCAL (y: 110..170, x: 100..366, center y = 142)
-                    if (touch.y >= 110 && touch.y <= 170 && touch.x >= 100 && touch.x <= 366) {
+                    if (touch.y >= 110 && touch.y <= 170 && touch.x >= 85 && touch.x <= 370) {
                       id(target_speaker_id) = "${local_player_id}";
                       id(target_speaker_name) = "${friendly_name}";
                       id(speaker_transfer_to_target).execute();
                       return;
                     // Pill 2: UNJOIN AUDIO (y: 171..228, x: 100..366, center y = 200)
-                    } else if (touch.y >= 171 && touch.y <= 228 && touch.x >= 100 && touch.x <= 366) {
+                    } else if (touch.y >= 171 && touch.y <= 228 && touch.x >= 85 && touch.x <= 370) {
                       id(speaker_unjoin_target).execute();
                       return;
                     // Pill 3: STOP PLAYBACK (y: 229..295, x: 100..366, center y = 258)
-                    } else if (touch.y >= 229 && touch.y <= 295 && touch.x >= 100 && touch.x <= 366) {
+                    } else if (touch.y >= 229 && touch.y <= 295 && touch.x >= 85 && touch.x <= 370) {
                       id(toggle_ha_music).execute();
                       id(music_overlay_mode) = 0;
                       id(disp1).update();
@@ -8333,11 +8378,11 @@ touchscreen:
                     }
                   } else {
                     // Pill 1: UNJOIN AUDIO (y: 120..194, x: 100..366, center y = 160)
-                    if (touch.y >= 120 && touch.y <= 194 && touch.x >= 100 && touch.x <= 366) {
+                    if (touch.y >= 120 && touch.y <= 194 && touch.x >= 85 && touch.x <= 370) {
                       id(speaker_unjoin_target).execute();
                       return;
                     // Pill 2: STOP PLAYBACK (y: 195..275, x: 100..366, center y = 230)
-                    } else if (touch.y >= 195 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                    } else if (touch.y >= 195 && touch.y <= 275 && touch.x >= 85 && touch.x <= 370) {
                       id(toggle_ha_music).execute();
                       id(music_overlay_mode) = 0;
                       id(disp1).update();
@@ -8346,8 +8391,8 @@ touchscreen:
                   }
                 }
 
-                // Standardized Centered < BACK Button (y >= 340, x: 80..386) -> Returns to Speakers Browser
-                if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386) -> Returns to Speakers Browser
+                if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 1;
                   id(disp1).update();
                   return;
@@ -8589,7 +8634,7 @@ touchscreen:
                   else if (touch.y >= 134 && touch.y <= 191) slot_idx = 1; // Slot 2 (y=162)
                   else if (touch.y >= 192 && touch.y <= 249) slot_idx = 2; // Slot 3 (y=220)
                   else if (touch.y >= 250 && touch.y <= 307) slot_idx = 3; // Slot 4 (y=278)
-                  else if (touch.y >= 308 && touch.y <= 365) slot_idx = 4; // Slot 5 (y=336)
+                  else if (touch.y >= 308 && touch.y <= 374) slot_idx = 4; // Slot 5 (y=336)
 
                   if (slot_idx >= 0) {
                     // Page 1: item index = slot_idx (items 0..4)
@@ -8600,8 +8645,8 @@ touchscreen:
                   }
                 }
 
-                // Submenu < BACK Button: Ultra-generous touch zone extending to bottom chin (y >= 365, x: 80..386)
-                if (touch.y >= 365 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386) -> Returns to Main System Dashboard
+                if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(sleep_menu_page) = 1;
                   id(menu_scroll_active) = false;
@@ -8665,8 +8710,8 @@ touchscreen:
                   call.set_option(nxt_so);
                   call.perform();
                   id(disp1).update();
-                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
-                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                } else if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
@@ -8696,8 +8741,8 @@ touchscreen:
                 } else if (touch.y >= 259 && touch.y <= 314 && touch.x >= 90 && touch.x <= 376) {
                   id(system_menu_mode) = 5; // Open Software Update Screen
                   id(disp1).update();
-                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
-                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                } else if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
@@ -8729,8 +8774,8 @@ touchscreen:
                     id(check_firmware_update).execute();
                     id(disp1).update();
                   }
-                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
-                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                } else if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(update_check_state) = 0; // Reset checking state
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
@@ -8790,18 +8835,18 @@ touchscreen:
                   call.perform();
                   id(disp1).update();
                 // Card 5: Voice Assistant Screen Wake Toggle (y: 308..365, x: 75..395, pill at y=336)
-                } else if (touch.y >= 308 && touch.y <= 365 && touch.x >= 75 && touch.x <= 395) {
+                } else if (touch.y >= 308 && touch.y <= 374 && touch.x >= 75 && touch.x <= 395) {
                   id(va_wake_screen_switch).toggle();
                   id(disp1).update();
-                // Standardized generous < BACK Button at y = 408 (y >= 366, x: 80..386)
-                } else if (touch.y >= 366 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                } else if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 8) {
                 // Mode 8: System Info Submenu
-                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
-                if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 } else {
@@ -8826,8 +8871,8 @@ touchscreen:
                 // Card 3: Time Sync Status (y: 199..254, x: 90..376, pill at y=224)
                 } else if (touch.y >= 199 && touch.y <= 254 && touch.x >= 90 && touch.x <= 376) {
                   id(disp1).update();
-                // Standardized generous < BACK Button at y = 408 (y >= 340, x: 80..386)
-                } else if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                } else if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(system_menu_mode) = 0; // Return to Main System Dashboard
                   id(disp1).update();
                 }
@@ -9082,8 +9127,8 @@ touchscreen:
                     return;
                   }
 
-                  // Standardized System < BACK Button at y = 408 (generous chin-to-bezel touch zone y >= 340, x: 80..386)
-                  if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                  // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                  if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                     id(alarm_edit_idx) = 0;
                     if (edit_idx == 1) id(alarm1_enabled) = true;
                     if (edit_idx == 2) id(alarm2_enabled) = true;
