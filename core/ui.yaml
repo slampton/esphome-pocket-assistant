@@ -3008,6 +3008,8 @@ script:
             id(sleep_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
             id(music_category_page) = id(menu_scroll_target_page);
+          } else if (id(gui_page) == 3 && id(active_game) == 0) {
+            id(game_carousel_idx) = id(menu_scroll_target_page);
           }
           id(menu_scroll_step) = 0;
 
@@ -4811,38 +4813,10 @@ display:
         float roll_delta = roll - zero_roll;
 
         // ----------------------------------------------------
-        // STATE 0: GAMES MENU LAUNCHER (Dead-Centered Carousel)
+        // STATE 0: GAMES MENU LAUNCHER (Vertical Slot Machine Carousel)
         // ----------------------------------------------------
         if (id(active_game) == 0) {
-          // Standardized Title at y = 40 (aligned across all OS menus)
-          it.print(cx, 40, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
-
-          // 4 Pagination Indicator Dots at y = 64 (Active is White to match Game Title)
-          int dot_spacing = 16;
-          int start_dot_x = cx - 24;
-          for (int i = 0; i < 4; i++) {
-            int dx = start_dot_x + i * dot_spacing;
-            if (i == id(game_carousel_idx)) {
-              it.filled_circle(dx - 4, 64, 3, id(col_white));
-              it.filled_circle(dx + 4, 64, 3, id(col_white));
-              it.filled_rectangle(dx - 4, 61, 9, 7, id(col_white));
-            } else {
-              it.filled_circle(dx, 64, 2, id(col_slate));
-            }
-          }
-
-          // Flank Navigation Chevrons: Directional Carousel at y = 220 (x = 36 and x = 430)
-          it.line(36 + 4, 220 - 9, 36 - 4, 220, id(theme_secondary));
-          it.line(36 + 5, 220 - 9, 36 - 3, 220, id(theme_secondary));
-          it.line(36 + 4, 220 + 9, 36 - 4, 220, id(theme_secondary));
-          it.line(36 + 5, 220 + 9, 36 - 3, 220, id(theme_secondary));
-
-          it.line(430 - 4, 220 - 9, 430 + 4, 220, id(theme_secondary));
-          it.line(430 - 5, 220 - 9, 430 + 3, 220, id(theme_secondary));
-          it.line(430 - 4, 220 + 9, 430 + 4, 220, id(theme_secondary));
-          it.line(430 - 5, 220 + 9, 430 + 3, 220, id(theme_secondary));
-
-          // Clean Capsule Drawer Lambda (eliminates overlapping circle artifacts)
+          // Clean Capsule Drawer Lambda
           auto draw_capsule = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c) {
             it.filled_circle(x1, y_mid, r, border_c);
             it.filled_circle(x2, y_mid, r, border_c);
@@ -4853,238 +4827,282 @@ display:
             it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
           };
 
-          int card_cy = 220; // Aligned with mid-flank carrots (chevrons) at y = 220
-          const char* game_title = "MARBLES";
-          const char* game_desc = "Tilt to Sink All Marbles";
-          int best_score = id(high_score_marbles);
+          // Individual Game Icon Renderer (Position-Independent)
+          auto draw_game_icon = [&](int g_idx, int icon_x, int icon_y) {
+            if (g_idx == 0) {
+              // ------------------------------------------------------------------
+              // GAME 0: MARBLES
+              // ------------------------------------------------------------------
+              it.filled_circle(icon_x, icon_y, 52, Color(18, 24, 28));
+              it.circle(icon_x, icon_y, 52, id(col_slate));
+              it.circle(icon_x, icon_y, 51, id(col_slate));
+              it.circle(icon_x, icon_y, 46, Color(30, 40, 48));
 
-          // ------------------------------------------------------------------
-          // GAME 0: MARBLES
-          // ------------------------------------------------------------------
-          if (id(game_carousel_idx) == 0) {
-            game_title = "MARBLES";
-            game_desc = "Tilt to Sink All Marbles";
-            best_score = id(high_score_marbles);
+              it.filled_circle(icon_x, icon_y, 15, id(col_black));
+              it.circle(icon_x, icon_y, 15, Color(45, 55, 65));
+              it.circle(icon_x, icon_y, 14, Color(45, 55, 65));
 
-            // Recessed circular arena dish
-            it.filled_circle(cx, card_cy, 52, Color(18, 24, 28));
-            it.circle(cx, card_cy, 52, id(col_slate));
-            it.circle(cx, card_cy, 51, id(col_slate));
-            it.circle(cx, card_cy, 46, Color(30, 40, 48));
-
-            // Center drop hole with depth ring
-            it.filled_circle(cx, card_cy, 15, id(col_black));
-            it.circle(cx, card_cy, 15, Color(45, 55, 65));
-            it.circle(cx, card_cy, 14, Color(45, 55, 65));
-
-            // Subtle spiral swirl grooves
-            for (int a = 0; a < 4; a++) {
-              float sa = a * 1.570796f;
-              it.line(cx + (int)(cosf(sa) * 18.0f), card_cy + (int)(sinf(sa) * 18.0f),
-                      cx + (int)(cosf(sa + 0.8f) * 40.0f), card_cy + (int)(sinf(sa + 0.8f) * 40.0f), Color(35, 45, 55));
-            }
-
-            // 5 Lustrous 3D Marbles
-            auto draw_marble_3d = [&](int mx, int my, int r, Color base_c, Color hi_c) {
-              it.filled_circle(mx + 2, my + 3, r, Color(10, 12, 14)); // shadow
-              it.filled_circle(mx, my, r, base_c);
-              it.circle(mx, my, r, id(col_white));
-              it.circle(mx - 1, my - 1, r - 2, hi_c);
-              it.filled_circle(mx - r / 3, my - r / 3, 2, id(col_white)); // specular dot
-            };
-            draw_marble_3d(cx - 24, card_cy - 18, 13, id(col_red), Color(255, 138, 128));
-            draw_marble_3d(cx + 22, card_cy - 22, 12, id(col_cyan), Color(180, 255, 255));
-            draw_marble_3d(cx - 20, card_cy + 22, 11, id(col_green), Color(185, 246, 202));
-            draw_marble_3d(cx + 24, card_cy + 18, 13, id(col_gold), Color(255, 245, 157));
-            draw_marble_3d(cx + 2, card_cy - 31, 10, id(col_magenta), Color(248, 187, 208));
-
-          // ------------------------------------------------------------------
-          // GAME 1: ARCHERY
-          // ------------------------------------------------------------------
-          } else if (id(game_carousel_idx) == 1) {
-            game_title = "ARCHERY";
-            game_desc = "Tilt Aim • Tap to Shoot";
-            best_score = id(high_score_archery);
-
-            // Recurve bow on the left
-            it.line(cx - 52, card_cy - 50, cx - 52, card_cy + 50, id(col_silver));
-            for (int i = -50; i <= 50; i++) {
-              int curve = (int)(17.0f * (1.0f - ((float)i / 50.0f) * ((float)i / 50.0f)));
-              int bx = cx - 52 + curve;
-              int by = card_cy + i;
-              it.draw_pixel_at(bx, by, id(col_warm_gold));
-              it.draw_pixel_at(bx + 1, by, id(col_gold));
-              it.draw_pixel_at(bx + 2, by, id(col_warm_gold));
-            }
-            it.filled_rectangle(cx - 36, card_cy - 8, 5, 17, id(col_slate));
-
-            // Concentric Target centered at (cx + 8, card_cy)
-            int tx = cx + 8, ty = card_cy;
-            it.filled_circle(tx, ty, 45, id(col_white));
-            it.circle(tx, ty, 45, id(col_gray));
-            it.filled_circle(tx, ty, 36, Color(20, 20, 20));
-            it.circle(tx, ty, 36, id(col_slate));
-            it.filled_circle(tx, ty, 27, id(col_cyan));
-            it.circle(tx, ty, 27, Color(0, 180, 210));
-            it.filled_circle(tx, ty, 18, id(col_red));
-            it.circle(tx, ty, 18, Color(180, 20, 20));
-            it.filled_circle(tx, ty, 10, id(col_gold));
-            it.circle(tx, ty, 10, id(col_warm_gold));
-            it.filled_circle(tx, ty, 4, id(col_red));
-            it.draw_pixel_at(tx, ty, id(col_white));
-
-            // Arrow hitting bullseye at an angle
-            it.line(cx - 42, card_cy + 39, tx, ty, id(col_white));
-            it.line(cx - 41, card_cy + 40, tx + 1, ty + 1, id(col_slate));
-            it.line(cx - 48, card_cy + 35, cx - 40, card_cy + 43, id(col_red));
-            it.line(cx - 46, card_cy + 45, cx - 38, card_cy + 37, id(col_gold));
-            it.line(tx + 4, ty - 8, tx + 8, ty - 12, id(col_gold));
-            it.line(tx + 8, ty + 4, tx + 14, ty + 6, id(col_gold));
-            it.line(tx - 6, ty - 8, tx - 10, ty - 12, id(col_gold));
-
-          // ------------------------------------------------------------------
-          // GAME 2: BREAKOUT
-          // ------------------------------------------------------------------
-          } else if (id(game_carousel_idx) == 2) {
-            game_title = "BREAKOUT";
-            game_desc = "Tilt Paddle • Break Bricks";
-            best_score = id(high_score_breakout);
-
-            // Brick Grid (3 rows of 4 bricks)
-            int b_w = 26, b_h = 11, gap_x = 4, gap_y = 5;
-            int start_bx = cx - (int)(2.0f * b_w + 1.5f * gap_x);
-            int start_by = card_cy - 46;
-            Color row_c[3] = {id(col_gold), id(col_cyan), id(col_orange)};
-            Color row_hi[3] = {Color(255, 245, 157), Color(180, 255, 255), Color(255, 183, 77)};
-            for (int r = 0; r < 3; r++) {
-              for (int c = 0; c < 4; c++) {
-                if (r == 1 && c == 2) {
-                  int bx = start_bx + c * (b_w + gap_x) + b_w / 2;
-                  int by = start_by + r * (b_h + gap_y) + b_h / 2;
-                  it.filled_rectangle(bx - 10, by - 6, 6, 4, row_c[r]);
-                  it.filled_rectangle(bx + 4, by - 8, 5, 5, row_hi[r]);
-                  it.filled_rectangle(bx - 6, by + 4, 5, 5, row_c[r]);
-                  it.filled_rectangle(bx + 5, by + 3, 6, 4, row_hi[r]);
-                  it.filled_circle(bx, by, 2, id(col_white));
-                  continue;
-                }
-                int bx = start_bx + c * (b_w + gap_x);
-                int by = start_by + r * (b_h + gap_y);
-                it.filled_rectangle(bx, by, b_w, b_h, row_c[r]);
-                it.rectangle(bx, by, b_w, b_h, Color(20, 20, 20));
-                it.line(bx + 1, by + 1, bx + b_w - 2, by + 1, row_hi[r]);
-                it.line(bx + 1, by + 1, bx + 1, by + b_h - 2, row_hi[r]);
+              for (int a = 0; a < 4; a++) {
+                float sa = a * 1.570796f;
+                it.line(icon_x + (int)(cosf(sa) * 18.0f), icon_y + (int)(sinf(sa) * 18.0f),
+                        icon_x + (int)(cosf(sa + 0.8f) * 40.0f), icon_y + (int)(sinf(sa + 0.8f) * 40.0f), Color(35, 45, 55));
               }
+
+              auto draw_marble_3d = [&](int mx, int my, int r, Color base_c, Color hi_c) {
+                it.filled_circle(mx + 2, my + 3, r, Color(10, 12, 14));
+                it.filled_circle(mx, my, r, base_c);
+                it.circle(mx, my, r, id(col_white));
+                it.circle(mx - 1, my - 1, r - 2, hi_c);
+                it.filled_circle(mx - r / 3, my - r / 3, 2, id(col_white));
+              };
+              draw_marble_3d(icon_x - 24, icon_y - 18, 13, id(col_red), Color(255, 138, 128));
+              draw_marble_3d(icon_x + 22, icon_y - 22, 12, id(col_cyan), Color(180, 255, 255));
+              draw_marble_3d(icon_x - 20, icon_y + 22, 11, id(col_green), Color(185, 246, 202));
+              draw_marble_3d(icon_x + 24, icon_y + 18, 13, id(col_gold), Color(255, 245, 157));
+              draw_marble_3d(icon_x + 2, icon_y - 31, 10, id(col_magenta), Color(248, 187, 208));
+
+            } else if (g_idx == 1) {
+              // ------------------------------------------------------------------
+              // GAME 1: ARCHERY
+              // ------------------------------------------------------------------
+              it.line(icon_x - 52, icon_y - 50, icon_x - 52, icon_y + 50, id(col_silver));
+              for (int i = -50; i <= 50; i++) {
+                int curve = (int)(17.0f * (1.0f - ((float)i / 50.0f) * ((float)i / 50.0f)));
+                int bx = icon_x - 52 + curve;
+                int by = icon_y + i;
+                it.draw_pixel_at(bx, by, id(col_warm_gold));
+                it.draw_pixel_at(bx + 1, by, id(col_gold));
+                it.draw_pixel_at(bx + 2, by, id(col_warm_gold));
+              }
+              it.filled_rectangle(icon_x - 36, icon_y - 8, 5, 17, id(col_slate));
+
+              int tx = icon_x + 8, ty = icon_y;
+              it.filled_circle(tx, ty, 45, id(col_white));
+              it.circle(tx, ty, 45, id(col_gray));
+              it.filled_circle(tx, ty, 36, Color(20, 20, 20));
+              it.circle(tx, ty, 36, id(col_slate));
+              it.filled_circle(tx, ty, 27, id(col_cyan));
+              it.circle(tx, ty, 27, Color(0, 180, 210));
+              it.filled_circle(tx, ty, 18, id(col_red));
+              it.circle(tx, ty, 18, Color(180, 20, 20));
+              it.filled_circle(tx, ty, 10, id(col_gold));
+              it.circle(tx, ty, 10, id(col_warm_gold));
+              it.filled_circle(tx, ty, 4, id(col_red));
+              it.draw_pixel_at(tx, ty, id(col_white));
+
+              it.line(icon_x - 42, icon_y + 39, tx, ty, id(col_white));
+              it.line(icon_x - 41, icon_y + 40, tx + 1, ty + 1, id(col_slate));
+              it.line(icon_x - 48, icon_y + 35, icon_x - 40, icon_y + 43, id(col_red));
+              it.line(icon_x - 46, icon_y + 45, icon_x - 38, icon_y + 37, id(col_gold));
+              it.line(tx + 4, ty - 8, tx + 8, ty - 12, id(col_gold));
+              it.line(tx + 8, ty + 4, tx + 14, ty + 6, id(col_gold));
+              it.line(tx - 6, ty - 8, tx - 10, ty - 12, id(col_gold));
+
+            } else if (g_idx == 2) {
+              // ------------------------------------------------------------------
+              // GAME 2: BREAKOUT
+              // ------------------------------------------------------------------
+              int b_w = 26, b_h = 11, gap_x = 4, gap_y = 5;
+              int start_bx = icon_x - (int)(2.0f * b_w + 1.5f * gap_x);
+              int start_by = icon_y - 46;
+              Color row_c[3] = {id(col_gold), id(col_cyan), id(col_orange)};
+              Color row_hi[3] = {Color(255, 245, 157), Color(180, 255, 255), Color(255, 183, 77)};
+              for (int r = 0; r < 3; r++) {
+                for (int c = 0; c < 4; c++) {
+                  if (r == 1 && c == 2) {
+                    int bx = start_bx + c * (b_w + gap_x) + b_w / 2;
+                    int by = start_by + r * (b_h + gap_y) + b_h / 2;
+                    it.filled_rectangle(bx - 10, by - 6, 6, 4, row_c[r]);
+                    it.filled_rectangle(bx + 4, by - 8, 5, 5, row_hi[r]);
+                    it.filled_rectangle(bx - 6, by + 4, 5, 5, row_c[r]);
+                    it.filled_rectangle(bx + 5, by + 3, 6, 4, row_hi[r]);
+                    it.filled_circle(bx, by, 2, id(col_white));
+                    continue;
+                  }
+                  int bx = start_bx + c * (b_w + gap_x);
+                  int by = start_by + r * (b_h + gap_y);
+                  it.filled_rectangle(bx, by, b_w, b_h, row_c[r]);
+                  it.rectangle(bx, by, b_w, b_h, Color(20, 20, 20));
+                  it.line(bx + 1, by + 1, bx + b_w - 2, by + 1, row_hi[r]);
+                  it.line(bx + 1, by + 1, bx + 1, by + b_h - 2, row_hi[r]);
+                }
+              }
+
+              int ball_x = icon_x + 8, ball_y = icon_y + 5;
+              it.filled_circle(ball_x - 10, ball_y + 16, 3, Color(60, 50, 20));
+              it.filled_circle(ball_x - 4, ball_y + 9, 4, Color(140, 110, 30));
+              it.filled_circle(ball_x, ball_y, 6, id(col_gold));
+              it.circle(ball_x, ball_y, 6, id(col_white));
+              it.filled_circle(ball_x - 2, ball_y - 2, 2, id(col_white));
+
+              int pad_y = icon_y + 42, pad_w = 64;
+              it.filled_circle(icon_x - pad_w / 2 + 6, pad_y + 6, 6, id(theme_primary));
+              it.filled_circle(icon_x + pad_w / 2 - 6, pad_y + 6, 6, id(theme_primary));
+              it.filled_rectangle(icon_x - pad_w / 2 + 6, pad_y, pad_w - 12, 13, id(theme_primary));
+              it.circle(icon_x - pad_w / 2 + 6, pad_y + 6, 6, id(col_white));
+              it.circle(icon_x + pad_w / 2 - 6, pad_y + 6, 6, id(col_white));
+              it.line(icon_x - pad_w / 2 + 6, pad_y, icon_x + pad_w / 2 - 6, pad_y, id(col_white));
+              it.line(icon_x - pad_w / 2 + 6, pad_y + 12, icon_x + pad_w / 2 - 6, pad_y + 12, id(col_white));
+              it.filled_rectangle(icon_x - pad_w / 2 + 16, pad_y + 4, pad_w - 32, 5, id(col_white));
+
+            } else {
+              // ------------------------------------------------------------------
+              // GAME 3: CHOMP FOR KIDS
+              // ------------------------------------------------------------------
+              int mx = icon_x - 18, my = icon_y, mr = 42;
+              it.filled_circle(mx, my, mr, id(col_cyan));
+              it.filled_triangle(mx, my, mx + 48, my - 28, mx + 48, my + 28, id(col_bg));
+
+              for (int deg = 35; deg <= 325; deg++) {
+                float rad = deg * 0.0174533f;
+                it.draw_pixel_at(mx + (int)(cosf(rad) * mr), my + (int)(sinf(rad) * mr), id(col_white));
+                it.draw_pixel_at(mx + (int)(cosf(rad) * (mr - 1)), my + (int)(sinf(rad) * (mr - 1)), id(col_white));
+              }
+              int m_top_x = mx + (int)(cosf(35.0f * 0.0174533f) * mr);
+              int m_top_y = my + (int)(sinf(35.0f * 0.0174533f) * mr);
+              int m_bot_x = mx + (int)(cosf(325.0f * 0.0174533f) * mr);
+              int m_bot_y = my + (int)(sinf(325.0f * 0.0174533f) * mr);
+              it.line(mx, my, m_top_x, m_top_y, id(col_white));
+              it.line(mx + 1, my, m_top_x + 1, m_top_y, id(col_white));
+              it.line(mx, my, m_bot_x, m_bot_y, id(col_white));
+              it.line(mx + 1, my, m_bot_x + 1, m_bot_y, id(col_white));
+
+              it.filled_triangle(mx + 8, my - 20, mx + 17, my - 11, mx + 20, my - 22, id(col_white));
+              it.filled_triangle(mx + 8, my + 20, mx + 17, my + 11, mx + 20, my + 22, id(col_white));
+
+              int ex = mx + 2, ey = my - 20;
+              it.filled_circle(ex, ey, 12, id(col_white));
+              it.circle(ex, ey, 12, id(col_dark_gray));
+              it.filled_circle(ex + 4, ey - 1, 6, id(col_black));
+              it.filled_circle(ex + 5, ey - 2, 2, id(col_white));
+
+              it.filled_circle(mx - 8, my + 12, 6, Color(0, 180, 200));
+
+              int t1_x = icon_x + 24, t1_y = my - 2;
+              it.filled_circle(t1_x, t1_y, 8, id(col_red));
+              it.circle(t1_x, t1_y, 8, id(col_white));
+              it.line(t1_x - 4, t1_y - 9, t1_x + 4, t1_y - 9, id(col_green));
+              it.draw_pixel_at(t1_x, t1_y - 11, id(col_green));
+              it.draw_pixel_at(t1_x - 3, t1_y - 1, id(col_gold));
+              it.draw_pixel_at(t1_x + 3, t1_y - 1, id(col_gold));
+              it.draw_pixel_at(t1_x, t1_y + 4, id(col_gold));
+
+              int t2_x = icon_x + 52, t2_y = my - 22;
+              it.filled_circle(t2_x, t2_y, 5, id(col_gold));
+              it.circle(t2_x, t2_y, 5, id(col_white));
+              it.line(t2_x, t2_y - 9, t2_x, t2_y + 9, id(col_gold));
+              it.line(t2_x - 9, t2_y, t2_x + 9, t2_y, id(col_gold));
+
+              int t3_x = icon_x + 50, t3_y = my + 22;
+              it.filled_circle(t3_x, t3_y, 7, id(col_magenta));
+              it.circle(t3_x, t3_y, 7, id(col_white));
+              it.line(t3_x - 12, t3_y - 4, t3_x - 6, t3_y, id(col_magenta));
+              it.line(t3_x - 12, t3_y + 4, t3_x - 6, t3_y, id(col_magenta));
+              it.line(t3_x + 12, t3_y - 4, t3_x + 6, t3_y, id(col_magenta));
+              it.line(t3_x + 12, t3_y + 4, t3_x + 6, t3_y, id(col_magenta));
+            }
+          };
+
+          // Full Game Card Composite (Icon + Instructions + Title + High Score)
+          auto draw_game_card = [&](int g_idx, int icon_x, int icon_y, int text_center_x, int title_y, int score_y, int desc_y) {
+            const char* title = "MARBLES";
+            const char* desc = "Tilt to Sink All Marbles";
+            int score = id(high_score_marbles);
+            if (g_idx == 0) {
+              title = "MARBLES";
+              desc = "Tilt to Sink All Marbles";
+              score = id(high_score_marbles);
+            } else if (g_idx == 1) {
+              title = "ARCHERY";
+              desc = "Tilt Aim • Tap to Shoot";
+              score = id(high_score_archery);
+            } else if (g_idx == 2) {
+              title = "BREAKOUT";
+              desc = "Tilt Paddle • Break Bricks";
+              score = id(high_score_breakout);
+            } else {
+              title = "CHOMP FOR KIDS";
+              desc = "Tilt & Tap to Feed Monster";
+              score = id(high_score_chomp);
             }
 
-            // Glowing Energy Ball & Trail
-            int ball_x = cx + 8, ball_y = card_cy + 5;
-            it.filled_circle(ball_x - 10, ball_y + 16, 3, Color(60, 50, 20));
-            it.filled_circle(ball_x - 4, ball_y + 9, 4, Color(140, 110, 30));
-            it.filled_circle(ball_x, ball_y, 6, id(col_gold));
-            it.circle(ball_x, ball_y, 6, id(col_white));
-            it.filled_circle(ball_x - 2, ball_y - 2, 2, id(col_white));
+            // 1. Instructions at desc_y (centered at cx = 233, font_small, col_slate)
+            if (desc_y >= 75 && desc_y <= 295) {
+              it.print(cx, desc_y, id(font_small), id(col_slate), TextAlign::CENTER, desc);
+            }
 
-            // Paddle at bottom of card
-            int pad_y = card_cy + 42, pad_w = 64;
-            it.filled_circle(cx - pad_w / 2 + 6, pad_y + 6, 6, id(theme_primary));
-            it.filled_circle(cx + pad_w / 2 - 6, pad_y + 6, 6, id(theme_primary));
-            it.filled_rectangle(cx - pad_w / 2 + 6, pad_y, pad_w - 12, 13, id(theme_primary));
-            it.circle(cx - pad_w / 2 + 6, pad_y + 6, 6, id(col_white));
-            it.circle(cx + pad_w / 2 - 6, pad_y + 6, 6, id(col_white));
-            it.line(cx - pad_w / 2 + 6, pad_y, cx + pad_w / 2 - 6, pad_y, id(col_white));
-            it.line(cx - pad_w / 2 + 6, pad_y + 12, cx + pad_w / 2 - 6, pad_y + 12, id(col_white));
-            it.filled_rectangle(cx - pad_w / 2 + 16, pad_y + 4, pad_w - 32, 5, id(col_white));
+            // 2. Game Icon at (icon_x, icon_y)
+            if (icon_y >= 50 && icon_y <= 390) {
+              draw_game_icon(g_idx, icon_x, icon_y);
+            }
 
-          // ------------------------------------------------------------------
-          // GAME 3: CHOMP FOR KIDS
-          // ------------------------------------------------------------------
+            // 3. Game Title at (text_center_x, title_y)
+            if (title_y >= 75 && title_y <= 295) {
+              it.print(text_center_x, title_y, id(font_btn_bold), id(col_white), TextAlign::CENTER, title);
+            }
+
+            // 4. High Score at (text_center_x, score_y)
+            if (score_y >= 75 && score_y <= 295) {
+              char sc_buf[32];
+              if (score > 0) snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: %d", score);
+              else snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: --");
+              it.print(text_center_x, score_y, id(font_small), id(col_gold), TextAlign::CENTER, sc_buf);
+            }
+          };
+
+          int icon_cx = 110;
+          int card_cy = 220;
+          int text_cx = 285;
+          int base_title_y = 195;
+          int base_score_y = 235;
+          int base_desc_y = 106;
+
+          static const int16_t SCROLL_EASE_174[5] = {0, 38, 95, 148, 174};
+
+          if (id(menu_scroll_active)) {
+            int step = id(menu_scroll_step);
+            if (step > 4) step = 4;
+            int offset = SCROLL_EASE_174[step];
+            int dir = id(menu_scroll_dir);
+
+            int out_shift = -dir * offset;
+            int in_shift = dir * (174 - offset);
+
+            int out_idx = id(game_carousel_idx);
+            int in_idx = id(menu_scroll_target_page);
+
+            draw_game_card(out_idx, icon_cx, card_cy + out_shift, text_cx, base_title_y + out_shift, base_score_y + out_shift, base_desc_y + out_shift);
+            draw_game_card(in_idx, icon_cx, card_cy + in_shift, text_cx, base_title_y + in_shift, base_score_y + in_shift, base_desc_y + in_shift);
           } else {
-            game_title = "CHOMP FOR KIDS";
-            game_desc = "Tilt & Tap to Feed Monster";
-            best_score = id(high_score_chomp);
-
-            int mx = cx - 18, my = card_cy, mr = 42;
-            // Body circle with wedge mouth (NO circle line cutting across mouth)
-            it.filled_circle(mx, my, mr, id(col_cyan));
-            it.filled_triangle(mx, my, mx + 48, my - 28, mx + 48, my + 28, id(col_bg));
-
-            // Draw white outline ONLY along the outer arc (35 deg to 325 deg)
-            for (int deg = 35; deg <= 325; deg++) {
-              float rad = deg * 0.0174533f;
-              it.draw_pixel_at(mx + (int)(cosf(rad) * mr), my + (int)(sinf(rad) * mr), id(col_white));
-              it.draw_pixel_at(mx + (int)(cosf(rad) * (mr - 1)), my + (int)(sinf(rad) * (mr - 1)), id(col_white));
-            }
-            int m_top_x = mx + (int)(cosf(35.0f * 0.0174533f) * mr);
-            int m_top_y = my + (int)(sinf(35.0f * 0.0174533f) * mr);
-            int m_bot_x = mx + (int)(cosf(325.0f * 0.0174533f) * mr);
-            int m_bot_y = my + (int)(sinf(325.0f * 0.0174533f) * mr);
-            it.line(mx, my, m_top_x, m_top_y, id(col_white));
-            it.line(mx + 1, my, m_top_x + 1, m_top_y, id(col_white));
-            it.line(mx, my, m_bot_x, m_bot_y, id(col_white));
-            it.line(mx + 1, my, m_bot_x + 1, m_bot_y, id(col_white));
-
-            // Cute Teeth
-            it.filled_triangle(mx + 8, my - 20, mx + 17, my - 11, mx + 20, my - 22, id(col_white));
-            it.filled_triangle(mx + 8, my + 20, mx + 17, my + 11, mx + 20, my + 22, id(col_white));
-
-            // Big Expressive Eye
-            int ex = mx + 2, ey = my - 20;
-            it.filled_circle(ex, ey, 12, id(col_white));
-            it.circle(ex, ey, 12, id(col_dark_gray));
-            it.filled_circle(ex + 4, ey - 1, 6, id(col_black));
-            it.filled_circle(ex + 5, ey - 2, 2, id(col_white));
-
-            // Blush Cheek
-            it.filled_circle(mx - 8, my + 12, 6, Color(0, 180, 200));
-
-            // Treats Floating Into Mouth
-            // Treat 1: Strawberry
-            int t1_x = cx + 24, t1_y = my - 2;
-            it.filled_circle(t1_x, t1_y, 8, id(col_red));
-            it.circle(t1_x, t1_y, 8, id(col_white));
-            it.line(t1_x - 4, t1_y - 9, t1_x + 4, t1_y - 9, id(col_green));
-            it.draw_pixel_at(t1_x, t1_y - 11, id(col_green));
-            it.draw_pixel_at(t1_x - 3, t1_y - 1, id(col_gold));
-            it.draw_pixel_at(t1_x + 3, t1_y - 1, id(col_gold));
-            it.draw_pixel_at(t1_x, t1_y + 4, id(col_gold));
-
-            // Treat 2: Golden Star Cookie
-            int t2_x = cx + 52, t2_y = my - 22;
-            it.filled_circle(t2_x, t2_y, 5, id(col_gold));
-            it.circle(t2_x, t2_y, 5, id(col_white));
-            it.line(t2_x, t2_y - 9, t2_x, t2_y + 9, id(col_gold));
-            it.line(t2_x - 9, t2_y, t2_x + 9, t2_y, id(col_gold));
-
-            // Treat 3: Purple Candy Drop
-            int t3_x = cx + 50, t3_y = my + 22;
-            it.filled_circle(t3_x, t3_y, 7, id(col_magenta));
-            it.circle(t3_x, t3_y, 7, id(col_white));
-            it.line(t3_x - 12, t3_y - 4, t3_x - 6, t3_y, id(col_magenta));
-            it.line(t3_x - 12, t3_y + 4, t3_x - 6, t3_y, id(col_magenta));
-            it.line(t3_x + 12, t3_y - 4, t3_x + 6, t3_y, id(col_magenta));
-            it.line(t3_x + 12, t3_y + 4, t3_x + 6, t3_y, id(col_magenta));
+            draw_game_card(id(game_carousel_idx), icon_cx, card_cy, text_cx, base_title_y, base_score_y, base_desc_y);
           }
 
-          // ------------------------------------------------------------------
-          // SHARED CAROUSEL CARD TYPOGRAPHY & CONTROLS
-          // ------------------------------------------------------------------
-          // 1. Game Title ABOVE ICON at y = 106 (Centered, Bold, White)
-          it.print(cx, 106, id(font_btn_bold), id(col_white), TextAlign::CENTER, game_title);
+          // Top Viewport Mask (ensures pure AMOLED black behind Title)
+          it.filled_rectangle(0, 0, 466, 76, id(col_bg));
+          it.print(cx, 40, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
 
-          // 2. High Score directly underneath Game Title at y = 138 (No pill, luminous gold, font_small)
-          char sc_buf[32];
-          if (best_score > 0) snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: %d", best_score);
-          else snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: --");
-          it.print(cx, 138, id(font_small), id(col_gold), TextAlign::CENTER, sc_buf);
+          // Bottom Viewport Mask (ensures pure AMOLED black behind START button)
+          it.filled_rectangle(0, 295, 466, 171, id(col_bg));
 
-          // 3. Instructions below icon at y = 302 (mirrors 21px top buffer)
-          it.print(cx, 302, id(font_small), id(col_slate), TextAlign::CENTER, game_desc);
+          // Taller Action Button: "START" at y = 330 (r = 22, height = 44px, font_btn_bold)
+          draw_capsule(cx - 55, cx + 55, 330, 22, id(theme_primary), id(col_dark_gray));
+          it.print(cx, 330, id(font_btn_bold), id(col_white), TextAlign::CENTER, "START");
 
-          // 4. Taller Action Button: "START" at y = 348 (r = 20, height = 40px, font_btn_bold)
-          draw_capsule(cx - 50, cx + 50, 348, 20, id(theme_primary), id(col_dark_gray));
-          it.print(cx, 348, id(font_btn_bold), id(col_white), TextAlign::CENTER, "START");
-          // Physical top crown button exits directly to watchface          // Physical top crown button exits directly to watchface
+          // Right Flank Navigation Chevrons: Option 1 Vertical Chevrons (x = 415, Up at 162, Down at 278)
+          // Always visible in true continuous carousel mode
+          it.filled_rectangle(395, 140, 71, 160, id(col_bg));
+
+          // Up Chevron (▲ at 415, 162)
+          it.line(415 - 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
+          it.line(415 - 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
+          it.line(415 + 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
+          it.line(415 + 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
+
+          // Down Chevron (▼ at 415, 278)
+          it.line(415 - 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
+          it.line(415 - 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
+          it.line(415 + 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
+          it.line(415 + 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
@@ -8209,21 +8227,40 @@ touchscreen:
             // Page 3: Games Menu Launcher or Active Game Touch Action
             } else if (id(gui_page) == 3) {
               if (id(active_game) == 0) {
-                // 1. Flank Navigation Chevrons: Edge tap for Carousel (x < 75 or x > 395, y: 70..365)
-                if (touch.y >= 70 && touch.y <= 365) {
-                  if (touch.x < 75) {
-                    id(game_carousel_idx) = (id(game_carousel_idx) + 3) % 4; // Previous game
-                    id(disp1).update();
-                    return;
-                  } else if (touch.x > 395) {
-                    id(game_carousel_idx) = (id(game_carousel_idx) + 1) % 4; // Next game
-                    id(disp1).update();
-                    return;
+                if (id(menu_scroll_active)) return;
+
+                // 1. Right-Flank Navigation Chevrons: Edge tap for Carousel (x >= 375, y: 70..365)
+                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 365) {
+                  static uint32_t last_game_scroll = 0;
+                  uint32_t now_gs = millis();
+                  if (now_gs - last_game_scroll > 200) {
+                    last_game_scroll = now_gs;
+                    if (touch.y < 220) {
+                      // Up Chevron tap: Previous game (wrap-around carousel, content slides down)
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = -1;
+                      id(menu_scroll_target_page) = (id(game_carousel_idx) + 3) % 4;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    } else {
+                      // Down Chevron tap: Next game (wrap-around carousel, content slides up)
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = 1;
+                      id(menu_scroll_target_page) = (id(game_carousel_idx) + 1) % 4;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    }
                   }
+                  return;
                 }
 
-                // 2. Center Card Tap: Launch Selected Game (x: 75..395, y: 90..375)
-                if (touch.x >= 75 && touch.x <= 395 && touch.y >= 90 && touch.y <= 375) {
+                // 2. Left flank grip discard
+                if (touch.x < 75) {
+                  return;
+                }
+
+                // 3. Center Card & START Button Tap: Launch Selected Game (x: 75..374, y: 90..375)
+                if (touch.x >= 75 && touch.x < 375 && touch.y >= 90 && touch.y <= 375) {
                   id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp)
                   if (id(active_game) > 0) {
                     // Pause background music and mute DAC for dedicated game resources
