@@ -2191,7 +2191,7 @@ script:
             search: !lambda |-
               if (id(selected_category_mode) == "artist_albums") {
                 return id(drilldown_artist_name).c_str();
-              } else if (id(selected_category_mode) == "album_tracks") {
+              } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
                 return id(drilldown_album_id).c_str();
               }
               return "";
@@ -2262,6 +2262,8 @@ script:
             - online_image.release: remote_album_art
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: pax_control_target
@@ -2310,6 +2312,8 @@ script:
             - online_image.release: remote_album_art
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: pax_join_target
@@ -2327,6 +2331,8 @@ script:
               return id(target_speaker_id).c_str();
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: pax_unjoin_target
@@ -2376,6 +2382,7 @@ script:
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
               return id(slot_1_type).c_str();
       - if:
           condition:
@@ -2385,6 +2392,8 @@ script:
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: play_music_slot_2
@@ -2405,6 +2414,7 @@ script:
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
               return id(slot_2_type).c_str();
       - if:
           condition:
@@ -2414,6 +2424,8 @@ script:
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: play_music_slot_3
@@ -2434,6 +2446,7 @@ script:
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
               return id(slot_3_type).c_str();
       - if:
           condition:
@@ -2443,6 +2456,8 @@ script:
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: play_music_slot_4
@@ -2463,6 +2478,7 @@ script:
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
               return id(slot_4_type).c_str();
       - if:
           condition:
@@ -2472,6 +2488,8 @@ script:
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: play_music_slot_5
@@ -2492,6 +2510,7 @@ script:
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+              if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
               return id(slot_5_type).c_str();
       - if:
           condition:
@@ -2501,6 +2520,8 @@ script:
       - delay: 200ms
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: select_music_slot_1
@@ -2600,6 +2621,8 @@ script:
                   - delay: 600ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
                 else:
                   - lambda: |-
@@ -2613,10 +2636,13 @@ script:
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
                           return id(slot_1_type).c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
 
   - id: select_music_slot_2
@@ -2716,6 +2742,8 @@ script:
                   - delay: 600ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
                 else:
                   - lambda: |-
@@ -2729,10 +2757,13 @@ script:
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
                           return id(slot_2_type).c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
 
   - id: select_music_slot_3
@@ -2832,6 +2863,8 @@ script:
                   - delay: 600ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
                 else:
                   - lambda: |-
@@ -2845,10 +2878,13 @@ script:
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
                           return id(slot_3_type).c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
 
   - id: select_music_slot_4
@@ -2948,6 +2984,8 @@ script:
                   - delay: 600ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
                 else:
                   - lambda: |-
@@ -2961,10 +2999,13 @@ script:
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
                           return id(slot_4_type).c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
 
   - id: select_music_slot_5
@@ -3064,6 +3105,8 @@ script:
                   - delay: 600ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
                 else:
                   - lambda: |-
@@ -3077,10 +3120,13 @@ script:
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
+                          if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
                           return id(slot_5_type).c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = millis();
                   - component.update: disp1
 
 
@@ -4898,6 +4944,7 @@ display:
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards - 5 Slots)
           // --------------------------------------------------
           bool is_spk = (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover");
+          bool is_podcast_list = (id(selected_category_mode) == "podcast");
           bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
 
           // Standardized Category/Item Title at y = 50 (matching OS standard)
@@ -4935,6 +4982,31 @@ display:
               // Drilldown Hamburger Icon [ ☰ ] on right end (x: 350..363)
               for (int dy : {-4, 0, 4}) {
                 it.filled_rectangle(350, y_mid + dy, 13, 2, id(theme_secondary));
+              }
+            } else if (is_podcast_list) {
+              // ----------------------------------------------
+              // PODCAST SERIES ITEM: SUBMENU / DRILLDOWN ONLY (NO DIRECT PLAY)
+              // Standardized GUI pill geometry (110..356, r = 18) with Hamburger Icon [ ☰ ] on right
+              // ----------------------------------------------
+              Color bg_c = id(col_dark_gray);
+              Color border_c = id(theme_secondary);
+              Color txt_c = id(col_white);
+
+              it.filled_circle(110, y_mid, 18, border_c);
+              it.filled_circle(356, y_mid, 18, border_c);
+              it.filled_rectangle(110, y_mid - 18, 246, 37, border_c);
+
+              it.filled_circle(110, y_mid, 16, bg_c);
+              it.filled_circle(356, y_mid, 16, bg_c);
+              it.filled_rectangle(110, y_mid - 16, 246, 33, bg_c);
+
+              // Dynamic pixel measurement: max 196px width (stops cleanly before hamburger icon at x=336)
+              std::string disp_name = fit_text_to_width(name, 196);
+              it.print(126, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
+
+              // Drilldown Hamburger Icon [ ☰ ] on right end (x: 336..349)
+              for (int dy : {-4, 0, 4}) {
+                it.filled_rectangle(336, y_mid + dy, 13, 2, id(theme_secondary));
               }
             } else {
               // ----------------------------------------------
@@ -8059,10 +8131,23 @@ touchscreen:
                 bool hud_enabled = !is_compact && (overlay_mode != "Always Visible");
 
                 if (hud_enabled && !id(music_hud_active)) {
-                  // Single tap on glass wakes/summons controls in Full Screen / Letterbox
+                  // Direct center tap: toggle play/pause immediately without requiring a 2nd click
+                  if (touch.x >= 180 && touch.x <= 286 && touch.y >= 160 && touch.y <= 264) {
+                    static uint32_t last_hud_pp = 0;
+                    uint32_t now_pp = millis();
+                    if (now_pp - last_hud_pp > 150) {
+                      last_hud_pp = now_pp;
+                      bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                        (id(ha_target_state).state == "playing");
+                      id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
+                      id(music_feedback_timer) = now_pp;
+                      id(toggle_ha_music).execute();
+                    }
+                  }
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
                   id(disp1).update();
+                  return;
 
                 // Dedicated Header Tap Zone ("MUSIC" Title): Open Library Categories Menu (Compact View only)
                 // Constrained strictly to top title area (x: 160..306, y <= 95)
@@ -8324,11 +8409,21 @@ touchscreen:
                 // LEVEL 3: ITEM BROWSER (Standardized 58px Pitch, 5 Slots)
                 // ----------------------------------------------------
                 bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
+                bool is_podcast_list = (id(selected_category_mode) == "podcast");
 
                 // Card 1 (y: 75..133, x: 45..375, slot at y=104)
                 if (touch.y >= 75 && touch.y <= 133 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_1_id).empty()) {
-                    if (is_drill && touch.x <= 118) {
+                    if (is_podcast_list) {
+                      id(drilldown_album_id) = id(slot_1_id);
+                      id(drilldown_album_name) = id(slot_1_name);
+                      id(drilldown_album_page) = id(music_browse_page);
+                      id(drilldown_parent_mode) = "podcast";
+                      id(selected_category_mode) = "podcast_episodes";
+                      id(selected_category_title) = id(slot_1_name);
+                      id(music_browse_page) = 1;
+                      id(fetch_music_browse).execute();
+                    } else if (is_drill && touch.x <= 118) {
                       id(play_music_slot_1).execute();
                     } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
@@ -8355,7 +8450,16 @@ touchscreen:
                 // Card 2 (y: 134..191, x: 45..375, slot at y=162)
                 } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_2_id).empty()) {
-                    if (is_drill && touch.x <= 118) {
+                    if (is_podcast_list) {
+                      id(drilldown_album_id) = id(slot_2_id);
+                      id(drilldown_album_name) = id(slot_2_name);
+                      id(drilldown_album_page) = id(music_browse_page);
+                      id(drilldown_parent_mode) = "podcast";
+                      id(selected_category_mode) = "podcast_episodes";
+                      id(selected_category_title) = id(slot_2_name);
+                      id(music_browse_page) = 1;
+                      id(fetch_music_browse).execute();
+                    } else if (is_drill && touch.x <= 118) {
                       id(play_music_slot_2).execute();
                     } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
@@ -8382,7 +8486,16 @@ touchscreen:
                 // Card 3 (y: 192..249, x: 45..375, slot at y=220)
                 } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_3_id).empty()) {
-                    if (is_drill && touch.x <= 118) {
+                    if (is_podcast_list) {
+                      id(drilldown_album_id) = id(slot_3_id);
+                      id(drilldown_album_name) = id(slot_3_name);
+                      id(drilldown_album_page) = id(music_browse_page);
+                      id(drilldown_parent_mode) = "podcast";
+                      id(selected_category_mode) = "podcast_episodes";
+                      id(selected_category_title) = id(slot_3_name);
+                      id(music_browse_page) = 1;
+                      id(fetch_music_browse).execute();
+                    } else if (is_drill && touch.x <= 118) {
                       id(play_music_slot_3).execute();
                     } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
@@ -8409,7 +8522,16 @@ touchscreen:
                 // Card 4 (y: 250..307, x: 45..375, slot at y=278)
                 } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_4_id).empty()) {
-                    if (is_drill && touch.x <= 118) {
+                    if (is_podcast_list) {
+                      id(drilldown_album_id) = id(slot_4_id);
+                      id(drilldown_album_name) = id(slot_4_name);
+                      id(drilldown_album_page) = id(music_browse_page);
+                      id(drilldown_parent_mode) = "podcast";
+                      id(selected_category_mode) = "podcast_episodes";
+                      id(selected_category_title) = id(slot_4_name);
+                      id(music_browse_page) = 1;
+                      id(fetch_music_browse).execute();
+                    } else if (is_drill && touch.x <= 118) {
                       id(play_music_slot_4).execute();
                     } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
@@ -8436,7 +8558,16 @@ touchscreen:
                 // Card 5 (y: 308..365, x: 45..375, slot at y=336)
                 } else if (touch.y >= 308 && touch.y <= 365 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_5_id).empty()) {
-                    if (is_drill && touch.x <= 118) {
+                    if (is_podcast_list) {
+                      id(drilldown_album_id) = id(slot_5_id);
+                      id(drilldown_album_name) = id(slot_5_name);
+                      id(drilldown_album_page) = id(music_browse_page);
+                      id(drilldown_parent_mode) = "podcast";
+                      id(selected_category_mode) = "podcast_episodes";
+                      id(selected_category_title) = id(slot_5_name);
+                      id(music_browse_page) = 1;
+                      id(fetch_music_browse).execute();
+                    } else if (is_drill && touch.x <= 118) {
                       id(play_music_slot_5).execute();
                     } else if (is_drill && touch.x > 118) {
                       if (id(selected_category_mode) == "artist") {
@@ -8462,9 +8593,9 @@ touchscreen:
                   }
                 // Standardized Centered < BACK Button at y = 408 (y >= 365, x: 80..386) -> Returns to Level 2 Categories
                 } else if (touch.y >= 365 && touch.x >= 80 && touch.x <= 386) {
-                  if (id(selected_category_mode) == "album_tracks") {
+                  if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
-                    id(selected_category_title) = (id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS";
+                    id(selected_category_title) = (id(selected_category_mode) == "podcast") ? "PODCASTS" : ((id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS");
                     id(music_browse_page) = std::max(1, id(drilldown_album_page));
                     id(fetch_music_browse).execute();
                   } else if (id(selected_category_mode) == "artist_albums") {

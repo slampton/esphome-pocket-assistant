@@ -25,11 +25,24 @@ blueprint:
           - input_text
           multiple: false
           reorder: false
+    default_album_sort:
+      name: Default Album Sort Order
+      description: Preferred sort order for albums and artist discographies (e.g. year_desc for chronological newest-first, year for oldest-first, name for alphabetical).
+      default: year_desc
+      selector:
+        select:
+          options:
+            - label: Chronological (Newest First)
+              value: year_desc
+            - label: Chronological (Oldest First)
+              value: year
+            - label: Alphabetical
+              value: name
 mode: restart
 fields:
   mode:
     description: 'Category mode: speakers, favorites, playlist, artist, album, radio,
-      podcast, audiobook, podcast_audiobook, track, artist_albums, album_tracks'
+      podcast, audiobook, podcast_audiobook, track, artist_albums, album_tracks, podcast_episodes'
     example: speakers
     required: true
     selector:
@@ -73,6 +86,7 @@ sequence:
 - variables:
     dev_input: !input target_esphome_device
     helper_entity: !input active_speaker_helper
+    album_sort_order: !input default_album_sort
 - choose:
   - conditions:
     - condition: template
@@ -176,7 +190,7 @@ sequence:
         search: '{{ search }}'
         favorite: false
         limit: 1000
-        order_by: year_desc
+        order_by: '{{ album_sort_order }}'
       response_variable: artist_albums_resp
     - variables:
         raw_items: >-
@@ -193,13 +207,13 @@ sequence:
           {{ ns.items | to_json }}
   - conditions:
     - condition: template
-      value_template: '{{ mode == "album_tracks" }}'
+      value_template: '{{ mode in ["album_tracks", "podcast_episodes"] }}'
     sequence:
     - action: media_player.browse_media
       target:
         entity_id: '{{ integration_entities("music_assistant") | select("match", "^media_player") | first }}'
       data:
-        media_content_type: music
+        media_content_type: '{{ "podcast" if mode == "podcast_episodes" else "music" }}'
         media_content_id: '{{ search }}'
       response_variable: album_tracks_resp
     - variables:
@@ -212,7 +226,7 @@ sequence:
             {% set ns.items = ns.items + [{
               "name": clean_name,
               "id": item.media_content_id,
-              "type": "track",
+              "type": "podcast_episode" if mode == "podcast_episodes" else "track",
               "active": false
             }] %}
           {% endfor %}
@@ -262,7 +276,7 @@ sequence:
         media_type: '{{ mode }}'
         favorite: false
         limit: 1000
-        order_by: name
+        order_by: '{{ album_sort_order if mode == "album" else "name" }}'
       response_variable: lib_resp
     - variables:
         raw_items: >-
