@@ -4173,16 +4173,9 @@ display:
           bool show_controls = always_visible || id(music_hud_active);
           bool show_metadata = show_meta_always || id(music_hud_active);
 
-          // Title & Active Speaker Indicator: Compact View shows "MUSIC"; Full Screen & Letterbox show Speaker Name at top center when HUD is active
+          // Title & Active Speaker Indicator: Rendered only on Compact View (Full Screen & Letterbox overlays rendered post-art in show_controls)
           if (is_compact) {
             it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
-          } else if (show_controls) {
-            std::string spk_top = id(active_speaker_name);
-            if (spk_top.empty() || spk_top == "None") spk_top = "${friendly_name}";
-            if (spk_top.length() > 20) spk_top = spk_top.substr(0, 18) + "...";
-            // 1px subtle drop shadow ensures razor-sharp legibility over underlying art highlights
-            it.print(cx + 1, 51, id(font_date), id(col_black), TextAlign::CENTER, spk_top.c_str());
-            it.print(cx, 50, id(font_date), id(col_white), TextAlign::CENTER, spk_top.c_str());
           }
 
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
@@ -4355,6 +4348,16 @@ display:
           }
 
           if (show_controls) {
+            // Full Screen & Letterbox: Top-Center Active Speaker Name Overlay (rendered post-art & post-scrim)
+            if (!is_compact) {
+              std::string spk_top = id(active_speaker_name);
+              if (spk_top.empty() || spk_top == "None") spk_top = "${friendly_name}";
+              if (spk_top.length() > 20) spk_top = spk_top.substr(0, 18) + "...";
+              // 1px subtle drop shadow ensures razor-sharp legibility over underlying art highlights
+              it.print(cx + 1, 51, id(font_date), id(col_black), TextAlign::CENTER, spk_top.c_str());
+              it.print(cx, 50, id(font_date), id(col_white), TextAlign::CENTER, spk_top.c_str());
+            }
+
             // Flank Control Buttons in High-Contrast Dark Gray Circular Capsules (Radius 18)
             // Mode-aware placement: compact mode keeps buttons wide (102, 364) to clear 216x216 art;
             // Full Screen & Letterbox position buttons at (124, 342) for comfortable thumb reach with 57px Play gap
