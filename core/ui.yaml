@@ -81,6 +81,14 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: target_speaker_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: target_speaker_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: slot_1_name
     type: std::string
     restore_value: no
@@ -2190,6 +2198,125 @@ script:
             speaker: !lambda 'return id(active_speaker_entity).c_str();'
             last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
 
+  - id: pax_transfer_to_target
+    mode: restart
+    then:
+      - delay: 0ms
+      - lambda: |-
+          id(music_action_feedback) = "Transferring -> " + id(target_speaker_name);
+          id(music_feedback_timer) = millis();
+          if (id(active_speaker_entity) == "${local_player_id}" && id(target_speaker_id) != "${local_player_id}") {
+            if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+              auto call = id(pocket_music_player).make_call();
+              call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+              call.perform();
+            }
+          }
+      - homeassistant.action:
+          action: music_assistant.transfer_queue
+          data:
+            entity_id: !lambda 'return id(target_speaker_id).c_str();'
+            source_player: !lambda 'return id(active_speaker_entity).c_str();'
+            auto_play: !lambda |-
+              bool source_playing = false;
+              if (id(active_speaker_entity) == "${local_player_id}") {
+                source_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+              } else {
+                source_playing = (id(ha_target_state).state == "playing");
+              }
+              return source_playing ? "true" : "false";
+      - lambda: |-
+          if (id(target_speaker_id).rfind("media_player.", 0) == 0) {
+            if (id(active_speaker_entity) != id(target_speaker_id) && !id(active_speaker_entity).empty()) {
+              id(last_speaker_entity) = id(active_speaker_entity);
+            }
+            id(active_speaker_entity) = id(target_speaker_id);
+            id(active_speaker_name) = id(target_speaker_name);
+            id(music_action_feedback) = "Active: " + id(target_speaker_name);
+          } else {
+            ESP_LOGW("ui", "Rejecting non-media_player target: %s", id(target_speaker_id).c_str());
+            id(music_action_feedback) = "Invalid Speaker";
+          }
+          id(music_feedback_timer) = millis();
+      - homeassistant.action:
+          action: input_text.set_value
+          data:
+            entity_id: ${active_speaker_helper}
+            value: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - lambda: 'id(current_loaded_art_url) = "";'
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+          then:
+            - lambda: 'id(current_loaded_art_url) = "";'
+            - online_image.release: remote_album_art
+      - lambda: |-
+          id(music_overlay_mode) = 0;
+      - component.update: disp1
+
+  - id: pax_control_target
+    mode: restart
+    then:
+      - delay: 0ms
+      - lambda: |-
+          if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+            auto call = id(pocket_music_player).make_call();
+            call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+            call.perform();
+          }
+          if (id(target_speaker_id).rfind("media_player.", 0) == 0) {
+            if (id(active_speaker_entity) != id(target_speaker_id) && !id(active_speaker_entity).empty()) {
+              id(last_speaker_entity) = id(active_speaker_entity);
+            }
+            id(active_speaker_entity) = id(target_speaker_id);
+            id(active_speaker_name) = id(target_speaker_name);
+            id(music_action_feedback) = "Controlling: " + id(target_speaker_name);
+          } else {
+            ESP_LOGW("ui", "Rejecting non-media_player target: %s", id(target_speaker_id).c_str());
+            id(music_action_feedback) = "Invalid Speaker";
+          }
+          id(music_feedback_timer) = millis();
+      - homeassistant.action:
+          action: input_text.set_value
+          data:
+            entity_id: ${active_speaker_helper}
+            value: !lambda 'return id(active_speaker_entity).c_str();'
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - lambda: 'id(current_loaded_art_url) = "";'
+      - if:
+          condition:
+            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
+          then:
+            - lambda: 'id(current_loaded_art_url) = "";'
+            - online_image.release: remote_album_art
+      - lambda: |-
+          id(music_overlay_mode) = 0;
+      - component.update: disp1
+
+  - id: pax_join_target
+    mode: restart
+    then:
+      - delay: 0ms
+      - lambda: |-
+          id(music_action_feedback) = "Joining -> " + id(target_speaker_name);
+          id(music_feedback_timer) = millis();
+      - homeassistant.action:
+          action: media_player.join
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            group_members: !lambda |-
+              return id(target_speaker_id).c_str();
+      - lambda: |-
+          id(music_overlay_mode) = 0;
+      - component.update: disp1
+
   - id: play_music_slot_1
     mode: restart
     then:
@@ -4155,6 +4282,30 @@ display:
       // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
       // ==========================================
       } else if (id(gui_page) == 2) {
+        // Pixel-accurate dynamic text truncation using font_small measurement across all music views
+        auto fit_text_to_width = [&](const std::string &str, int max_w) -> std::string {
+          if (str.empty()) return "";
+          int w = 0, x_off = 0, base = 0, text_h = 0;
+          id(font_small)->measure(str.c_str(), &w, &x_off, &base, &text_h);
+          if (w <= max_w) return str;
+
+          std::string cur = str;
+          if (cur.length() > 32) {
+            while (cur.length() > 30) {
+              while (!cur.empty() && (static_cast<unsigned char>(cur.back()) & 0xC0) == 0x80) cur.pop_back();
+              if (!cur.empty()) cur.pop_back();
+            }
+          }
+          while (!cur.empty()) {
+            std::string test_str = cur + "..";
+            id(font_small)->measure(test_str.c_str(), &w, &x_off, &base, &text_h);
+            if (w <= max_w) return test_str;
+            while (!cur.empty() && (static_cast<unsigned char>(cur.back()) & 0xC0) == 0x80) cur.pop_back();
+            if (!cur.empty()) cur.pop_back();
+          }
+          return "..";
+        };
+
         if (id(music_overlay_mode) == 0) {
           // --------------------------------------------------
           // VIEW 0: NOW PLAYING MUSIC PLAYER
@@ -4564,13 +4715,57 @@ display:
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
-          // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch, Narrowed Pills x: 150..316)
+          // LEVEL 1: SPEAKERS BROWSER (Direct 5-Slot Speaker Inventory)
+          // Standardized Title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408
           // --------------------------------------------------
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SPEAKER");
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SPEAKERS");
 
-          // Standardized 58px pitch (Slot 1 & 2: Speaker Actions, narrowed pills matching Library standard)
-          draw_pill_button(150, 316, 104, 18, id(theme_secondary), id(col_dark_gray), "HANDOFF", id(col_white), false);
-          draw_pill_button(150, 316, 162, 18, id(theme_secondary), id(col_dark_gray), "TAKEOVER", id(col_white), false);
+          auto draw_speaker_card = [&](int y_mid, const std::string &name, const std::string &id_str, bool is_act) {
+            if (name.empty()) return;
+            bool is_current = (is_act || id_str == id(active_speaker_entity));
+            Color border_c = is_current ? id(theme_primary) : id(theme_secondary);
+            Color txt_c = is_current ? id(theme_primary) : id(col_white);
+
+            it.filled_circle(110, y_mid, 18, border_c);
+            it.filled_circle(356, y_mid, 18, border_c);
+            it.filled_rectangle(110, y_mid - 18, 246, 37, border_c);
+
+            it.filled_circle(110, y_mid, 16, id(col_dark_gray));
+            it.filled_circle(356, y_mid, 16, id(col_dark_gray));
+            it.filled_rectangle(110, y_mid - 16, 246, 33, id(col_dark_gray));
+
+            if (is_current) {
+              it.filled_circle(114, y_mid, 6, id(theme_primary));
+            } else {
+              it.circle(114, y_mid, 5, id(col_slate));
+            }
+
+            std::string disp_name = fit_text_to_width(name, 218);
+            it.print(130, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
+          };
+
+          // Standardized Card Pitch = 58px (y = 104, 162, 220, 278, 336, 5 slots)
+          draw_speaker_card(104, id(slot_1_name), id(slot_1_id), id(slot_1_active));
+          draw_speaker_card(162, id(slot_2_name), id(slot_2_id), id(slot_2_active));
+          draw_speaker_card(220, id(slot_3_name), id(slot_3_id), id(slot_3_active));
+          draw_speaker_card(278, id(slot_4_name), id(slot_4_id), id(slot_4_active));
+          draw_speaker_card(336, id(slot_5_name), id(slot_5_id), id(slot_5_active));
+
+          // Right-Flank Vertical Pagination Chevrons (x = 415, Up at 162, Down at 278)
+          if (id(music_browse_total_pages) > 1) {
+            if (id(music_browse_page) > 1) {
+              it.line(415, 157, 407, 165, id(theme_secondary));
+              it.line(415, 158, 407, 166, id(theme_secondary));
+              it.line(415, 157, 423, 165, id(theme_secondary));
+              it.line(415, 158, 423, 166, id(theme_secondary));
+            }
+            if (id(music_browse_page) < id(music_browse_total_pages)) {
+              it.line(415, 283, 407, 275, id(theme_secondary));
+              it.line(415, 282, 407, 274, id(theme_secondary));
+              it.line(415, 283, 423, 275, id(theme_secondary));
+              it.line(415, 282, 423, 274, id(theme_secondary));
+            }
+          }
 
           // Bottom Back to Player (Standardized at y = 408, r = 16)
           draw_back_button();
@@ -4666,29 +4861,7 @@ display:
           // Standardized Category/Item Title at y = 50 (matching OS standard)
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, id(selected_category_title).c_str());
 
-          // Pixel-accurate dynamic text truncation using font_small measurement
-          auto fit_text_to_width = [&](const std::string &str, int max_w) -> std::string {
-            if (str.empty()) return "";
-            int w = 0, x_off = 0, base = 0, text_h = 0;
-            id(font_small)->measure(str.c_str(), &w, &x_off, &base, &text_h);
-            if (w <= max_w) return str;
-
-            std::string cur = str;
-            if (cur.length() > 32) {
-              while (cur.length() > 30) {
-                while (!cur.empty() && (static_cast<unsigned char>(cur.back()) & 0xC0) == 0x80) cur.pop_back();
-                if (!cur.empty()) cur.pop_back();
-              }
-            }
-            while (!cur.empty()) {
-              std::string test_str = cur + "..";
-              id(font_small)->measure(test_str.c_str(), &w, &x_off, &base, &text_h);
-              if (w <= max_w) return test_str;
-              while (!cur.empty() && (static_cast<unsigned char>(cur.back()) & 0xC0) == 0x80) cur.pop_back();
-              if (!cur.empty()) cur.pop_back();
-            }
-            return "..";
-          };
+// Using shared fit_text_to_width defined at page 2 scope
 
           // Dual-Action or Unified Slot Drawer
           auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &id_str, const std::string &mtype, bool is_act) {
@@ -4789,6 +4962,34 @@ display:
             snprintf(pg_buf, sizeof(pg_buf), "%d / %d", id(music_browse_page), id(music_browse_total_pages));
             it.print(cx, 440, id(font_micro), id(col_slate), TextAlign::CENTER, pg_buf);
           }
+        } else if (id(music_overlay_mode) == 4) {
+          // --------------------------------------------------
+          // LEVEL 4: SPEAKER ACTION SHEET (Contextual Actions for Target Speaker)
+          // --------------------------------------------------
+          std::string spk_title = id(target_speaker_name);
+          if (spk_title.empty()) spk_title = "SPEAKER";
+          std::string fitted_title = fit_text_to_width(spk_title, 240);
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, fitted_title.c_str());
+
+          bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
+          if (is_current) {
+            it.print(cx, 76, id(font_small), id(theme_secondary), TextAlign::CENTER, "[CURRENTLY CONTROLLING]");
+            bool is_remote = (id(target_speaker_id) != "${local_player_id}");
+            if (is_remote) {
+              draw_pill_button(110, 356, 140, 18, id(theme_secondary), id(col_dark_gray), "TRANSFER TO LOCAL", id(col_white), false);
+              draw_pill_button(110, 356, 210, 18, id(theme_secondary), id(col_dark_gray), "STOP PLAYBACK", id(col_white), false);
+            } else {
+              draw_pill_button(110, 356, 175, 18, id(theme_secondary), id(col_dark_gray), "STOP PLAYBACK", id(col_white), false);
+            }
+          } else {
+            it.print(cx, 76, id(font_small), id(col_slate), TextAlign::CENTER, "[SPEAKER ACTIONS]");
+            draw_pill_button(110, 356, 126, 18, id(theme_secondary), id(col_dark_gray), "TRANSFER QUEUE", id(col_white), false);
+            draw_pill_button(110, 356, 184, 18, id(theme_secondary), id(col_dark_gray), "CONTROL ONLY", id(col_white), false);
+            draw_pill_button(110, 356, 242, 18, id(theme_secondary), id(col_dark_gray), "JOIN AUDIO", id(col_white), false);
+          }
+
+          // Bottom Back Button (y = 408) -> Returns to Speakers Browser
+          draw_back_button();
         }
 
       // ==========================================
@@ -7858,7 +8059,11 @@ touchscreen:
                   uint32_t now_tap = millis();
                   if (now_tap - last_spk_tap > 120) {
                     last_spk_tap = now_tap;
-                    id(music_overlay_mode) = 1; // Open Speaker Menu (Handoff / Takeover)
+                    id(selected_category_mode) = "speakers";
+                    id(selected_category_title) = "SPEAKERS";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 1; // Open Speakers Browser directly
+                    id(fetch_music_browse).execute();
                     id(music_hud_active) = false;
                     id(disp1).update();
                   }
@@ -7962,34 +8167,71 @@ touchscreen:
                 }
               } else if (id(music_overlay_mode) == 1) {
                 // ----------------------------------------------------
-                // LEVEL 1: SPEAKER SELECTION MENU (Standardized 58px Pitch, Narrowed Pills x: 150..316)
+                // LEVEL 1: SPEAKERS BROWSER (Direct 5-Slot Speaker Inventory)
                 // ----------------------------------------------------
-                // Card 1: HANDOFF (y: 75..133, x: 100..366, pill at y=104)
-                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 100 && touch.x <= 366) {
-                  id(selected_category_mode) = "speakers";
-                  id(selected_category_title) = "HANDOFF";
-                  id(music_browse_page) = 1;
-                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
-                  id(fetch_music_browse).execute();
-                // Card 2: TAKEOVER (y: 134..191, x: 100..366, pill at y=162)
-                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 100 && touch.x <= 366) {
-                  id(selected_category_mode) = "speaker_takeover";
-                  id(selected_category_title) = "TAKEOVER";
-                  id(music_browse_page) = 1;
-                  id(music_overlay_mode) = 3; // Open Level 3 Item Browser
-                  id(fetch_music_browse).execute();
-                // Top Header area tap: Return to Player View
-                } else if (touch.y <= 74 && touch.x >= 120 && touch.x <= 346) {
+                // Right Flank Pagination Chevrons (x >= 390)
+                if (id(music_browse_total_pages) > 1 && touch.x >= 390) {
+                  static uint32_t last_spk_scroll = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_spk_scroll > 250) {
+                    last_spk_scroll = now_s;
+                    if (touch.y < 220 && id(music_browse_page) > 1) {
+                      id(music_browse_page)--;
+                      id(fetch_music_browse).execute();
+                      id(disp1).update();
+                    } else if (touch.y >= 220 && id(music_browse_page) < id(music_browse_total_pages)) {
+                      id(music_browse_page)++;
+                      id(fetch_music_browse).execute();
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+
+                // Central Speaker Slots 1..5 Tap -> Opens Contextual Action Sheet (mode 4)
+                if (touch.x >= 100 && touch.x <= 366) {
+                  int slot_idx = -1;
+                  if (touch.y >= 75 && touch.y <= 133) slot_idx = 1;
+                  else if (touch.y >= 134 && touch.y <= 191) slot_idx = 2;
+                  else if (touch.y >= 192 && touch.y <= 249) slot_idx = 3;
+                  else if (touch.y >= 250 && touch.y <= 307) slot_idx = 4;
+                  else if (touch.y >= 308 && touch.y <= 365) slot_idx = 5;
+
+                  std::string picked_id = "";
+                  std::string picked_name = "";
+                  if (slot_idx == 1 && !id(slot_1_name).empty()) {
+                    picked_id = id(slot_1_id);
+                    picked_name = id(slot_1_name);
+                  } else if (slot_idx == 2 && !id(slot_2_name).empty()) {
+                    picked_id = id(slot_2_id);
+                    picked_name = id(slot_2_name);
+                  } else if (slot_idx == 3 && !id(slot_3_name).empty()) {
+                    picked_id = id(slot_3_id);
+                    picked_name = id(slot_3_name);
+                  } else if (slot_idx == 4 && !id(slot_4_name).empty()) {
+                    picked_id = id(slot_4_id);
+                    picked_name = id(slot_4_name);
+                  } else if (slot_idx == 5 && !id(slot_5_name).empty()) {
+                    picked_id = id(slot_5_id);
+                    picked_name = id(slot_5_name);
+                  }
+
+                  if (!picked_id.empty()) {
+                    id(target_speaker_id) = picked_id;
+                    id(target_speaker_name) = picked_name;
+                    id(music_overlay_mode) = 4; // Open Speaker Action Sheet
+                    id(disp1).update();
+                    return;
+                  }
+                }
+
+                // Standardized Centered < BACK Button (y >= 340, x: 80..386) -> Returns to Player View
+                if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 0; // Return to Player View
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
                   id(disp1).update();
-                // Ultra-Forgiving < BACK Button (y: 335..450, x: 80..386) -> Returns to Player View
-                } else if (touch.y >= 335 && touch.y <= 450 && touch.x >= 80 && touch.x <= 386) {
-                  id(music_overlay_mode) = 0; // Return to Player View
-                  id(music_hud_active) = true;
-                  id(music_hud_timer) = millis();
-                  id(disp1).update();
+                  return;
                 }
               } else if (id(music_overlay_mode) == 2) {
                 // ----------------------------------------------------
@@ -8211,7 +8453,7 @@ touchscreen:
                     id(music_browse_page) = std::max(1, id(drilldown_artist_page));
                     id(fetch_music_browse).execute();
                   } else if (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover") {
-                    id(music_overlay_mode) = 1; // Return to Top-Level Menu
+                    id(music_overlay_mode) = 1; // Return to Speakers Browser
                   } else {
                     id(drilldown_artist_page) = 1;
                     id(drilldown_album_page) = 1;
@@ -8221,6 +8463,58 @@ touchscreen:
                     id(music_overlay_mode) = 2; // Return to Library Categories Submenu
                   }
                   id(disp1).update();
+                }
+              } else if (id(music_overlay_mode) == 4) {
+                // ----------------------------------------------------
+                // LEVEL 4: SPEAKER ACTION SHEET TOUCH HANDLERS
+                // ----------------------------------------------------
+                bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
+                if (!is_current) {
+                  // Pill 1: TRANSFER QUEUE (y: 95..155, x: 100..366, center y = 126)
+                  if (touch.y >= 95 && touch.y <= 155 && touch.x >= 100 && touch.x <= 366) {
+                    id(pax_transfer_to_target).execute();
+                    return;
+                  // Pill 2: CONTROL ONLY (y: 156..213, x: 100..366, center y = 184)
+                  } else if (touch.y >= 156 && touch.y <= 213 && touch.x >= 100 && touch.x <= 366) {
+                    id(pax_control_target).execute();
+                    return;
+                  // Pill 3: JOIN AUDIO (y: 214..275, x: 100..366, center y = 242)
+                  } else if (touch.y >= 214 && touch.y <= 275 && touch.x >= 100 && touch.x <= 366) {
+                    id(pax_join_target).execute();
+                    return;
+                  }
+                } else {
+                  bool is_remote = (id(target_speaker_id) != "${local_player_id}");
+                  if (is_remote) {
+                    // Pill 1: TRANSFER TO LOCAL (y: 105..175, x: 100..366, center y = 140)
+                    if (touch.y >= 105 && touch.y <= 175 && touch.x >= 100 && touch.x <= 366) {
+                      id(target_speaker_id) = "${local_player_id}";
+                      id(target_speaker_name) = "${friendly_name}";
+                      id(pax_transfer_to_target).execute();
+                      return;
+                    // Pill 2: STOP PLAYBACK (y: 176..250, x: 100..366, center y = 210)
+                    } else if (touch.y >= 176 && touch.y <= 250 && touch.x >= 100 && touch.x <= 366) {
+                      id(toggle_ha_music).execute();
+                      id(music_overlay_mode) = 0;
+                      id(disp1).update();
+                      return;
+                    }
+                  } else {
+                    // Pill 1: STOP PLAYBACK (y: 140..210, x: 100..366, center y = 175)
+                    if (touch.y >= 140 && touch.y <= 210 && touch.x >= 100 && touch.x <= 366) {
+                      id(toggle_ha_music).execute();
+                      id(music_overlay_mode) = 0;
+                      id(disp1).update();
+                      return;
+                    }
+                  }
+                }
+
+                // Standardized Centered < BACK Button (y >= 340, x: 80..386) -> Returns to Speakers Browser
+                if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                  id(music_overlay_mode) = 1;
+                  id(disp1).update();
+                  return;
                 }
               }
             // Page 3: Games Menu Launcher or Active Game Touch Action
