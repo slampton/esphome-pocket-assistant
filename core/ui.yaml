@@ -1199,12 +1199,12 @@ interval:
             id(disp1).update();
           }
 
-          // Dynamic display update for Stopwatch (200ms = 5.0 FPS: authentic 5-beat mechanical sweep, zero bus contention)
+          // Dynamic display update for Stopwatch (250ms = 4.0 FPS: quarter-second mechanical sweep, 90% CPU idle window)
           if (id(display_brightness).current_values.is_on()) {
             if (id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty()) {
               static uint32_t last_chrono_disp_update = 0;
               uint32_t now_chrono_ms = millis();
-              if (now_chrono_ms - last_chrono_disp_update >= 200) {
+              if (now_chrono_ms - last_chrono_disp_update >= 250) {
                 last_chrono_disp_update = now_chrono_ms;
                 id(disp1).update();
               }
@@ -8127,7 +8127,7 @@ touchscreen:
       number: GPIO11
       mode: INPUT_PULLUP
     reset_pin: GPIO2
-    update_interval: 50ms
+    update_interval: 16ms
     transform:
       mirror_x: true
       mirror_y: true
@@ -8322,7 +8322,7 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls (Isolated Radial Pushers & Upper Dial Start/Stop)
+            // Page 1: Stopwatch Screen Tap Controls (Isolated Radial Pushers & Full Dial Start/Stop)
             if (id(gui_page) == 1) {
               static uint32_t last_dial_tap = 0;
               static uint32_t last_lap_tap = 0;
@@ -8341,7 +8341,7 @@ touchscreen:
 
               // 1. LAP Button (Dedicated radial hit circle centered at 176, 332)
               if ((dx_lap * dx_lap + dy_lap * dy_lap) <= r_hit_sq) {
-                if (now_chrono_tap - last_lap_tap > 180) {
+                if (now_chrono_tap - last_lap_tap > 140) {
                   last_lap_tap = now_chrono_tap;
                   if (id(stopwatch_running)) {
                     id(stopwatch_lap_ms) = now_chrono_tap - id(stopwatch_start_time);
@@ -8354,7 +8354,7 @@ touchscreen:
 
               // 2. RESET Button (Dedicated radial hit circle centered at 290, 332)
               } else if ((dx_rst * dx_rst + dy_rst * dy_rst) <= r_hit_sq) {
-                if (now_chrono_tap - last_rst_tap > 180) {
+                if (now_chrono_tap - last_rst_tap > 140) {
                   last_rst_tap = now_chrono_tap;
                   id(stopwatch_running) = false;
                   id(stopwatch_elapsed_ms) = 0;
@@ -8363,13 +8363,14 @@ touchscreen:
                 }
                 return;
 
-              // 3. Pusher Guard Zone: Taps in lower quadrant (y >= 265) outside buttons are safe no-ops
-              } else if (touch.y >= 265) {
-                return; // Absorb mis-hits or gaps in the pusher zone; never toggle Start/Stop by accident!
+              // 3. Pusher Cluster Guard: Taps strictly inside pusher cluster box (y in [295..385] and x in [125..341])
+              // that missed the radial circles are absorbed as safe no-ops
+              } else if (touch.y >= 295 && touch.y <= 385 && touch.x >= 125 && touch.x <= 341) {
+                return; // Absorb mis-hits or gaps between the pushers; never toggle Start/Stop by accident!
 
-              // 4. Upper & Central Chrono Dial Face: START/STOP (y < 265)
-              } else {
-                if (now_chrono_tap - last_dial_tap > 220) {
+              // 4. Full Chrono Dial Face: START/STOP (Anywhere on dial face: y < 295 OR outer flanks x < 125 / x > 341)
+              } else if (touch.y < 385) {
+                if (now_chrono_tap - last_dial_tap > 140) {
                   last_dial_tap = now_chrono_tap;
                   if (!id(stopwatch_running)) {
                     id(stopwatch_running) = true;
