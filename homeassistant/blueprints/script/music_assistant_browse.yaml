@@ -269,7 +269,7 @@ sequence:
     sequence:
     - action: mass_queue.get_podcast_episodes
       data:
-        config_entry_id: '{{ (integration_entities("mass_queue") | map("config_entry_id") | select("defined") | first) | default("01KWT5KHS9J3CXG4PYGN26EYKS", true) }}'
+        config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
         uri: '{{ search }}'
       response_variable: pod_ep_resp
     - variables:

@@ -1,3 +1,9 @@
+globals:
+  - id: alarm_resume_music_after
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
 # Core Subsystem: Audio & Voice Assistant
 
 i2s_audio:
@@ -358,9 +364,47 @@ script:
             binary_sensor.is_off: pickup_detected
           then:
             - script.execute: screen_sleep_timer
+  - id: route_i2s_to_spk
+    mode: restart
+    then:
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
+          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
+          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+      - switch.turn_on: speaker_enable
+
+  - id: route_i2s_to_mic
+    mode: restart
+    then:
+      - audio_dac.mute_on: es8311_dac
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
+          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
+          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
+      - switch.turn_off: speaker_enable
+
   - id: play_alarm_sound
     mode: restart
     then:
+      - lambda: |-
+          bool local_active = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+          bool remote_active = (!id(active_speaker_entity).empty() && (id(active_speaker_entity) != "${local_player_id}") && (id(ha_target_state).state == "playing"));
+          if (local_active || remote_active) {
+            id(alarm_resume_music_after) = true;
+          }
+      - if:
+          condition:
+            lambda: 'return id(alarm_resume_music_after);'
+          then:
+            - media_player.pause: pocket_music_player
+            - if:
+                condition:
+                  lambda: 'return !id(active_speaker_entity).empty() && (id(active_speaker_entity) != "${local_player_id}");'
+                then:
+                  - homeassistant.action:
+                      action: media_player.media_pause
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
       - script.execute: route_i2s_to_spk
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
@@ -372,14 +416,6 @@ script:
             if (v < 20.0f) v = 20.0f;
             return (100.0f - v) * 0.18f;
           duration: 0.05s
-      - if:
-          condition:
-            media_player.is_playing: pocket_music_player
-          then:
-            - mixer_speaker.apply_ducking:
-                id: media_mixing_input
-                decibel_reduction: 50
-                duration: 0.1s
       - while:
           condition:
             lambda: "return id(alarm_ringing) || id(timer_ringing);"
@@ -402,15 +438,41 @@ script:
       - script.stop: play_alarm_sound
       - if:
           condition:
-            media_player.is_playing: pocket_music_player
+            lambda: 'return id(alarm_resume_music_after);'
           then:
-            - mixer_speaker.apply_ducking:
-                id: media_mixing_input
-                decibel_reduction: 0
-                duration: 0.1s
+            - lambda: |-
+                id(alarm_resume_music_after) = false;
+            - if:
+                condition:
+                  lambda: 'return !id(active_speaker_entity).empty() && (id(active_speaker_entity) != "${local_player_id}");'
+                then:
+                  - homeassistant.action:
+                      action: media_player.media_play
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  - audio_dac.mute_on: es8311_dac
+                  - script.execute: route_i2s_to_mic
+                else:
+                  - script.execute: route_i2s_to_spk
+                  - audio_dac.mute_off: es8311_dac
+                  - switch.turn_on: speaker_enable
+                  - mixer_speaker.apply_ducking:
+                      id: media_mixing_input
+                      decibel_reduction: 0
+                      duration: 0.5s
+                  - media_player.play: pocket_music_player
           else:
-            - audio_dac.mute_on: es8311_dac
-            - script.execute: route_i2s_to_mic
+            - if:
+                condition:
+                  media_player.is_playing: pocket_music_player
+                then:
+                  - mixer_speaker.apply_ducking:
+                      id: media_mixing_input
+                      decibel_reduction: 0
+                      duration: 0.1s
+                else:
+                  - audio_dac.mute_on: es8311_dac
+                  - script.execute: route_i2s_to_mic
 
 number:
   - platform: template

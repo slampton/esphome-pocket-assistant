@@ -3,18 +3,28 @@
 # Extracts daily high/low and serialized forecast for Pocket Assistant ESPHome
 # ==============================================================================
 
+input_text:
+  pocket_assistant_weather_entity:
+    name: "Pocket Assistant Weather Entity"
+    icon: mdi:weather-partly-cloudy
+    initial: "weather.forecast_home" # Set to your primary Home Assistant weather entity (e.g. weather.home, weather.forecast_home)
+
 template:
   - trigger:
-      - platform: time_pattern
+      - trigger: time_pattern
         hours: "/1"
-      - platform: homeassistant
+      - trigger: homeassistant
         event: start
-      - platform: state
-        entity_id: weather.oakland
+      - trigger: state
+        entity_id: input_text.pocket_assistant_weather_entity
     action:
+      - variables:
+          target_weather: >-
+            {% set w = states("input_text.pocket_assistant_weather_entity") %}
+            {{ w if w and w not in ["unknown", "unavailable", ""] else "weather.forecast_home" }}
       - action: weather.get_forecasts
         target:
-          entity_id: weather.oakland
+          entity_id: "{{ target_weather }}"
         data:
           type: daily
         response_variable: daily_forecast
@@ -22,10 +32,11 @@ template:
       - name: "Pocket Assistant Weather High"
         unique_id: pocket_assistant_weather_high
         state: >-
-          {% if daily_forecast is defined and "weather.oakland" in daily_forecast and daily_forecast["weather.oakland"]["forecast"] %}
-            {{ daily_forecast["weather.oakland"]["forecast"][0]["temperature"] }}
-          {% elif state_attr("weather.oakland", "forecast") %}
-            {{ state_attr("weather.oakland", "forecast")[0]["temperature"] }}
+          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+          {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+            {{ daily_forecast[target_weather]["forecast"][0]["temperature"] }}
+          {% elif state_attr(target_weather, "forecast") %}
+            {{ state_attr(target_weather, "forecast")[0]["temperature"] }}
           {% else %}
             {{ states("sensor.pocket_assistant_weather_high") }}
           {% endif %}
@@ -34,10 +45,11 @@ template:
       - name: "Pocket Assistant Weather Low"
         unique_id: pocket_assistant_weather_low
         state: >-
-          {% if daily_forecast is defined and "weather.oakland" in daily_forecast and daily_forecast["weather.oakland"]["forecast"] %}
-            {{ daily_forecast["weather.oakland"]["forecast"][0]["templow"] }}
-          {% elif state_attr("weather.oakland", "forecast") %}
-            {{ state_attr("weather.oakland", "forecast")[0]["templow"] }}
+          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+          {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+            {{ daily_forecast[target_weather]["forecast"][0]["templow"] }}
+          {% elif state_attr(target_weather, "forecast") %}
+            {{ state_attr(target_weather, "forecast")[0]["templow"] }}
           {% else %}
             {{ states("sensor.pocket_assistant_weather_low") }}
           {% endif %}
@@ -46,12 +58,13 @@ template:
       - name: "Pocket Assistant Weather Forecast 5D"
         unique_id: pocket_assistant_weather_forecast_5d
         state: >-
+          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
           {% set ns = namespace(items=[]) %}
           {% set fc_list = [] %}
-          {% if daily_forecast is defined and "weather.oakland" in daily_forecast and daily_forecast["weather.oakland"]["forecast"] %}
-            {% set fc_list = daily_forecast["weather.oakland"]["forecast"] %}
-          {% elif state_attr("weather.oakland", "forecast") %}
-            {% set fc_list = state_attr("weather.oakland", "forecast") %}
+          {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+            {% set fc_list = daily_forecast[target_weather]["forecast"] %}
+          {% elif state_attr(target_weather, "forecast") %}
+            {% set fc_list = state_attr(target_weather, "forecast") %}
           {% endif %}
           {% if fc_list %}
             {% for item in fc_list[:5] %}
