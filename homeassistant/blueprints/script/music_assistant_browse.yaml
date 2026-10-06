@@ -27,17 +27,34 @@ blueprint:
           reorder: false
     default_album_sort:
       name: Default Album Sort Order
-      description: Preferred sort order for albums and artist discographies (e.g. year_desc for chronological newest-first, year for oldest-first, name for alphabetical).
-      default: year_desc
+      description: Preferred sort order for albums and artist discographies (name for alphabetical, year_desc for chronological newest-first, year for oldest-first).
+      default: name
       selector:
         select:
           options:
+            - label: Alphabetical
+              value: name
             - label: Chronological (Newest First)
               value: year_desc
             - label: Chronological (Oldest First)
               value: year
-            - label: Alphabetical
-              value: name
+          multiple: false
+          custom_value: false
+          sort: false
+    default_podcast_sort:
+      name: Default Podcast Sort Order
+      description: Preferred sort order for podcast episodes (newest on top or oldest on top).
+      default: newest
+      selector:
+        select:
+          options:
+            - label: Newest on Top
+              value: newest
+            - label: Oldest on Top
+              value: oldest
+          multiple: false
+          custom_value: false
+          sort: false
 mode: restart
 fields:
   mode:
@@ -65,7 +82,7 @@ fields:
         max: 10
   search:
     description: Search term or URI for sub-queries (e.g. artist name for artist_albums,
-      album URI for album_tracks)
+      album URI for album_tracks, podcast URI for podcast_episodes)
     example: Cloud Nothings
     default: ''
     selector:
@@ -82,11 +99,26 @@ fields:
     default: ''
     selector:
       text:
+  album_sort:
+    description: Preferred sort order for albums (e.g. name, year_desc, year)
+    example: name
+    default: ''
+    selector:
+      text:
+  podcast_sort:
+    description: Preferred sort order for podcast episodes (newest or oldest)
+    example: newest
+    default: ''
+    selector:
+      text:
 sequence:
 - variables:
     dev_input: !input target_esphome_device
     helper_entity: !input active_speaker_helper
-    album_sort_order: !input default_album_sort
+    input_album_sort: !input default_album_sort
+    input_podcast_sort: !input default_podcast_sort
+    album_sort_order: '{{ album_sort if (album_sort | default("") != "") else input_album_sort }}'
+    podcast_sort_order: '{{ podcast_sort if (podcast_sort | default("") != "") else input_podcast_sort }}'
 - choose:
   - conditions:
     - condition: template
@@ -207,13 +239,13 @@ sequence:
           {{ ns.items | to_json }}
   - conditions:
     - condition: template
-      value_template: '{{ mode in ["album_tracks", "podcast_episodes"] }}'
+      value_template: '{{ mode == "album_tracks" }}'
     sequence:
     - action: media_player.browse_media
       target:
         entity_id: '{{ integration_entities("music_assistant") | select("match", "^media_player") | first }}'
       data:
-        media_content_type: '{{ "podcast" if mode == "podcast_episodes" else "music" }}'
+        media_content_type: "music"
         media_content_id: '{{ search }}'
       response_variable: album_tracks_resp
     - variables:
@@ -226,7 +258,31 @@ sequence:
             {% set ns.items = ns.items + [{
               "name": clean_name,
               "id": item.media_content_id,
-              "type": "podcast_episode" if mode == "podcast_episodes" else "track",
+              "type": "track",
+              "active": false
+            }] %}
+          {% endfor %}
+          {{ ns.items | to_json }}
+  - conditions:
+    - condition: template
+      value_template: '{{ mode == "podcast_episodes" }}'
+    sequence:
+    - action: mass_queue.get_podcast_episodes
+      data:
+        config_entry_id: '{{ (integration_entities("mass_queue") | map("config_entry_id") | select("defined") | first) | default("01KWT5KHS9J3CXG4PYGN26EYKS", true) }}'
+        uri: '{{ search }}'
+      response_variable: pod_ep_resp
+    - variables:
+        raw_items: >-
+          {% set episodes = pod_ep_resp.episodes | default([]) %}
+          {% set p_sort = podcast_sort_order | default("newest") %}
+          {% set sorted_eps = episodes if p_sort == "newest" else (episodes | reverse | list) %}
+          {% set ns = namespace(items=[]) %}
+          {% for ep in sorted_eps %}
+            {% set ns.items = ns.items + [{
+              "name": ep.media_title,
+              "id": ep.media_content_id,
+              "type": "podcast_episode",
               "active": false
             }] %}
           {% endfor %}

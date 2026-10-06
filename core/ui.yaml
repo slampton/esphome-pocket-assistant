@@ -25,6 +25,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '1'
+  - id: active_playback_media_type
+    type: std::string
+    restore_value: no
+    initial_value: '"music"'
   - id: music_overlay_mode
     type: int
     restore_value: no
@@ -679,6 +683,37 @@ select:
     set_action:
       - lambda: |-
           id(disp1).update();
+
+  - platform: template
+    name: "Music: Album Sort Order"
+    id: music_album_sort_order
+    icon: "mdi:sort-alphabetical-variant"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: 
+    options:
+      - "Alphabetical"
+      - "Newest on Top"
+      - "Oldest on Top"
+    set_action:
+      - lambda: |-
+          id(music_album_sort_order).publish_state(x);
+
+  - platform: template
+    name: "Music: Podcast Sort Order"
+    id: music_podcast_sort_order
+    icon: "mdi:sort-clock-descending-outline"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: 
+    options:
+      - "Newest on Top"
+      - "Oldest on Top"
+    set_action:
+      - lambda: |-
+          id(music_podcast_sort_order).publish_state(x);
 
   - platform: template
     name: "System: Music Overlay Style"
@@ -1751,6 +1786,17 @@ text_sensor:
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
+    id: ha_target_media_type
+    entity_id: 
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(active_playback_media_type) = x;
+            }
+        - script.execute: throttled_disp_update
+
+  - platform: homeassistant
     id: ha_target_art_url
     entity_id: ${target_art_url_sensor}
     on_value:
@@ -2175,6 +2221,51 @@ script:
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
+  - id: music_skip_back_10
+    mode: restart
+    then:
+      - delay: 0ms
+      - lambda: |-
+          id(music_action_feedback) = "-10s Replay";
+          id(music_feedback_timer) = millis();
+          float cur_pos = id(music_pos_base);
+          if (id(music_pos_sync_time) > 0) {
+            cur_pos += (float)(millis() - id(music_pos_sync_time)) / 1000.0f;
+          }
+          float new_pos = std::max(0.0f, cur_pos - 10.0f);
+          id(music_pos_base) = new_pos;
+          id(music_pos_sync_time) = millis();
+      - homeassistant.action:
+          action: media_player.media_seek
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            seek_position: !lambda |-
+              float cur_pos = id(music_pos_base);
+              return to_string((int)std::max(0.0f, cur_pos));
+
+  - id: music_skip_fwd_30
+    mode: restart
+    then:
+      - delay: 0ms
+      - lambda: |-
+          id(music_action_feedback) = "+30s Skip";
+          id(music_feedback_timer) = millis();
+          float cur_pos = id(music_pos_base);
+          if (id(music_pos_sync_time) > 0) {
+            cur_pos += (float)(millis() - id(music_pos_sync_time)) / 1000.0f;
+          }
+          float dur = id(music_dur_total);
+          float new_pos = (dur > 0.0f) ? std::min(dur, cur_pos + 30.0f) : (cur_pos + 30.0f);
+          id(music_pos_base) = new_pos;
+          id(music_pos_sync_time) = millis();
+      - homeassistant.action:
+          action: media_player.media_seek
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            seek_position: !lambda |-
+              float cur_pos = id(music_pos_base);
+              return to_string((int)std::max(0.0f, cur_pos));
+
   - id: fetch_music_browse
     mode: restart
     then:
@@ -2197,6 +2288,15 @@ script:
               return "";
             speaker: !lambda 'return id(active_speaker_entity).c_str();'
             last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
+            album_sort: !lambda |-
+              std::string sort = id(music_album_sort_order).current_option();
+              if (sort == "Newest on Top") return "year_desc";
+              if (sort == "Oldest on Top") return "year";
+              return "name";
+            podcast_sort: !lambda |-
+              std::string sort = id(music_podcast_sort_order).current_option();
+              if (sort == "Oldest on Top") return "oldest";
+              return "newest";'
 
   - id: pax_transfer_to_target
     mode: restart
@@ -2371,6 +2471,13 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_1_name);
           id(music_feedback_timer) = millis();
+          if (id(selected_category_mode) == "podcast_episodes") {
+            id(active_playback_media_type) = "podcast";
+          } else if (id(selected_category_mode) == "audiobook") {
+            id(active_playback_media_type) = "audiobook";
+          } else {
+            id(active_playback_media_type) = "music";
+          }
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
           }
@@ -2403,6 +2510,13 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_2_name);
           id(music_feedback_timer) = millis();
+          if (id(selected_category_mode) == "podcast_episodes") {
+            id(active_playback_media_type) = "podcast";
+          } else if (id(selected_category_mode) == "audiobook") {
+            id(active_playback_media_type) = "audiobook";
+          } else {
+            id(active_playback_media_type) = "music";
+          }
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
           }
@@ -2435,6 +2549,13 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_3_name);
           id(music_feedback_timer) = millis();
+          if (id(selected_category_mode) == "podcast_episodes") {
+            id(active_playback_media_type) = "podcast";
+          } else if (id(selected_category_mode) == "audiobook") {
+            id(active_playback_media_type) = "audiobook";
+          } else {
+            id(active_playback_media_type) = "music";
+          }
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
           }
@@ -2467,6 +2588,13 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_4_name);
           id(music_feedback_timer) = millis();
+          if (id(selected_category_mode) == "podcast_episodes") {
+            id(active_playback_media_type) = "podcast";
+          } else if (id(selected_category_mode) == "audiobook") {
+            id(active_playback_media_type) = "audiobook";
+          } else {
+            id(active_playback_media_type) = "music";
+          }
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
           }
@@ -2499,6 +2627,13 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Playing: " + id(slot_5_name);
           id(music_feedback_timer) = millis();
+          if (id(selected_category_mode) == "podcast_episodes") {
+            id(active_playback_media_type) = "podcast";
+          } else if (id(selected_category_mode) == "audiobook") {
+            id(active_playback_media_type) = "audiobook";
+          } else {
+            id(active_playback_media_type) = "music";
+          }
           if (id(active_speaker_entity) != "${local_player_id}") {
             id(current_loaded_art_url) = "";
           }
@@ -2628,6 +2763,13 @@ script:
                   - lambda: |-
                       id(music_action_feedback) = "Playing: " + id(slot_1_name);
                       id(music_feedback_timer) = millis();
+                      if (id(selected_category_mode) == "podcast_episodes") {
+                        id(active_playback_media_type) = "podcast";
+                      } else if (id(selected_category_mode) == "audiobook") {
+                        id(active_playback_media_type) = "audiobook";
+                      } else {
+                        id(active_playback_media_type) = "music";
+                      }
                   - homeassistant.action:
                       action: music_assistant.play_media
                       data:
@@ -2749,6 +2891,13 @@ script:
                   - lambda: |-
                       id(music_action_feedback) = "Playing: " + id(slot_2_name);
                       id(music_feedback_timer) = millis();
+                      if (id(selected_category_mode) == "podcast_episodes") {
+                        id(active_playback_media_type) = "podcast";
+                      } else if (id(selected_category_mode) == "audiobook") {
+                        id(active_playback_media_type) = "audiobook";
+                      } else {
+                        id(active_playback_media_type) = "music";
+                      }
                   - homeassistant.action:
                       action: music_assistant.play_media
                       data:
@@ -2870,6 +3019,13 @@ script:
                   - lambda: |-
                       id(music_action_feedback) = "Playing: " + id(slot_3_name);
                       id(music_feedback_timer) = millis();
+                      if (id(selected_category_mode) == "podcast_episodes") {
+                        id(active_playback_media_type) = "podcast";
+                      } else if (id(selected_category_mode) == "audiobook") {
+                        id(active_playback_media_type) = "audiobook";
+                      } else {
+                        id(active_playback_media_type) = "music";
+                      }
                   - homeassistant.action:
                       action: music_assistant.play_media
                       data:
@@ -2991,6 +3147,13 @@ script:
                   - lambda: |-
                       id(music_action_feedback) = "Playing: " + id(slot_4_name);
                       id(music_feedback_timer) = millis();
+                      if (id(selected_category_mode) == "podcast_episodes") {
+                        id(active_playback_media_type) = "podcast";
+                      } else if (id(selected_category_mode) == "audiobook") {
+                        id(active_playback_media_type) = "audiobook";
+                      } else {
+                        id(active_playback_media_type) = "music";
+                      }
                   - homeassistant.action:
                       action: music_assistant.play_media
                       data:
@@ -3112,6 +3275,13 @@ script:
                   - lambda: |-
                       id(music_action_feedback) = "Playing: " + id(slot_5_name);
                       id(music_feedback_timer) = millis();
+                      if (id(selected_category_mode) == "podcast_episodes") {
+                        id(active_playback_media_type) = "podcast";
+                      } else if (id(selected_category_mode) == "audiobook") {
+                        id(active_playback_media_type) = "audiobook";
+                      } else {
+                        id(active_playback_media_type) = "music";
+                      }
                   - homeassistant.action:
                       action: music_assistant.play_media
                       data:
@@ -4618,6 +4788,30 @@ display:
               it.line(sx + 11, sy, sx + 8, sy + 7, c);
             };
 
+            bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
+                                    id(active_playback_media_type) == "podcast_episode" || 
+                                    id(active_playback_media_type) == "audiobook");
+
+            auto draw_skip_back_glyph = [&](int ox, int oy, Color c) {
+              int px = prev_btn_x + ox;
+              int py = art_center_y + oy;
+              it.filled_triangle(px - 9, py - 9, px - 3, py - 14, px - 3, py - 4, c);
+              it.horizontal_line(px - 3, py - 9, 10, c);
+              it.line(px + 7, py - 9, px + 10, py - 6, c);
+              it.vertical_line(px + 10, py - 6, 6, c);
+              it.print(px, py + 4, id(font_micro), c, TextAlign::CENTER, "-10");
+            };
+
+            auto draw_skip_fwd_glyph = [&](int ox, int oy, Color c) {
+              int nx = next_btn_x + ox;
+              int ny = art_center_y + oy;
+              it.filled_triangle(nx + 9, ny - 9, nx + 3, ny - 14, nx + 3, ny - 4, c);
+              it.horizontal_line(nx - 7, ny - 9, 10, c);
+              it.line(nx - 7, ny - 9, nx - 10, ny - 6, c);
+              it.vertical_line(nx - 10, ny - 6, 6, c);
+              it.print(nx, ny + 4, id(font_micro), c, TextAlign::CENTER, "+30");
+            };
+
             auto draw_prev_glyph = [&](int ox, int oy, Color c) {
               int px = prev_btn_x + ox;
               int py = art_center_y + oy;
@@ -4661,7 +4855,11 @@ display:
 
               it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
               it.circle(prev_btn_x, art_center_y, 18, id(col_black));
-              draw_prev_glyph(0, 0, id(col_white));
+              if (is_speech_media) {
+                draw_skip_back_glyph(0, 0, id(col_white));
+              } else {
+                draw_prev_glyph(0, 0, id(col_white));
+              }
 
               it.filled_circle(left_flank_x, 286, 18, id(col_dark_gray));
               it.circle(left_flank_x, 286, 18, id(col_black));
@@ -4673,7 +4871,11 @@ display:
 
               it.filled_circle(next_btn_x, art_center_y, 18, id(col_dark_gray));
               it.circle(next_btn_x, art_center_y, 18, id(col_black));
-              draw_next_glyph(0, 0, id(col_white));
+              if (is_speech_media) {
+                draw_skip_fwd_glyph(0, 0, id(col_white));
+              } else {
+                draw_next_glyph(0, 0, id(col_white));
+              }
 
               it.filled_circle(right_flank_x, 284, 18, id(col_dark_gray));
               it.circle(right_flank_x, 284, 18, id(col_black));
@@ -4684,8 +4886,13 @@ display:
               draw_speaker_glyph(1, 1, id(col_black));
               draw_speaker_glyph(0, 0, id(col_white));
 
-              draw_prev_glyph(1, 1, id(col_black));
-              draw_prev_glyph(0, 0, id(col_white));
+              if (is_speech_media) {
+                draw_skip_back_glyph(1, 1, id(col_black));
+                draw_skip_back_glyph(0, 0, id(col_white));
+              } else {
+                draw_prev_glyph(1, 1, id(col_black));
+                draw_prev_glyph(0, 0, id(col_white));
+              }
 
               draw_library_glyph(1, 1, id(col_black));
               draw_library_glyph(0, 0, id(col_white));
@@ -4693,8 +4900,13 @@ display:
               draw_vol_up_glyph(1, 1, id(col_black));
               draw_vol_up_glyph(0, 0, id(col_white));
 
-              draw_next_glyph(1, 1, id(col_black));
-              draw_next_glyph(0, 0, id(col_white));
+              if (is_speech_media) {
+                draw_skip_fwd_glyph(1, 1, id(col_black));
+                draw_skip_fwd_glyph(0, 0, id(col_white));
+              } else {
+                draw_next_glyph(1, 1, id(col_black));
+                draw_next_glyph(0, 0, id(col_white));
+              }
 
               draw_vol_dn_glyph(1, 1, id(col_black));
               draw_vol_dn_glyph(0, 0, id(col_white));
@@ -8022,7 +8234,7 @@ touchscreen:
             }
 
             // Edge tap support for one-handed navigation in Browse Library & Item Browser (Option 1 Right-Flank Chevrons)
-            if (id(gui_page) == 2 && id(music_overlay_mode) > 1 && touch.y >= 70 && touch.y <= 365) {
+            if (id(gui_page) == 2 && id(music_overlay_mode) > 1 && touch.y >= 70 && touch.y <= 374) {
               if (touch.x < 75) {
                 return; // Left flank has no chevrons in vertical navigation
               } else if (touch.x >= 375) {
@@ -8173,16 +8385,24 @@ touchscreen:
                     id(disp1).update();
                   }
 
-                // Left Flank Previous Track (|◀): Middle Left Horizon (center prev_btn_x 102/124, 212; y: 185..240, x <= prev_x_max)
+                // Left Flank Previous Track (|◀) / -10s Replay: Middle Left Horizon (center prev_btn_x 102/124, 212; y: 185..240, x <= prev_x_max)
                 } else if (touch.x <= prev_x_max && touch.y >= 185 && touch.y < 240) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_prev_tap > 150) {
                     last_prev_tap = now_tap;
-                    id(music_action_feedback) = "<< Prev Track";
+                    bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
+                                            id(active_playback_media_type) == "podcast_episode" || 
+                                            id(active_playback_media_type) == "audiobook");
+                    if (is_speech_media) {
+                      id(music_action_feedback) = "-10s Replay";
+                      id(music_skip_back_10).execute();
+                    } else {
+                      id(music_action_feedback) = "<< Prev Track";
+                      id(music_prev_track).execute();
+                    }
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
-                    id(music_prev_track).execute();
                     id(disp1).update();
                   }
 
@@ -8215,16 +8435,24 @@ touchscreen:
                     id(throttled_disp_update).execute();
                   }
 
-                // Right Flank Next Track (▶|): Middle Right Horizon (center next_btn_x 364/342, 212; y: 185..240, x >= next_x_min)
+                // Right Flank Next Track (▶|) / +30s Skip: Middle Right Horizon (center next_btn_x 364/342, 212; y: 185..240, x >= next_x_min)
                 } else if (touch.x >= next_x_min && touch.y >= 185 && touch.y < 240) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > 150) {
                     last_next_tap = now_tap;
-                    id(music_action_feedback) = "Next Track >>";
+                    bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
+                                            id(active_playback_media_type) == "podcast_episode" || 
+                                            id(active_playback_media_type) == "audiobook");
+                    if (is_speech_media) {
+                      id(music_action_feedback) = "+30s Skip";
+                      id(music_skip_fwd_30).execute();
+                    } else {
+                      id(music_action_feedback) = "Next Track >>";
+                      id(music_next_track).execute();
+                    }
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
-                    id(music_next_track).execute();
                     id(disp1).update();
                   }
 
@@ -8300,7 +8528,7 @@ touchscreen:
                   else if (touch.y >= 134 && touch.y <= 191) slot_idx = 2;
                   else if (touch.y >= 192 && touch.y <= 249) slot_idx = 3;
                   else if (touch.y >= 250 && touch.y <= 307) slot_idx = 4;
-                  else if (touch.y >= 308 && touch.y <= 365) slot_idx = 5;
+                  else if (touch.y >= 308 && touch.y <= 374) slot_idx = 5;
 
                   std::string picked_id = "";
                   std::string picked_name = "";
@@ -8330,8 +8558,8 @@ touchscreen:
                   }
                 }
 
-                // Standardized Centered < BACK Button (y >= 340, x: 80..386) -> Returns to Player View
-                if (touch.y >= 340 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386) -> Returns to Player View
+                if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 0; // Return to Player View
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
@@ -8382,7 +8610,7 @@ touchscreen:
                   else if (touch.y >= 134 && touch.y <= 191) slot_idx = 1; // Slot 2 (y=162)
                   else if (touch.y >= 192 && touch.y <= 249) slot_idx = 2; // Slot 3 (y=220)
                   else if (touch.y >= 250 && touch.y <= 307) slot_idx = 3; // Slot 4 (y=278)
-                  else if (touch.y >= 308 && touch.y <= 365) slot_idx = 4; // Slot 5 (y=336)
+                  else if (touch.y >= 308 && touch.y <= 374) slot_idx = 4; // Slot 5 (y=336)
 
                   if (slot_idx >= 0) {
                     // Page 1: item_idx = slot_idx (items 0..4: Favorites, Playlists, Artists, Albums, Podcasts)
@@ -8393,8 +8621,8 @@ touchscreen:
                   }
                 }
 
-                // Standardized Centered < BACK Button at y = 408 (y >= 365, x: 80..386) -> Returns to Player View
-                if (touch.y >= 365 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386) -> Returns to Player View
+                if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   id(music_overlay_mode) = 0; // Return to Player View
                   id(music_category_page) = 1;
                   id(menu_scroll_active) = false;
@@ -8555,8 +8783,8 @@ touchscreen:
                       id(select_music_slot_4).execute();
                     }
                   }
-                // Card 5 (y: 308..365, x: 45..375, slot at y=336)
-                } else if (touch.y >= 308 && touch.y <= 365 && touch.x >= 45 && touch.x <= 375) {
+                // Card 5 (y: 308..374, x: 45..375, slot at y=336)
+                } else if (touch.y >= 308 && touch.y <= 374 && touch.x >= 45 && touch.x <= 375) {
                   if (!id(slot_5_id).empty()) {
                     if (is_podcast_list) {
                       id(drilldown_album_id) = id(slot_5_id);
@@ -8591,8 +8819,8 @@ touchscreen:
                       id(select_music_slot_5).execute();
                     }
                   }
-                // Standardized Centered < BACK Button at y = 408 (y >= 365, x: 80..386) -> Returns to Level 2 Categories
-                } else if (touch.y >= 365 && touch.x >= 80 && touch.x <= 386) {
+                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386) -> Returns to Level 2 Categories
+                } else if (touch.y >= 385 && touch.y <= 445 && touch.x >= 80 && touch.x <= 386) {
                   if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
                     id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                     id(selected_category_title) = (id(selected_category_mode) == "podcast") ? "PODCASTS" : ((id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS");
