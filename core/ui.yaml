@@ -947,7 +947,7 @@ switch:
     id: show_stopwatch_switch
     entity_category: config
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
+    restore_mode: RESTORE_DEFAULT_OFF
     on_turn_on:
       then:
         - script.execute: rebuild_active_deck
@@ -1199,19 +1199,16 @@ interval:
             id(disp1).update();
           }
 
-          // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
+          // Dynamic display update for Stopwatch (200ms = 5.0 FPS: authentic 5-beat mechanical sweep, zero bus contention)
           if (id(display_brightness).current_values.is_on()) {
             if (id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty()) {
-
-
               static uint32_t last_chrono_disp_update = 0;
               uint32_t now_chrono_ms = millis();
-              if (now_chrono_ms - last_chrono_disp_update >= 150) {
+              if (now_chrono_ms - last_chrono_disp_update >= 200) {
                 last_chrono_disp_update = now_chrono_ms;
                 id(disp1).update();
               }
             }
-
           }
 
   - interval: 50ms
@@ -4405,55 +4402,10 @@ display:
         int tenths = (total_ms / 100) % 10;
 
         // ----------------------------------------------------
-        // 12 O'CLOCK SUB-DIAL: 1/10-SECOND HIGH-SPEED SPINNER (ENLARGED r=50)
+        // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
         // ----------------------------------------------------
-        const int sub_cx = cx;
-        const int sub_cy = 140;
-        const int sub_r = 50;
-
-        // Recessed subdial with subtle authentic mechanical depth shading
-        it.filled_circle(sub_cx, sub_cy, sub_r - 2, Color(208, 198, 176));
-        it.circle(sub_cx, sub_cy, sub_r, id(col_black));
-        it.circle(sub_cx, sub_cy, sub_r - 1, id(col_black));
-        it.circle(sub_cx, sub_cy, sub_r - 2, id(col_silver));
-
-        // 10 Tenths Ticks (0..9: Fast SUB_SIN/COS LUT Lookups)
-        for (int i = 0; i < 10; i++) {
-          float s_i = SUB_SIN[i];
-          float c_i = SUB_COS[i];
-          int r_in = (i % 2 == 0) ? (sub_r - 10) : (sub_r - 6);
-          it.line(sub_cx + (int)(r_in * s_i), sub_cy - (int)(r_in * c_i),
-                  sub_cx + (int)((sub_r - 2) * s_i), sub_cy - (int)((sub_r - 2) * c_i), id(col_black));
-          if (i % 2 == 0) {
-            it.line(sub_cx + (int)(r_in * s_i) + 1, sub_cy - (int)(r_in * c_i),
-                    sub_cx + (int)((sub_r - 2) * s_i) + 1, sub_cy - (int)((sub_r - 2) * c_i), id(col_black));
-          }
-        }
-
-        // Subdial Markings: 0, 2, 4, 6, 8 (Fast SUB_SIN/COS LUT Lookups)
-        for (int i = 0; i < 10; i += 2) {
-          float s_i = SUB_SIN[i];
-          float c_i = SUB_COS[i];
-          char sub_num[4];
-          snprintf(sub_num, sizeof(sub_num), "%d", i);
-          it.print(sub_cx + (int)(28.0f * s_i), sub_cy - (int)(28.0f * c_i),
-                   id(font_small), id(col_black), TextAlign::CENTER, sub_num);
-        }
-
-        it.print(sub_cx, sub_cy + 14, id(font_micro), id(col_slate), TextAlign::CENTER, "1/10 SEC");
-
-        // High-Speed 1/10s Spinning Needle (2px bold racing red, 1 revolution per 1000ms!)
-        float sub_angle = ((total_ms % 1000) / 1000.0f) * (2.0f * PI_F);
-        float sub_sin, sub_cos;
-        sincosf(sub_angle, &sub_sin, &sub_cos);
-        int sub_tip_x = sub_cx + (int)(38.0f * sub_sin);
-        int sub_tip_y = sub_cy - (int)(38.0f * sub_cos);
-        int sub_tail_x = sub_cx - (int)(9.0f * sub_sin);
-        int sub_tail_y = sub_cy + (int)(9.0f * sub_cos);
-        it.line(sub_tail_x, sub_tail_y, sub_tip_x, sub_tip_y, id(col_red));
-        it.line(sub_tail_x + 1, sub_tail_y, sub_tip_x + 1, sub_tip_y, id(col_red));
-        it.filled_circle(sub_cx, sub_cy, 4, id(col_black));
-        it.filled_circle(sub_cx, sub_cy, 2, id(col_silver));
+        it.print(cx, 132, id(font_small), id(col_black), TextAlign::CENTER, "CHRONOGRAPH");
+        it.print(cx, 154, id(font_micro), id(col_slate), TextAlign::CENTER, "1/10 SEC PRECISION");
 
         // ----------------------------------------------------
         // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility)
@@ -8366,35 +8318,43 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls (Optimized: Zero Contention with Navigation)
+            // Page 1: Stopwatch Screen Tap Controls (Instant Debounced Start/Stop & Pushers)
             if (id(gui_page) == 1) {
+              static uint32_t last_chrono_tap = 0;
+              uint32_t now_chrono_tap = millis();
+
               // 1. Bottom Control Buttons: LAP & RESET (y: 280..368, buttons centered at y=328, r=38)
               if (touch.y >= 280 && touch.y <= 368 && touch.x >= 120 && touch.x <= 346) {
-                if (touch.x < 233) {
-                  // LAP Button (Left half, center x=179, y=328, r=38)
-                  if (id(stopwatch_running)) {
-                    id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
+                if (now_chrono_tap - last_chrono_tap > 200) {
+                  last_chrono_tap = now_chrono_tap;
+                  if (touch.x < 233) {
+                    // LAP Button (Left half, center x=179, y=328, r=38)
+                    if (id(stopwatch_running)) {
+                      id(stopwatch_lap_ms) = millis() - id(stopwatch_start_time);
+                    }
+                  } else {
+                    // RESET Button (Right half, center x=287, y=328, r=38)
+                    id(stopwatch_running) = false;
+                    id(stopwatch_elapsed_ms) = 0;
+                    id(stopwatch_lap_ms) = 0;
                   }
-                } else {
-                  // RESET Button (Right half, center x=287, y=328, r=38)
-                  id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = 0;
-                  id(stopwatch_lap_ms) = 0;
+                  id(disp1).update();
                 }
-                id(disp1).update();
-              // 2. Central Chrono Dial Face: START/STOP (y < 370 prevents encroaching on navigation)
-              } else if (touch.x >= 100 && touch.x <= 366 && touch.y < 370) {
-                uint32_t now_tap = millis();
-                if (!id(stopwatch_running)) {
-                  id(stopwatch_running) = true;
-                  id(stopwatch_start_time) = now_tap - id(stopwatch_elapsed_ms);
-                  id(sleep_start_time) = 0;
-                  id(display_brightness).turn_on().perform();
-                } else {
-                  id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = now_tap - id(stopwatch_start_time);
+              // 2. Full Chrono Dial Face: START/STOP (Anywhere on dial face y < 380, excluding pushers)
+              } else if (touch.y < 380) {
+                if (now_chrono_tap - last_chrono_tap > 200) {
+                  last_chrono_tap = now_chrono_tap;
+                  if (!id(stopwatch_running)) {
+                    id(stopwatch_running) = true;
+                    id(stopwatch_start_time) = now_chrono_tap - id(stopwatch_elapsed_ms);
+                    id(sleep_start_time) = 0;
+                    id(display_brightness).turn_on().perform();
+                  } else {
+                    id(stopwatch_running) = false;
+                    id(stopwatch_elapsed_ms) = now_chrono_tap - id(stopwatch_start_time);
+                  }
+                  id(disp1).update();
                 }
-                id(disp1).update();
               }
             // Page 2: Music (Player Controls OR Speaker/Preset Overlay)
             } else if (id(gui_page) == 2) {
