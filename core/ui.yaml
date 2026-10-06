@@ -5003,45 +5003,35 @@ display:
             }
           };
 
-          // Full Game Card Composite (Icon + Instructions + Title + High Score)
-          auto draw_game_card = [&](int g_idx, int icon_x, int icon_y, int text_center_x, int title_y, int score_y, int desc_y) {
+          // Full Game Card Composite (Icon + Title + High Score)
+          auto draw_game_card = [&](int g_idx, int icon_x, int icon_y, int text_center_x, int title_y, int score_y) {
             const char* title = "MARBLES";
-            const char* desc = "Tilt to Sink All Marbles";
             int score = id(high_score_marbles);
             if (g_idx == 0) {
               title = "MARBLES";
-              desc = "Tilt to Sink All Marbles";
               score = id(high_score_marbles);
             } else if (g_idx == 1) {
               title = "ARCHERY";
-              desc = "Tilt Aim • Tap to Shoot";
               score = id(high_score_archery);
             } else if (g_idx == 2) {
               title = "BREAKOUT";
-              desc = "Tilt Paddle • Break Bricks";
               score = id(high_score_breakout);
             } else {
               title = "CHOMP FOR KIDS";
-              desc = "Tilt & Tap to Feed Monster";
               score = id(high_score_chomp);
             }
 
-            // 1. Instructions at desc_y (centered at cx = 233, font_small, col_slate)
-            if (desc_y >= 75 && desc_y <= 275) {
-              it.print(cx, desc_y, id(font_small), id(col_slate), TextAlign::CENTER, desc);
-            }
-
-            // 2. Game Icon at (icon_x, icon_y)
-            if (icon_y >= 50 && icon_y <= 390) {
+            // 1. Game Icon at (icon_x, icon_y)
+            if (icon_y >= 40 && icon_y <= 380) {
               draw_game_icon(g_idx, icon_x, icon_y);
             }
 
-            // 3. Game Title at (text_center_x, title_y)
+            // 2. Game Title at (text_center_x, title_y)
             if (title_y >= 75 && title_y <= 275) {
               it.print(text_center_x, title_y, id(font_btn_bold), id(col_white), TextAlign::CENTER, title);
             }
 
-            // 4. High Score at (text_center_x, score_y)
+            // 3. High Score at (text_center_x, score_y)
             if (score_y >= 75 && score_y <= 275) {
               char sc_buf[32];
               if (score > 0) snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: %d", score);
@@ -5053,9 +5043,8 @@ display:
           int icon_cx = 110;
           int card_cy = 220;
           int text_cx = 285;
-          int base_title_y = 195;
-          int base_score_y = 235;
-          int base_desc_y = 150;
+          int base_title_y = 200;
+          int base_score_y = 240;
 
           static const int16_t SCROLL_EASE_174[5] = {0, 38, 95, 148, 174};
 
@@ -5071,10 +5060,10 @@ display:
             int out_idx = id(game_carousel_idx);
             int in_idx = id(menu_scroll_target_page);
 
-            draw_game_card(out_idx, icon_cx, card_cy + out_shift, text_cx, base_title_y + out_shift, base_score_y + out_shift, base_desc_y + out_shift);
-            draw_game_card(in_idx, icon_cx, card_cy + in_shift, text_cx, base_title_y + in_shift, base_score_y + in_shift, base_desc_y + in_shift);
+            draw_game_card(out_idx, icon_cx, card_cy + out_shift, text_cx, base_title_y + out_shift, base_score_y + out_shift);
+            draw_game_card(in_idx, icon_cx, card_cy + in_shift, text_cx, base_title_y + in_shift, base_score_y + in_shift);
           } else {
-            draw_game_card(id(game_carousel_idx), icon_cx, card_cy, text_cx, base_title_y, base_score_y, base_desc_y);
+            draw_game_card(id(game_carousel_idx), icon_cx, card_cy, text_cx, base_title_y, base_score_y);
           }
 
           // Top Viewport Mask (ensures pure AMOLED black behind Title)
