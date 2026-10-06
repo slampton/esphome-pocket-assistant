@@ -510,6 +510,12 @@ font:
       - ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~°•—–…‘’“”±·áéíóúàèìòùäëïöüâêîôûñçÁÉÍÓÚÀÈÌÒÙÄËÏÖÜÂÊÎÔÛÑÇ'
 
 
+  - file: "gfonts://Orbitron@700"
+    id: font_games_title
+    size: 38
+    glyphs:
+      - ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:.-•!'
+
 color:
   - id: theme_primary
     hex: "6B8E9E"  # Default Soft Steel Ice Blue (Steel & Silver Palette)
@@ -5629,12 +5635,12 @@ display:
             }
 
             // 2. Game Title at (text_center_x, title_y)
-            if (title_y >= 75 && title_y <= 275) {
+            if (title_y >= 140 && title_y <= 295) {
               it.print(text_center_x, title_y, id(font_btn_bold), id(col_white), TextAlign::CENTER, title);
             }
 
             // 3. High Score at (text_center_x, score_y)
-            if (score_y >= 75 && score_y <= 275) {
+            if (score_y >= 140 && score_y <= 295) {
               char sc_buf[32];
               if (score > 0) snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: %d", score);
               else snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: --");
@@ -5668,12 +5674,12 @@ display:
             draw_game_card(id(game_carousel_idx), icon_cx, card_cy, text_cx, base_title_y, base_score_y);
           }
 
-          // Top Viewport Mask (ensures pure AMOLED black behind Title)
-          it.filled_rectangle(0, 0, 466, 76, id(col_bg));
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "GAMES");
+          // Top Viewport Mask (lines up with apex of upper chevron at y = 158)
+          it.filled_rectangle(0, 0, 466, 158, id(col_bg));
+          it.print(cx, 96, id(font_games_title), id(theme_primary), TextAlign::CENTER, "GAMES");
 
-          // Bottom Viewport Mask (ensures pure AMOLED black behind PLAY button)
-          it.filled_rectangle(0, 280, 466, 186, id(col_bg));
+          // Bottom Viewport Mask (lines up with apex of lower chevron at y = 282)
+          it.filled_rectangle(0, 282, 466, 184, id(col_bg));
 
           // Taller Action Button: "PLAY" at y = 352 (r = 22, height = 44px, font_btn_bold)
           draw_capsule(cx - 55, cx + 55, 352, 22, id(theme_primary), id(col_dark_gray));
@@ -6509,9 +6515,9 @@ display:
           draw_pill_button(89, 201, 210, 20, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
           draw_pill_button(265, 377, 210, 20, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
 
-          // Row 3: Actions > (Left: x 69..221) | Info > (Right: x 245..397) at y = 270
-          draw_pill_button(89, 201, 270, 20, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
-          draw_pill_button(265, 377, 270, 20, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
+          // Row 3: Info > (Left: x 69..221) | Actions > (Right: x 245..397) at y = 270
+          draw_pill_button(89, 201, 270, 20, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
+          draw_pill_button(265, 377, 270, 20, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
 
           // Lower Zone: Battery and Time (y = 333, y = 374 - vertically centered at y=333)
           char b_main[32];
@@ -9006,8 +9012,8 @@ touchscreen:
                   return;
                 }
 
-                // 3. Center Card & PLAY Button Tap: Launch Selected Game (x: 75..374, y: 90..390)
-                if (touch.x >= 75 && touch.x < 375 && touch.y >= 90 && touch.y <= 390) {
+                // 3. Center Card & PLAY Button Tap: Launch Selected Game (x: 75..374, y: 140..390)
+                if (touch.x >= 75 && touch.x < 375 && touch.y >= 140 && touch.y <= 390) {
                   id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp)
                   if (id(active_game) > 0) {
                     // Pause background music and mute DAC for dedicated game resources
@@ -9071,13 +9077,13 @@ touchscreen:
                 } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 7; // Open Audio & Media Submenu
                   id(disp1).update();
-                // Row 3 Left: "Actions >" (y: 245..295, x: 65..230)
+                // Row 3 Left: "Info >" (y: 245..295, x: 65..230)
                 } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 65 && touch.x <= 230) {
-                  id(system_menu_mode) = 3; // Open System Actions Submenu
-                  id(disp1).update();
-                // Row 3 Right: "Info >" (y: 245..295, x: 236..405)
-                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 236 && touch.x <= 405) {
                   id(system_menu_mode) = 8; // Open System Info Submenu
+                  id(disp1).update();
+                // Row 3 Right: "Actions >" (y: 245..295, x: 236..405)
+                } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 236 && touch.x <= 405) {
+                  id(system_menu_mode) = 3; // Open System Actions Submenu
                   id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 1) {
