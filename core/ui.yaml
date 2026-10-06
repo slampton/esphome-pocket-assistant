@@ -4800,21 +4800,57 @@ display:
             auto draw_skip_back_glyph = [&](int ox, int oy, Color c) {
               int px = prev_btn_x + ox;
               int py = art_center_y + oy;
-              it.filled_triangle(px - 9, py - 9, px - 3, py - 14, px - 3, py - 4, c);
-              it.horizontal_line(px - 3, py - 9, 10, c);
-              it.line(px + 7, py - 9, px + 10, py - 6, c);
-              it.vertical_line(px + 10, py - 6, 6, c);
-              it.print(px, py + 4, id(font_micro), c, TextAlign::CENTER, "-10");
+              // Bold solid arrow head at top pointing counter-clockwise (left)
+              it.filled_triangle(px - 8, py - 13, px - 1, py - 18, px - 1, py - 8, c);
+              // Bold 2-3px circular arc curving counter-clockwise
+              const float r1 = 12.5f;
+              const float r2 = 14.2f;
+              const float a_start = 0.28f;
+              const float a_end = 5.28f;
+              const float a_step = 0.18f;
+              for (float a = a_start; a < a_end; a += a_step) {
+                float next_a = std::min(a + a_step, a_end);
+                float s1, c1, s2, c2;
+                sincosf(a, &s1, &c1);
+                sincosf(next_a, &s2, &c2);
+                it.line(px + (int)(r1 * s1), py - (int)(r1 * c1),
+                        px + (int)(r1 * s2), py - (int)(r1 * c2), c);
+                it.line(px + (int)(r2 * s1), py - (int)(r2 * c2),
+                        px + (int)(r2 * s2), py - (int)(r2 * c2), c);
+                it.line(px + (int)((r1 + 0.85f) * s1), py - (int)((r1 + 0.85f) * c1),
+                        px + (int)((r1 + 0.85f) * s2), py - (int)((r1 + 0.85f) * c2), c);
+              }
+              // Centered bold "10" (with 1px horizontal faux-bold stroke)
+              it.print(px, py + 1, id(font_micro), c, TextAlign::CENTER, "10");
+              it.print(px + 1, py + 1, id(font_micro), c, TextAlign::CENTER, "10");
             };
 
             auto draw_skip_fwd_glyph = [&](int ox, int oy, Color c) {
               int nx = next_btn_x + ox;
               int ny = art_center_y + oy;
-              it.filled_triangle(nx + 9, ny - 9, nx + 3, ny - 14, nx + 3, ny - 4, c);
-              it.horizontal_line(nx - 7, ny - 9, 10, c);
-              it.line(nx - 7, ny - 9, nx - 10, ny - 6, c);
-              it.vertical_line(nx - 10, ny - 6, 6, c);
-              it.print(nx, ny + 4, id(font_micro), c, TextAlign::CENTER, "+30");
+              // Bold solid arrow head at top pointing clockwise (right)
+              it.filled_triangle(nx + 8, ny - 13, nx + 1, ny - 18, nx + 1, ny - 8, c);
+              // Bold 2-3px circular arc curving clockwise
+              const float r1 = 12.5f;
+              const float r2 = 14.2f;
+              const float a_start = 0.28f;
+              const float a_end = 5.28f;
+              const float a_step = 0.18f;
+              for (float a = a_start; a < a_end; a += a_step) {
+                float next_a = std::min(a + a_step, a_end);
+                float s1, c1, s2, c2;
+                sincosf(a, &s1, &c1);
+                sincosf(next_a, &s2, &c2);
+                it.line(nx - (int)(r1 * s1), ny - (int)(r1 * c1),
+                        nx - (int)(r1 * s2), ny - (int)(r1 * c2), c);
+                it.line(nx - (int)(r2 * s1), ny - (int)(r2 * c1),
+                        nx - (int)(r2 * s2), ny - (int)(r2 * c2), c);
+                it.line(nx - (int)((r1 + 0.85f) * s1), ny - (int)((r1 + 0.85f) * c1),
+                        nx - (int)((r1 + 0.85f) * s2), ny - (int)((r1 + 0.85f) * c2), c);
+              }
+              // Centered bold "30" (with 1px horizontal faux-bold stroke)
+              it.print(nx, ny + 1, id(font_micro), c, TextAlign::CENTER, "30");
+              it.print(nx + 1, ny + 1, id(font_micro), c, TextAlign::CENTER, "30");
             };
 
             auto draw_prev_glyph = [&](int ox, int oy, Color c) {
@@ -4858,8 +4894,9 @@ display:
               it.circle(left_flank_x, 140, 18, id(col_black));
               draw_speaker_glyph(0, 0, id(col_white));
 
-              it.filled_circle(prev_btn_x, art_center_y, 18, id(col_dark_gray));
-              it.circle(prev_btn_x, art_center_y, 18, id(col_black));
+              int transport_r = is_speech_media ? 20 : 18;
+              it.filled_circle(prev_btn_x, art_center_y, transport_r, id(col_dark_gray));
+              it.circle(prev_btn_x, art_center_y, transport_r, id(col_black));
               if (is_speech_media) {
                 draw_skip_back_glyph(0, 0, id(col_white));
               } else {
@@ -4874,8 +4911,8 @@ display:
               it.circle(right_flank_x, 140, 18, id(col_black));
               draw_vol_up_glyph(0, 0, id(col_white));
 
-              it.filled_circle(next_btn_x, art_center_y, 18, id(col_dark_gray));
-              it.circle(next_btn_x, art_center_y, 18, id(col_black));
+              it.filled_circle(next_btn_x, art_center_y, transport_r, id(col_dark_gray));
+              it.circle(next_btn_x, art_center_y, transport_r, id(col_black));
               if (is_speech_media) {
                 draw_skip_fwd_glyph(0, 0, id(col_white));
               } else {
