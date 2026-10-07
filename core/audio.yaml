@@ -254,10 +254,8 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
-      - script.execute: va_tts_drain_and_finish
   on_error:
     then:
-      - script.stop: va_tts_drain_and_finish
       - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
@@ -337,25 +335,23 @@ voice_assistant:
     then:
       - if:
           condition:
-            lambda: 'return !id(va_tts_received) && id(va_active);'
+            lambda: 'return id(va_tts_received);'
           then:
-            - script.execute: va_tts_drain_and_finish
-
-
-script:
-  - id: va_tts_drain_and_finish
-    mode: restart
-    then:
-      # Wait for any trailing mixer samples to drain before switching clocks/restoring UI
-      - if:
-          condition:
-            lambda: 'return id(announcement_mixing_input).is_running();'
-          then:
+            # 1. Brief window for audio pipeline to engage if not already running
             - wait_until:
                 condition:
-                  lambda: 'return !id(announcement_mixing_input).is_running();'
-                timeout: 3s
-            - delay: 100ms
+                  lambda: 'return id(announcement_mixing_input).is_running();'
+                timeout: 300ms
+            # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
+            - if:
+                condition:
+                  lambda: 'return id(announcement_mixing_input).is_running();'
+                then:
+                  - wait_until:
+                      condition:
+                        lambda: 'return !id(announcement_mixing_input).is_running();'
+                      timeout: 180s
+                  - delay: 400ms
       - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
@@ -369,6 +365,9 @@ script:
             binary_sensor.is_off: pickup_detected
           then:
             - script.execute: screen_sleep_timer
+
+
+script:
   - id: route_i2s_to_spk
     mode: restart
     then:
@@ -413,6 +412,10 @@ script:
       - script.execute: route_i2s_to_spk
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
+          id: media_mixing_input
+          decibel_reduction: 50
+          duration: 0.05s
+      - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
             float v = id(alert_volume).state;
@@ -428,11 +431,7 @@ script:
             - rtttl.play:
                 id: alarm_rtttl
                 rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
-            - delay: 150ms
-            - wait_until:
-                condition:
-                  lambda: 'return !id(alarm_rtttl).is_playing();'
-                timeout: 5s
+            - delay: 1400ms
             - delay: 800ms
 
   - id: stop_alarm_sound
