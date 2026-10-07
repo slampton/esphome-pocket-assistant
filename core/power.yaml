@@ -167,6 +167,18 @@ button:
 
 switch:
   - platform: template
+    name: "Power: Instant Crown Hibernate"
+    id: instant_crown_hibernate_switch
+    entity_category: config
+    icon: "mdi:lightning-bolt"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - lambda: 'id(instant_crown_hibernate_switch).publish_state(true);'
+    turn_off_action:
+      - lambda: 'id(instant_crown_hibernate_switch).publish_state(false);'
+
+  - platform: template
     name: "Power: Docked Screensaver"
     id: docked_screensaver_switch
     icon: "mdi:power-sleep"
@@ -344,12 +356,14 @@ interval:
           if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
             if (irq_val & 0x0C) {
               if (id(is_hibernating)) {
-                // Crown press aborts hibernation countdown immediately!
-                id(is_hibernating) = false;
-                id(hibernate_countdown_val) = 0;
-                id(sleep_start_time) = millis();
-                id(screen_sleep_timer).execute();
-                id(disp1).update();
+                if (id(hibernate_countdown_val) > 0) {
+                  // Crown press aborts 5-second countdown immediately!
+                  id(is_hibernating) = false;
+                  id(hibernate_countdown_val) = 0;
+                  id(sleep_start_time) = millis();
+                  id(screen_sleep_timer).execute();
+                  id(disp1).update();
+                }
                 uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
                 id(bus_internal).write(0x34, clr, 2);
                 return;
@@ -368,9 +382,13 @@ interval:
                 return; // Ignore all short clicks in locked state
               }
 
-              // Long press (1.5s hold) initiates hibernation countdown
+              // Long press (1.5s hold) initiates instant or countdown hibernation
               if (is_long) {
-                id(start_hibernation_countdown).execute();
+                if (id(instant_crown_hibernate_switch).state) {
+                  id(start_instant_hibernation).execute();
+                } else {
+                  id(start_hibernation_countdown).execute();
+                }
                 return;
               }
 
@@ -568,6 +586,23 @@ script:
       - script.execute: sync_display_brightness
       - script.execute: screen_sleep_timer
       - component.update: disp1
+
+  - id: start_instant_hibernation
+    mode: restart
+    then:
+      - lambda: |-
+          id(hibernate_countdown_val) = 0;
+          id(is_hibernating) = true;
+          id(active_game) = 0;
+      - voice_assistant.stop:
+      - media_player.pause: pocket_music_player
+      - audio_dac.mute_on: es8311_dac
+      - switch.turn_off: speaker_enable
+      - script.stop: screen_sleep_timer
+      - light.turn_on: display_brightness
+      - component.update: disp1
+      - delay: 1000ms
+      - script.execute: enter_deep_sleep
 
   - id: start_hibernation_countdown
     mode: restart

@@ -2999,28 +2999,33 @@ display:
       if (id(ota_in_progress)) {
         it.fill(id(col_bg));
 
-        // Outer bezel accent rings (Themed architectural track)
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(theme_primary));
-        it.circle(cx, cy, 227, id(theme_primary));
-        it.circle(cx, cy, 222, id(col_dark_gray));
+        // Standardized Perimeter Progress Ticks (r = 219..228, Zero Outer Ring)
+        // 1. Full 360-degree background track ticks (all 100 ticks)
+        for (int i = 0; i <= 100; i++) {
+          float rad = ((float)i / 100.0f) * 2.0f * 3.14159265f - 1.5707963f; // 12 o'clock top is -pi/2
+          float c = cosf(rad);
+          float s = sinf(rad);
+          int r1 = (i % 10 == 0) ? 219 : 222;
+          int r2 = (i % 10 == 0) ? 228 : 227;
+          Color tc = (i % 10 == 0) ? id(col_slate) : id(col_dark_gray);
+          it.line(cx + (int)(r1 * c), cy + (int)(r1 * s), cx + (int)(r2 * c), cy + (int)(r2 * s), tc);
+        }
 
-        // Circular Bezel Gauge (Radius 214)
-        // Recessed track
-        it.circle(cx, cy, 216, id(col_dark_gray));
-        it.circle(cx, cy, 215, id(col_dark_gray));
-        it.circle(cx, cy, 214, id(col_dark_gray));
-        it.circle(cx, cy, 213, id(col_dark_gray));
-
-        // Solid progress arc fill up to current percentage (follows active Color Palette)
+        // 2. Active progress ticks up to current percentage (follows active Color Palette)
         int pct = id(ota_progress_pct);
         if (pct < 0) pct = 0;
         if (pct > 100) pct = 100;
         for (int i = 0; i <= pct; i++) {
-          float rad = ((float)i / 100.0f) * 2.0f * 3.14159265f - 1.5707963f; // 12 o'clock top is -pi/2
+          float rad = ((float)i / 100.0f) * 2.0f * 3.14159265f - 1.5707963f;
           float c = cosf(rad);
           float s = sinf(rad);
-          it.line(cx + (int)(212 * c), cy + (int)(212 * s), cx + (int)(218 * c), cy + (int)(218 * s), id(theme_secondary));
+          int r1 = (i % 10 == 0) ? 219 : 221;
+          it.line(cx + (int)(r1 * c), cy + (int)(r1 * s), cx + (int)(228.0f * c), cy + (int)(228.0f * s), id(theme_secondary));
+          if (i % 10 == 0) {
+            float px = -s;
+            float py = c;
+            it.line(cx + (int)(r1 * c + px), cy + (int)(r1 * s + py), cx + (int)(228.0f * c + px), cy + (int)(228.0f * s + py), id(theme_secondary));
+          }
         }
 
         it.print(cx, cy - 60, id(font_date), id(theme_primary), TextAlign::CENTER, "FIRMWARE UPDATE");
@@ -3360,24 +3365,20 @@ display:
       }
 
       // ==========================================
-      // GLOBAL OVERLAY: HIBERNATION SHUTDOWN
+      // GLOBAL OVERLAY: HIBERNATION SHUTDOWN (Zero Outer Rings, Minimalist Dark Canvas)
       // ==========================================
       if (id(is_hibernating)) {
         it.fill(id(col_bg));
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(theme_primary));
-        it.circle(cx, cy, 227, id(theme_primary));
-        it.circle(cx, cy, 222, id(col_dark_gray));
 
-        it.print(cx, cy - 65, id(font_date), id(theme_primary), TextAlign::CENTER, "HIBERNATING");
-
-        char c_buf[16];
         if (id(hibernate_countdown_val) > 0) {
+          it.print(cx, cy - 65, id(font_date), id(theme_primary), TextAlign::CENTER, "HIBERNATING");
+          char c_buf[16];
           snprintf(c_buf, sizeof(c_buf), "%d", id(hibernate_countdown_val));
           it.print(cx, cy + 5, id(font_chrono_time), id(theme_secondary), TextAlign::CENTER, c_buf);
           it.print(cx, cy + 65, id(font_small), id(col_slate), TextAlign::CENTER, "Tap screen to stay awake");
         } else {
-          it.print(cx, cy + 20, id(font_small), id(col_slate), TextAlign::CENTER, "Shutting down...");
+          it.print(cx, cy - 10, id(font_date), id(theme_primary), TextAlign::CENTER, "HIBERNATING");
+          it.print(cx, cy + 30, id(font_small), id(col_slate), TextAlign::CENTER, "Shutting down...");
         }
         return;
       }
@@ -6076,6 +6077,12 @@ display:
           // Button 4: Software Update (Slot 3, y = 278, r = 18)
           draw_pill_button(110, 356, 278, 18, id(theme_secondary), id(col_dark_gray), "Software Update >", id(col_white), false);
 
+          // Button 5: Crown Long-Press Hibernate (Slot 4, y = 336, r = 18)
+          char h_buf[32];
+          bool inst_h = id(instant_crown_hibernate_switch).state;
+          snprintf(h_buf, sizeof(h_buf), "Hold Crown: %s", inst_h ? "Instant" : "5s Delay");
+          draw_pill_button(110, 356, 336, 18, id(theme_secondary), id(col_dark_gray), h_buf, id(col_white), false);
+
           // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
 
@@ -7330,7 +7337,19 @@ display:
               draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
             }
 
-            // 4. Dynamic Perimeter Progress Arc (r = 224..226)
+            // 4. Standardized Perimeter Progress Ticks (r = 219..228, Zero Outer Ring)
+            // 1. Full 360-degree background track ticks (all 60 positions)
+            for (int s = 0; s < 60; s++) {
+              float sn = DIAL_SIN[s];
+              float cs = DIAL_COS[s];
+              int r1 = (s % 5 == 0) ? 219 : 222;
+              int r2 = (s % 5 == 0) ? 228 : 227;
+              Color tc = (s % 5 == 0) ? id(col_slate) : id(col_dark_gray);
+              it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
+                      cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
+            }
+
+            // 2. Active remaining ticks
             if (id(timer_running) || id(timer_paused)) {
               float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
               int sweep_ticks = (int)(frac * 60.0f);
@@ -7338,9 +7357,17 @@ display:
               Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
               for (int t = 0; t <= sweep_ticks; t++) {
                 int idx = t % 60;
-                int ax = cx + (int)(224.0f * DIAL_SIN[idx]);
-                int ay = cy - (int)(224.0f * DIAL_COS[idx]);
-                it.filled_circle(ax, ay, 2, arc_c);
+                float sn = DIAL_SIN[idx];
+                float cs = DIAL_COS[idx];
+                int r1 = (idx % 5 == 0) ? 219 : 221;
+                it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
+                        cx + (int)(228.0f * sn), cy - (int)(228.0f * cs), arc_c);
+                if (idx % 5 == 0) {
+                  float px = -cs;
+                  float py = -sn;
+                  it.line(cx + (int)(r1 * sn + px), cy - (int)(r1 * cs - py),
+                          cx + (int)(228.0f * sn + px), cy - (int)(228.0f * cs - py), arc_c);
+                }
               }
             }
           } else {
@@ -7559,12 +7586,14 @@ touchscreen:
         - lambda: |-
             if (id(is_locked)) return; // Block all touch events in pocket
             if (id(is_hibernating)) {
-              // Touch on glass immediately aborts hibernation countdown
-              id(is_hibernating) = false;
-              id(hibernate_countdown_val) = 0;
-              id(sleep_start_time) = millis();
-              id(screen_sleep_timer).execute();
-              id(disp1).update();
+              if (id(hibernate_countdown_val) > 0) {
+                // Touch on glass aborts 5-second countdown only (instant hibernate is unabortable)
+                id(is_hibernating) = false;
+                id(hibernate_countdown_val) = 0;
+                id(sleep_start_time) = millis();
+                id(screen_sleep_timer).execute();
+                id(disp1).update();
+              }
               return;
             }
             // Rate-limit sleep timer reset to avoid restarting script 60x/sec during drags
@@ -8888,7 +8917,7 @@ touchscreen:
               } else if (id(system_menu_mode) == 3) {
                 // Mode 3: Actions Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
                 int slot = get_5slot_index(touch, 90, 376);
-                if (slot >= 0 && slot <= 3 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
                     // Card 1: Hibernate Now (Slot 0, y = 104)
@@ -8916,6 +8945,11 @@ touchscreen:
                   } else if (slot == 3) {
                     // Card 4: Software Update (Slot 3, y = 278)
                     id(system_menu_mode) = 5; // Open Software Update Screen
+                    id(disp1).update();
+                    return;
+                  } else if (slot == 4) {
+                    // Card 5: Crown Long-Press Hibernate Behavior Toggle (Slot 4, y = 336)
+                    id(instant_crown_hibernate_switch).toggle();
                     id(disp1).update();
                     return;
                   }
