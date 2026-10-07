@@ -145,7 +145,7 @@ media_player:
         - script.stop: screen_sleep_timer
         - mixer_speaker.apply_ducking:
             id: media_mixing_input
-            decibel_reduction: 10
+            decibel_reduction: 0
             duration: 0.1s
         - mixer_speaker.apply_ducking:
             id: announcement_mixing_input
@@ -242,7 +242,7 @@ voice_assistant:
             float v = id(pocket_music_player).volume;
             if (std::isnan(v) || v <= 0.05f) v = 0.05f;
             if (v > 1.0f) v = 1.0f;
-            return (int)std::round((1.0f - v) * 14.0f);
+            return (int)std::round(5.0f + (1.0f - v) * 16.0f);
           duration: 0.1s
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
@@ -342,7 +342,7 @@ voice_assistant:
             lambda: 'return !id(va_tts_received) && id(va_active);'
           then:
             # Settle window: Allow incoming TTS audio stream to arrive and arm va_tts_received
-            - delay: 800ms
+            - delay: 500ms
             - if:
                 condition:
                   lambda: 'return !id(va_tts_received) && id(va_active);'
@@ -357,13 +357,24 @@ script:
       # Wait for any trailing mixer samples to drain before switching clocks/restoring UI
       - if:
           condition:
-            lambda: 'return id(announcement_mixing_input).is_running();'
+            lambda: 'return id(va_tts_received);'
           then:
+            # 1. Allow mixer and physical I2S speaker pipeline to engage
             - wait_until:
                 condition:
-                  lambda: 'return !id(announcement_mixing_input).is_running();'
-                timeout: 3s
-            - delay: 100ms
+                  lambda: |-
+                    return id(announcement_mixing_input).is_running() || 
+                           id(physical_speaker).is_running();
+                timeout: 500ms
+            # 2. Wait until both announcement input AND physical I2S DMA buffer have drained completely
+            - wait_until:
+                condition:
+                  lambda: |-
+                    return !id(announcement_mixing_input).is_running() && 
+                           !id(physical_speaker).is_running();
+                timeout: 30s
+            # 3. Trailing settle delay for DAC analog output stage before switching clock mux
+            - delay: 350ms
       - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
@@ -472,7 +483,7 @@ script:
                   - switch.turn_on: speaker_enable
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
-                      decibel_reduction: 10
+                      decibel_reduction: 0
                       duration: 0.5s
                   - mixer_speaker.apply_ducking:
                       id: announcement_mixing_input
@@ -482,7 +493,7 @@ script:
           else:
             - mixer_speaker.apply_ducking:
                 id: media_mixing_input
-                decibel_reduction: 10
+                decibel_reduction: 0
                 duration: 0.1s
             - mixer_speaker.apply_ducking:
                 id: announcement_mixing_input
