@@ -8703,44 +8703,39 @@ touchscreen:
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 2) {
-                    // Slot 3 (Page 1): Wake to Page Cycler
-                    std::string cur = std::string(id(wake_page_mode).current_option().c_str());
-                    std::string nxt = (cur == "Clock") ? "Last Used" : ((cur == "Last Used") ? "Music" : "Clock");
-                    auto call = id(wake_page_mode).make_call();
-                    call.set_option(nxt);
-                    call.perform();
+                    // Slot 3 (Page 1): Screensaver Toggle
+                    id(docked_screensaver_switch).toggle();
                     id(disp1).update();
                   } else if (idx == 3) {
-                    // Slot 4 (Page 1): Sleep Method Cycler
-                    std::string cur = std::string(id(sleep_mode_select).current_option().c_str());
-                    std::string nxt = (cur == "Low Power Screen Off") ? "Deep Sleep Hibernation" : "Low Power Screen Off";
-                    auto call = id(sleep_mode_select).make_call();
+                    // Slot 4 (Page 1): Screensaver Style Cycler
+                    std::string cur = std::string(id(screensaver_style_select).current_option().c_str());
+                    std::string nxt = "Ambient Clock";
+                    if (cur == "Ambient Clock") nxt = "Aurora Borealis";
+                    else if (cur == "Aurora Borealis") nxt = "Starfield";
+                    else if (cur == "Starfield") nxt = "Matrix Rain";
+                    else if (cur == "Matrix Rain") nxt = "Solar Flare";
+                    else if (cur == "Solar Flare") nxt = "Screen Off";
+                    else nxt = "Ambient Clock";
+                    auto call = id(screensaver_style_select).make_call();
                     call.set_option(nxt);
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 4) {
-                    // Slot 5 (Page 1): Sleep Inactivity Timeout Cycler
-                    std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
+                    // Slot 5 (Page 1): Dock Inactivity Timeout Cycler
+                    std::string cur = std::string(id(screensaver_docked_timeout).current_option().c_str());
                     std::string nxt = "5 min";
-                    if (cur == "5 min") nxt = "10 min";
-                    else if (cur == "10 min") nxt = "15 min";
-                    else if (cur == "15 min") nxt = "30 min";
-                    else if (cur == "30 min") nxt = "Disabled";
-                    else if (cur == "Disabled") nxt = "5 min";
-                    auto call = id(sleep_timeout_mode).make_call();
+                    if (cur == "10s") nxt = "15s";
+                    else if (cur == "15s") nxt = "30s";
+                    else if (cur == "30s") nxt = "1 min";
+                    else if (cur == "1 min") nxt = "5 min";
+                    else if (cur == "5 min") nxt = "Never";
+                    else if (cur == "Never") nxt = "10s";
+                    auto call = id(screensaver_docked_timeout).make_call();
                     call.set_option(nxt);
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 5) {
-                    // Slot 6 (Page 2): Dock Sleep Behavior Toggle
-                    id(dock_prevent_sleep_switch).toggle();
-                    id(disp1).update();
-                  } else if (idx == 6) {
-                    // Slot 7 (Page 2): Battery Saver Mode Toggle
-                    id(battery_saver_switch).toggle();
-                    id(disp1).update();
-                  } else if (idx == 7) {
-                    // Slot 8 (Page 2): Sleep Screen Dimming Cycler
+                    // Slot 6 (Page 2): Screen Off Dimming Timeout Cycler
                     std::string cur = std::string(id(display_off_timeout).current_option().c_str());
                     std::string nxt = "15s";
                     if (cur == "10s") nxt = "15s";
@@ -8750,7 +8745,24 @@ touchscreen:
                     else if (cur == "2 min") nxt = "Never";
                     else if (cur == "Never") nxt = "10s";
                     auto call = id(display_off_timeout).make_call();
-                    call.set_option(nxt_so);
+                    call.set_option(nxt);
+                    call.perform();
+                    id(disp1).update();
+                  } else if (idx == 6) {
+                    // Slot 7 (Page 2): Stay Awake (Prevent Deep Sleep) Toggle
+                    id(prevent_deep_sleep_switch).toggle();
+                    id(disp1).update();
+                  } else if (idx == 7) {
+                    // Slot 8 (Page 2): Auto-Hibernate Timeout Cycler
+                    std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
+                    std::string nxt = "15 min";
+                    if (cur == "5 min") nxt = "10 min";
+                    else if (cur == "10 min") nxt = "15 min";
+                    else if (cur == "15 min") nxt = "30 min";
+                    else if (cur == "30 min") nxt = "Disabled";
+                    else if (cur == "Disabled") nxt = "5 min";
+                    auto call = id(sleep_timeout_mode).make_call();
+                    call.set_option(nxt);
                     call.perform();
                     id(disp1).update();
                   }
