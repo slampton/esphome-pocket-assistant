@@ -109,6 +109,18 @@ globals:
     type: int
     restore_value: no
     initial_value: '1'
+  - id: selected_slot_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: selected_slot_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: selected_slot_type
+    type: std::string
+    restore_value: no
+    initial_value: '""'
 
   - id: slot_1_name
     type: std::string
@@ -2497,16 +2509,39 @@ script:
       - component.update: disp1
 
 
+  - id: resolve_selected_music_slot
+    then:
+      - lambda: |-
+          int s = id(selected_music_slot);
+          if (s == 1) {
+            id(selected_slot_name) = id(slot_1_name);
+            id(selected_slot_id)   = id(slot_1_id);
+            id(selected_slot_type) = id(slot_1_type);
+          } else if (s == 2) {
+            id(selected_slot_name) = id(slot_2_name);
+            id(selected_slot_id)   = id(slot_2_id);
+            id(selected_slot_type) = id(slot_2_type);
+          } else if (s == 3) {
+            id(selected_slot_name) = id(slot_3_name);
+            id(selected_slot_id)   = id(slot_3_id);
+            id(selected_slot_type) = id(slot_3_type);
+          } else if (s == 4) {
+            id(selected_slot_name) = id(slot_4_name);
+            id(selected_slot_id)   = id(slot_4_id);
+            id(selected_slot_type) = id(slot_4_type);
+          } else {
+            id(selected_slot_name) = id(slot_5_name);
+            id(selected_slot_id)   = id(slot_5_id);
+            id(selected_slot_type) = id(slot_5_type);
+          }
+
   - id: play_music_slot
     mode: restart
     then:
       - delay: 0ms
+      - script.execute: resolve_selected_music_slot
       - lambda: |-
-          std::string s_name = (id(selected_music_slot) == 1) ? id(slot_1_name) :
-                               (id(selected_music_slot) == 2) ? id(slot_2_name) :
-                               (id(selected_music_slot) == 3) ? id(slot_3_name) :
-                               (id(selected_music_slot) == 4) ? id(slot_4_name) : id(slot_5_name);
-          id(music_action_feedback) = "Playing: " + s_name;
+          id(music_action_feedback) = "Playing: " + id(selected_slot_name);
           id(music_feedback_timer) = millis();
           if (id(selected_category_mode) == "podcast_episodes") {
             id(active_playback_media_type) = "podcast";
@@ -2522,25 +2557,12 @@ script:
           action: music_assistant.play_media
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-            media_id: !lambda |-
-              switch (id(selected_music_slot)) {
-                case 1: return id(slot_1_id).c_str();
-                case 2: return id(slot_2_id).c_str();
-                case 3: return id(slot_3_id).c_str();
-                case 4: return id(slot_4_id).c_str();
-                default: return id(slot_5_id).c_str();
-              }
+            media_id: !lambda 'return id(selected_slot_id).c_str();'
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-              switch (id(selected_music_slot)) {
-                case 1: return id(slot_1_type).c_str();
-                case 2: return id(slot_2_type).c_str();
-                case 3: return id(slot_3_type).c_str();
-                case 4: return id(slot_4_type).c_str();
-                default: return id(slot_5_type).c_str();
-              }
+              return id(selected_slot_type).c_str();
       - if:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
@@ -2557,22 +2579,15 @@ script:
     mode: restart
     then:
       - delay: 0ms
+      - script.execute: resolve_selected_music_slot
       - if:
           condition:
             lambda: 'return id(selected_category_mode) == "speakers";'
           then:
             - lambda: |-
-                std::string s_name = (id(selected_music_slot) == 1) ? id(slot_1_name) :
-                                     (id(selected_music_slot) == 2) ? id(slot_2_name) :
-                                     (id(selected_music_slot) == 3) ? id(slot_3_name) :
-                                     (id(selected_music_slot) == 4) ? id(slot_4_name) : id(slot_5_name);
-                std::string s_id   = (id(selected_music_slot) == 1) ? id(slot_1_id) :
-                                     (id(selected_music_slot) == 2) ? id(slot_2_id) :
-                                     (id(selected_music_slot) == 3) ? id(slot_3_id) :
-                                     (id(selected_music_slot) == 4) ? id(slot_4_id) : id(slot_5_id);
-                id(music_action_feedback) = "Transferring -> " + s_name;
+                id(music_action_feedback) = "Transferring -> " + id(selected_slot_name);
                 id(music_feedback_timer) = millis();
-                if (id(active_speaker_entity) == "${local_player_id}" && s_id != "${local_player_id}") {
+                if (id(active_speaker_entity) == "${local_player_id}" && id(selected_slot_id) != "${local_player_id}") {
                   if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                     auto call = id(pocket_music_player).make_call();
                     call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
@@ -2582,14 +2597,7 @@ script:
             - homeassistant.action:
                 action: music_assistant.transfer_queue
                 data:
-                  entity_id: !lambda |-
-                    switch (id(selected_music_slot)) {
-                      case 1: return id(slot_1_id).c_str();
-                      case 2: return id(slot_2_id).c_str();
-                      case 3: return id(slot_3_id).c_str();
-                      case 4: return id(slot_4_id).c_str();
-                      default: return id(slot_5_id).c_str();
-                    }
+                  entity_id: !lambda 'return id(selected_slot_id).c_str();'
                   source_player: !lambda 'return id(active_speaker_entity).c_str();'
                   auto_play: !lambda |-
                     bool source_playing = false;
@@ -2600,23 +2608,15 @@ script:
                     }
                     return source_playing ? "true" : "false";
             - lambda: |-
-                std::string s_name = (id(selected_music_slot) == 1) ? id(slot_1_name) :
-                                     (id(selected_music_slot) == 2) ? id(slot_2_name) :
-                                     (id(selected_music_slot) == 3) ? id(slot_3_name) :
-                                     (id(selected_music_slot) == 4) ? id(slot_4_name) : id(slot_5_name);
-                std::string s_id   = (id(selected_music_slot) == 1) ? id(slot_1_id) :
-                                     (id(selected_music_slot) == 2) ? id(slot_2_id) :
-                                     (id(selected_music_slot) == 3) ? id(slot_3_id) :
-                                     (id(selected_music_slot) == 4) ? id(slot_4_id) : id(slot_5_id);
-                if (s_id.rfind("media_player.", 0) == 0) {
-                  if (id(active_speaker_entity) != s_id && !id(active_speaker_entity).empty()) {
+                if (id(selected_slot_id).rfind("media_player.", 0) == 0) {
+                  if (id(active_speaker_entity) != id(selected_slot_id) && !id(active_speaker_entity).empty()) {
                     id(last_speaker_entity) = id(active_speaker_entity);
                   }
-                  id(active_speaker_entity) = s_id;
-                  id(active_speaker_name) = s_name;
-                  id(music_action_feedback) = "Active: " + s_name;
+                  id(active_speaker_entity) = id(selected_slot_id);
+                  id(active_speaker_name) = id(selected_slot_name);
+                  id(music_action_feedback) = "Active: " + id(selected_slot_name);
                 } else {
-                  ESP_LOGW("ui", "Rejecting non-media_player speaker slot: %s", s_id.c_str());
+                  ESP_LOGW("ui", "Rejecting non-media_player speaker slot: %s", id(selected_slot_id).c_str());
                   id(music_action_feedback) = "Invalid Speaker";
                 }
                 id(music_feedback_timer) = millis();
@@ -2647,28 +2647,20 @@ script:
                   lambda: 'return id(selected_category_mode) == "speaker_takeover";'
                 then:
                   - lambda: |-
-                      std::string s_name = (id(selected_music_slot) == 1) ? id(slot_1_name) :
-                                           (id(selected_music_slot) == 2) ? id(slot_2_name) :
-                                           (id(selected_music_slot) == 3) ? id(slot_3_name) :
-                                           (id(selected_music_slot) == 4) ? id(slot_4_name) : id(slot_5_name);
-                      std::string s_id   = (id(selected_music_slot) == 1) ? id(slot_1_id) :
-                                           (id(selected_music_slot) == 2) ? id(slot_2_id) :
-                                           (id(selected_music_slot) == 3) ? id(slot_3_id) :
-                                           (id(selected_music_slot) == 4) ? id(slot_4_id) : id(slot_5_id);
                       if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                         auto call = id(pocket_music_player).make_call();
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                       }
-                      if (s_id.rfind("media_player.", 0) == 0) {
-                        if (id(active_speaker_entity) != s_id && !id(active_speaker_entity).empty()) {
+                      if (id(selected_slot_id).rfind("media_player.", 0) == 0) {
+                        if (id(active_speaker_entity) != id(selected_slot_id) && !id(active_speaker_entity).empty()) {
                           id(last_speaker_entity) = id(active_speaker_entity);
                         }
-                        id(active_speaker_entity) = s_id;
-                        id(active_speaker_name) = s_name;
-                        id(music_action_feedback) = "Controlling: " + s_name;
+                        id(active_speaker_entity) = id(selected_slot_id);
+                        id(active_speaker_name) = id(selected_slot_name);
+                        id(music_action_feedback) = "Controlling: " + id(selected_slot_name);
                       } else {
-                        ESP_LOGW("ui", "Rejecting non-media_player takeover slot: %s", s_id.c_str());
+                        ESP_LOGW("ui", "Rejecting non-media_player takeover slot: %s", id(selected_slot_id).c_str());
                         id(music_action_feedback) = "Invalid Speaker";
                       }
                       id(music_feedback_timer) = millis();
@@ -2686,11 +2678,7 @@ script:
                   - component.update: disp1
                 else:
                   - lambda: |-
-                      std::string s_name = (id(selected_music_slot) == 1) ? id(slot_1_name) :
-                                           (id(selected_music_slot) == 2) ? id(slot_2_name) :
-                                           (id(selected_music_slot) == 3) ? id(slot_3_name) :
-                                           (id(selected_music_slot) == 4) ? id(slot_4_name) : id(slot_5_name);
-                      id(music_action_feedback) = "Playing: " + s_name;
+                      id(music_action_feedback) = "Playing: " + id(selected_slot_name);
                       id(music_feedback_timer) = millis();
                       if (id(selected_category_mode) == "podcast_episodes") {
                         id(active_playback_media_type) = "podcast";
@@ -2703,25 +2691,12 @@ script:
                       action: music_assistant.play_media
                       data:
                         entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                        media_id: !lambda |-
-                          switch (id(selected_music_slot)) {
-                            case 1: return id(slot_1_id).c_str();
-                            case 2: return id(slot_2_id).c_str();
-                            case 3: return id(slot_3_id).c_str();
-                            case 4: return id(slot_4_id).c_str();
-                            default: return id(slot_5_id).c_str();
-                          }
+                        media_id: !lambda 'return id(selected_slot_id).c_str();'
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
                           if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-                          switch (id(selected_music_slot)) {
-                            case 1: return id(slot_1_type).c_str();
-                            case 2: return id(slot_2_type).c_str();
-                            case 3: return id(slot_3_type).c_str();
-                            case 4: return id(slot_4_type).c_str();
-                            default: return id(slot_5_type).c_str();
-                          }
+                          return id(selected_slot_type).c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
@@ -3104,6 +3079,113 @@ display:
         return l_pat > c_pat;
       };
 
+      // Standardized 12h/24h Time Formatter Helper (Global Display Scope)
+      auto format_time_hhmm = [&](int hour, int minute, bool is_24h, char* out_buf, size_t out_sz, char* ap_buf = nullptr, bool pad_zero = false) {
+        if (is_24h) {
+          snprintf(out_buf, out_sz, "%02d:%02d", hour, minute);
+          if (ap_buf) ap_buf[0] = '\0';
+        } else {
+          int h12 = hour % 12;
+          if (h12 == 0) h12 = 12;
+          if (pad_zero) {
+            snprintf(out_buf, out_sz, "%02d:%02d", h12, minute);
+          } else {
+            snprintf(out_buf, out_sz, "%d:%02d", h12, minute);
+          }
+          if (ap_buf) {
+            strcpy(ap_buf, (hour >= 12) ? "PM" : "AM");
+          }
+        }
+      };
+
+      // Centralized Astronomical Synodic Moon Calculation (Global Display Scope)
+      auto calculate_moon_phase = [&](double &out_cycle, int *out_illum = nullptr, std::string *out_label = nullptr) {
+        auto now = id(ha_time).now();
+        double cycle = 0.5;
+        int illum_pct = 50;
+        std::string mp_label = "Moon";
+
+        if (now.is_valid()) {
+          int64_t ts = now.timestamp;
+          double diff = (double)(ts - 947182440LL); // 2000-01-06 18:14 UTC reference new moon
+          cycle = fmod(diff, 2551442.86) / 2551442.86;
+          if (cycle < 0.0) cycle += 1.0;
+          illum_pct = (int)round((1.0 - cos(2.0 * 3.1415926535 * cycle)) / 2.0 * 100.0);
+
+          if (cycle < 0.03 || cycle > 0.97) mp_label = "New Moon";
+          else if (cycle < 0.22) mp_label = "Waxing Crescent";
+          else if (cycle < 0.28) mp_label = "First Quarter";
+          else if (cycle < 0.47) mp_label = "Waxing Gibbous";
+          else if (cycle < 0.53) mp_label = "Full Moon";
+          else if (cycle < 0.72) mp_label = "Waning Gibbous";
+          else if (cycle < 0.78) mp_label = "Last Quarter";
+          else mp_label = "Waning Crescent";
+        } else {
+          std::string mp = id(ha_moon_phase).state;
+          if (mp == "new_moon") { cycle = 0.0; illum_pct = 0; mp_label = "New Moon"; }
+          else if (mp == "waxing_crescent") { cycle = 0.15; illum_pct = 25; mp_label = "Waxing Crescent"; }
+          else if (mp == "first_quarter") { cycle = 0.25; illum_pct = 50; mp_label = "First Quarter"; }
+          else if (mp == "waxing_gibbous") { cycle = 0.38; illum_pct = 75; mp_label = "Waxing Gibbous"; }
+          else if (mp == "full_moon") { cycle = 0.50; illum_pct = 100; mp_label = "Full Moon"; }
+          else if (mp == "waning_gibbous") { cycle = 0.68; illum_pct = 68; mp_label = "Waning Gibbous"; }
+          else if (mp == "last_quarter" || mp == "third_quarter") { cycle = 0.75; illum_pct = 50; mp_label = "Last Quarter"; }
+          else if (mp == "waning_crescent") { cycle = 0.88; illum_pct = 22; mp_label = "Waning Crescent"; }
+        }
+
+        out_cycle = cycle;
+        if (out_illum != nullptr) *out_illum = illum_pct;
+        if (out_label != nullptr) *out_label = mp_label;
+      };
+
+      // Centralized High-Precision 3D Per-Pixel Lunar Raytracer (Global Display Scope)
+      auto draw_lunar_disc = [&](int moon_cx, int moon_cy, int moon_r, double cycle, bool with_tycho = true) {
+        auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
+        it.circle(moon_cx, moon_cy, moon_r + 1, Color(35, 45, 60));
+        float scale = (float)moon_r / 44.0f;
+
+        for (int my = -moon_r; my <= moon_r; my++) {
+          int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
+          float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
+
+          for (int mx = -w_line; mx <= w_line; mx++) {
+            float r_dist = sqrtf((float)(mx * mx + my * my));
+            float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
+            float base_lum = 205.0f + 25.0f * sphere_dim;
+
+            // Scaled Maria
+            if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
+            else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
+            else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
+            else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
+            else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
+            else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
+            else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
+
+            if (with_tycho) {
+              // Scaled Tycho Crater & Ray System
+              if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(16 * scale * scale)) base_lum = 245.0f;
+              else if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(144 * scale * scale) && abs((my - (int)(28 * scale)) - 1.5f * (mx + (int)(4 * scale))) < (2.0f * scale)) base_lum += 24.0f;
+            }
+
+            float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
+            float penumbra = 6.0f * scale;
+            float shadow;
+            if (dist_to_term > penumbra) shadow = 1.0f;
+            else if (dist_to_term < -penumbra) shadow = 0.0f;
+            else {
+              float t = (dist_to_term + penumbra) / (2.0f * penumbra);
+              shadow = t * t * (3.0f - 2.0f * t);
+            }
+
+            float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
+            uint8_t c = (uint8_t)fminf(255.0f, final_lum);
+            Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
+            it.draw_pixel_at(moon_cx + mx, moon_cy + my, p_col);
+          }
+        }
+        it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
+      };
+
       // ==========================================
       // GLOBAL OVERLAY: OTA FIRMWARE UPDATE IN PROGRESS (Always renders even if screen was off)
       // ==========================================
@@ -3162,13 +3244,7 @@ display:
 
           char amb_time[16];
           if (now.is_valid()) {
-            if (id(is_24h_format)) {
-              snprintf(amb_time, sizeof(amb_time), "%02d:%02d", now.hour, now.minute);
-            } else {
-              int h12 = now.hour % 12;
-              if (h12 == 0) h12 = 12;
-              snprintf(amb_time, sizeof(amb_time), "%d:%02d", h12, now.minute);
-            }
+            format_time_hhmm(now.hour, now.minute, id(is_24h_format), amb_time, sizeof(amb_time));
             it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, amb_time);
             it.strftime(cx + drift_x, cy + 45 + drift_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, "%a, %b %d", now);
           } else {
@@ -3769,13 +3845,8 @@ display:
 
             // Giant Bold Digital Time: "10:45" (12h) or "14:45" (24h)
             char dig_buf[16];
-            if (id(is_24h_format)) {
-              snprintf(dig_buf, sizeof(dig_buf), "%02d:%02d", now.hour, now.minute);
-            } else {
-              int h12 = now.hour % 12;
-              if (h12 == 0) h12 = 12;
-              snprintf(dig_buf, sizeof(dig_buf), "%d:%02d", h12, now.minute);
-            }
+            char ap_str[8] = "";
+            format_time_hhmm(now.hour, now.minute, id(is_24h_format), dig_buf, sizeof(dig_buf), ap_str);
             it.print(cx, 205, id(font_time), id(col_white), TextAlign::CENTER, dig_buf);
 
             // AM/PM & Seconds Pill: (Theme Secondary)
@@ -3783,7 +3854,7 @@ display:
             if (id(is_24h_format)) {
               snprintf(sec_buf, sizeof(sec_buf), "SEC  •  %02ds", sec);
             } else {
-              snprintf(sec_buf, sizeof(sec_buf), "%s  •  %02ds", now.hour >= 12 ? "PM" : "AM", sec);
+              snprintf(sec_buf, sizeof(sec_buf), "%s  •  %02ds", ap_str, sec);
             }
             it.print(cx, 262, id(font_small), id(theme_secondary), TextAlign::CENTER, sec_buf);
 
@@ -6656,67 +6727,9 @@ display:
           if (is_night) {
             // Interactive Corner Moon with Astronomical Phase Accuracy (r = 22, cel_cx = 346, cel_cy = 82)
             int om_r = 22;
-            float scale = 22.0f / 44.0f;
-
-            // Continuous astronomical synodic calculation from synchronized clock
-            auto now = id(ha_time).now();
             double cycle = 0.5;
-            if (now.is_valid()) {
-              int64_t ts = now.timestamp;
-              double diff = (double)(ts - 947182440LL); // 2000-01-06 18:14 UTC reference new moon
-              cycle = fmod(diff, 2551442.86) / 2551442.86;
-              if (cycle < 0.0) cycle += 1.0;
-            } else {
-              std::string mp = id(ha_moon_phase).state;
-              if (mp == "new_moon") cycle = 0.0;
-              else if (mp == "waxing_crescent") cycle = 0.15;
-              else if (mp == "first_quarter") cycle = 0.25;
-              else if (mp == "waxing_gibbous") cycle = 0.38;
-              else if (mp == "full_moon") cycle = 0.50;
-              else if (mp == "waning_gibbous") cycle = 0.68;
-              else if (mp == "last_quarter" || mp == "third_quarter") cycle = 0.75;
-              else if (mp == "waning_crescent") cycle = 0.88;
-            }
-
-            auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
-
-            it.circle(cel_cx, cel_cy, om_r + 1, Color(35, 45, 60));
-
-            for (int my = -om_r; my <= om_r; my++) {
-              int w_line = (int)sqrtf((float)(om_r * om_r - my * my));
-              float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
-
-              for (int mx = -w_line; mx <= w_line; mx++) {
-                float r_dist = sqrtf((float)(mx * mx + my * my));
-                float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((om_r + 2) * (om_r + 2))));
-                float base_lum = 205.0f + 25.0f * sphere_dim;
-
-                // Scaled Maria
-                if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
-                else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
-                else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
-                else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
-                else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
-                else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
-                else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
-
-                float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
-                float penumbra = 3.5f;
-                float shadow;
-                if (dist_to_term > penumbra) shadow = 1.0f;
-                else if (dist_to_term < -penumbra) shadow = 0.0f;
-                else {
-                  float t = (dist_to_term + penumbra) / (2.0f * penumbra);
-                  shadow = t * t * (3.0f - 2.0f * t);
-                }
-
-                float final_lum = base_lum * shadow + 14.0f * (1.0f - shadow);
-                uint8_t c = (uint8_t)fminf(255.0f, final_lum);
-                Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
-                it.draw_pixel_at(cel_cx + mx, cel_cy + my, p_col);
-              }
-            }
-            it.circle(cel_cx, cel_cy, om_r, Color(45, 55, 70));
+            calculate_moon_phase(cycle);
+            draw_lunar_disc(cel_cx, cel_cy, om_r, cycle, false);
           } else {
             // Interactive Corner Sun: Only rendered on sunny/clear or partly cloudy daytime skies
             bool show_sun = (cond == "sunny" || cond == "clear-day" || cond == "clear" || cond == "clearday" ||
@@ -7058,88 +7071,18 @@ display:
         // SUBPAGE 3: MOON (DEFAULT LUNAR TELEMETRY VIEW ONLY)
         // ----------------------------------------------------------------------
         else if (id(sky_weather_subpage) == 3) {
-          // Continuous astronomical synodic calculation from synchronized clock
-          auto now = id(ha_time).now();
           double cycle = 0.5;
           int illum_pct = 50;
           std::string mp_label = "Moon";
-
-          if (now.is_valid()) {
-            int64_t ts = now.timestamp;
-            double diff = (double)(ts - 947182440LL); // 2000-01-06 18:14 UTC reference new moon
-            cycle = fmod(diff, 2551442.86) / 2551442.86;
-            if (cycle < 0.0) cycle += 1.0;
-            illum_pct = (int)round((1.0 - cos(2.0 * 3.1415926535 * cycle)) / 2.0 * 100.0);
-
-            if (cycle < 0.03 || cycle > 0.97) mp_label = "New Moon";
-            else if (cycle < 0.22) mp_label = "Waxing Crescent";
-            else if (cycle < 0.28) mp_label = "First Quarter";
-            else if (cycle < 0.47) mp_label = "Waxing Gibbous";
-            else if (cycle < 0.53) mp_label = "Full Moon";
-            else if (cycle < 0.72) mp_label = "Waning Gibbous";
-            else if (cycle < 0.78) mp_label = "Last Quarter";
-            else mp_label = "Waning Crescent";
-          } else {
-            std::string mp = id(ha_moon_phase).state;
-            if (mp == "new_moon") { cycle = 0.0; illum_pct = 0; mp_label = "New Moon"; }
-            else if (mp == "waxing_crescent") { cycle = 0.15; illum_pct = 25; mp_label = "Waxing Crescent"; }
-            else if (mp == "first_quarter") { cycle = 0.25; illum_pct = 50; mp_label = "First Quarter"; }
-            else if (mp == "waxing_gibbous") { cycle = 0.38; illum_pct = 75; mp_label = "Waxing Gibbous"; }
-            else if (mp == "full_moon") { cycle = 0.50; illum_pct = 100; mp_label = "Full Moon"; }
-            else if (mp == "waning_gibbous") { cycle = 0.68; illum_pct = 68; mp_label = "Waning Gibbous"; }
-            else if (mp == "last_quarter" || mp == "third_quarter") { cycle = 0.75; illum_pct = 50; mp_label = "Last Quarter"; }
-            else if (mp == "waning_crescent") { cycle = 0.88; illum_pct = 22; mp_label = "Waning Crescent"; }
-          }
-
-          auto d2 = [](int x1, int y1, int x2, int y2) { return (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2); };
+          calculate_moon_phase(cycle, &illum_pct, &mp_label);
 
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
 
           int moon_cx = cx;
           int moon_cy = 131;
           int moon_r = 52;
-          float scale = 52.0f / 44.0f;
 
-          // Render Scaled Detailed Moon Disc (Diameter 104px, top apex at y = 79, matching Sun page)
-          for (int my = -moon_r; my <= moon_r; my++) {
-            int w_line = (int)sqrtf((float)(moon_r * moon_r - my * my));
-            float x_term = ((cycle <= 0.5) ? 1.0f : -1.0f) * (float)w_line * cosf((float)(cycle * 2.0 * 3.1415926535));
-
-            for (int mx = -w_line; mx <= w_line; mx++) {
-              float r_dist = sqrtf((float)(mx * mx + my * my));
-              float sphere_dim = sqrtf(fmaxf(0.0f, 1.0f - (r_dist * r_dist) / (float)((moon_r + 2) * (moon_r + 2))));
-              float base_lum = 205.0f + 25.0f * sphere_dim;
-
-              // Scaled Maria
-              if (d2(mx, my, (int)(-14 * scale), (int)(-14 * scale)) < (int)(144 * scale * scale)) base_lum -= 58.0f;
-              else if (d2(mx, my, (int)(-22 * scale), (int)(2 * scale)) < (int)(225 * scale * scale)) base_lum -= 52.0f;
-              else if (d2(mx, my, (int)(8 * scale), (int)(-13 * scale)) < (int)(100 * scale * scale)) base_lum -= 54.0f;
-              else if (d2(mx, my, (int)(16 * scale), (int)(-2 * scale)) < (int)(121 * scale * scale)) base_lum -= 56.0f;
-              else if (d2(mx, my, (int)(25 * scale), (int)(-10 * scale)) < (int)(49 * scale * scale)) base_lum -= 60.0f;
-              else if (d2(mx, my, (int)(18 * scale), (int)(12 * scale)) < (int)(121 * scale * scale)) base_lum -= 50.0f;
-              else if (d2(mx, my, (int)(-10 * scale), (int)(16 * scale)) < (int)(121 * scale * scale)) base_lum -= 48.0f;
-
-              // Scaled Tycho Crater & Ray System
-              if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(16 * scale * scale)) base_lum = 245.0f;
-              else if (d2(mx, my, (int)(-4 * scale), (int)(28 * scale)) < (int)(144 * scale * scale) && abs((my - (int)(28 * scale)) - 1.5f * (mx + (int)(4 * scale))) < (2.0f * scale)) base_lum += 24.0f;
-
-              float dist_to_term = (cycle <= 0.5) ? ((float)mx - x_term) : (x_term - (float)mx);
-              float penumbra = 8.0f * scale;
-              float shadow;
-              if (dist_to_term > penumbra) shadow = 1.0f;
-              else if (dist_to_term < -penumbra) shadow = 0.0f;
-              else {
-                float t = (dist_to_term + penumbra) / (2.0f * penumbra);
-                shadow = t * t * (3.0f - 2.0f * t);
-              }
-
-              float final_lum = base_lum * shadow + 12.0f * (1.0f - shadow);
-              uint8_t c = (uint8_t)fminf(255.0f, final_lum);
-              Color p_col = (shadow < 0.05f) ? Color(12, 16, 24) : Color(c, (uint8_t)(c * 0.98f), (uint8_t)(c * 0.94f));
-              it.draw_pixel_at(moon_cx + mx, moon_cy + my, p_col);
-            }
-          }
-          it.circle(moon_cx, moon_cy, moon_r, Color(45, 55, 70));
+          draw_lunar_disc(moon_cx, moon_cy, moon_r, cycle, true);
 
           // Horizontal divider elevated to y = 186 (standardized to Sun page)
           it.line(80, 186, 386, 186, id(col_dark_gray));
@@ -7203,14 +7146,7 @@ display:
             char cur_t_buf[16] = "--:--";
             char ampm_buf[8] = "";
             if (now.is_valid()) {
-              if (id(is_24h_format)) {
-                snprintf(cur_t_buf, sizeof(cur_t_buf), "%02d:%02d", now.hour, now.minute);
-              } else {
-                int h12 = now.hour % 12;
-                if (h12 == 0) h12 = 12;
-                snprintf(cur_t_buf, sizeof(cur_t_buf), "%02d:%02d", h12, now.minute);
-                snprintf(ampm_buf, sizeof(ampm_buf), "%s", now.hour >= 12 ? "PM" : "AM");
-              }
+              format_time_hhmm(now.hour, now.minute, id(is_24h_format), cur_t_buf, sizeof(cur_t_buf), ampm_buf);
             }
             it.print(cx, 160, id(font_time), id(col_white), TextAlign::CENTER, cur_t_buf);
             if (!id(is_24h_format) && ampm_buf[0] != 0) {
@@ -7369,14 +7305,7 @@ display:
                 // Alarm Time String (All text and toggle elements shifted up 8px as a unit for vertical centering)
                 char t_buf[16];
                 char ap_buf[8] = "";
-                if (id(is_24h_format)) {
-                  snprintf(t_buf, sizeof(t_buf), "%02d:%02d", h, m);
-                } else {
-                  int h12 = h % 12;
-                  if (h12 == 0) h12 = 12;
-                  snprintf(t_buf, sizeof(t_buf), "%02d:%02d", h12, m);
-                  snprintf(ap_buf, sizeof(ap_buf), "%s", h >= 12 ? "PM" : "AM");
-                }
+                format_time_hhmm(h, m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf, true);
                 Color time_col = en ? id(col_white) : id(col_gray);
                 // Time & AM baselines (AM/PM brought in tighter to x=194)
                 it.print(92, y_mid + 4, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
@@ -7425,17 +7354,14 @@ display:
 
               // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, standardized at y=120 to match timer buffer
               char t_buf[16];
-              if (id(is_24h_format)) {
-                snprintf(t_buf, sizeof(t_buf), "%02d:%02d", cur_h, cur_m);
-                it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-              } else {
+              char ap_buf[8] = "";
+              format_time_hhmm(cur_h, cur_m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf);
+              it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+              if (!id(is_24h_format)) {
                 int h12 = cur_h % 12;
                 if (h12 == 0) h12 = 12;
-                snprintf(t_buf, sizeof(t_buf), "%d:%02d", h12, cur_m);
-                const char* ap = (cur_h >= 12) ? "PM" : "AM";
-                it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
                 int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
-                it.print(ap_x, 129, id(font_small), id(theme_secondary), TextAlign::LEFT, ap);
+                it.print(ap_x, 129, id(font_small), id(theme_secondary), TextAlign::LEFT, ap_buf);
               }
 
               // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
@@ -7676,8 +7602,8 @@ touchscreen:
               }
             }
 
-            // Edge tap support for one-handed navigation in Browse Library & Item Browser (Option 1 Right-Flank Chevrons)
-            if (id(gui_page) == 2 && id(music_overlay_mode) > 1 && touch.y >= 70 && touch.y <= 374) {
+            // Edge tap support for one-handed navigation in Browse Library, Speakers & Item Browser (Right-Flank Chevrons)
+            if (id(gui_page) == 2 && id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3 && touch.y >= 70 && touch.y <= 374) {
               if (touch.x < 75) {
                 return; // Left flank has no chevrons in vertical navigation
               } else if (touch.x >= 375) {
@@ -7704,20 +7630,22 @@ touchscreen:
                     }
                   }
                   return;
-                } else if (id(music_overlay_mode) == 3) {
-                  static uint32_t last_item_scroll = 0;
-                  uint32_t now_s = millis();
-                  if (now_s - last_item_scroll > TOUCH_DEBOUNCE_SCROLL) {
-                    last_item_scroll = now_s;
-                    if (touch.y < 220) {
-                      id(music_browse_page)--;
-                      if (id(music_browse_page) < 1) id(music_browse_page) = id(music_browse_total_pages);
-                    } else {
-                      id(music_browse_page)++;
-                      if (id(music_browse_page) > id(music_browse_total_pages)) id(music_browse_page) = 1;
+                } else if (id(music_overlay_mode) == 1 || id(music_overlay_mode) == 3) {
+                  if (id(music_browse_total_pages) > 1) {
+                    static uint32_t last_browse_scroll = 0;
+                    uint32_t now_s = millis();
+                    if (now_s - last_browse_scroll > TOUCH_DEBOUNCE_SCROLL) {
+                      last_browse_scroll = now_s;
+                      if (touch.y < 220) {
+                        id(music_browse_page)--;
+                        if (id(music_browse_page) < 1) id(music_browse_page) = id(music_browse_total_pages);
+                      } else {
+                        id(music_browse_page)++;
+                        if (id(music_browse_page) > id(music_browse_total_pages)) id(music_browse_page) = 1;
+                      }
+                      id(fetch_music_browse).execute();
+                      id(disp1).update();
                     }
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
                   }
                   return;
                 }
@@ -8036,25 +7964,6 @@ touchscreen:
                 // ----------------------------------------------------
                 // LEVEL 1: SPEAKERS BROWSER (Direct 5-Slot Speaker Inventory)
                 // ----------------------------------------------------
-                // Right Flank Pagination Chevrons (x >= 375): Continuous Wrap-Around Navigation
-                if (id(music_browse_total_pages) > 1 && touch.x >= 375) {
-                  static uint32_t last_spk_scroll = 0;
-                  uint32_t now_s = millis();
-                  if (now_s - last_spk_scroll > TOUCH_DEBOUNCE_SCROLL) {
-                    last_spk_scroll = now_s;
-                    if (touch.y < 220) {
-                      id(music_browse_page)--;
-                      if (id(music_browse_page) < 1) id(music_browse_page) = id(music_browse_total_pages);
-                    } else {
-                      id(music_browse_page)++;
-                      if (id(music_browse_page) > id(music_browse_total_pages)) id(music_browse_page) = 1;
-                    }
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                }
-
                 // Central Speaker Slots 1..5 Tap -> Opens Contextual Action Sheet (mode 4)
                 static uint32_t last_spk_slot_tap = 0;
                 uint32_t now_spk = millis();
@@ -8188,208 +8097,62 @@ touchscreen:
                 static uint32_t last_item_slot_tap = 0;
                 uint32_t now_item = millis();
 
-                // Card 1 (y: 75..133, x: 45..370, slot at y=104)
-                if (touch.y >= 75 && touch.y <= 133 && touch.x >= 45 && touch.x <= 370) {
+                // Central 5 Slots Hit-Testing via Universal get_5slot_index (x: 45..370)
+                int slot_idx = get_5slot_index(touch, 45, 370);
+                if (slot_idx >= 0) {
                   if (now_item - last_item_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_item_slot_tap = now_item;
-                    if (!id(slot_1_id).empty()) {
+                    int slot_num = slot_idx + 1;
+                    std::string s_id = (slot_num == 1) ? id(slot_1_id) :
+                                       (slot_num == 2) ? id(slot_2_id) :
+                                       (slot_num == 3) ? id(slot_3_id) :
+                                       (slot_num == 4) ? id(slot_4_id) : id(slot_5_id);
+                    std::string s_name = (slot_num == 1) ? id(slot_1_name) :
+                                         (slot_num == 2) ? id(slot_2_name) :
+                                         (slot_num == 3) ? id(slot_3_name) :
+                                         (slot_num == 4) ? id(slot_4_name) : id(slot_5_name);
+                    if (!s_id.empty()) {
                       if (is_podcast_list) {
-                        id(drilldown_album_id) = id(slot_1_id);
-                        id(drilldown_album_name) = id(slot_1_name);
+                        id(drilldown_album_id) = s_id;
+                        id(drilldown_album_name) = s_name;
                         id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = "podcast";
                         id(selected_category_mode) = "podcast_episodes";
-                        id(selected_category_title) = id(slot_1_name);
+                        id(selected_category_title) = s_name;
                         id(music_browse_page) = 1;
                         id(fetch_music_browse).execute();
                       } else if (is_drill && touch.x <= 118) {
-                        id(play_music_slot_1).execute();
+                        id(selected_music_slot) = slot_num;
+                        id(play_music_slot).execute();
                       } else if (is_drill && touch.x > 118) {
                         if (id(selected_category_mode) == "artist") {
-                          id(drilldown_artist_name) = id(slot_1_name);
+                          id(drilldown_artist_name) = s_name;
                           id(drilldown_artist_page) = id(music_browse_page);
                           id(selected_category_mode) = "artist_albums";
-                          id(selected_category_title) = id(slot_1_name);
+                          id(selected_category_title) = s_name;
                           id(music_browse_page) = 1;
                           id(fetch_music_browse).execute();
                         } else {
-                          id(drilldown_album_id) = id(slot_1_id);
-                          id(drilldown_album_name) = id(slot_1_name);
+                          id(drilldown_album_id) = s_id;
+                          id(drilldown_album_name) = s_name;
                           id(drilldown_album_page) = id(music_browse_page);
                           id(drilldown_parent_mode) = id(selected_category_mode);
                           id(selected_category_mode) = "album_tracks";
-                          id(selected_category_title) = id(slot_1_name);
+                          id(selected_category_title) = s_name;
                           id(music_browse_page) = 1;
                           id(fetch_music_browse).execute();
                         }
                       } else {
-                        id(select_music_slot_1).execute();
+                        id(selected_music_slot) = slot_num;
+                        id(select_music_slot).execute();
                       }
                     }
                   }
                   return;
-                // Card 2 (y: 134..191, x: 45..370, slot at y=162)
-                } else if (touch.y >= 134 && touch.y <= 191 && touch.x >= 45 && touch.x <= 370) {
-                  if (now_item - last_item_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_item_slot_tap = now_item;
-                    if (!id(slot_2_id).empty()) {
-                      if (is_podcast_list) {
-                        id(drilldown_album_id) = id(slot_2_id);
-                        id(drilldown_album_name) = id(slot_2_name);
-                        id(drilldown_album_page) = id(music_browse_page);
-                        id(drilldown_parent_mode) = "podcast";
-                        id(selected_category_mode) = "podcast_episodes";
-                        id(selected_category_title) = id(slot_2_name);
-                        id(music_browse_page) = 1;
-                        id(fetch_music_browse).execute();
-                      } else if (is_drill && touch.x <= 118) {
-                        id(play_music_slot_2).execute();
-                      } else if (is_drill && touch.x > 118) {
-                        if (id(selected_category_mode) == "artist") {
-                          id(drilldown_artist_name) = id(slot_2_name);
-                          id(drilldown_artist_page) = id(music_browse_page);
-                          id(selected_category_mode) = "artist_albums";
-                          id(selected_category_title) = id(slot_2_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        } else {
-                          id(drilldown_album_id) = id(slot_2_id);
-                          id(drilldown_album_name) = id(slot_2_name);
-                          id(drilldown_album_page) = id(music_browse_page);
-                          id(drilldown_parent_mode) = id(selected_category_mode);
-                          id(selected_category_mode) = "album_tracks";
-                          id(selected_category_title) = id(slot_2_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        }
-                      } else {
-                        id(select_music_slot_2).execute();
-                      }
-                    }
-                  }
-                  return;
-                // Card 3 (y: 192..249, x: 45..370, slot at y=220)
-                } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 45 && touch.x <= 370) {
-                  if (now_item - last_item_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_item_slot_tap = now_item;
-                    if (!id(slot_3_id).empty()) {
-                      if (is_podcast_list) {
-                        id(drilldown_album_id) = id(slot_3_id);
-                        id(drilldown_album_name) = id(slot_3_name);
-                        id(drilldown_album_page) = id(music_browse_page);
-                        id(drilldown_parent_mode) = "podcast";
-                        id(selected_category_mode) = "podcast_episodes";
-                        id(selected_category_title) = id(slot_3_name);
-                        id(music_browse_page) = 1;
-                        id(fetch_music_browse).execute();
-                      } else if (is_drill && touch.x <= 118) {
-                        id(play_music_slot_3).execute();
-                      } else if (is_drill && touch.x > 118) {
-                        if (id(selected_category_mode) == "artist") {
-                          id(drilldown_artist_name) = id(slot_3_name);
-                          id(drilldown_artist_page) = id(music_browse_page);
-                          id(selected_category_mode) = "artist_albums";
-                          id(selected_category_title) = id(slot_3_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        } else {
-                          id(drilldown_album_id) = id(slot_3_id);
-                          id(drilldown_album_name) = id(slot_3_name);
-                          id(drilldown_album_page) = id(music_browse_page);
-                          id(drilldown_parent_mode) = id(selected_category_mode);
-                          id(selected_category_mode) = "album_tracks";
-                          id(selected_category_title) = id(slot_3_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        }
-                      } else {
-                        id(select_music_slot_3).execute();
-                      }
-                    }
-                  }
-                  return;
-                // Card 4 (y: 250..307, x: 45..370, slot at y=278)
-                } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 45 && touch.x <= 370) {
-                  if (now_item - last_item_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_item_slot_tap = now_item;
-                    if (!id(slot_4_id).empty()) {
-                      if (is_podcast_list) {
-                        id(drilldown_album_id) = id(slot_4_id);
-                        id(drilldown_album_name) = id(slot_4_name);
-                        id(drilldown_album_page) = id(music_browse_page);
-                        id(drilldown_parent_mode) = "podcast";
-                        id(selected_category_mode) = "podcast_episodes";
-                        id(selected_category_title) = id(slot_4_name);
-                        id(music_browse_page) = 1;
-                        id(fetch_music_browse).execute();
-                      } else if (is_drill && touch.x <= 118) {
-                        id(play_music_slot_4).execute();
-                      } else if (is_drill && touch.x > 118) {
-                        if (id(selected_category_mode) == "artist") {
-                          id(drilldown_artist_name) = id(slot_4_name);
-                          id(drilldown_artist_page) = id(music_browse_page);
-                          id(selected_category_mode) = "artist_albums";
-                          id(selected_category_title) = id(slot_4_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        } else {
-                          id(drilldown_album_id) = id(slot_4_id);
-                          id(drilldown_album_name) = id(slot_4_name);
-                          id(drilldown_album_page) = id(music_browse_page);
-                          id(drilldown_parent_mode) = id(selected_category_mode);
-                          id(selected_category_mode) = "album_tracks";
-                          id(selected_category_title) = id(slot_4_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        }
-                      } else {
-                        id(select_music_slot_4).execute();
-                      }
-                    }
-                  }
-                  return;
-                // Card 5 (y: 308..374, x: 45..370, slot at y=336)
-                } else if (touch.y >= 308 && touch.y <= 374 && touch.x >= 45 && touch.x <= 370) {
-                  if (now_item - last_item_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_item_slot_tap = now_item;
-                    if (!id(slot_5_id).empty()) {
-                      if (is_podcast_list) {
-                        id(drilldown_album_id) = id(slot_5_id);
-                        id(drilldown_album_name) = id(slot_5_name);
-                        id(drilldown_album_page) = id(music_browse_page);
-                        id(drilldown_parent_mode) = "podcast";
-                        id(selected_category_mode) = "podcast_episodes";
-                        id(selected_category_title) = id(slot_5_name);
-                        id(music_browse_page) = 1;
-                        id(fetch_music_browse).execute();
-                      } else if (is_drill && touch.x <= 118) {
-                        id(play_music_slot_5).execute();
-                      } else if (is_drill && touch.x > 118) {
-                        if (id(selected_category_mode) == "artist") {
-                          id(drilldown_artist_name) = id(slot_5_name);
-                          id(drilldown_artist_page) = id(music_browse_page);
-                          id(selected_category_mode) = "artist_albums";
-                          id(selected_category_title) = id(slot_5_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        } else {
-                          id(drilldown_album_id) = id(slot_5_id);
-                          id(drilldown_album_name) = id(slot_5_name);
-                          id(drilldown_album_page) = id(music_browse_page);
-                          id(drilldown_parent_mode) = id(selected_category_mode);
-                          id(selected_category_mode) = "album_tracks";
-                          id(selected_category_title) = id(slot_5_name);
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        }
-                      } else {
-                        id(select_music_slot_5).execute();
-                      }
-                    }
-                  }
-                  return;
+                }
+
                 // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386) -> Returns to Level 2 Categories
-                } else if (is_back_button(touch)) {
+                if (is_back_button(touch)) {
                   if (now_item - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_item;
                     if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
