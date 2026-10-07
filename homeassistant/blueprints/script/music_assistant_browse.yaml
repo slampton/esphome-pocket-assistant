@@ -225,6 +225,22 @@ sequence:
     - action: music_assistant.get_library
       data:
         config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
+        media_type: artist
+        favorite: true
+        limit: 500
+        order_by: name
+      response_variable: fav_artists_resp
+    - action: music_assistant.get_library
+      data:
+        config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
+        media_type: album
+        favorite: true
+        limit: 500
+        order_by: name
+      response_variable: fav_albums_resp
+    - action: music_assistant.get_library
+      data:
+        config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
         media_type: radio
         favorite: true
         limit: 500
@@ -232,18 +248,18 @@ sequence:
       response_variable: fav_radios_resp
     - variables:
         raw_items: >-
-          {% set all_favs = (fav_tracks_resp["items"] | default([])) + (fav_playlists_resp["items"] | default([])) + (fav_radios_resp["items"] | default([])) %}
+          {% set all_favs = (fav_tracks_resp["items"] | default([])) + (fav_playlists_resp["items"] | default([])) + (fav_artists_resp["items"] | default([])) + (fav_albums_resp["items"] | default([])) + (fav_radios_resp["items"] | default([])) %}
           {% set ns = namespace(items=[]) %}
           {% for item in all_favs %}
             {% set mtype = item.media_type.value if item.media_type is mapping and item.media_type.value is defined else (item.media_type ~ "") %}
             {% set ns.items = ns.items + [{
               "name": item.name,
               "id": item.uri,
-              "type": mtype,
+              "type": mtype if mtype != "" else "track",
               "active": false
             }] %}
           {% endfor %}
-          {{ ns.items | to_json }}
+          {{ ns.items | sort(attribute="name") | to_json }}
   - conditions:
     - condition: template
       value_template: '{{ mode == "artist_albums" }}'
