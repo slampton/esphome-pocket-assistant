@@ -7828,7 +7828,7 @@ touchscreen:
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
                   hud_just_woken_time = millis();
-                  ESP_LOGD("touch", "Page 2 Wake HUD: x=%d y=%d", touch.x, touch.y);
+                  ESP_LOGI("touch", "Page 2 Wake HUD: x=%d y=%d", touch.x, touch.y);
                   id(disp1).update();
                   return;
                 }
@@ -7838,7 +7838,7 @@ touchscreen:
                 // Trailing Touch Settling Guard: absorb subsequent packets from the wake tap (180ms window)
                 // Ensures a quick tap to wake does not immediately fire a button or re-dismiss the HUD
                 if (hud_enabled && (millis() - hud_just_woken_time < 180)) {
-                  ESP_LOGD("touch", "Page 2 Wake settling guard absorbed: dt=%lums x=%d y=%d", (unsigned long)(millis() - hud_just_woken_time), touch.x, touch.y);
+                  ESP_LOGI("touch", "Page 2 Wake settling guard absorbed: dt=%lums x=%d y=%d", (unsigned long)(millis() - hud_just_woken_time), touch.x, touch.y);
                   return;
                 }
 
@@ -7855,7 +7855,7 @@ touchscreen:
                     id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(music_hud_timer) = now_pp;
-                    ESP_LOGD("touch", "Page 2 Play/Pause: x=%d y=%d is_playing=%d", touch.x, touch.y, is_playing);
+                    ESP_LOGI("touch", "Page 2 Play/Pause: x=%d y=%d is_playing=%d", touch.x, touch.y, is_playing);
                     id(toggle_ha_music).execute();
                     id(disp1).update();
                   }
@@ -7870,7 +7870,7 @@ touchscreen:
                   id(menu_scroll_active) = false;
                   id(menu_scroll_step) = 0;
                   id(music_overlay_mode) = 2;
-                  ESP_LOGD("touch", "Page 2 Compact Header Tap: x=%d y=%d", touch.x, touch.y);
+                  ESP_LOGI("touch", "Page 2 Compact Header Tap: x=%d y=%d", touch.x, touch.y);
                   id(disp1).update();
                   return;
                 }
@@ -7891,7 +7891,7 @@ touchscreen:
                     int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
                     id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
-                    ESP_LOGD("touch", "Page 2 Volume Up: x=%d y=%d vol=%d%%", touch.x, touch.y, std::min(90, v_cur + v_step));
+                    ESP_LOGI("touch", "Page 2 Volume Up: x=%d y=%d vol=%d%%", touch.x, touch.y, std::min(90, v_cur + v_step));
                     id(music_vol_up).execute();
                     id(disp1).update();
                   }
@@ -7911,7 +7911,7 @@ touchscreen:
                     int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
                     id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
-                    ESP_LOGD("touch", "Page 2 Volume Down: x=%d y=%d vol=%d%%", touch.x, touch.y, std::max(10, v_cur - v_step));
+                    ESP_LOGI("touch", "Page 2 Volume Down: x=%d y=%d vol=%d%%", touch.x, touch.y, std::max(10, v_cur - v_step));
                     id(music_vol_down).execute();
                     id(disp1).update();
                   }
@@ -7936,7 +7936,7 @@ touchscreen:
                     }
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
-                    ESP_LOGD("touch", "Page 2 Next Track / Skip: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Page 2 Next Track / Skip: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
                   return;
@@ -7957,7 +7957,7 @@ touchscreen:
                     id(music_overlay_mode) = 1; // Open Speakers Browser directly
                     id(fetch_music_browse).execute();
                     id(music_hud_active) = false;
-                    ESP_LOGD("touch", "Page 2 Speaker Browser: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Page 2 Speaker Browser: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
                   return;
@@ -7972,7 +7972,7 @@ touchscreen:
                     id(music_category_page) = 1;
                     id(music_overlay_mode) = 2; // Open Level 2 Library Categories Menu
                     id(music_hud_active) = false;
-                    ESP_LOGD("touch", "Page 2 Library Menu: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Page 2 Library Menu: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
                   return;
@@ -7996,7 +7996,7 @@ touchscreen:
                     }
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
-                    ESP_LOGD("touch", "Page 2 Prev Track / Replay: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Page 2 Prev Track / Replay: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
                   return;
@@ -8015,14 +8015,14 @@ touchscreen:
                       if (now_dis - last_dismiss_tap > 200) {
                         last_dismiss_tap = now_dis;
                         id(music_hud_active) = false;
-                        ESP_LOGD("touch", "Page 2 HUD Dismissed: x=%d y=%d dt=%lums", touch.x, touch.y, (unsigned long)(millis() - id(music_hud_timer)));
+                        ESP_LOGI("touch", "Page 2 HUD Dismissed: x=%d y=%d dt=%lums", touch.x, touch.y, (unsigned long)(millis() - id(music_hud_timer)));
                         id(disp1).update();
                       }
                     } else {
-                      ESP_LOGD("touch", "Page 2 HUD Dismiss lockout (dt=%lums < 250ms): x=%d y=%d", (unsigned long)(millis() - id(music_hud_timer)), touch.x, touch.y);
+                      ESP_LOGI("touch", "Page 2 HUD Dismiss lockout (dt=%lums < 250ms): x=%d y=%d", (unsigned long)(millis() - id(music_hud_timer)), touch.x, touch.y);
                     }
                   } else {
-                    ESP_LOGD("touch", "Page 2 Ignored non-control tap: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Page 2 Ignored non-control tap: x=%d y=%d", touch.x, touch.y);
                   }
                   return;
                 }
