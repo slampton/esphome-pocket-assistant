@@ -6,10 +6,6 @@ substitutions:
   target_media_type_sensor: "sensor.pocket_assistant_target_media_type"
 
 globals:
-  - id: local_music_volume_pct
-    type: int
-    restore_value: yes
-    initial_value: '60'
   - id: music_browse_has_prev
     type: bool
     restore_value: no
@@ -1490,17 +1486,9 @@ sensor:
         - lambda: |-
             if (!std::isnan(x) && x >= 0.0f && x <= 1.0f) {
               if (id(active_speaker_entity) == "${local_player_id}") {
-                // When targeting local player, x is the raw hardware volume from pocket_music_player
-                // Decode the perceptual audio curve to recover the user-facing percentage
-                float norm = std::max(0.0f, (x - 0.03f) / 0.57f);
-                int v_pct = (int)std::round(5.0f + 95.0f * std::pow(norm, 1.0f / 1.30f));
-                if (v_pct < 5) v_pct = 5;
-                if (v_pct > 100) v_pct = 100;
-                id(local_music_volume_pct) = v_pct;
-              } else {
-                // When targeting a remote speaker, volume is standard linear percentage
-                int v_pct = (int)std::round(x * 100.0f);
-                id(local_music_volume_pct) = v_pct;
+                if (std::abs(id(pocket_music_player).volume - x) > 0.01f) {
+                  id(pocket_music_player).volume = x;
+                }
               }
               id(throttled_disp_update).execute();
             }
@@ -2146,15 +2134,13 @@ script:
             lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
           then:
             - lambda: |-
-                int step = (int)id(volume_step_size).state;
-                if (step <= 0) step = 2;
-                int cur_pct = id(local_music_volume_pct);
-                int new_pct = std::min(100, cur_pct + step);
-                id(local_music_volume_pct) = new_pct;
-                float norm = (new_pct - 5) / 95.0f;
-                float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
-                id(pocket_music_player).volume = hw_vol;
-                id(pocket_music_player).make_call().set_volume(hw_vol).perform();
+                float step = id(volume_step_size).state / 100.0f;
+                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                float cur = id(pocket_music_player).volume;
+                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+                float new_vol = std::min(1.00f, cur + step);
+                id(pocket_music_player).volume = new_vol;
+                id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
             - homeassistant.action:
                 action: media_player.volume_up
@@ -2170,15 +2156,13 @@ script:
             lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
           then:
             - lambda: |-
-                int step = (int)id(volume_step_size).state;
-                if (step <= 0) step = 2;
-                int cur_pct = id(local_music_volume_pct);
-                int new_pct = std::max(5, cur_pct - step);
-                id(local_music_volume_pct) = new_pct;
-                float norm = (new_pct - 5) / 95.0f;
-                float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
-                id(pocket_music_player).volume = hw_vol;
-                id(pocket_music_player).make_call().set_volume(hw_vol).perform();
+                float step = id(volume_step_size).state / 100.0f;
+                if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                float cur = id(pocket_music_player).volume;
+                if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
+                float new_vol = std::max(0.05f, cur - step);
+                id(pocket_music_player).volume = new_vol;
+                id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
             - homeassistant.action:
                 action: media_player.volume_down
@@ -4435,7 +4419,7 @@ display:
 
             // Right Flank Volume HUD Overlay: Centered between Volume Up (+) and Volume Down (-) at (405, 212)
             if (millis() - id(vol_hud_timer) < 1800) {
-              int v_pct = (id(active_speaker_entity) == "${local_player_id}") ? id(local_music_volume_pct) : (int)std::round(id(pocket_music_player).volume * 100.0f);
+              int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
               char v_buf[16];
               snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
               it.filled_circle(405, art_center_y, 22, id(col_black));
@@ -6174,7 +6158,7 @@ display:
 
           // Button 3: Hardware Speaker Volume (Slot 3, y = 220, r = 18)
           char spk_vol[32];
-          int v_cur = id(local_music_volume_pct);
+          int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
           snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
           draw_pill_button(110, 356, 220, 18, id(theme_secondary), id(col_dark_gray), spk_vol, id(col_white), false);
 
@@ -7956,7 +7940,7 @@ touchscreen:
                     id(vol_hud_timer) = now_vol_tap;
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
-                    int v_cur = (id(active_speaker_entity) == "${local_player_id}") ? id(local_music_volume_pct) : (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
                     id(music_action_feedback) = "Volume: " + to_string(std::min(100, v_cur + v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_up).execute();
@@ -7977,7 +7961,7 @@ touchscreen:
                     id(vol_hud_timer) = now_vol_tap;
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
-                    int v_cur = (id(active_speaker_entity) == "${local_player_id}") ? id(local_music_volume_pct) : (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
                     id(music_action_feedback) = "Volume: " + to_string(std::max(5, v_cur - v_step)) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_down).execute();
@@ -8838,14 +8822,11 @@ touchscreen:
                   id(disp1).update();
                 // Card 3: Hardware Speaker Volume Step (y: 192..249, x: 75..395, pill at y=220)
                 } else if (touch.y >= 192 && touch.y <= 249 && touch.x >= 75 && touch.x <= 395) {
-                  int cur_pct = id(local_music_volume_pct);
-                  int new_pct = cur_pct + 10;
-                  if (new_pct > 100) new_pct = 10;
-                  id(local_music_volume_pct) = new_pct;
-                  float norm = (new_pct - 5) / 95.0f;
-                  float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
-                  id(pocket_music_player).volume = hw_vol;
-                  id(pocket_music_player).make_call().set_volume(hw_vol).perform();
+                  float cur_vol = id(pocket_music_player).volume;
+                  float new_vol = cur_vol + 0.10f;
+                  if (new_vol > 1.00f) new_vol = 0.10f;
+                  id(pocket_music_player).volume = new_vol;
+                  id(pocket_music_player).make_call().set_volume(new_vol).perform();
                   id(disp1).update();
                 // Card 4: Independent Alert Volume Step (y: 250..307, x: 75..395, pill at y=278)
                 } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 75 && touch.x <= 395) {

@@ -137,14 +137,6 @@ esphome:
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
-            int init_pct = id(local_music_volume_pct);
-            if (init_pct < 5) init_pct = 60;
-            if (init_pct > 100) init_pct = 60;
-            id(local_music_volume_pct) = init_pct;
-            float norm = (init_pct - 5) / 95.0f;
-            float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
-            id(pocket_music_player).volume = hw_vol;
-            id(pocket_music_player).make_call().set_volume(hw_vol).perform();
         - script.execute: sync_display_brightness
         - script.execute: screen_sleep_timer
 
