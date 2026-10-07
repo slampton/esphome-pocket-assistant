@@ -142,7 +142,7 @@ esphome:
             if (init_pct > 100) init_pct = 60;
             id(local_music_volume_pct) = init_pct;
             float norm = (init_pct - 5) / 95.0f;
-            float hw_vol = 0.03f + 0.82f * std::pow(norm, 1.25f);
+            float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
             id(pocket_music_player).volume = hw_vol;
             id(pocket_music_player).make_call().set_volume(hw_vol).perform();
         - script.execute: sync_display_brightness

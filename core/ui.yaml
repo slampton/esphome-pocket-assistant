@@ -1492,8 +1492,8 @@ sensor:
               if (id(active_speaker_entity) == "${local_player_id}") {
                 // When targeting local player, x is the raw hardware volume from pocket_music_player
                 // Decode the perceptual audio curve to recover the user-facing percentage
-                float norm = std::max(0.0f, (x - 0.03f) / 0.82f);
-                int v_pct = (int)std::round(5.0f + 95.0f * std::pow(norm, 1.0f / 1.25f));
+                float norm = std::max(0.0f, (x - 0.03f) / 0.57f);
+                int v_pct = (int)std::round(5.0f + 95.0f * std::pow(norm, 1.0f / 1.30f));
                 if (v_pct < 5) v_pct = 5;
                 if (v_pct > 100) v_pct = 100;
                 id(local_music_volume_pct) = v_pct;
@@ -2152,7 +2152,7 @@ script:
                 int new_pct = std::min(100, cur_pct + step);
                 id(local_music_volume_pct) = new_pct;
                 float norm = (new_pct - 5) / 95.0f;
-                float hw_vol = 0.03f + 0.82f * std::pow(norm, 1.25f);
+                float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
                 id(pocket_music_player).volume = hw_vol;
                 id(pocket_music_player).make_call().set_volume(hw_vol).perform();
           else:
@@ -2176,7 +2176,7 @@ script:
                 int new_pct = std::max(5, cur_pct - step);
                 id(local_music_volume_pct) = new_pct;
                 float norm = (new_pct - 5) / 95.0f;
-                float hw_vol = 0.03f + 0.82f * std::pow(norm, 1.25f);
+                float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
                 id(pocket_music_player).volume = hw_vol;
                 id(pocket_music_player).make_call().set_volume(hw_vol).perform();
           else:
@@ -8843,7 +8843,7 @@ touchscreen:
                   if (new_pct > 100) new_pct = 10;
                   id(local_music_volume_pct) = new_pct;
                   float norm = (new_pct - 5) / 95.0f;
-                  float hw_vol = 0.03f + 0.82f * std::pow(norm, 1.25f);
+                  float hw_vol = 0.03f + 0.57f * std::pow(norm, 1.30f);
                   id(pocket_music_player).volume = hw_vol;
                   id(pocket_music_player).make_call().set_volume(hw_vol).perform();
                   id(disp1).update();
