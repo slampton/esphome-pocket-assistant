@@ -26,8 +26,8 @@ blueprint:
           multiple: false
           reorder: false
     default_album_sort:
-      name: Default Album Sort Order
-      description: Preferred sort order for albums and artist discographies (name for alphabetical, year_desc for chronological newest-first, year for oldest-first).
+      name: Default Library Album Sort Order
+      description: Preferred sort order for library albums (name for alphabetical, year_desc for chronological newest-first, year for oldest-first).
       default: name
       selector:
         select:
@@ -38,6 +38,22 @@ blueprint:
               value: year_desc
             - label: Chronological (Oldest First)
               value: year
+          multiple: false
+          custom_value: false
+          sort: false
+    default_artist_album_sort:
+      name: Default Artist Discography Sort Order
+      description: Preferred sort order when browsing an artist's discography (year for oldest-first, year_desc for newest-first, name for alphabetical).
+      default: year
+      selector:
+        select:
+          options:
+            - label: Chronological (Oldest First)
+              value: year
+            - label: Chronological (Newest First)
+              value: year_desc
+            - label: Alphabetical
+              value: name
           multiple: false
           custom_value: false
           sort: false
@@ -107,8 +123,14 @@ fields:
     selector:
       text:
   album_sort:
-    description: Preferred sort order for albums (e.g. name, year_desc, year)
+    description: Preferred sort order for library albums (e.g. name, year_desc, year)
     example: name
+    default: ''
+    selector:
+      text:
+  artist_album_sort:
+    description: Preferred sort order for artist discographies (e.g. year, year_desc, name)
+    example: year
     default: ''
     selector:
       text:
@@ -123,9 +145,11 @@ sequence:
     dev_input: !input target_esphome_device
     helper_entity: !input active_speaker_helper
     input_album_sort: !input default_album_sort
+    input_artist_album_sort: !input default_artist_album_sort
     input_podcast_sort: !input default_podcast_sort
     input_mass_queue_entry: !input mass_queue_entry
     album_sort_order: '{{ album_sort if (album_sort | default("") != "") else input_album_sort }}'
+    artist_album_sort_order: '{{ artist_album_sort if (artist_album_sort | default("") != "") else input_artist_album_sort }}'
     podcast_sort_order: '{{ podcast_sort if (podcast_sort | default("") != "") else input_podcast_sort }}'
     resolved_mass_queue_entry: '{{ input_mass_queue_entry if (input_mass_queue_entry | default("") != "") else "01KWT5KHS9J3CXG4PYGN26EYKS" }}'
 - choose:
@@ -231,7 +255,7 @@ sequence:
         search: '{{ search }}'
         favorite: false
         limit: 1000
-        order_by: '{{ album_sort_order }}'
+        order_by: '{{ artist_album_sort_order }}'
       response_variable: artist_albums_resp
     - variables:
         raw_items: >-

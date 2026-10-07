@@ -2,6 +2,7 @@
 
 substitutions:
   default_album_sort: "Alphabetical"
+  default_artist_album_sort: "Oldest on Top"
   default_podcast_sort: "Newest on Top"
   target_media_type_sensor: "sensor.pocket_assistant_target_media_type"
 
@@ -701,6 +702,22 @@ select:
     set_action:
       - lambda: |-
           id(music_album_sort_order).publish_state(x);
+
+  - platform: template
+    name: "Music: Artist Album Sort Order"
+    id: music_artist_album_sort_order
+    icon: "mdi:sort-calendar-ascending"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: ${default_artist_album_sort}
+    options:
+      - "Oldest on Top"
+      - "Newest on Top"
+      - "Alphabetical"
+    set_action:
+      - lambda: |-
+          id(music_artist_album_sort_order).publish_state(x);
 
   - platform: template
     name: "Music: Podcast Sort Order"
@@ -2296,6 +2313,11 @@ script:
               if (sort == "Newest on Top") return "year_desc";
               if (sort == "Oldest on Top") return "year";
               return "name";
+            artist_album_sort: !lambda |-
+              std::string sort = id(music_artist_album_sort_order).current_option();
+              if (sort == "Alphabetical") return "name";
+              if (sort == "Newest on Top") return "year_desc";
+              return "year";
             podcast_sort: !lambda |-
               std::string sort = id(music_podcast_sort_order).current_option();
               if (sort == "Oldest on Top") return "oldest";
