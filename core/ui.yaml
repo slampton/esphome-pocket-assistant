@@ -6165,7 +6165,7 @@ display:
           // Button 4: Independent Alert Volume (Slot 4, y = 278, r = 18)
           char alert_vol_str[32];
           float a_st = id(alert_volume).state;
-          int a_cur = (std::isnan(a_st) || a_st < 20.0f) ? 80 : (int)std::round(a_st);
+          int a_cur = (std::isnan(a_st) || a_st < 20.0f) ? 70 : (int)std::round(a_st);
           snprintf(alert_vol_str, sizeof(alert_vol_str), "Alert Vol: %d%%", a_cur);
           draw_pill_button(110, 356, 278, 18, id(theme_secondary), id(col_dark_gray), alert_vol_str, id(col_white), false);
 
@@ -8831,7 +8831,7 @@ touchscreen:
                 // Card 4: Independent Alert Volume Step (y: 250..307, x: 75..395, pill at y=278)
                 } else if (touch.y >= 250 && touch.y <= 307 && touch.x >= 75 && touch.x <= 395) {
                   float cur_a_f = id(alert_volume).state;
-                  int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 80 : (int)std::round(cur_a_f);
+                  int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 70 : (int)std::round(cur_a_f);
                   int nxt_a = cur_a + 10;
                   if (nxt_a > 100) nxt_a = 50;
                   auto call = id(alert_volume).make_call();
