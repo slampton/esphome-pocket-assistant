@@ -2958,6 +2958,87 @@ display:
         }
       };
 
+      // Standardized Bottom Deck Navigation Chevrons (< at x=165, > at x=301, y=424)
+      auto draw_deck_chevrons = [&](Color chevron_col, bool with_shadow = true) {
+        if (with_shadow) {
+          // Solid drop shadow for high-contrast visibility against album art or dark UI (+1px y)
+          it.line(165 + 4, 424 - 7 + 1, 165 - 4, 424 + 1, id(col_black));
+          it.line(165 + 5, 424 - 7 + 1, 165 - 3, 424 + 1, id(col_black));
+          it.line(165 + 4, 424 + 7 + 1, 165 - 4, 424 + 1, id(col_black));
+          it.line(165 + 5, 424 + 7 + 1, 165 - 3, 424 + 1, id(col_black));
+
+          it.line(301 - 4, 424 - 7 + 1, 301 + 4, 424 + 1, id(col_black));
+          it.line(301 - 5, 424 - 7 + 1, 301 + 3, 424 + 1, id(col_black));
+          it.line(301 - 4, 424 + 7 + 1, 301 + 4, 424 + 1, id(col_black));
+          it.line(301 - 5, 424 + 7 + 1, 301 + 3, 424 + 1, id(col_black));
+        }
+
+        // Left Anchor (<): 9px wide, 15px tall, 2px stroke
+        it.line(165 + 4, 424 - 7, 165 - 4, 424, chevron_col);
+        it.line(165 + 5, 424 - 7, 165 - 3, 424, chevron_col);
+        it.line(165 + 4, 424 + 7, 165 - 4, 424, chevron_col);
+        it.line(165 + 5, 424 + 7, 165 - 3, 424, chevron_col);
+
+        // Right Anchor (>): 9px wide, 15px tall, 2px stroke
+        it.line(301 - 4, 424 - 7, 301 + 4, 424, chevron_col);
+        it.line(301 - 5, 424 - 7, 301 + 3, 424, chevron_col);
+        it.line(301 - 4, 424 + 7, 301 + 4, 424, chevron_col);
+        it.line(301 - 5, 424 + 7, 301 + 3, 424, chevron_col);
+      };
+
+      // Standardized Battery & Charging Telemetry Widget (y = 380 by default, center-aligned)
+      auto draw_battery_indicator = [&](int by = 380) {
+        float batt = id(batt_level).state;
+        if (!isnan(batt)) {
+          char batt_str[16];
+          snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
+          int text_x = cx + 8;
+          it.print(text_x, by, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
+          int bx = text_x - (batt >= 100.0f ? 36 : 28);
+          if (id(batt_charging).state) {
+            // Golden Charging Lightning Bolt (18px total height)
+            it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
+            it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
+          } else {
+            // Crisp Green Vertical Battery Icon (18px total height)
+            it.filled_rectangle(bx - 2, by - 9, 4, 2, id(col_green)); // Terminal pip
+            it.rectangle(bx - 5, by - 7, 10, 16, id(col_green)); // Outer body
+            int fill_h = (int)std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f));
+            it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, id(col_green)); // Bottom-up fill
+          }
+        }
+      };
+
+      // Standardized Submenu Pagination Dots (Global Display Scope, default y = 440)
+      auto draw_pagination_dots = [&](int cur_page, int total_pages = 2, int y_pos = 440) {
+        if (total_pages <= 1) return;
+        int dot1_r = (cur_page == 1) ? 3 : 2;
+        int dot2_r = (cur_page == 2) ? 3 : 2;
+        Color dot1_c = (cur_page == 1) ? id(theme_primary) : id(col_slate);
+        Color dot2_c = (cur_page == 2) ? id(theme_primary) : id(col_slate);
+        it.filled_circle(226, y_pos, dot1_r, dot1_c);
+        it.filled_circle(240, y_pos, dot2_r, dot2_c);
+      };
+
+      // Standardized 3-Bar Drilldown Hamburger Icon [ ☰ ]
+      auto draw_drilldown_icon = [&](int x_pos, int y_mid, Color c = id(theme_secondary)) {
+        for (int dy : {-4, 0, 4}) {
+          it.filled_rectangle(x_pos, y_mid + dy, 13, 2, c);
+        }
+      };
+
+      // Standardized Dual-Action Modal Confirmation Buttons (Cancel Left, Confirm Right, r = 20)
+      auto draw_confirmation_buttons = [&](int y_mid, const char* cancel_label, const char* confirm_label, Color confirm_color) {
+        // Cancel Button (Left, Gray Pill, spans x: 105..215)
+        draw_pill_button(125, 195, y_mid, 20, id(col_slate), id(col_dark_gray), cancel_label, id(col_white), false);
+        // Confirm Button (Right, Action Pill, spans x: 251..361)
+        draw_pill_button(271, 341, y_mid, 20, confirm_color, id(col_dark_gray), confirm_label, id(col_white), false);
+      };
+
+      // Standardized Dynamic Scroll Easing Constants (5-Step Cubic Eased Curve)
+      static const int16_t SHARED_SCROLL_EASE_116[5] = {0, 25, 63, 99, 116}; // 2-Pill 116px shift
+      static const int16_t SHARED_SCROLL_EASE_174[5] = {0, 38, 95, 148, 174}; // 3-Pill 174px shift
+
       // Generalized dynamic text truncation with custom font measurement (Global Display Scope)
       auto fit_text_to_width_font = [&](const std::string &str, int max_w, auto font) -> std::string {
         if (str.empty() || font == nullptr) return "";
@@ -3707,23 +3788,7 @@ display:
             it.print(cx, 262, id(font_small), id(theme_secondary), TextAlign::CENTER, sec_buf);
 
             // Battery telemetry in cyan with charging bolt / battery gauge (standardized to y = 380, static across faces)
-            if (!isnan(batt)) {
-              char batt_str[16];
-              snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
-              int text_x = cx + 8;
-              it.print(text_x, 380, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
-              int bx = text_x - (batt >= 100.0f ? 36 : 28);
-              int by = 380;
-              if (id(batt_charging).state) {
-                it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
-                it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
-              } else {
-                it.filled_rectangle(bx - 2, by - 9, 4, 2, id(col_green));
-                it.rectangle(bx - 5, by - 7, 10, 16, id(col_green));
-                int fill_h = (int)std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f));
-                it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, id(col_green));
-              }
-            }
+            draw_battery_indicator(380);
           } else {
             // Modernized Dial Markers: Refined perimeter bezel ticks with 6 o'clock pip sanctuary
         for (int i = 0; i < 60; i++) {
@@ -3751,25 +3816,7 @@ display:
         it.print(cx, 305, id(font_date), id(col_slate), TextAlign::CENTER, time_buf);
 
         // Battery percentage in cyan in all states; golden charging bolt appears on left when plugged in
-        if (!isnan(batt)) {
-          char batt_str[16];
-          snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
-          int text_x = cx + 8;
-          it.print(text_x, 380, id(font_small), id(theme_primary), TextAlign::CENTER, batt_str);
-          int bx = text_x - (batt >= 100.0f ? 36 : 28);
-          int by = 380;
-          if (id(batt_charging).state) {
-            // Golden Charging Lightning Bolt (18px total height)
-            it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, id(col_gold));
-            it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, id(col_gold));
-          } else {
-            // Crisp Green Vertical Battery Icon (18px total height)
-            it.filled_rectangle(bx - 2, by - 9, 4, 2, id(col_green)); // Terminal pip
-            it.rectangle(bx - 5, by - 7, 10, 16, id(col_green)); // Outer body
-            int fill_h = (int)std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f));
-            it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, id(col_green)); // Bottom-up fill
-          }
-        }
+        draw_battery_indicator(380);
 
         float h_angle = ((hour % 12) + min / 60.0f + sec / 3600.0f) * (2.0f * PI_F / 12.0f);
         float m_angle = (min + sec / 60.0f) * (2.0f * PI_F / 60.0f);
@@ -4527,14 +4574,12 @@ display:
           // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           // Narrowed Pill Width: x1 = 150, x2 = 316 (Calibrated from AUDIOBOOKS padding)
           // --------------------------------------------------
-          static const int SCROLL_EASE_116[5] = {0, 25, 63, 99, 116};
-
           int current_offset = 0;
           if (id(menu_scroll_active)) {
             int cur_step = id(menu_scroll_step);
             if (cur_step < 0) cur_step = 0;
             if (cur_step > 4) cur_step = 4;
-            int shift = SCROLL_EASE_116[cur_step];
+            int shift = SHARED_SCROLL_EASE_116[cur_step];
             if (id(menu_scroll_dir) == 1) {
               // Scrolling Down: offset moves from 0 to 116
               current_offset = shift;
@@ -4577,12 +4622,7 @@ display:
 
           // Stationary Pagination Dots nestled at bottom curve y = 440
           int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(music_category_page);
-          int dot1_r = (current_dot_page == 1) ? 3 : 2;
-          int dot2_r = (current_dot_page == 2) ? 3 : 2;
-          Color dot1_c = (current_dot_page == 1) ? id(theme_primary) : id(col_slate);
-          Color dot2_c = (current_dot_page == 2) ? id(theme_primary) : id(col_slate);
-          it.filled_circle(226, 440, dot1_r, dot1_c);
-          it.filled_circle(240, 440, dot2_r, dot2_c);
+          draw_pagination_dots(current_dot_page, 2, 440);
 
           // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(music_category_page);
@@ -4629,9 +4669,7 @@ display:
               it.print(144, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, disp_name.c_str());
 
               // Drilldown Hamburger Icon [ ☰ ] on right end (x: 350..363)
-              for (int dy : {-4, 0, 4}) {
-                it.filled_rectangle(350, y_mid + dy, 13, 2, id(theme_secondary));
-              }
+              draw_drilldown_icon(350, y_mid, id(theme_secondary));
             } else if (is_podcast_list) {
               // ----------------------------------------------
               // PODCAST SERIES ITEM: SUBMENU / DRILLDOWN ONLY (NO DIRECT PLAY)
@@ -4654,9 +4692,7 @@ display:
               it.print(126, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
 
               // Drilldown Hamburger Icon [ ☰ ] on right end (x: 336..349)
-              for (int dy : {-4, 0, 4}) {
-                it.filled_rectangle(336, y_mid + dy, 13, 2, id(theme_secondary));
-              }
+              draw_drilldown_icon(336, y_mid, id(theme_secondary));
             } else {
               // ----------------------------------------------
               // REGULAR / PLAYABLE ITEM: STANDARD GUI-WIDTH UNIFIED CARD (110..356, r = 18)
@@ -4780,16 +4816,6 @@ display:
         // STATE 0: GAMES MENU LAUNCHER (Vertical Slot Machine Carousel)
         // ----------------------------------------------------
         if (id(active_game) == 0) {
-          // Clean Capsule Drawer Lambda
-          auto draw_capsule = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c) {
-            it.filled_circle(x1, y_mid, r, border_c);
-            it.filled_circle(x2, y_mid, r, border_c);
-            it.filled_rectangle(x1, y_mid - r, x2 - x1, 2 * r + 1, border_c);
-
-            it.filled_circle(x1, y_mid, r - 2, bg_c);
-            it.filled_circle(x2, y_mid, r - 2, bg_c);
-            it.filled_rectangle(x1, y_mid - (r - 2), x2 - x1, 2 * (r - 2) + 1, bg_c);
-          };
 
           // Individual Game Icon Renderer (Position-Independent)
           auto draw_game_icon = [&](int g_idx, int icon_x, int icon_y) {
@@ -5010,12 +5036,10 @@ display:
           int base_title_y = 200;
           int base_score_y = 240;
 
-          static const int16_t SCROLL_EASE_174[5] = {0, 38, 95, 148, 174};
-
           if (id(menu_scroll_active)) {
             int step = id(menu_scroll_step);
             if (step > 4) step = 4;
-            int offset = SCROLL_EASE_174[step];
+            int offset = SHARED_SCROLL_EASE_174[step];
             int dir = id(menu_scroll_dir);
 
             int out_shift = -dir * offset;
@@ -5038,8 +5062,7 @@ display:
           it.filled_rectangle(0, 282, 466, 184, id(col_bg));
 
           // Taller Action Button: "PLAY" at y = 352 (r = 22, height = 44px, font_btn_bold)
-          draw_capsule(cx - 55, cx + 55, 352, 22, id(theme_primary), id(col_dark_gray));
-          it.print(cx, 352, id(font_btn_bold), id(col_white), TextAlign::CENTER, "PLAY");
+          draw_hero_button(cx - 55, cx + 55, 352, 22, id(theme_primary), id(col_dark_gray), "PLAY", id(col_white));
 
           // Standardized Right-Flank Vertical Chevrons (x = 415, Up at 162, Down at 278)
           // Always visible in true continuous carousel mode
@@ -5898,14 +5921,12 @@ display:
           // Model A: 4-Step Eased 174px (3-Pill) High-Cadence Snap-Slide Animation (~125ms) with Clean Viewport Masking
           // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           // --------------------------------------------------
-          static const int SCROLL_EASE_174[5] = {0, 38, 95, 148, 174};
-
           int current_offset = 0;
           if (id(menu_scroll_active)) {
             int cur_step = id(menu_scroll_step);
             if (cur_step < 0) cur_step = 0;
             if (cur_step > 4) cur_step = 4;
-            int shift = SCROLL_EASE_174[cur_step];
+            int shift = SHARED_SCROLL_EASE_174[cur_step];
             if (id(menu_scroll_dir) == 1) {
               // Scrolling Down: offset moves from 0 to 174
               current_offset = shift;
@@ -5958,12 +5979,7 @@ display:
 
           // Stationary Pagination Dots nestled at bottom curve y = 440
           int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(sleep_menu_page);
-          int dot1_r = (current_dot_page == 1) ? 3 : 2;
-          int dot2_r = (current_dot_page == 2) ? 3 : 2;
-          Color dot1_c = (current_dot_page == 1) ? id(theme_primary) : id(col_slate);
-          Color dot2_c = (current_dot_page == 2) ? id(theme_primary) : id(col_slate);
-          it.filled_circle(226, 440, dot1_r, dot1_c);
-          it.filled_circle(240, 440, dot2_r, dot2_c);
+          draw_pagination_dots(current_dot_page, 2, 440);
 
           // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(sleep_menu_page);
@@ -6045,11 +6061,8 @@ display:
           // --------------------------------------------------
           it.print(cx, 130, id(font_date), id(theme_primary), TextAlign::CENTER, "RESTART?");
 
-          // Cancel Button (Left, Gray Pill - compact 110px width, spans x: 105..215)
-          draw_pill_button(125, 195, 230, 20, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
-
-          // Confirm Restart Button (Right, Red Pill - compact 110px width, spans x: 251..361)
-          draw_pill_button(271, 341, 230, 20, id(col_red), id(col_dark_gray), "Restart", id(col_white), false);
+          // Dual-Action Confirmation Buttons (y = 230, r = 20)
+          draw_confirmation_buttons(230, "Cancel", "Restart", id(col_red));
 
         } else if (id(system_menu_mode) == 5) {
           // --------------------------------------------------
@@ -6123,11 +6136,8 @@ display:
           it.print(cx, 145, id(font_small), id(col_white), TextAlign::CENTER, "Download & flash firmware");
           it.print(cx, 175, id(font_small), id(theme_secondary), TextAlign::CENTER, "Keep device powered on");
 
-          // Cancel Button (Left, Gray Pill, spans x: 105..215, y_mid = 240, r = 20)
-          draw_pill_button(125, 195, 240, 20, id(col_slate), id(col_dark_gray), "Cancel", id(col_white), false);
-
-          // Confirm Install Button (Right, Primary Pill, spans x: 251..361, y_mid = 240, r = 20)
-          draw_pill_button(271, 341, 240, 20, id(theme_primary), id(col_dark_gray), "Install", id(col_white), false);
+          // Dual-Action Confirmation Buttons (y = 240, r = 20)
+          draw_confirmation_buttons(240, "Cancel", "Install", id(theme_primary));
 
         } else if (id(system_menu_mode) == 7) {
           // --------------------------------------------------
@@ -7468,30 +7478,8 @@ display:
         bool is_stopwatch = (id(gui_page) == 1);
         Color chevron_col = is_stopwatch ? id(col_black) : id(col_white);
 
-        if (!is_stopwatch) {
-          // Solid drop shadow for high-contrast visibility against album art or dark UI
-          it.line(165 + 4, 424 - 7 + 1, 165 - 4, 424 + 1, id(col_black));
-          it.line(165 + 5, 424 - 7 + 1, 165 - 3, 424 + 1, id(col_black));
-          it.line(165 + 4, 424 + 7 + 1, 165 - 4, 424 + 1, id(col_black));
-          it.line(165 + 5, 424 + 7 + 1, 165 - 3, 424 + 1, id(col_black));
-
-          it.line(301 - 4, 424 - 7 + 1, 301 + 4, 424 + 1, id(col_black));
-          it.line(301 - 5, 424 - 7 + 1, 301 + 3, 424 + 1, id(col_black));
-          it.line(301 - 4, 424 + 7 + 1, 301 + 4, 424 + 1, id(col_black));
-          it.line(301 - 5, 424 + 7 + 1, 301 + 3, 424 + 1, id(col_black));
-        }
-
-        // Left Anchor (<): 9px wide, 15px tall, 2px stroke
-        it.line(165 + 4, 424 - 7, 165 - 4, 424, chevron_col);
-        it.line(165 + 5, 424 - 7, 165 - 3, 424, chevron_col);
-        it.line(165 + 4, 424 + 7, 165 - 4, 424, chevron_col);
-        it.line(165 + 5, 424 + 7, 165 - 3, 424, chevron_col);
-
-        // Right Anchor (>): 9px wide, 15px tall, 2px stroke
-        it.line(301 - 4, 424 - 7, 301 + 4, 424, chevron_col);
-        it.line(301 - 5, 424 - 7, 301 + 3, 424, chevron_col);
-        it.line(301 - 4, 424 + 7, 301 + 4, 424, chevron_col);
-        it.line(301 - 5, 424 + 7, 301 + 3, 424, chevron_col);
+        // Master App Deck Navigation Chevrons (< at x=165, > at x=301, y=424)
+        draw_deck_chevrons(chevron_col, !is_stopwatch);
 
         std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
         if (cnt_mode.empty()) cnt_mode = "Always";
