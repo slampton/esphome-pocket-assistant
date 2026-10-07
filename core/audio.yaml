@@ -239,7 +239,6 @@ voice_assistant:
             float v = id(pocket_music_player).volume;
             if (std::isnan(v) || v <= 0.05f) v = 0.05f;
             if (v > 1.0f) v = 1.0f;
-            // Scale TTS: 10 dB baseline ducking matching media, plus standard attenuation down to quiet levels
             return (int)std::round(10.0f + (1.0f - v) * 20.0f);
           duration: 0.1s
       - script.stop: screen_sleep_timer
@@ -254,8 +253,10 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
+      - script.execute: va_tts_drain_and_finish
   on_error:
     then:
+      - script.stop: va_tts_drain_and_finish
       - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
@@ -335,23 +336,25 @@ voice_assistant:
     then:
       - if:
           condition:
-            lambda: 'return id(va_tts_received);'
+            lambda: 'return !id(va_tts_received) && id(va_active);'
           then:
-            # 1. Brief window for audio pipeline to engage if not already running
+            - script.execute: va_tts_drain_and_finish
+
+
+script:
+  - id: va_tts_drain_and_finish
+    mode: restart
+    then:
+      # Wait for any trailing mixer samples to drain before switching clocks/restoring UI
+      - if:
+          condition:
+            lambda: 'return id(announcement_mixing_input).is_running();'
+          then:
             - wait_until:
                 condition:
-                  lambda: 'return id(announcement_mixing_input).is_running();'
-                timeout: 300ms
-            # 2. Wait for hardware speaker buffer to completely finish playing (support long answers up to 3 min)
-            - if:
-                condition:
-                  lambda: 'return id(announcement_mixing_input).is_running();'
-                then:
-                  - wait_until:
-                      condition:
-                        lambda: 'return !id(announcement_mixing_input).is_running();'
-                      timeout: 180s
-                  - delay: 400ms
+                  lambda: 'return !id(announcement_mixing_input).is_running();'
+                timeout: 3s
+            - delay: 100ms
       - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
@@ -365,9 +368,6 @@ voice_assistant:
             binary_sensor.is_off: pickup_detected
           then:
             - script.execute: screen_sleep_timer
-
-
-script:
   - id: route_i2s_to_spk
     mode: restart
     then:
@@ -422,7 +422,7 @@ script:
             if (std::isnan(v) || v <= 0.0f) v = 70.0f;
             if (v > 100.0f) v = 100.0f;
             if (v < 20.0f) v = 20.0f;
-            return (100.0f - v) * 0.18f;
+            return (int)std::round((100.0f - v) * 0.18f);
           duration: 0.05s
       - while:
           condition:
@@ -431,8 +431,8 @@ script:
             - rtttl.play:
                 id: alarm_rtttl
                 rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
-            - delay: 2400ms
-            - delay: 600ms
+            - delay: 1500ms
+            - delay: 800ms
 
   - id: stop_alarm_sound
     mode: restart
@@ -461,12 +461,12 @@ script:
                   - audio_dac.mute_off: es8311_dac
                   - switch.turn_on: speaker_enable
                   - mixer_speaker.apply_ducking:
-                      id: announcement_mixing_input
-                      decibel_reduction: 50
-                      duration: 0.05s
-                  - mixer_speaker.apply_ducking:
                       id: media_mixing_input
                       decibel_reduction: 10
+                      duration: 0.5s
+                  - mixer_speaker.apply_ducking:
+                      id: announcement_mixing_input
+                      decibel_reduction: 50
                       duration: 0.1s
                   - media_player.play: pocket_music_player
           else:
@@ -475,9 +475,13 @@ script:
                   media_player.is_playing: pocket_music_player
                 then:
                   - mixer_speaker.apply_ducking:
+                      id: media_mixing_input
+                      decibel_reduction: 10
+                      duration: 0.1s
+                  - mixer_speaker.apply_ducking:
                       id: announcement_mixing_input
                       decibel_reduction: 50
-                      duration: 0.05s
+                      duration: 0.1s
                 else:
                   - audio_dac.mute_on: es8311_dac
                   - script.execute: route_i2s_to_mic
@@ -519,5 +523,5 @@ number:
               if (std::isnan(v) || v <= 0.0f) v = 70.0f;
               if (v > 100.0f) v = 100.0f;
               if (v < 20.0f) v = 20.0f;
-              return (100.0f - v) * 0.18f;
+              return (int)std::round((100.0f - v) * 0.18f);
             duration: 0.05s
