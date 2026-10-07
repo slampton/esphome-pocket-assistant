@@ -7540,7 +7540,7 @@ touchscreen:
       number: GPIO11
       mode: INPUT_PULLUP
     reset_pin: GPIO2
-    update_interval: 50ms
+    update_interval: 33ms
     transform:
       mirror_x: true
       mirror_y: true
@@ -7643,7 +7643,7 @@ touchscreen:
                                !(id(alarm_ringing) || id(timer_ringing));
 
             if (is_deck_nav) {
-              int deck_y_thresh = (id(gui_page) == 1 || id(gui_page) == 3 || id(gui_page) == 5 || id(gui_page) == 6) ? 400 : 380;
+              int deck_y_thresh = (id(gui_page) == 1 || id(gui_page) == 2 || id(gui_page) == 3 || id(gui_page) == 5 || id(gui_page) == 6) ? 400 : 380;
               if (touch.y >= deck_y_thresh) {
                 // App Deck Navigation: Full-width zero-deadzone deck flip with 150ms debounce
                 static uint32_t last_deck_flip = 0;
@@ -7828,157 +7828,24 @@ touchscreen:
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
                   hud_just_woken_time = millis();
+                  ESP_LOGD("touch", "Page 2 Wake HUD: x=%d y=%d", touch.x, touch.y);
                   id(disp1).update();
                   return;
                 }
 
                 // CASE B: HUD is active (controls displayed) OR Compact view (controls always visible)
 
-                // Trailing Touch Settling Guard: absorb subsequent packets from the wake tap
+                // Trailing Touch Settling Guard: absorb subsequent packets from the wake tap (180ms window)
                 // Ensures a quick tap to wake does not immediately fire a button or re-dismiss the HUD
-                if (hud_enabled && (millis() - hud_just_woken_time < 300)) {
+                if (hud_enabled && (millis() - hud_just_woken_time < 180)) {
+                  ESP_LOGD("touch", "Page 2 Wake settling guard absorbed: dt=%lums x=%d y=%d", (unsigned long)(millis() - hud_just_woken_time), touch.x, touch.y);
                   return;
                 }
 
                 // -----------------------------------------------------------------
-                // RIGHT FLANK: Extremely generous outer-edge touch zones
-                // Eliminates accidental misses and prevents unintended HUD dismissal
+                // 1. Center Hero Play/Pause Button (x in [179..287], y in [150..274])
                 // -----------------------------------------------------------------
-                if (touch.x >= 288) {
-                  // 1. Volume Up (+) Button: Entire Upper-Right Quadrant (y < 176)
-                  if (touch.y < 176) {
-                    static uint32_t last_vol_up_tap = 0;
-                    uint32_t now_vol_tap = millis();
-                    if (now_vol_tap - last_vol_up_tap > 100) {
-                      last_vol_up_tap = now_vol_tap;
-                      id(vol_hud_direction) = 1;
-                      id(vol_hud_timer) = now_vol_tap;
-                      id(music_hud_timer) = now_vol_tap;
-                      int v_step = (int)id(volume_step_size).state;
-                      int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                      id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
-                      id(music_feedback_timer) = now_vol_tap;
-                      id(music_vol_up).execute();
-                      id(disp1).update();
-                    }
-                    return;
-
-                  // 2. Volume Down (-) Button: Entire Lower-Right Quadrant (y >= 248 && y < 380)
-                  } else if (touch.y >= 248 && touch.y < 380) {
-                    static uint32_t last_vol_dn_tap = 0;
-                    uint32_t now_vol_tap = millis();
-                    if (now_vol_tap - last_vol_dn_tap > 100) {
-                      last_vol_dn_tap = now_vol_tap;
-                      id(vol_hud_direction) = -1;
-                      id(vol_hud_timer) = now_vol_tap;
-                      id(music_hud_timer) = now_vol_tap;
-                      int v_step = (int)id(volume_step_size).state;
-                      int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                      id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
-                      id(music_feedback_timer) = now_vol_tap;
-                      id(music_vol_down).execute();
-                      id(disp1).update();
-                    }
-                    return;
-
-                  // 3. Next Track (▶|) / +30s Skip: Middle-Right Horizon (y in [176..247])
-                  } else if (touch.y >= 176 && touch.y < 248) {
-                    static uint32_t last_next_tap = 0;
-                    uint32_t now_tap = millis();
-                    if (now_tap - last_next_tap > 150) {
-                      last_next_tap = now_tap;
-                      bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
-                                              id(active_playback_media_type) == "podcast_episode" || 
-                                              id(active_playback_media_type) == "audiobook");
-                      if (is_speech_media) {
-                        id(music_action_feedback) = "+30s Skip";
-                        id(music_skip_fwd_30).execute();
-                      } else {
-                        id(music_action_feedback) = "Next Track >>";
-                        id(music_next_track).execute();
-                      }
-                      id(music_feedback_timer) = now_tap;
-                      id(music_hud_timer) = now_tap;
-                      id(disp1).update();
-                    }
-                    return;
-                  }
-                  return; // Outer right flank taps never dismiss the HUD!
-                }
-
-                // -----------------------------------------------------------------
-                // LEFT FLANK: Extremely generous outer-edge touch zones
-                // -----------------------------------------------------------------
-                if (touch.x <= 178) {
-                  // 4. Speaker Button (🔊): Entire Upper-Left Quadrant (y < 176)
-                  if (touch.y < 176) {
-                    static uint32_t last_spk_tap = 0;
-                    uint32_t now_tap = millis();
-                    if (now_tap - last_spk_tap > 150) {
-                      last_spk_tap = now_tap;
-                      id(selected_category_mode) = "speakers";
-                      id(selected_category_title) = "SPEAKERS";
-                      id(music_browse_page) = 1;
-                      id(music_overlay_mode) = 1; // Open Speakers Browser directly
-                      id(fetch_music_browse).execute();
-                      id(music_hud_active) = false;
-                      id(disp1).update();
-                    }
-                    return;
-
-                  // 5. Library Button (☰): Entire Lower-Left Quadrant (y >= 248 && y < 380)
-                  } else if (touch.y >= 248 && touch.y < 380) {
-                    static uint32_t last_menu_tap = 0;
-                    uint32_t now_tap = millis();
-                    if (now_tap - last_menu_tap > 150) {
-                      last_menu_tap = now_tap;
-                      id(music_category_page) = 1;
-                      id(music_overlay_mode) = 2; // Open Level 2 Library Categories Menu
-                      id(music_hud_active) = false;
-                      id(disp1).update();
-                    }
-                    return;
-
-                  // 6. Previous Track (|◀) / -10s Replay: Middle-Left Horizon (y in [176..247])
-                  } else if (touch.y >= 176 && touch.y < 248) {
-                    static uint32_t last_prev_tap = 0;
-                    uint32_t now_tap = millis();
-                    if (now_tap - last_prev_tap > 150) {
-                      last_prev_tap = now_tap;
-                      bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
-                                              id(active_playback_media_type) == "podcast_episode" || 
-                                              id(active_playback_media_type) == "audiobook");
-                      if (is_speech_media) {
-                        id(music_action_feedback) = "-10s Replay";
-                        id(music_skip_back_10).execute();
-                      } else {
-                        id(music_action_feedback) = "<< Prev Track";
-                        id(music_prev_track).execute();
-                      }
-                      id(music_feedback_timer) = now_tap;
-                      id(music_hud_timer) = now_tap;
-                      id(disp1).update();
-                    }
-                    return;
-                  }
-                  return; // Outer left flank taps never dismiss the HUD!
-                }
-
-                // -----------------------------------------------------------------
-                // CENTER ZONE: Hero Play/Pause & Compact Header
-                // -----------------------------------------------------------------
-                // 7. Compact View Only: Dedicated Header Tap Zone ("MUSIC" Title at top x: 160..306, y <= 90)
-                if (is_compact && touch.y <= 90 && touch.x >= 160 && touch.x <= 306) {
-                  id(music_category_page) = 1;
-                  id(menu_scroll_active) = false;
-                  id(menu_scroll_step) = 0;
-                  id(music_overlay_mode) = 2;
-                  id(disp1).update();
-                  return;
-                }
-
-                // 8. Center Hero Play/Pause Button (Generous center hub x in [179..287], y in [150..274])
-                if (touch.x > 178 && touch.x < 288 && touch.y >= 150 && touch.y <= 274) {
+                if (touch.x >= 179 && touch.x <= 287 && touch.y >= 150 && touch.y <= 274) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > 150) {
@@ -7988,6 +7855,7 @@ touchscreen:
                     id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(music_hud_timer) = now_pp;
+                    ESP_LOGD("touch", "Page 2 Play/Pause: x=%d y=%d is_playing=%d", touch.x, touch.y, is_playing);
                     id(toggle_ha_music).execute();
                     id(disp1).update();
                   }
@@ -7995,21 +7863,166 @@ touchscreen:
                 }
 
                 // -----------------------------------------------------------------
-                // 9. Intentional HUD Dismissal (Full Screen / Letterbox only)
-                // Strictly confined to the central open art/metadata area above or below the controls
-                // Protected by a 400ms wake settling threshold and 250ms tap debounce
+                // 2. Compact View Dedicated Header Tap Zone ("MUSIC" Title: x in [160..306], y <= 90)
+                // -----------------------------------------------------------------
+                if (is_compact && touch.y <= 90 && touch.x >= 160 && touch.x <= 306) {
+                  id(music_category_page) = 1;
+                  id(menu_scroll_active) = false;
+                  id(menu_scroll_step) = 0;
+                  id(music_overlay_mode) = 2;
+                  ESP_LOGD("touch", "Page 2 Compact Header Tap: x=%d y=%d", touch.x, touch.y);
+                  id(disp1).update();
+                  return;
+                }
+
+                // -----------------------------------------------------------------
+                // 3. RIGHT FLANK: Generous outer-edge touch zones
+                // -----------------------------------------------------------------
+                // Volume Up (+): Upper-Right Quadrant (x > 306 with y < 176, or x >= 288 with y < 150)
+                if ((touch.x > 306 && touch.y < 176) || (touch.x >= 288 && touch.y < 150)) {
+                  static uint32_t last_vol_up_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_up_tap > 100) {
+                    last_vol_up_tap = now_vol_tap;
+                    id(vol_hud_direction) = 1;
+                    id(vol_hud_timer) = now_vol_tap;
+                    id(music_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    ESP_LOGD("touch", "Page 2 Volume Up: x=%d y=%d vol=%d%%", touch.x, touch.y, std::min(90, v_cur + v_step));
+                    id(music_vol_up).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // Volume Down (-): Lower-Right Quadrant (x > 306 with y >= 248 && y < 400, or x >= 288 with y >= 275 && y < 400)
+                if ((touch.x > 306 && touch.y >= 248 && touch.y < 400) || (touch.x >= 288 && touch.y >= 275 && touch.y < 400)) {
+                  static uint32_t last_vol_dn_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_dn_tap > 100) {
+                    last_vol_dn_tap = now_vol_tap;
+                    id(vol_hud_direction) = -1;
+                    id(vol_hud_timer) = now_vol_tap;
+                    id(music_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    ESP_LOGD("touch", "Page 2 Volume Down: x=%d y=%d vol=%d%%", touch.x, touch.y, std::max(10, v_cur - v_step));
+                    id(music_vol_down).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // Next Track (▶|) / +30s Skip: Middle-Right Horizon (x >= 288, y in [150..274])
+                if (touch.x >= 288 && touch.y >= 150 && touch.y <= 274) {
+                  static uint32_t last_next_tap = 0;
+                  uint32_t now_tap = millis();
+                  if (now_tap - last_next_tap > 150) {
+                    last_next_tap = now_tap;
+                    bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
+                                            id(active_playback_media_type) == "podcast_episode" || 
+                                            id(active_playback_media_type) == "audiobook");
+                    if (is_speech_media) {
+                      id(music_action_feedback) = "+30s Skip";
+                      id(music_skip_fwd_30).execute();
+                    } else {
+                      id(music_action_feedback) = "Next Track >>";
+                      id(music_next_track).execute();
+                    }
+                    id(music_feedback_timer) = now_tap;
+                    id(music_hud_timer) = now_tap;
+                    ESP_LOGD("touch", "Page 2 Next Track / Skip: x=%d y=%d", touch.x, touch.y);
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // -----------------------------------------------------------------
+                // 4. LEFT FLANK: Generous outer-edge touch zones
+                // -----------------------------------------------------------------
+                // Speaker Button (🔊): Upper-Left Quadrant (x < 160 with y < 176, or x <= 178 with y < 150)
+                if ((touch.x < 160 && touch.y < 176) || (touch.x <= 178 && touch.y < 150)) {
+                  static uint32_t last_spk_tap = 0;
+                  uint32_t now_tap = millis();
+                  if (now_tap - last_spk_tap > 150) {
+                    last_spk_tap = now_tap;
+                    id(selected_category_mode) = "speakers";
+                    id(selected_category_title) = "SPEAKERS";
+                    id(music_browse_page) = 1;
+                    id(music_overlay_mode) = 1; // Open Speakers Browser directly
+                    id(fetch_music_browse).execute();
+                    id(music_hud_active) = false;
+                    ESP_LOGD("touch", "Page 2 Speaker Browser: x=%d y=%d", touch.x, touch.y);
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // Library Button (☰): Lower-Left Quadrant (x < 160 with y >= 248 && y < 400, or x <= 178 with y >= 275 && y < 400)
+                if ((touch.x < 160 && touch.y >= 248 && touch.y < 400) || (touch.x <= 178 && touch.y >= 275 && touch.y < 400)) {
+                  static uint32_t last_menu_tap = 0;
+                  uint32_t now_tap = millis();
+                  if (now_tap - last_menu_tap > 150) {
+                    last_menu_tap = now_tap;
+                    id(music_category_page) = 1;
+                    id(music_overlay_mode) = 2; // Open Level 2 Library Categories Menu
+                    id(music_hud_active) = false;
+                    ESP_LOGD("touch", "Page 2 Library Menu: x=%d y=%d", touch.x, touch.y);
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // Previous Track (|◀) / -10s Replay: Middle-Left Horizon (x <= 178, y in [150..274])
+                if (touch.x <= 178 && touch.y >= 150 && touch.y <= 274) {
+                  static uint32_t last_prev_tap = 0;
+                  uint32_t now_tap = millis();
+                  if (now_tap - last_prev_tap > 150) {
+                    last_prev_tap = now_tap;
+                    bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
+                                            id(active_playback_media_type) == "podcast_episode" || 
+                                            id(active_playback_media_type) == "audiobook");
+                    if (is_speech_media) {
+                      id(music_action_feedback) = "-10s Replay";
+                      id(music_skip_back_10).execute();
+                    } else {
+                      id(music_action_feedback) = "<< Prev Track";
+                      id(music_prev_track).execute();
+                    }
+                    id(music_feedback_timer) = now_tap;
+                    id(music_hud_timer) = now_tap;
+                    ESP_LOGD("touch", "Page 2 Prev Track / Replay: x=%d y=%d", touch.x, touch.y);
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // -----------------------------------------------------------------
+                // 5. INTENTIONAL HUD DISMISSAL (Full Screen / Letterbox only)
+                // Expanded 146px-wide central corridor (x in [160..306]) above and below controls
+                // Protected by a calibrated 250ms wake settling threshold and 200ms tap debounce
                 // -----------------------------------------------------------------
                 if (hud_enabled && id(music_hud_active)) {
-                  if (touch.x > 178 && touch.x < 288 && (touch.y < 150 || (touch.y > 274 && touch.y < 380))) {
-                    if (millis() - id(music_hud_timer) >= 400) {
+                  if (touch.x >= 160 && touch.x <= 306 && (touch.y < 150 || (touch.y > 274 && touch.y < 400))) {
+                    if (millis() - id(music_hud_timer) >= 250) {
                       static uint32_t last_dismiss_tap = 0;
                       uint32_t now_dis = millis();
-                      if (now_dis - last_dismiss_tap > 250) {
+                      if (now_dis - last_dismiss_tap > 200) {
                         last_dismiss_tap = now_dis;
                         id(music_hud_active) = false;
+                        ESP_LOGD("touch", "Page 2 HUD Dismissed: x=%d y=%d dt=%lums", touch.x, touch.y, (unsigned long)(millis() - id(music_hud_timer)));
                         id(disp1).update();
                       }
+                    } else {
+                      ESP_LOGD("touch", "Page 2 HUD Dismiss lockout (dt=%lums < 250ms): x=%d y=%d", (unsigned long)(millis() - id(music_hud_timer)), touch.x, touch.y);
                     }
+                  } else {
+                    ESP_LOGD("touch", "Page 2 Ignored non-control tap: x=%d y=%d", touch.x, touch.y);
                   }
                   return;
                 }
