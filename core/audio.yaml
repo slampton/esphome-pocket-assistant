@@ -197,6 +197,9 @@ voice_assistant:
             id(return_page) = id(gui_page);
             id(va_active) = true;
           }
+          if (id(va_start_time_ms) == 0) {
+            id(va_start_time_ms) = millis();
+          }
           id(va_vad_active) = false;
           id(va_tts_received) = false;
           id(va_status_text) = "Listening...";
@@ -239,7 +242,7 @@ voice_assistant:
             float v = id(pocket_music_player).volume;
             if (std::isnan(v) || v <= 0.05f) v = 0.05f;
             if (v > 1.0f) v = 1.0f;
-            return (int)std::round(10.0f + (1.0f - v) * 20.0f);
+            return (int)std::round((1.0f - v) * 14.0f);
           duration: 0.1s
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
@@ -338,7 +341,13 @@ voice_assistant:
           condition:
             lambda: 'return !id(va_tts_received) && id(va_active);'
           then:
-            - script.execute: va_tts_drain_and_finish
+            # Settle window: Allow incoming TTS audio stream to arrive and arm va_tts_received
+            - delay: 800ms
+            - if:
+                condition:
+                  lambda: 'return !id(va_tts_received) && id(va_active);'
+                then:
+                  - script.execute: va_tts_drain_and_finish
 
 
 script:
@@ -361,6 +370,7 @@ script:
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_active) = false;
+          id(va_start_time_ms) = 0;
           id(gui_page) = id(return_page);
       - component.update: disp1
       - if:
@@ -470,19 +480,19 @@ script:
                       duration: 0.1s
                   - media_player.play: pocket_music_player
           else:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 10
+                duration: 0.1s
+            - mixer_speaker.apply_ducking:
+                id: announcement_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
             - if:
                 condition:
-                  media_player.is_playing: pocket_music_player
+                  not:
+                    media_player.is_playing: pocket_music_player
                 then:
-                  - mixer_speaker.apply_ducking:
-                      id: media_mixing_input
-                      decibel_reduction: 10
-                      duration: 0.1s
-                  - mixer_speaker.apply_ducking:
-                      id: announcement_mixing_input
-                      decibel_reduction: 50
-                      duration: 0.1s
-                else:
                   - audio_dac.mute_on: es8311_dac
                   - script.execute: route_i2s_to_mic
 

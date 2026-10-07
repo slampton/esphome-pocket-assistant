@@ -426,6 +426,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: va_start_time_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: stopwatch_running
     type: bool
     restore_value: no
@@ -921,11 +925,19 @@ button:
           then:
             - script.execute: cancel_voice_assistant
           else:
+            - lambda: |-
+                if (!id(va_active)) {
+                  id(return_page) = id(gui_page);
+                  id(va_active) = true;
+                }
+                id(va_start_time_ms) = millis();
+                id(va_status_text) = "Starting...";
+                id(va_vad_active) = false;
+                id(va_tts_received) = false;
             - script.execute: pause_all_music
-            - delay: 100ms
             - script.execute: route_i2s_to_mic
             - light.turn_on: display_brightness
-            - lambda: 'id(va_tts_received) = false;'
+            - component.update: disp1
             - voice_assistant.start:
 
 
@@ -1268,7 +1280,7 @@ interval:
           }
 
           // High-refresh fluid Voice Assistant loop
-          // While Listening/Thinking: 50ms (20 FPS) fluid organic breathing (speaker silent, zero DMA contention)
+          // While Listening/Thinking: 100ms (10 FPS) fluid organic breathing (leaving ample DMA bandwidth for I2S mic & WebRTC VAD)
           // While Speaking: precisely paced by va_speech_anim_interval (default 100ms, safe floor 75ms, restore_value enabled)
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
@@ -1282,7 +1294,7 @@ interval:
               return;
             }
 
-            uint32_t cadence = 50;
+            uint32_t cadence = 100;
             if (id(va_tts_received)) {
               cadence = (uint32_t)id(va_speech_anim_interval).state;
               if (cadence < 75) cadence = 75;
@@ -1617,7 +1629,7 @@ binary_sensor:
               - lambda: |-
                   static uint32_t last_btn_press = 0;
                   uint32_t now = millis();
-                  if (now - last_btn_press < 150) return;
+                  if (now - last_btn_press < 300) return;
                   last_btn_press = now;
               - if:
                   condition:
@@ -1633,6 +1645,14 @@ binary_sensor:
                           - script.execute: cancel_voice_assistant
                         else:
                           - lambda: |-
+                              if (!id(va_active)) {
+                                id(return_page) = id(gui_page);
+                                id(va_active) = true;
+                              }
+                              id(va_start_time_ms) = millis();
+                              id(va_status_text) = "Starting...";
+                              id(va_vad_active) = false;
+                              id(va_tts_received) = false;
                               // If waking from screen-off or standby, check Assist Screen Wake preference
                               if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
                                 if (id(va_wake_screen_switch).state) {
@@ -1642,9 +1662,9 @@ binary_sensor:
                                 id(screen_sleep_timer).execute();
                               }
                           - script.execute: pause_all_music
-                          - delay: 150ms
                           - script.execute: route_i2s_to_mic
-                          - lambda: 'id(va_tts_received) = false;'
+                          - light.turn_on: display_brightness
+                          - component.update: disp1
                           - voice_assistant.start:
 
 text_sensor:
@@ -2786,6 +2806,7 @@ script:
           id(va_tts_received) = false;
           id(va_vad_active) = false;
           id(va_active) = false;
+          id(va_start_time_ms) = 0;
           id(gui_page) = id(return_page);
       - component.update: disp1
       - delay: 100ms
@@ -7587,7 +7608,9 @@ touchscreen:
             // Voice Assistant Modal Takeover Interception & Tap to Cancel
             // Completely blocks touch events from leaking through to underlying page (e.g. media play/pause)
             if (id(va_active) || !id(va_status_text).empty()) {
-              id(cancel_voice_assistant).execute();
+              if (millis() - id(va_start_time_ms) >= 400) {
+                id(cancel_voice_assistant).execute();
+              }
               return;
             }
 
