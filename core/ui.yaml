@@ -2930,7 +2930,8 @@ display:
 
       // Standardized Right-Flank Navigation Chevron Helpers (Global Display Scope)
       // Single Source of Truth for Up (y = 162) and Down (y = 278) chevrons at x = 415.
-      // Symmetrical 15px-wide, 11px-tall sleek, narrow, pointy geometry with 1px razor-sharp apex.
+      // Optically compensated geometry: Up (dx = 7, dy = 5, 15px wide) and Down (dx = 5, dy = 5, 11px wide).
+      // Eliminates the top-heavy inverted triangle optical illusion so both chevrons appear identically narrow and pointy.
       auto draw_scroll_chevron = [&](int x, int y, bool is_up, Color c) {
         if (is_up) {
           // Up Chevron (▲): Sleek, narrow, pointy apex at (x, y - 5), 14px span (x - 7 .. x + 7), inner stroke
@@ -2939,11 +2940,12 @@ display:
           it.line(x + 7, y + 4, x, y - 5, c);
           it.line(x + 7, y + 5, x, y - 4, c);
         } else {
-          // Down Chevron (▼): Exact matching reflection with razor-sharp pointy apex at (x, y + 5), inner stroke
-          it.line(x - 7, y - 4, x, y + 5, c);
-          it.line(x - 7, y - 5, x, y + 4, c);
-          it.line(x + 7, y - 4, x, y + 5, c);
-          it.line(x + 7, y - 5, x, y + 4, c);
+          // Down Chevron (▼): Optically compensated narrow & pointy geometry (x - 5 .. x + 5, 11px span)
+          // Razor-sharp 1px apex at (x, y + 5) with interior-directed reinforcing stroke
+          it.line(x - 5, y - 4, x, y + 5, c);
+          it.line(x - 5, y - 5, x, y + 4, c);
+          it.line(x + 5, y - 4, x, y + 5, c);
+          it.line(x + 5, y - 5, x, y + 4, c);
         }
       };
 
