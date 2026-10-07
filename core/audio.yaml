@@ -428,6 +428,7 @@ script:
             - rtttl.play:
                 id: alarm_rtttl
                 rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
+            - delay: 150ms
             - wait_until:
                 condition:
                   lambda: 'return !id(alarm_rtttl).is_playing();'
@@ -460,21 +461,24 @@ script:
                   - script.execute: route_i2s_to_spk
                   - audio_dac.mute_off: es8311_dac
                   - switch.turn_on: speaker_enable
-                  - media_player.play: pocket_music_player
-                  - delay: 100ms
+                  - mixer_speaker.apply_ducking:
+                      id: announcement_mixing_input
+                      decibel_reduction: 50
+                      duration: 0.05s
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
                       decibel_reduction: 10
-                      duration: 0.2s
+                      duration: 0.1s
+                  - media_player.play: pocket_music_player
           else:
             - if:
                 condition:
                   media_player.is_playing: pocket_music_player
                 then:
                   - mixer_speaker.apply_ducking:
-                      id: media_mixing_input
-                      decibel_reduction: 10
-                      duration: 0.1s
+                      id: announcement_mixing_input
+                      decibel_reduction: 50
+                      duration: 0.05s
                 else:
                   - audio_dac.mute_on: es8311_dac
                   - script.execute: route_i2s_to_mic
