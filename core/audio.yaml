@@ -130,10 +130,10 @@ media_player:
       speaker: music_resampler
       sources:
         - sendspin_source
-    volume_initial: 70%
+    volume_initial: 60%
     volume_increment: 2%
-    volume_min: 5%
-    volume_max: 100%
+    volume_min: 10%
+    volume_max: 90%
     on_play:
       then:
         - lambda: |-
@@ -145,7 +145,7 @@ media_player:
         - script.stop: screen_sleep_timer
         - mixer_speaker.apply_ducking:
             id: media_mixing_input
-            decibel_reduction: 10
+            decibel_reduction: 0
             duration: 0.1s
         - mixer_speaker.apply_ducking:
             id: announcement_mixing_input
@@ -235,11 +235,7 @@ voice_assistant:
           duration: 0.1s
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
-          decibel_reduction: !lambda |-
-            float v = id(pocket_music_player).volume;
-            if (std::isnan(v) || v <= 0.05f) v = 0.05f;
-            if (v > 1.0f) v = 1.0f;
-            return (int)std::round(10.0f + (1.0f - v) * 20.0f);
+          decibel_reduction: 0
           duration: 0.1s
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_spk
@@ -388,7 +384,7 @@ script:
       - switch.turn_off: speaker_enable
 
   - id: play_alarm_sound
-    mode: single
+    mode: restart
     then:
       - lambda: |-
           bool local_active = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
@@ -412,17 +408,13 @@ script:
       - script.execute: route_i2s_to_spk
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
-          id: media_mixing_input
-          decibel_reduction: 50
-          duration: 0.05s
-      - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
             float v = id(alert_volume).state;
-            if (std::isnan(v) || v <= 0.0f) v = 70.0f;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
             if (v > 100.0f) v = 100.0f;
             if (v < 20.0f) v = 20.0f;
-            return (int)std::round((100.0f - v) * 0.18f);
+            return (100.0f - v) * 0.18f;
           duration: 0.05s
       - while:
           condition:
@@ -431,7 +423,11 @@ script:
             - rtttl.play:
                 id: alarm_rtttl
                 rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
-            - delay: 1500ms
+            - wait_until:
+                condition:
+                  not:
+                    rtttl.is_playing:
+                timeout: 5s
             - delay: 800ms
 
   - id: stop_alarm_sound
@@ -462,12 +458,8 @@ script:
                   - switch.turn_on: speaker_enable
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
-                      decibel_reduction: 10
+                      decibel_reduction: 0
                       duration: 0.5s
-                  - mixer_speaker.apply_ducking:
-                      id: announcement_mixing_input
-                      decibel_reduction: 50
-                      duration: 0.1s
                   - media_player.play: pocket_music_player
           else:
             - if:
@@ -476,11 +468,7 @@ script:
                 then:
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
-                      decibel_reduction: 10
-                      duration: 0.1s
-                  - mixer_speaker.apply_ducking:
-                      id: announcement_mixing_input
-                      decibel_reduction: 50
+                      decibel_reduction: 0
                       duration: 0.1s
                 else:
                   - audio_dac.mute_on: es8311_dac
@@ -508,7 +496,7 @@ number:
     min_value: 20
     max_value: 100
     step: 5
-    initial_value: 70
+    initial_value: 80
     restore_value: true
     unit_of_measurement: "%"
     mode: slider
@@ -520,8 +508,8 @@ number:
             id: announcement_mixing_input
             decibel_reduction: !lambda |-
               float v = x;
-              if (std::isnan(v) || v <= 0.0f) v = 70.0f;
+              if (std::isnan(v) || v <= 0.0f) v = 80.0f;
               if (v > 100.0f) v = 100.0f;
               if (v < 20.0f) v = 20.0f;
-              return (int)std::round((100.0f - v) * 0.18f);
+              return (100.0f - v) * 0.18f;
             duration: 0.05s
