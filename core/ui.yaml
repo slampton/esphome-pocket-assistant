@@ -2762,7 +2762,9 @@ script:
               return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_IDLE) && 
                      !id(va).is_running() && 
                      !id(va_tts_received) && 
-                     !id(announcement_mixing_input).is_running();
+                     !id(announcement_mixing_input).is_running() &&
+                     !id(alarm_ringing) &&
+                     !id(timer_ringing);
           then:
             - audio_dac.mute_on: es8311_dac
             - switch.turn_off: speaker_enable
