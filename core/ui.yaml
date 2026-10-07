@@ -1920,7 +1920,7 @@ script:
                   - switch.turn_on: speaker_enable
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
-                      decibel_reduction: 0
+                      decibel_reduction: 10
                       duration: 0.5s
                   - mixer_speaker.apply_ducking:
                       id: announcement_mixing_input
@@ -2162,7 +2162,7 @@ script:
                 if (std::isnan(step) || step <= 0.0f) step = 0.02f;
                 float cur = id(pocket_music_player).volume;
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-                float new_vol = std::min(1.00f, cur + step);
+                float new_vol = std::min(0.90f, cur + step);
                 id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
@@ -2184,7 +2184,7 @@ script:
                 if (std::isnan(step) || step <= 0.0f) step = 0.02f;
                 float cur = id(pocket_music_player).volume;
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-                float new_vol = std::max(0.05f, cur - step);
+                float new_vol = std::max(0.10f, cur - step);
                 id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
@@ -9025,7 +9025,7 @@ touchscreen:
                       last_audio_vol_tap = now_sys;
                       float cur_vol = id(pocket_music_player).volume;
                       float new_vol = cur_vol + 0.10f;
-                      if (new_vol > 1.00f) new_vol = 0.05f;
+                      if (new_vol > 0.90f) new_vol = 0.10f;
                       id(pocket_music_player).volume = new_vol;
                       id(pocket_music_player).make_call().set_volume(new_vol).perform();
                       id(disp1).update();
