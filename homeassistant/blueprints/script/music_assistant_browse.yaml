@@ -55,6 +55,13 @@ blueprint:
           multiple: false
           custom_value: false
           sort: false
+    mass_queue_entry:
+      name: Music Assistant Queue Integration Entry (Optional)
+      description: The config entry for the Music Assistant Queue integration (mass_queue) used to fetch podcast episodes.
+      default: "01KWT5KHS9J3CXG4PYGN26EYKS"
+      selector:
+        config_entry:
+          integration: mass_queue
 mode: restart
 fields:
   mode:
@@ -117,8 +124,10 @@ sequence:
     helper_entity: !input active_speaker_helper
     input_album_sort: !input default_album_sort
     input_podcast_sort: !input default_podcast_sort
+    input_mass_queue_entry: !input mass_queue_entry
     album_sort_order: '{{ album_sort if (album_sort | default("") != "") else input_album_sort }}'
     podcast_sort_order: '{{ podcast_sort if (podcast_sort | default("") != "") else input_podcast_sort }}'
+    resolved_mass_queue_entry: '{{ input_mass_queue_entry if (input_mass_queue_entry | default("") != "") else "01KWT5KHS9J3CXG4PYGN26EYKS" }}'
 - choose:
   - conditions:
     - condition: template
@@ -268,8 +277,9 @@ sequence:
       value_template: '{{ mode == "podcast_episodes" }}'
     sequence:
     - action: mass_queue.get_podcast_episodes
+      continue_on_error: true
       data:
-        config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
+        config_entry_id: '{{ resolved_mass_queue_entry }}'
         uri: '{{ search }}'
       response_variable: pod_ep_resp
     - variables:
