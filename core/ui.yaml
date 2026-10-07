@@ -426,10 +426,6 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  - id: va_start_time_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
   - id: stopwatch_running
     type: bool
     restore_value: no
@@ -925,19 +921,11 @@ button:
           then:
             - script.execute: cancel_voice_assistant
           else:
-            - lambda: |-
-                if (!id(va_active)) {
-                  id(return_page) = id(gui_page);
-                  id(va_active) = true;
-                }
-                id(va_start_time_ms) = millis();
-                id(va_status_text) = "Starting...";
-                id(va_vad_active) = false;
-                id(va_tts_received) = false;
             - script.execute: pause_all_music
+            - delay: 100ms
             - script.execute: route_i2s_to_mic
             - light.turn_on: display_brightness
-            - component.update: disp1
+            - lambda: 'id(va_tts_received) = false;'
             - voice_assistant.start:
 
 
@@ -1201,34 +1189,74 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          // Active Update Check animation refresh (guarded by active display state)
-          if (id(display_power_state) == 0 && id(display_brightness).current_values.is_on()) {
-            if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
-              id(disp1).update();
-            }
+          // Active Update Check animation refresh
+          if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
+            id(disp1).update();
           }
 
           // Music Overlay HUD Auto-Dismissal (5.0s timeout in Full Screen / Letterbox)
           if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_hud_active)) {
             if (millis() - id(music_hud_timer) >= 5000) {
               id(music_hud_active) = false;
-              if (id(display_power_state) == 0 && id(display_brightness).current_values.is_on()) {
+              id(disp1).update();
+            }
+          }
+
+          // Smooth animation refresh while Music loading screen is active
+          if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && !id(album_art_loaded) && (millis() < 15000 || !id(current_loaded_art_url).empty()) && !id(va_active) && id(va_status_text).empty()) {
+            id(disp1).update();
+          }
+
+          // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
+          if (id(display_brightness).current_values.is_on()) {
+            if (id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty()) {
+              static uint32_t last_chrono_disp_update = 0;
+              uint32_t now_chrono_ms = millis();
+              if (now_chrono_ms - last_chrono_disp_update >= 150) {
+                last_chrono_disp_update = now_chrono_ms;
                 id(disp1).update();
               }
             }
           }
 
-          // Smooth animation refresh while Music loading screen is active (guarded by active display state)
-          if (id(display_power_state) == 0 && id(display_brightness).current_values.is_on()) {
-            if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && !id(album_art_loaded) && (millis() < 15000 || !id(current_loaded_art_url).empty()) && !id(va_active) && id(va_status_text).empty()) {
+  - interval: 50ms
+    then:
+      - lambda: |-
+          // 20 FPS high-refresh physics loop exclusively for active games
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
+            id(disp1).update();
+          }
+
+          // High-refresh fluid Voice Assistant loop
+          // While Listening/Thinking: 50ms (20 FPS) fluid organic breathing (speaker silent, zero DMA contention)
+          // While Speaking: precisely paced by va_speech_anim_interval (default 100ms, safe floor 75ms, restore_value enabled)
+          if (id(va_active) || !id(va_status_text).empty()) {
+            static uint32_t last_va_anim_time = 0;
+            static bool prev_tts_active = false;
+            uint32_t now_va_ms = millis();
+
+            // Smooth state transition: When speech starts, reserve quiet bus air for DAC unmute and first syllables
+            if (id(va_tts_received) != prev_tts_active) {
+              prev_tts_active = id(va_tts_received);
+              last_va_anim_time = now_va_ms;
+              return;
+            }
+
+            uint32_t cadence = 50;
+            if (id(va_tts_received)) {
+              cadence = (uint32_t)id(va_speech_anim_interval).state;
+              if (cadence < 75) cadence = 75;
+            }
+            if (now_va_ms - last_va_anim_time >= cadence) {
+              last_va_anim_time = now_va_ms;
               id(disp1).update();
             }
           }
 
-          // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence (10 FPS / 100ms)
-          // Consolidated from 50ms interval with 1 Hz condition parsing cache (95% CPU reduction)
-          if (id(display_power_state) == 0 && id(display_brightness).current_values.is_on() &&
-              id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
+          // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
+          // Active particle animation loop: 100ms (10 FPS) for falling precipitation (rain/snow/sleet/lightning) and star twinkle
+          // Static weather conditions (sunny, partly cloudy, cloudy, overcast) run on default 1s display cadence with near-zero CPU load
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_weather_disp_update = 0;
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
@@ -1262,6 +1290,7 @@ interval:
 
             if (cached_has_motion) {
               bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                id(va_active) || !id(va_status_text).empty() ||
                                 id(alarm_ringing) || id(timer_ringing);
               uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 100);
               if (now_w_ms - last_weather_disp_update >= target_cadence) {
@@ -1271,52 +1300,9 @@ interval:
             }
           }
 
-  - interval: 50ms
-    then:
-      - lambda: |-
-          // 20 FPS high-refresh physics loop exclusively for active games
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            id(disp1).update();
-          }
-
-          // High-refresh fluid Voice Assistant loop
-          // While Listening/Thinking: 100ms (10 FPS) fluid organic breathing (leaving ample DMA bandwidth for I2S mic & WebRTC VAD)
-          // While Speaking: precisely paced by va_speech_anim_interval (default 100ms, safe floor 75ms, restore_value enabled)
-          if (id(va_active) || !id(va_status_text).empty()) {
-            static uint32_t last_va_anim_time = 0;
-            static bool prev_tts_active = false;
-            uint32_t now_va_ms = millis();
-
-            // Smooth state transition: When speech starts, reserve quiet bus air for DAC unmute and first syllables
-            if (id(va_tts_received) != prev_tts_active) {
-              prev_tts_active = id(va_tts_received);
-              last_va_anim_time = now_va_ms;
-              return;
-            }
-
-            uint32_t cadence = 100;
-            if (id(va_tts_received)) {
-              cadence = (uint32_t)id(va_speech_anim_interval).state;
-              if (cadence < 75) cadence = 75;
-            }
-            if (now_va_ms - last_va_anim_time >= cadence) {
-              last_va_anim_time = now_va_ms;
-              id(disp1).update();
-            }
-          }
-
   - interval: 250ms
     then:
       - lambda: |-
-          // ------------------------------------------------------------------
-          // STOPWATCH 4.0 FPS MECHANICAL SWEEP (Relocated from 100ms loop)
-          // ------------------------------------------------------------------
-          if (id(display_power_state) == 0 && id(display_brightness).current_values.is_on()) {
-            if (id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty()) {
-              id(disp1).update();
-            }
-          }
-
           // ------------------------------------------------------------------
           // COUNTDOWN TIMER TICK & ALERT TRIGGER
           // ------------------------------------------------------------------
@@ -1629,7 +1615,7 @@ binary_sensor:
               - lambda: |-
                   static uint32_t last_btn_press = 0;
                   uint32_t now = millis();
-                  if (now - last_btn_press < 300) return;
+                  if (now - last_btn_press < 150) return;
                   last_btn_press = now;
               - if:
                   condition:
@@ -1645,14 +1631,6 @@ binary_sensor:
                           - script.execute: cancel_voice_assistant
                         else:
                           - lambda: |-
-                              if (!id(va_active)) {
-                                id(return_page) = id(gui_page);
-                                id(va_active) = true;
-                              }
-                              id(va_start_time_ms) = millis();
-                              id(va_status_text) = "Starting...";
-                              id(va_vad_active) = false;
-                              id(va_tts_received) = false;
                               // If waking from screen-off or standby, check Assist Screen Wake preference
                               if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
                                 if (id(va_wake_screen_switch).state) {
@@ -1662,9 +1640,9 @@ binary_sensor:
                                 id(screen_sleep_timer).execute();
                               }
                           - script.execute: pause_all_music
+                          - delay: 150ms
                           - script.execute: route_i2s_to_mic
-                          - light.turn_on: display_brightness
-                          - component.update: disp1
+                          - lambda: 'id(va_tts_received) = false;'
                           - voice_assistant.start:
 
 text_sensor:
@@ -2806,7 +2784,6 @@ script:
           id(va_tts_received) = false;
           id(va_vad_active) = false;
           id(va_active) = false;
-          id(va_start_time_ms) = 0;
           id(gui_page) = id(return_page);
       - component.update: disp1
       - delay: 100ms
@@ -7608,9 +7585,7 @@ touchscreen:
             // Voice Assistant Modal Takeover Interception & Tap to Cancel
             // Completely blocks touch events from leaking through to underlying page (e.g. media play/pause)
             if (id(va_active) || !id(va_status_text).empty()) {
-              if (millis() - id(va_start_time_ms) >= 400) {
-                id(cancel_voice_assistant).execute();
-              }
+              id(cancel_voice_assistant).execute();
               return;
             }
 
