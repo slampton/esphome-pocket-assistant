@@ -2928,6 +2928,36 @@ display:
         draw_pill_button(180, 286, 408, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
       };
 
+      // Standardized Right-Flank Navigation Chevron Helpers (Global Display Scope)
+      // Single Source of Truth for Up (y = 162) and Down (y = 278) chevrons at x = 415.
+      // Symmetrical 15px-wide, 11px-tall sleek, narrow, pointy geometry with 1px razor-sharp apex.
+      auto draw_scroll_chevron = [&](int x, int y, bool is_up, Color c) {
+        if (is_up) {
+          // Up Chevron (▲): Sleek, narrow, pointy apex at (x, y - 5), 14px span (x - 7 .. x + 7), inner stroke
+          it.line(x - 7, y + 4, x, y - 5, c);
+          it.line(x - 7, y + 5, x, y - 4, c);
+          it.line(x + 7, y + 4, x, y - 5, c);
+          it.line(x + 7, y + 5, x, y - 4, c);
+        } else {
+          // Down Chevron (▼): Exact matching reflection with razor-sharp pointy apex at (x, y + 5), inner stroke
+          it.line(x - 7, y - 4, x, y + 5, c);
+          it.line(x - 7, y - 5, x, y + 4, c);
+          it.line(x + 7, y - 4, x, y + 5, c);
+          it.line(x + 7, y - 5, x, y + 4, c);
+        }
+      };
+
+      auto draw_right_flank_chevrons = [&](bool show_up, bool show_down, Color c = id(theme_secondary)) {
+        if (!show_up && !show_down) return;
+        it.filled_rectangle(395, 140, 71, 160, id(col_bg));
+        if (show_up) {
+          draw_scroll_chevron(415, 162, true, c);
+        }
+        if (show_down) {
+          draw_scroll_chevron(415, 278, false, c);
+        }
+      };
+
       // Generalized dynamic text truncation with custom font measurement (Global Display Scope)
       auto fit_text_to_width_font = [&](const std::string &str, int max_w, auto font) -> std::string {
         if (str.empty() || font == nullptr) return "";
@@ -4480,21 +4510,10 @@ display:
           draw_speaker_card(278, id(slot_4_name), id(slot_4_id), id(slot_4_active));
           draw_speaker_card(336, id(slot_5_name), id(slot_5_id), id(slot_5_active));
 
-          // Option 1 Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
+          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
           // Always visible in continuous wrap-around carousel mode
           if (id(music_browse_total_pages) > 1) {
-            it.filled_rectangle(395, 140, 71, 160, id(col_bg));
-            // Up chevron (▲) at x = 415, y = 162
-            it.line(415 - 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
-            it.line(415 - 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
-            it.line(415 + 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
-            it.line(415 + 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
-
-            // Down chevron (▼) at x = 415, y = 278
-            it.line(415 - 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
-            it.line(415 - 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
-            it.line(415 + 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
-            it.line(415 + 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
+            draw_right_flank_chevrons(true, true);
           }
 
           // Bottom Back to Player (Standardized at y = 408, r = 16)
@@ -4565,21 +4584,9 @@ display:
           it.filled_circle(226, 440, dot1_r, dot1_c);
           it.filled_circle(240, 440, dot2_r, dot2_c);
 
-          // Option 1 Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
+          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(music_category_page);
-          if (active_chevron_page == 1) {
-            // Page 1: Down chevron (▼) at x = 415, y = 278 (Slot 4 level)
-            it.line(415, 283, 407, 275, id(theme_secondary));
-            it.line(415, 282, 407, 274, id(theme_secondary));
-            it.line(415, 283, 423, 275, id(theme_secondary));
-            it.line(415, 282, 423, 274, id(theme_secondary));
-          } else {
-            // Page 2: Up chevron (▲) at x = 415, y = 162 (Slot 2 level)
-            it.line(415, 157, 407, 165, id(theme_secondary));
-            it.line(415, 158, 407, 166, id(theme_secondary));
-            it.line(415, 157, 423, 165, id(theme_secondary));
-            it.line(415, 158, 423, 166, id(theme_secondary));
-          }
+          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
 
         } else if (id(music_overlay_mode) == 3) {
           // --------------------------------------------------
@@ -4691,21 +4698,10 @@ display:
           draw_slot_card(278, id(slot_4_name), id(slot_4_id), id(slot_4_type), id(slot_4_active));
           draw_slot_card(336, id(slot_5_name), id(slot_5_id), id(slot_5_type), id(slot_5_active));
 
-          // Option 1 Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
+          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
           // Always visible in continuous wrap-around carousel mode
           if (id(music_browse_total_pages) > 1) {
-            it.filled_rectangle(395, 140, 71, 160, id(col_bg));
-            // Up chevron (▲) at x = 415, y = 162
-            it.line(415 - 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
-            it.line(415 - 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
-            it.line(415 + 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
-            it.line(415 + 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
-
-            // Down chevron (▼) at x = 415, y = 278
-            it.line(415 - 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
-            it.line(415 - 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
-            it.line(415 + 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
-            it.line(415 + 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
+            draw_right_flank_chevrons(true, true);
           }
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
@@ -5045,21 +5041,9 @@ display:
           draw_capsule(cx - 55, cx + 55, 352, 22, id(theme_primary), id(col_dark_gray));
           it.print(cx, 352, id(font_btn_bold), id(col_white), TextAlign::CENTER, "PLAY");
 
-          // Right Flank Navigation Chevrons: Option 1 Vertical Chevrons (x = 415, Up at 162, Down at 278)
+          // Standardized Right-Flank Vertical Chevrons (x = 415, Up at 162, Down at 278)
           // Always visible in true continuous carousel mode
-          it.filled_rectangle(395, 140, 71, 160, id(col_bg));
-
-          // Up Chevron (▲ at 415, 162)
-          it.line(415 - 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
-          it.line(415 - 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
-          it.line(415 + 8, 162 + 4, 415, 162 - 4, id(theme_secondary));
-          it.line(415 + 8, 162 + 5, 415, 162 - 3, id(theme_secondary));
-
-          // Down Chevron (▼ at 415, 278)
-          it.line(415 - 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
-          it.line(415 - 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
-          it.line(415 + 8, 278 - 4, 415, 278 + 4, id(theme_secondary));
-          it.line(415 + 8, 278 - 3, 415, 278 + 5, id(theme_secondary));
+          draw_right_flank_chevrons(true, true);
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
@@ -5981,22 +5965,9 @@ display:
           it.filled_circle(226, 440, dot1_r, dot1_c);
           it.filled_circle(240, 440, dot2_r, dot2_c);
 
-          // Option 1 Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-          // Displayed immediately for target direction so there is zero latency or delay
+          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(sleep_menu_page);
-          if (active_chevron_page == 1) {
-            // Page 1: Down chevron (▼) at x = 415, y = 278 (Slot 4 level)
-            it.line(415, 283, 407, 275, id(theme_secondary));
-            it.line(415, 282, 407, 274, id(theme_secondary));
-            it.line(415, 283, 423, 275, id(theme_secondary));
-            it.line(415, 282, 423, 274, id(theme_secondary));
-          } else {
-            // Page 2: Up chevron (▲) at x = 415, y = 162 (Slot 2 level)
-            it.line(415, 157, 407, 165, id(theme_secondary));
-            it.line(415, 158, 407, 166, id(theme_secondary));
-            it.line(415, 157, 423, 165, id(theme_secondary));
-            it.line(415, 158, 423, 166, id(theme_secondary));
-          }
+          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
