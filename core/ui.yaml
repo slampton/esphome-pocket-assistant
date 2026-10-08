@@ -1223,17 +1223,6 @@ interval:
             }
           }
 
-          // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
-          if (id(display_brightness).current_values.is_on()) {
-            if (id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty()) {
-              static uint32_t last_chrono_disp_update = 0;
-              uint32_t now_chrono_ms = millis();
-              if (now_chrono_ms - last_chrono_disp_update >= 150) {
-                last_chrono_disp_update = now_chrono_ms;
-                id(disp1).update();
-              }
-            }
-          }
 
   - interval: 50ms
     then:
@@ -1353,6 +1342,12 @@ interval:
             if (!id(va_active) && id(va_status_text).empty()) {
               id(disp1).update();
             }
+
+          // 4.0 FPS Mechanical Chronograph Sweep (Authentic 4 Hz vintage Heuer escapement cadence)
+          // Operates cleanly at 250ms cadence, leaving a massive 130ms+ CPU idle window for touch processing
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
+            id(disp1).update();
+          }
           }
 
 
@@ -4018,14 +4013,23 @@ display:
           }
         }
 
-        // Bold Perimeter Numerals (0..55: Fast LUT Lookups, with standard 0 at 12 o'clock)
-        for (int s = 0; s <= 55; s += 5) {
-          float t_sin = DIAL_SIN[s];
-          float t_cos = DIAL_COS[s];
-          char num_str[8];
-          snprintf(num_str, sizeof(num_str), "%d", s);
-          it.print(cx + (int)(170.0f * t_sin), cy - (int)(170.0f * t_cos),
-                   id(font_small), id(col_black), TextAlign::CENTER, num_str);
+        // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math)
+        static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[12] = {
+          {233,  63,  "0"},
+          {318,  86,  "5"},
+          {380, 148, "10"},
+          {403, 233, "15"},
+          {380, 318, "20"},
+          {318, 380, "25"},
+          {233, 403, "30"},
+          {148, 380, "35"},
+          { 86, 318, "40"},
+          { 63, 233, "45"},
+          { 86, 148, "50"},
+          {148,  86, "55"}
+        };
+        for (const auto &n : CHRONO_NUMS) {
+          it.print(n.x, n.y, id(font_small), id(col_black), TextAlign::CENTER, n.str);
         }
 
         uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
@@ -7689,64 +7693,66 @@ touchscreen:
               }
             }
 
-            // Page 1: Stopwatch Screen Tap Controls (Isolated Radial Pushers & Full Dial Start/Stop)
+            // Page 1: Stopwatch Zero-Deadzone Ergonomic Touch Routing
+            // --------------------------------------------------------
+            // 1. Lower Left Quadrant (y in [280..399], x < 233): LAP Button
+            //    Full-coverage quadrant centered around LAP pusher at (176, 332)
+            // 2. Lower Right Quadrant (y in [280..399], x >= 233): RESET Button
+            //    Full-coverage quadrant centered around RESET pusher at (290, 332)
+            // 3. Upper 70% Dial Surface (y < 280): START / STOP Action
+            //    Enormous 280px tall by 466px wide dial target with snappy 100ms debounce
+            // 4. Bottom Footer (y >= 400): Handled by Deck Navigation
+            // Completely eliminates the 19,440-pixel dead zone and the y:385..399 gap!
             if (id(gui_page) == 1) {
               static uint32_t last_dial_tap = 0;
               static uint32_t last_lap_tap = 0;
               static uint32_t last_rst_tap = 0;
               uint32_t now_chrono_tap = millis();
 
-              const int btn_y = 332;
-              const int btn_lap_x = 176;
-              const int btn_rst_x = 290;
-              const int r_hit_sq = 44 * 44; // 1936: generous 44px radial touch target (button radius is 36px)
-
-              int dx_lap = touch.x - btn_lap_x;
-              int dy_lap = touch.y - btn_y;
-              int dx_rst = touch.x - btn_rst_x;
-              int dy_rst = touch.y - btn_y;
-
-              // 1. LAP Button (Dedicated radial hit circle centered at 176, 332)
-              if ((dx_lap * dx_lap + dy_lap * dy_lap) <= r_hit_sq) {
-                if (now_chrono_tap - last_lap_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_lap_tap = now_chrono_tap;
-                  if (id(stopwatch_running)) {
-                    id(stopwatch_lap_ms) = now_chrono_tap - id(stopwatch_start_time);
-                  } else if (id(stopwatch_elapsed_ms) > 0) {
-                    id(stopwatch_lap_ms) = id(stopwatch_elapsed_ms);
+              if (touch.y >= 280 && touch.y < 400) {
+                if (touch.x < 233) {
+                  // Zone A: LAP Action (Entire lower-left quadrant)
+                  if (now_chrono_tap - last_lap_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_lap_tap = now_chrono_tap;
+                    if (id(stopwatch_running)) {
+                      id(stopwatch_lap_ms) = now_chrono_tap - id(stopwatch_start_time);
+                    } else if (id(stopwatch_elapsed_ms) > 0) {
+                      id(stopwatch_lap_ms) = id(stopwatch_elapsed_ms);
+                    }
+                    ESP_LOGI("touch", "Page 1 Stopwatch LAP: x=%d y=%d lap=%lums",
+                             touch.x, touch.y, (unsigned long)id(stopwatch_lap_ms));
+                    id(disp1).update();
                   }
-                  id(disp1).update();
+                  return;
+                } else {
+                  // Zone B: RESET Action (Entire lower-right quadrant)
+                  if (now_chrono_tap - last_rst_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_rst_tap = now_chrono_tap;
+                    id(stopwatch_running) = false;
+                    id(stopwatch_elapsed_ms) = 0;
+                    id(stopwatch_lap_ms) = 0;
+                    ESP_LOGI("touch", "Page 1 Stopwatch RESET: x=%d y=%d", touch.x, touch.y);
+                    id(disp1).update();
+                  }
+                  return;
                 }
-                return;
-
-              // 2. RESET Button (Dedicated radial hit circle centered at 290, 332)
-              } else if ((dx_rst * dx_rst + dy_rst * dy_rst) <= r_hit_sq) {
-                if (now_chrono_tap - last_rst_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_rst_tap = now_chrono_tap;
-                  id(stopwatch_running) = false;
-                  id(stopwatch_elapsed_ms) = 0;
-                  id(stopwatch_lap_ms) = 0;
-                  id(disp1).update();
-                }
-                return;
-
-              // 3. Pusher Cluster Guard: Taps strictly inside pusher cluster box (y in [295..385] and x in [125..341])
-              // that missed the radial circles are absorbed as safe no-ops
-              } else if (touch.y >= 295 && touch.y <= 385 && touch.x >= 125 && touch.x <= 341) {
-                return; // Absorb mis-hits or gaps between the pushers; never toggle Start/Stop by accident!
-
-              // 4. Full Chrono Dial Face: START/STOP (Anywhere on dial face: y < 295 OR outer flanks x < 125 / x > 341)
-              } else if (touch.y < 385) {
-                if (now_chrono_tap - last_dial_tap > TOUCH_DEBOUNCE_BUTTON) {
+              } else if (touch.y < 280) {
+                // Zone C: START / STOP (Full Upper 70% Dial Surface: y < 280)
+                // Tuned to TOUCH_DEBOUNCE_RAPID (100ms) for snappy tactile responsiveness
+                if (now_chrono_tap - last_dial_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_dial_tap = now_chrono_tap;
                   if (!id(stopwatch_running)) {
                     id(stopwatch_running) = true;
                     id(stopwatch_start_time) = now_chrono_tap - id(stopwatch_elapsed_ms);
                     id(sleep_start_time) = 0;
                     id(display_brightness).turn_on().perform();
+                    ESP_LOGI("touch", "Page 1 Stopwatch START: x=%d y=%d elapsed=%lums",
+                             touch.x, touch.y, (unsigned long)id(stopwatch_elapsed_ms));
                   } else {
                     id(stopwatch_running) = false;
                     id(stopwatch_elapsed_ms) = now_chrono_tap - id(stopwatch_start_time);
+                    ESP_LOGI("touch", "Page 1 Stopwatch STOP: x=%d y=%d elapsed=%lums",
+                             touch.x, touch.y, (unsigned long)id(stopwatch_elapsed_ms));
                   }
                   id(disp1).update();
                 }
