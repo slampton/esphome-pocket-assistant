@@ -74,6 +74,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '1' # 1 to 2
+  - id: audio_menu_page
+    type: int
+    restore_value: no
+    initial_value: '1' # 1 to 2
   - id: deck_menu_page
     type: int
     restore_value: no
@@ -2810,6 +2814,8 @@ script:
             id(sleep_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 4 && id(system_menu_mode) == 2) {
             id(display_menu_page) = id(menu_scroll_target_page);
+          } else if (id(gui_page) == 4 && id(system_menu_mode) == 7) {
+            id(audio_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 4 && id(system_menu_mode) == 10) {
             id(deck_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
@@ -6240,44 +6246,93 @@ display:
 
         } else if (id(system_menu_mode) == 7) {
           // --------------------------------------------------
-          // VIEW 7: AUDIO SUBMENU (Standardized 58px Pitch, 5 Slots)
+          // VIEW 7: AUDIO SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
+          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
+          // Model A: 4-Step Eased 174px (3-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
           // --------------------------------------------------
+          int current_offset = 0;
+          if (id(menu_scroll_active)) {
+            int cur_step = id(menu_scroll_step);
+            if (cur_step < 0) cur_step = 0;
+            if (cur_step > 4) cur_step = 4;
+            int shift = SHARED_SCROLL_EASE_174[cur_step];
+            if (id(menu_scroll_dir) == 1) {
+              current_offset = shift;
+            } else {
+              current_offset = 174 - shift;
+            }
+          } else {
+            current_offset = (id(audio_menu_page) == 2) ? 174 : 0;
+          }
+
+          static char audio_labels[8][32];
+          static uint32_t last_audio_label_time = 0;
+          if (!id(menu_scroll_active) || millis() - last_audio_label_time > 1000) {
+            // Item 0: Hardware Speaker Volume
+            int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+            snprintf(audio_labels[0], sizeof(audio_labels[0]), "Speaker Vol: %d%%", v_cur);
+
+            // Item 1: Independent Alert Volume
+            float a_st = id(alert_volume).state;
+            int a_cur = (std::isnan(a_st) || a_st < 20.0f) ? 70 : (int)std::round(a_st);
+            snprintf(audio_labels[1], sizeof(audio_labels[1]), "Alert Vol: %d%%", a_cur);
+
+            // Item 2: Volume Step Size Cycler (2%, 5%, 10%)
+            int step_val = (int)std::round(id(volume_step_size).state);
+            if (step_val < 1 || step_val > 10) step_val = 5;
+            snprintf(audio_labels[2], sizeof(audio_labels[2]), "Vol Step: %d%%", step_val);
+
+            // Item 3: Album Art Style Cycler
+            std::string cur_mode = id(music_fullscreen_art_mode).current_option();
+            snprintf(audio_labels[3], sizeof(audio_labels[3]), "Art: %s", cur_mode.c_str());
+
+            // Item 4: Music Overlay Style Cycler
+            std::string cur_ov = id(music_overlay_style).current_option();
+            snprintf(audio_labels[4], sizeof(audio_labels[4]), "Overlay: %s", cur_ov.c_str());
+
+            // Item 5: Album Sort Order Cycler
+            std::string cur_alb = id(music_album_sort_order).current_option();
+            snprintf(audio_labels[5], sizeof(audio_labels[5]), "Album Sort: %s", cur_alb.c_str());
+
+            // Item 6: Artist Album / Discography Sort Order Cycler
+            std::string cur_art = id(music_artist_album_sort_order).current_option();
+            snprintf(audio_labels[6], sizeof(audio_labels[6]), "Artist Discog: %s", cur_art.c_str());
+
+            // Item 7: Podcast Episode Sort Order Cycler
+            std::string cur_pod = id(music_podcast_sort_order).current_option();
+            snprintf(audio_labels[7], sizeof(audio_labels[7]), "Podcast Sort: %s", cur_pod.c_str());
+
+            last_audio_label_time = millis();
+          }
+
+          auto draw_audio_item = [&](int idx, int y) {
+            draw_menu_card_y(y, audio_labels[idx]);
+          };
+
+          for (int i = 0; i < 8; i++) {
+            int y = 104 + i * 58 - current_offset;
+            if (y >= 50 && y <= 390) {
+              draw_audio_item(i, y);
+            }
+          }
+
+          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
+          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
+          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
+
+          // Stationary Title at y = 50
           draw_menu_header(50, "AUDIO");
 
-          // Slot 0: Album Art Style Cycler
-          std::string cur_mode = id(music_fullscreen_art_mode).current_option();
-          char fs_label[32];
-          snprintf(fs_label, sizeof(fs_label), "Art: %s", cur_mode.c_str());
-          draw_menu_slot_card(0, fs_label);
-
-          // Slot 1: Music Overlay Style Cycler
-          std::string cur_ov = id(music_overlay_style).current_option();
-          char ov_label[32];
-          snprintf(ov_label, sizeof(ov_label), "Overlay: %s", cur_ov.c_str());
-          draw_menu_slot_card(1, ov_label);
-
-          // Slot 2: Hardware Speaker Volume
-          char spk_vol[32];
-          int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-          snprintf(spk_vol, sizeof(spk_vol), "Speaker Vol: %d%%", v_cur);
-          draw_menu_slot_card(2, spk_vol);
-
-          // Slot 3: Independent Alert Volume
-          char alert_vol_str[32];
-          float a_st = id(alert_volume).state;
-          int a_cur = (std::isnan(a_st) || a_st < 20.0f) ? 70 : (int)std::round(a_st);
-          snprintf(alert_vol_str, sizeof(alert_vol_str), "Alert Vol: %d%%", a_cur);
-          draw_menu_slot_card(3, alert_vol_str);
-
-          // Slot 4: Volume Step Size Cycler (2%, 5%, 10%)
-          int step_val = (int)std::round(id(volume_step_size).state);
-          if (step_val < 1 || step_val > 10) step_val = 5;
-          char step_label[32];
-          snprintf(step_label, sizeof(step_label), "Vol Step: %d%%", step_val);
-          draw_menu_slot_card(4, step_label);
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16)
+          // Stationary Submenu < BACK Button at y = 408 (r = 16)
           draw_back_button();
+
+          // Stationary Pagination Dots nestled at bottom curve y = 440
+          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(audio_menu_page);
+          draw_pagination_dots(current_dot_page, 2, 440);
+
+          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
+          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(audio_menu_page);
+          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
         } else if (id(system_menu_mode) == 8) {
           // --------------------------------------------------
           // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Monochromatic Telemetry, 8 Clean Lines)
@@ -7759,7 +7814,7 @@ touchscreen:
                     }
                     ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
-                    id(sleep_menu_page) = 1; id(menu_scroll_active) = false;
+                    id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(menu_scroll_active) = false;
                     id(music_hud_active) = false;
                     id(disp1).update();
                   }
@@ -8553,6 +8608,8 @@ touchscreen:
                   } else if (touch.y >= 168 && touch.y <= 223 && touch.x > 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 7; // Open Audio & Media Submenu
+                    id(audio_menu_page) = 1;
+                    id(menu_scroll_active) = false;
                     id(disp1).update();
                   // Row 3 Left: "App Deck >" (y: 224..279, x: 50..233, center y=252)
                   } else if (touch.y >= 224 && touch.y <= 279 && touch.x <= 233) {
@@ -8941,35 +8998,45 @@ touchscreen:
                   }
                 }
               } else if (id(system_menu_mode) == 7) {
-                // Mode 7: Audio Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
-                static uint32_t last_audio_cycler_tap = 0;
-                static uint32_t last_audio_vol_tap = 0;
-                int slot = get_5slot_index(touch, 75, 395);
-                if (slot >= 0 && slot <= 4) {
-                  if (slot == 0) {
-                    // Card 1: Album Art Style Cycler (Slot 0, y = 104)
-                    if (now_sys - last_audio_cycler_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_audio_cycler_tap = now_sys;
-                      std::string cur_mode = id(music_fullscreen_art_mode).current_option();
-                      auto call = id(music_fullscreen_art_mode).make_call();
-                      call.set_option(cycle_option(cur_mode, {"Full Screen", "Letterbox", "Compact"}));
-                      call.perform();
-                      id(disp1).update();
+                // Mode 7: Audio Submenu (Continuous 8-Item Vertical Scroll Architecture)
+                if (id(menu_scroll_active)) return;
+
+                // Right Flank Navigation (Option 1: Up at y=162 on Page 2, Down at y=278 on Page 1)
+                // Generous vertical right flank hit zone (x >= 375, y: 70..375)
+                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
+                  static uint32_t last_audio_scroll_tap = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_audio_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
+                    last_audio_scroll_tap = now_s;
+                    if (id(audio_menu_page) == 1) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = 1;
+                      id(menu_scroll_target_page) = 2;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    } else if (id(audio_menu_page) == 2) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = -1;
+                      id(menu_scroll_target_page) = 1;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
                     }
-                    return;
-                  } else if (slot == 1) {
-                    // Card 2: Music Overlay Style Cycler (Slot 1, y = 162)
-                    if (now_sys - last_audio_cycler_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_audio_cycler_tap = now_sys;
-                      std::string cur_ov = id(music_overlay_style).current_option();
-                      auto call = id(music_overlay_style).make_call();
-                      call.set_option(cycle_option(cur_ov, {"Art Only", "Art + Metadata", "Always Visible"}));
-                      call.perform();
-                      id(disp1).update();
-                    }
-                    return;
-                  } else if (slot == 2) {
-                    // Card 3: Hardware Speaker Volume Step (Slot 2, y = 220)
+                  }
+                  return;
+                }
+
+                // Left Flank (x < 75): Discard to prevent misfires
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) {
+                  return;
+                }
+
+                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
+                int slot_idx = get_5slot_index(touch, 95, 371);
+                if (slot_idx >= 0) {
+                  int item_idx = (id(audio_menu_page) == 1) ? slot_idx : (slot_idx + 3);
+                  if (item_idx == 0) {
+                    // Item 0: Hardware Speaker Volume Step (10%..90%)
+                    static uint32_t last_audio_vol_tap = 0;
                     if (now_sys - last_audio_vol_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_audio_vol_tap = now_sys;
                       float cur_vol = id(pocket_music_player).volume;
@@ -8979,10 +9046,11 @@ touchscreen:
                       id(disp1).update();
                     }
                     return;
-                  } else if (slot == 3) {
-                    // Card 4: Independent Alert Volume Step (Slot 3, y = 278)
-                    if (now_sys - last_audio_vol_tap > TOUCH_DEBOUNCE_RAPID) {
-                      last_audio_vol_tap = now_sys;
+                  } else if (item_idx == 1) {
+                    // Item 1: Independent Alert Volume Step (50%..100%)
+                    static uint32_t last_alert_vol_tap = 0;
+                    if (now_sys - last_alert_vol_tap > TOUCH_DEBOUNCE_RAPID) {
+                      last_alert_vol_tap = now_sys;
                       float cur_a_f = id(alert_volume).state;
                       int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 70 : (int)std::round(cur_a_f);
                       int nxt_a = (int)step_wrap_range((float)cur_a, 10.0f, 50.0f, 100.0f);
@@ -8992,10 +9060,10 @@ touchscreen:
                       id(disp1).update();
                     }
                     return;
-                  } else if (slot == 4) {
-                    // Card 5: Volume Step Size Cycler (Slot 4, y = 336)
-                    if (now_sys - last_audio_cycler_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_audio_cycler_tap = now_sys;
+                  } else if (item_idx == 2) {
+                    // Item 2: Volume Step Size Cycler (2%, 5%, 10%)
+                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_sys_action_tap = now_sys;
                       int cur_sz = (int)std::round(id(volume_step_size).state);
                       int nxt_sz = (cur_sz < 5) ? 5 : ((cur_sz < 10) ? 10 : 2);
                       auto call = id(volume_step_size).make_call();
@@ -9004,13 +9072,72 @@ touchscreen:
                       id(disp1).update();
                     }
                     return;
+                  } else if (item_idx == 3) {
+                    // Item 3: Album Art Style Cycler (Full Screen -> Letterbox -> Compact)
+                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_sys_action_tap = now_sys;
+                      std::string cur_mode = id(music_fullscreen_art_mode).current_option();
+                      auto call = id(music_fullscreen_art_mode).make_call();
+                      call.set_option(cycle_option(cur_mode, {"Full Screen", "Letterbox", "Compact"}));
+                      call.perform();
+                      id(disp1).update();
+                    }
+                    return;
+                  } else if (item_idx == 4) {
+                    // Item 4: Music Overlay Style Cycler (Art Only -> Art + Metadata -> Always Visible)
+                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_sys_action_tap = now_sys;
+                      std::string cur_ov = id(music_overlay_style).current_option();
+                      auto call = id(music_overlay_style).make_call();
+                      call.set_option(cycle_option(cur_ov, {"Art Only", "Art + Metadata", "Always Visible"}));
+                      call.perform();
+                      id(disp1).update();
+                    }
+                    return;
+                  } else if (item_idx == 5) {
+                    // Item 5: Album Sort Order Cycler (Alphabetical -> Newest on Top -> Oldest on Top)
+                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_sys_action_tap = now_sys;
+                      std::string cur_alb = id(music_album_sort_order).current_option();
+                      auto call = id(music_album_sort_order).make_call();
+                      call.set_option(cycle_option(cur_alb, {"Alphabetical", "Newest on Top", "Oldest on Top"}));
+                      call.perform();
+                      id(disp1).update();
+                    }
+                    return;
+                  } else if (item_idx == 6) {
+                    // Item 6: Artist Album Sort Order Cycler (Oldest on Top -> Newest on Top -> Alphabetical)
+                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_sys_action_tap = now_sys;
+                      std::string cur_art = id(music_artist_album_sort_order).current_option();
+                      auto call = id(music_artist_album_sort_order).make_call();
+                      call.set_option(cycle_option(cur_art, {"Oldest on Top", "Newest on Top", "Alphabetical"}));
+                      call.perform();
+                      id(disp1).update();
+                    }
+                    return;
+                  } else if (item_idx == 7) {
+                    // Item 7: Podcast Episode Sort Order Cycler (Newest on Top -> Oldest on Top)
+                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_sys_action_tap = now_sys;
+                      std::string cur_pod = id(music_podcast_sort_order).current_option();
+                      auto call = id(music_podcast_sort_order).make_call();
+                      call.set_option(cycle_option(cur_pod, {"Newest on Top", "Oldest on Top"}));
+                      call.perform();
+                      id(disp1).update();
+                    }
+                    return;
                   }
+                  return;
                 }
-                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+
+                // Standardized Centered < BACK Button at y = 408 (r = 16)
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(audio_menu_page) = 1;
+                    id(menu_scroll_active) = false;
                     id(disp1).update();
                   }
                   return;
