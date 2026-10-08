@@ -3967,22 +3967,13 @@ display:
       // 1/10s High-Speed Spinning Subdial, Bold Arrow Hand & Large Digital Readout
       // ==========================================
       } else if (id(gui_page) == 1) {
-        // Outer Triple Bezel: Silver Outer Ring -> Dark Band -> Inner Silver Accent Ring
-        it.circle(cx, cy, 230, id(col_silver));
-        it.circle(cx, cy, 229, id(col_silver));
-        it.circle(cx, cy, 228, id(col_dark_gray));
-        it.circle(cx, cy, 227, id(col_dark_gray));
-        it.circle(cx, cy, 226, id(col_dark_gray));
-        it.circle(cx, cy, 225, id(col_dark_gray));
-        it.circle(cx, cy, 224, id(col_silver));
-        it.circle(cx, cy, 223, id(col_silver));
+        // Clean Dual Perimeter Rings: Crisp White Outer Ring (r=230) with Polished Silver Inner Highlight (r=228)
+        it.circle(cx, cy, 230, id(col_white));
+        it.circle(cx, cy, 228, id(col_silver));
 
-        // Authentic Heuer Heritage AMOLED Matte Black Chronograph Canvas (Zero filled_circle stall, 45ms render)
-        // Outer Chapter Track Boundaries (Polished steel outer & inner rehaut tension rings)
-        it.circle(cx, cy, 220, id(col_silver));
-        it.circle(cx, cy, 219, id(col_dark_gray));
-        it.circle(cx, cy, 192, id(col_dark_gray));
-        it.circle(cx, cy, 191, id(col_silver));
+        // Inner Chapter Track Boundaries (Polished steel inner rehaut flange)
+        it.circle(cx, cy, 197, id(col_dark_gray));
+        it.circle(cx, cy, 196, id(col_silver));
 
         // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
         for (int s = 0; s < 60; s++) {
@@ -3993,19 +3984,19 @@ display:
             // Major 5-Second Applied Faceted Steel Baton: Silver highlight, Slate shadow, White luminous core
             float perp_x = -t_cos;
             float perp_y = t_sin;
-            int x1 = cx + (int)(191.0f * t_sin);
-            int y1 = cy - (int)(191.0f * t_cos);
-            int x2 = cx + (int)(220.0f * t_sin);
-            int y2 = cy - (int)(220.0f * t_cos);
+            int x1 = cx + (int)(196.0f * t_sin);
+            int y1 = cy - (int)(196.0f * t_cos);
+            int x2 = cx + (int)(227.0f * t_sin);
+            int y2 = cy - (int)(227.0f * t_cos);
             it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_silver));
             it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_slate));
             it.line(x1, y1, x2, y2, id(col_white));
           } else {
-            // Standard 1-Second Tick: 2px wide from r=204 to r=220 in brushed slate
-            int x1 = cx + (int)(204.0f * t_sin);
-            int y1 = cy - (int)(204.0f * t_cos);
-            int x2 = cx + (int)(220.0f * t_sin);
-            int y2 = cy - (int)(220.0f * t_cos);
+            // Standard 1-Second Tick: 2px wide from r=210 to r=227 in brushed slate
+            int x1 = cx + (int)(210.0f * t_sin);
+            int y1 = cy - (int)(210.0f * t_cos);
+            int x2 = cx + (int)(227.0f * t_sin);
+            int y2 = cy - (int)(227.0f * t_cos);
             it.line(x1, y1, x2, y2, id(col_slate));
             it.line(x1 + 1, y1, x2 + 1, y2, id(col_slate));
           }
@@ -4013,18 +4004,18 @@ display:
 
         // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math)
         static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[12] = {
-          {233,  63,  "0"},
-          {318,  86,  "5"},
-          {380, 148, "10"},
-          {403, 233, "15"},
-          {380, 318, "20"},
-          {318, 380, "25"},
-          {233, 403, "30"},
-          {148, 380, "35"},
-          { 86, 318, "40"},
-          { 63, 233, "45"},
-          { 86, 148, "50"},
-          {148,  86, "55"}
+          {233,  61,  "0"},
+          {319,  84,  "5"},
+          {382, 147, "10"},
+          {405, 233, "15"},
+          {382, 319, "20"},
+          {319, 382, "25"},
+          {233, 405, "30"},
+          {147, 382, "35"},
+          { 84, 319, "40"},
+          { 61, 233, "45"},
+          { 84, 147, "50"},
+          {147,  84, "55"}
         };
         for (const auto &n : CHRONO_NUMS) {
           it.print(n.x, n.y, id(font_small), id(col_white), TextAlign::CENTER, n.str);
