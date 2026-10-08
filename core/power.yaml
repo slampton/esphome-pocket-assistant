@@ -131,7 +131,21 @@ sensor:
       uint8_t reg = 0xA4;
       uint8_t pct = 0;
       if (id(bus_internal).write_readv(0x34, &reg, 1, &pct, 1) == esphome::i2c::ERROR_OK) {
-        if (pct <= 100) return (float)pct;
+        if (pct <= 100) {
+          uint8_t reg1 = 0x01;
+          uint8_t stat1 = 0;
+          if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
+            uint8_t chg_state = stat1 & 0x07;
+            // 1. Hardware charge complete (chg_state == 4: Charge Done)
+            if (chg_state == 4) return 100.0f;
+            // 2. Saturated CV float: USB connected, >= 99% Coulomb count, and cell >= 4.18V
+            float v_bat = id(batt_voltage).state;
+            if (pct >= 99 && id(usb_connected).state && !isnan(v_bat) && v_bat >= 4.18f) {
+              return 100.0f;
+            }
+          }
+          return (float)pct;
+        }
       }
       return {};
 
@@ -309,8 +323,11 @@ interval:
           uint8_t reg1 = 0x01;
           uint8_t stat1 = 0;
           if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
-            uint8_t chg = (stat1 >> 5) & 0x03;
-            id(batt_charging).publish_state(vbus && (chg == 1));
+            uint8_t chg_dir = (stat1 >> 5) & 0x03;
+            uint8_t chg_state = stat1 & 0x07;
+            // Active charging: VBUS present, current flowing into battery (BatDir==1), and not charge-done (state < 4)
+            bool is_charging = vbus && (chg_dir == 1) && (chg_state < 4);
+            id(batt_charging).publish_state(is_charging);
           }
 
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
