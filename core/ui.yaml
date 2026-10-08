@@ -7529,6 +7529,42 @@ touchscreen:
               return -1;
             };
 
+            // Standardized Value Stepper & Clamping Helpers (Category 4)
+            auto step_clamp = [](auto val, auto delta, auto min_val, auto max_val) {
+              auto res = val + delta;
+              if (res < min_val) return min_val;
+              if (res > max_val) return max_val;
+              return res;
+            };
+
+            auto step_wrap = [](int val, int delta, int count) -> int {
+              if (count <= 0) return 0;
+              int res = (val + delta) % count;
+              if (res < 0) res += count;
+              return res;
+            };
+
+            auto step_wrap_1based = [](int val, int delta, int count) -> int {
+              if (count <= 1) return 1;
+              int zero_based = (val - 1 + delta) % count;
+              if (zero_based < 0) zero_based += count;
+              return zero_based + 1;
+            };
+
+            auto step_wrap_range = [](auto val, auto delta, auto min_val, auto max_val) {
+              auto next = val + delta;
+              if (next > max_val + 0.001f) return min_val;
+              if (next < min_val - 0.001f) return max_val;
+              return next;
+            };
+
+            auto cycle_option = [](const std::string &cur, const std::vector<std::string> &opts) -> std::string {
+              for (size_t i = 0; i < opts.size(); i++) {
+                if (opts[i] == cur) return opts[(i + 1) % opts.size()];
+              }
+              return opts.empty() ? "" : opts[0];
+            };
+
             static uint32_t last_back_tap = 0;
 
             // Helper lambda resolving active app slot indices from user deck configuration
@@ -7619,13 +7655,7 @@ touchscreen:
                     uint32_t now_s = millis();
                     if (now_s - last_browse_scroll > TOUCH_DEBOUNCE_SCROLL) {
                       last_browse_scroll = now_s;
-                      if (touch.y < 220) {
-                        id(music_browse_page)--;
-                        if (id(music_browse_page) < 1) id(music_browse_page) = id(music_browse_total_pages);
-                      } else {
-                        id(music_browse_page)++;
-                        if (id(music_browse_page) > id(music_browse_total_pages)) id(music_browse_page) = 1;
-                      }
+                      id(music_browse_page) = step_wrap_1based(id(music_browse_page), (touch.y < 220) ? -1 : 1, id(music_browse_total_pages));
                       id(fetch_music_browse).execute();
                       id(disp1).update();
                     }
@@ -8270,14 +8300,12 @@ touchscreen:
                   uint32_t now_gs = millis();
                   if (now_gs - last_game_scroll > TOUCH_DEBOUNCE_SCROLL) {
                     last_game_scroll = now_gs;
-                    if (touch.y < 220) {
-                      // Up Chevron tap: Previous game (wrap-around carousel, content slides down)
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = -1;
-                      id(menu_scroll_target_page) = (id(game_carousel_idx) + 3) % 4;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    } else {
+                    int dir = (touch.y < 220) ? -1 : 1;
+                    id(menu_scroll_active) = true;
+                    id(menu_scroll_dir) = dir;
+                    id(menu_scroll_target_page) = step_wrap(id(game_carousel_idx), dir, 4);
+                    id(menu_scroll_step) = 0;
+                    id(menu_scroll_transition).execute(); else {
                       // Down Chevron tap: Next game (wrap-around carousel, content slides up)
                       id(menu_scroll_active) = true;
                       id(menu_scroll_dir) = 1;
@@ -8425,17 +8453,15 @@ touchscreen:
                   if (idx == 0) {
                     // Slot 1 (Page 1): Motion Wake Cycler
                     std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
-                    std::string nxt = (cur == "Always On") ? "Docked Only" : ((cur == "Docked Only") ? "Disabled" : "Always On");
                     auto call = id(pickup_wake_mode).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"Always On", "Docked Only", "Disabled"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 1) {
                     // Slot 2 (Page 1): Tap Wake Cycler
                     std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
-                    std::string nxt = (cur == "Always On") ? "Docked Only" : ((cur == "Docked Only") ? "Disabled" : "Always On");
                     auto call = id(tap_wake_mode).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"Always On", "Docked Only", "Disabled"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 2) {
@@ -8445,43 +8471,22 @@ touchscreen:
                   } else if (idx == 3) {
                     // Slot 4 (Page 1): Screensaver Style Cycler
                     std::string cur = std::string(id(screensaver_style_select).current_option().c_str());
-                    std::string nxt = "Ambient Clock";
-                    if (cur == "Ambient Clock") nxt = "Aurora Borealis";
-                    else if (cur == "Aurora Borealis") nxt = "Starfield";
-                    else if (cur == "Starfield") nxt = "Matrix Rain";
-                    else if (cur == "Matrix Rain") nxt = "Solar Flare";
-                    else if (cur == "Solar Flare") nxt = "Screen Off";
-                    else nxt = "Ambient Clock";
                     auto call = id(screensaver_style_select).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Solar Flare", "Screen Off"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 4) {
                     // Slot 5 (Page 1): Dock Inactivity Timeout Cycler
                     std::string cur = std::string(id(screensaver_docked_timeout).current_option().c_str());
-                    std::string nxt = "5 min";
-                    if (cur == "10s") nxt = "15s";
-                    else if (cur == "15s") nxt = "30s";
-                    else if (cur == "30s") nxt = "1 min";
-                    else if (cur == "1 min") nxt = "5 min";
-                    else if (cur == "5 min") nxt = "Never";
-                    else if (cur == "Never") nxt = "10s";
                     auto call = id(screensaver_docked_timeout).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"10s", "15s", "30s", "1 min", "5 min", "Never"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 5) {
                     // Slot 6 (Page 2): Screen Off Dimming Timeout Cycler
                     std::string cur = std::string(id(display_off_timeout).current_option().c_str());
-                    std::string nxt = "15s";
-                    if (cur == "10s") nxt = "15s";
-                    else if (cur == "15s") nxt = "30s";
-                    else if (cur == "30s") nxt = "1 min";
-                    else if (cur == "1 min") nxt = "2 min";
-                    else if (cur == "2 min") nxt = "Never";
-                    else if (cur == "Never") nxt = "10s";
                     auto call = id(display_off_timeout).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 6) {
@@ -8491,14 +8496,8 @@ touchscreen:
                   } else if (idx == 7) {
                     // Slot 8 (Page 2): Auto-Hibernate Timeout Cycler
                     std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
-                    std::string nxt = "15 min";
-                    if (cur == "5 min") nxt = "10 min";
-                    else if (cur == "10 min") nxt = "15 min";
-                    else if (cur == "15 min") nxt = "30 min";
-                    else if (cur == "30 min") nxt = "Disabled";
-                    else if (cur == "Disabled") nxt = "5 min";
                     auto call = id(sleep_timeout_mode).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
                     call.perform();
                     id(disp1).update();
                   }
@@ -8535,12 +8534,8 @@ touchscreen:
                   if (slot == 0) {
                     // Card 1: Auto-Brightness Mode Cycler (Slot 0, y = 104)
                     std::string cur = std::string(id(auto_brightness_mode).current_option().c_str());
-                    std::string nxt = "Disabled";
-                    if (cur == "Disabled") nxt = "Sun Synchronized";
-                    else if (cur == "Sun Synchronized") nxt = "Time Schedule";
-                    else nxt = "Disabled";
                     auto call = id(auto_brightness_mode).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"Disabled", "Sun Synchronized", "Time Schedule"}));
                     call.perform();
                     id(disp1).update();
                     return;
@@ -8549,14 +8544,8 @@ touchscreen:
                     std::string ab = std::string(id(auto_brightness_mode).current_option().c_str());
                     if (ab == "Disabled") {
                       std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                      std::string nxt = "90%";
-                      if (cur == "60%") nxt = "70%";
-                      else if (cur == "70%") nxt = "80%";
-                      else if (cur == "80%") nxt = "90%";
-                      else if (cur == "90%") nxt = "100%";
-                      else nxt = "60%";
                       auto call = id(display_brightness_preset).make_call();
-                      call.set_option(nxt);
+                      call.set_option(cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"}));
                       call.perform();
                       id(sync_display_brightness).execute();
                       id(disp1).update();
@@ -8565,28 +8554,16 @@ touchscreen:
                   } else if (slot == 2) {
                     // Card 3: Color Palette Cycler (Slot 2, y = 220)
                     std::string cur = std::string(id(theme_palette_select).current_option().c_str());
-                    std::string nxt = "Steel & Silver";
-                    if (cur == "Steel & Silver") nxt = "Pink & Gray";
-                    else if (cur == "Pink & Gray") nxt = "Blue & Gold";
-                    else if (cur == "Blue & Gold" || cur == "Default Classic") nxt = "Green & Gold";
-                    else if (cur == "Green & Gold") nxt = "Steel & Silver";
                     auto call = id(theme_palette_select).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"Steel & Silver", "Pink & Gray", "Blue & Gold", "Green & Gold"}));
                     call.perform();
                     id(disp1).update();
                     return;
                   } else if (slot == 3) {
                     // Card 4: Screen Off Inactivity Timeout Cycler (Slot 3, y = 278)
                     std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
-                    std::string nxt_so = "15s";
-                    if (cur_so == "10s") nxt_so = "15s";
-                    else if (cur_so == "15s") nxt_so = "30s";
-                    else if (cur_so == "30s") nxt_so = "1 min";
-                    else if (cur_so == "1 min") nxt_so = "2 min";
-                    else if (cur_so == "2 min") nxt_so = "Never";
-                    else if (cur_so == "Never") nxt_so = "10s";
                     auto call = id(display_off_timeout).make_call();
-                    call.set_option(nxt_so);
+                    call.set_option(cycle_option(cur_so, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
                     call.perform();
                     id(disp1).update();
                     return;
@@ -8613,14 +8590,8 @@ touchscreen:
                   } else if (slot == 1) {
                     // Card 2: Auto-Sleep Timeout Cycler (Slot 1, y = 162)
                     std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
-                    std::string nxt = "5 min";
-                    if (cur == "5 min") nxt = "10 min";
-                    else if (cur == "10 min") nxt = "15 min";
-                    else if (cur == "15 min") nxt = "30 min";
-                    else if (cur == "30 min") nxt = "Disabled";
-                    else if (cur == "Disabled") nxt = "5 min";
                     auto call = id(sleep_timeout_mode).make_call();
-                    call.set_option(nxt);
+                    call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
                     call.perform();
                     id(disp1).update();
                     return;
@@ -8727,12 +8698,8 @@ touchscreen:
                     if (now_sys - last_audio_cycler_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_audio_cycler_tap = now_sys;
                       std::string cur_mode = id(music_fullscreen_art_mode).current_option();
-                      std::string nxt_mode = "Letterbox";
-                      if (cur_mode == "Full Screen") nxt_mode = "Letterbox";
-                      else if (cur_mode == "Letterbox") nxt_mode = "Compact";
-                      else nxt_mode = "Full Screen";
                       auto call = id(music_fullscreen_art_mode).make_call();
-                      call.set_option(nxt_mode);
+                      call.set_option(cycle_option(cur_mode, {"Full Screen", "Letterbox", "Compact"}));
                       call.perform();
                       id(disp1).update();
                     }
@@ -8742,12 +8709,8 @@ touchscreen:
                     if (now_sys - last_audio_cycler_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_audio_cycler_tap = now_sys;
                       std::string cur_ov = id(music_overlay_style).current_option();
-                      std::string nxt_ov = "Art + Metadata";
-                      if (cur_ov == "Art Only") nxt_ov = "Art + Metadata";
-                      else if (cur_ov == "Art + Metadata") nxt_ov = "Always Visible";
-                      else nxt_ov = "Art Only";
                       auto call = id(music_overlay_style).make_call();
-                      call.set_option(nxt_ov);
+                      call.set_option(cycle_option(cur_ov, {"Art Only", "Art + Metadata", "Always Visible"}));
                       call.perform();
                       id(disp1).update();
                     }
@@ -8757,8 +8720,7 @@ touchscreen:
                     if (now_sys - last_audio_vol_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_audio_vol_tap = now_sys;
                       float cur_vol = id(pocket_music_player).volume;
-                      float new_vol = cur_vol + 0.10f;
-                      if (new_vol > 0.90f) new_vol = 0.10f;
+                      float new_vol = step_wrap_range(cur_vol, 0.10f, 0.10f, 0.90f);
                       id(pocket_music_player).volume = new_vol;
                       id(pocket_music_player).make_call().set_volume(new_vol).perform();
                       id(disp1).update();
@@ -8770,8 +8732,7 @@ touchscreen:
                       last_audio_vol_tap = now_sys;
                       float cur_a_f = id(alert_volume).state;
                       int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 70 : (int)std::round(cur_a_f);
-                      int nxt_a = cur_a + 10;
-                      if (nxt_a > 100) nxt_a = 50;
+                      int nxt_a = (int)step_wrap_range((float)cur_a, 10.0f, 50.0f, 100.0f);
                       auto call = id(alert_volume).make_call();
                       call.set_value((float)nxt_a);
                       call.perform();
@@ -8901,7 +8862,7 @@ touchscreen:
               if (touch.y >= 50 && touch.y <= 265) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_WAKE) {
                   last_weather_touch = now_w_touch;
-                  id(sky_weather_subpage) = (id(sky_weather_subpage) + 1) % 4;
+                  id(sky_weather_subpage) = step_wrap(id(sky_weather_subpage), 1, 4);
                   id(disp1).update();
                 }
                 return;
@@ -8969,28 +8930,28 @@ touchscreen:
                       if (touch.x >= 40 && touch.x <= 133) {
                         last_timer_adj_tap = now_timer;
                         // -5m (span 48..126)
-                        id(timer_duration_sec) = std::max(60, id(timer_duration_sec) - 300);
+                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), -300, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
                       } else if (touch.x >= 134 && touch.x <= 220) {
                         last_timer_adj_tap = now_timer;
                         // -1m (span 140..204)
-                        id(timer_duration_sec) = std::max(60, id(timer_duration_sec) - 60);
+                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), -60, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
                       } else if (touch.x >= 246 && touch.x <= 333) {
                         last_timer_adj_tap = now_timer;
                         // +1m (span 262..326)
-                        id(timer_duration_sec) = std::min(3600, id(timer_duration_sec) + 60);
+                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), +60, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
                       } else if (touch.x >= 334 && touch.x <= 426) {
                         last_timer_adj_tap = now_timer;
                         // +5m (span 340..418)
-                        id(timer_duration_sec) = std::min(3600, id(timer_duration_sec) + 300);
+                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), +300, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
@@ -9115,23 +9076,23 @@ touchscreen:
                     if (now_alm - last_alarm_step_tap > TOUCH_DEBOUNCE_RAPID) {
                       if (touch.x >= 75 && touch.x <= 145) {
                         last_alarm_step_tap = now_alm;
-                        cur_h = (cur_h + 23) % 24;
+                        cur_h = step_wrap(cur_h, -1, 24);
                         id(disp1).update();
                         return;
                       } else if (touch.x >= 146 && touch.x <= 225) {
                         last_alarm_step_tap = now_alm;
-                        cur_h = (cur_h + 1) % 24;
+                        cur_h = step_wrap(cur_h, +1, 24);
                         id(disp1).update();
                         return;
                       }
                       if (touch.x >= 245 && touch.x <= 320) {
                         last_alarm_step_tap = now_alm;
-                        cur_m = (cur_m + 55) % 60;
+                        cur_m = step_wrap(cur_m, -5, 60);
                         id(disp1).update();
                         return;
                       } else if (touch.x >= 321 && touch.x <= 395) {
                         last_alarm_step_tap = now_alm;
-                        cur_m = (cur_m + 5) % 60;
+                        cur_m = step_wrap(cur_m, +5, 60);
                         id(disp1).update();
                         return;
                       }
@@ -9142,7 +9103,7 @@ touchscreen:
                   if (touch.y >= 271 && touch.y <= 326 && touch.x >= 100 && touch.x <= 366) {
                     if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_alarm_action_tap = now_alm;
-                      cur_rec = (cur_rec + 1) % 4;
+                      cur_rec = step_wrap(cur_rec, 1, 4);
                       id(disp1).update();
                     }
                     return;
