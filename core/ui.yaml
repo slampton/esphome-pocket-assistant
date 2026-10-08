@@ -1232,6 +1232,11 @@ interval:
             id(disp1).update();
           }
 
+          // 20 FPS high-refresh fluid Stopwatch mechanical sweep
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
+            id(disp1).update();
+          }
+
           // High-refresh fluid Voice Assistant loop
           // While Listening/Thinking: 50ms (20 FPS) fluid organic breathing (speaker silent, zero DMA contention)
           // While Speaking: precisely paced by va_speech_anim_interval (default 100ms, safe floor 75ms, restore_value enabled)
@@ -1342,12 +1347,6 @@ interval:
             if (!id(va_active) && id(va_status_text).empty()) {
               id(disp1).update();
             }
-
-          // 4.0 FPS Mechanical Chronograph Sweep (Authentic 4 Hz vintage Heuer escapement cadence)
-          // Operates cleanly at 250ms cadence, leaving a massive 130ms+ CPU idle window for touch processing
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
-            id(disp1).update();
-          }
           }
 
 
@@ -4041,7 +4040,6 @@ display:
         // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
         // ----------------------------------------------------
         it.print(cx, 132, id(font_small), id(col_black), TextAlign::CENTER, "CHRONOGRAPH");
-        it.print(cx, 154, id(font_micro), id(col_slate), TextAlign::CENTER, "1/10 SEC PRECISION");
 
         // ----------------------------------------------------
         // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility at y=238)
@@ -4061,7 +4059,31 @@ display:
         }
 
         // ----------------------------------------------------
+        // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
+        // Rendered on dial face BEFORE hands so hands sweep over top
+        // ----------------------------------------------------
+        const int btn_y = 332;
+        const int btn_lap_x = 176;
+        const int btn_rst_x = 290;
+        const int btn_r = 36;
+
+        // LAP Button (Parchment background, dual precision rings, black typography)
+        it.filled_circle(btn_lap_x, btn_y, btn_r, Color(216, 206, 184));
+        it.circle(btn_lap_x, btn_y, btn_r, id(col_black));
+        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_black));
+        it.circle(btn_lap_x, btn_y, btn_r - 3, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_silver));
+        it.print(btn_lap_x, btn_y, id(font_small), id(col_black), TextAlign::CENTER, "LAP");
+
+        // RESET Button (Parchment background, dual precision rings, black typography)
+        it.filled_circle(btn_rst_x, btn_y, btn_r, Color(216, 206, 184));
+        it.circle(btn_rst_x, btn_y, btn_r, id(col_black));
+        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_black));
+        it.circle(btn_rst_x, btn_y, btn_r - 3, id(col_silver));
+        it.print(btn_rst_x, btn_y, id(font_small), id(col_black), TextAlign::CENTER, "RESET");
+
+        // ----------------------------------------------------
         // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
+        // Sweeps over top of LAP and RESET buttons
         // ----------------------------------------------------
         if (id(stopwatch_lap_ms) > 0) {
           float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
@@ -4074,6 +4096,7 @@ display:
 
         // ----------------------------------------------------
         // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
+        // Sweeps over top of LAP and RESET buttons
         // ----------------------------------------------------
         float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
         float s_sin, s_cos;
@@ -4114,29 +4137,6 @@ display:
         it.circle(cx, cy, 9, id(col_black));
         it.filled_circle(cx, cy, 6, id(col_black));
         it.filled_circle(cx, cy, 2, id(col_silver));
-
-        // ----------------------------------------------------
-        // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
-        // Authentic aged parchment face, dual black/silver rings, bold black typography
-        // ----------------------------------------------------
-        const int btn_y = 332;
-        const int btn_lap_x = 176;
-        const int btn_rst_x = 290;
-        const int btn_r = 36;
-
-        // LAP Button (Parchment background, dual precision rings, black typography)
-        it.filled_circle(btn_lap_x, btn_y, btn_r, Color(216, 206, 184));
-        it.circle(btn_lap_x, btn_y, btn_r, id(col_black));
-        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_black));
-        it.circle(btn_lap_x, btn_y, btn_r - 3, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_silver));
-        it.print(btn_lap_x, btn_y, id(font_small), id(col_black), TextAlign::CENTER, "LAP");
-
-        // RESET Button (Parchment background, dual precision rings, black typography)
-        it.filled_circle(btn_rst_x, btn_y, btn_r, Color(216, 206, 184));
-        it.circle(btn_rst_x, btn_y, btn_r, id(col_black));
-        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_black));
-        it.circle(btn_rst_x, btn_y, btn_r - 3, id(col_silver));
-        it.print(btn_rst_x, btn_y, id(font_small), id(col_black), TextAlign::CENTER, "RESET");
 
       // ==========================================
       // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
