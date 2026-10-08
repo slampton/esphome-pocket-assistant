@@ -70,6 +70,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: display_menu_page
+    type: int
+    restore_value: no
+    initial_value: '1' # 1 to 2
   - id: deck_menu_page
     type: int
     restore_value: no
@@ -2804,6 +2808,8 @@ script:
           id(menu_scroll_active) = false;
           if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
             id(sleep_menu_page) = id(menu_scroll_target_page);
+          } else if (id(gui_page) == 4 && id(system_menu_mode) == 2) {
+            id(display_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 4 && id(system_menu_mode) == 10) {
             id(deck_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
@@ -5950,7 +5956,7 @@ display:
           draw_pill_button(89, 201, 308, 18, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
           draw_pill_button(265, 377, 308, 18, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
 
-          // Lower Zone: Centered Battery Status at y = 380 (Aligned with Clock Face battery line)
+          // Lower Zone: Centered Battery Status at y = 370 (Elevated half-row from y=380 to give comfortable cushion above chevrons)
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%%", batt);
           if (id(batt_charging).state) {
@@ -5960,10 +5966,10 @@ display:
             id(font_small)->measure(chg_str, &w_chg, &x_off, &base, &text_h);
             int total_w = w_main + w_chg;
             int start_x = cx - total_w / 2;
-            it.print(start_x, 380, id(font_small), id(theme_primary), TextAlign::CENTER_LEFT, b_main);
-            it.print(start_x + w_main, 380, id(font_small), id(theme_secondary), TextAlign::CENTER_LEFT, chg_str);
+            it.print(start_x, 370, id(font_small), id(theme_primary), TextAlign::CENTER_LEFT, b_main);
+            it.print(start_x + w_main, 370, id(font_small), id(theme_secondary), TextAlign::CENTER_LEFT, chg_str);
           } else {
-            it.print(cx, 380, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
+            it.print(cx, 370, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
 
         } else if (id(system_menu_mode) == 1) {
@@ -6039,49 +6045,84 @@ display:
 
         } else if (id(system_menu_mode) == 2) {
           // --------------------------------------------------
-          // VIEW 2: DISPLAY SUBMENU (Canonical 58px Pitch)
+          // VIEW 2: DISPLAY SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
+          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
+          // Model A: 4-Step Eased 174px (3-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
           // --------------------------------------------------
-          draw_menu_header(50, "DISPLAY");
-
-          // Slot 0: Auto-Brightness Mode Cycler
-          std::string ab_mode = id(auto_brightness_mode).current_option();
-          char ab_buf[32];
-          snprintf(ab_buf, sizeof(ab_buf), "Auto Bright: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
-          draw_menu_slot_card(0, ab_buf);
-
-          // Slot 1: Manual / Day Brightness Preset Cycler (grayed out if Auto Bright is active)
-          bool auto_bri_active = (ab_mode != "Disabled");
-          char b_buf[32];
-          std::string bri_p = id(display_brightness_preset).current_option();
-          if (bri_p.empty()) bri_p = "90%";
-          snprintf(b_buf, sizeof(b_buf), "Brightness: %s", bri_p.c_str());
-          if (auto_bri_active) {
-            draw_menu_slot_card(1, b_buf, id(col_dark_gray), id(col_slate), id(col_bg));
+          int current_offset = 0;
+          if (id(menu_scroll_active)) {
+            int cur_step = id(menu_scroll_step);
+            if (cur_step < 0) cur_step = 0;
+            if (cur_step > 4) cur_step = 4;
+            int shift = SHARED_SCROLL_EASE_174[cur_step];
+            if (id(menu_scroll_dir) == 1) {
+              current_offset = shift;
+            } else {
+              current_offset = 174 - shift;
+            }
           } else {
-            draw_menu_slot_card(1, b_buf);
+            current_offset = (id(display_menu_page) == 2) ? 174 : 0;
           }
 
-          // Slot 2: Color Palette Cycler
-          char th_buf[32];
-          std::string th_p = id(theme_palette_select).current_option();
-          if (th_p == "Default Classic") th_p = "Blue & Gold";
-          snprintf(th_buf, sizeof(th_buf), "Palette: %s", th_p.c_str());
-          draw_menu_slot_card(2, th_buf);
+          static char disp_labels[8][32];
+          static uint32_t last_disp_label_time = 0;
+          if (!id(menu_scroll_active) || millis() - last_disp_label_time > 1000) {
+            std::string ab_mode = id(auto_brightness_mode).current_option();
+            snprintf(disp_labels[0], sizeof(disp_labels[0]), "Auto Bright: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
+            std::string bri_p = id(display_brightness_preset).current_option();
+            if (bri_p.empty()) bri_p = "90%";
+            snprintf(disp_labels[1], sizeof(disp_labels[1]), "Brightness: %s", bri_p.c_str());
+            int dh = (int)id(day_start_hour).state;
+            int nh = (int)id(night_start_hour).state;
+            int nh12 = (nh > 12) ? (nh - 12) : nh;
+            snprintf(disp_labels[2], sizeof(disp_labels[2]), "Schedule: %dAM-%dPM", dh, nh12);
+            std::string day_b = id(day_brightness_preset).current_option();
+            snprintf(disp_labels[3], sizeof(disp_labels[3]), "Day Bri: %s", day_b.c_str());
+            std::string nite_b = id(night_brightness_preset).current_option();
+            snprintf(disp_labels[4], sizeof(disp_labels[4]), "Night Bri: %s", nite_b.c_str());
+            std::string th_p = id(theme_palette_select).current_option();
+            if (th_p == "Default Classic") th_p = "Blue & Gold";
+            snprintf(disp_labels[5], sizeof(disp_labels[5]), "Palette: %s", th_p.c_str());
+            std::string so_p = id(display_off_timeout).current_option();
+            snprintf(disp_labels[6], sizeof(disp_labels[6]), "Screen Off: %s", so_p.c_str());
+            std::string pc_p = id(page_counter_mode).current_option();
+            snprintf(disp_labels[7], sizeof(disp_labels[7]), "Page Counter: %s", pc_p.c_str());
+            last_disp_label_time = millis();
+          }
 
-          // Slot 3: Screen Off Inactivity Timeout Cycler
-          char so_buf[32];
-          std::string so_p = id(display_off_timeout).current_option();
-          snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
-          draw_menu_slot_card(3, so_buf);
+          auto draw_disp_item = [&](int idx, int y) {
+            // Gray out manual brightness on slot 1 if Auto Brightness is active
+            if (idx == 1 && id(auto_brightness_mode).current_option() != "Disabled") {
+              draw_menu_card_y(y, disp_labels[idx], id(col_dark_gray), id(col_slate), id(col_bg));
+            } else {
+              draw_menu_card_y(y, disp_labels[idx]);
+            }
+          };
 
-          // Slot 4: Page Counter Mode Cycler
-          char pc_buf[32];
-          std::string pc_p = id(page_counter_mode).current_option();
-          snprintf(pc_buf, sizeof(pc_buf), "Page Counter: %s", pc_p.c_str());
-          draw_menu_slot_card(4, pc_buf);
+          for (int i = 0; i < 8; i++) {
+            int y = 104 + i * 58 - current_offset;
+            if (y >= 50 && y <= 390) {
+              draw_disp_item(i, y);
+            }
+          }
 
-          // Bottom Button: Standardized < BACK (y = 408, r = 16)
+          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
+          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
+          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
+
+          // Stationary Title at y = 50
+          draw_menu_header(50, "DISPLAY");
+
+          // Stationary Submenu < BACK Button at y = 408 (r = 16)
           draw_back_button();
+
+          // Stationary Pagination Dots nestled at bottom curve y = 440
+          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(display_menu_page);
+          draw_pagination_dots(current_dot_page, 2, 440);
+
+          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
+          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(display_menu_page);
+          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
 
         } else if (id(system_menu_mode) == 3) {
           // --------------------------------------------------
@@ -6240,6 +6281,7 @@ display:
         } else if (id(system_menu_mode) == 8) {
           // --------------------------------------------------
           // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Monochromatic Telemetry, 8 Clean Lines)
+          // Line 1: Pocket Assistant v1.2, Line 2: IP, Line 3: Wi-Fi, Lines 4-8: Sensors & System
           // --------------------------------------------------
           draw_menu_header(50, "SYSTEM INFO");
 
@@ -6254,41 +6296,41 @@ display:
           float v_batt = id(batt_voltage).state;
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
 
-          // Center the telemetry list horizontally
+          // Center the telemetry list horizontally based on title width
           int text_w = 0, x_off = 0, base = 0, text_h = 0;
-          id(font_small)->measure("Pocket Assistant version 1.2", &text_w, &x_off, &base, &text_h);
+          id(font_small)->measure("Pocket Assistant v1.2", &text_w, &x_off, &base, &text_h);
           const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 96;
 
-          // Line 1 (y = 86): Wi-Fi Signal
-          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
+          // Line 1 (y = 86): Pocket Assistant Version (Matching Main System Page)
+          snprintf(buf, sizeof(buf), "Pocket Assistant v${version}");
           it.print(info_x, 86, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Line 2 (y = 122): IP Address
           snprintf(buf, sizeof(buf), "IP: %s", ip_str.c_str());
           it.print(info_x, 122, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 3 (y = 158): Temperature (Dual C & F)
-          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
+          // Line 3 (y = 158): Wi-Fi Signal
+          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
           it.print(info_x, 158, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 4 (y = 194): 6-Axis Orientation: Gyroscope Roll & Pitch
-          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
+          // Line 4 (y = 194): Temperature (Dual C & F)
+          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
           it.print(info_x, 194, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 5 (y = 230): 3-Axis Acceleration (G-force)
-          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
+          // Line 5 (y = 230): 6-Axis Orientation: Gyroscope Roll & Pitch
+          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
           it.print(info_x, 230, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 6 (y = 266): Battery Fuel Gauge & Power
-          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
+          // Line 6 (y = 266): 3-Axis Acceleration (G-force)
+          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
           it.print(info_x, 266, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 7 (y = 302): Hardware Platform & Memory
-          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free", free_heap);
+          // Line 7 (y = 302): Battery Fuel Gauge & Power
+          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
           it.print(info_x, 302, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 8 (y = 338): Pocket Assistant Version
-          snprintf(buf, sizeof(buf), "Pocket Assistant version ${version}");
+          // Line 8 (y = 338): Hardware Platform & Memory
+          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free", free_heap);
           it.print(info_x, 338, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 408, r = 16)
@@ -8492,6 +8534,8 @@ touchscreen:
                   } else if (touch.y >= 111 && touch.y <= 167 && touch.x <= 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 2; // Open Display Submenu
+                    id(display_menu_page) = 1;
+                    id(menu_scroll_active) = false;
                     id(disp1).update();
                   // Row 1 Right: "Clock >" (y: 111..167, x: 234..416, center y=140)
                   } else if (touch.y >= 111 && touch.y <= 167 && touch.x > 233) {
@@ -8648,61 +8692,141 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 2) {
-                // Mode 2: Display Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
-                int slot = get_5slot_index(touch, 90, 376);
-                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_sys_action_tap = now_sys;
-                  if (slot == 0) {
-                    // Card 1: Auto-Brightness Mode Cycler (Slot 0, y = 104)
-                    std::string cur = std::string(id(auto_brightness_mode).current_option().c_str());
-                    auto call = id(auto_brightness_mode).make_call();
-                    call.set_option(cycle_option(cur, {"Disabled", "Sun Synchronized", "Time Schedule"}));
-                    call.perform();
-                    id(disp1).update();
-                    return;
-                  } else if (slot == 1) {
-                    // Card 2: Brightness Preset Cycler (Slot 1, y = 162 - active only when Auto Bright is Disabled)
-                    std::string ab = std::string(id(auto_brightness_mode).current_option().c_str());
-                    if (ab == "Disabled") {
-                      std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
-                      auto call = id(display_brightness_preset).make_call();
-                      call.set_option(cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"}));
+                // Mode 2: Display Submenu (Continuous 8-Item Vertical Scroll Architecture)
+                if (id(menu_scroll_active)) return;
+
+                // Right Flank Navigation (Option 1: Up at y=162 on Page 2, Down at y=278 on Page 1)
+                // Generous vertical right flank hit zone (x >= 375, y: 70..375)
+                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
+                  static uint32_t last_disp_scroll_tap = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_disp_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
+                    last_disp_scroll_tap = now_s;
+                    if (id(display_menu_page) == 1) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = 1;
+                      id(menu_scroll_target_page) = 2;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    } else if (id(display_menu_page) == 2) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = -1;
+                      id(menu_scroll_target_page) = 1;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    }
+                  }
+                  return;
+                }
+
+                // Left Flank (x < 75): Discard to prevent misfires
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) {
+                  return;
+                }
+
+                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
+                int slot_idx = get_5slot_index(touch, 95, 371);
+                if (slot_idx >= 0) {
+                  if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_sys_action_tap = now_sys;
+                    int item_idx = (id(display_menu_page) == 1) ? slot_idx : (slot_idx + 3);
+                    if (item_idx == 0) {
+                      // Item 0: Auto-Brightness Mode Cycler (Off -> Sun Synchronized -> Time Schedule)
+                      std::string cur = std::string(id(auto_brightness_mode).current_option().c_str());
+                      std::string next_m = cycle_option(cur, {"Disabled", "Sun Synchronized", "Time Schedule"});
+                      auto call = id(auto_brightness_mode).make_call();
+                      call.set_option(next_m);
                       call.perform();
+                      id(auto_brightness_mode).publish_state(next_m);
                       id(sync_display_brightness).execute();
                       id(disp1).update();
+                      return;
+                    } else if (item_idx == 1) {
+                      // Item 1: Manual Brightness Preset Cycler (active only when Auto Bright is Disabled)
+                      std::string ab = std::string(id(auto_brightness_mode).current_option().c_str());
+                      if (ab == "Disabled") {
+                        std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                        std::string next_b = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
+                        auto call = id(display_brightness_preset).make_call();
+                        call.set_option(next_b);
+                        call.perform();
+                        id(display_brightness_preset).publish_state(next_b);
+                        id(sync_display_brightness).execute();
+                        id(disp1).update();
+                      }
+                      return;
+                    } else if (item_idx == 2) {
+                      // Item 2: Schedule Hours Cycler (7AM-10PM, 6AM-11PM, 8AM-10PM, 7AM-9PM)
+                      int dh = (int)id(day_start_hour).state;
+                      int nh = (int)id(night_start_hour).state;
+                      int nxt_dh = 7, nxt_nh = 22;
+                      if (dh == 7 && nh == 22) { nxt_dh = 6; nxt_nh = 23; }
+                      else if (dh == 6 && nh == 23) { nxt_dh = 8; nxt_nh = 22; }
+                      else if (dh == 8 && nh == 22) { nxt_dh = 7; nxt_nh = 21; }
+                      else { nxt_dh = 7; nxt_nh = 22; }
+                      id(day_start_hour).make_call().set_value((float)nxt_dh).perform();
+                      id(night_start_hour).make_call().set_value((float)nxt_nh).perform();
+                      id(sync_display_brightness).execute();
+                      id(disp1).update();
+                      return;
+                    } else if (item_idx == 3) {
+                      // Item 3: Day Brightness Preset Cycler
+                      std::string cur = std::string(id(day_brightness_preset).current_option().c_str());
+                      std::string next_db = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
+                      auto call = id(day_brightness_preset).make_call();
+                      call.set_option(next_db);
+                      call.perform();
+                      id(day_brightness_preset).publish_state(next_db);
+                      id(sync_display_brightness).execute();
+                      id(disp1).update();
+                      return;
+                    } else if (item_idx == 4) {
+                      // Item 4: Night Brightness Preset Cycler
+                      std::string cur = std::string(id(night_brightness_preset).current_option().c_str());
+                      std::string next_nb = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
+                      auto call = id(night_brightness_preset).make_call();
+                      call.set_option(next_nb);
+                      call.perform();
+                      id(night_brightness_preset).publish_state(next_nb);
+                      id(sync_display_brightness).execute();
+                      id(disp1).update();
+                      return;
+                    } else if (item_idx == 5) {
+                      // Item 5: Color Palette Cycler
+                      std::string cur = std::string(id(theme_palette_select).current_option().c_str());
+                      auto call = id(theme_palette_select).make_call();
+                      call.set_option(cycle_option(cur, {"Steel & Silver", "Pink & Gray", "Blue & Gold", "Green & Gold"}));
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    } else if (item_idx == 6) {
+                      // Item 6: Screen Off Inactivity Timeout Cycler
+                      std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
+                      auto call = id(display_off_timeout).make_call();
+                      call.set_option(cycle_option(cur_so, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
+                      call.perform();
+                      id(disp1).update();
+                      return;
+                    } else if (item_idx == 7) {
+                      // Item 7: Page Counter Mode Cycler
+                      std::string cur_pc = std::string(id(page_counter_mode).current_option().c_str());
+                      auto call = id(page_counter_mode).make_call();
+                      call.set_option(cycle_option(cur_pc, {"Always", "Never"}));
+                      call.perform();
+                      id(disp1).update();
+                      return;
                     }
-                    return;
-                  } else if (slot == 2) {
-                    // Card 3: Color Palette Cycler (Slot 2, y = 220)
-                    std::string cur = std::string(id(theme_palette_select).current_option().c_str());
-                    auto call = id(theme_palette_select).make_call();
-                    call.set_option(cycle_option(cur, {"Steel & Silver", "Pink & Gray", "Blue & Gold", "Green & Gold"}));
-                    call.perform();
-                    id(disp1).update();
-                    return;
-                  } else if (slot == 3) {
-                    // Card 4: Screen Off Inactivity Timeout Cycler (Slot 3, y = 278)
-                    std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
-                    auto call = id(display_off_timeout).make_call();
-                    call.set_option(cycle_option(cur_so, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
-                    call.perform();
-                    id(disp1).update();
-                    return;
-                  } else if (slot == 4) {
-                    // Card 5: Page Counter Mode Cycler (Slot 4, y = 336)
-                    std::string cur_pc = std::string(id(page_counter_mode).current_option().c_str());
-                    auto call = id(page_counter_mode).make_call();
-                    call.set_option(cycle_option(cur_pc, {"Always", "Never"}));
-                    call.perform();
-                    id(disp1).update();
-                    return;
                   }
+                  return;
                 }
-                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+
+                // Standardized Centered < BACK Button
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(display_menu_page) = 1;
+                    id(menu_scroll_active) = false;
                     id(disp1).update();
                   }
                   return;
