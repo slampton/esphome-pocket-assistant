@@ -937,7 +937,7 @@ button:
     on_press:
       - light.turn_off: display_brightness
       - component.update: disp1
-      - delay: 2s
+      - delay: 100ms
       - button.press: internal_restart
 
 
@@ -1587,7 +1587,6 @@ sensor:
     update_interval: 200ms
     internal: true
     lambda: |-
-      if (id(is_locked)) return 0.0f;
       float x = id(accel_x).state;
       float y = id(accel_y).state;
       float z = id(accel_z).state;
@@ -1631,42 +1630,38 @@ binary_sensor:
     id: boot_button
     on_press:
       then:
+        - lambda: |-
+            static uint32_t last_btn_press = 0;
+            uint32_t now = millis();
+            if (now - last_btn_press < 150) return;
+            last_btn_press = now;
         - if:
             condition:
-              lambda: 'return !id(is_locked);'
+              lambda: 'return id(active_game) > 0;'
             then:
-              - lambda: |-
-                  static uint32_t last_btn_press = 0;
-                  uint32_t now = millis();
-                  if (now - last_btn_press < 150) return;
-                  last_btn_press = now;
+              - lambda: 'id(game_btn_pressed) = true;'
+            else:
               - if:
                   condition:
-                    lambda: 'return id(active_game) > 0;'
+                    lambda: |-
+                      return id(va_active) || !id(va_status_text).empty();
                   then:
-                    - lambda: 'id(game_btn_pressed) = true;'
+                    - script.execute: cancel_voice_assistant
                   else:
-                    - if:
-                        condition:
-                          lambda: |-
-                            return id(va_active) || !id(va_status_text).empty();
-                        then:
-                          - script.execute: cancel_voice_assistant
-                        else:
-                          - lambda: |-
-                              // If waking from screen-off or standby, check Assist Screen Wake preference
-                              if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
-                                if (id(va_wake_screen_switch).state) {
-                                  id(wake_to_active_state).execute();
-                                }
-                              } else {
-                                id(screen_sleep_timer).execute();
-                              }
-                          - script.execute: pause_all_music
-                          - delay: 150ms
-                          - script.execute: route_i2s_to_mic
-                          - lambda: 'id(va_tts_received) = false;'
-                          - voice_assistant.start:
+                    - lambda: |-
+                        // If waking from screen-off or standby, check Assist Screen Wake preference
+                        if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
+                          if (id(va_wake_screen_switch).state) {
+                            id(wake_to_active_state).execute();
+                          }
+                        } else {
+                          id(screen_sleep_timer).execute();
+                        }
+                    - script.execute: pause_all_music
+                    - delay: 150ms
+                    - script.execute: route_i2s_to_mic
+                    - lambda: 'id(va_tts_received) = false;'
+                    - voice_assistant.start:
 
 text_sensor:
   # --------------------------------------------------------------------------
@@ -7635,7 +7630,6 @@ touchscreen:
       then:
         - lambda: |-
             ESP_LOGI("touch", ">>> Touch Down: x=%d y=%d page=%d", touch.x, touch.y, id(gui_page));
-            if (id(is_locked)) return; // Block all touch events in pocket
             if (id(is_hibernating)) {
               if (id(hibernate_countdown_val) > 0) {
                 // Touch on glass aborts 5-second countdown only (instant hibernate is unabortable)

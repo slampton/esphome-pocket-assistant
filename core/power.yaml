@@ -93,7 +93,6 @@ binary_sensor:
         - if:
             condition:
               lambda: |-
-                if (id(is_locked)) return false;
                 std::string mode = std::string(id(pickup_wake_mode).current_option().c_str());
                 if (mode == "Disabled") return false;
                 if (mode == "Docked Only" && !id(usb_connected).state) return false;
@@ -372,16 +371,6 @@ interval:
               uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
               id(bus_internal).write(0x34, clr, 2);
 
-              // ---------------------------------------------
-              // POCKET LOCK MANAGEMENT (HOLD CROWN 1.5s)
-              // ---------------------------------------------
-              if (id(is_locked)) {
-                if (is_long) {
-                  id(unlock_device).execute();
-                }
-                return; // Ignore all short clicks in locked state
-              }
-
               // Long press (1.5s hold) initiates instant or countdown hibernation
               if (is_long) {
                 if (id(instant_crown_hibernate_switch).state) {
@@ -646,7 +635,7 @@ script:
     mode: restart
     then:
       - lambda: |-
-          id(is_locked) = true;
+          id(is_locked) = false;
           id(active_game) = 0;
           id(is_hibernating) = true;
       - voice_assistant.stop:

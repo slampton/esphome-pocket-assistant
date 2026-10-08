@@ -65,59 +65,19 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          // Accidental Pocket Bump Rejection on Deep Sleep Wakeup
           id(abort_boot) = false;
-          esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-          if (cause == ESP_SLEEP_WAKEUP_EXT0 || cause == ESP_SLEEP_WAKEUP_GPIO) {
-            int held_count = 0;
-            for (int k = 0; k < 6; k++) {
-              esp_rom_delay_us(50000); // 50ms per check = 300ms total
-              if (gpio_get_level(GPIO_NUM_0) == 0) {
-                held_count++;
-              }
-            }
-            if (held_count < 4) { // Not held continuously for at least ~200ms -> accidental pocket bump
-              ESP_LOGI("power", "Pocket bump detected (<200ms). Returning immediately to deep sleep.");
-              id(abort_boot) = true;
-            } else {
-              ESP_LOGI("power", "Deliberate wake button hold confirmed! Resuming watch.");
-              int wake_guard = 0;
-              while (gpio_get_level(GPIO_NUM_0) == 0 && wake_guard < 150) {
-                esp_rom_delay_us(10000);
-                wake_guard++;
-              }
-            }
-          }
 
-          // USB Charging Safety: Deep sleep is completely inhibited while docked on USB power
-          uint8_t r0 = 0x00, s0 = 0;
-          if (id(bus_internal).write_readv(0x34, &r0, 1, &s0, 1) == esphome::i2c::ERROR_OK) {
-            bool vbus = (s0 & 0x20) != 0;
-            if (vbus) {
-              id(abort_boot) = false;
-              ESP_LOGI("power", "USB power detected on boot: deep sleep abort inhibited.");
-            }
-          }
+          // Release all deep sleep pad holds immediately so all peripherals initialize without delay
+          gpio_deep_sleep_hold_dis();
+          gpio_hold_dis(GPIO_NUM_1);
+          gpio_hold_dis(GPIO_NUM_2);
+          gpio_hold_dis(GPIO_NUM_46);
+          gpio_hold_dis(GPIO_NUM_12);
 
-          // If deliberate boot confirmed, release all deep sleep pad holds so peripherals initialize
-          if (!id(abort_boot)) {
-            gpio_deep_sleep_hold_dis();
-            gpio_hold_dis(GPIO_NUM_1);
-            gpio_hold_dis(GPIO_NUM_2);
-            gpio_hold_dis(GPIO_NUM_46);
-            gpio_hold_dis(GPIO_NUM_12);
-          }
-      - if:
-          condition:
-            lambda: 'return id(abort_boot);'
-          then:
-            - deep_sleep.enter: deep_sleep_ctrl
-          else:
-            - lambda: |-
-                id(sleep_start_time) = millis();
-                id(is_locked) = false;
-                id(is_hibernating) = false;
-                id(display_power_state) = 0; // ACTIVE
+          id(sleep_start_time) = millis();
+          id(is_locked) = false;
+          id(is_hibernating) = false;
+          id(display_power_state) = 0; // ACTIVE
 
     - priority: -100
       then:
@@ -138,6 +98,8 @@ esphome:
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
+        // 2-Second Post-Boot Blackout: masks background network/Music Assistant connection rush
+        - delay: 2s
         - script.execute: sync_display_brightness
         - script.execute: screen_sleep_timer
 
