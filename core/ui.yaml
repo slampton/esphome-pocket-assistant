@@ -3846,13 +3846,12 @@ display:
       // PAGE 0: WATCH FACE (HIGH-CONTRAST MODERN DIAL)
       // ==========================================
       if (id(gui_page) == 0) {
-        it.circle(cx, cy, 230, id(col_dark_gray));
-        it.circle(cx, cy, 228, id(col_slate));
-        it.circle(cx, cy, 222, id(col_dark_gray));
-
         if (!now.is_valid()) {
-          it.print(cx, cy - 10, id(font_date), id(col_slate), TextAlign::CENTER, "Connecting...");
+          it.print(cx, cy, id(font_date), id(theme_secondary), TextAlign::CENTER, "Connecting...");
         } else {
+          it.circle(cx, cy, 230, id(col_dark_gray));
+          it.circle(cx, cy, 228, id(col_slate));
+          it.circle(cx, cy, 222, id(col_dark_gray));
           int hour = now.hour;
           int min = now.minute;
           int sec = now.second;
@@ -7581,7 +7580,7 @@ display:
       bool show_meta_in_deck = (current_overlay_mode == "Art + Metadata" || current_overlay_mode == "Always Visible");
       bool music_clean_art = (id(gui_page) == 2 && (current_art_mode != "Compact") && !show_meta_in_deck && !id(music_hud_active));
 
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(alarm_ringing) || id(timer_ringing))) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
         bool is_stopwatch = (id(gui_page) == 1);
         Color chevron_col = id(col_white);
 
@@ -7785,7 +7784,8 @@ touchscreen:
                                !(id(gui_page) == 3 && id(active_game) > 0) &&
                                !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
                                !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) &&
-                               !(id(alarm_ringing) || id(timer_ringing));
+                               !(id(alarm_ringing) || id(timer_ringing)) &&
+                               !(id(gui_page) == 0 && !id(ha_time).now().is_valid());
 
             if (is_deck_nav) {
               int deck_y_thresh = 400;
@@ -7862,7 +7862,7 @@ touchscreen:
             }
 
             // Page 0: Clock Face - Tap center/digital time complication to toggle 12h/24h on the fly
-            if (id(gui_page) == 0) {
+            if (id(gui_page) == 0 && id(ha_time).now().is_valid()) {
               static uint32_t last_clock_tap = 0;
               uint32_t now_c = millis();
               if (touch.x >= 100 && touch.x <= 366 && touch.y >= 180 && touch.y <= 330) {
