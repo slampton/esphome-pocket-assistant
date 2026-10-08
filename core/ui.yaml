@@ -3978,11 +3978,11 @@ display:
         it.circle(cx, cy, 223, id(col_silver));
 
         // Authentic Heuer Heritage AMOLED Matte Black Chronograph Canvas (Zero filled_circle stall, 45ms render)
-        // Outer Chapter Track Boundaries (Dark slate double ring)
-        it.circle(cx, cy, 220, id(col_dark_gray));
+        // Outer Chapter Track Boundaries (Polished steel outer & inner rehaut tension rings)
+        it.circle(cx, cy, 220, id(col_silver));
         it.circle(cx, cy, 219, id(col_dark_gray));
         it.circle(cx, cy, 192, id(col_dark_gray));
-        it.circle(cx, cy, 191, id(col_dark_gray));
+        it.circle(cx, cy, 191, id(col_silver));
 
         // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
         for (int s = 0; s < 60; s++) {
@@ -3990,18 +3990,18 @@ display:
           float t_cos = DIAL_COS[s];
           
           if (s % 5 == 0) {
-            // Major 5-Second Bar: 3px wide, prominent solid white
+            // Major 5-Second Applied Faceted Steel Baton: Silver highlight, Slate shadow, White luminous core
             float perp_x = -t_cos;
             float perp_y = t_sin;
             int x1 = cx + (int)(191.0f * t_sin);
             int y1 = cy - (int)(191.0f * t_cos);
             int x2 = cx + (int)(220.0f * t_sin);
             int y2 = cy - (int)(220.0f * t_cos);
+            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_silver));
+            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_slate));
             it.line(x1, y1, x2, y2, id(col_white));
-            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_white));
-            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_white));
           } else {
-            // Standard 1-Second Tick: 2px wide from r=204 to r=220
+            // Standard 1-Second Tick: 2px wide from r=204 to r=220 in brushed slate
             int x1 = cx + (int)(204.0f * t_sin);
             int y1 = cy - (int)(204.0f * t_cos);
             int x2 = cx + (int)(220.0f * t_sin);
@@ -4038,7 +4038,7 @@ display:
         // ----------------------------------------------------
         // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
         // ----------------------------------------------------
-        it.print(cx, 132, id(font_small), id(col_white), TextAlign::CENTER, "CHRONOGRAPH");
+        it.print(cx, 132, id(font_small), id(col_silver), TextAlign::CENTER, "CHRONOGRAPH");
 
         // ----------------------------------------------------
         // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility at y=238)
@@ -4059,26 +4059,26 @@ display:
 
         // ----------------------------------------------------
         // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
-        // Rendered on dial face BEFORE hands so hands sweep over top
+        // Authentic machined stainless steel piston pushers with stepped metallic bezels
         // ----------------------------------------------------
         const int btn_y = 332;
         const int btn_lap_x = 176;
         const int btn_rst_x = 290;
         const int btn_r = 36;
 
-        // LAP Button (Dark slate background, dual precision rings, white typography)
-        it.filled_circle(btn_lap_x, btn_y, btn_r, id(col_dark_gray));
+        // LAP Button (Machined steel piston: polished silver rim, dark core, metallic typography)
+        it.filled_circle(btn_lap_x, btn_y, btn_r - 2, id(col_dark_gray));
         it.circle(btn_lap_x, btn_y, btn_r, id(col_silver));
-        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_silver));
-        it.circle(btn_lap_x, btn_y, btn_r - 3, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
-        it.print(btn_lap_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "LAP");
+        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_slate));
+        it.circle(btn_lap_x, btn_y, btn_r - 4, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
+        it.print(btn_lap_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "LAP");
 
-        // RESET Button (Dark slate background, dual precision rings, white typography)
-        it.filled_circle(btn_rst_x, btn_y, btn_r, id(col_dark_gray));
+        // RESET Button (Machined steel piston: polished silver rim, dark core, metallic typography)
+        it.filled_circle(btn_rst_x, btn_y, btn_r - 2, id(col_dark_gray));
         it.circle(btn_rst_x, btn_y, btn_r, id(col_silver));
-        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_silver));
-        it.circle(btn_rst_x, btn_y, btn_r - 3, id(col_slate));
-        it.print(btn_rst_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "RESET");
+        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_slate));
+        it.circle(btn_rst_x, btn_y, btn_r - 4, id(col_slate));
+        it.print(btn_rst_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "RESET");
 
         // ----------------------------------------------------
         // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
@@ -4095,7 +4095,7 @@ display:
 
         // ----------------------------------------------------
         // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
-        // Sweeps over top of LAP and RESET buttons in high-contrast pure white
+        // Faceted stainless steel pointer: Polished silver highlight, steel shadow, white luminous core
         // ----------------------------------------------------
         float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
         float s_sin, s_cos;
@@ -4112,30 +4112,32 @@ display:
         // v = (s_sin, -s_cos) -> perp = (s_cos, s_sin). Dot product = 0.00 at all 360 degrees!
         float perp_x = s_cos;
         float perp_y = s_sin;
-        // Constant 16px wide arrowhead base (8px each side), 24px long spearhead
         int left_x = arr_base_x + (int)(8.0f * perp_x);
         int left_y = arr_base_y + (int)(8.0f * perp_y);
         int right_x = arr_base_x - (int)(8.0f * perp_x);
         int right_y = arr_base_y - (int)(8.0f * perp_y);
 
-        // Main shaft: 3px solid pure white chronometer pointer
+        // Faceted shaft: Left flank polished silver, right flank steel shadow, center white core
+        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_silver));
+        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_slate));
         it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_white));
-        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_white));
-        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_white));
 
-        // Classic bold arrowhead in pure white
+        // Faceted arrowhead: Pure white luminous core with polished steel bevel edges
         it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_white));
+        it.line(tip_x, tip_y, left_x, left_y, id(col_silver));
+        it.line(tip_x, tip_y, right_x, right_y, id(col_slate));
+        it.line(left_x, left_y, right_x, right_y, id(col_silver));
 
-        // Teardrop counter-weight tail: 8px radius
-        it.filled_circle(tail_x, tail_y, 8, id(col_white));
+        // Teardrop counter-weight tail: Machined steel disc with polished silver bezel & inner jewel
+        it.filled_circle(tail_x, tail_y, 8, id(col_dark_gray));
         it.circle(tail_x, tail_y, 8, id(col_silver));
         it.filled_circle(tail_x, tail_y, 3, id(col_silver));
 
-        // Multi-tier Center Pinion Arbor Cap
+        // Multi-tier Center Pinion Arbor Cap: Polished steel & rhodium arbor
         it.filled_circle(cx, cy, 9, id(col_silver));
-        it.circle(cx, cy, 9, id(col_dark_gray));
+        it.circle(cx, cy, 9, id(col_slate));
         it.filled_circle(cx, cy, 6, id(col_dark_gray));
-        it.filled_circle(cx, cy, 2, id(col_silver));
+        it.filled_circle(cx, cy, 2, id(col_white));
 
       // ==========================================
       // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
