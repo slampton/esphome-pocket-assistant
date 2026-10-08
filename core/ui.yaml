@@ -558,7 +558,11 @@ color:
   - id: col_gray
     hex: "616161"
   - id: col_dark_gray
-    hex: "212121" 
+    hex: "212121"
+  - id: col_solaris_gold
+    hex: "FFDC1E"  # Kinetic plasma gold / sunburst
+  - id: col_accent_cyan
+    hex: "1EC8E6"  # Electric cyan / high-energy accent
 
 
 http_request:
@@ -1212,11 +1216,6 @@ interval:
               id(music_hud_active) = false;
               id(disp1).update();
             }
-          }
-
-          // Smooth animation refresh while Music loading screen is active
-          if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && !id(album_art_loaded) && (millis() < 15000 || !id(current_loaded_art_url).empty()) && !id(va_active) && id(va_status_text).empty()) {
-            id(disp1).update();
           }
 
           // Dynamic display update for Stopwatch (150ms = ~6.7 FPS: smooth mechanical sweep, 77% CPU idle window for touch)
@@ -2829,6 +2828,24 @@ display:
       const int cy = 233;
       static constexpr float PI_F = 3.14159265358979323846f;
 
+      // ======================================================================
+      // 🎨 Centralized Standard UI & Theme Color Tokens
+      // ======================================================================
+      const Color C_WHITE = id(col_white);
+      const Color C_BLACK = id(col_black);
+      const Color C_SILVER = id(col_silver);
+      const Color C_GRAY = id(col_gray);
+      const Color C_DARK_GRAY = id(col_dark_gray);
+      const Color C_PRIMARY = id(theme_primary);
+      const Color C_SECONDARY = id(theme_secondary);
+      const Color C_RED = id(col_red);
+      const Color C_GREEN = id(col_green);
+      const Color C_GOLD = id(col_gold);
+      const Color C_CYAN = id(col_cyan);
+      const Color C_ORANGE = id(col_orange);
+      const Color C_SOLARIS_GOLD = id(col_solaris_gold);
+      const Color C_ACCENT_CYAN = id(col_accent_cyan);
+
       // Universal Precomputed 60-Tick & 10-Tick Sine/Cosine LUTs (Shared across Clock, Stopwatch, Dial Gauges)
       static constexpr float DIAL_SIN[60] = {
         0.000000f, 0.104528f, 0.207912f, 0.309017f, 0.406737f, 0.500000f,
@@ -2901,18 +2918,18 @@ display:
       };
 
       // Standard Menu Card by absolute Y midpoint (standard width 110..356, r = 18)
-      auto draw_menu_card_y = [&](int y_mid, const char* label = "", Color border_c = id(theme_secondary), Color text_c = id(col_white), Color bg_c = id(col_dark_gray)) {
+      auto draw_menu_card_y = [&](int y_mid, const char* label = "", Color border_c = C_SECONDARY, Color text_c = C_WHITE, Color bg_c = C_DARK_GRAY) {
         draw_pill_button(110, 356, y_mid, 18, border_c, bg_c, label, text_c, false);
       };
 
       // Standard System Menu Slot Card (Canonical 58px pitch: slot 0..4 -> y = 104, 162, 220, 278, 336)
-      auto draw_menu_slot_card = [&](int slot_idx, const char* label, Color border_c = id(theme_secondary), Color text_c = id(col_white), Color bg_c = id(col_dark_gray)) {
+      auto draw_menu_slot_card = [&](int slot_idx, const char* label, Color border_c = C_SECONDARY, Color text_c = C_WHITE, Color bg_c = C_DARK_GRAY) {
         draw_menu_card_y(104 + slot_idx * 58, label, border_c, text_c, bg_c);
       };
 
       // Standardized Centered < BACK Button Helper across all submenus (y = 408, r = 16, 106px wide, theme accent)
       auto draw_back_button = [&]() {
-        draw_pill_button(180, 286, 408, 16, id(theme_primary), id(col_dark_gray), "< BACK", id(theme_primary), false);
+        draw_pill_button(180, 286, 408, 16, C_PRIMARY, C_DARK_GRAY, "< BACK", C_PRIMARY, false);
       };
 
       // Standardized Right-Flank Navigation Chevron Helpers (Global Display Scope)
@@ -2934,7 +2951,7 @@ display:
         }
       };
 
-      auto draw_right_flank_chevrons = [&](bool show_up, bool show_down, Color c = id(theme_secondary)) {
+      auto draw_right_flank_chevrons = [&](bool show_up, bool show_down, Color c = C_SECONDARY) {
         if (!show_up && !show_down) return;
         it.filled_rectangle(395, 140, 71, 160, id(col_bg));
         if (show_up) {
@@ -3660,7 +3677,7 @@ display:
           float core_pulse = sinf((float)(now_ms % 800) * (2.0f * PI_F / 800.0f));
           int core_r = 22 + (int)(4.0f * core_pulse);
 
-          Color aura_col = is_solaris ? Color(255, 220, 30) : get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f);
+          Color aura_col = is_solaris ? C_SOLARIS_GOLD : get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f);
           Color body_col = is_solaris ? Color(250, 100, 15) : get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f + 0.33f);
 
           it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
@@ -3670,7 +3687,7 @@ display:
           it.filled_circle(cx, cy, core_r, body_col);
 
           if (core_r > 6) {
-            Color inner_tone = is_solaris ? Color(255, 220, 30) : Color(
+            Color inner_tone = is_solaris ? C_SOLARIS_GOLD : Color(
               (uint8_t)(body_col.red * 0.82f + 35),
               (uint8_t)(body_col.green * 0.82f + 35),
               (uint8_t)(body_col.blue * 0.82f + 35)
@@ -3688,11 +3705,11 @@ display:
           float spin_cw = (float)(now_ms % 1100) * (2.0f * PI_F / 1100.0f);
           float spin_ccw = -(float)(now_ms % 1100) * (2.0f * PI_F / 1100.0f);
 
-          Color inner_star_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
+          Color inner_star_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
           Color outer_star_col = is_solaris ? Color(35, 210, 110) : id(col_purple);
           Color outer_star_body = is_solaris ? Color(35, 210, 110) : id(col_magenta);
-          Color outer_star_aura = is_solaris ? Color(255, 220, 30) : id(col_purple);
-          Color text_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
+          Color outer_star_aura = is_solaris ? C_SOLARIS_GOLD : id(col_purple);
+          Color text_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
 
           // Inner CW orbit stars (4-point sparkle tips at r=68)
           for (int i = 0; i < 4; i++) {
@@ -3725,7 +3742,7 @@ display:
           float pulse = sinf((float)(now_ms % 600) * (2.0f * PI_F / 600.0f));
           int core_r = 24 + (int)(5.0f * pulse);
 
-          Color core_ring_col = is_solaris ? Color(255, 220, 30) : id(col_purple);
+          Color core_ring_col = is_solaris ? C_SOLARIS_GOLD : id(col_purple);
           Color core_fill_col = is_solaris ? Color(250, 100, 15) : id(col_cyan);
 
           it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
@@ -3735,7 +3752,7 @@ display:
           it.filled_circle(cx, cy, core_r, core_fill_col);
 
           if (core_r > 6) {
-            Color inner_tone = is_solaris ? Color(255, 220, 30) : Color(30, 200, 230);
+            Color inner_tone = is_solaris ? C_SOLARIS_GOLD : Color(30, 200, 230);
             it.circle(cx, cy - 1, core_r - 3, inner_tone);
           }
 
@@ -3749,14 +3766,14 @@ display:
           float pulse = sinf((float)(now_ms % 1600) * (2.0f * PI_F / 1600.0f));
 
           Color outer_halo_col = is_solaris ? Color(35, 210, 110) : id(col_purple);
-          Color mid_ring_col = is_solaris ? Color(255, 220, 30) : id(col_light_blue);
-          Color mid_ring_inner = is_solaris ? Color(255, 220, 30) : id(col_cyan);
-          Color sat_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
-          Color sat_aura = is_solaris ? Color(255, 220, 30) : id(col_light_blue);
-          Color core_aura_col = is_solaris ? Color(255, 220, 30) : id(col_purple);
-          Color core_ring_col = is_solaris ? Color(255, 220, 30) : id(col_light_blue);
+          Color mid_ring_col = is_solaris ? C_SOLARIS_GOLD : id(col_light_blue);
+          Color mid_ring_inner = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
+          Color sat_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
+          Color sat_aura = is_solaris ? C_SOLARIS_GOLD : id(col_light_blue);
+          Color core_aura_col = is_solaris ? C_SOLARIS_GOLD : id(col_purple);
+          Color core_ring_col = is_solaris ? C_SOLARIS_GOLD : id(col_light_blue);
           Color core_fill_col = is_solaris ? Color(250, 100, 15) : id(col_cyan);
-          Color text_col = is_solaris ? Color(255, 220, 30) : id(col_cyan);
+          Color text_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
 
           // 1. Broad Outer Attentive Halo (r=118..126)
           int outer_halo_r = 118 + (int)(8.0f * pulse + vad_boost);
@@ -3800,7 +3817,7 @@ display:
           it.filled_circle(cx, cy, core_r, core_fill_col);
 
           if (core_r > 6) {
-            Color inner_tone = is_solaris ? Color(255, 220, 30) : Color(30, 200, 230);
+            Color inner_tone = is_solaris ? C_SOLARIS_GOLD : Color(30, 200, 230);
             it.circle(cx, cy - 1, core_r - 3, inner_tone);
           }
 
@@ -4172,34 +4189,6 @@ display:
               target_art = id(album_art);
               has_art = true;
             }
-          }
-
-          // Dedicated Loading Screen on Initial Boot / Art Ingestion (never blocks active playback controls)
-          bool is_loading = !has_art && !is_playing && (millis() < 15000 || (is_remote && (id(ha_target_state).state.empty() || id(ha_target_state).state == "unavailable" || id(ha_target_state).state == "unknown" || (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" && id(current_loaded_art_url) != id(ha_target_art_url).state))));
-
-          if (is_loading) {
-            // Elegant loading screen with animated vinyl orbit
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
-
-            // Vinyl silhouette
-            it.filled_circle(cx, 195, 64, id(col_dark_gray));
-            it.circle(cx, 195, 64, id(col_black));
-            it.circle(cx, 195, 63, id(col_gray));
-            it.circle(cx, 195, 48, id(col_black));
-            it.circle(cx, 195, 32, id(col_black));
-            it.filled_circle(cx, 195, 12, id(theme_primary));
-
-            // Animated orbit dot
-            float spin_a = (millis() % 2000) * (2.0f * PI_F / 2000.0f);
-            it.filled_circle(cx + (int)(74.0f * cosf(spin_a)), 195 + (int)(74.0f * sinf(spin_a)), 4, id(theme_secondary));
-
-            it.print(cx, 290, id(font_small), id(col_white), TextAlign::CENTER, "LOADING MUSIC...");
-            std::string load_status = "Connecting to Music Assistant...";
-            if (!id(active_speaker_name).empty() && id(active_speaker_name) != "None") {
-              load_status = id(active_speaker_name);
-            }
-            it.print(cx, 318, id(font_small), id(theme_secondary), TextAlign::CENTER, load_status.c_str());
-            return;
           }
 
           bool rendered_art = false;

@@ -71,10 +71,20 @@ blueprint:
           multiple: false
           custom_value: false
           sort: false
+    secondary_speaker:
+      name: Priority Secondary Speaker (Optional)
+      description: Optional media player entity to prioritize near the top of the speakers list (e.g. media_player.living_room).
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain:
+                - media_player
+          multiple: false
     mass_queue_entry:
       name: Music Assistant Queue Integration Entry (Optional)
       description: The config entry for the Music Assistant Queue integration (mass_queue) used to fetch podcast episodes.
-      default: "01KWT5KHS9J3CXG4PYGN26EYKS"
+      default: ""
       selector:
         config_entry:
           integration: mass_queue
@@ -118,7 +128,7 @@ fields:
       text:
   last_speaker:
     description: Previously used speaker entity ID (optional)
-    example: media_player.garage_hifi
+    example: media_player.living_room
     default: ''
     selector:
       text:
@@ -147,11 +157,12 @@ sequence:
     input_album_sort: !input default_album_sort
     input_artist_album_sort: !input default_artist_album_sort
     input_podcast_sort: !input default_podcast_sort
+    input_secondary_speaker: !input secondary_speaker
     input_mass_queue_entry: !input mass_queue_entry
     album_sort_order: '{{ album_sort if (album_sort | default("") != "") else input_album_sort }}'
     artist_album_sort_order: '{{ artist_album_sort if (artist_album_sort | default("") != "") else input_artist_album_sort }}'
     podcast_sort_order: '{{ podcast_sort if (podcast_sort | default("") != "") else input_podcast_sort }}'
-    resolved_mass_queue_entry: '{{ input_mass_queue_entry if (input_mass_queue_entry | default("") != "") else "01KWT5KHS9J3CXG4PYGN26EYKS" }}'
+    resolved_mass_queue_entry: '{{ input_mass_queue_entry if (input_mass_queue_entry | default("") != "") else "" }}'
 - choose:
   - conditions:
     - condition: template
@@ -162,7 +173,7 @@ sequence:
           {% set all_mass_players = integration_entities("music_assistant") | select("match", "^media_player") | reject("match", ".*_tablet$") | reject("match", ".*_announcement$") | list %}
           {% set helper_val = states(helper_entity) if helper_entity and states(helper_entity) not in ["unknown", "unavailable", ""] else "" %}
           {% set local_spk = "media_player." ~ (dev_input | replace("-", "_")) %}
-          {% set mobile_spk = "media_player.mobile_speaker" %}
+          {% set secondary_spk = input_secondary_speaker | default("") %}
           {% if speaker | default("") != "" and speaker in all_mass_players %}
             {% set act_spk = speaker %}
           {% elif helper_val in all_mass_players %}
@@ -180,8 +191,8 @@ sequence:
           {% if last_speaker | default("") != "" and last_speaker in all_mass_players and last_speaker not in mut.ordered %}
             {% set mut.ordered = mut.ordered + [last_speaker] %}
           {% endif %}
-          {% if mobile_spk in all_mass_players and mobile_spk not in mut.ordered %}
-            {% set mut.ordered = mut.ordered + [mobile_spk] %}
+          {% if secondary_spk != "" and secondary_spk in all_mass_players and secondary_spk not in mut.ordered %}
+            {% set mut.ordered = mut.ordered + [secondary_spk] %}
           {% endif %}
           {% set rem = namespace(items=[]) %}
           {% for entity in all_mass_players %}
