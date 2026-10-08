@@ -7220,19 +7220,20 @@ display:
             }
 
             // 4. Standardized Perimeter Progress Ticks (r = 219..228, Zero Outer Ring)
-            // 1. Full 360-degree background track ticks (all 60 positions)
-            for (int s = 0; s < 60; s++) {
-              float sn = DIAL_SIN[s];
-              float cs = DIAL_COS[s];
-              int r1 = (s % 5 == 0) ? 219 : 222;
-              int r2 = (s % 5 == 0) ? 228 : 227;
-              Color tc = (s % 5 == 0) ? id(col_slate) : id(col_dark_gray);
-              it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
-                      cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
-            }
-
-            // 2. Active remaining ticks
+            // Rendered exclusively when timer is active (running or paused); clean perimeter in ready state
             if (id(timer_running) || id(timer_paused)) {
+              // 1. Full 360-degree background track ticks (all 60 positions)
+              for (int s = 0; s < 60; s++) {
+                float sn = DIAL_SIN[s];
+                float cs = DIAL_COS[s];
+                int r1 = (s % 5 == 0) ? 219 : 222;
+                int r2 = (s % 5 == 0) ? 228 : 227;
+                Color tc = (s % 5 == 0) ? id(col_slate) : id(col_dark_gray);
+                it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
+                        cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
+              }
+
+              // 2. Active remaining ticks
               float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
               int sweep_ticks = (int)(frac * 60.0f);
               if (sweep_ticks > 60) sweep_ticks = 60;
@@ -8188,7 +8189,7 @@ touchscreen:
                     } else {
                       id(drilldown_artist_page) = 1;
                       id(drilldown_album_page) = 1;
-                      id(music_category_page) = 1;
+                      // Preserve active music_category_page scroll position across category visits
                       id(menu_scroll_active) = false;
                       id(menu_scroll_step) = 0;
                       id(music_overlay_mode) = 2; // Return to Library Categories Submenu
