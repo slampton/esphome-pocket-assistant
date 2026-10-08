@@ -2918,12 +2918,12 @@ display:
       };
 
       // Standard Menu Card by absolute Y midpoint (standard width 110..356, r = 18)
-      auto draw_menu_card_y = [&](int y_mid, const char* label = "", Color border_c = C_SECONDARY, Color text_c = C_WHITE, Color bg_c = C_DARK_GRAY) {
+      auto draw_menu_card_y = [&](int y_mid, const char* label = "", Color border_c = id(theme_secondary), Color text_c = id(col_white), Color bg_c = id(col_dark_gray)) {
         draw_pill_button(110, 356, y_mid, 18, border_c, bg_c, label, text_c, false);
       };
 
       // Standard System Menu Slot Card (Canonical 58px pitch: slot 0..4 -> y = 104, 162, 220, 278, 336)
-      auto draw_menu_slot_card = [&](int slot_idx, const char* label, Color border_c = C_SECONDARY, Color text_c = C_WHITE, Color bg_c = C_DARK_GRAY) {
+      auto draw_menu_slot_card = [&](int slot_idx, const char* label, Color border_c = id(theme_secondary), Color text_c = id(col_white), Color bg_c = id(col_dark_gray)) {
         draw_menu_card_y(104 + slot_idx * 58, label, border_c, text_c, bg_c);
       };
 
@@ -2951,7 +2951,7 @@ display:
         }
       };
 
-      auto draw_right_flank_chevrons = [&](bool show_up, bool show_down, Color c = C_SECONDARY) {
+      auto draw_right_flank_chevrons = [&](bool show_up, bool show_down, Color c = id(theme_secondary)) {
         if (!show_up && !show_down) return;
         it.filled_rectangle(395, 140, 71, 160, id(col_bg));
         if (show_up) {
