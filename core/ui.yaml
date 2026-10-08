@@ -7427,6 +7427,7 @@ touchscreen:
       number: GPIO11
       mode: INPUT_PULLUP
     reset_pin: GPIO2
+    touch_timeout: 50ms
     update_interval: 33ms
     transform:
       mirror_x: true
@@ -7434,6 +7435,7 @@ touchscreen:
     on_touch:
       then:
         - lambda: |-
+            ESP_LOGI("touch", ">>> Touch Down: x=%d y=%d page=%d", touch.x, touch.y, id(gui_page));
             if (id(is_locked)) return; // Block all touch events in pocket
             if (id(is_hibernating)) {
               if (id(hibernate_countdown_val) > 0) {
@@ -7611,6 +7613,7 @@ touchscreen:
                       id(current_deck_index) = next_idx;
                       id(gui_page) = get_slot(next_idx);
                     }
+                    ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                     id(sleep_menu_page) = 1; id(menu_scroll_active) = false;
                     id(music_hud_active) = false;
@@ -8292,7 +8295,10 @@ touchscreen:
             // Page 3: Games Menu Launcher or Active Game Touch Action
             } else if (id(gui_page) == 3) {
               if (id(active_game) == 0) {
-                if (id(menu_scroll_active)) return;
+                if (id(menu_scroll_active)) {
+                  ESP_LOGI("touch", "Page 3 Tap dropped: carousel animating (step=%d)", id(menu_scroll_step));
+                  return;
+                }
 
                 // 1. Right-Flank Navigation Chevrons: Edge tap for Carousel (x >= 375, y: 70..365)
                 if (touch.x >= 375 && touch.y >= 70 && touch.y <= 365) {
@@ -8305,6 +8311,7 @@ touchscreen:
                     id(menu_scroll_dir) = dir;
                     id(menu_scroll_target_page) = step_wrap(id(game_carousel_idx), dir, 4);
                     id(menu_scroll_step) = 0;
+                    ESP_LOGI("touch", "Page 3 Game Chevron: x=%d y=%d dir=%d target=%d", touch.x, touch.y, dir, id(menu_scroll_target_page));
                     id(menu_scroll_transition).execute();
                   }
                   return;
@@ -8322,6 +8329,7 @@ touchscreen:
                   if (now_gl - last_game_launch_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_game_launch_tap = now_gl;
                     id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp)
+                    ESP_LOGI("touch", "Page 3 Launch Game: x=%d y=%d game=%d", touch.x, touch.y, id(active_game));
                     if (id(active_game) > 0) {
                       // Pause background music and mute DAC for dedicated game resources
                       if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
@@ -9118,4 +9126,9 @@ touchscreen:
             }
 
         - script.execute: screen_sleep_timer
+
+    on_release:
+      then:
+        - lambda: |-
+            ESP_LOGI("touch", "<<< Touch Released (page=%d)", id(gui_page));
 
