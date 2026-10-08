@@ -70,6 +70,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: deck_menu_page
+    type: int
+    restore_value: no
+    initial_value: '1' # 1 to 2
   - id: music_category_page
     type: int
     restore_value: no
@@ -674,7 +678,7 @@ select:
       - lambda: |-
           id(disp1).update();
   - platform: template
-    name: "System: Screensaver Style"
+    name: "Power: Screensaver Style"
     id: screensaver_style_select
     icon: "mdi:weather-night"
     entity_category: config
@@ -693,7 +697,7 @@ select:
           id(disp1).update();
 
   - platform: template
-    name: "System: Album Art Style"
+    name: "Audio: Album Art Style"
     id: music_fullscreen_art_mode
     icon: "mdi:image-size-select-actual"
     entity_category: config
@@ -756,7 +760,7 @@ select:
           id(music_podcast_sort_order).publish_state(x);
 
   - platform: template
-    name: "System: Music Overlay Style"
+    name: "Audio: Music Overlay Style"
     id: music_overlay_style
     icon: "mdi:television-guide"
     entity_category: config
@@ -772,7 +776,7 @@ select:
           id(disp1).update();
 
   - platform: template
-    name: "System: Page Counter Mode"
+    name: "Display: Page Counter Mode"
     id: page_counter_mode
     icon: "mdi:numeric"
     entity_category: config
@@ -787,7 +791,7 @@ select:
           id(disp1).update();
 
   - platform: template
-    name: "System: Color Palette"
+    name: "Display: Color Palette"
     id: theme_palette_select
     entity_category: config
     optimistic: true
@@ -803,7 +807,7 @@ select:
           id(theme_palette_select).publish_state(x);
       - script.execute: apply_theme_preset
   - platform: template
-    name: "Brightness: Auto Mode"
+    name: "Display: Auto Brightness Mode"
     id: auto_brightness_mode
     entity_category: config
     optimistic: true
@@ -817,7 +821,7 @@ select:
       - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Brightness: Day Level"
+    name: "Display: Day Brightness"
     id: day_brightness_preset
     entity_category: config
     optimistic: true
@@ -833,7 +837,7 @@ select:
       - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Brightness: Night Level"
+    name: "Display: Night Brightness"
     id: night_brightness_preset
     entity_category: config
     optimistic: true
@@ -849,7 +853,7 @@ select:
       - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Brightness: Manual Preset"
+    name: "Display: Manual Brightness"
     id: display_brightness_preset
     entity_category: config
     options:
@@ -897,7 +901,7 @@ select:
           if (id(sleep_start_time) > 0) id(disp1).update();
 
   - platform: template
-    name: "App: Default Start App"
+    name: "Apps: Default Start App"
     id: default_start_app
     entity_category: config
     optimistic: true
@@ -919,7 +923,7 @@ button:
     internal: true
 
   - platform: template
-    name: "Restart"
+    name: "System: Restart Device"
     id: restart_button
     entity_category: diagnostic
     on_press:
@@ -931,7 +935,7 @@ button:
 
 
   - platform: template
-    name: "Trigger Voice Assistant"
+    name: "Voice: Trigger Session"
     id: trigger_va_button
     on_press:
       - script.stop: screen_sleep_timer
@@ -960,7 +964,7 @@ switch:
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
   - platform: template
-    name: "App Visibility: Clock"
+    name: "Apps: Visibility Clock"
     id: show_clock_switch
     entity_category: config
     optimistic: true
@@ -972,7 +976,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "App Visibility: Stopwatch"
+    name: "Apps: Visibility Stopwatch"
     id: show_stopwatch_switch
     entity_category: config
     optimistic: true
@@ -984,7 +988,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "App Visibility: Music"
+    name: "Apps: Visibility Music"
     id: show_music_switch
     entity_category: config
     optimistic: true
@@ -996,7 +1000,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "App Visibility: Games"
+    name: "Apps: Visibility Games"
     id: show_games_switch
     entity_category: config
     optimistic: true
@@ -1008,7 +1012,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "App Visibility: System"
+    name: "Apps: Visibility System"
     id: show_system_switch
     entity_category: config
     optimistic: true
@@ -1020,7 +1024,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "App Visibility: Sky & Weather"
+    name: "Apps: Visibility Sky & Weather"
     id: show_weather_switch
     entity_category: config
     optimistic: true
@@ -1032,7 +1036,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "App Visibility: Timer & Alarm"
+    name: "Apps: Visibility Timer & Alarm"
     id: show_timer_switch
     entity_category: config
     optimistic: true
@@ -1055,7 +1059,7 @@ switch:
 
 number:
   - platform: template
-    name: "App Order: Clock"
+    name: "Apps: Order Clock"
     id: app_order_clock
     entity_category: config
     optimistic: true
@@ -1069,7 +1073,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: Stopwatch"
+    name: "Apps: Order Stopwatch"
     id: app_order_stopwatch
     entity_category: config
     optimistic: true
@@ -1083,7 +1087,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: Music"
+    name: "Apps: Order Music"
     id: app_order_music
     entity_category: config
     optimistic: true
@@ -1097,7 +1101,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: Games"
+    name: "Apps: Order Games"
     id: app_order_games
     entity_category: config
     optimistic: true
@@ -1111,7 +1115,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: Sky & Weather"
+    name: "Apps: Order Sky & Weather"
     id: app_order_weather
     entity_category: config
     optimistic: true
@@ -1125,7 +1129,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: Timer & Alarm"
+    name: "Apps: Order Timer & Alarm"
     id: app_order_timer
     entity_category: config
     optimistic: true
@@ -1139,7 +1143,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "App Order: System"
+    name: "Apps: Order System"
     id: app_order_system
     entity_category: config
     optimistic: true
@@ -1152,7 +1156,7 @@ number:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Schedule: Day Start Hour"
+    name: "Display: Day Start Hour"
     id: day_start_hour
     entity_category: config
     optimistic: true
@@ -1167,7 +1171,7 @@ number:
         - script.execute: sync_display_brightness
 
   - platform: template
-    name: "Schedule: Night Start Hour"
+    name: "Display: Night Start Hour"
     id: night_start_hour
     entity_category: config
     optimistic: true
@@ -2800,6 +2804,8 @@ script:
           id(menu_scroll_active) = false;
           if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
             id(sleep_menu_page) = id(menu_scroll_target_page);
+          } else if (id(gui_page) == 4 && id(system_menu_mode) == 10) {
+            id(deck_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
             id(music_category_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 3 && id(active_game) == 0) {
@@ -5911,36 +5917,39 @@ display:
 
         if (id(system_menu_mode) == 0) {
           // --------------------------------------------------
-          // VIEW 0: MAIN SYSTEM OBSERVATIONAL DASHBOARD (2x3 Grid)
+          // VIEW 0: MAIN SYSTEM DASHBOARD (2x4 Grid, Standardized 56px Pitch)
           // --------------------------------------------------
-          // Top Header: Pure iconic "SYSTEM" title (Theme Primary, standardized at y=50)
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
+          // Top Header: Pure iconic "SYSTEM" title (Theme Primary, standardized at y=46)
+          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
 
-          // Upper Zone: Pocket Assistant Version / Update badge (elevated to y=86 for comfortable 36px title buffer)
+          // Upper Zone: Pocket Assistant Version / Update badge (y=78)
           bool has_update = id(ha_firmware_update_status).state == "ON";
           std::string lat_v = id(ha_firmware_latest_version).state;
           if (has_update) {
-            snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "3.6.x" : lat_v.c_str());
-            it.print(cx, 86, id(font_small), id(col_gold), TextAlign::CENTER, buf);
+            snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "1.2" : lat_v.c_str());
+            it.print(cx, 78, id(font_small), id(col_gold), TextAlign::CENTER, buf);
           } else {
-            it.print(cx, 86, id(font_small), id(col_white), TextAlign::CENTER, "Pocket Assistant v${version}");
+            it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
-          // Center Zone: Buffered 2x3 Grid with Standardized Pill Height (r = 20) & 24px Center Gap
-          // Center Zone: Buffered 2x3 Grid centered across horizon (y = 150, 210, 270)
-          // Row 1: Display > (Left: x 69..221) | Clock > (Right: x 245..397) at y = 150
-          draw_pill_button(89, 201, 150, 20, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
-          draw_pill_button(265, 377, 150, 20, id(theme_secondary), id(col_dark_gray), "Clock >", id(col_white), false);
+          // Center Zone: Balanced 2x4 Grid of Standardized Pill Buttons (r = 18, 36px tall, 20px gap)
+          // Row 1 (y = 120): Display > (Left: x 69..221) | Clock > (Right: x 245..397)
+          draw_pill_button(89, 201, 120, 18, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
+          draw_pill_button(265, 377, 120, 18, id(theme_secondary), id(col_dark_gray), "Clock >", id(col_white), false);
 
-          // Row 2: Sleep & Wake > (Left: x 69..221) | Audio > (Right: x 245..397) at y = 210 (Screen Horizon)
-          draw_pill_button(89, 201, 210, 20, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
-          draw_pill_button(265, 377, 210, 20, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
+          // Row 2 (y = 176): Sleep & Wake > (Left) | Audio > (Right)
+          draw_pill_button(89, 201, 176, 18, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
+          draw_pill_button(265, 377, 176, 18, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
 
-          // Row 3: Info > (Left: x 69..221) | Actions > (Right: x 245..397) at y = 270
-          draw_pill_button(89, 201, 270, 20, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
-          draw_pill_button(265, 377, 270, 20, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
+          // Row 3 (y = 232): App Deck > (Left) | Voice > (Right)
+          draw_pill_button(89, 201, 232, 18, id(theme_secondary), id(col_dark_gray), "App Deck >", id(col_white), false);
+          draw_pill_button(265, 377, 232, 18, id(theme_secondary), id(col_dark_gray), "Voice >", id(col_white), false);
 
-          // Lower Zone: Battery and Time (y = 333, y = 374 - vertically centered at y=333)
+          // Row 4 (y = 288): Info > (Left) | Actions > (Right)
+          draw_pill_button(89, 201, 288, 18, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
+          draw_pill_button(265, 377, 288, 18, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
+
+          // Lower Zone: Centered Battery Status at y = 356 (Redundant digital clock removed)
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%%", batt);
           if (id(batt_charging).state) {
@@ -5950,22 +5959,10 @@ display:
             id(font_small)->measure(chg_str, &w_chg, &x_off, &base, &text_h);
             int total_w = w_main + w_chg;
             int start_x = cx - total_w / 2;
-            it.print(start_x, 333, id(font_small), id(theme_primary), TextAlign::CENTER_LEFT, b_main);
-            it.print(start_x + w_main, 333, id(font_small), id(theme_secondary), TextAlign::CENTER_LEFT, chg_str);
+            it.print(start_x, 356, id(font_small), id(theme_primary), TextAlign::CENTER_LEFT, b_main);
+            it.print(start_x + w_main, 356, id(font_small), id(theme_secondary), TextAlign::CENTER_LEFT, chg_str);
           } else {
-            it.print(cx, 333, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
-          }
-
-          if (now.is_valid()) {
-            char t_buf[16];
-            if (id(is_24h_format)) {
-              snprintf(t_buf, sizeof(t_buf), "%02d:%02d", now.hour, now.minute);
-            } else {
-              int h12 = now.hour % 12;
-              if (h12 == 0) h12 = 12;
-              snprintf(t_buf, sizeof(t_buf), "%d:%02d %s", h12, now.minute, now.hour >= 12 ? "PM" : "AM");
-            }
-            it.print(cx, 374, id(font_date), id(col_white), TextAlign::CENTER, t_buf);
+            it.print(cx, 356, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
 
         } else if (id(system_menu_mode) == 1) {
@@ -6075,6 +6072,12 @@ display:
           std::string so_p = id(display_off_timeout).current_option();
           snprintf(so_buf, sizeof(so_buf), "Screen Off: %s", so_p.c_str());
           draw_menu_slot_card(3, so_buf);
+
+          // Slot 4: Page Counter Mode Cycler
+          char pc_buf[32];
+          std::string pc_p = id(page_counter_mode).current_option();
+          snprintf(pc_buf, sizeof(pc_buf), "Page Counter: %s", pc_p.c_str());
+          draw_menu_slot_card(4, pc_buf);
 
           // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
@@ -6224,60 +6227,68 @@ display:
           snprintf(alert_vol_str, sizeof(alert_vol_str), "Alert Vol: %d%%", a_cur);
           draw_menu_slot_card(3, alert_vol_str);
 
-          // Slot 4: Voice Assistant Screen Wake Toggle
-          bool va_scr = id(va_wake_screen_switch).state;
-          char va_scr_label[32];
-          snprintf(va_scr_label, sizeof(va_scr_label), "Voice Screen: %s", va_scr ? "ON" : "OFF");
-          draw_menu_slot_card(4, va_scr_label);
+          // Slot 4: Volume Step Size Cycler (5% vs 10%)
+          float step_sz = id(volume_step_size).state;
+          int step_pct = (std::isnan(step_sz) || step_sz < 0.03f) ? 5 : (int)std::round(step_sz * 100.0f);
+          char step_label[32];
+          snprintf(step_label, sizeof(step_label), "Vol Step: %d%%", step_pct);
+          draw_menu_slot_card(4, step_label);
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
         } else if (id(system_menu_mode) == 8) {
           // --------------------------------------------------
-          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Monochromatic Telemetry)
+          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Monochromatic Telemetry, 8 Clean Lines)
           // --------------------------------------------------
           draw_menu_header(50, "SYSTEM INFO");
 
-          // Line 1: Wi-Fi Signal & IP (Always White for pure contrast)
           float sig = id(pocket_wifi_signal).state;
           std::string ip_str = id(pocket_ip_address).state;
           if (ip_str.empty()) ip_str = "Connecting...";
-          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm | %s", sig, ip_str.c_str());
 
-          // Center the Wi-Fi readout under SYSTEM INFO as baseline, with all subsequent rows left-aligned to it
-          // ESPHome BaseFont::measure signature is: measure(const char *str, int *width, int *x_offset, int *baseline, int *height)
-          int text_w = 0, x_off = 0, base = 0, text_h = 0;
-          id(font_small)->measure(buf, &text_w, &x_off, &base, &text_h);
-          const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 88;
-
-          // Standardized top gap below y=50 title (start y = 84, matching standard pill top boundary y=84 while preserving 40px row spacing)
-          it.print(info_x, 84, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 2: Temperature (Dual C & F)
           float temp_c = id(imu_temp).state;
           float temp_f = temp_c * 1.8f + 32.0f;
-          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-          it.print(info_x, 124, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 3: 6-Axis Orientation: Gyroscope Roll & Pitch
           float r_val = id(imu_roll).state;
           float p_val = id(imu_pitch).state;
-          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
-          it.print(info_x, 164, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 4: 3-Axis Acceleration (G-force)
-          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(info_x, 204, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 5: Battery Fuel Gauge & Power
           float v_batt = id(batt_voltage).state;
-          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(info_x, 244, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 6: Hardware Platform, Memory & Firmware
           unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
-          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free | v${version}", free_heap);
-          it.print(info_x, 284, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Center the telemetry list horizontally
+          int text_w = 0, x_off = 0, base = 0, text_h = 0;
+          id(font_small)->measure("Pocket Assistant version 1.2", &text_w, &x_off, &base, &text_h);
+          const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 96;
+
+          // Line 1 (y = 86): Wi-Fi Signal
+          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
+          it.print(info_x, 86, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Line 2 (y = 122): IP Address
+          snprintf(buf, sizeof(buf), "IP: %s", ip_str.c_str());
+          it.print(info_x, 122, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Line 3 (y = 158): Temperature (Dual C & F)
+          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
+          it.print(info_x, 158, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Line 4 (y = 194): 6-Axis Orientation: Gyroscope Roll & Pitch
+          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
+          it.print(info_x, 194, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Line 5 (y = 230): 3-Axis Acceleration (G-force)
+          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
+          it.print(info_x, 230, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Line 6 (y = 266): Battery Fuel Gauge & Power
+          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
+          it.print(info_x, 266, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Line 7 (y = 302): Hardware Platform & Memory
+          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free", free_heap);
+          it.print(info_x, 302, id(font_small), id(col_white), TextAlign::LEFT, buf);
+
+          // Line 8 (y = 338): Pocket Assistant Version
+          snprintf(buf, sizeof(buf), "Pocket Assistant version ${version}");
+          it.print(info_x, 338, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 408, r = 16)
           draw_back_button();
@@ -6300,6 +6311,99 @@ display:
           draw_menu_slot_card(2, "Sync: Home Assistant");
 
           // Bottom Button: Standardized < BACK (y = 408, r = 16)
+          draw_back_button();
+
+        } else if (id(system_menu_mode) == 10) {
+          // --------------------------------------------------
+          // VIEW 10: APP DECK SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
+          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
+          // Model A: 4-Step Eased 174px (3-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
+          // --------------------------------------------------
+          int current_offset = 0;
+          if (id(menu_scroll_active)) {
+            int cur_step = id(menu_scroll_step);
+            if (cur_step < 0) cur_step = 0;
+            if (cur_step > 4) cur_step = 4;
+            int shift = SHARED_SCROLL_EASE_174[cur_step];
+            if (id(menu_scroll_dir) == 1) {
+              current_offset = shift;
+            } else {
+              current_offset = 174 - shift;
+            }
+          } else {
+            current_offset = (id(deck_menu_page) == 2) ? 174 : 0;
+          }
+
+          static char deck_labels[8][32];
+          static uint32_t last_deck_label_time = 0;
+          if (!id(menu_scroll_active) || millis() - last_deck_label_time > 1000) {
+            std::string def_app = id(default_start_app).current_option();
+            snprintf(deck_labels[0], sizeof(deck_labels[0]), "Default: %s", def_app.empty() ? "Clock" : def_app.c_str());
+            snprintf(deck_labels[1], sizeof(deck_labels[1]), "Clock: %s", id(show_clock_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[2], sizeof(deck_labels[2]), "Stopwatch: %s", id(show_stopwatch_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[3], sizeof(deck_labels[3]), "Music: %s", id(show_music_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[4], sizeof(deck_labels[4]), "Games: %s", id(show_games_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[5], sizeof(deck_labels[5]), "Weather: %s", id(show_weather_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[6], sizeof(deck_labels[6]), "Timer: %s", id(show_timer_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[7], sizeof(deck_labels[7]), "System: %s", id(show_system_switch).state ? "Visible" : "Hidden");
+            last_deck_label_time = millis();
+          }
+
+          auto draw_deck_item = [&](int idx, int y) {
+            draw_menu_card_y(y, deck_labels[idx]);
+          };
+
+          for (int i = 0; i < 8; i++) {
+            int y = 104 + i * 58 - current_offset;
+            if (y >= 50 && y <= 390) {
+              draw_deck_item(i, y);
+            }
+          }
+
+          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
+          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
+          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
+
+          // Stationary Title at y = 50
+          draw_menu_header(50, "APP DECK");
+
+          // Stationary Submenu < BACK Button at y = 408 (r = 16)
+          draw_back_button();
+
+          // Stationary Pagination Dots nestled at bottom curve y = 440
+          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(deck_menu_page);
+          draw_pagination_dots(current_dot_page, 2, 440);
+
+          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
+          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(deck_menu_page);
+          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
+
+        } else if (id(system_menu_mode) == 11) {
+          // --------------------------------------------------
+          // VIEW 11: VOICE ASSISTANT SUBMENU (Canonical 58px Pitch, 3 Slots)
+          // --------------------------------------------------
+          draw_menu_header(50, "VOICE");
+
+          // Slot 0: Visual Profile Cycler
+          std::string va_prof = id(va_visual_profile).current_option();
+          char prof_buf[32];
+          snprintf(prof_buf, sizeof(prof_buf), "Profile: %s", va_prof.c_str());
+          draw_menu_slot_card(0, prof_buf);
+
+          // Slot 1: Wake Screen on Assist Toggle
+          bool va_scr = id(va_wake_screen_switch).state;
+          char va_scr_buf[32];
+          snprintf(va_scr_buf, sizeof(va_scr_buf), "Wake Screen: %s", va_scr ? "ON" : "OFF");
+          draw_menu_slot_card(1, va_scr_buf);
+
+          // Slot 2: Speaking Animation Speed Cycler
+          int anim_ms = (int)id(va_speech_anim_interval).state;
+          if (anim_ms <= 0) anim_ms = 75;
+          char anim_buf[32];
+          snprintf(anim_buf, sizeof(anim_buf), "Cadence: %dms", anim_ms);
+          draw_menu_slot_card(2, anim_buf);
+
+          // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
         }
       } else if (id(gui_page) == 5) {
@@ -8378,40 +8482,52 @@ touchscreen:
 
               if (id(system_menu_mode) == 0) {
                 if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 70..100)
-                  if (touch.y >= 75 && touch.y <= 118 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
+                  // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 65..94)
+                  if (touch.y >= 65 && touch.y <= 94 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 5; // Open Software Update Screen
                     id(disp1).update();
-                  // Row 1 Left: "Display >" (y: 125..175, x: 65..230)
-                  } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 65 && touch.x <= 230) {
+                  // Row 1 Left: "Display >" (y: 95..147, x: 50..233)
+                  } else if (touch.y >= 95 && touch.y <= 147 && touch.x <= 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 2; // Open Display Submenu
                     id(disp1).update();
-                  // Row 1 Right: "Clock >" (y: 125..175, x: 236..405)
-                  } else if (touch.y >= 125 && touch.y <= 175 && touch.x >= 236 && touch.x <= 405) {
+                  // Row 1 Right: "Clock >" (y: 95..147, x: 234..416)
+                  } else if (touch.y >= 95 && touch.y <= 147 && touch.x > 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 9; // Open Clock & Time Submenu
                     id(disp1).update();
-                  // Row 2 Left: "Sleep & Wake >" (y: 185..235, x: 65..230)
-                  } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 65 && touch.x <= 230) {
+                  // Row 2 Left: "Sleep & Wake >" (y: 148..203, x: 50..233)
+                  } else if (touch.y >= 148 && touch.y <= 203 && touch.x <= 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
                     id(sleep_menu_page) = 1;
                     id(menu_scroll_active) = false;
                     id(disp1).update();
-                  // Row 2 Right: "Audio >" (y: 185..235, x: 236..405)
-                  } else if (touch.y >= 185 && touch.y <= 235 && touch.x >= 236 && touch.x <= 405) {
+                  // Row 2 Right: "Audio >" (y: 148..203, x: 234..416)
+                  } else if (touch.y >= 148 && touch.y <= 203 && touch.x > 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 7; // Open Audio & Media Submenu
                     id(disp1).update();
-                  // Row 3 Left: "Info >" (y: 245..295, x: 65..230)
-                  } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 65 && touch.x <= 230) {
+                  // Row 3 Left: "App Deck >" (y: 204..259, x: 50..233)
+                  } else if (touch.y >= 204 && touch.y <= 259 && touch.x <= 233) {
+                    last_sys_action_tap = now_sys;
+                    id(system_menu_mode) = 10; // Open App Deck Submenu
+                    id(deck_menu_page) = 1;
+                    id(menu_scroll_active) = false;
+                    id(disp1).update();
+                  // Row 3 Right: "Voice >" (y: 204..259, x: 234..416)
+                  } else if (touch.y >= 204 && touch.y <= 259 && touch.x > 233) {
+                    last_sys_action_tap = now_sys;
+                    id(system_menu_mode) = 11; // Open Voice Assistant Submenu
+                    id(disp1).update();
+                  // Row 4 Left: "Info >" (y: 260..316, x: 50..233)
+                  } else if (touch.y >= 260 && touch.y <= 316 && touch.x <= 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 8; // Open System Info Submenu
                     id(disp1).update();
-                  // Row 3 Right: "Actions >" (y: 245..295, x: 236..405)
-                  } else if (touch.y >= 245 && touch.y <= 295 && touch.x >= 236 && touch.x <= 405) {
+                  // Row 4 Right: "Actions >" (y: 260..316, x: 234..416)
+                  } else if (touch.y >= 260 && touch.y <= 316 && touch.x > 233) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 3; // Open System Actions Submenu
                     id(disp1).update();
@@ -8533,7 +8649,7 @@ touchscreen:
               } else if (id(system_menu_mode) == 2) {
                 // Mode 2: Display Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
                 int slot = get_5slot_index(touch, 90, 376);
-                if (slot >= 0 && slot <= 3 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
                     // Card 1: Auto-Brightness Mode Cycler (Slot 0, y = 104)
@@ -8568,6 +8684,14 @@ touchscreen:
                     std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
                     auto call = id(display_off_timeout).make_call();
                     call.set_option(cycle_option(cur_so, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
+                    call.perform();
+                    id(disp1).update();
+                    return;
+                  } else if (slot == 4) {
+                    // Card 5: Page Counter Mode Cycler (Slot 4, y = 336)
+                    std::string cur_pc = std::string(id(page_counter_mode).current_option().c_str());
+                    auto call = id(page_counter_mode).make_call();
+                    call.set_option(cycle_option(cur_pc, {"Always", "Never"}));
                     call.perform();
                     id(disp1).update();
                     return;
@@ -8744,10 +8868,14 @@ touchscreen:
                     }
                     return;
                   } else if (slot == 4) {
-                    // Card 5: Voice Assistant Screen Wake Toggle (Slot 4, y = 336)
+                    // Card 5: Volume Step Size Cycler (Slot 4, y = 336)
                     if (now_sys - last_audio_cycler_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_audio_cycler_tap = now_sys;
-                      id(va_wake_screen_switch).toggle();
+                      float cur_sz = id(volume_step_size).state;
+                      float nxt_sz = (cur_sz < 0.08f) ? 0.10f : 0.05f;
+                      auto call = id(volume_step_size).make_call();
+                      call.set_value(nxt_sz);
+                      call.perform();
                       id(disp1).update();
                     }
                     return;
@@ -8803,6 +8931,135 @@ touchscreen:
                   }
                 }
                 // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                if (is_back_button(touch)) {
+                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_back_tap = now_sys;
+                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(disp1).update();
+                  }
+                  return;
+                }
+              } else if (id(system_menu_mode) == 10) {
+                // Mode 10: App Deck Submenu (Continuous 8-Item Vertical Scroll Architecture)
+                if (id(menu_scroll_active)) return;
+
+                // Right Flank Navigation (Option 1: Up at y=162 on Page 2, Down at y=278 on Page 1)
+                // Generous vertical right flank hit zone (x >= 375, y: 70..375)
+                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
+                  static uint32_t last_deck_scroll_tap = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_deck_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
+                    last_deck_scroll_tap = now_s;
+                    if (id(deck_menu_page) == 1) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = 1;
+                      id(menu_scroll_target_page) = 2;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    } else if (id(deck_menu_page) == 2) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = -1;
+                      id(menu_scroll_target_page) = 1;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    }
+                  }
+                  return;
+                }
+
+                // Left Flank (x < 75): Discard to prevent misfires
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) {
+                  return;
+                }
+
+                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
+                int slot_idx = get_5slot_index(touch, 95, 371);
+                if (slot_idx >= 0) {
+                  if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_sys_action_tap = now_sys;
+                    int item_idx = (id(deck_menu_page) == 1) ? slot_idx : (slot_idx + 3);
+                    if (item_idx == 0) {
+                      // Default Start App Cycler
+                      std::string cur = std::string(id(default_start_app).current_option().c_str());
+                      auto call = id(default_start_app).make_call();
+                      call.set_option(cycle_option(cur, {"Clock", "Stopwatch", "Music", "Games", "Sky & Weather", "Timer & Alarm", "System"}));
+                      call.perform();
+                      id(disp1).update();
+                    } else if (item_idx == 1) {
+                      id(show_clock_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 2) {
+                      id(show_stopwatch_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 3) {
+                      id(show_music_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 4) {
+                      id(show_games_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 5) {
+                      id(show_weather_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 6) {
+                      id(show_timer_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 7) {
+                      id(show_system_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+
+                // Standardized Centered < BACK Button
+                if (is_back_button(touch)) {
+                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_back_tap = now_sys;
+                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(deck_menu_page) = 1;
+                    id(menu_scroll_active) = false;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+              } else if (id(system_menu_mode) == 11) {
+                // Mode 11: Voice Assistant Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
+                int slot = get_5slot_index(touch, 90, 376);
+                if (slot >= 0 && slot <= 2 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_sys_action_tap = now_sys;
+                  if (slot == 0) {
+                    // Card 1: Visual Profile Cycler (Slot 0, y = 104)
+                    std::string cur = std::string(id(va_visual_profile).current_option().c_str());
+                    auto call = id(va_visual_profile).make_call();
+                    call.set_option(cycle_option(cur, {"Nebula", "Solaris"}));
+                    call.perform();
+                    id(disp1).update();
+                    return;
+                  } else if (slot == 1) {
+                    // Card 2: Wake Screen on Assist Toggle (Slot 1, y = 162)
+                    id(va_wake_screen_switch).toggle();
+                    id(disp1).update();
+                    return;
+                  } else if (slot == 2) {
+                    // Card 3: Speaking Animation Speed Cycler (Slot 2, y = 220)
+                    int cur_ms = (int)id(va_speech_anim_interval).state;
+                    int nxt_ms = (cur_ms == 75) ? 100 : ((cur_ms == 100) ? 125 : 75);
+                    auto call = id(va_speech_anim_interval).make_call();
+                    call.set_value(nxt_ms);
+                    call.perform();
+                    id(disp1).update();
+                    return;
+                  }
+                }
+
+                // Standardized Centered < BACK Button
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
