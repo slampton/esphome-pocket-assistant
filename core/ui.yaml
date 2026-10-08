@@ -4082,20 +4082,20 @@ display:
 
         // ----------------------------------------------------
         // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
-        // Sweeps over top of LAP and RESET buttons
+        // Sweeps over top of LAP and RESET buttons; matches red SPLIT digital readout
         // ----------------------------------------------------
         if (id(stopwatch_lap_ms) > 0) {
           float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
           float l_sin, l_cos;
           sincosf(lap_angle, &l_sin, &l_cos);
-          it.line(cx, cy, cx + (int)(150.0f * l_sin), cy - (int)(150.0f * l_cos), id(col_white));
-          it.line(cx + 1, cy, cx + (int)(150.0f * l_sin) + 1, cy - (int)(150.0f * l_cos), id(col_white));
-          it.circle(cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), 4, id(col_white));
+          it.line(cx, cy, cx + (int)(150.0f * l_sin), cy - (int)(150.0f * l_cos), id(col_red));
+          it.line(cx + 1, cy, cx + (int)(150.0f * l_sin) + 1, cy - (int)(150.0f * l_cos), id(col_red));
+          it.circle(cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), 4, id(col_red));
         }
 
         // ----------------------------------------------------
         // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
-        // Sweeps over top of LAP and RESET buttons
+        // Sweeps over top of LAP and RESET buttons in high-contrast pure white
         // ----------------------------------------------------
         float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
         float s_sin, s_cos;
@@ -4118,16 +4118,16 @@ display:
         int right_x = arr_base_x - (int)(8.0f * perp_x);
         int right_y = arr_base_y - (int)(8.0f * perp_y);
 
-        // Main shaft: 3px solid racing red chronometer pointer
-        it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_red));
-        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_red));
-        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_red));
+        // Main shaft: 3px solid pure white chronometer pointer
+        it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_white));
+        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_white));
+        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_white));
 
-        // Classic bold arrowhead in racing red
-        it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_red));
+        // Classic bold arrowhead in pure white
+        it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_white));
 
         // Teardrop counter-weight tail: 8px radius
-        it.filled_circle(tail_x, tail_y, 8, id(col_red));
+        it.filled_circle(tail_x, tail_y, 8, id(col_white));
         it.circle(tail_x, tail_y, 8, id(col_silver));
         it.filled_circle(tail_x, tail_y, 3, id(col_silver));
 
