@@ -8,7 +8,7 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "1.2.88"
+  version: "1.2.89"
   default_start_app: "Clock"
   default_art_mode: "Full Screen"
   default_screensaver_style: "Aurora Borealis"
@@ -82,6 +82,18 @@ esphome:
     - priority: -100
       then:
         - safe_mode.mark_successful:
+        - lambda: |-
+            // Enable AXP2101 PEK short and long press IRQs (register 0x41 = 0x0C)
+            uint8_t irq_en[2] = {0x41, 0x0C};
+            id(bus_internal).write(0x34, irq_en, 2);
+
+            // Clear all pending AXP2101 IRQ flags (0x48, 0x49, 0x4A) so GPIO3 starts unasserted (HIGH)
+            uint8_t clr_all[2] = {0x48, 0xFF};
+            id(bus_internal).write(0x34, clr_all, 2);
+            clr_all[0] = 0x49;
+            id(bus_internal).write(0x34, clr_all, 2);
+            clr_all[0] = 0x4A;
+            id(bus_internal).write(0x34, clr_all, 2);
         - media_player.pause: pocket_music_player
         - online_image.release: remote_album_art
         - lambda: |-

@@ -6,12 +6,6 @@
 
 deep_sleep:
   id: deep_sleep_ctrl
-  wakeup_pin:
-    number: GPIO0
-    mode: INPUT_PULLUP
-    inverted: true
-    allow_other_uses: true
-  wakeup_pin_mode: IGNORE
 
 globals:
   - id: is_locked
@@ -50,6 +44,17 @@ globals:
     initial_value: '1' # 0 = Telemetry Dashboard, 1 = Settings Submenu
 
 binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO3
+      mode: INPUT_PULLUP
+      inverted: true
+    id: pmu_irq_pin
+    internal: true
+    on_press:
+      then:
+        - script.execute: handle_crown_button_press
+
   - platform: template
     name: "USB Power Connected"
     id: usb_connected
@@ -338,6 +343,15 @@ interval:
             id(start_hibernation_countdown).execute();
           }
 
+          // 1 Hz safety poll: if an IRQ occurred but GPIO3 interrupt was missed
+          uint8_t irq_chk = 0x49;
+          uint8_t irq_stat = 0;
+          if (id(bus_internal).write_readv(0x34, &irq_chk, 1, &irq_stat, 1) == esphome::i2c::ERROR_OK) {
+            if (irq_stat & 0x0C) {
+              id(handle_crown_button_press).execute();
+            }
+          }
+
   - interval: 100ms
     then:
       - lambda: |-
@@ -349,10 +363,28 @@ interval:
             }
           }
 
+script:
+  - id: handle_crown_button_press
+    mode: restart
+    then:
+      - lambda: |-
+          static uint32_t last_crown_press = 0;
+          uint32_t now_c = millis();
+          if (now_c - last_crown_press < 150) return;
+          last_crown_press = now_c;
+
           // Read AXP2101 IRQ status for top button (PWR / PEK)
           uint8_t irq_reg = 0x49;
           uint8_t irq_val = 0;
           if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
+            // Clear all pending IRQs (0x48, 0x49, 0x4A) to ensure GPIO3 returns HIGH
+            uint8_t clr_all[2] = {0x48, 0xFF};
+            id(bus_internal).write(0x34, clr_all, 2);
+            clr_all[0] = 0x49;
+            id(bus_internal).write(0x34, clr_all, 2);
+            clr_all[0] = 0x4A;
+            id(bus_internal).write(0x34, clr_all, 2);
+
             if (irq_val & 0x0C) {
               if (id(is_hibernating)) {
                 if (id(hibernate_countdown_val) > 0) {
@@ -363,13 +395,9 @@ interval:
                   id(screen_sleep_timer).execute();
                   id(disp1).update();
                 }
-                uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
-                id(bus_internal).write(0x34, clr, 2);
                 return;
               }
               bool is_long = (irq_val & 0x04) != 0;
-              uint8_t clr[2] = {0x49, uint8_t(irq_val & 0x0C)};
-              id(bus_internal).write(0x34, clr, 2);
 
               // Long press (1.5s hold) initiates instant or countdown hibernation
               if (is_long) {
