@@ -1223,17 +1223,18 @@ interval:
             }
           }
 
+          // 10 FPS Precision Mechanical Chronograph Sweep (100ms cadence)
+          // Frame executes in ~45ms on native AMOLED black canvas, leaving a massive 55ms CPU idle window for touch
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
+            id(disp1).update();
+          }
+
 
   - interval: 50ms
     then:
       - lambda: |-
           // 20 FPS high-refresh physics loop exclusively for active games
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            id(disp1).update();
-          }
-
-          // 20 FPS high-refresh fluid Stopwatch mechanical sweep
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
             id(disp1).update();
           }
 
@@ -3966,24 +3967,22 @@ display:
       // 1/10s High-Speed Spinning Subdial, Bold Arrow Hand & Large Digital Readout
       // ==========================================
       } else if (id(gui_page) == 1) {
-        // Outer Triple Bezel: Silver Outer Ring -> Black Band -> Inner Silver Accent Ring
+        // Outer Triple Bezel: Silver Outer Ring -> Dark Band -> Inner Silver Accent Ring
         it.circle(cx, cy, 230, id(col_silver));
         it.circle(cx, cy, 229, id(col_silver));
-        it.circle(cx, cy, 228, id(col_black));
-        it.circle(cx, cy, 227, id(col_black));
-        it.circle(cx, cy, 226, id(col_black));
-        it.circle(cx, cy, 225, id(col_black));
+        it.circle(cx, cy, 228, id(col_dark_gray));
+        it.circle(cx, cy, 227, id(col_dark_gray));
+        it.circle(cx, cy, 226, id(col_dark_gray));
+        it.circle(cx, cy, 225, id(col_dark_gray));
         it.circle(cx, cy, 224, id(col_silver));
         it.circle(cx, cy, 223, id(col_silver));
 
-        // Authentic 1970s Vintage Aged Parchment / Warm Opaline Off-White Dial
-        it.filled_circle(cx, cy, 222, Color(216, 206, 184));
-
-        // Outer Chapter Track Boundaries (Bold double ring)
-        it.circle(cx, cy, 220, id(col_black));
-        it.circle(cx, cy, 219, id(col_black));
-        it.circle(cx, cy, 192, id(col_black));
-        it.circle(cx, cy, 191, id(col_black));
+        // Authentic Heuer Heritage AMOLED Matte Black Chronograph Canvas (Zero filled_circle stall, 45ms render)
+        // Outer Chapter Track Boundaries (Dark slate double ring)
+        it.circle(cx, cy, 220, id(col_dark_gray));
+        it.circle(cx, cy, 219, id(col_dark_gray));
+        it.circle(cx, cy, 192, id(col_dark_gray));
+        it.circle(cx, cy, 191, id(col_dark_gray));
 
         // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
         for (int s = 0; s < 60; s++) {
@@ -3991,24 +3990,24 @@ display:
           float t_cos = DIAL_COS[s];
           
           if (s % 5 == 0) {
-            // Major 5-Second Bar: 3px wide, prominent solid black
+            // Major 5-Second Bar: 3px wide, prominent solid white
             float perp_x = -t_cos;
             float perp_y = t_sin;
             int x1 = cx + (int)(191.0f * t_sin);
             int y1 = cy - (int)(191.0f * t_cos);
             int x2 = cx + (int)(220.0f * t_sin);
             int y2 = cy - (int)(220.0f * t_cos);
-            it.line(x1, y1, x2, y2, id(col_black));
-            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_black));
-            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_black));
+            it.line(x1, y1, x2, y2, id(col_white));
+            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_white));
+            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_white));
           } else {
             // Standard 1-Second Tick: 2px wide from r=204 to r=220
             int x1 = cx + (int)(204.0f * t_sin);
             int y1 = cy - (int)(204.0f * t_cos);
             int x2 = cx + (int)(220.0f * t_sin);
             int y2 = cy - (int)(220.0f * t_cos);
-            it.line(x1, y1, x2, y2, id(col_black));
-            it.line(x1 + 1, y1, x2 + 1, y2, id(col_black));
+            it.line(x1, y1, x2, y2, id(col_slate));
+            it.line(x1 + 1, y1, x2 + 1, y2, id(col_slate));
           }
         }
 
@@ -4028,7 +4027,7 @@ display:
           {148,  86, "55"}
         };
         for (const auto &n : CHRONO_NUMS) {
-          it.print(n.x, n.y, id(font_small), id(col_black), TextAlign::CENTER, n.str);
+          it.print(n.x, n.y, id(font_small), id(col_white), TextAlign::CENTER, n.str);
         }
 
         uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
@@ -4039,14 +4038,14 @@ display:
         // ----------------------------------------------------
         // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
         // ----------------------------------------------------
-        it.print(cx, 132, id(font_small), id(col_black), TextAlign::CENTER, "CHRONOGRAPH");
+        it.print(cx, 132, id(font_small), id(col_white), TextAlign::CENTER, "CHRONOGRAPH");
 
         // ----------------------------------------------------
         // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility at y=238)
         // ----------------------------------------------------
         char chrono_buf[32];
         snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
-        it.print(cx, 238, id(font_chrono_time), id(col_black), TextAlign::CENTER, chrono_buf);
+        it.print(cx, 238, id(font_chrono_time), id(col_white), TextAlign::CENTER, chrono_buf);
 
         // Display lap time readout if recorded (centered at y=274 in high-contrast Racing Red)
         if (id(stopwatch_lap_ms) > 0) {
@@ -4067,19 +4066,19 @@ display:
         const int btn_rst_x = 290;
         const int btn_r = 36;
 
-        // LAP Button (Parchment background, dual precision rings, black typography)
-        it.filled_circle(btn_lap_x, btn_y, btn_r, Color(216, 206, 184));
-        it.circle(btn_lap_x, btn_y, btn_r, id(col_black));
-        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_black));
-        it.circle(btn_lap_x, btn_y, btn_r - 3, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_silver));
-        it.print(btn_lap_x, btn_y, id(font_small), id(col_black), TextAlign::CENTER, "LAP");
+        // LAP Button (Dark slate background, dual precision rings, white typography)
+        it.filled_circle(btn_lap_x, btn_y, btn_r, id(col_dark_gray));
+        it.circle(btn_lap_x, btn_y, btn_r, id(col_silver));
+        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_silver));
+        it.circle(btn_lap_x, btn_y, btn_r - 3, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
+        it.print(btn_lap_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "LAP");
 
-        // RESET Button (Parchment background, dual precision rings, black typography)
-        it.filled_circle(btn_rst_x, btn_y, btn_r, Color(216, 206, 184));
-        it.circle(btn_rst_x, btn_y, btn_r, id(col_black));
-        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_black));
-        it.circle(btn_rst_x, btn_y, btn_r - 3, id(col_silver));
-        it.print(btn_rst_x, btn_y, id(font_small), id(col_black), TextAlign::CENTER, "RESET");
+        // RESET Button (Dark slate background, dual precision rings, white typography)
+        it.filled_circle(btn_rst_x, btn_y, btn_r, id(col_dark_gray));
+        it.circle(btn_rst_x, btn_y, btn_r, id(col_silver));
+        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_silver));
+        it.circle(btn_rst_x, btn_y, btn_r - 3, id(col_slate));
+        it.print(btn_rst_x, btn_y, id(font_small), id(col_white), TextAlign::CENTER, "RESET");
 
         // ----------------------------------------------------
         // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
@@ -4089,9 +4088,9 @@ display:
           float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
           float l_sin, l_cos;
           sincosf(lap_angle, &l_sin, &l_cos);
-          it.line(cx, cy, cx + (int)(150.0f * l_sin), cy - (int)(150.0f * l_cos), id(col_red));
-          it.line(cx + 1, cy, cx + (int)(150.0f * l_sin) + 1, cy - (int)(150.0f * l_cos), id(col_red));
-          it.circle(cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), 4, id(col_red));
+          it.line(cx, cy, cx + (int)(150.0f * l_sin), cy - (int)(150.0f * l_cos), id(col_white));
+          it.line(cx + 1, cy, cx + (int)(150.0f * l_sin) + 1, cy - (int)(150.0f * l_cos), id(col_white));
+          it.circle(cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), 4, id(col_white));
         }
 
         // ----------------------------------------------------
@@ -4119,23 +4118,23 @@ display:
         int right_x = arr_base_x - (int)(8.0f * perp_x);
         int right_y = arr_base_y - (int)(8.0f * perp_y);
 
-        // Main shaft: 3px solid black chronometer pointer
-        it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_black));
-        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_black));
-        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_black));
+        // Main shaft: 3px solid racing red chronometer pointer
+        it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_red));
+        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_red));
+        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_red));
 
-        // Classic bold arrowhead
-        it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_black));
+        // Classic bold arrowhead in racing red
+        it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_red));
 
         // Teardrop counter-weight tail: 8px radius
-        it.filled_circle(tail_x, tail_y, 8, id(col_black));
+        it.filled_circle(tail_x, tail_y, 8, id(col_red));
         it.circle(tail_x, tail_y, 8, id(col_silver));
         it.filled_circle(tail_x, tail_y, 3, id(col_silver));
 
         // Multi-tier Center Pinion Arbor Cap
         it.filled_circle(cx, cy, 9, id(col_silver));
-        it.circle(cx, cy, 9, id(col_black));
-        it.filled_circle(cx, cy, 6, id(col_black));
+        it.circle(cx, cy, 9, id(col_dark_gray));
+        it.filled_circle(cx, cy, 6, id(col_dark_gray));
         it.filled_circle(cx, cy, 2, id(col_silver));
 
       // ==========================================
@@ -7393,10 +7392,10 @@ display:
 
       if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(alarm_ringing) || id(timer_ringing))) {
         bool is_stopwatch = (id(gui_page) == 1);
-        Color chevron_col = is_stopwatch ? id(col_black) : id(col_white);
+        Color chevron_col = id(col_white);
 
         // Master App Deck Navigation Chevrons (< at x=165, > at x=301, y=424)
-        draw_deck_chevrons(chevron_col, !is_stopwatch);
+        draw_deck_chevrons(chevron_col, true);
 
         std::string cnt_mode = std::string(id(page_counter_mode).current_option().c_str());
         if (cnt_mode.empty()) cnt_mode = "Always";
@@ -7414,12 +7413,8 @@ display:
         }
 
         if (draw_pg && pg_buf[0] != '\0') {
-          if (!is_stopwatch) {
-            it.print(cx + 1, 424 + 1, id(font_small), id(col_black), TextAlign::CENTER, pg_buf);
-            it.print(cx, 424, id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
-          } else {
-            it.print(cx, 424, id(font_small), id(col_black), TextAlign::CENTER, pg_buf);
-          }
+          it.print(cx + 1, 424 + 1, id(font_small), id(col_black), TextAlign::CENTER, pg_buf);
+          it.print(cx, 424, id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
         }
       }
 
