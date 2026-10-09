@@ -6569,7 +6569,8 @@ display:
           float t_high = id(ha_weather_high).state;
           float t_low = id(ha_weather_low).state;
           // Resilient fallback: If attribute states are NaN, extract today's high and low from forecast string
-          if ((std::isnan(t_high) || std::isnan(t_low)) && !fc_5d.empty()) {
+          std::string fc_5d = id(ha_weather_forecast_5d).state;
+          if ((std::isnan(t_high) || std::isnan(t_low)) && !fc_5d.empty() && fc_5d != "unknown" && fc_5d != "unavailable") {
             std::string first_token = fc_5d.substr(0, fc_5d.find(';'));
             size_t c1 = first_token.find(':');
             if (c1 != std::string::npos) {
@@ -6577,11 +6578,17 @@ display:
               if (c2 != std::string::npos) {
                 size_t c3 = first_token.find(':', c2 + 1);
                 if (std::isnan(t_high)) {
-                  try { t_high = std::stof(first_token.substr(c1 + 1, c2 - c1 - 1)); } catch (...) {}
+                  float val = 0.0f;
+                  if (sscanf(first_token.substr(c1 + 1, c2 - c1 - 1).c_str(), "%f", &val) == 1) {
+                    t_high = val;
+                  }
                 }
                 if (std::isnan(t_low)) {
                   std::string low_str = (c3 != std::string::npos) ? first_token.substr(c2 + 1, c3 - c2 - 1) : first_token.substr(c2 + 1);
-                  try { t_low = std::stof(low_str); } catch (...) {}
+                  float val = 0.0f;
+                  if (sscanf(low_str.c_str(), "%f", &val) == 1) {
+                    t_low = val;
+                  }
                 }
               }
             }
