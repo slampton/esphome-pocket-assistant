@@ -1,0 +1,182 @@
+# ==============================================================================
+# 🌟 Home Assistant Companion Package: Pocket Assistant All-in-One Helpers & Sensors
+# Consolidated Single-Drop Companion Package (Release v1.2)
+# Combines Active Media Mirroring and 5-Day Weather Forecast into 2 efficient sensors
+# ==============================================================================
+
+input_text:
+  pocket_assistant_active_speaker:
+    name: "Pocket Assistant Active Speaker"
+    icon: mdi:speaker
+  pocket_assistant_base_url:
+    name: "Pocket Assistant Home Assistant Base URL"
+    icon: mdi:web
+    initial: "" # Optional override for custom ports (e.g. http://homeassistant.local or http://192.168.1.10). Defaults to http://homeassistant.local:8123 if blank.
+  pocket_assistant_weather_entity:
+    name: "Pocket Assistant Weather Entity"
+    icon: mdi:weather-partly-cloudy
+    initial: "weather.forecast_home" # Set to your primary Home Assistant weather entity (e.g. weather.home, weather.forecast_home)
+
+template:
+  # ----------------------------------------------------------------------------
+  # 1. Active Media Mirror Sensor (8 attributes on single sensor)
+  # ----------------------------------------------------------------------------
+  - trigger:
+      - trigger: state
+        entity_id: input_text.pocket_assistant_active_speaker
+      - trigger: time_pattern
+        seconds: "/2"
+    sensor:
+      - name: "Pocket Assistant Active Media"
+        unique_id: pocket_assistant_active_media
+        icon: mdi:music
+        state: >-
+          {% set target = states('input_text.pocket_assistant_active_speaker') %}
+          {% if not target or target in ['unknown', 'unavailable', ''] %}
+            idle
+          {% else %}
+            {{ states(target) | default('idle', true) }}
+          {% endif %}
+        attributes:
+          title: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              Idle
+            {% else %}
+              {{ state_attr(target, 'media_title') | default('Idle', true) }}
+            {% endif %}
+          artist: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              None
+            {% else %}
+              {{ state_attr(target, 'media_artist') | default('None', true) }}
+            {% endif %}
+          album: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              None
+            {% else %}
+              {{ state_attr(target, 'media_album_name') | default('None', true) }}
+            {% endif %}
+          duration: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              0
+            {% else %}
+              {{ state_attr(target, 'media_duration') | default(0, true) }}
+            {% endif %}
+          position: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              0
+            {% else %}
+              {{ state_attr(target, 'media_position') | default(0, true) }}
+            {% endif %}
+          volume: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              0.7
+            {% else %}
+              {{ state_attr(target, 'volume_level') | default(0.7, true) }}
+            {% endif %}
+          media_type: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              music
+            {% else %}
+              {% set cid = state_attr(target, 'media_content_id') | default('', true) %}
+              {% set ctype = state_attr(target, 'media_content_type') | default('', true) %}
+              {% if 'podcast' in cid or 'podcast' in ctype %}
+                podcast
+              {% elif 'audiobook' in cid or 'audiobook' in ctype %}
+                audiobook
+              {% else %}
+                music
+              {% endif %}
+            {% endif %}
+          art_url: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', '', 'media_player.pocket_assistant'] %}
+              none
+            {% else %}
+              {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
+              {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
+                {% if pic.startswith('http') %}
+                  {{ pic }}
+                {% elif pic.startswith('/') %}
+                  {% set custom_base = states('input_text.pocket_assistant_base_url') %}
+                  {% set base = custom_base if custom_base and custom_base not in ['unknown', 'unavailable', ''] else 'http://homeassistant.local:8123' %}
+                  {{ base.rstrip('/') ~ pic }}
+                {% else %}
+                  none
+                {% endif %}
+              {% else %}
+                none
+              {% endif %}
+            {% endif %}
+
+  # ----------------------------------------------------------------------------
+  # 2. Daily & 5-Day Weather Forecast Sensor (High/low attributes on single sensor)
+  # ----------------------------------------------------------------------------
+  - trigger:
+      - trigger: time_pattern
+        hours: "/1"
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id: input_text.pocket_assistant_weather_entity
+    action:
+      - variables:
+          target_weather: >-
+            {% set w = states("input_text.pocket_assistant_weather_entity") %}
+            {{ w if w and w not in ["unknown", "unavailable", ""] else "weather.forecast_home" }}
+      - action: weather.get_forecasts
+        target:
+          entity_id: "{{ target_weather }}"
+        data:
+          type: daily
+        response_variable: daily_forecast
+    sensor:
+      - name: "Pocket Assistant Weather Forecast"
+        unique_id: pocket_assistant_weather_forecast
+        state: >-
+          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+          {% set ns = namespace(items=[]) %}
+          {% set fc_list = [] %}
+          {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+            {% set fc_list = daily_forecast[target_weather]["forecast"] %}
+          {% elif state_attr(target_weather, "forecast") %}
+            {% set fc_list = state_attr(target_weather, "forecast") %}
+          {% endif %}
+          {% if fc_list %}
+            {% for item in fc_list[:5] %}
+              {% set day_name = as_timestamp(item.datetime) | timestamp_custom("%a", true) | upper %}
+              {% set high = item.temperature | round(0) %}
+              {% set low = item.templow | default(item.temperature, true) | round(0) %}
+              {% set cond = item.condition | default("sunny") %}
+              {% set ns.items = ns.items + [day_name ~ ":" ~ high ~ ":" ~ low ~ ":" ~ cond] %}
+            {% endfor %}
+            {{ ns.items | join(";") }}
+          {% else %}
+            Unavailable
+          {% endif %}
+        attributes:
+          high: >-
+            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+            {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+              {{ daily_forecast[target_weather]["forecast"][0]["temperature"] | default(70, true) }}
+            {% elif state_attr(target_weather, "forecast") %}
+              {{ state_attr(target_weather, "forecast")[0]["temperature"] | default(70, true) }}
+            {% else %}
+              70
+            {% endif %}
+          low: >-
+            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+            {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+              {{ daily_forecast[target_weather]["forecast"][0]["templow"] | default(daily_forecast[target_weather]["forecast"][0]["temperature"], true) }}
+            {% elif state_attr(target_weather, "forecast") %}
+              {{ state_attr(target_weather, "forecast")[0]["templow"] | default(state_attr(target_weather, "forecast")[0]["temperature"], true) }}
+            {% else %}
+              50
+            {% endif %}

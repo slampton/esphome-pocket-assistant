@@ -2,7 +2,7 @@
 
 A local-first handheld companion and media remote for Home Assistant and Music Assistant, built on the Waveshare 1.75" circular AMOLED ESP32-S3 development board.
 
-[![Version](https://img.shields.io/badge/Version-v1.1-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v1.2-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
@@ -18,14 +18,15 @@ Pocket Assistant started as a personal home lab project to explore what is possi
 * **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (1.75" 466×466 round AMOLED, CO5300 display, CST9220 touch, ES8311 DAC, ES7210 ADC, AXP2101 PMIC, QMI8658 6-axis IMU).
 
 ### 1. Flash the Firmware
-* **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v1.1 with one click.
+* **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v1.2 with one click.
 * **ESPHome Dashboard**: Alternatively, adopt the device using a minimal remote package include:
 ```yaml
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "1.1"
+  version: "1.2"
   local_player_id: "media_player.pocket_assistant"
+  weather_entity: "weather.forecast_home" # Set to your primary Home Assistant weather entity (e.g. weather.home)
 
 packages:
   remote_pocket_assistant:
@@ -35,10 +36,20 @@ packages:
       - pocket-assistant-1.75c.yaml
 ```
 
-### 2. Home Assistant & Music Assistant Setup
+### 2. Home Assistant Companion Package Setup
+Pocket Assistant uses a single consolidated companion package (`pocket_assistant_companion.yaml`) containing 2 high-efficiency template sensors (Active Media and 5-Day Weather Forecast).
+
+Choose whichever method matches your Home Assistant configuration:
+* **Option A: `packages/` Directory (Recommended)**:
+  Copy `homeassistant/packages/pocket_assistant_companion.yaml` into your Home Assistant `/config/packages/` directory.
+* **Option B: Split `templates.yaml`**:
+  If you organize template sensors via `template: !include templates.yaml` in `configuration.yaml`, copy the contents of the `template:` block from `pocket_assistant_companion.yaml` directly into your `templates.yaml`, and add the `input_text:` helpers to `configuration.yaml` (or `input_texts.yaml`).
+
+After adding the configuration, reload Template Entities under **Developer Tools -> YAML** (or restart Home Assistant).
+
+### 3. Music Assistant Setup
 1. Adopt the discovered `pocket-assistant` device under **Settings -> Devices & Services**.
-2. **Companion Package Setup**: Copy `homeassistant/packages/pocket_assistant_companion.yaml` into your Home Assistant `/config/packages/` directory (or include in `templates.yaml`) and reload Template Entities under **Developer Tools -> YAML**. This supplies the consolidated active media mirroring and 5-day weather forecast sensors.
-3. **Library Browsing Blueprint**: Import `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant (**Settings -> Automations & Scenes -> Blueprints**), create a script from it, and save it as `script.music_assistant_browse`.
+2. **Library Browsing Blueprint**: Import `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant (**Settings -> Automations & Scenes -> Blueprints**), create a script from it, and save it as `script.music_assistant_browse`.
 
 ---
 
@@ -116,27 +127,26 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 
 ---
 
-## Home Assistant Integration & Configuration
+## Home Assistant Backend Architecture
 
-### 1. Weather Configuration & Generalization
-Pocket Assistant supports any Home Assistant weather integration (Met.no, Pirate Weather, OpenWeatherMap, AccuWeather, NWS, etc.).
+Pocket Assistant uses a streamlined 2-sensor companion backend architecture designed to minimize database write volume, eliminate network polling overhead, and provide reliable local telemetry.
 
-* **Current Conditions & Live Atmospheric Telemetry**: The main weather view subscribes directly to your primary Home Assistant weather entity via the `weather_entity` substitution (default: `weather.forecast_home`). In your ESPHome node configuration (`pocket-assistant.yaml`), override `weather_entity` with your preferred weather entity:
-  ```yaml
-  substitutions:
-    name: "pocket-assistant"
-    friendly_name: "Pocket Assistant"
-    weather_entity: "weather.home"  # Set to your primary Home Assistant weather entity
-  ```
-* **5-Day Daily Forecast & High/Low Mirror**: Under modern Home Assistant architecture, weather entities retrieve forecast arrays via the `weather.get_forecasts` action rather than legacy state attributes. To supply the 5-day forecast view on Pocket Assistant, install the companion package (`homeassistant/packages/pocket_assistant_companion.yaml` or `pocket_assistant_weather_mirror.yaml`). This extracts daily high/low attributes and serialized 5-day forecast strings into:
-  * `sensor.pocket_assistant_weather_forecast` (state: 5-day forecast string, attributes: `high`, `low`).
-  * Controlled dynamically via `input_text.pocket_assistant_weather_entity`.
+### 1. Weather Telemetry & 5-Day Forecast Pipeline
+* **Dual Ingestion Architecture**:
+  * **Current Conditions**: The watch face and Sky & Weather app subscribe directly to your primary Home Assistant weather entity (`weather_entity`) for live temperature, humidity, pressure, and current condition state.
+  * **Daily & 5-Day Forecast**: Modern Home Assistant weather entities expose forecast arrays via the `weather.get_forecasts` action. The companion package fetches the daily forecast hourly (and on startup) and serializes it into `sensor.pocket_assistant_weather_forecast`:
+    * **State**: Semicolon-delimited 5-day forecast string (`DAY:HIGH:LOW:COND;...`).
+    * **Attributes**: Structured `high` and `low` floats for today's forecast.
+  * **Resilient On-Device Fallback**: If attribute updates are ever unavailable or reloading, Page 5 firmware automatically parses today's high and low directly from the forecast string, preventing display gaps.
+  * **Dynamic Entity Re-Targeting**: Change the monitored weather service on the fly without re-flashing firmware by updating `input_text.pocket_assistant_weather_entity`.
 
-### 2. Music Assistant Integration
-* **Active Speaker Mirror**: `homeassistant/packages/pocket_assistant_companion.yaml` (or `music_assistant_esphome_mirror.yaml`) mirrors media metadata into a single high-efficiency entity:
-  * `sensor.pocket_assistant_active_media` (state: playback state, attributes: `title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `art_url`).
-  * Controlled dynamically via `input_text.pocket_assistant_active_speaker`.
-* **Discovery & Browsing**: Import the script blueprint `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant to enable server-side pagination for speakers, favorites, playlists, artists, albums, radio, podcasts, and audiobooks.
+### 2. Active Media Mirror & Music Assistant Integration
+* **Consolidated Media Mirroring**: Active playback metadata is unified into a single companion entity, `sensor.pocket_assistant_active_media`:
+  * **State**: Playback state (`playing`, `paused`, `idle`).
+  * **Attributes**: `title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `art_url`.
+  * **Database Optimization**: Consolidating 9 separate legacy helper sensors into 1 attribute-rich entity cuts Home Assistant state database writes during active playback by 89% while delivering synchronous metadata packets to the device over the ESPHome native API.
+  * **Active Speaker Routing**: Dynamically follow any external media player by setting `input_text.pocket_assistant_active_speaker`.
+* **Server-Side Pagination Blueprint**: `homeassistant/blueprints/script/music_assistant_browse.yaml` offloads multi-megabyte JSON library queries from device memory to Home Assistant, returning paginated 4-item batches directly to on-screen interactive cards.
 
 ---
 
@@ -160,9 +170,7 @@ esphome-pocket-assistant/
     │   └── script/
     │       └── music_assistant_browse.yaml    # Script Blueprint for MA library browsing
     └── packages/
-        ├── pocket_assistant_companion.yaml     # Consolidated All-in-One HA package
-        ├── music_assistant_esphome_mirror.yaml # Standalone media mirror package
-        └── pocket_assistant_weather_mirror.yaml # Standalone weather mirror package
+        └── pocket_assistant_companion.yaml     # Consolidated Home Assistant companion package
 ```
 
 ---
