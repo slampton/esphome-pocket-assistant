@@ -1,6 +1,7 @@
 # ==============================================================================
-# 🪞 Home Assistant Companion Package: Music Assistant ESPHome Mirror Sensors
+# 🪞 Home Assistant Companion Package: Music Assistant Active Media Sensor
 # Mirror active speaker metadata, playback state, and album art for Pocket Assistant
+# Consolidated Single-Sensor Architecture (Release v1.2 Chunk 93)
 # ==============================================================================
 
 input_text:
@@ -19,58 +20,9 @@ template:
       - trigger: time_pattern
         seconds: "/2"
     sensor:
-      - name: "Pocket Assistant Target Title"
-        unique_id: pocket_assistant_target_title
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            Idle
-          {% else %}
-            {{ state_attr(target, 'media_title') | default('Idle', true) }}
-          {% endif %}
-
-      - name: "Pocket Assistant Target Artist"
-        unique_id: pocket_assistant_target_artist
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            None
-          {% else %}
-            {{ state_attr(target, 'media_artist') | default('None', true) }}
-          {% endif %}
-
-      - name: "Pocket Assistant Target Album"
-        unique_id: pocket_assistant_target_album
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            None
-          {% else %}
-            {{ state_attr(target, 'media_album_name') | default('None', true) }}
-          {% endif %}
-
-      - name: "Pocket Assistant Target Duration"
-        unique_id: pocket_assistant_target_duration
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            0
-          {% else %}
-            {{ state_attr(target, 'media_duration') | default(0, true) }}
-          {% endif %}
-
-      - name: "Pocket Assistant Target Position"
-        unique_id: pocket_assistant_target_position
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            0
-          {% else %}
-            {{ state_attr(target, 'media_position') | default(0, true) }}
-          {% endif %}
-
-      - name: "Pocket Assistant Target State"
-        unique_id: pocket_assistant_target_state
+      - name: "Pocket Assistant Active Media"
+        unique_id: pocket_assistant_active_media
+        icon: mdi:music
         state: >-
           {% set target = states('input_text.pocket_assistant_active_speaker') %}
           {% if not target or target in ['unknown', 'unavailable', ''] %}
@@ -78,54 +30,81 @@ template:
           {% else %}
             {{ states(target) | default('idle', true) }}
           {% endif %}
-
-      - name: "Pocket Assistant Target Volume"
-        unique_id: pocket_assistant_target_volume
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            0.7
-          {% else %}
-            {{ state_attr(target, 'volume_level') | default(0.7, true) }}
-          {% endif %}
-
-      - name: "Pocket Assistant Target Media Type"
-        unique_id: pocket_assistant_target_media_type
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', ''] %}
-            music
-          {% else %}
-            {% set cid = state_attr(target, 'media_content_id') | default('', true) %}
-            {% set ctype = state_attr(target, 'media_content_type') | default('', true) %}
-            {% if 'podcast' in cid or 'podcast' in ctype %}
-              podcast
-            {% elif 'audiobook' in cid or 'audiobook' in ctype %}
-              audiobook
+        attributes:
+          title: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              Idle
             {% else %}
-              music
+              {{ state_attr(target, 'media_title') | default('Idle', true) }}
             {% endif %}
-          {% endif %}
-
-      - name: "Pocket Assistant Target Art URL"
-        unique_id: pocket_assistant_target_art_url
-        state: >-
-          {% set target = states('input_text.pocket_assistant_active_speaker') %}
-          {% if not target or target in ['unknown', 'unavailable', '', 'media_player.pocket_assistant'] %}
-            none
-          {% else %}
-            {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
-            {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
-              {% if pic.startswith('http') %}
-                {{ pic }}
-              {% elif pic.startswith('/') %}
-                {% set custom_base = states('input_text.pocket_assistant_base_url') %}
-                {% set base = custom_base if custom_base and custom_base not in ['unknown', 'unavailable', ''] else 'http://homeassistant.local:8123' %}
-                {{ base.rstrip('/') ~ pic }}
+          artist: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              None
+            {% else %}
+              {{ state_attr(target, 'media_artist') | default('None', true) }}
+            {% endif %}
+          album: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              None
+            {% else %}
+              {{ state_attr(target, 'media_album_name') | default('None', true) }}
+            {% endif %}
+          duration: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              0
+            {% else %}
+              {{ state_attr(target, 'media_duration') | default(0, true) }}
+            {% endif %}
+          position: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              0
+            {% else %}
+              {{ state_attr(target, 'media_position') | default(0, true) }}
+            {% endif %}
+          volume: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              0.7
+            {% else %}
+              {{ state_attr(target, 'volume_level') | default(0.7, true) }}
+            {% endif %}
+          media_type: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              music
+            {% else %}
+              {% set cid = state_attr(target, 'media_content_id') | default('', true) %}
+              {% set ctype = state_attr(target, 'media_content_type') | default('', true) %}
+              {% if 'podcast' in cid or 'podcast' in ctype %}
+                podcast
+              {% elif 'audiobook' in cid or 'audiobook' in ctype %}
+                audiobook
+              {% else %}
+                music
+              {% endif %}
+            {% endif %}
+          art_url: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', '', 'media_player.pocket_assistant'] %}
+              none
+            {% else %}
+              {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
+              {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
+                {% if pic.startswith('http') %}
+                  {{ pic }}
+                {% elif pic.startswith('/') %}
+                  {% set custom_base = states('input_text.pocket_assistant_base_url') %}
+                  {% set base = custom_base if custom_base and custom_base not in ['unknown', 'unavailable', ''] else 'http://homeassistant.local:8123' %}
+                  {{ base.rstrip('/') ~ pic }}
+                {% else %}
+                  none
+                {% endif %}
               {% else %}
                 none
               {% endif %}
-            {% else %}
-              none
             {% endif %}
-          {% endif %}

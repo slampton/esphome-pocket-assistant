@@ -37,7 +37,7 @@ packages:
 
 ### 2. Home Assistant & Music Assistant Setup
 1. Adopt the discovered `pocket-assistant` device under **Settings -> Devices & Services**.
-2. **Music Metadata Mirroring**: Copy `homeassistant/packages/music_assistant_esphome_mirror.yaml` into your `/config/packages/` directory and reload Template Entities under **Developer Tools -> YAML**.
+2. **Companion Package Setup**: Copy `homeassistant/packages/pocket_assistant_companion.yaml` into your Home Assistant `/config/packages/` directory (or include in `templates.yaml`) and reload Template Entities under **Developer Tools -> YAML**. This supplies the consolidated active media mirroring and 5-day weather forecast sensors.
 3. **Library Browsing Blueprint**: Import `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant (**Settings -> Automations & Scenes -> Blueprints**), create a script from it, and save it as `script.music_assistant_browse`.
 
 ---
@@ -128,14 +128,14 @@ Pocket Assistant supports any Home Assistant weather integration (Met.no, Pirate
     friendly_name: "Pocket Assistant"
     weather_entity: "weather.home"  # Set to your primary Home Assistant weather entity
   ```
-* **5-Day Daily Forecast & High/Low Mirror**: Under modern Home Assistant architecture, weather entities retrieve forecast arrays via the `weather.get_forecasts` action rather than legacy state attributes. To supply the 5-day forecast view on Pocket Assistant, install the companion package (`homeassistant/packages/pocket_assistant_weather_mirror.yaml`) or create the corresponding update automation in Home Assistant. This extracts daily high/low and serialized 5-day forecast strings into:
-  * `sensor.pocket_assistant_weather_high`
-  * `sensor.pocket_assistant_weather_low`
-  * `sensor.pocket_assistant_weather_forecast_5d`
+* **5-Day Daily Forecast & High/Low Mirror**: Under modern Home Assistant architecture, weather entities retrieve forecast arrays via the `weather.get_forecasts` action rather than legacy state attributes. To supply the 5-day forecast view on Pocket Assistant, install the companion package (`homeassistant/packages/pocket_assistant_companion.yaml` or `pocket_assistant_weather_mirror.yaml`). This extracts daily high/low attributes and serialized 5-day forecast strings into:
+  * `sensor.pocket_assistant_weather_forecast` (state: 5-day forecast string, attributes: `high`, `low`).
   * Controlled dynamically via `input_text.pocket_assistant_weather_entity`.
 
 ### 2. Music Assistant Integration
-* **Active Speaker Mirror**: `homeassistant/packages/music_assistant_esphome_mirror.yaml` mirrors media metadata (title, artist, album, duration, position, volume, and art URL) from whichever speaker is selected in `input_text.pocket_assistant_active_speaker`.
+* **Active Speaker Mirror**: `homeassistant/packages/pocket_assistant_companion.yaml` (or `music_assistant_esphome_mirror.yaml`) mirrors media metadata into a single high-efficiency entity:
+  * `sensor.pocket_assistant_active_media` (state: playback state, attributes: `title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `art_url`).
+  * Controlled dynamically via `input_text.pocket_assistant_active_speaker`.
 * **Discovery & Browsing**: Import the script blueprint `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant to enable server-side pagination for speakers, favorites, playlists, artists, albums, radio, podcasts, and audiobooks.
 
 ---
@@ -160,8 +160,9 @@ esphome-pocket-assistant/
     │   └── script/
     │       └── music_assistant_browse.yaml    # Script Blueprint for MA library browsing
     └── packages/
-        ├── music_assistant_esphome_mirror.yaml # Drop-in HA helper & sensor package
-        └── pocket_assistant_weather_mirror.yaml # Companion HA weather mirror package
+        ├── pocket_assistant_companion.yaml     # Consolidated All-in-One HA package
+        ├── music_assistant_esphome_mirror.yaml # Standalone media mirror package
+        └── pocket_assistant_weather_mirror.yaml # Standalone weather mirror package
 ```
 
 ---

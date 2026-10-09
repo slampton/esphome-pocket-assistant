@@ -1,6 +1,7 @@
 # ==============================================================================
-# ⛅ Home Assistant Companion Package: Pocket Assistant Weather Mirror Sensors
+# ⛅ Home Assistant Companion Package: Pocket Assistant Weather Forecast Sensor
 # Extracts daily high/low and serialized forecast for Pocket Assistant ESPHome
+# Consolidated Single-Sensor Architecture (Release v1.2 Chunk 93)
 # ==============================================================================
 
 input_text:
@@ -29,34 +30,8 @@ template:
           type: daily
         response_variable: daily_forecast
     sensor:
-      - name: "Pocket Assistant Weather High"
-        unique_id: pocket_assistant_weather_high
-        state: >-
-          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
-          {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
-            {{ daily_forecast[target_weather]["forecast"][0]["temperature"] }}
-          {% elif state_attr(target_weather, "forecast") %}
-            {{ state_attr(target_weather, "forecast")[0]["temperature"] }}
-          {% else %}
-            {{ states("sensor.pocket_assistant_weather_high") }}
-          {% endif %}
-        unit_of_measurement: "°F"
-
-      - name: "Pocket Assistant Weather Low"
-        unique_id: pocket_assistant_weather_low
-        state: >-
-          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
-          {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
-            {{ daily_forecast[target_weather]["forecast"][0]["templow"] }}
-          {% elif state_attr(target_weather, "forecast") %}
-            {{ state_attr(target_weather, "forecast")[0]["templow"] }}
-          {% else %}
-            {{ states("sensor.pocket_assistant_weather_low") }}
-          {% endif %}
-        unit_of_measurement: "°F"
-
-      - name: "Pocket Assistant Weather Forecast 5D"
-        unique_id: pocket_assistant_weather_forecast_5d
+      - name: "Pocket Assistant Weather Forecast"
+        unique_id: pocket_assistant_weather_forecast
         state: >-
           {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
           {% set ns = namespace(items=[]) %}
@@ -78,3 +53,22 @@ template:
           {% else %}
             Unavailable
           {% endif %}
+        attributes:
+          high: >-
+            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+            {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+              {{ daily_forecast[target_weather]["forecast"][0]["temperature"] | default(70, true) }}
+            {% elif state_attr(target_weather, "forecast") %}
+              {{ state_attr(target_weather, "forecast")[0]["temperature"] | default(70, true) }}
+            {% else %}
+              70
+            {% endif %}
+          low: >-
+            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+            {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
+              {{ daily_forecast[target_weather]["forecast"][0]["templow"] | default(daily_forecast[target_weather]["forecast"][0]["temperature"], true) }}
+            {% elif state_attr(target_weather, "forecast") %}
+              {{ state_attr(target_weather, "forecast")[0]["templow"] | default(state_attr(target_weather, "forecast")[0]["temperature"], true) }}
+            {% else %}
+              50
+            {% endif %}

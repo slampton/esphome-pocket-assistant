@@ -4,7 +4,6 @@ substitutions:
   default_album_sort: "Alphabetical"
   default_artist_album_sort: "Oldest on Top"
   default_podcast_sort: "Newest on Top"
-  target_media_type_sensor: "sensor.pocket_assistant_target_media_type"
 
 globals:
   - id: hud_wake_finger_released
@@ -1503,22 +1502,26 @@ sensor:
 
   - platform: homeassistant
     id: ha_weather_high
-    entity_id: ${weather_high_sensor}
+    entity_id: ${weather_forecast_sensor}
+    attribute: high
     internal: true
 
   - platform: homeassistant
     id: ha_weather_low
-    entity_id: ${weather_low_sensor}
+    entity_id: ${weather_forecast_sensor}
+    attribute: low
     internal: true
 
 
   - platform: homeassistant
     id: ha_media_duration
-    entity_id: ${target_dur_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: duration
 
   - platform: homeassistant
     id: ha_media_position
-    entity_id: ${target_pos_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: position
     on_value:
       then:
         - lambda: |-
@@ -1528,7 +1531,8 @@ sensor:
 
   - platform: homeassistant
     id: ha_target_volume
-    entity_id: ${target_vol_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: volume
     on_value:
       then:
         - lambda: |-
@@ -1714,7 +1718,7 @@ text_sensor:
 
   - platform: homeassistant
     id: ha_weather_forecast_5d
-    entity_id: ${weather_forecast_5d_sensor}
+    entity_id: ${weather_forecast_sensor}
     internal: true
 
   - platform: homeassistant
@@ -1798,14 +1802,15 @@ text_sensor:
 
   - platform: homeassistant
     id: ha_target_state
-    entity_id: ${target_state_sensor}
+    entity_id: ${active_media_sensor}
     on_value:
       then:
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_track_title
-    entity_id: ${target_title_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: title
     on_value:
       then:
         - lambda: |-
@@ -1814,21 +1819,24 @@ text_sensor:
 
   - platform: homeassistant
     id: ha_track_artist
-    entity_id: ${target_artist_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: artist
     on_value:
       then:
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_track_album
-    entity_id: ${target_album_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: album
     on_value:
       then:
         - script.execute: throttled_disp_update
 
   - platform: homeassistant
     id: ha_target_media_type
-    entity_id: ${target_media_type_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: media_type
     on_value:
       then:
         - lambda: |-
@@ -1839,7 +1847,8 @@ text_sensor:
 
   - platform: homeassistant
     id: ha_target_art_url
-    entity_id: ${target_art_url_sensor}
+    entity_id: ${active_media_sensor}
+    attribute: art_url
     on_value:
       then:
         - if:
@@ -6559,6 +6568,24 @@ display:
           std::string cond = id(ha_weather_condition).state;
           float t_high = id(ha_weather_high).state;
           float t_low = id(ha_weather_low).state;
+          // Resilient fallback: If attribute states are NaN, extract today's high and low from forecast string
+          if ((std::isnan(t_high) || std::isnan(t_low)) && !fc_5d.empty()) {
+            std::string first_token = fc_5d.substr(0, fc_5d.find(';'));
+            size_t c1 = first_token.find(':');
+            if (c1 != std::string::npos) {
+              size_t c2 = first_token.find(':', c1 + 1);
+              if (c2 != std::string::npos) {
+                size_t c3 = first_token.find(':', c2 + 1);
+                if (std::isnan(t_high)) {
+                  try { t_high = std::stof(first_token.substr(c1 + 1, c2 - c1 - 1)); } catch (...) {}
+                }
+                if (std::isnan(t_low)) {
+                  std::string low_str = (c3 != std::string::npos) ? first_token.substr(c2 + 1, c3 - c2 - 1) : first_token.substr(c2 + 1);
+                  try { t_low = std::stof(low_str); } catch (...) {}
+                }
+              }
+            }
+          }
 
           std::string s_state = id(ha_sun_state).state;
           bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
