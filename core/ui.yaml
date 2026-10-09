@@ -6018,7 +6018,7 @@ display:
             snprintf(sleep_labels[4], sizeof(sleep_labels[4]), "Dock Inact: %s", id(screensaver_docked_timeout).current_option().c_str());
             snprintf(sleep_labels[5], sizeof(sleep_labels[5]), "Screen Off: %s", id(display_off_timeout).current_option().c_str());
             snprintf(sleep_labels[6], sizeof(sleep_labels[6]), "Stay Awake: %s", id(prevent_deep_sleep_switch).state ? "On" : "Off");
-            snprintf(sleep_labels[7], sizeof(sleep_labels[7]), "Auto-Hibernate: %s", id(sleep_timeout_mode).current_option().c_str());
+            snprintf(sleep_labels[7], sizeof(sleep_labels[7]), "Auto-Hibernate: %s", id(hibernate_timeout_mode).current_option().c_str());
             last_sleep_label_time = millis();
           }
 
@@ -6141,9 +6141,9 @@ display:
           // Slot 0: Hibernate Now
           draw_menu_slot_card(0, "Hibernate Now");
 
-          // Slot 1: Auto-Sleep Timeout Cycler
+          // Slot 1: Auto-Hibernate Timeout Cycler
           char s_buf[32];
-          std::string cur_s = id(sleep_timeout_mode).current_option();
+          std::string cur_s = id(hibernate_timeout_mode).current_option();
           snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
           draw_menu_slot_card(1, s_buf);
 
@@ -8744,8 +8744,8 @@ touchscreen:
                     id(disp1).update();
                   } else if (idx == 7) {
                     // Slot 8 (Page 2): Auto-Hibernate Timeout Cycler
-                    std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
-                    auto call = id(sleep_timeout_mode).make_call();
+                    std::string cur = std::string(id(hibernate_timeout_mode).current_option().c_str());
+                    auto call = id(hibernate_timeout_mode).make_call();
                     call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
                     call.perform();
                     id(disp1).update();
@@ -8925,9 +8925,9 @@ touchscreen:
                     id(start_hibernation_countdown).execute();
                     return;
                   } else if (slot == 1) {
-                    // Card 2: Auto-Sleep Timeout Cycler (Slot 1, y = 162)
-                    std::string cur = std::string(id(sleep_timeout_mode).current_option().c_str());
-                    auto call = id(sleep_timeout_mode).make_call();
+                    // Card 2: Auto-Hibernate Timeout Cycler (Slot 1, y = 162)
+                    std::string cur = std::string(id(hibernate_timeout_mode).current_option().c_str());
+                    auto call = id(hibernate_timeout_mode).make_call();
                     call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
                     call.perform();
                     id(disp1).update();

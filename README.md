@@ -68,17 +68,19 @@ After adding the configuration, reload Template Entities under **Developer Tools
 * **Hardware & Touch Dismissal**: Physical side button immediately halts and mutes an active voice session; full-screen touch modal interception allows tapping the glass to dismiss without triggering background app controls.
 
 ### Multi-Tier Power Management
-* **Tier 1 (Active)**: Full 40MHz QSPI AMOLED rendering and sensor polling.
-* **Tier 2 (Display Standby)**: Screen turns off after an inactivity timeout (default 15s on battery), powering down the speaker amplifier and gyroscope while keeping the accelerometer active. Wakes in under 50ms upon physical pickup or top crown click.
-* **Tier 3 (Deep Sleep Hibernation)**: Enters ultra-low-power sleep (<50µA) via deliberate crown long-press (>1.5s with a 5-second abortable countdown) or extended standby inactivity. Hardware pad holds isolate display, touch, and amplifier lines to eliminate battery drain.
-* **Docked Screensaver Mode**: When connected to USB-C power, the device can optionally run an ambient screensaver (defaulting to the kinetic Aurora Borealis plasma ribbon) without entering deep sleep.
+* **Tier 1 (Active)**: High-performance 40MHz Quad-SPI AMOLED rendering, real-time sensor processing, and capacitive touch interaction.
+* **Tier 2 (Display Standby)**: Screen turns off after an inactivity timeout (default 15s on battery), powering down the speaker amplifier and gyroscope while keeping motion wake armed. Wakes in <5ms via hardware PMU interrupt (GPIO3) upon crown button press, or upon physical pickup.
+* **Tier 3 (Deep Sleep Hibernation)**: Enters ultra-low-power sleep (<40µA) via deliberate crown long-press (>1.5s with a 5-second abortable countdown) or extended standby inactivity. The AXP2101 PMIC cuts all peripheral power rails, while the side button is completely decoupled to prevent accidental wake in pockets. Wakes exclusively via the top crown hardware pin.
+* **Docked Screensaver Mode**: When connected to USB-C power, the device can optionally run an ambient screensaver (kinetic Aurora Borealis plasma ribbon, Ambient Clock, Starfield, Matrix Rain, or Solar Flare) without entering sleep.
 
 ### Graphics & System Engine
 * **High-Throughput QSPI Bus**: 40MHz Quad-SPI display interface pushes full 466×466 frames in ~12ms, maintaining over 88% CPU idle headroom.
 * **Zero-Dead-Zone Touch Handling**: Continuous touch boundary tessellation across the entire round screen prevents dropped taps and misdirected inputs.
 * **Touch Priority Yielding**: Hardware touch interrupt pin (GPIO11) is monitored during rendering; display redraws yield instantly when a touch is detected, eliminating input latency.
 * **Radial OTA Progress Indicator**: Full-screen 360° circular progress arc with smooth 10 FPS interpolation and an orbiting pip during firmware updates.
-* **Integrated Apps**: Vintage Heuer-inspired split-lap chronograph stopwatch with mechanical crown pusher latency compensation, modern watch face with vertical battery gauge, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with buffered hero temp, balanced 5-Day aligned forecast, lowered Sun arc with daytime marker, and high-contrast lunar telemetry Moon view), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with edge-to-edge paddle defense), Countdown Timer & Multi-Alarm Suite (circular dial stepper interface, local RTC/millis countdown, Home Assistant Voice Assistant integration, recurring alarms for weekdays vs. weekends, 5-minute crown button snooze, and radial perimeter progress and alert strobe arcs), and a 2-tier hierarchical system diagnostic hub.
+* **Precision 10 FPS Stopwatch (Page 1)**: Horological split-lap chronograph inspired by vintage Heuer and Speedmaster timepieces, featuring a high-contrast matte black AMOLED dial, faceted stainless steel pointer, machined piston pushers, Rattrapante split ghost hand, and a guaranteed 55ms CPU idle window per cycle for zero-latency touch responsiveness.
+* **Customizable App Deck & Hierarchical System Hub (Page 4)**: 8-button balanced 2x4 system dashboard with dedicated submenus for Display, Clock & Time, Sleep & Wake, Audio, Voice, App Deck, and System Diagnostics. The App Deck submenu allows toggling visibility and default start application for all apps on-device.
+* **Integrated Apps Suite**: Modern watch face with complication format toggling, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with realistic daylight sky and night starfield, 5-day aligned forecast, Sun arc, and lunar telemetry Moon view), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with paddle defense), and Countdown Timer & Multi-Alarm Suite with local RTC countdown and crown snooze.
 
 ---
 
@@ -111,19 +113,21 @@ To eliminate volume fighting between Home Assistant sliders and physical hardwar
 | :--- | :--- | :--- |
 | **Top Crown (Short Click)** | Alarm Ringing | Snoozes alarm for 5 minutes. |
 | **Top Crown (Short Click)** | Timer Ringing | Dismisses timer alert. |
-| **Top Crown (Short Click)** | Standby (Screen Off) | Wakes display to active brightness. |
-| **Top Crown (Short Click)** | Stopwatch Page | Mechanical chronograph Start / Stop (with 200ms latency compensation). |
+| **Top Crown (Short Click)** | Standby (Screen Off) | Instant hardware interrupt wake (<5ms) to active brightness. |
+| **Top Crown (Short Click)** | Stopwatch Page | Starts or stops the chronograph timer. |
 | **Top Crown (Short Click)** | Timer Page | Toggles Timer Start / Pause / Resume. |
 | **Top Crown (Short Click)** | Submenus / Overlays / Games | Back / Exit to parent application. |
 | **Top Crown (Short Click)** | Main App Pages | Enters screen standby immediately. |
-| **Top Crown (Long Press >1.5s)** | Any Screen | Starts 5-second abortable Hibernation Countdown. |
-| **Side Button (Click)** | Normal / Standby | Activates Voice Assistant (listening mode). |
+| **Top Crown (Long Press >1.5s)** | Any Screen | Starts 5-second abortable Hibernation Countdown (or instant hibernate if configured). |
+| **Side Button (Click)** | Normal / Standby | Activates Voice Assistant (listening mode), or fires in-game action. |
 | **Side Button (Click)** | Voice Assistant Active | Cancels Voice Assistant immediately and mutes audio. |
+| **Screen Tap (Upper 70%)** | Stopwatch Page | Start / Stop toggle with generous zero-deadzone touch envelope. |
+| **Screen Tap (Lower Quadrants)** | Stopwatch Page | Left quadrant: LAP (Rattrapante ghost hand); Right quadrant: RESET. |
 | **Screen Tap (Center)** | Music Player | Toggles Play / Pause. |
 | **Screen Tap (Right Flank)** | Music Player | Volume Up (+, top right), Volume Down (-, bottom right), Next Track (▶\|, middle right). |
 | **Screen Tap (Left Flank)** | Music Player | Previous Track (\|◀, middle left), Music Menu (☰, bottom left). |
-| **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 system-sized pill buttons ([ Current | Forecast ] / [ Sun | Moon ]), central screen tap cycles sequentially through all 4 views (Current $\rightarrow$ Forecast $\rightarrow$ Sun $\rightarrow$ Moon), and upper-right night sky Moon shortcut. |
-| **Bottom Bar (< / >)** | Main App Pages | Navigates through app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ System $\leftrightarrow$ Sky & Weather $\leftrightarrow$ Timer & Alarm). |
+| **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 pill buttons ([ Current \| Forecast ] / [ Sun \| Moon ]), central screen tap cycles sequentially through all 4 views, and upper-right celestial shortcut. |
+| **Bottom Bar (< / >)** | Main App Pages | Navigates through active app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ System $\leftrightarrow$ Sky & Weather $\leftrightarrow$ Timer & Alarm). |
 
 ---
 

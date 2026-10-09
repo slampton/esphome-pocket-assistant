@@ -263,11 +263,11 @@ select:
 
   - platform: template
     name: "Power: Hibernate Timeout"
-    id: sleep_timeout_mode
+    id: hibernate_timeout_mode
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "15 min"
+    initial_option: "10 min"
     options:
       - "5 min"
       - "10 min"
@@ -299,7 +299,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Always On"
+    initial_option: "Docked Only"
     options:
       - "Always On"
       - "Docked Only"
@@ -331,13 +331,13 @@ interval:
           }
 
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
-          uint32_t sleep_timeout_ms = 900000; // default 15 min
-          std::string st_opt = std::string(id(sleep_timeout_mode).current_option().c_str());
+          uint32_t hibernate_timeout_ms = 600000; // default 10 min
+          std::string st_opt = std::string(id(hibernate_timeout_mode).current_option().c_str());
           bool auto_sleep_enabled = true;
-          if (st_opt == "5 min") sleep_timeout_ms = 300000;
-          else if (st_opt == "10 min") sleep_timeout_ms = 600000;
-          else if (st_opt == "15 min") sleep_timeout_ms = 900000;
-          else if (st_opt == "30 min") sleep_timeout_ms = 1800000;
+          if (st_opt == "5 min") hibernate_timeout_ms = 300000;
+          else if (st_opt == "10 min") hibernate_timeout_ms = 600000;
+          else if (st_opt == "15 min") hibernate_timeout_ms = 900000;
+          else if (st_opt == "30 min") hibernate_timeout_ms = 1800000;
           else if (st_opt == "Disabled") auto_sleep_enabled = false;
 
           if (auto_sleep_enabled &&
@@ -355,7 +355,7 @@ interval:
               !id(announcement_mixing_input).is_running() &&
               (id(active_game) == 0) &&
               id(sleep_start_time) > 0 &&
-              (millis() - id(sleep_start_time) >= sleep_timeout_ms)) {
+              (millis() - id(sleep_start_time) >= hibernate_timeout_ms)) {
             ESP_LOGI("power", "Inactivity with screen off exceeded %s: starting hibernation countdown", st_opt.c_str());
             id(start_hibernation_countdown).execute();
           }
@@ -690,13 +690,27 @@ script:
       - light.turn_on: display_brightness
       - component.update: disp1
       - lambda: |-
-          // Keep "HIBERNATING..." on screen while user is holding button (up to 3.0s)
+          // Wait for Top Crown Button (AXP2101 PEK) to be released (up to 3.0s) so PMIC does not immediately re-power on
           int guard = 0;
-          while (gpio_get_level(GPIO_NUM_0) == 0 && guard < 200) {
-            esp_rom_delay_us(15000);
+          while (guard < 150) {
+            uint8_t clr_all[2] = {0x48, 0xFF};
+            id(bus_internal).write(0x34, clr_all, 2);
+            clr_all[0] = 0x49;
+            id(bus_internal).write(0x34, clr_all, 2);
+            clr_all[0] = 0x4A;
+            id(bus_internal).write(0x34, clr_all, 2);
+
+            uint8_t irq_c = 0x49;
+            uint8_t val_c = 0;
+            if (id(bus_internal).write_readv(0x34, &irq_c, 1, &val_c, 1) == esphome::i2c::ERROR_OK) {
+              if ((val_c & 0x0C) == 0 && gpio_get_level(GPIO_NUM_3) == 1) {
+                break;
+              }
+            }
+            esp_rom_delay_us(20000);
             guard++;
           }
-          esp_rom_delay_us(150000);
+          esp_rom_delay_us(100000);
       - delay: 500ms  # Ensure visual confirmation is cleanly perceived
       - lambda: |-
           id(is_hibernating) = false;
@@ -724,21 +738,28 @@ script:
           uint8_t es7210_pwr[2] = {0x00, 0xFF};
           id(bus_internal).write(0x40, es7210_pwr, 2);
 
-          // 4. Force Speaker Power Amplifier Enable (GPIO46) firmly LOW
+          // 4. Force Speaker Power Amplifier Enable (GPIO46) firmly LOW and hold
           gpio_set_direction(GPIO_NUM_46, GPIO_MODE_OUTPUT);
           gpio_set_level(GPIO_NUM_46, 0);
+          gpio_hold_en(GPIO_NUM_46);
 
-          // 5. Force Display CS (GPIO12) firmly HIGH (deselected)
+          // 5. Force Display CS (GPIO12) firmly HIGH (deselected) and hold
           gpio_set_direction(GPIO_NUM_12, GPIO_MODE_OUTPUT);
           gpio_set_level(GPIO_NUM_12, 1);
+          gpio_hold_en(GPIO_NUM_12);
 
-          // 6. Put Display Controller (CO5300) into Hardware Reset (GPIO1 LOW)
+          // 6. Put Display Controller (CO5300) into Hardware Reset (GPIO1 LOW) and hold
           gpio_set_direction(GPIO_NUM_1, GPIO_MODE_OUTPUT);
           gpio_set_level(GPIO_NUM_1, 0);
+          gpio_hold_en(GPIO_NUM_1);
 
-          // 7. Put Touch Controller (CST9217) into Hardware Reset (GPIO2 LOW)
+          // 7. Put Touch Controller (CST9217) into Hardware Reset (GPIO2 LOW) and hold
           gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
           gpio_set_level(GPIO_NUM_2, 0);
+          gpio_hold_en(GPIO_NUM_2);
+
+          // Enable deep sleep pad holds across all held GPIOs
+          gpio_deep_sleep_hold_en();
 
           // 8. Command AXP2101 PMIC to POWER OFF all system voltage rails (DCDC & LDOs)
           // Writing bit 0 of Register 0x10 (0x01) initiates immediate PMU hardware shutdown (<40µA).
