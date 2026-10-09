@@ -3578,13 +3578,9 @@ display:
         }
       }
 
-      if (!id(display_brightness).current_values.is_on() || id(display_power_state) == 2) {
-        it.fill(id(col_bg));
-        return;
-      }
-
       // ==========================================
       // GLOBAL OVERLAY: HIBERNATION SHUTDOWN (Zero Outer Rings, Minimalist Dark Canvas)
+      // Top priority: Always render countdown & confirmation even if screen was previously asleep
       // ==========================================
       if (id(is_hibernating)) {
         it.fill(id(col_bg));
@@ -3599,6 +3595,11 @@ display:
           it.print(cx, cy - 10, id(font_date), id(theme_primary), TextAlign::CENTER, "HIBERNATING");
           it.print(cx, cy + 30, id(font_small), id(col_slate), TextAlign::CENTER, "Shutting down...");
         }
+        return;
+      }
+
+      if (!id(display_brightness).current_values.is_on() || id(display_power_state) == 2) {
+        it.fill(id(col_bg));
         return;
       }
 
@@ -7667,9 +7668,7 @@ touchscreen:
                 // Touch on glass aborts 5-second countdown only (instant hibernate is unabortable)
                 id(is_hibernating) = false;
                 id(hibernate_countdown_val) = 0;
-                id(sleep_start_time) = millis();
-                id(screen_sleep_timer).execute();
-                id(disp1).update();
+                id(wake_to_active_state).execute();
               }
               return;
             }

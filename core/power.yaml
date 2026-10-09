@@ -445,9 +445,7 @@ script:
                   // Crown press aborts 5-second countdown immediately!
                   id(is_hibernating) = false;
                   id(hibernate_countdown_val) = 0;
-                  id(sleep_start_time) = millis();
-                  id(screen_sleep_timer).execute();
-                  id(disp1).update();
+                  id(wake_to_active_state).execute();
                 }
                 return;
               }
@@ -664,12 +662,14 @@ script:
           id(hibernate_countdown_val) = 0;
           id(is_hibernating) = true;
           id(active_game) = 0;
+          id(display_power_state) = 0; // Force ACTIVE so confirmation displays when screen was sleeping
       - voice_assistant.stop:
       - media_player.pause: pocket_music_player
       - audio_dac.mute_on: es8311_dac
       - switch.turn_off: speaker_enable
       - script.stop: screen_sleep_timer
       - light.turn_on: display_brightness
+      - script.execute: sync_display_brightness
       - component.update: disp1
       - delay: 1000ms
       - script.execute: enter_deep_sleep
@@ -681,12 +681,14 @@ script:
           id(hibernate_countdown_val) = 5;
           id(is_hibernating) = true;
           id(active_game) = 0;
+          id(display_power_state) = 0; // Force ACTIVE so countdown displays when screen was sleeping
       - voice_assistant.stop:
       - media_player.pause: pocket_music_player
       - audio_dac.mute_on: es8311_dac
       - switch.turn_off: speaker_enable
       - script.stop: screen_sleep_timer
       - light.turn_on: display_brightness
+      - script.execute: sync_display_brightness
       - component.update: disp1
       - repeat:
           count: 5
@@ -719,6 +721,7 @@ script:
           id(is_locked) = false;
           id(active_game) = 0;
           id(is_hibernating) = true;
+          id(display_power_state) = 0; // Force ACTIVE so confirmation displays when screen was sleeping
           if (!isnan(id(batt_level).state) && id(batt_level).state > 0.0f) {
             id(saved_battery_level) = id(batt_level).state;
           }
@@ -728,6 +731,7 @@ script:
       - switch.turn_off: speaker_enable
       - script.stop: screen_sleep_timer
       - light.turn_on: display_brightness
+      - script.execute: sync_display_brightness
       - component.update: disp1
       - lambda: |-
           // Wait for Top Crown Button (AXP2101 PEK) to be released (up to 3.0s) so PMIC does not immediately re-power on
@@ -754,6 +758,7 @@ script:
       - delay: 500ms  # Ensure visual confirmation is cleanly perceived
       - lambda: |-
           id(is_hibernating) = false;
+          id(display_power_state) = 2; // Set SCREEN_OFF immediately prior to rail cutoff
       - light.turn_off: display_brightness
       - component.update: disp1  # Flush all-black frame to AMOLED panel
       - delay: 250ms  # Ensure QSPI frame buffer and brightness 0 are fully flushed before CPU sleep
