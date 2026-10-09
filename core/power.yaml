@@ -43,18 +43,12 @@ globals:
     restore_value: no
     initial_value: '1' # 0 = Telemetry Dashboard, 1 = Settings Submenu
 
-binary_sensor:
-  - platform: gpio
-    pin:
-      number: GPIO3
-      mode: INPUT_PULLUP
-      inverted: true
-    id: pmu_irq_pin
-    internal: true
-    on_press:
-      then:
-        - script.execute: handle_crown_button_press
+  - id: saved_battery_level
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
 
+binary_sensor:
   - platform: template
     name: "USB Power Connected"
     id: usb_connected
@@ -132,19 +126,58 @@ sensor:
       uint8_t pct = 0;
       if (id(bus_internal).write_readv(0x34, &reg, 1, &pct, 1) == esphome::i2c::ERROR_OK) {
         if (pct <= 100) {
+          float raw = (float)pct;
+
+          // Read hardware charge status from PMU Status 2 (REG 01H)
           uint8_t reg1 = 0x01;
           uint8_t stat1 = 0;
+          bool is_chg_done = false;
           if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
             uint8_t chg_state = stat1 & 0x07;
-            // 1. Hardware charge complete (chg_state == 4: Charge Done)
-            if (chg_state == 4) return 100.0f;
-            // 2. Saturated CV float: USB connected, >= 99% Coulomb count, and cell >= 4.18V
-            float v_bat = id(batt_voltage).state;
-            if (pct >= 99 && id(usb_connected).state && !isnan(v_bat) && v_bat >= 4.18f) {
-              return 100.0f;
+            if (chg_state == 4) is_chg_done = true; // State 4: Charge Done
+          }
+
+          static float filtered_pct = -1.0f;
+          float v_bat = id(batt_voltage).state;
+
+          // 1. Initial boot / wake seeding:
+          // When waking from Tier 3 Hibernate on battery power, bridge the boot inrush voltage sag (40-60mV / 3-4%):
+          // If saved pre-sleep level is valid and raw is within 5% of saved (and cell voltage >= 3.6V), seed from saved!
+          if (filtered_pct < 0.0f) {
+            float saved = id(saved_battery_level);
+            if (saved > 0.0f && saved <= 100.0f && fabsf(raw - saved) <= 5.0f && !id(usb_connected).state && (isnan(v_bat) || v_bat >= 3.60f)) {
+              filtered_pct = saved;
+            } else {
+              filtered_pct = raw;
             }
           }
-          return (float)pct;
+
+          // 2. Hardware Charge Done: when charger completes cycle, clamp to 100%
+          if (is_chg_done) {
+            filtered_pct = 100.0f;
+            return 100.0f;
+          }
+
+          // 3. Monotonic rate-limited smoothing
+          if (id(usb_connected).state) {
+            // Charging on USB: Monotonic non-decreasing, advance smoothly by at most 1% per 5s reading
+            if (raw > filtered_pct) {
+              filtered_pct = std::min(filtered_pct + 1.0f, raw);
+            } else if (raw < filtered_pct - 3.0f) {
+              // Only drop if raw dropped substantially (>3%) indicating heavy load or charger disconnect
+              filtered_pct = std::max(filtered_pct - 1.0f, raw);
+            }
+          } else {
+            // Discharging on battery: Monotonic non-increasing
+            // Never jump UP while running on battery power!
+            if (raw < filtered_pct) {
+              filtered_pct = std::max(filtered_pct - 1.0f, raw);
+            }
+            // If raw reads higher (e.g. screen slept, CPU idle, cell voltage recovered), hold steady
+          }
+
+          filtered_pct = std::max(0.0f, std::min(100.0f, filtered_pct));
+          return filtered_pct;
         }
       }
       return {};
@@ -360,23 +393,27 @@ interval:
             id(start_hibernation_countdown).execute();
           }
 
-          // 1 Hz safety poll: if an IRQ occurred but GPIO3 interrupt was missed
-          uint8_t irq_chk = 0x49;
-          uint8_t irq_stat = 0;
-          if (id(bus_internal).write_readv(0x34, &irq_chk, 1, &irq_stat, 1) == esphome::i2c::ERROR_OK) {
-            if (irq_stat & 0x0C) {
-              id(handle_crown_button_press).execute();
-            }
-          }
-
-  - interval: 100ms
+  - interval: 50ms
     then:
       - lambda: |-
           // High-refresh animation loop for active screensavers when docked (10 FPS)
-          if (id(display_power_state) == 1) {
-            std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
-            if (s_style != "Ambient Clock") {
-              id(disp1).update();
+          static uint8_t anim_div = 0;
+          if (++anim_div >= 2) {
+            anim_div = 0;
+            if (id(display_power_state) == 1) {
+              std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
+              if (s_style != "Ambient Clock") {
+                id(disp1).update();
+              }
+            }
+          }
+
+          // High-cadence 20 Hz poll for Top Crown Button (AXP2101 PEK Short/Long Press)
+          uint8_t irq_reg = 0x49;
+          uint8_t irq_val = 0;
+          if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
+            if (irq_val & 0x0C) {
+              id(handle_crown_button_press).execute();
             }
           }
 
@@ -682,6 +719,9 @@ script:
           id(is_locked) = false;
           id(active_game) = 0;
           id(is_hibernating) = true;
+          if (!isnan(id(batt_level).state) && id(batt_level).state > 0.0f) {
+            id(saved_battery_level) = id(batt_level).state;
+          }
       - voice_assistant.stop:
       - media_player.pause: pocket_music_player
       - audio_dac.mute_on: es8311_dac
@@ -703,7 +743,7 @@ script:
             uint8_t irq_c = 0x49;
             uint8_t val_c = 0;
             if (id(bus_internal).write_readv(0x34, &irq_c, 1, &val_c, 1) == esphome::i2c::ERROR_OK) {
-              if ((val_c & 0x0C) == 0 && gpio_get_level(GPIO_NUM_3) == 1) {
+              if ((val_c & 0x0C) == 0) {
                 break;
               }
             }
