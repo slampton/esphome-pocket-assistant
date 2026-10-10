@@ -10,6 +10,13 @@ A local-first handheld companion and media remote for Home Assistant and Music A
 
 Pocket Assistant started as a personal home lab project to explore what is possible when pairing modern ESP32-S3 hardware with Home Assistant, Music Assistant, and ESPHome. Rather than acting as a passive sensor display or an audio satellite alone, it combines local playback, multi-room queue transfer and group management, interactive 5-slot library browsing, Voice Assistant support, and power-efficient sleep states in a circular handheld form factor.
 
+<img width="30%" alt="clock" src="https://github.com/user-attachments/assets/abdd0e28-8108-4c94-8e7a-bb57b551cb2b" />
+<img width="30%" alt="voice" src="https://github.com/user-attachments/assets/ea6c7aa3-625c-4e8e-b9ac-3aea752844f8" />
+<img width="30%" alt="music" src="https://github.com/user-attachments/assets/f65e9f1b-d211-4396-bcd0-2b36597e6f77" />
+<img width="30%" alt="weather" src="https://github.com/user-attachments/assets/03a5e563-834b-4627-8146-005888f30950" />
+<img width="30%" alt="games" src="https://github.com/user-attachments/assets/4deb32e4-7dae-4d46-b03a-886e50cb91d1" />
+<img width="30%" alt="timer" src="https://github.com/user-attachments/assets/0445a944-c109-455b-9d47-b5cad09d6276" />
+
 ---
 
 ## Quick Start & Installation
