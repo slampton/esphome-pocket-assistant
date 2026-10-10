@@ -6359,36 +6359,36 @@ display:
           id(font_small)->measure("Pocket Assistant v1.2", &text_w, &x_off, &base, &text_h);
           const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 96;
 
-          // Line 1 (y = 86): Pocket Assistant Version (Matching Main System Page)
-          snprintf(buf, sizeof(buf), "Pocket Assistant v${version}");
+          // Line 1 (y = 86): IP Address
+          snprintf(buf, sizeof(buf), "IP: %s", ip_str.c_str());
           it.print(info_x, 86, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 2 (y = 122): IP Address
-          snprintf(buf, sizeof(buf), "IP: %s", ip_str.c_str());
+          // Line 2 (y = 122): Wi-Fi Signal
+          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
           it.print(info_x, 122, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 3 (y = 158): Wi-Fi Signal
-          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
+          // Line 3 (y = 158): Temperature (Dual C & F)
+          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
           it.print(info_x, 158, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 4 (y = 194): Temperature (Dual C & F)
-          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
+          // Line 4 (y = 194): 6-Axis Orientation: Gyroscope Roll & Pitch
+          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
           it.print(info_x, 194, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 5 (y = 230): 6-Axis Orientation: Gyroscope Roll & Pitch
-          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
+          // Line 5 (y = 230): 3-Axis Acceleration (G-force)
+          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
           it.print(info_x, 230, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 6 (y = 266): 3-Axis Acceleration (G-force)
-          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
+          // Line 6 (y = 266): Battery Fuel Gauge & Power
+          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
           it.print(info_x, 266, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 7 (y = 302): Battery Fuel Gauge & Power
-          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
+          // Line 7 (y = 302): Hardware Platform & Memory
+          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free", free_heap);
           it.print(info_x, 302, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
-          // Line 8 (y = 338): Hardware Platform & Memory
-          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free", free_heap);
+          // Line 8 (y = 338): Pocket Assistant Version
+          snprintf(buf, sizeof(buf), "Pocket Assistant v");
           it.print(info_x, 338, id(font_small), id(col_white), TextAlign::LEFT, buf);
 
           // Bottom Button: Standardized < BACK (y = 408, r = 16)
