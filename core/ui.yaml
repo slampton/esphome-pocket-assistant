@@ -3001,7 +3001,7 @@ script:
     then:
       - delay: 0ms
       - lambda: |-
-          id(remote_action_feedback) = "Power Off";
+          id(remote_action_feedback) = "Toggle Power";
           id(remote_feedback_timer) = millis();
       - homeassistant.action:
           action: remote.send_command
@@ -7790,11 +7790,11 @@ display:
         }
       } else if (id(gui_page) == 7) {
         // ==============================================================================
-        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL
+        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (REVISED SYMMETRY & COMPACT HEADER)
         // ==============================================================================
         if (id(remote_power_confirm)) {
           // --------------------------------------------------
-          // VIEW: POWER OFF CONFIRMATION MODAL
+          // VIEW: POWER TOGGLE CONFIRMATION MODAL
           // Standard Dual-Action Dialog matching System Mode 4
           // --------------------------------------------------
           it.filled_circle(cx, cy, 210, id(col_dark_gray));
@@ -7807,36 +7807,32 @@ display:
           it.line(cx - 3, 85, cx + 3, 85, id(col_black));
           it.line(cx, 85, cx, 94, id(col_red));
 
-          it.print(cx, 135, id(font_date), id(theme_primary), TextAlign::CENTER, "POWER OFF TV?");
-          it.print(cx, 172, id(font_small), id(col_white), TextAlign::CENTER, "Turn off TV / Receiver");
+          it.print(cx, 135, id(font_date), id(theme_primary), TextAlign::CENTER, "TOGGLE POWER?");
+          it.print(cx, 172, id(font_small), id(col_white), TextAlign::CENTER, "Send power command to TV");
 
           // Standard Dual-Action Confirmation Buttons (y = 230, r = 20)
-          draw_confirmation_buttons(230, "Cancel", "Power Off", id(col_red));
+          draw_confirmation_buttons(230, "Cancel", "Toggle", id(col_red));
         } else {
           // --------------------------------------------------
           // MAIN REMOTE CONTROL INTERFACE
+          // Standard Compact Music Typography: Title at y=50, Subtitle at y=74
+          // Tapping header triggers Power Toggle with Confirmation
           // --------------------------------------------------
-          // Top Header / Toast Feedback at y = 36
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "REMOTE");
+
           bool is_fb = (millis() - id(remote_feedback_timer) < 1500 && !id(remote_action_feedback).empty());
           if (is_fb) {
-            it.print(cx, 36, id(font_small), id(theme_primary), TextAlign::CENTER, id(remote_action_feedback).c_str());
+            it.print(cx, 74, id(font_small), id(theme_primary), TextAlign::CENTER, id(remote_action_feedback).c_str());
           } else {
-            it.print(cx, 36, id(font_small), id(col_white), TextAlign::CENTER, "TV REMOTE");
+            it.print(cx, 74, id(font_small), id(theme_secondary), TextAlign::CENTER, "Television");
           }
 
-          // Top Center Power Button (cx = 233, y = 68, r = 18)
-          it.filled_circle(cx, 68, 18, id(col_dark_gray));
-          it.circle(cx, 68, 18, id(col_red));
-          // Power glyph
-          it.circle(cx, 68, 9, id(col_red));
-          it.line(cx - 2, 59, cx + 2, 59, id(col_dark_gray));
-          it.line(cx, 59, cx, 68, id(col_red));
-
-          // Flank Buttons matching Music Player dimensions (left: 71, right: 395)
+          // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
+          // Upper Pair: y = 140. Lower Pair: y = 326. Left: x = 71. Right: x = 395.
           const int left_fx = 71;
           const int right_fx = 395;
           const int top_fy = 140;
-          const int btm_fy = 284;
+          const int btm_fy = 326;
           const int f_r = 18;
 
           // 1. HOME: Top-Left (71, 140)
@@ -7852,7 +7848,7 @@ display:
           it.filled_rectangle(right_fx - 7, top_fy - 1, 15, 3, id(col_white));
           it.filled_rectangle(right_fx - 1, top_fy - 7, 3, 15, id(col_white));
 
-          // 3. BACK: Bottom-Left (71, 284)
+          // 3. BACK: Bottom-Left (71, 326) - LOWERED FOR RADIAL SYMMETRY
           it.filled_circle(left_fx, btm_fy, f_r, id(col_dark_gray));
           it.circle(left_fx, btm_fy, f_r, id(col_gray));
           it.line(left_fx + 3, btm_fy - 7, left_fx - 4, btm_fy, id(col_white));
@@ -7860,14 +7856,14 @@ display:
           it.line(left_fx - 4, btm_fy, left_fx + 3, btm_fy + 7, id(col_white));
           it.line(left_fx - 3, btm_fy, left_fx + 4, btm_fy + 7, id(col_white));
 
-          // 4. VOL DOWN: Bottom-Right (395, 284)
+          // 4. VOL DOWN: Bottom-Right (395, 326) - LOWERED FOR RADIAL SYMMETRY
           it.filled_circle(right_fx, btm_fy, f_r, id(col_dark_gray));
           it.circle(right_fx, btm_fy, f_r, id(col_gray));
           it.filled_rectangle(right_fx - 7, btm_fy - 1, 15, 3, id(col_white));
 
-          // Concentric D-Pad
+          // Concentric D-Pad with Expanded Outer Radius (r_out = 132 for generous Left/Right reach)
           const int dpad_r_in = 48;
-          const int dpad_r_out = 124;
+          const int dpad_r_out = 132;
 
           // Outer directional ring
           it.circle(cx, cy, dpad_r_out, id(col_gray));
@@ -7875,13 +7871,13 @@ display:
 
           // 45-degree sector dividers (cos 45 = sin 45 = 0.7071)
           const int d_in = 34;   // 48 * 0.7071
-          const int d_out = 88;  // 124 * 0.7071
+          const int d_out = 93;  // 132 * 0.7071
           it.line(cx + d_in, cy + d_in, cx + d_out, cy + d_out, id(col_gray));
           it.line(cx - d_in, cy + d_in, cx - d_out, cy + d_out, id(col_gray));
           it.line(cx + d_in, cy - d_in, cx + d_out, cy - d_out, id(col_gray));
           it.line(cx - d_in, cy - d_in, cx - d_out, cy - d_out, id(col_gray));
 
-          // Directional Arrows
+          // Directional Arrows centered at radius ~90px
           // UP Arrow
           it.filled_triangle(cx, cy - 97, cx - 10, cy - 82, cx + 10, cy - 82, id(col_white));
           // DOWN Arrow
@@ -9964,13 +9960,13 @@ touchscreen:
               }
             } else if (id(gui_page) == 7) {
               // ==============================================================================
-              // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL
+              // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (REVISED SYMMETRY & WIDE CLEARANCE)
               // ==============================================================================
               static uint32_t last_remote_btn_tap = 0;
               uint32_t now_rem = millis();
 
               if (id(remote_power_confirm)) {
-                // Modal Active: Handle Cancel / Power Off Confirm (y: 195..265)
+                // Modal Active: Handle Cancel / Toggle Confirm (y: 195..265)
                 if (touch.y >= 195 && touch.y <= 265) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
@@ -9980,7 +9976,7 @@ touchscreen:
                       id(disp1).update();
                       return;
                     } else if (touch.x >= 240 && touch.x <= 375) {
-                      // Confirm Power Off
+                      // Confirm Power Toggle
                       id(remote_send_power).execute();
                       id(remote_power_confirm) = false;
                       id(disp1).update();
@@ -9991,8 +9987,8 @@ touchscreen:
                 return; // Discard touches outside modal buttons when modal is up
               }
 
-              // Top Center Power Button (x: 180..286, y: 45..95)
-              if (touch.x >= 180 && touch.x <= 286 && touch.y >= 45 && touch.y <= 95) {
+              // Interactive Header: Tap Title / Subtitle area (y: 25..95, x: 120..346) to Toggle Power
+              if (touch.x >= 120 && touch.x <= 346 && touch.y >= 25 && touch.y <= 95) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
                   id(remote_power_confirm) = true;
@@ -10011,17 +10007,7 @@ touchscreen:
                 return;
               }
 
-              // 2. BACK: Bottom-Left Quadrant (x <= 115, y: 236..336)
-              if (touch.x <= 115 && touch.y >= 236 && touch.y <= 336) {
-                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_remote_btn_tap = now_rem;
-                  id(remote_send_back).execute();
-                  id(disp1).update();
-                }
-                return;
-              }
-
-              // 3. VOL UP: Top-Right Quadrant (x >= 351, y: 90..190)
+              // 2. VOL UP: Top-Right Quadrant (x >= 351, y: 90..190)
               if (touch.x >= 351 && touch.y >= 90 && touch.y <= 190) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
@@ -10031,8 +10017,18 @@ touchscreen:
                 return;
               }
 
-              // 4. VOL DOWN: Bottom-Right Quadrant (x >= 351, y: 236..336)
-              if (touch.x >= 351 && touch.y >= 236 && touch.y <= 336) {
+              // 3. BACK: Bottom-Left Quadrant (x <= 115, y: 276..376) - LOWERED SYMMETRY
+              if (touch.x <= 115 && touch.y >= 276 && touch.y <= 376) {
+                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_remote_btn_tap = now_rem;
+                  id(remote_send_back).execute();
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // 4. VOL DOWN: Bottom-Right Quadrant (x >= 351, y: 276..376) - LOWERED SYMMETRY
+              if (touch.x >= 351 && touch.y >= 276 && touch.y <= 376) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_vol_down).execute();
@@ -10042,6 +10038,7 @@ touchscreen:
               }
 
               // 5. CONCENTRIC D-PAD (Center at cx=233, cy=233)
+              // Generous equatorial buffer (y: 191..275) guarantees zero false volume presses!
               int dx = touch.x - 233;
               int dy = touch.y - 233;
               int dist_sq = dx * dx + dy * dy;
@@ -10056,8 +10053,8 @@ touchscreen:
                 return;
               }
 
-              // Directional Ring (Radius > 44 px and <= 138 px, 1936 < r^2 <= 19044)
-              if (dist_sq > 1936 && dist_sq <= 19044) {
+              // Directional Ring (Radius > 44 px and <= 148 px, 1936 < r^2 <= 21904)
+              if (dist_sq > 1936 && dist_sq <= 21904) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   if (abs(dy) >= abs(dx)) {
