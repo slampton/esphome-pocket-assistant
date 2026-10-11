@@ -358,10 +358,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '7'
-  - id: remote_power_confirm
-    type: bool
+  - id: remote_subpage
+    type: int
     restore_value: no
-    initial_value: 'false'
+    initial_value: '0'
   - id: remote_action_feedback
     type: std::string
     restore_value: no
@@ -1811,7 +1811,7 @@ text_sensor:
   # 📺 Universal Remote Control Target Entity Name
   - platform: homeassistant
     id: ha_remote_friendly_name
-    entity_id: 
+    entity_id: "${tv_remote_entity}"
     attribute: friendly_name
     internal: true
     on_value:
@@ -7808,7 +7808,7 @@ display:
         }
       } else if (id(gui_page) == 7) {
         // ==============================================================================
-        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (REVISED SYMMETRY & DYNAMIC ENTITY NAME)
+        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)
         // ==============================================================================
         std::string rem_name = id(remote_target_name);
         if (rem_name.empty()) {
@@ -7817,7 +7817,7 @@ display:
             rem_name = id(ha_remote_friendly_name).state;
             id(remote_target_name) = rem_name;
           } else {
-            std::string s = "";
+            std::string s = "${tv_remote_entity}";
             size_t dot = s.find('.');
             if (dot != std::string::npos) s = s.substr(dot + 1);
             bool cap = true;
@@ -7832,44 +7832,71 @@ display:
             rem_name = s;
           }
         }
-        std::string rem_sub = fit_text_to_width(rem_name, 260);
 
-        if (id(remote_power_confirm)) {
+        if (id(remote_subpage) == 1) {
           // --------------------------------------------------
-          // VIEW: POWER TOGGLE CONFIRMATION MODAL
-          // Standard Dual-Action Dialog matching System Mode 4
+          // SUBPAGE 1: REMOTE & DEVICE SETTINGS (DIRECT POWER & DEVICE HUB)
           // --------------------------------------------------
-          it.filled_circle(cx, cy, 210, id(col_dark_gray));
-          it.circle(cx, cy, 210, id(theme_primary));
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "DEVICE SETTINGS");
 
-          // Warning / Power Icon at y = 95
-          it.filled_circle(cx, 95, 20, id(col_black));
-          it.circle(cx, 95, 20, id(col_red));
-          it.circle(cx, 95, 10, id(col_red));
-          it.line(cx - 3, 85, cx + 3, 85, id(col_black));
-          it.line(cx, 85, cx, 94, id(col_red));
+          // Active target device subtitle at y = 76
+          std::string rem_sub = fit_text_to_width(rem_name, 260);
+          it.print(cx, 76, id(font_small), id(theme_secondary), TextAlign::CENTER, rem_sub.c_str());
 
-          it.print(cx, 135, id(font_date), id(theme_primary), TextAlign::CENTER, "TOGGLE POWER?");
-          std::string pwr_sub = "Send power command to " + rem_name;
-          pwr_sub = fit_text_to_width(pwr_sub, 280);
-          it.print(cx, 172, id(font_small), id(col_white), TextAlign::CENTER, pwr_sub.c_str());
+          // Subtle divider line at y = 96
+          it.line(100, 96, 366, 96, id(col_dark_gray));
 
-          // Standard Dual-Action Confirmation Buttons (y = 230, r = 20)
-          draw_confirmation_buttons(230, "Cancel", "Toggle", id(col_red));
+          // 1. Direct Power Toggle Button Card at y = 150 (h = 44, r = 22, span: 110..356)
+          // Since user explicitly opened settings subpage, toggle operates directly without extra confirmation
+          it.filled_circle(132, 150, 22, id(col_dark_gray));
+          it.filled_circle(334, 150, 22, id(col_dark_gray));
+          it.filled_rectangle(132, 128, 202, 44, id(col_dark_gray));
+          it.circle(132, 150, 22, id(col_red));
+          it.circle(334, 150, 22, id(col_red));
+          it.line(132, 128, 334, 128, id(col_red));
+          it.line(132, 172, 334, 172, id(col_red));
+
+          // Power Icon Glyph at x = 145, y = 150
+          it.circle(145, 150, 10, id(col_red));
+          it.line(142, 140, 148, 140, id(col_dark_gray));
+          it.line(145, 140, 145, 149, id(col_red));
+
+          it.print(246, 150, id(font_small), id(col_white), TextAlign::CENTER, "Toggle Power");
+
+          // 2. Active Remote Device Card at y = 222 (h = 44, r = 22, span: 110..356)
+          // Foundation for future multi-device switching
+          it.filled_circle(132, 222, 22, id(col_dark_gray));
+          it.filled_circle(334, 222, 22, id(col_dark_gray));
+          it.filled_rectangle(132, 200, 202, 44, id(col_dark_gray));
+          it.circle(132, 222, 22, id(theme_primary));
+          it.circle(334, 222, 22, id(theme_primary));
+          it.line(132, 200, 334, 200, id(theme_primary));
+          it.line(132, 244, 334, 244, id(theme_primary));
+
+          // Active indicator dot at x = 145, y = 222
+          it.filled_circle(145, 222, 5, id(theme_primary));
+
+          std::string active_card_label = fit_text_to_width(rem_name, 120);
+          it.print(160, 222, id(font_small), id(col_white), TextAlign::CENTER_LEFT, active_card_label.c_str());
+          it.print(330, 222, id(font_micro), id(theme_primary), TextAlign::CENTER_RIGHT, "ACTIVE");
+
+          // Helper label at y = 264
+          it.print(cx, 264, id(font_micro), id(col_slate), TextAlign::CENTER, "Multi-Device Deck (Coming Soon)");
+
+          // 3. Back / Done Button at y = 356 (Matching OS Subpage Standard)
+          draw_pill_button(140, 326, 356, 20, id(theme_secondary), id(col_dark_gray), "Back", id(col_white), false);
         } else {
           // --------------------------------------------------
-          // MAIN REMOTE CONTROL INTERFACE
-          // Standard Compact Music Typography: Title at y=50, Subtitle at y=74
-          // Subtitle dynamically tracks friendly_name of 
-          // Tapping header triggers Power Toggle with Confirmation
+          // MAIN REMOTE CONTROL INTERFACE (SUBPAGE 0)
+          // Unified Title: Active Entity Name displayed as Title at y = 50
+          // Tapping Title opens Remote Settings Subpage
           // --------------------------------------------------
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "REMOTE");
-
           bool is_fb = (millis() - id(remote_feedback_timer) < 1500 && !id(remote_action_feedback).empty());
           if (is_fb) {
-            it.print(cx, 74, id(font_small), id(theme_primary), TextAlign::CENTER, id(remote_action_feedback).c_str());
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, id(remote_action_feedback).c_str());
           } else {
-            it.print(cx, 74, id(font_small), id(theme_secondary), TextAlign::CENTER, rem_sub.c_str());
+            std::string disp_title = fit_text_to_width_font(rem_name, 246, id(font_date));
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, disp_title.c_str());
           }
 
           // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
@@ -7932,9 +7959,9 @@ display:
           // RIGHT Arrow
           it.filled_triangle(cx + 97, cy, cx + 82, cy - 10, cx + 82, cy + 10, id(col_white));
 
-          // Center OK Button (Radius 38)
-          it.filled_circle(cx, cy, 38, id(col_dark_gray));
-          it.circle(cx, cy, 38, id(theme_primary));
+          // Center OK Button (Radius 40)
+          it.filled_circle(cx, cy, 40, id(col_dark_gray));
+          it.circle(cx, cy, 40, id(theme_primary));
           it.print(cx, cy, id(font_date), id(col_white), TextAlign::CENTER, "OK");
         }
       }
@@ -7946,7 +7973,7 @@ display:
       bool show_meta_in_deck = (current_overlay_mode == "Art + Metadata" || current_overlay_mode == "Always Visible");
       bool music_clean_art = (id(gui_page) == 2 && (current_art_mode != "Compact") && !show_meta_in_deck && !id(music_hud_active));
 
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(gui_page) == 7 && id(remote_power_confirm)) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
         bool is_stopwatch = (id(gui_page) == 1);
         Color chevron_col = id(col_white);
 
@@ -8149,7 +8176,7 @@ touchscreen:
                                !(id(gui_page) == 3 && id(active_game) > 0) &&
                                !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
                                !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) &&
-                               !(id(gui_page) == 7 && id(remote_power_confirm)) &&
+                               !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                !(id(alarm_ringing) || id(timer_ringing)) &&
                                !(id(gui_page) == 0 && !id(ha_time).now().is_valid());
 
@@ -8175,7 +8202,7 @@ touchscreen:
                     ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                     id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(menu_scroll_active) = false;
-                    id(music_hud_active) = false; id(remote_power_confirm) = false;
+                    id(music_hud_active) = false; id(remote_subpage) = 0;
                     id(disp1).update();
                   }
                 }
@@ -10005,38 +10032,51 @@ touchscreen:
               }
             } else if (id(gui_page) == 7) {
               // ==============================================================================
-              // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (REVISED SYMMETRY & WIDE CLEARANCE)
+              // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (SETTINGS SUBPAGE & ENLARGED OK)
               // ==============================================================================
               static uint32_t last_remote_btn_tap = 0;
               uint32_t now_rem = millis();
 
-              if (id(remote_power_confirm)) {
-                // Modal Active: Handle Cancel / Toggle Confirm (y: 195..265)
-                if (touch.y >= 195 && touch.y <= 265) {
+              if (id(remote_subpage) == 1) {
+                // Subpage 1: Remote & Device Settings Touch Handling
+                // 1. Direct Power Toggle Card (x: 100..366, y: 125..175)
+                if (touch.x >= 100 && touch.x <= 366 && touch.y >= 125 && touch.y <= 175) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
-                    if (touch.x >= 90 && touch.x <= 225) {
-                      // Cancel
-                      id(remote_power_confirm) = false;
-                      id(disp1).update();
-                      return;
-                    } else if (touch.x >= 240 && touch.x <= 375) {
-                      // Confirm Power Toggle
-                      id(remote_send_power).execute();
-                      id(remote_power_confirm) = false;
-                      id(disp1).update();
-                      return;
-                    }
+                    id(remote_send_power).execute();
+                    id(disp1).update();
                   }
+                  return;
                 }
-                return; // Discard touches outside modal buttons when modal is up
+
+                // 2. Done / Back Button at bottom (x: 120..346, y: 330..385)
+                if (touch.x >= 120 && touch.x <= 346 && touch.y >= 330 && touch.y <= 385) {
+                  if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_remote_btn_tap = now_rem;
+                    id(remote_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // 3. Top Header / Edge Tap (y <= 90) -> Returns to Main Remote
+                if (touch.y <= 90) {
+                  if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_remote_btn_tap = now_rem;
+                    id(remote_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+                return; // Suppress other touches on Subpage 1
               }
 
-              // Interactive Header: Tap Title / Subtitle area (y: 25..95, x: 120..346) to Toggle Power
-              if (touch.x >= 120 && touch.x <= 346 && touch.y >= 25 && touch.y <= 95) {
+              // Subpage 0: Main Remote Interface
+              // Interactive Header: Tap Title (y: 25..80, x: 110..356) to open Device Settings Subpage
+              if (touch.x >= 110 && touch.x <= 356 && touch.y >= 25 && touch.y <= 80) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_power_confirm) = true;
+                  id(remote_subpage) = 1;
                   id(disp1).update();
                 }
                 return;
@@ -10088,8 +10128,8 @@ touchscreen:
               int dy = touch.y - 233;
               int dist_sq = dx * dx + dy * dy;
 
-              // Center OK Button (Radius <= 44 px, r^2 <= 1936)
-              if (dist_sq <= 1936) {
+              // Center OK Button (Expanded touch radius: r <= 52 px, r^2 <= 2704, +40% area)
+              if (dist_sq <= 2704) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_select).execute();
@@ -10098,8 +10138,8 @@ touchscreen:
                 return;
               }
 
-              // Directional Ring (Radius > 44 px and <= 148 px, 1936 < r^2 <= 21904)
-              if (dist_sq > 1936 && dist_sq <= 21904) {
+              // Directional Ring (Radius > 52 px and <= 148 px, 2704 < r^2 <= 21904)
+              if (dist_sq > 2704 && dist_sq <= 21904) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   if (abs(dy) >= abs(dx)) {

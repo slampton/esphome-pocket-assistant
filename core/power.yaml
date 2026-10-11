@@ -521,9 +521,9 @@ script:
                 id(system_menu_mode) = 0;
                 id(disp1).update();
                 return;
-              } else if (id(gui_page) == 7 && id(remote_power_confirm)) {
-                // In Remote Power Confirmation -> cancel dialog
-                id(remote_power_confirm) = false;
+              } else if (id(gui_page) == 7 && id(remote_subpage) > 0) {
+                // In Remote Subpage -> back out to main Remote interface
+                id(remote_subpage) = 0;
                 id(disp1).update();
                 return;
               } else if (id(gui_page) == 6 && id(alarm_edit_idx) > 0) {
