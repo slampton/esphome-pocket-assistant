@@ -9,7 +9,7 @@ Users require remote control capabilities for smart TVs, set-top boxes (Android 
 On-device physical validation revealed three UX opportunities:
 1. Blind thumb navigation across the center D-pad occasionally missed the OK button and triggered directional presses (specifically Right) due to a conservative center touch radius ($44\text{px}$).
 2. Stacking a static "REMOTE" title above a secondary entity subtitle crowded the upper hemisphere and departed from our standard single-header design.
-3. Prompting for confirmation on every power press felt redundant if the action could instead reside on an intentional, dedicated settings subpage that also acts as the home for future multi-device remote switching.
+3. Prompting for confirmation on every power press felt redundant if the action could instead reside on an intentional, dedicated settings subpage modeled after our system dashboard ergonomics.
 
 ## Decision
 1. **Universal Protocol Dispatch**:
@@ -30,8 +30,8 @@ On-device physical validation revealed three UX opportunities:
    * **Main Page Title ($y = 50$)**: Replace the static "REMOTE" header and secondary subtitle line with the active device name (e.g. "Shield TV" or "TV") rendered in `font_date`, `theme_primary`, freeing vertical breathing room above the D-pad.
    * **Transient Action Feedback**: Action feedback toasts (`Toggle Power`, `Vol +`, `Up`, etc.) display in place of the title at $y = 50$ for 1.5 seconds after a button tap before returning to the device title.
    * **Device Settings Subpage**: Tapping the title header ($x \in [110, 356], y \in [25, 80]$) opens Subpage 1 (`remote_subpage = 1`).
-   * **Direct Power Toggle**: On Subpage 1, a dedicated Power Toggle card at $y = 150$ triggers power commands directly without redundant confirmation dialogs, recognizing the deliberate subpage entry.
-   * **Active Device Card & Multi-Device Deck Foundation**: Displays the current device status card at $y = 222$, establishing the architectural home for interactive multi-device switching.
+   * **System Dashboard Visual Hierarchy**: Header models the System Hub typography and spacing: Title `"DEVICE SETTINGS"` at $y = 46$ (`font_date`, `theme_primary`), active device name at $y = 78$ (`font_small`, `col_white`), providing an exact $32\text{px}$ vertical buffer.
+   * **Direct Power Toggle**: Rendered via standard `draw_pill_button` at $y = 200$ (h = 44px, r = 22px, red accent outline with zero internal graphical artifacts) for immediate power toggling without redundant confirmation prompts.
    * **Navigation**: Returns to the main remote interface via bottom `[ Back ]` pill button ($y = 356$), top header tap, or hardware crown button press.
 
 ## Consequences

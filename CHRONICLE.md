@@ -79,6 +79,10 @@ To expand device utility without adding endless top-level carousel pages, implem
    * Powered by a single substitution (e.g. tv_remote_entity: "remote.living_room_tv").
    * UI Layout perfectly tailored for the circular 466x466 AMOLED: Central 5-way D-Pad (Up, Down, Left, Right, Center OK), Lower Left Back (BACK command), Lower Right Menu / Home (HOME or MENU command), and Top / Flank Power toggle, Play/Pause, and volume up/down pass-through.
 #### 4. Audio & Media Player Advancements
+* Compact Player Header Unification & Speaker Submenu (Planned v1.3 Refinement):
+   * Remove the static "MUSIC" header and secondary subtitle in Compact mode; promote active speaker entity name directly to primary title at y=50 (font_date, theme_primary), mirroring the Page 7 Remote application design.
+   * Full Screen and Letterbox modes retain their non-intrusive speaker overlay.
+   * Introduce a dedicated Speaker Settings / Speaker Selection Submenu opened by tapping the primary speaker title in Compact mode, enabling direct speaker takeover and configuration without requiring HUD icon interactions.
 * Circular Perimeter Track Scrubber:
    * Implement touch-drag track seeking around the circular display perimeter using polar coordinate mapping (atan2(y - 233, x - 233)), dispatching media_player.media_seek on release.
 * Configurable 10s/30s Seek vs. Track Skip:
