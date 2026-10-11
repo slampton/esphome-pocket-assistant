@@ -15,7 +15,7 @@ input_text:
   pocket_assistant_weather_entity:
     name: "Pocket Assistant Weather Entity"
     icon: mdi:weather-partly-cloudy
-    initial: "weather.forecast_home" # Set to your primary Home Assistant weather entity (e.g. weather.home, weather.forecast_home)
+    initial: "weather.home" # Set to your primary Home Assistant weather entity (e.g. weather.home)
 
 template:
   # ----------------------------------------------------------------------------
@@ -130,7 +130,7 @@ template:
       - variables:
           target_weather: >-
             {% set w = states("input_text.pocket_assistant_weather_entity") %}
-            {{ w if w and w not in ["unknown", "unavailable", ""] else "weather.forecast_home" }}
+            {{ w if w and w not in ["unknown", "unavailable", ""] else "weather.home" }}
       - action: weather.get_forecasts
         target:
           entity_id: "{{ target_weather }}"
@@ -141,7 +141,7 @@ template:
       - name: "Pocket Assistant Weather Forecast"
         unique_id: pocket_assistant_weather_forecast
         state: >-
-          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.home", true) %}
           {% set ns = namespace(items=[]) %}
           {% set fc_list = [] %}
           {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
@@ -163,7 +163,7 @@ template:
           {% endif %}
         attributes:
           high: >-
-            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.home", true) %}
             {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
               {{ daily_forecast[target_weather]["forecast"][0]["temperature"] | default(70, true) }}
             {% elif state_attr(target_weather, "forecast") %}
@@ -172,7 +172,7 @@ template:
               70
             {% endif %}
           low: >-
-            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.forecast_home", true) %}
+            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.home", true) %}
             {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
               {{ daily_forecast[target_weather]["forecast"][0]["templow"] | default(daily_forecast[target_weather]["forecast"][0]["temperature"], true) }}
             {% elif state_attr(target_weather, "forecast") %}

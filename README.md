@@ -36,7 +36,8 @@ substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
   version: "1.2"
-  weather_entity: "weather.forecast_home"            # Primary Home Assistant weather entity
+  weather_entity: "weather.home"                     # Primary Home Assistant weather entity
+  tv_remote_entity: "remote.tv"                      # Target TV / media remote entity
   local_player_id: "media_player.pocket_assistant"   # Local media player entity ID
 
 packages:
@@ -65,7 +66,7 @@ Choose whichever deployment method matches your Home Assistant configuration:
   1. Copy the contents of the `template:` block from `pocket_assistant_companion.yaml` directly into your `/config/templates.yaml`.
   2. Create the 3 required `input_text` helpers either by copying the `input_text:` block into `/config/configuration.yaml` or creating them under **Settings -> Devices & Services -> Helpers**:
      * `input_text.pocket_assistant_active_speaker` (Active target media player entity ID, e.g. `media_player.living_room`)
-     * `input_text.pocket_assistant_weather_entity` (Monitored weather entity ID, default `weather.forecast_home`)
+     * `input_text.pocket_assistant_weather_entity` (Monitored weather entity ID, default `weather.home`)
      * `input_text.pocket_assistant_base_url` (Optional base URL override, e.g. `http://homeassistant.local:8123`)
 
 After adding the configuration, reload Template Entities and Input Texts under **Developer Tools -> YAML** (or restart Home Assistant).
