@@ -370,6 +370,10 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  - id: remote_target_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: timer_alarm_subpage
     type: int
     restore_value: no
@@ -1804,6 +1808,20 @@ text_sensor:
     on_value:
       then:
         - component.update: disp1
+  # 📺 Universal Remote Control Target Entity Name
+  - platform: homeassistant
+    id: ha_remote_friendly_name
+    entity_id: 
+    attribute: friendly_name
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(remote_target_name) = x;
+              id(disp1).update();
+            }
+
   - platform: homeassistant
     id: ha_active_speaker_sync
     entity_id: ${active_speaker_helper}
@@ -7790,8 +7808,32 @@ display:
         }
       } else if (id(gui_page) == 7) {
         // ==============================================================================
-        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (REVISED SYMMETRY & COMPACT HEADER)
+        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (REVISED SYMMETRY & DYNAMIC ENTITY NAME)
         // ==============================================================================
+        std::string rem_name = id(remote_target_name);
+        if (rem_name.empty()) {
+          if (id(ha_remote_friendly_name).has_state() && !id(ha_remote_friendly_name).state.empty() &&
+              id(ha_remote_friendly_name).state != "unknown" && id(ha_remote_friendly_name).state != "unavailable") {
+            rem_name = id(ha_remote_friendly_name).state;
+            id(remote_target_name) = rem_name;
+          } else {
+            std::string s = "";
+            size_t dot = s.find('.');
+            if (dot != std::string::npos) s = s.substr(dot + 1);
+            bool cap = true;
+            for (size_t i = 0; i < s.length(); i++) {
+              if (s[i] == '_') { s[i] = ' '; cap = true; }
+              else if (cap) { s[i] = toupper(s[i]); cap = false; }
+            }
+            if (s == "Tv") s = "TV";
+            else if (s.length() >= 2 && s.substr(s.length() - 2) == "Tv") {
+              s.replace(s.length() - 2, 2, "TV");
+            }
+            rem_name = s;
+          }
+        }
+        std::string rem_sub = fit_text_to_width(rem_name, 260);
+
         if (id(remote_power_confirm)) {
           // --------------------------------------------------
           // VIEW: POWER TOGGLE CONFIRMATION MODAL
@@ -7808,7 +7850,9 @@ display:
           it.line(cx, 85, cx, 94, id(col_red));
 
           it.print(cx, 135, id(font_date), id(theme_primary), TextAlign::CENTER, "TOGGLE POWER?");
-          it.print(cx, 172, id(font_small), id(col_white), TextAlign::CENTER, "Send power command to TV");
+          std::string pwr_sub = "Send power command to " + rem_name;
+          pwr_sub = fit_text_to_width(pwr_sub, 280);
+          it.print(cx, 172, id(font_small), id(col_white), TextAlign::CENTER, pwr_sub.c_str());
 
           // Standard Dual-Action Confirmation Buttons (y = 230, r = 20)
           draw_confirmation_buttons(230, "Cancel", "Toggle", id(col_red));
@@ -7816,6 +7860,7 @@ display:
           // --------------------------------------------------
           // MAIN REMOTE CONTROL INTERFACE
           // Standard Compact Music Typography: Title at y=50, Subtitle at y=74
+          // Subtitle dynamically tracks friendly_name of 
           // Tapping header triggers Power Toggle with Confirmation
           // --------------------------------------------------
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "REMOTE");
@@ -7824,7 +7869,7 @@ display:
           if (is_fb) {
             it.print(cx, 74, id(font_small), id(theme_primary), TextAlign::CENTER, id(remote_action_feedback).c_str());
           } else {
-            it.print(cx, 74, id(font_small), id(theme_secondary), TextAlign::CENTER, "Television");
+            it.print(cx, 74, id(font_small), id(theme_secondary), TextAlign::CENTER, rem_sub.c_str());
           }
 
           // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
