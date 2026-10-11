@@ -1811,7 +1811,7 @@ text_sensor:
   # 📺 Universal Remote Control Target Entity Name
   - platform: homeassistant
     id: ha_remote_friendly_name
-    entity_id: 
+    entity_id: ${tv_remote_entity}
     attribute: friendly_name
     internal: true
     on_value:
@@ -7817,7 +7817,7 @@ display:
             rem_name = id(ha_remote_friendly_name).state;
             id(remote_target_name) = rem_name;
           } else {
-            std::string s = "";
+            std::string s = "${tv_remote_entity}";
             size_t dot = s.find('.');
             if (dot != std::string::npos) s = s.substr(dot + 1);
             bool cap = true;
