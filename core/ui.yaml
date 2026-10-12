@@ -2948,7 +2948,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV" || p == "Roku") return "up";
               if (p == "LG webOS") return "UP";
               if (p == "Custom") return "${remote_cmd_up}";
@@ -2966,7 +2966,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV" || p == "Roku") return "down";
               if (p == "LG webOS") return "DOWN";
               if (p == "Custom") return "${remote_cmd_down}";
@@ -2984,7 +2984,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV" || p == "Roku") return "left";
               if (p == "LG webOS") return "LEFT";
               if (p == "Custom") return "${remote_cmd_left}";
@@ -3002,7 +3002,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV" || p == "Roku") return "right";
               if (p == "LG webOS") return "RIGHT";
               if (p == "Custom") return "${remote_cmd_right}";
@@ -3020,7 +3020,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV" || p == "Roku") return "select";
               if (p == "LG webOS") return "ENTER";
               if (p == "Custom") return "${remote_cmd_select}";
@@ -3038,7 +3038,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV") return "menu";
               if (p == "Roku") return "back";
               if (p == "LG webOS") return "BACK";
@@ -3057,7 +3057,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV") return "top_menu";
               if (p == "Roku") return "home";
               if (p == "LG webOS") return "HOME";
@@ -3076,7 +3076,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV" || p == "Roku") return "volume_up";
               if (p == "LG webOS") return "VOLUMEUP";
               if (p == "Custom") return "${remote_cmd_vol_up}";
@@ -3094,7 +3094,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV" || p == "Roku") return "volume_down";
               if (p == "LG webOS") return "VOLUMEDOWN";
               if (p == "Custom") return "${remote_cmd_vol_down}";
@@ -3112,7 +3112,7 @@ script:
           data:
             entity_id: ${tv_remote_entity}
             command: !lambda |-
-              std::string p = id(tv_remote_profile).state;
+              std::string p = id(tv_remote_profile).current_option();
               if (p == "Apple TV") return "wakeup";
               if (p == "Roku") return "power";
               if (p == "LG webOS") return "POWER";
@@ -7936,8 +7936,8 @@ display:
           std::string rem_sub = fit_text_to_width(rem_name, 260);
           it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, rem_sub.c_str());
 
-          // Active remote profile badge (y = 114, font_tiny, theme_secondary)
-          std::string prof_label = "Profile: " + id(tv_remote_profile).state;
+          // Active remote profile badge (y = 114, font_micro, theme_secondary)
+          std::string prof_label = "Profile: " + id(tv_remote_profile).current_option();
           it.print(cx, 114, id(font_micro), id(theme_secondary), TextAlign::CENTER, prof_label.c_str());
 
           // Clean Pill Button: Toggle Power at y = 200 (h = 44, r = 22, span: 120..346)
