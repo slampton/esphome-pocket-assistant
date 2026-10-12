@@ -1431,6 +1431,10 @@ interval:
             id(disp1).update();
           }
 
+
+  - interval: 50ms
+    then:
+      - lambda: |-
           // 20 FPS high-refresh animation loop for Coin Flip and Dice Roll
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && (id(stuff_subpage) == 3 || id(stuff_subpage) == 4)) {
             if (id(coin_anim_active) || id(dice_anim_active)) {
@@ -1438,10 +1442,6 @@ interval:
             }
           }
 
-
-  - interval: 50ms
-    then:
-      - lambda: |-
           // 20 FPS high-refresh physics loop exclusively for active games
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
             id(disp1).update();
@@ -8616,13 +8616,13 @@ display:
             }
 
             // Facet Shading
-            it.filled_triangle(vx_out[0], vy_out[0], vx_out[1], vy_out[1], vx_in[0], c_ruby);
-            it.filled_triangle(vx_out[1], vy_out[1], vx_out[2], vy_out[2], vx_in[1], Color(175, 22, 36));
-            it.filled_triangle(vx_out[2], vy_out[2], vx_out[3], vy_out[3], vx_in[1], c_ruby);
-            it.filled_triangle(vx_out[3], vy_out[3], vx_out[4], vy_out[4], vx_in[2], Color(155, 18, 30));
-            it.filled_triangle(vx_out[4], vy_out[4], vx_out[5], vy_out[5], vx_in[2], c_ruby);
-            it.filled_triangle(vx_out[5], vy_out[5], vx_out[0], vy_out[0], vx_in[0], Color(225, 45, 60));
-            it.filled_triangle(vx_in[0], vy_in[0], vx_in[1], vy_in[1], vx_in[2], Color(235, 55, 70));
+            it.filled_triangle(vx_out[0], vy_out[0], vx_out[1], vy_out[1], vx_in[0], vy_in[0], c_ruby);
+            it.filled_triangle(vx_out[1], vy_out[1], vx_out[2], vy_out[2], vx_in[1], vy_in[1], Color(175, 22, 36));
+            it.filled_triangle(vx_out[2], vy_out[2], vx_out[3], vy_out[3], vx_in[1], vy_in[1], c_ruby);
+            it.filled_triangle(vx_out[3], vy_out[3], vx_out[4], vy_out[4], vx_in[2], vy_in[2], Color(155, 18, 30));
+            it.filled_triangle(vx_out[4], vy_out[4], vx_out[5], vy_out[5], vx_in[2], vy_in[2], c_ruby);
+            it.filled_triangle(vx_out[5], vy_out[5], vx_out[0], vy_out[0], vx_in[0], vy_in[0], Color(225, 45, 60));
+            it.filled_triangle(vx_in[0], vy_in[0], vx_in[1], vy_in[1], vx_in[2], vy_in[2], Color(235, 55, 70));
 
             // Facet wireframe
             for (int i = 0; i < 6; i++) {
@@ -11057,14 +11057,14 @@ touchscreen:
                   return;
                 } else if (touch.y >= 285 && touch.y <= 318) {
                   // Mode Selector Pills
-                  if (touch.x >= (cx - 86) && touch.x <= (cx - 10)) {
+                  if (touch.x >= (233 - 86) && touch.x <= (233 - 10)) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       id(dice_type) = 0; // D6
                       id(disp1).update();
                     }
                     return;
-                  } else if (touch.x >= (cx + 10) && touch.x <= (cx + 86)) {
+                  } else if (touch.x >= (233 + 10) && touch.x <= (233 + 86)) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       id(dice_type) = 1; // D20
