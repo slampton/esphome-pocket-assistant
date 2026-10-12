@@ -1840,14 +1840,14 @@ sensor:
       float planar_dyn = sqrtf(dx*dx + dy*dy);
 
       // Omnidirectional Natural Shake Detection for Tools Suite (Page 8)
-      // Balanced sweet spot between over-sensitive (0.45g) and stiff (0.85g / jerk-locked):
-      // Triggers reliably on any natural wrist motion (planar flick >= 0.52g, or vertical dip / 3D shake >= 0.55g),
+      // Effortless, natural shake response calibrated with lighter actuation thresholds:
+      // Triggers easily on gentle wrist snaps (planar flick >= 0.46g, or vertical dip / 3D shake >= 0.49g),
       // while alpha=0.20 filter and 1200ms lockout prevent false triggers from tilts and table set-downs.
       if (id(gui_page) == 8 && id(display_power_state) == 0) {
         static uint32_t last_shake_time = 0;
         uint32_t now_m = millis();
 
-        bool is_deliberate_shake = (planar_dyn >= 0.52f || delta >= 0.55f);
+        bool is_deliberate_shake = (planar_dyn >= 0.46f || delta >= 0.49f);
 
         if (is_deliberate_shake && (now_m - last_shake_time > 1200)) {
           last_shake_time = now_m;
