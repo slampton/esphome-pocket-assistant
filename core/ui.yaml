@@ -11271,7 +11271,7 @@ touchscreen:
                       id(calc_new_entry) = true;
                     } else if (r == 0 && c == 1) { // ±
                       if (id(calc_entry) != "0" && id(calc_entry) != "Error") {
-                        if (id(calc_entry)[0] == -) id(calc_entry) = id(calc_entry).substr(1);
+                        if (id(calc_entry)[0] == '-') id(calc_entry) = id(calc_entry).substr(1);
                         else id(calc_entry) = "-" + id(calc_entry);
                       }
                     } else if (r == 0 && c == 2) { // %
@@ -11327,22 +11327,22 @@ touchscreen:
                       if (id(calc_new_entry)) {
                         id(calc_entry) = "0.";
                         id(calc_new_entry) = false;
-                      } else if (id(calc_entry).find(.) == std::string::npos) {
+                      } else if (id(calc_entry).find('.') == std::string::npos) {
                         id(calc_entry) += ".";
                       }
                     } else {
                       // Digits (0..9)
-                      char digit = 0;
-                      if (r == 4 && c == 0) digit = 0;
-                      else if (r == 3 && c == 0) digit = 1;
-                      else if (r == 3 && c == 1) digit = 2;
-                      else if (r == 3 && c == 2) digit = 3;
-                      else if (r == 2 && c == 0) digit = 4;
-                      else if (r == 2 && c == 1) digit = 5;
-                      else if (r == 2 && c == 2) digit = 6;
-                      else if (r == 1 && c == 0) digit = 7;
-                      else if (r == 1 && c == 1) digit = 8;
-                      else if (r == 1 && c == 2) digit = 9;
+                      char digit = '0';
+                      if (r == 4 && c == 0) digit = '0';
+                      else if (r == 3 && c == 0) digit = '1';
+                      else if (r == 3 && c == 1) digit = '2';
+                      else if (r == 3 && c == 2) digit = '3';
+                      else if (r == 2 && c == 0) digit = '4';
+                      else if (r == 2 && c == 1) digit = '5';
+                      else if (r == 2 && c == 2) digit = '6';
+                      else if (r == 1 && c == 0) digit = '7';
+                      else if (r == 1 && c == 1) digit = '8';
+                      else if (r == 1 && c == 2) digit = '9';
 
                       if (id(calc_new_entry)) {
                         id(calc_entry) = std::string(1, digit);
