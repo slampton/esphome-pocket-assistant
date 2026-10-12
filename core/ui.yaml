@@ -2337,7 +2337,7 @@ script:
                 if (std::isnan(step) || step <= 0.0f) step = 0.02f;
                 float cur = id(pocket_music_player).volume;
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-                float new_vol = std::min(0.90f, cur + step);
+                float new_vol = std::min(1.00f, cur + step);
                 id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
@@ -2359,7 +2359,7 @@ script:
                 if (std::isnan(step) || step <= 0.0f) step = 0.02f;
                 float cur = id(pocket_music_player).volume;
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-                float new_vol = std::max(0.10f, cur - step);
+                float new_vol = std::max(0.00f, cur - step);
                 id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
@@ -8616,50 +8616,13 @@ touchscreen:
 
                 // -----------------------------------------------------------------
                 // 2. RIGHT FLANK & NEXT TRACK TOUCH ZONES
-                // Symmetrical partition: Outer flank (x >= 370) dedicated exclusively to Volume Up (y < 233)
-                // and Volume Down (y >= 233), preventing high Volume Down taps from ever clipping Next Track.
-                // Inner button (x in [285..369], y in [190..275]) accurately captures Next Track at (342, 233).
+                // Priority Architecture: Next Track / +30s Skip centered at (342, 233) evaluated FIRST
+                // with a generous 90px x 105px target (x in [295..385], y in [180..285]).
+                // Volume Up (+) and Volume Down (-) capture the upper and lower right flanks,
+                // completely eliminating boundary clipping or volume interception on +30s skip taps.
                 // -----------------------------------------------------------------
-                // Volume Up (+): Upper-Right Quadrant
-                if ((touch.x >= 370 && touch.y < 233 && touch.y >= 70) || 
-                    (touch.x >= 285 && touch.x < 370 && touch.y < 190 && touch.y >= 70)) {
-                  static uint32_t last_vol_up_tap = 0;
-                  uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_up_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_vol_up_tap = now_vol_tap;
-                    id(music_hud_timer) = now_vol_tap;
-                    int v_step = (int)id(volume_step_size).state;
-                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                    id(music_action_feedback) = "Volume: " + to_string(std::min(90, v_cur + v_step)) + "%";
-                    id(music_feedback_timer) = now_vol_tap;
-                    ESP_LOGI("touch", "Page 2 Volume Up: x=%d y=%d vol=%d%%", touch.x, touch.y, std::min(90, v_cur + v_step));
-                    id(music_vol_up).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                }
-
-                // Volume Down (-): Lower-Right Quadrant
-                if ((touch.x >= 370 && touch.y >= 233 && touch.y < 415) || 
-                    (touch.x >= 285 && touch.x < 370 && touch.y > 275 && touch.y < 415)) {
-                  static uint32_t last_vol_dn_tap = 0;
-                  uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_vol_dn_tap = now_vol_tap;
-                    id(music_hud_timer) = now_vol_tap;
-                    int v_step = (int)id(volume_step_size).state;
-                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                    id(music_action_feedback) = "Volume: " + to_string(std::max(10, v_cur - v_step)) + "%";
-                    id(music_feedback_timer) = now_vol_tap;
-                    ESP_LOGI("touch", "Page 2 Volume Down: x=%d y=%d vol=%d%%", touch.x, touch.y, std::max(10, v_cur - v_step));
-                    id(music_vol_down).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                }
-
                 // Next Track (▶|) / +30s Skip: Middle-Right Horizon centered at (342, 233)
-                if (touch.x >= 285 && touch.x < 370 && touch.y >= 190 && touch.y <= 275) {
+                if (touch.x >= 295 && touch.x <= 385 && touch.y >= 180 && touch.y <= 285) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -8676,6 +8639,44 @@ touchscreen:
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
                     ESP_LOGI("touch", "Page 2 Next Track / Skip: x=%d y=%d", touch.x, touch.y);
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // Volume Up (+): Upper-Right Quadrant centered at (395, 140)
+                if ((touch.x >= 295 && touch.y < 180 && touch.y >= 70) ||
+                    (touch.x > 385 && touch.y < 233 && touch.y >= 70)) {
+                  static uint32_t last_vol_up_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_up_tap > TOUCH_DEBOUNCE_RAPID) {
+                    last_vol_up_tap = now_vol_tap;
+                    id(music_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    id(music_action_feedback) = "Volume: " + to_string(std::min(100, v_cur + v_step)) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    ESP_LOGI("touch", "Page 2 Volume Up: x=%d y=%d vol=%d%%", touch.x, touch.y, std::min(100, v_cur + v_step));
+                    id(music_vol_up).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // Volume Down (-): Lower-Right Quadrant centered at (395, 326)
+                if ((touch.x >= 295 && touch.y > 285 && touch.y < 415) ||
+                    (touch.x > 385 && touch.y >= 233 && touch.y < 415)) {
+                  static uint32_t last_vol_dn_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
+                    last_vol_dn_tap = now_vol_tap;
+                    id(music_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
+                    id(music_action_feedback) = "Volume: " + to_string(std::max(0, v_cur - v_step)) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    ESP_LOGI("touch", "Page 2 Volume Down: x=%d y=%d vol=%d%%", touch.x, touch.y, std::max(0, v_cur - v_step));
+                    id(music_vol_down).execute();
                     id(disp1).update();
                   }
                   return;
