@@ -1394,6 +1394,11 @@ interval:
             id(disp1).update();
           }
 
+          // 10 FPS real-time tilt refresh for Level (Page 8, Subpage 1)
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 1 && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
+            id(disp1).update();
+          }
+
 
   - interval: 50ms
     then:
@@ -1704,18 +1709,21 @@ sensor:
     type: acceleration_x
     name: "Accel X"
     id: accel_x
+    update_interval: 100ms
     internal: true
   - platform: motion
     motion_id: imu
     type: acceleration_y
     name: "Accel Y"
     id: accel_y
+    update_interval: 100ms
     internal: true
   - platform: motion
     motion_id: imu
     type: acceleration_z
     name: "Accel Z"
     id: accel_z
+    update_interval: 100ms
     internal: true
   - platform: motion
     motion_id: imu
@@ -8220,7 +8228,7 @@ display:
           draw_menu_header(50, "STUFF");
 
           // Slot 1 (y = 104): Bubble Level
-          draw_menu_card_y(104, "Bubble Level");
+          draw_menu_card_y(104, "Level");
 
           // Slot 2 (y = 162): Flashlight
           draw_menu_card_y(162, "Flashlight");
@@ -8236,9 +8244,9 @@ display:
 
         } else if (id(stuff_subpage) == 1) {
           // --------------------------------------------------
-          // SUBPAGE 1: BUBBLE LEVEL (SPIRIT LEVEL)
-          // Real-time 2D gravity vector from QMI8658 accelerometer (accel_x, accel_y)
-          // Liquid bubble with concentric tolerance rings and live numeric readout
+          // SUBPAGE 1: LEVEL (PRECISION 2D BUBBLE SPIRIT LEVEL)
+          // Exact trigonometric pitch and roll calculation from 100ms QMI8658 accelerometer
+          // Raised reticle center (level_cy = 210) for generous lower telemetry clearance
           // --------------------------------------------------
           float ax = id(accel_x).state;
           float ay = id(accel_y).state;
@@ -8247,70 +8255,78 @@ display:
           if (std::isnan(ay)) ay = 0.0f;
           if (std::isnan(az)) az = 9.8f;
 
-          // Convert lateral acceleration to tilt angles in degrees
-          // On 1.75C AMOLED: X is rightwards, Y is downwards
-          float r_deg = ax * 5.73f; // ~1g = 9.8 m/s^2 -> ~57.3 deg / 10
-          float p_deg = ay * 5.73f;
-          float total_tilt = sqrtf(r_deg * r_deg + p_deg * p_deg);
+          // Exact trigonometric pitch and roll angles in degrees
+          // When flat on table: ax ~ 0, ay ~ 0, az ~ 9.8
+          float p_rad = atan2f(ay, sqrtf(ax * ax + az * az));
+          float r_rad = atan2f(ax, sqrtf(ay * ay + az * az));
+          float p_deg = p_rad * (180.0f / PI_F);
+          float r_deg = r_rad * (180.0f / PI_F);
+
+          float total_tilt = sqrtf(p_deg * p_deg + r_deg * r_deg);
           bool is_level = (total_tilt <= 0.5f);
 
-          Color reticle_c = is_level ? id(col_green) : id(col_gray);
-          Color center_c  = is_level ? id(col_green) : id(col_dark_gray);
+          Color ring_c = is_level ? id(col_green) : id(col_slate);
 
-          // Header Title at y = 50 in theme_primary
-          it.print(cx, 50, id(font_date), is_level ? id(col_green) : id(theme_primary), TextAlign::CENTER, "SPIRIT LEVEL");
+          // Title at y = 50 standardized as "LEVEL"
+          it.print(cx, 50, id(font_date), is_level ? id(col_green) : id(theme_primary), TextAlign::CENTER, "LEVEL");
+
+          // Reticle center elevated to y = 210 (23px above display equator)
+          const int level_cy = 210;
 
           // Concentric Reticle Rings:
-          // Outer limit ring (r = 140)
-          it.circle(cx, cy, 140, id(col_dark_gray));
-          // Mid tolerance ring 2° (r = 70)
-          it.circle(cx, cy, 70, id(col_gray));
-          // Dead-level target ring (r = 28)
-          it.circle(cx, cy, 28, reticle_c);
-          it.circle(cx, cy, 27, reticle_c);
+          // Outer limit ring (r = 130)
+          it.circle(cx, level_cy, 130, id(col_dark_gray));
+          // Mid tolerance ring 5° (r = 65)
+          it.circle(cx, level_cy, 65, id(col_gray));
+          // Dead-level target ring (r = 26)
+          it.circle(cx, level_cy, 26, ring_c);
+          it.circle(cx, level_cy, 25, ring_c);
 
           // Crosshairs (leaving center open for target ring)
-          it.line(cx - 150, cy, cx - 35, cy, reticle_c);
-          it.line(cx + 35, cy, cx + 150, cy, reticle_c);
-          it.line(cx, cy - 150, cx, cy - 35, reticle_c);
-          it.line(cx, cy + 35, cx, cy + 150, reticle_c);
+          it.line(cx - 140, level_cy, cx - 32, level_cy, ring_c);
+          it.line(cx + 32, level_cy, cx + 140, level_cy, ring_c);
+          it.line(cx, level_cy - 140, cx, level_cy - 32, ring_c);
+          it.line(cx, level_cy + 32, cx, level_cy + 140, ring_c);
 
           // Center dead-level pip
-          it.filled_circle(cx, cy, 2, reticle_c);
+          it.filled_circle(cx, level_cy, 2, ring_c);
 
-          // Liquid Bubble Position (1° tilt = 18px offset)
-          int bx = cx + (int)(r_deg * 18.0f);
-          int by = cy + (int)(p_deg * 18.0f);
+          // Physical Spirit Level Bubble Physics:
+          // In a physical spirit vial, if the right side is elevated (r_deg > 0), the air bubble floats LEFT (-X).
+          // If the bottom is elevated (p_deg > 0), the air bubble floats UP (-Y).
+          // Sensitivity: 13.0 px per degree (reaches r=65 ring at exactly 5.0° tilt)
+          int bx = cx - (int)(r_deg * 13.0f);
+          int by = level_cy - (int)(p_deg * 13.0f);
 
-          // Clamp bubble within boundary circle (r = 135)
-          float b_dist = sqrtf((float)((bx - cx) * (bx - cx) + (by - cy) * (by - cy)));
-          if (b_dist > 135.0f && b_dist > 0.001f) {
-            bx = cx + (int)((float)(bx - cx) * 135.0f / b_dist);
-            by = cy + (int)((float)(by - cy) * 135.0f / b_dist);
+          // Clamp bubble inside outer ring boundary (r = 125)
+          float b_dist = sqrtf((float)((bx - cx) * (bx - cx) + (by - level_cy) * (by - level_cy)));
+          if (b_dist > 125.0f && b_dist > 0.001f) {
+            bx = cx + (int)((float)(bx - cx) * 125.0f / b_dist);
+            by = level_cy + (int)((float)(by - level_cy) * 125.0f / b_dist);
           }
 
-          // Liquid Bubble Body (Radius 22)
+          // Liquid Bubble Body (Radius 20)
           Color bub_fill = is_level ? id(col_green) : id(theme_secondary);
-          it.filled_circle(bx, by, 22, bub_fill);
-          it.circle(bx, by, 22, id(col_white));
+          it.filled_circle(bx, by, 20, bub_fill);
+          it.circle(bx, by, 20, id(col_white));
           // Specular glint reflection on top-left of bubble
-          it.filled_circle(bx - 7, by - 7, 4, id(col_white));
+          it.filled_circle(bx - 6, by - 6, 3, id(col_white));
 
-          // Numeric Angle Readout at y = 356 (Large, High-Contrast)
+          // Numeric Angle Readout at y = 346 (Clear, unobstructed elevation)
           char deg_buf[16];
           snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
-          it.print(cx, 356, id(font_date), is_level ? id(col_green) : id(col_white), TextAlign::CENTER, deg_buf);
+          it.print(cx, 346, id(font_date), is_level ? id(col_green) : id(col_white), TextAlign::CENTER, deg_buf);
 
-          // Secondary Status / Pitch-Roll breakdown at y = 388
+          // Secondary Status / Pitch-Roll breakdown at y = 372 (Well above Back button at y=408)
           char status_buf[32];
           if (is_level) {
             snprintf(status_buf, sizeof(status_buf), "DEAD LEVEL");
           } else {
             snprintf(status_buf, sizeof(status_buf), "P: %+.1f°  R: %+.1f°", p_deg, r_deg);
           }
-          it.print(cx, 388, id(font_micro), is_level ? id(col_green) : id(col_gray), TextAlign::CENTER, status_buf);
+          it.print(cx, 372, id(font_micro), is_level ? id(col_green) : id(col_slate), TextAlign::CENTER, status_buf);
 
-          // Standardized Centered < BACK Button at y = 412 (r = 16)
+          // Standardized Centered < BACK Button at y = 408 (r = 16, height 32, span 150..316)
           draw_back_button();
 
         } else if (id(stuff_subpage) == 2) {
@@ -8561,6 +8577,7 @@ touchscreen:
                                !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
                                !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) &&
                                !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
+                               !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
                                !(id(alarm_ringing) || id(timer_ringing)) &&
                                !(id(gui_page) == 0 && !id(ha_time).now().is_valid());
 
