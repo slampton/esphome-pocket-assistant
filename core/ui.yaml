@@ -8616,13 +8616,16 @@ touchscreen:
 
                 // -----------------------------------------------------------------
                 // 2. RIGHT FLANK & NEXT TRACK TOUCH ZONES
-                // Priority Architecture: Next Track / +30s Skip centered at (342, 233) evaluated FIRST
-                // with a generous 90px x 105px target (x in [295..385], y in [180..285]).
-                // Volume Up (+) and Volume Down (-) capture the upper and lower right flanks,
-                // completely eliminating boundary clipping or volume interception on +30s skip taps.
+                // Symmetrical Equatorial Corridor Architecture:
+                // Next Track (▶|) / +30s Skip centered at (342, 233) claims the ENTIRE right equatorial
+                // horizontal band (x in [270..455], y in [180..285]).
+                // Volume Up (+) is strictly confined to the upper quadrant (y in [70..179], x >= 270).
+                // Volume Down (-) is strictly confined to the lower quadrant (y in [286..415], x >= 270).
+                // This 105px vertical equatorial buffer guarantees that taps at or near +30s Skip
+                // can NEVER leak into Volume Up or Volume Down, regardless of finger drift or broad contact.
                 // -----------------------------------------------------------------
-                // Next Track (▶|) / +30s Skip: Middle-Right Horizon centered at (342, 233)
-                if (touch.x >= 295 && touch.x <= 385 && touch.y >= 180 && touch.y <= 285) {
+                // Next Track (▶|) / +30s Skip: Full-Width Right Equatorial Band
+                if (touch.x >= 270 && touch.x <= 455 && touch.y >= 180 && touch.y <= 285) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -8644,9 +8647,8 @@ touchscreen:
                   return;
                 }
 
-                // Volume Up (+): Upper-Right Quadrant centered at (395, 140)
-                if ((touch.x >= 295 && touch.y < 180 && touch.y >= 70) ||
-                    (touch.x > 385 && touch.y < 233 && touch.y >= 70)) {
+                // Volume Up (+): Strictly Upper-Right Quadrant centered at (395, 140)
+                if (touch.x >= 270 && touch.y >= 70 && touch.y < 180) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_up_tap > TOUCH_DEBOUNCE_RAPID) {
@@ -8663,9 +8665,8 @@ touchscreen:
                   return;
                 }
 
-                // Volume Down (-): Lower-Right Quadrant centered at (395, 326)
-                if ((touch.x >= 295 && touch.y > 285 && touch.y < 415) ||
-                    (touch.x > 385 && touch.y >= 233 && touch.y < 415)) {
+                // Volume Down (-): Strictly Lower-Right Quadrant centered at (395, 326)
+                if (touch.x >= 270 && touch.y > 285 && touch.y < 415) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
