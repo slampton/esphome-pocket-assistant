@@ -36,7 +36,7 @@ On-device physical validation revealed three UX opportunities:
    * **Navigation**: Returns to the main remote interface via bottom `[ Back ]` pill button ($y = 356$), top header tap, or hardware crown button press.
 
 5. **Native ESPHome Select Profile Drop-Down & Dynamic Keycode Routing**:
-   * **Drop-Down Entity (`select.tv_remote_profile`)**: Exposes an interactive configuration drop-down to Home Assistant (`"Android TV / Fire TV"`, `"Apple TV"`, `"Roku"`, `"LG webOS"`, `"Custom"`) with `restore_value: true`, allowing one-click profile configuration in the HA UI without firmware reflashing.
+   * **Drop-Down Entity (`select.tv_remote_profile`)**: Exposes an interactive configuration drop-down to Home Assistant (`"Android TV / Fire TV / Bravia"`, `"Apple TV"`, `"Roku"`, `"LG webOS"`, `"Custom"`) with `restore_value: true`, allowing one-click profile configuration in the HA UI without firmware reflashing.
    * **Dynamic Command Router**: In `core/ui.yaml`, button dispatch scripts dynamically map logical D-pad and navigation actions to target device keycodes based on `id(tv_remote_profile).state`. `"Custom"` gracefully falls back to user substitution overrides (`${remote_cmd_*}`).
    * **Heuristic On-Boot Auto-Detection**: When `ha_remote_friendly_name` reports the device name, if `remote_profile_user_set` is false, it inspects entity ID and friendly name substrings (`"apple"`, `"roku"`, `"webos"`, `"lg"`) to set the profile automatically on initial boot.
    * **Subpage 1 Profile Badge**: Active profile is displayed at $y = 114$ (`font_micro`, `theme_secondary`) on Device Settings Subpage 1.

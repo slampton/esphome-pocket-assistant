@@ -5280,7 +5280,7 @@ To lay the technical groundwork in v1.3:
 
 ### 1. Architectural Summary & Problem Definition
 While Home Assistant unifies remote control interactions under the standard `remote.send_command` action, underlying device integration drivers maintain divergent command string vocabularies:
-* **Android TV / Fire TV** (`androidtvremote` / `androidtv`): Uppercase Android keycodes (`DPAD_UP`, `DPAD_DOWN`, `DPAD_LEFT`, `DPAD_RIGHT`, `DPAD_CENTER`, `BACK`, `HOME`, `VOLUME_UP`, `VOLUME_DOWN`, `POWER`).
+* **Android TV / Fire TV / Bravia** (`androidtvremote` / `androidtv`): Uppercase Android keycodes (`DPAD_UP`, `DPAD_DOWN`, `DPAD_LEFT`, `DPAD_RIGHT`, `DPAD_CENTER`, `BACK`, `HOME`, `VOLUME_UP`, `VOLUME_DOWN`, `POWER`).
 * **Apple TV** (`apple_tv`): Lowercase strings with Apple TV navigation conventions (`up`, `down`, `left`, `right`, `select`, `menu` for Back, `top_menu` for Home, `volume_up`, `volume_down`, `wakeup` for Power).
 * **Roku** (`roku`): Lowercase strings matching Roku ECP protocol (`up`, `down`, `left`, `right`, `select`, `back`, `home`, `volume_up`, `volume_down`, `power`).
 * **LG webOS** (`webostv`): Uppercase strings (`UP`, `DOWN`, `LEFT`, `RIGHT`, `ENTER` for Select, `BACK`, `HOME`, `VOLUMEUP`, `VOLUMEDOWN`, `POWER`).
@@ -5293,8 +5293,8 @@ To eliminate manual substitution overrides while preserving full flexibility, Re
 1. **Native ESPHome Select Component (`select.tv_remote_profile`)**:
    * Declared in `core/ui.yaml` under `select:`:
      * Entity name: `Remote: TV Platform Profile` (`id: tv_remote_profile`).
-     * Options: `Android TV / Fire TV`, `Apple TV`, `Roku`, `LG webOS`, `Custom`.
-     * Default initial option: `${tv_remote_profile}` (defaults to `Android TV / Fire TV` in `pocket-assistant.yaml`).
+     * Options: `Android TV / Fire TV / Bravia`, `Apple TV`, `Roku`, `LG webOS`, `Custom`.
+     * Default initial option: `${tv_remote_profile}` (defaults to `Android TV / Fire TV / Bravia` in `pocket-assistant.yaml`).
      * Persistence: `restore_value: true`, persistently storing the user selection in ESP32 flash NVS across reboots.
    * **Home Assistant GUI Integration**: Exposed automatically over the Native API as an interactive drop-down menu in the Pocket Assistant device settings page (`Settings > Devices & Services > ESPHome > Pocket Assistant`). Users can switch device types in Home Assistant with one click, without editing YAML or recompiling firmware.
 
@@ -5309,7 +5309,7 @@ To eliminate manual substitution overrides while preserving full flexibility, Re
      * Matches `apple` $\to$ sets profile to `Apple TV`.
      * Matches `roku` $\to$ sets profile to `Roku`.
      * Matches `webos` or `lg` $\to$ sets profile to `LG webOS`.
-     * Fallback / matches `shield`, `fire`, `chromecast`, `bravia`, `android` $\to$ sets profile to `Android TV / Fire TV`.
+     * Fallback / matches `shield`, `fire`, `chromecast`, `bravia`, `android` $\to$ sets profile to `Android TV / Fire TV / Bravia`.
    * When a user manually changes the select drop-down, `set_action` sets `id(remote_profile_user_set) = true;`, permanently locking their preference against automatic re-detection.
 
 4. **Device Settings Subpage Profile Badge**:
