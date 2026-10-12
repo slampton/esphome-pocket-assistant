@@ -1839,19 +1839,20 @@ sensor:
       float dz = z - grav_z;
       float delta = sqrtf(dx*dx + dy*dy + dz*dz);
 
-      // Deliberate Side-to-Side Shake Detection for Tools Suite (Page 8)
-      // Exclusively inspects lateral X-axis dynamic force and rapid sample-to-sample jerk,
-      // completely immune to table set-downs (Z-axis) and smooth pitch/roll tilts.
+      // Balanced Deliberate Shake Detection for Tools Suite (Page 8)
+      // Perfectly calibrated between over-sensitive (0.45g) and stiff (0.85g):
+      // Inspects planar motion (X/Y) with moderate jerk, completely ignoring Z-axis table set-downs.
       if (id(gui_page) == 8 && id(display_power_state) == 0) {
         static uint32_t last_shake_time = 0;
         uint32_t now_m = millis();
-        float lateral_jerk = fabsf(x - prev_x);
         float lateral_dyn = fabsf(dx);
+        float planar_dyn = sqrtf(dx*dx + dy*dy);
+        float lateral_jerk = fabsf(x - prev_x);
 
-        // Requires both deliberate lateral dynamic force (>= 0.85g) and rapid jerk change (>= 0.75g)
-        bool is_deliberate_lateral_shake = (lateral_dyn >= 0.85f && lateral_jerk >= 0.75f);
+        // Balanced deliberate shake: natural lateral wrist snap (>= 0.60g) or planar flick (>= 0.68g)
+        bool is_deliberate_shake = (lateral_dyn >= 0.60f && lateral_jerk >= 0.45f) || (planar_dyn >= 0.68f && lateral_jerk >= 0.40f);
 
-        if (is_deliberate_lateral_shake && (now_m - last_shake_time > 1200)) {
+        if (is_deliberate_shake && (now_m - last_shake_time > 1000)) {
           last_shake_time = now_m;
           if (id(stuff_subpage) == 8 && !id(coin_anim_active)) {
             id(coin_anim_active) = true;
