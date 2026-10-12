@@ -687,7 +687,7 @@ select:
       - lambda: |-
           id(remote_profile_user_set) = true;
           id(tv_remote_profile).publish_state(x);
-          id(disp1).update();
+          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
 
   - platform: template
     name: "Voice: Visual Profile"
@@ -1131,10 +1131,14 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    turn_on_action:
-      - lambda: 'id(disp1).update();'
-    turn_off_action:
-      - lambda: 'id(disp1).update();'
+    on_turn_on:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
 
   - platform: template
     name: "Audio: Show Library Shortcut"
@@ -1143,10 +1147,14 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    turn_on_action:
-      - lambda: 'id(disp1).update();'
-    turn_off_action:
-      - lambda: 'id(disp1).update();'
+    on_turn_on:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+    on_turn_off:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
 
 
 number:
@@ -1886,7 +1894,7 @@ text_sensor:
                   id(tv_remote_profile).publish_state("Android TV / Fire TV / Bravia");
                 }
               }
-              id(disp1).update();
+              if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
             }
 
   - platform: homeassistant
