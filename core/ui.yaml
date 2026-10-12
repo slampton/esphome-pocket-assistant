@@ -374,6 +374,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: remote_profile_user_set
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
   - id: timer_alarm_subpage
     type: int
     restore_value: no
@@ -661,6 +665,26 @@ light:
 
 
 select:
+  - platform: template
+    name: "Remote: TV Platform Profile"
+    id: tv_remote_profile
+    icon: "mdi:television-box"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: ${tv_remote_profile}
+    options:
+      - "Android TV / Fire TV"
+      - "Apple TV"
+      - "Roku"
+      - "LG webOS"
+      - "Custom"
+    set_action:
+      - lambda: |-
+          id(remote_profile_user_set) = true;
+          id(tv_remote_profile).publish_state(x);
+          id(disp1).update();
+
   - platform: template
     name: "Voice: Visual Profile"
     id: va_visual_profile
@@ -1819,6 +1843,21 @@ text_sensor:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
               id(remote_target_name) = x;
+              if (!id(remote_profile_user_set)) {
+                std::string s_name = x;
+                for (auto &c : s_name) c = ::tolower(c);
+                std::string s_ent = "${tv_remote_entity}";
+                for (auto &c : s_ent) c = ::tolower(c);
+                if (s_name.find("apple") != std::string::npos || s_ent.find("apple") != std::string::npos) {
+                  id(tv_remote_profile).publish_state("Apple TV");
+                } else if (s_name.find("roku") != std::string::npos || s_ent.find("roku") != std::string::npos) {
+                  id(tv_remote_profile).publish_state("Roku");
+                } else if (s_name.find("webos") != std::string::npos || s_name.find("lg") != std::string::npos || s_ent.find("webos") != std::string::npos) {
+                  id(tv_remote_profile).publish_state("LG webOS");
+                } else {
+                  id(tv_remote_profile).publish_state("Android TV / Fire TV");
+                }
+              }
               id(disp1).update();
             }
 
@@ -2908,7 +2947,12 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_up}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV" || p == "Roku") return "up";
+              if (p == "LG webOS") return "UP";
+              if (p == "Custom") return "${remote_cmd_up}";
+              return "DPAD_UP";
 
   - id: remote_send_down
     mode: restart
@@ -2921,7 +2965,12 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_down}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV" || p == "Roku") return "down";
+              if (p == "LG webOS") return "DOWN";
+              if (p == "Custom") return "${remote_cmd_down}";
+              return "DPAD_DOWN";
 
   - id: remote_send_left
     mode: restart
@@ -2934,7 +2983,12 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_left}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV" || p == "Roku") return "left";
+              if (p == "LG webOS") return "LEFT";
+              if (p == "Custom") return "${remote_cmd_left}";
+              return "DPAD_LEFT";
 
   - id: remote_send_right
     mode: restart
@@ -2947,7 +3001,12 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_right}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV" || p == "Roku") return "right";
+              if (p == "LG webOS") return "RIGHT";
+              if (p == "Custom") return "${remote_cmd_right}";
+              return "DPAD_RIGHT";
 
   - id: remote_send_select
     mode: restart
@@ -2960,7 +3019,12 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_select}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV" || p == "Roku") return "select";
+              if (p == "LG webOS") return "ENTER";
+              if (p == "Custom") return "${remote_cmd_select}";
+              return "DPAD_CENTER";
 
   - id: remote_send_back
     mode: restart
@@ -2973,7 +3037,13 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_back}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV") return "menu";
+              if (p == "Roku") return "back";
+              if (p == "LG webOS") return "BACK";
+              if (p == "Custom") return "${remote_cmd_back}";
+              return "BACK";
 
   - id: remote_send_home
     mode: restart
@@ -2986,7 +3056,13 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_home}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV") return "top_menu";
+              if (p == "Roku") return "home";
+              if (p == "LG webOS") return "HOME";
+              if (p == "Custom") return "${remote_cmd_home}";
+              return "HOME";
 
   - id: remote_send_vol_up
     mode: restart
@@ -2999,7 +3075,12 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_vol_up}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV" || p == "Roku") return "volume_up";
+              if (p == "LG webOS") return "VOLUMEUP";
+              if (p == "Custom") return "${remote_cmd_vol_up}";
+              return "VOLUME_UP";
 
   - id: remote_send_vol_down
     mode: restart
@@ -3012,7 +3093,12 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_vol_down}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV" || p == "Roku") return "volume_down";
+              if (p == "LG webOS") return "VOLUMEDOWN";
+              if (p == "Custom") return "${remote_cmd_vol_down}";
+              return "VOLUME_DOWN";
 
   - id: remote_send_power
     mode: restart
@@ -3025,7 +3111,13 @@ script:
           action: remote.send_command
           data:
             entity_id: ${tv_remote_entity}
-            command: ${remote_cmd_power}
+            command: !lambda |-
+              std::string p = id(tv_remote_profile).state;
+              if (p == "Apple TV") return "wakeup";
+              if (p == "Roku") return "power";
+              if (p == "LG webOS") return "POWER";
+              if (p == "Custom") return "${remote_cmd_power}";
+              return "POWER";
 
 display:
   - platform: mipi_spi
@@ -7843,6 +7935,10 @@ display:
           // Active target device name (y = 78, font_small, col_white, matching System page buffer of 32px)
           std::string rem_sub = fit_text_to_width(rem_name, 260);
           it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, rem_sub.c_str());
+
+          // Active remote profile badge (y = 114, font_tiny, theme_secondary)
+          std::string prof_label = "Profile: " + id(tv_remote_profile).state;
+          it.print(cx, 114, id(font_micro), id(theme_secondary), TextAlign::CENTER, prof_label.c_str());
 
           // Clean Pill Button: Toggle Power at y = 200 (h = 44, r = 22, span: 120..346)
           // Rendered using standard draw_pill_button for clean continuous geometry with zero internal artifacts

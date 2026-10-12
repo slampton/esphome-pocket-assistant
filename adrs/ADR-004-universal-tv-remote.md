@@ -10,6 +10,7 @@ On-device physical validation revealed three UX opportunities:
 1. Blind thumb navigation across the center D-pad occasionally missed the OK button and triggered directional presses (specifically Right) due to a conservative center touch radius ($44\text{px}$).
 2. Stacking a static "REMOTE" title above a secondary entity subtitle crowded the upper hemisphere and departed from our standard single-header design.
 3. Prompting for confirmation on every power press felt redundant if the action could instead reside on an intentional, dedicated settings subpage modeled after our system dashboard ergonomics.
+4. Differing Home Assistant command string vocabularies across drivers (e.g. Android TV `DPAD_UP` vs. Apple TV `up` vs. webOS `UP`) previously required manually overriding up to 10 substitution strings.
 
 ## Decision
 1. **Universal Protocol Dispatch**:
@@ -34,10 +35,18 @@ On-device physical validation revealed three UX opportunities:
    * **Direct Power Toggle**: Rendered via standard `draw_pill_button` at $y = 200$ (h = 44px, r = 22px, red accent outline with zero internal graphical artifacts) for immediate power toggling without redundant confirmation prompts.
    * **Navigation**: Returns to the main remote interface via bottom `[ Back ]` pill button ($y = 356$), top header tap, or hardware crown button press.
 
+5. **Native ESPHome Select Profile Drop-Down & Dynamic Keycode Routing**:
+   * **Drop-Down Entity (`select.tv_remote_profile`)**: Exposes an interactive configuration drop-down to Home Assistant (`"Android TV / Fire TV"`, `"Apple TV"`, `"Roku"`, `"LG webOS"`, `"Custom"`) with `restore_value: true`, allowing one-click profile configuration in the HA UI without firmware reflashing.
+   * **Dynamic Command Router**: In `core/ui.yaml`, button dispatch scripts dynamically map logical D-pad and navigation actions to target device keycodes based on `id(tv_remote_profile).state`. `"Custom"` gracefully falls back to user substitution overrides (`${remote_cmd_*}`).
+   * **Heuristic On-Boot Auto-Detection**: When `ha_remote_friendly_name` reports the device name, if `remote_profile_user_set` is false, it inspects entity ID and friendly name substrings (`"apple"`, `"roku"`, `"webos"`, `"lg"`) to set the profile automatically on initial boot.
+   * **Subpage 1 Profile Badge**: Active profile is displayed at $y = 114$ (`font_micro`, `theme_secondary`) on Device Settings Subpage 1.
+   * **v2.0 Roadmap (Backend Deterministic Auto-Detection)**: Slated for the v2.0 Home Assistant companion package to query device registry integration domains (`androidtvremote`, `apple_tv`, `roku`, `webostv`) and automatically broadcast the exact remote platform over API.
+
 ## Consequences
 * Out-of-the-box compatibility with Android TV, Google TV, Apple TV, Roku, Fire TV, and CEC-enabled AV receivers.
 * Main title dynamically reflects the user's specific target device (e.g., "Shield TV").
 * Direct power toggling from the settings subpage eliminates modal interruptions.
 * Clean architectural foundation for interactive multi-device switching without breaking changes.
 * Complete elimination of false volume presses and missed center OK button taps.
+* One-click drop-down profile switching in Home Assistant with zero re-compilation.
 * Clean, uncluttered AMOLED aesthetics conforming to project design standards.

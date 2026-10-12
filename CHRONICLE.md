@@ -5275,3 +5275,49 @@ To lay the technical groundwork in v1.3:
 * 1. Refactor remaining hardcoded entity bindings into clean internal text/numeric slot proxies.
 * 2. Define standard Native API user service action signatures (pocket_assistant_dispatch_action).
 * 3. Maintain 100% backward compatibility with companion package v1.2 while preparing slot abstractions for v2.0.
+
+## Part CXXXIV: Universal TV Remote Profile Architecture: ESPHome Select Drop-Down, Dynamic Keycode Routing & v2.0 Backend Auto-Detection Roadmap
+
+### 1. Architectural Summary & Problem Definition
+While Home Assistant unifies remote control interactions under the standard `remote.send_command` action, underlying device integration drivers maintain divergent command string vocabularies:
+* **Android TV / Fire TV** (`androidtvremote` / `androidtv`): Uppercase Android keycodes (`DPAD_UP`, `DPAD_DOWN`, `DPAD_LEFT`, `DPAD_RIGHT`, `DPAD_CENTER`, `BACK`, `HOME`, `VOLUME_UP`, `VOLUME_DOWN`, `POWER`).
+* **Apple TV** (`apple_tv`): Lowercase strings with Apple TV navigation conventions (`up`, `down`, `left`, `right`, `select`, `menu` for Back, `top_menu` for Home, `volume_up`, `volume_down`, `wakeup` for Power).
+* **Roku** (`roku`): Lowercase strings matching Roku ECP protocol (`up`, `down`, `left`, `right`, `select`, `back`, `home`, `volume_up`, `volume_down`, `power`).
+* **LG webOS** (`webostv`): Uppercase strings (`UP`, `DOWN`, `LEFT`, `RIGHT`, `ENTER` for Select, `BACK`, `HOME`, `VOLUMEUP`, `VOLUMEDOWN`, `POWER`).
+
+Previously, non-Android users had to override up to 10 separate substitution strings (`remote_cmd_up`, `remote_cmd_down`, etc.) in their local YAML configuration.
+
+### 2. Engineering Remediation & Multi-Platform Architecture
+To eliminate manual substitution overrides while preserving full flexibility, Release v1.3 introduces a three-tier profile management architecture:
+
+1. **Native ESPHome Select Component (`select.tv_remote_profile`)**:
+   * Declared in `core/ui.yaml` under `select:`:
+     * Entity name: `Remote: TV Platform Profile` (`id: tv_remote_profile`).
+     * Options: `Android TV / Fire TV`, `Apple TV`, `Roku`, `LG webOS`, `Custom`.
+     * Default initial option: `${tv_remote_profile}` (defaults to `Android TV / Fire TV` in `pocket-assistant.yaml`).
+     * Persistence: `restore_value: true`, persistently storing the user selection in ESP32 flash NVS across reboots.
+   * **Home Assistant GUI Integration**: Exposed automatically over the Native API as an interactive drop-down menu in the Pocket Assistant device settings page (`Settings > Devices & Services > ESPHome > Pocket Assistant`). Users can switch device types in Home Assistant with one click, without editing YAML or recompiling firmware.
+
+2. **Dynamic C++ Keycode Router (`core/ui.yaml`)**:
+   * Refactored all 10 remote dispatch scripts (`remote_send_up`, `remote_send_down`, `remote_send_left`, `remote_send_right`, `remote_send_select`, `remote_send_back`, `remote_send_home`, `remote_send_vol_up`, `remote_send_vol_down`, `remote_send_power`) to evaluate `command:` dynamically via `!lambda`.
+   * Evaluates `id(tv_remote_profile).state` and dispatches the exact driver-level command string required by the target platform.
+   * Selecting `Custom` preserves 100% backward compatibility by falling back to the user-supplied substitutions (`${remote_cmd_*}`).
+
+3. **Heuristic On-Boot Auto-Detection**:
+   * Governed by a persistent boolean global `remote_profile_user_set` (`restore_value: yes`, default `false`).
+   * Upon receiving `ha_remote_friendly_name` from Home Assistant, if the user has not manually set the profile, the firmware runs a case-insensitive substring scan over the friendly name and entity ID:
+     * Matches `apple` $\to$ sets profile to `Apple TV`.
+     * Matches `roku` $\to$ sets profile to `Roku`.
+     * Matches `webos` or `lg` $\to$ sets profile to `LG webOS`.
+     * Fallback / matches `shield`, `fire`, `chromecast`, `bravia`, `android` $\to$ sets profile to `Android TV / Fire TV`.
+   * When a user manually changes the select drop-down, `set_action` sets `id(remote_profile_user_set) = true;`, permanently locking their preference against automatic re-detection.
+
+4. **Device Settings Subpage Profile Badge**:
+   * On Device Settings Subpage 1 (Page 7), added a live profile indicator at $y = 114$ (`font_micro`, `theme_secondary`), displaying `Profile: <Active Profile>` so users immediately verify the active command set on-device.
+
+### 3. Version 2.0 Roadmap Commitment: Backend Deterministic Auto-Detection
+Slated for the v2.0 Home Assistant Companion Package:
+* **Registry-Level Device Introspection**: In the Home Assistant backend companion package (`pocket_assistant_companion.yaml`), implement a backend Jinja/Python inspection rule querying the Home Assistant Device and Entity Registries for `tv_remote_entity`:
+  * Extracts `integration_name(device_attr(device_id(entity), "manufacturer"))` and integration domain (`androidtvremote`, `apple_tv`, `roku`, `webostv`, `braviatv`, `samsungtv`, etc.).
+  * Broadens coverage to include Samsung Tizen, Sony Bravia, Panasonic Viera, and HDMI-CEC.
+* **Synchronous Platform Publishing**: Automatically publishes the verified device platform to Pocket Assistant via an attribute on the companion sensor or native API service call, achieving 100% deterministic, zero-config device recognition without relying on entity naming heuristics.

@@ -91,6 +91,12 @@ After adding the configuration, reload Template Entities and Input Texts under *
 - **Dynamic Audio Ducking**: Software mixer ducks local playback by 20 dB during Voice Assistant speech synthesis.
 - **Hardware & Touch Dismissal**: Physical side button immediately halts and mutes an active voice session; full-screen touch modal interception allows tapping the glass to dismiss without triggering background app controls.
 
+### Universal TV & Media Remote Control (Page 7)
+- **Universal Home Assistant Dispatch**: Full-featured remote control interface dispatching over standard `remote.send_command` with eyes-free 4-corner radial geometry, 85px equatorial volume isolation dead-zone, and an expanded 52px (104px diameter) center OK touch target.
+- **Native Platform Profiles Drop-Down**: Exposes an interactive `select.tv_remote_profile` entity to Home Assistant (`Android TV / Fire TV`, `Apple TV`, `Roku`, `LG webOS`, `Custom`) with NVS flash persistence (`restore_value: true`). Switch devices directly in the Home Assistant web UI without touching code or reflashing.
+- **Automatic Heuristic Detection**: Automatically detects device platform on first boot by scanning entity ID and friendly name for platform signatures (`apple`, `roku`, `webos`, `lg`), with manual lock protection.
+- **Device Settings Subpage**: Tap the top device name header to open the settings subpage featuring an active profile status badge, direct unconfirmed Power toggle, and Back navigation.
+
 ### Multi-Tier Power Management
 - **Tier 1 (Active)**: High-performance 80MHz Quad-SPI AMOLED rendering, real-time sensor processing, and capacitive touch interaction.
 - **Tier 2 (Display Standby)**: Screen turns off after an inactivity timeout (default 15s on battery), powering down the speaker amplifier and gyroscope while keeping motion wake armed. Wakes rapidly upon crown button press, or upon physical pickup.
