@@ -258,6 +258,14 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  - id: music_skip_burst_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: music_skip_last_tap_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: marble_touch_x
     type: float
     restore_value: no
@@ -2421,15 +2429,34 @@ script:
     then:
       - delay: 0ms
       - lambda: |-
-          id(music_action_feedback) = "-10s Replay";
-          id(music_feedback_timer) = millis();
+          uint32_t now_ms = millis();
+          if (now_ms - id(music_skip_last_tap_ms) < 1000) {
+            id(music_skip_burst_count)++;
+          } else {
+            id(music_skip_burst_count) = 1;
+          }
+          id(music_skip_last_tap_ms) = now_ms;
+
+          float step_sec = 10.0f;
+          std::string label = "-10s Replay";
+          switch (id(music_skip_burst_count)) {
+            case 1: step_sec = 10.0f; label = "-10s Replay"; break;
+            case 2: step_sec = 30.0f; label = "-30s Replay"; break;
+            case 3: step_sec = 60.0f; label = "-1m Replay"; break;
+            case 4: step_sec = 120.0f; label = "-2m Replay"; break;
+            default: step_sec = 300.0f; label = "-5m Replay"; break;
+          }
+
+          id(music_action_feedback) = label;
+          id(music_feedback_timer) = now_ms;
+
           float cur_pos = id(music_pos_base);
           if (id(music_pos_sync_time) > 0) {
-            cur_pos += (float)(millis() - id(music_pos_sync_time)) / 1000.0f;
+            cur_pos += (float)(now_ms - id(music_pos_sync_time)) / 1000.0f;
           }
-          float new_pos = std::max(0.0f, cur_pos - 10.0f);
+          float new_pos = std::max(0.0f, cur_pos - step_sec);
           id(music_pos_base) = new_pos;
-          id(music_pos_sync_time) = millis();
+          id(music_pos_sync_time) = now_ms;
       - homeassistant.action:
           action: media_player.media_seek
           data:
@@ -2443,16 +2470,35 @@ script:
     then:
       - delay: 0ms
       - lambda: |-
-          id(music_action_feedback) = "+30s Skip";
-          id(music_feedback_timer) = millis();
+          uint32_t now_ms = millis();
+          if (now_ms - id(music_skip_last_tap_ms) < 1000) {
+            id(music_skip_burst_count)++;
+          } else {
+            id(music_skip_burst_count) = 1;
+          }
+          id(music_skip_last_tap_ms) = now_ms;
+
+          float step_sec = 30.0f;
+          std::string label = "+30s Skip";
+          switch (id(music_skip_burst_count)) {
+            case 1: step_sec = 30.0f; label = "+30s Skip"; break;
+            case 2: step_sec = 60.0f; label = "+1m Skip"; break;
+            case 3: step_sec = 120.0f; label = "+2m Skip"; break;
+            case 4: step_sec = 300.0f; label = "+5m Skip"; break;
+            default: step_sec = 600.0f; label = "+10m Skip"; break;
+          }
+
+          id(music_action_feedback) = label;
+          id(music_feedback_timer) = now_ms;
+
           float cur_pos = id(music_pos_base);
           if (id(music_pos_sync_time) > 0) {
-            cur_pos += (float)(millis() - id(music_pos_sync_time)) / 1000.0f;
+            cur_pos += (float)(now_ms - id(music_pos_sync_time)) / 1000.0f;
           }
           float dur = id(ha_media_duration).state;
-          float new_pos = (!std::isnan(dur) && dur > 0.0f) ? std::min(dur, cur_pos + 30.0f) : (cur_pos + 30.0f);
+          float new_pos = (!std::isnan(dur) && dur > 0.0f) ? std::min(dur, cur_pos + step_sec) : (cur_pos + step_sec);
           id(music_pos_base) = new_pos;
-          id(music_pos_sync_time) = millis();
+          id(music_pos_sync_time) = now_ms;
       - homeassistant.action:
           action: media_player.media_seek
           data:
@@ -4739,12 +4785,12 @@ display:
             auto draw_skip_back_glyph = [&](int ox, int oy, Color c) {
               int px = prev_btn_x + ox;
               int py = art_center_y + oy;
-              it.filled_triangle(px - 8, py - 13, px - 1, py - 18, px - 1, py - 8, c);
-              const float r1 = 12.5f;
-              const float r2 = 14.2f;
+              it.filled_triangle(px - 10, py - 15, px - 1, py - 21, px - 1, py - 9, c);
+              const float r1 = 14.5f;
+              const float r2 = 16.5f;
               const float a_start = 0.28f;
               const float a_end = 5.28f;
-              const float a_step = 0.18f;
+              const float a_step = 0.16f;
               for (float a = a_start; a < a_end; a += a_step) {
                 float next_a = std::min(a + a_step, a_end);
                 float s1, c1, s2, c2;
@@ -4754,8 +4800,8 @@ display:
                         px + (int)(r1 * s2), py - (int)(r1 * c2), c);
                 it.line(px + (int)(r2 * s1), py - (int)(r2 * c2),
                         px + (int)(r2 * s2), py - (int)(r2 * c2), c);
-                it.line(px + (int)((r1 + 0.85f) * s1), py - (int)((r1 + 0.85f) * c1),
-                        px + (int)((r1 + 0.85f) * s2), py - (int)((r1 + 0.85f) * c2), c);
+                it.line(px + (int)((r1 + 1.0f) * s1), py - (int)((r1 + 1.0f) * c1),
+                        px + (int)((r1 + 1.0f) * s2), py - (int)((r1 + 1.0f) * c2), c);
               }
               it.print(px, py + 1, id(font_micro), c, TextAlign::CENTER, "10");
               it.print(px + 1, py + 1, id(font_micro), c, TextAlign::CENTER, "10");
@@ -4764,12 +4810,12 @@ display:
             auto draw_skip_fwd_glyph = [&](int ox, int oy, Color c) {
               int nx = next_btn_x + ox;
               int ny = art_center_y + oy;
-              it.filled_triangle(nx + 8, ny - 13, nx + 1, ny - 18, nx + 1, ny - 8, c);
-              const float r1 = 12.5f;
-              const float r2 = 14.2f;
+              it.filled_triangle(nx + 10, ny - 15, nx + 1, ny - 21, nx + 1, ny - 9, c);
+              const float r1 = 14.5f;
+              const float r2 = 16.5f;
               const float a_start = 0.28f;
               const float a_end = 5.28f;
-              const float a_step = 0.18f;
+              const float a_step = 0.16f;
               for (float a = a_start; a < a_end; a += a_step) {
                 float next_a = std::min(a + a_step, a_end);
                 float s1, c1, s2, c2;
@@ -4779,8 +4825,8 @@ display:
                         nx - (int)(r1 * s2), ny - (int)(r1 * c2), c);
                 it.line(nx - (int)(r2 * s1), ny - (int)(r2 * c2),
                         nx - (int)(r2 * s2), ny - (int)(r2 * c2), c);
-                it.line(nx - (int)((r1 + 0.85f) * s1), ny - (int)((r1 + 0.85f) * c1),
-                        nx - (int)((r1 + 0.85f) * s2), ny - (int)((r1 + 0.85f) * c2), c);
+                it.line(nx - (int)((r1 + 1.0f) * s1), ny - (int)((r1 + 1.0f) * c1),
+                        nx - (int)((r1 + 1.0f) * s2), ny - (int)((r1 + 1.0f) * c2), c);
               }
               it.print(nx, ny + 1, id(font_micro), c, TextAlign::CENTER, "30");
               it.print(nx + 1, ny + 1, id(font_micro), c, TextAlign::CENTER, "30");
@@ -8622,7 +8668,6 @@ touchscreen:
                                             id(active_playback_media_type) == "podcast_episode" || 
                                             id(active_playback_media_type) == "audiobook");
                     if (is_speech_media) {
-                      id(music_action_feedback) = "+30s Skip";
                       id(music_skip_fwd_30).execute();
                     } else {
                       id(music_action_feedback) = "Next Track >>";
@@ -8691,7 +8736,6 @@ touchscreen:
                                             id(active_playback_media_type) == "podcast_episode" || 
                                             id(active_playback_media_type) == "audiobook");
                     if (is_speech_media) {
-                      id(music_action_feedback) = "-10s Replay";
                       id(music_skip_back_10).execute();
                     } else {
                       id(music_action_feedback) = "<< Prev Track";
