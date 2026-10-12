@@ -7932,11 +7932,12 @@ display:
         if (id(stuff_subpage) == 0) {
           // --------------------------------------------------
           // SUBPAGE 0: STUFF LAUNCHER MENU (2-Page 6+2 Scaled Icon Card Grid)
-          // Row 0 (y = 118), Row 1 (y = 214), Row 2 (y = 310)
-          // Left Column (x = 140), Right Column (x = 264)
+          // Standard title at y = 50 with 36px system buffer before Row 0 (y = 128)
+          // Balanced inter-row spacing (24px) across Row 0, 1, 2 (y = 128, 236, 344)
+          // Symmetrical dual-column placement (x = 158, 294) with 22px inter-column buffer
           // Standard Right-Flank Navigation Chevrons at x = 415 (Up at 162, Down at 278)
           // --------------------------------------------------
-          draw_menu_header(46, "STUFF");
+          draw_menu_header(50, "STUFF");
 
           // Standardized Right-Flank Navigation Chevrons
           draw_right_flank_chevrons(id(stuff_menu_page) == 1, id(stuff_menu_page) == 0);
@@ -8024,8 +8025,8 @@ display:
               it.filled_circle(ix, iy, 3, id(col_white));
               it.line(ix - 20, iy, ix - 16, iy, id(col_white));
               it.line(ix + 16, iy, ix + 20, iy, id(col_white));
-              it.line(ix, iy - 20, ix, iy - 16, id(col_white));
-              it.line(ix, iy + 16, ix, iy + 20, id(col_white));
+              it.line(ix - 20, iy, ix - 16, iy, id(col_white));
+              it.line(ix + 16, iy, ix + 20, iy, id(col_white));
             } else if (app_id == 8) {
               // Coin Icon: Scaled coin rim with Home Assistant house outline
               it.circle(ix, iy, 17, id(col_white));
@@ -8041,18 +8042,24 @@ display:
             it.print(cx_card, cy_card + 22, id(font_small), id(col_white), TextAlign::CENTER, label);
           };
 
+          const int col_left_x = 158;
+          const int col_right_x = 294;
+          const int row_0_y = 128;
+          const int row_1_y = 236;
+          const int row_2_y = 344;
+
           if (id(stuff_menu_page) == 0) {
             // PAGE 1: 6 ICONS
-            draw_icon_card(140, 118, 1, "Timer");
-            draw_icon_card(264, 118, 2, "Alarms");
-            draw_icon_card(140, 214, 3, "Stopwatch");
-            draw_icon_card(264, 214, 4, "Dice Roll");
-            draw_icon_card(140, 310, 5, "Flashlight");
-            draw_icon_card(264, 310, 6, "Calculator");
+            draw_icon_card(col_left_x, row_0_y, 1, "Timer");
+            draw_icon_card(col_right_x, row_0_y, 2, "Alarms");
+            draw_icon_card(col_left_x, row_1_y, 3, "Stopwatch");
+            draw_icon_card(col_right_x, row_1_y, 4, "Dice Roll");
+            draw_icon_card(col_left_x, row_2_y, 5, "Flashlight");
+            draw_icon_card(col_right_x, row_2_y, 6, "Calculator");
           } else {
             // PAGE 2: 2 ICONS
-            draw_icon_card(140, 118, 7, "Level");
-            draw_icon_card(264, 118, 8, "Coin Flip");
+            draw_icon_card(col_left_x, row_0_y, 7, "Level");
+            draw_icon_card(col_right_x, row_0_y, 8, "Coin Flip");
           }
 
         } else if (id(stuff_subpage) == 1) {
@@ -8060,84 +8067,82 @@ display:
           // SUBPAGE 1: TIMER (COUNTDOWN TIMER)
           // --------------------------------------------------
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
-            // ==================================================================
-            // SUBPAGE 0: COUNTDOWN TIMER (HERO BUTTON CENTERED AT y = 228)
-            // ==================================================================
-            // 1. Time Readout above Hero Button (y = 120, font_time, standardized buffer below y=50 title)
-            int disp_sec = (id(timer_running) || id(timer_paused)) ? id(timer_remaining_sec) : id(timer_duration_sec);
-            int m_part = disp_sec / 60;
-            int s_part = disp_sec % 60;
-            char t_str[16];
-            snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
-            it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_str);
 
-            // Subtitle status (y = 168)
-            if (id(timer_running)) {
-              it.print(cx, 168, id(font_small), id(theme_secondary), TextAlign::CENTER, "Countdown");
-            } else if (id(timer_paused)) {
-              it.print(cx, 168, id(font_small), id(theme_primary), TextAlign::CENTER, "Paused");
-            } else {
-              it.print(cx, 168, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
+          // 1. Time Readout above Hero Button (y = 120, font_time, standardized buffer below y=50 title)
+          int disp_sec = (id(timer_running) || id(timer_paused)) ? id(timer_remaining_sec) : id(timer_duration_sec);
+          int m_part = disp_sec / 60;
+          int s_part = disp_sec % 60;
+          char t_str[16];
+          snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
+          it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_str);
+
+          // Subtitle status (y = 168)
+          if (id(timer_running)) {
+            it.print(cx, 168, id(font_small), id(theme_secondary), TextAlign::CENTER, "Countdown");
+          } else if (id(timer_paused)) {
+            it.print(cx, 168, id(font_small), id(theme_primary), TextAlign::CENTER, "Paused");
+          } else {
+            it.print(cx, 168, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
+          }
+
+          // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide, black text on theme_secondary)
+          const int hero_y = 228;
+          if (!id(timer_running) && !id(timer_paused)) {
+            draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black));
+          } else if (id(timer_running)) {
+            draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black));
+          } else if (id(timer_paused)) {
+            draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black));
+          }
+
+          // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14, leaving generous 30px gap above nav buttons)
+          if (!id(timer_running) && !id(timer_paused)) {
+            // -5m: span 48..126
+            draw_pill_button(62, 112, 292, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
+            // -1m: moved inward to span 140..204 (14px natural gap from -5m)
+            draw_pill_button(154, 190, 292, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
+            // +1m: moved inward to span 262..326 (14px natural gap to +5m)
+            draw_pill_button(276, 312, 292, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
+            // +5m: span 340..418
+            draw_pill_button(354, 404, 292, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+          } else {
+            draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
+          }
+
+          // 4. Standardized Perimeter Progress Ticks (r = 219..228, Zero Outer Ring)
+          // Rendered exclusively when timer is active (running or paused); clean perimeter in ready state
+          if (id(timer_running) || id(timer_paused)) {
+            // 1. Full 360-degree background track ticks (all 60 positions)
+            for (int s = 0; s < 60; s++) {
+              float sn = DIAL_SIN[s];
+              float cs = DIAL_COS[s];
+              int r1 = (s % 5 == 0) ? 219 : 222;
+              int r2 = (s % 5 == 0) ? 228 : 227;
+              Color tc = (s % 5 == 0) ? id(col_slate) : id(col_dark_gray);
+              it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
+                      cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
             }
 
-            // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide, black text on theme_secondary)
-            const int hero_y = 228;
-            if (!id(timer_running) && !id(timer_paused)) {
-              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black));
-            } else if (id(timer_running)) {
-              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black));
-            } else if (id(timer_paused)) {
-              draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black));
-            }
-
-            // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14, leaving generous 30px gap above nav buttons)
-            if (!id(timer_running) && !id(timer_paused)) {
-              // -5m: span 48..126
-              draw_pill_button(62, 112, 292, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
-              // -1m: moved inward to span 140..204 (14px natural gap from -5m)
-              draw_pill_button(154, 190, 292, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
-              // +1m: moved inward to span 262..326 (14px natural gap to +5m)
-              draw_pill_button(276, 312, 292, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
-              // +5m: span 340..418
-              draw_pill_button(354, 404, 292, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
-            } else {
-              draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
-            }
-
-            // 4. Standardized Perimeter Progress Ticks (r = 219..228, Zero Outer Ring)
-            // Rendered exclusively when timer is active (running or paused); clean perimeter in ready state
-            if (id(timer_running) || id(timer_paused)) {
-              // 1. Full 360-degree background track ticks (all 60 positions)
-              for (int s = 0; s < 60; s++) {
-                float sn = DIAL_SIN[s];
-                float cs = DIAL_COS[s];
-                int r1 = (s % 5 == 0) ? 219 : 222;
-                int r2 = (s % 5 == 0) ? 228 : 227;
-                Color tc = (s % 5 == 0) ? id(col_slate) : id(col_dark_gray);
-                it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
-                        cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
-              }
-
-              // 2. Active remaining ticks
-              float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
-              int sweep_ticks = (int)(frac * 60.0f);
-              if (sweep_ticks > 60) sweep_ticks = 60;
-              Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
-              for (int t = 0; t <= sweep_ticks; t++) {
-                int idx = t % 60;
-                float sn = DIAL_SIN[idx];
-                float cs = DIAL_COS[idx];
-                int r1 = (idx % 5 == 0) ? 219 : 221;
-                it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
-                        cx + (int)(228.0f * sn), cy - (int)(228.0f * cs), arc_c);
-                if (idx % 5 == 0) {
-                  float px = -cs;
-                  float py = -sn;
-                  it.line(cx + (int)(r1 * sn + px), cy - (int)(r1 * cs - py),
+            // 2. Active remaining ticks
+            float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
+            int sweep_ticks = (int)(frac * 60.0f);
+            if (sweep_ticks > 60) sweep_ticks = 60;
+            Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
+            for (int t = 0; t <= sweep_ticks; t++) {
+              int idx = t % 60;
+              float sn = DIAL_SIN[idx];
+              float cs = DIAL_COS[idx];
+              int r1 = (idx % 5 == 0) ? 219 : 221;
+              it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
+                      cx + (int)(228.0f * sn), cy - (int)(228.0f * cs), arc_c);
+              if (idx % 5 == 0) {
+                float px = -cs;
+                float py = -sn;
+                it.line(cx + (int)(r1 * sn + px), cy - (int)(r1 * cs - py),
                           cx + (int)(228.0f * sn + px), cy - (int)(228.0f * cs - py), arc_c);
-                }
               }
             }
+          }
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
@@ -8148,116 +8153,113 @@ display:
           // --------------------------------------------------
           if (id(alarm_edit_idx) == 0) {
             it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
-              // ----------------------------------------------------------------
-              // ALARM LIST VIEW: 2 RECURRING ALARM CARDS
-              // ----------------------------------------------------------------
-              const char* rec_labels[4] = {"Daily", "Weekdays", "Weekends", "Once"};
 
-              auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
-                bool is_snoozed = (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == idx || id(alarm_ringing_idx) == 0));
+            // ----------------------------------------------------------------
+            // ALARM LIST VIEW: 2 RECURRING ALARM CARDS
+            // ----------------------------------------------------------------
+            const char* rec_labels[4] = {"Daily", "Weekdays", "Weekends", "Once"};
 
-                // Card Background (Clean 2px Stadium Pill - zero inner circular artifacts)
-                Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
-                Color border_c = en ? id(theme_secondary) : Color(45, 52, 60);
+            auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
+              bool is_snoozed = (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == idx || id(alarm_ringing_idx) == 0));
 
-                // Outer border pill (r = 46, 92px tall for enhanced readability)
-                it.filled_circle(90, y_mid, 46, border_c);
-                it.filled_circle(376, y_mid, 46, border_c);
-                it.filled_rectangle(90, y_mid - 46, 286, 93, border_c);
+              // Card Background (Clean 2px Stadium Pill - zero inner circular artifacts)
+              Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
+              Color border_c = en ? id(theme_secondary) : Color(45, 52, 60);
 
-                // Inner card pill (r = 44, 2px border inset)
-                it.filled_circle(90, y_mid, 44, card_bg);
-                it.filled_circle(376, y_mid, 44, card_bg);
-                it.filled_rectangle(90, y_mid - 44, 286, 89, card_bg);
+              // Outer border pill (r = 46, 92px tall for enhanced readability)
+              it.filled_circle(90, y_mid, 46, border_c);
+              it.filled_circle(376, y_mid, 46, border_c);
+              it.filled_rectangle(90, y_mid - 46, 286, 93, border_c);
 
-                if (is_snoozed) {
-                  // Active Snooze Dismiss Overlay across configuration pill
-                  draw_pill_button(110, 356, y_mid, 22, id(theme_secondary), id(theme_secondary), "DISMISS SNOOZE", id(col_black), false);
-                  return;
-                }
+              // Inner card pill (r = 44, 2px border inset)
+              it.filled_circle(90, y_mid, 44, card_bg);
+              it.filled_circle(376, y_mid, 44, card_bg);
+              it.filled_rectangle(90, y_mid - 44, 286, 89, card_bg);
 
-                // Alarm Time String (All text and toggle elements shifted up 8px as a unit for vertical centering)
-                char t_buf[16];
-                char ap_buf[8] = "";
-                format_time_hhmm(h, m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf, true);
-                Color time_col = en ? id(col_white) : id(col_gray);
-                // Time & AM baselines (AM/PM brought in tighter to x=194)
-                it.print(92, y_mid + 4, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
-                if (!id(is_24h_format) && ap_buf[0] != 0) {
-                  it.print(194, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
-                }
-
-                // Recurrence Tag: centered vertically with equal whitespace above and below (y_mid + 14)
-                char tag_buf[32];
-                snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-                it.print(92, y_mid + 14, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
-
-                // Toggle Switch Pill: shifted up 8px (center y_mid - 8, width 44, height 26)
-                Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
-                it.filled_circle(330, y_mid - 8, 12, sw_bg);
-                it.filled_circle(354, y_mid - 8, 12, sw_bg);
-                it.filled_rectangle(330, y_mid - 20, 24, 25, sw_bg);
-                // Toggle Knob
-                int knob_x = en ? 354 : 330;
-                it.filled_circle(knob_x, y_mid - 8, 9, id(col_white));
-              };
-
-              // Alarm 1: Weekdays default (y = 130, elevated by 14px to match standard 34px title buffer)
-              draw_alarm_card(130, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
-
-              // Alarm 2: Weekends default (y = 240, elevated by 14px, leaving generous 50px buffer above bottom nav)
-              draw_alarm_card(240, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
-
-              // Snooze Status (y = 302, elevated by 14px)
-              if (id(alarm_snooze_until) > 0) {
-                auto now = id(ha_time).now();
-                int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
-                int snz_idx = (id(alarm_ringing_idx) > 0) ? id(alarm_ringing_idx) : 1;
-                char snz_buf[48];
-                snprintf(snz_buf, sizeof(snz_buf), "Alarm %d Snoozed (%dm %ds)", snz_idx, rem_s / 60, rem_s % 60);
-                it.print(cx, 302, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
+              if (is_snoozed) {
+                // Active Snooze Dismiss Overlay across configuration pill
+                draw_pill_button(110, 356, y_mid, 22, id(theme_secondary), id(theme_secondary), "DISMISS SNOOZE", id(col_black), false);
+                return;
               }
-            } else {
-              // ----------------------------------------------------------------
-              // ALARM EDITOR VIEW (alarm_edit_idx == 1 or 2)
-              // ----------------------------------------------------------------
-              char hdr_buf[32];
-              snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", id(alarm_edit_idx));
-              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
 
-              int edit_idx = id(alarm_edit_idx);
-              int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
-              int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
-              int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
-
-              // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, standardized at y=120 to match timer buffer
+              // Alarm Time String (All text and toggle elements shifted up 8px as a unit for vertical centering)
               char t_buf[16];
               char ap_buf[8] = "";
-              format_time_hhmm(cur_h, cur_m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf);
-              it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-              if (!id(is_24h_format)) {
-                int h12 = cur_h % 12;
-                if (h12 == 0) h12 = 12;
-                int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
-                it.print(ap_x, 129, id(font_small), id(theme_secondary), TextAlign::LEFT, ap_buf);
+              format_time_hhmm(h, m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf, true);
+              Color time_col = en ? id(col_white) : id(col_gray);
+              // Time & AM baselines (AM/PM brought in tighter to x=194)
+              it.print(92, y_mid + 4, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
+              if (!id(is_24h_format) && ap_buf[0] != 0) {
+                it.print(194, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
               }
 
-              // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
-              it.print(145, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "HOUR");
-              draw_pill_button(105, 123, 233, 15, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
-              draw_pill_button(167, 185, 233, 15, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
+              // Recurrence Tag: centered vertically with equal whitespace above and below (y_mid + 14)
+              char tag_buf[32];
+              snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
+              it.print(92, y_mid + 14, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
-              it.print(321, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "MINUTE");
-              draw_pill_button(281, 299, 233, 15, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
-              draw_pill_button(343, 361, 233, 15, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+              // Toggle Switch Pill: shifted up 8px (center y_mid - 8, width 44, height 26)
+              Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
+              it.filled_circle(330, y_mid - 8, 12, sw_bg);
+              it.filled_circle(354, y_mid - 8, 12, sw_bg);
+              it.filled_rectangle(330, y_mid - 20, 24, 25, sw_bg);
+              // Toggle Knob
+              int knob_x = en ? 354 : 330;
+              it.filled_circle(knob_x, y_mid - 8, 9, id(col_white));
+            };
 
-              // Recurrence Pill: y = 296 (r = 18, moved down +21px with group)
-              const char* rec_names[4] = {"Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
-              draw_pill_button(120, 346, 296, 18, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
+            // Alarm 1: Weekdays default (y = 130, elevated by 14px to match standard 34px title buffer)
+            draw_alarm_card(130, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
 
-              // Standardized System < BACK Button nestled right above navigation (y = 368)
-              // (rendered globally below)
+            // Alarm 2: Weekends default (y = 240, elevated by 14px, leaving generous 50px buffer above bottom nav)
+            draw_alarm_card(240, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
+
+            // Snooze Status (y = 302, elevated by 14px)
+            if (id(alarm_snooze_until) > 0) {
+              auto now = id(ha_time).now();
+              int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
+              int snz_idx = (id(alarm_ringing_idx) > 0) ? id(alarm_ringing_idx) : 1;
+              char snz_buf[48];
+              snprintf(snz_buf, sizeof(snz_buf), "Alarm %d Snoozed (%dm %ds)", snz_idx, rem_s / 60, rem_s % 60);
+              it.print(cx, 302, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
             }
+          } else {
+            // ----------------------------------------------------------------
+            // ALARM EDITOR VIEW (alarm_edit_idx == 1 or 2)
+            // ----------------------------------------------------------------
+            char hdr_buf[32];
+            snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", id(alarm_edit_idx));
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
+
+            int edit_idx = id(alarm_edit_idx);
+            int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
+            int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
+            int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
+
+            // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, standardized at y=120 to match timer buffer
+            char t_buf[16];
+            char ap_buf[8] = "";
+            format_time_hhmm(cur_h, cur_m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf);
+            it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
+            if (!id(is_24h_format)) {
+              int h12 = cur_h % 12;
+              if (h12 == 0) h12 = 12;
+              int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
+              it.print(ap_x, 129, id(font_small), id(theme_secondary), TextAlign::LEFT, ap_buf);
+            }
+
+            // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
+            it.print(145, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "HOUR");
+            draw_pill_button(105, 123, 233, 15, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
+            draw_pill_button(167, 185, 233, 15, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
+
+            it.print(321, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "MINUTE");
+            draw_pill_button(281, 299, 233, 15, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
+            draw_pill_button(343, 361, 233, 15, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+
+            // Recurrence Pill: y = 296 (r = 18, moved down +21px with group)
+            const char* rec_names[4] = {"Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
+            draw_pill_button(120, 346, 296, 18, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
           }
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
@@ -8268,179 +8270,171 @@ display:
           // SUBPAGE 3: STOPWATCH (VINTAGE 1970 HEUER SWISS CHRONOMETER)
           // --------------------------------------------------
 
-        // Clean Dual Perimeter Rings: Crisp White Outer Ring (r=230) with Polished Silver Inner Highlight (r=228)
-        it.circle(cx, cy, 230, id(col_white));
-        it.circle(cx, cy, 228, id(col_silver));
+          // Clean Dual Perimeter Rings: Crisp White Outer Ring (r=230) with Polished Silver Inner Highlight (r=228)
+          it.circle(cx, cy, 230, id(col_white));
+          it.circle(cx, cy, 228, id(col_silver));
 
-        // Inner Chapter Track Boundaries (Polished steel inner rehaut flange)
-        it.circle(cx, cy, 197, id(col_dark_gray));
-        it.circle(cx, cy, 196, id(col_silver));
+          // Inner Chapter Track Boundaries (Polished steel inner rehaut flange)
+          it.circle(cx, cy, 197, id(col_dark_gray));
+          it.circle(cx, cy, 196, id(col_silver));
 
-        // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
-        for (int s = 0; s < 60; s++) {
-          float t_sin = DIAL_SIN[s];
-          float t_cos = DIAL_COS[s];
-          
-          if (s % 5 == 0) {
-            // Major 5-Second Applied Faceted Steel Baton: Silver highlight, Slate shadow, White luminous core
-            float perp_x = -t_cos;
-            float perp_y = t_sin;
-            int x1 = cx + (int)(196.0f * t_sin);
-            int y1 = cy - (int)(196.0f * t_cos);
-            int x2 = cx + (int)(227.0f * t_sin);
-            int y2 = cy - (int)(227.0f * t_cos);
-            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_silver));
-            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_slate));
-            it.line(x1, y1, x2, y2, id(col_white));
-          } else {
-            // Standard 1-Second Tick: 2px wide from r=210 to r=227 in brushed slate
-            int x1 = cx + (int)(210.0f * t_sin);
-            int y1 = cy - (int)(210.0f * t_cos);
-            int x2 = cx + (int)(227.0f * t_sin);
-            int y2 = cy - (int)(227.0f * t_cos);
-            it.line(x1, y1, x2, y2, id(col_slate));
-            it.line(x1 + 1, y1, x2 + 1, y2, id(col_slate));
+          // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
+          for (int s = 0; s < 60; s++) {
+            float t_sin = DIAL_SIN[s];
+            float t_cos = DIAL_COS[s];
+            
+            if (s % 5 == 0) {
+              // Major 5-Second Applied Faceted Steel Baton: Silver highlight, Slate shadow, White luminous core
+              float perp_x = -t_cos;
+              float perp_y = t_sin;
+              int x1 = cx + (int)(196.0f * t_sin);
+              int y1 = cy - (int)(196.0f * t_cos);
+              int x2 = cx + (int)(227.0f * t_sin);
+              int y2 = cy - (int)(227.0f * t_cos);
+              it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_silver));
+              it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_slate));
+              it.line(x1, y1, x2, y2, id(col_white));
+            } else {
+              // Standard 1-Second Tick: 2px wide from r=210 to r=227 in brushed slate
+              int x1 = cx + (int)(210.0f * t_sin);
+              int y1 = cy - (int)(210.0f * t_cos);
+              int x2 = cx + (int)(227.0f * t_sin);
+              int y2 = cy - (int)(227.0f * t_cos);
+              it.line(x1, y1, x2, y2, id(col_slate));
+              it.line(x1 + 1, y1, x2 + 1, y2, id(col_slate));
+            }
           }
-        }
 
-        // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math)
-        static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[12] = {
-          {233,  61,  "0"},
-          {319,  84,  "5"},
-          {382, 147, "10"},
-          {405, 233, "15"},
-          {382, 319, "20"},
-          {319, 382, "25"},
-          {233, 405, "30"},
-          {147, 382, "35"},
-          { 84, 319, "40"},
-          { 61, 233, "45"},
-          { 84, 147, "50"},
-          {147,  84, "55"}
-        };
-        for (const auto &n : CHRONO_NUMS) {
-          it.print(n.x, n.y, id(font_small), id(col_white), TextAlign::CENTER, n.str);
-        }
+          // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math)
+          static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[12] = {
+            {233,  61,  "0"},
+            {319,  84,  "5"},
+            {382, 147, "10"},
+            {405, 233, "15"},
+            {382, 319, "20"},
+            {319, 382, "25"},
+            {233, 405, "30"},
+            {147, 382, "35"},
+            { 84, 319, "40"},
+            { 61, 233, "45"},
+            { 84, 147, "50"},
+            {147,  84, "55"}
+          };
+          for (const auto &n : CHRONO_NUMS) {
+            it.print(n.x, n.y, id(font_small), id(col_white), TextAlign::CENTER, n.str);
+          }
 
-        uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
-        int mins = (total_ms / 60000) % 60;
-        int secs = (total_ms / 1000) % 60;
-        int tenths = (total_ms / 100) % 10;
+          uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
+          int mins = (total_ms / 60000) % 60;
+          int secs = (total_ms / 1000) % 60;
+          int tenths = (total_ms / 100) % 10;
 
-        // ----------------------------------------------------
-        // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
-        // ----------------------------------------------------
-        it.print(cx, 132, id(font_small), id(col_silver), TextAlign::CENTER, "CHRONOGRAPH");
+          // ----------------------------------------------------
+          // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
+          // ----------------------------------------------------
+          it.print(cx, 132, id(font_small), id(col_silver), TextAlign::CENTER, "CHRONOGRAPH");
 
-        // ----------------------------------------------------
-        // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility at y=238)
-        // ----------------------------------------------------
-        char chrono_buf[32];
-        snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
-        it.print(cx, 238, id(font_chrono_time), id(col_white), TextAlign::CENTER, chrono_buf);
+          // ----------------------------------------------------
+          // DUAL DIGITAL READOUTS: MAIN LAP (WHITE) & SPLIT (RED)
+          // ----------------------------------------------------
+          char main_buf[32];
+          snprintf(main_buf, sizeof(main_buf), "%02d:%02d.%d", mins, secs, tenths);
+          it.print(cx, 238, id(font_date), id(col_white), TextAlign::CENTER, main_buf);
 
-        // Display lap time readout if recorded (centered at y=274 in high-contrast Racing Red)
-        if (id(stopwatch_lap_ms) > 0) {
-          int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
-          int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
-          int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
-          char lap_buf[32];
-          snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
-          it.print(cx, 274, id(font_small), id(col_red), TextAlign::CENTER, lap_buf);
-        }
+          if (id(stopwatch_lap_ms) > 0) {
+            int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
+            int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
+            int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
+            char lap_buf[32];
+            snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
+            it.print(cx, 274, id(font_small), id(col_red), TextAlign::CENTER, lap_buf);
+          }
 
-        // ----------------------------------------------------
-        // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
-        // Authentic machined stainless steel piston pushers with stepped metallic bezels
-        // ----------------------------------------------------
-        const int btn_y = 332;
-        const int btn_lap_x = 176;
-        const int btn_rst_x = 290;
-        const int btn_r = 36;
+          // ----------------------------------------------------
+          // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
+          // Authentic machined stainless steel piston pushers with stepped metallic bezels
+          // ----------------------------------------------------
+          const int btn_y = 332;
+          const int btn_lap_x = 176;
+          const int btn_rst_x = 290;
+          const int btn_r = 36;
 
-        // LAP Button (Machined steel piston: polished silver rim, dark core, metallic typography)
-        it.filled_circle(btn_lap_x, btn_y, btn_r - 2, id(col_dark_gray));
-        it.circle(btn_lap_x, btn_y, btn_r, id(col_silver));
-        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_slate));
-        it.circle(btn_lap_x, btn_y, btn_r - 4, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
-        it.print(btn_lap_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "LAP");
+          // LAP Button (Machined steel piston: polished silver rim, dark core, metallic typography)
+          it.filled_circle(btn_lap_x, btn_y, btn_r - 2, id(col_dark_gray));
+          it.circle(btn_lap_x, btn_y, btn_r, id(col_silver));
+          it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_slate));
+          it.circle(btn_lap_x, btn_y, btn_r - 4, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
+          it.print(btn_lap_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "LAP");
 
-        // RESET Button (Machined steel piston: polished silver rim, dark core, metallic typography)
-        it.filled_circle(btn_rst_x, btn_y, btn_r - 2, id(col_dark_gray));
-        it.circle(btn_rst_x, btn_y, btn_r, id(col_silver));
-        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_slate));
-        it.circle(btn_rst_x, btn_y, btn_r - 4, id(col_slate));
-        it.print(btn_rst_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "RESET");
+          // RESET Button (Machined steel piston: polished silver rim, dark core, metallic typography)
+          it.filled_circle(btn_rst_x, btn_y, btn_r - 2, id(col_dark_gray));
+          it.circle(btn_rst_x, btn_y, btn_r, id(col_silver));
+          it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_slate));
+          it.circle(btn_rst_x, btn_y, btn_r - 4, id(col_slate));
+          it.print(btn_rst_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "RESET");
 
-        // ----------------------------------------------------
-        // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
-        // Sweeps over top of LAP and RESET buttons; matches red SPLIT digital readout
-        // ----------------------------------------------------
-        if (id(stopwatch_lap_ms) > 0) {
-          float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
-          float l_sin, l_cos;
-          sincosf(lap_angle, &l_sin, &l_cos);
-          it.line(cx, cy, cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), id(col_red));
-          it.line(cx + 1, cy, cx + (int)(154.0f * l_sin) + 1, cy - (int)(154.0f * l_cos), id(col_red));
-          it.circle(cx + (int)(158.0f * l_sin), cy - (int)(158.0f * l_cos), 4, id(col_red));
-        }
+          // ----------------------------------------------------
+          // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
+          // Sweeps over top of LAP and RESET buttons; matches red SPLIT digital readout
+          // ----------------------------------------------------
+          if (id(stopwatch_lap_ms) > 0) {
+            float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
+            float l_sin, l_cos;
+            sincosf(lap_angle, &l_sin, &l_cos);
+            it.line(cx, cy, cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), id(col_red));
+            it.line(cx + 1, cy, cx + (int)(154.0f * l_sin) + 1, cy - (int)(154.0f * l_cos), id(col_red));
+            it.circle(cx + (int)(158.0f * l_sin), cy - (int)(158.0f * l_cos), 4, id(col_red));
+          }
 
-        // ----------------------------------------------------
-        // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
-        // Faceted stainless steel pointer: Polished silver highlight, steel shadow, white luminous core
-        // ----------------------------------------------------
-        float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
-        float s_sin, s_cos;
-        sincosf(chrono_angle, &s_sin, &s_cos);
+          // ----------------------------------------------------
+          // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
+          // Faceted stainless steel pointer: Polished silver highlight, steel shadow, white luminous core
+          // ----------------------------------------------------
+          float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
+          float s_sin, s_cos;
+          sincosf(chrono_angle, &s_sin, &s_cos);
 
-        int tip_x = cx + (int)(178.0f * s_sin);
-        int tip_y = cy - (int)(178.0f * s_cos);
-        int arr_base_x = cx + (int)(152.0f * s_sin);
-        int arr_base_y = cy - (int)(152.0f * s_cos);
-        int tail_x = cx - (int)(36.0f * s_sin);
-        int tail_y = cy + (int)(36.0f * s_cos);
+          int tip_x = cx + (int)(178.0f * s_sin);
+          int tip_y = cy - (int)(178.0f * s_cos);
+          int arr_base_x = cx + (int)(152.0f * s_sin);
+          int arr_base_y = cy - (int)(152.0f * s_cos);
+          int tail_x = cx - (int)(36.0f * s_sin);
+          int tail_y = cy + (int)(36.0f * s_cos);
 
-        // True perpendicular vector (Rotated 90 deg clockwise from radial vector)
-        // v = (s_sin, -s_cos) -> perp = (s_cos, s_sin). Dot product = 0.00 at all 360 degrees!
-        float perp_x = s_cos;
-        float perp_y = s_sin;
-        int left_x = arr_base_x + (int)(8.0f * perp_x);
-        int left_y = arr_base_y + (int)(8.0f * perp_y);
-        int right_x = arr_base_x - (int)(8.0f * perp_x);
-        int right_y = arr_base_y - (int)(8.0f * perp_y);
+          // True perpendicular vector (Rotated 90 deg clockwise from radial vector)
+          float perp_x = s_cos;
+          float perp_y = s_sin;
+          int left_x = arr_base_x + (int)(8.0f * perp_x);
+          int left_y = arr_base_y + (int)(8.0f * perp_y);
+          int right_x = arr_base_x - (int)(8.0f * perp_x);
+          int right_y = arr_base_y - (int)(8.0f * perp_y);
 
-        // Faceted shaft: Left flank polished silver, right flank steel shadow, center white core
-        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_silver));
-        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_slate));
-        it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_white));
+          // Faceted shaft: Left flank polished silver, right flank steel shadow, center white core
+          it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_silver));
+          it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_slate));
+          it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_white));
 
-        // Faceted arrowhead: Pure white luminous core with polished steel bevel edges
-        it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_white));
-        it.line(tip_x, tip_y, left_x, left_y, id(col_silver));
-        it.line(tip_x, tip_y, right_x, right_y, id(col_slate));
-        it.line(left_x, left_y, right_x, right_y, id(col_silver));
+          // Faceted arrowhead: Pure white luminous core with polished steel bevel edges
+          it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_white));
+          it.line(tip_x, tip_y, left_x, left_y, id(col_silver));
+          it.line(tip_x, tip_y, right_x, right_y, id(col_slate));
+          it.line(left_x, left_y, right_x, right_y, id(col_silver));
 
-        // Teardrop counter-weight tail: Machined steel disc with polished silver bezel & inner jewel
-        it.filled_circle(tail_x, tail_y, 8, id(col_dark_gray));
-        it.circle(tail_x, tail_y, 8, id(col_silver));
-        it.filled_circle(tail_x, tail_y, 3, id(col_silver));
+          // Teardrop counter-weight tail: Machined steel disc with polished silver bezel & inner jewel
+          it.filled_circle(tail_x, tail_y, 8, id(col_dark_gray));
+          it.circle(tail_x, tail_y, 8, id(col_silver));
+          it.filled_circle(tail_x, tail_y, 3, id(col_silver));
 
-        // Multi-tier Center Pinion Arbor Cap: Polished steel & rhodium arbor
-        it.filled_circle(cx, cy, 9, id(col_silver));
-        it.circle(cx, cy, 9, id(col_slate));
-        it.filled_circle(cx, cy, 6, id(col_dark_gray));
-        it.filled_circle(cx, cy, 2, id(col_white));
-
-      // ==========================================
-      // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
-      // ==========================================
-      
+          // Multi-tier Center Pinion Arbor Cap: Polished steel & rhodium arbor
+          it.filled_circle(cx, cy, 9, id(col_silver));
+          it.circle(cx, cy, 9, id(col_slate));
+          it.filled_circle(cx, cy, 6, id(col_dark_gray));
+          it.filled_circle(cx, cy, 2, id(col_white));
 
           // Dedicated High-Contrast Black & White < BACK Button at y = 408 (Matching Chronograph Aesthetics)
           draw_pill_button(180, 286, 408, 16, id(col_white), id(col_black), "< BACK", id(col_white), false);
 
         } else if (id(stuff_subpage) == 4) {
-
           // --------------------------------------------------
           // SUBPAGE 4: DICE ROLL (ALWAYS DUAL D6)
           // Dominant, Centered Ivory White Dual D6 Dice (130x130)
@@ -8455,17 +8449,70 @@ display:
             const uint32_t roll_dur = 650; // ms
             if (elapsed >= roll_dur) {
               id(dice_anim_active) = false;
-            
+            } else {
+              // Rapid random tumble during roll animation
+              cur_val_d6_1 = ((now_d / 50) % 6) + 1;
+              cur_val_d6_2 = (((now_d + 27) / 45) % 6) + 1;
+            }
+          }
+
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "DICE ROLL");
+
+          const int dice_cy = 180;
+          const int d1_cx = cx - 74; // 159
+          const int d2_cx = cx + 74; // 307
+          const int d_size = 130;
+
+          // Helper to draw a single dominant D6 die
+          auto draw_dominant_d6 = [&](int center_x, int cur_val) {
+            int x0 = center_x - d_size / 2;
+            int y0 = dice_cy - d_size / 2;
+
+            // Soft Drop Shadow
+            it.filled_rectangle(x0 + 5, y0 + 7, d_size, d_size, id(col_dark_gray));
+            // Ivory Die Body
+            it.filled_rectangle(x0, y0, d_size, d_size, Color(248, 246, 240));
+            it.rectangle(x0, y0, d_size, d_size, Color(185, 180, 170));
+
+            // Circular Pips (Obsidian Black, Radius 9)
+            const int pr = 9;
+            const int p_dist = 33;
+            Color pip_c = Color(25, 28, 35);
+            auto draw_pip = [&](int px, int py) {
+              it.filled_circle(px, py, pr, pip_c);
+            };
+
+            bool p_center = (cur_val == 1 || cur_val == 3 || cur_val == 5);
+            bool p_tl_br  = (cur_val >= 2);
+            bool p_tr_bl  = (cur_val >= 4);
+            bool p_mid_lr = (cur_val == 6);
+
+            if (p_center) draw_pip(center_x, dice_cy);
+            if (p_tl_br)  { draw_pip(center_x - p_dist, dice_cy - p_dist); draw_pip(center_x + p_dist, dice_cy + p_dist); }
+            if (p_tr_bl)  { draw_pip(center_x + p_dist, dice_cy - p_dist); draw_pip(center_x - p_dist, dice_cy + p_dist); }
+            if (p_mid_lr) { draw_pip(center_x - p_dist, dice_cy); draw_pip(center_x + p_dist, dice_cy); }
+          };
+
+          draw_dominant_d6(d1_cx, cur_val_d6_1);
+          draw_dominant_d6(d2_cx, cur_val_d6_2);
+
+          // Prominent Large Total Readout below dice
+          if (id(dice_anim_active)) {
+            it.print(cx, 285, id(font_date), id(theme_secondary), TextAlign::CENTER, "ROLLING...");
+          } else {
+            char total_buf[32];
+            snprintf(total_buf, sizeof(total_buf), "TOTAL: %d", cur_val_d6_1 + cur_val_d6_2);
+            it.print(cx, 285, id(font_date), id(col_white), TextAlign::CENTER, total_buf);
+          }
+
+          // Large legible action prompt
+          it.print(cx, 350, id(font_small), id(col_white), TextAlign::CENTER, "Tap or shake to roll");
+
+          draw_back_button();
 
         } else if (id(stuff_subpage) == 5) {
-
           // --------------------------------------------------
-          // SUBPAGE 2: FULL-SCREEN OLED FLASHLIGHT
-          // 466x466 pure full-screen light emitter with 3 tap-toggle modes:
-          // Mode 0: Pure White Torch (100% display brightness)
-          // Mode 1: Warm Amber Soft Light (255, 190, 70)
-          // Mode 2: Night-Vision Red (255, 0, 0, preserves dark adaptation)
-          // Tap anywhere to cycle modes; tap bottom back button to exit
+          // SUBPAGE 5: FULL-SCREEN OLED FLASHLIGHT
           // --------------------------------------------------
           Color flash_col = id(col_white);
           const char* mode_name = "WHITE TORCH";
@@ -8484,8 +8531,6 @@ display:
           Color text_c = (id(stuff_flashlight_mode) == 2) ? id(col_white) : id(col_black);
           it.print(cx, 50, id(font_micro), text_c, TextAlign::CENTER, mode_name);
           it.print(cx, 412, id(font_micro), text_c, TextAlign::CENTER, "< TAP TO EXIT >");
-
-        
 
         } else if (id(stuff_subpage) == 6) {
           // --------------------------------------------------
@@ -8565,17 +8610,10 @@ display:
           }
 
           draw_back_button();
-        }
 
         } else if (id(stuff_subpage) == 7) {
           // --------------------------------------------------
           // SUBPAGE 7: LEVEL (PRECISION 2D BUBBLE SPIRIT LEVEL)
-          // --------------------------------------------------
-
-          // --------------------------------------------------
-          // SUBPAGE 1: LEVEL (PRECISION 2D BUBBLE SPIRIT LEVEL)
-          // Exact trigonometric pitch and roll calculation from 100ms QMI8658 accelerometer
-          // Raised reticle center (level_cy = 210) for generous lower telemetry clearance
           // --------------------------------------------------
           float ax = id(accel_x).state;
           float ay = id(accel_y).state;
@@ -8585,7 +8623,6 @@ display:
           if (std::isnan(az)) az = 9.8f;
 
           // Exact trigonometric pitch and roll angles in degrees
-          // When flat on table: ax ~ 0, ay ~ 0, az ~ 9.8
           float p_rad = atan2f(ay, sqrtf(ax * ax + az * az));
           float r_rad = atan2f(ax, sqrtf(ay * ay + az * az));
           float p_deg = p_rad * (180.0f / PI_F);
@@ -8603,11 +8640,8 @@ display:
           const int level_cy = 210;
 
           // Concentric Reticle Rings:
-          // Outer limit ring (r = 130)
           it.circle(cx, level_cy, 130, id(col_dark_gray));
-          // Mid tolerance ring 5° (r = 65)
           it.circle(cx, level_cy, 65, id(col_gray));
-          // Dead-level target ring (r = 26)
           it.circle(cx, level_cy, 26, ring_c);
           it.circle(cx, level_cy, 25, ring_c);
 
@@ -8621,9 +8655,6 @@ display:
           it.filled_circle(cx, level_cy, 2, ring_c);
 
           // Physical Spirit Level Bubble Physics:
-          // In a physical spirit vial, if the right side is elevated (r_deg > 0), the air bubble floats LEFT (-X).
-          // If the bottom is elevated (p_deg > 0), the air bubble floats UP (-Y).
-          // Sensitivity: 13.0 px per degree (reaches r=65 ring at exactly 5.0° tilt)
           int bx = cx - (int)(r_deg * 13.0f);
           int by = level_cy - (int)(p_deg * 13.0f);
 
@@ -8638,15 +8669,14 @@ display:
           Color bub_fill = is_level ? id(col_green) : id(theme_secondary);
           it.filled_circle(bx, by, 20, bub_fill);
           it.circle(bx, by, 20, id(col_white));
-          // Specular glint reflection on top-left of bubble
           it.filled_circle(bx - 6, by - 6, 3, id(col_white));
 
-          // Numeric Angle Readout at y = 346 (Clear, unobstructed elevation)
+          // Numeric Angle Readout at y = 346
           char deg_buf[16];
           snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
           it.print(cx, 346, id(font_date), is_level ? id(col_green) : id(col_white), TextAlign::CENTER, deg_buf);
 
-          // Secondary Status / Pitch-Roll breakdown at y = 372 (Well above Back button at y=408)
+          // Secondary Status / Pitch-Roll breakdown at y = 372
           char status_buf[32];
           if (is_level) {
             snprintf(status_buf, sizeof(status_buf), "DEAD LEVEL");
@@ -8658,19 +8688,9 @@ display:
           // Standardized Centered < BACK Button at y = 408 (r = 16, height 32, span 150..316)
           draw_back_button();
 
-        
-
         } else if (id(stuff_subpage) == 8) {
           // --------------------------------------------------
           // SUBPAGE 8: COIN FLIP (HOME ASSISTANT COMMEMORATIVE EDITION)
-          // --------------------------------------------------
-
-          // --------------------------------------------------
-          // SUBPAGE 3: COIN FLIP (HOME ASSISTANT COMMEMORATIVE EDITION)
-          // Heads: Home Assistant Voice Assistant Smiley Character
-          // Tails: Iconic Home Assistant Network Graph House Logo
-          // Advanced 3D vertical perspective flip animation with airborne arc
-          // Silver-gray planchet with prominent enlarged house iconography
           // --------------------------------------------------
           uint32_t now_c = millis();
           float flip_progress = 1.0f;
@@ -8704,129 +8724,93 @@ display:
 
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "COIN FLIP");
 
-          const int coin_base_cy = 195;
-          const int coin_cy = coin_base_cy + (int)y_hop;
-          const float r_coin = 98.0f;
-          float ry = r_coin * scale_y;
+          int coin_cy = 205 + (int)y_hop;
+          const int r_outer = 98;
+          const int r_field = 86;
 
-          // Airborne Drop Shadow (visible during vertical flight)
+          // Floor Shadow
           if (y_hop < -6.0f) {
-            float shadow_scale = 1.0f - (-y_hop / 120.0f);
+            float shadow_scale = 1.0f - (-y_hop / 80.0f);
             if (shadow_scale < 0.4f) shadow_scale = 0.4f;
-            int s_rx = (int)(r_coin * shadow_scale * 0.75f);
-            int s_ry = (int)(18.0f * shadow_scale);
-            it.filled_circle(cx, coin_base_cy + 85, s_ry, Color(15, 18, 24));
-            it.filled_rectangle(cx - s_rx, coin_base_cy + 85 - s_ry, 2 * s_rx, 2 * s_ry + 1, Color(15, 18, 24));
-          }
-
-          // 1. Silver-Gray Planchet Outer Rim (Concentric Bevels - Zero Radial Lines)
-          Color col_outer_rim = Color(145, 152, 165);
-          Color col_bevel = Color(225, 230, 240);
-          Color col_field = Color(188, 195, 206);
-          Color col_inner_ring = Color(135, 142, 155);
-          Color ha_blue = Color(3, 169, 244);
-          Color ha_dark = Color(15, 45, 80);
-
-          it.filled_circle(cx, coin_cy, (int)r_coin);
-
-          // Outer edge stroke
-          for (float a = 0.0f; a < 2.0f * PI_F; a += 0.05f) {
-            float s = sinf(a), c = cosf(a);
-            it.draw_pixel_at(cx + (int)(r_coin * s), coin_cy + (int)(ry * c), col_outer_rim);
-          }
-
-          // 2. Inner Planchet Field (Smooth Solid Silver-Gray)
-          float r_field = r_coin - 5.0f;
-          float ry_f = r_field * scale_y;
-          for (float rf = 0.0f; rf <= r_field; rf += 1.5f) {
-            float cur_ry = rf * scale_y;
+            int sh_rx = (int)(80.0f * shadow_scale);
+            int sh_ry = (int)(24.0f * shadow_scale);
             for (float a = 0.0f; a < 2.0f * PI_F; a += 0.08f) {
-              it.draw_pixel_at(cx + (int)(rf * sinf(a)), coin_cy + (int)(cur_ry * cosf(a)), col_field);
+              it.line(cx, 265, cx + (int)(sh_rx * cosf(a)), 265 + (int)(sh_ry * sinf(a)), Color(12, 14, 18));
             }
           }
 
-          // Inset Bevel Ring
+          // Coin Rim & Bevel
+          Color col_rim = Color(145, 152, 165);
+          Color col_field = Color(188, 195, 206);
+          Color col_bevel = Color(225, 230, 240);
+          Color ha_dark = Color(20, 24, 32);
+
+          for (float a = 0.0f; a < 2.0f * PI_F; a += 0.05f) {
+            it.line(cx, coin_cy, cx + (int)(r_outer * cosf(a)), coin_cy + (int)(r_outer * scale_y * sinf(a)), col_rim);
+          }
+          for (float rf = 0.0f; rf <= r_field; rf += 1.5f) {
+            for (float a = 0.0f; a < 2.0f * PI_F; a += 0.08f) {
+              it.line(cx, coin_cy, cx + (int)(rf * cosf(a)), coin_cy + (int)(rf * scale_y * sinf(a)), col_field);
+            }
+          }
           for (float a = 0.0f; a < 2.0f * PI_F; a += 0.04f) {
-            float s = sinf(a), c = cosf(a);
-            it.draw_pixel_at(cx + (int)((r_field - 2.0f) * s), coin_cy + (int)((ry_f - 2.0f * scale_y) * c), col_bevel);
-            it.draw_pixel_at(cx + (int)((r_field - 4.0f) * s), coin_cy + (int)((ry_f - 4.0f * scale_y) * c), col_inner_ring);
+            it.line(cx + (int)(r_field * cosf(a)), coin_cy + (int)(r_field * scale_y * sinf(a)),
+                    cx + (int)(r_outer * cosf(a)), coin_cy + (int)(r_outer * scale_y * sinf(a)), col_bevel);
           }
 
-          // 3. Dominant Enlarged Home Assistant House Motif (Centered, High-Impact)
+          // Center Motif
           if (scale_y > 0.35f) {
             int hx = cx;
-            int hy = coin_cy - (int)(14.0f * scale_y);
-            int hw_roof = 42;
-            int hw_body = 34;
-            int roof_h = 34;
-            int body_h = 34;
+            int hy = coin_cy - (int)(18.0f * scale_y);
+            int hw_half = 44;
+            int hh_half = (int)(36.0f * scale_y);
 
-            int hy_apex = hy - (int)((float)roof_h * scale_y);
-            int hy_eave = hy;
-            int hy_base = hy + (int)((float)body_h * scale_y);
+            int roof_peak_y = hy - (int)(32.0f * scale_y);
+            int eave_y = hy - (int)(4.0f * scale_y);
+            int body_bot_y = hy + (int)(30.0f * scale_y);
 
-            // House Roof (Gable Roof)
-            it.filled_triangle(hx, hy_apex, hx - hw_roof, hy_eave, hx + hw_roof, hy_eave, ha_blue);
-            it.line(hx, hy_apex, hx - hw_roof, hy_eave, ha_dark);
-            it.line(hx, hy_apex, hx + hw_roof, hy_eave, ha_dark);
+            it.filled_triangle(hx, roof_peak_y, hx - (hw_half + 6), eave_y, hx + (hw_half + 6), eave_y, ha_dark);
+            it.line(hx, roof_peak_y, hx - (hw_half + 6), eave_y, id(col_white));
+            it.line(hx, roof_peak_y, hx + (hw_half + 6), eave_y, id(col_white));
 
-            // House Body
-            int body_box_h = hy_base - hy_eave + 1;
+            int body_box_h = body_bot_y - eave_y;
             if (body_box_h > 0) {
-              it.filled_rectangle(hx - hw_body, hy_eave, 2 * hw_body + 1, body_box_h, ha_blue);
-              it.line(hx - hw_body, hy_eave, hx - hw_body, hy_base, ha_dark);
-              it.line(hx + hw_body, hy_eave, hx + hw_body, hy_base, ha_dark);
-              it.line(hx - hw_body, hy_base, hx + hw_body, hy_base, ha_dark);
+              it.filled_rectangle(hx - hw_half, eave_y, hw_half * 2, body_box_h, ha_dark);
+              it.line(hx - hw_half, eave_y, hx - hw_half, body_bot_y, id(col_white));
+              it.line(hx + hw_half, eave_y, hx + hw_half, body_bot_y, id(col_white));
+              it.line(hx - hw_half, body_bot_y, hx + hw_half, body_bot_y, id(col_white));
             }
 
             if (show_heads) {
-              // Heads: Home Assistant Voice Assistant Smiley Face
-              int eye_y = hy + (int)(8.0f * scale_y);
-              int eye_r = (int)(4.0f * scale_y);
-              if (eye_r < 1) eye_r = 1;
-              it.filled_circle(hx - 12, eye_y, eye_r, id(col_white));
-              it.filled_circle(hx + 12, eye_y, eye_r, id(col_white));
+              int eye_y = hy + (int)(4.0f * scale_y);
+              int eye_r = (int)(8.0f * scale_y);
               if (eye_r >= 3) {
-                it.draw_pixel_at(hx - 12, eye_y, ha_dark);
-                it.draw_pixel_at(hx + 12, eye_y, ha_dark);
+                it.filled_circle(hx - 16, eye_y, eye_r, id(col_white));
+                it.filled_circle(hx + 16, eye_y, eye_r, id(col_white));
+                it.filled_circle(hx - 15, eye_y, eye_r / 2, ha_dark);
+                it.filled_circle(hx + 17, eye_y, eye_r / 2, ha_dark);
               }
-
-              // Smile Arc
-              int smile_y = hy + (int)(18.0f * scale_y);
+              int smile_y = hy + (int)(16.0f * scale_y);
+              int smile_r = (int)(14.0f * scale_y);
               for (float sa = 0.2f * PI_F; sa <= 0.8f * PI_F; sa += 0.06f) {
-                int smx = hx + (int)(12.0f * cosf(sa));
-                int smy = smile_y + (int)(8.0f * sinf(sa) * scale_y);
-                it.draw_pixel_at(smx, smy, id(col_white));
-                it.draw_pixel_at(smx, smy + 1, id(col_white));
+                it.line(hx + (int)(14.0f * cosf(sa)), smile_y + (int)(smile_r * sinf(sa)),
+                        hx + (int)(14.0f * cosf(sa)), smile_y + (int)(smile_r * sinf(sa)) + 1, id(col_white));
               }
-
-              // Text on Coin
               if (scale_y > 0.65f) {
                 it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "HEADS");
               }
             } else {
-              // Tails: Classic Home Assistant Network Node Tree Logo
-              int root_y = hy + (int)(4.0f * scale_y);
-              int node_y = hy + (int)(18.0f * scale_y);
-              int node_r = (int)(4.0f * scale_y);
-              if (node_r < 1) node_r = 1;
-
-              // Node Tree Lines (2px thick)
-              it.line(hx, hy_apex + (int)(8.0f * scale_y), hx, root_y, id(col_white));
-              it.line(hx + 1, hy_apex + (int)(8.0f * scale_y), hx + 1, root_y, id(col_white));
-              it.line(hx, root_y, hx - 14, node_y, id(col_white));
-              it.line(hx + 1, root_y, hx - 13, node_y, id(col_white));
-              it.line(hx, root_y, hx + 14, node_y, id(col_white));
-              it.line(hx + 1, root_y, hx + 15, node_y, id(col_white));
-              it.line(hx, root_y, hx, hy_base - (int)(4.0f * scale_y), id(col_white));
-              it.line(hx + 1, root_y, hx + 1, hy_base - (int)(4.0f * scale_y), id(col_white));
-
-              // Circular Nodes
-              it.filled_circle(hx, root_y, node_r, id(col_white));
-              it.filled_circle(hx - 14, node_y, node_r, id(col_white));
-              it.filled_circle(hx + 14, node_y, node_r, id(col_white));
-
-              // Text on Coin
+              int root_y = hy + (int)(22.0f * scale_y);
+              int node_y = hy + (int)(2.0f * scale_y);
+              int node_r = (int)(6.0f * scale_y);
+              if (node_r >= 2) {
+                it.line(hx, root_y, hx, node_y, id(col_white));
+                it.line(hx, node_y, hx - 14, node_y, id(col_white));
+                it.line(hx, node_y, hx + 14, node_y, id(col_white));
+                it.filled_circle(hx, root_y, node_r, id(col_white));
+                it.filled_circle(hx - 14, node_y, node_r, id(col_white));
+                it.filled_circle(hx + 14, node_y, node_r, id(col_white));
+              }
               if (scale_y > 0.65f) {
                 it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "TAILS");
               }
@@ -8837,8 +8821,6 @@ display:
           it.print(cx, 345, id(font_small), id(col_white), TextAlign::CENTER, "Tap or shake to flip");
 
           draw_back_button();
-
-        
         }
       }
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
@@ -10854,25 +10836,25 @@ touchscreen:
                 int target_subpage = 0;
                 if (id(stuff_menu_page) == 0) {
                   // PAGE 1: 6 ICONS
-                  // Row 0 (y in 70..165): Left = Timer (1), Right = Alarms (2)
-                  // Row 1 (y in 166..260): Left = Stopwatch (3), Right = Dice Roll (4)
-                  // Row 2 (y in 261..360): Left = Flashlight (5), Right = Calculator (6)
-                  if (touch.y >= 70 && touch.y <= 165) {
-                    if (touch.x <= 200) target_subpage = 1; // Timer
-                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 2; // Alarms
-                  } else if (touch.y >= 166 && touch.y <= 260) {
-                    if (touch.x <= 200) target_subpage = 3; // Stopwatch
-                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 4; // Dice Roll
-                  } else if (touch.y >= 261 && touch.y <= 360) {
-                    if (touch.x <= 200) target_subpage = 5; // Flashlight
-                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 6; // Calculator
+                  // Row 0 (y in 75..182): Left = Timer (1), Right = Alarms (2)
+                  // Row 1 (y in 183..290): Left = Stopwatch (3), Right = Dice Roll (4)
+                  // Row 2 (y in 291..398): Left = Flashlight (5), Right = Calculator (6)
+                  if (touch.y >= 75 && touch.y <= 182) {
+                    if (touch.x <= 226) target_subpage = 1; // Timer
+                    else if (touch.x > 226 && touch.x < 370) target_subpage = 2; // Alarms
+                  } else if (touch.y >= 183 && touch.y <= 290) {
+                    if (touch.x <= 226) target_subpage = 3; // Stopwatch
+                    else if (touch.x > 226 && touch.x < 370) target_subpage = 4; // Dice Roll
+                  } else if (touch.y >= 291 && touch.y <= 398) {
+                    if (touch.x <= 226) target_subpage = 5; // Flashlight
+                    else if (touch.x > 226 && touch.x < 370) target_subpage = 6; // Calculator
                   }
                 } else {
                   // PAGE 2: 2 ICONS
-                  // Row 0 (y in 70..200): Left = Level (7), Right = Coin Flip (8)
-                  if (touch.y >= 70 && touch.y <= 200) {
-                    if (touch.x <= 200) target_subpage = 7; // Level
-                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 8; // Coin Flip
+                  // Row 0 (y in 75..200): Left = Level (7), Right = Coin Flip (8)
+                  if (touch.y >= 75 && touch.y <= 200) {
+                    if (touch.x <= 226) target_subpage = 7; // Level
+                    else if (touch.x > 226 && touch.x < 370) target_subpage = 8; // Coin Flip
                   }
                 }
 
