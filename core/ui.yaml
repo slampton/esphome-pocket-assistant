@@ -2685,6 +2685,18 @@ script:
             id(selected_slot_id)   = id(slot_5_id);
             id(selected_slot_type) = id(slot_5_type);
           }
+          if (id(active_speaker_entity).empty() || id(active_speaker_entity) == "None") {
+            id(active_speaker_entity) = "${local_player_id}";
+          }
+          if (id(selected_category_mode) == "artist") {
+            id(selected_slot_type) = "artist";
+          } else if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") {
+            id(selected_slot_type) = "album";
+          } else if (id(selected_category_mode) == "podcast_episodes") {
+            id(selected_slot_type) = "podcast_episode";
+          } else if (id(selected_slot_type).empty()) {
+            id(selected_slot_type) = "music";
+          }
           id(music_action_feedback) = "Playing: " + id(selected_slot_name);
           id(music_feedback_timer) = millis();
           if (id(selected_category_mode) == "podcast_episodes") {
@@ -2700,28 +2712,9 @@ script:
       - homeassistant.action:
           action: music_assistant.play_media
           data:
-            entity_id: !lambda |-
-              std::string spk = id(active_speaker_entity);
-              if (spk.empty() || spk == "None") spk = "${local_player_id}";
-              return spk.c_str();
-            media_id: !lambda |-
-              std::string mid = id(selected_slot_id);
-              if (mid.empty()) {
-                int s = id(selected_music_slot);
-                if (s == 1) mid = id(slot_1_id);
-                else if (s == 2) mid = id(slot_2_id);
-                else if (s == 3) mid = id(slot_3_id);
-                else if (s == 4) mid = id(slot_4_id);
-                else if (s == 5) mid = id(slot_5_id);
-              }
-              return mid.c_str();
-            media_type: !lambda |-
-              if (id(selected_category_mode) == "artist") return "artist";
-              if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
-              if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-              std::string mtype = id(selected_slot_type);
-              if (mtype.empty()) return "music";
-              return mtype.c_str();
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            media_id: !lambda 'return id(selected_slot_id).c_str();'
+            media_type: !lambda 'return id(selected_slot_type).c_str();'
             enqueue: "play"
       - if:
           condition:
@@ -2739,7 +2732,6 @@ script:
     mode: restart
     then:
       - delay: 0ms
-      - script.execute: resolve_selected_music_slot
       - if:
           condition:
             lambda: 'return id(selected_category_mode) == "speakers";'
@@ -2860,6 +2852,18 @@ script:
                         id(selected_slot_id)   = id(slot_5_id);
                         id(selected_slot_type) = id(slot_5_type);
                       }
+                      if (id(active_speaker_entity).empty() || id(active_speaker_entity) == "None") {
+                        id(active_speaker_entity) = "${local_player_id}";
+                      }
+                      if (id(selected_category_mode) == "artist") {
+                        id(selected_slot_type) = "artist";
+                      } else if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") {
+                        id(selected_slot_type) = "album";
+                      } else if (id(selected_category_mode) == "podcast_episodes") {
+                        id(selected_slot_type) = "podcast_episode";
+                      } else if (id(selected_slot_type).empty()) {
+                        id(selected_slot_type) = "music";
+                      }
                       id(music_action_feedback) = "Playing: " + id(selected_slot_name);
                       id(music_feedback_timer) = millis();
                       if (id(selected_category_mode) == "podcast_episodes") {
@@ -2872,28 +2876,9 @@ script:
                   - homeassistant.action:
                       action: music_assistant.play_media
                       data:
-                        entity_id: !lambda |-
-                          std::string spk = id(active_speaker_entity);
-                          if (spk.empty() || spk == "None") spk = "${local_player_id}";
-                          return spk.c_str();
-                        media_id: !lambda |-
-                          std::string mid = id(selected_slot_id);
-                          if (mid.empty()) {
-                            int s = id(selected_music_slot);
-                            if (s == 1) mid = id(slot_1_id);
-                            else if (s == 2) mid = id(slot_2_id);
-                            else if (s == 3) mid = id(slot_3_id);
-                            else if (s == 4) mid = id(slot_4_id);
-                            else if (s == 5) mid = id(slot_5_id);
-                          }
-                          return mid.c_str();
-                        media_type: !lambda |-
-                          if (id(selected_category_mode) == "artist") return "artist";
-                          if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
-                          if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-                          std::string mtype = id(selected_slot_type);
-                          if (mtype.empty()) return "music";
-                          return mtype.c_str();
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        media_id: !lambda 'return id(selected_slot_id).c_str();'
+                        media_type: !lambda 'return id(selected_slot_type).c_str();'
                         enqueue: "play"
                   - delay: 800ms
                   - lambda: |-
@@ -7978,8 +7963,8 @@ display:
           // Rendered using standard draw_pill_button for clean continuous geometry with zero internal artifacts
           draw_pill_button(120, 346, 200, 22, id(col_red), id(col_dark_gray), "Toggle Power", id(col_white), false);
 
-          // Clean Pill Button: Back Button at y = 356 (Matching OS Subpage Standard)
-          draw_pill_button(140, 326, 356, 20, id(theme_secondary), id(col_dark_gray), "Back", id(col_white), false);
+          // Standardized Centered < BACK Button at y = 408 (Matching OS Subpage Standard)
+          draw_back_button();
         } else {
           // --------------------------------------------------
           // MAIN REMOTE CONTROL INTERFACE (SUBPAGE 0)
@@ -10196,8 +10181,8 @@ touchscreen:
                   return;
                 }
 
-                // 2. Done / Back Button at bottom (x: 120..346, y: 330..385)
-                if (touch.x >= 120 && touch.x <= 346 && touch.y >= 330 && touch.y <= 385) {
+                // 2. Standardized Centered < BACK Button at y = 408 (handled via is_back_button)
+                if (is_back_button(touch)) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
                     id(remote_subpage) = 0;
