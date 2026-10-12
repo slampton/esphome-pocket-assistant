@@ -10921,6 +10921,13 @@ touchscreen:
                     if (id(stuff_subpage) == 5) {
                       // Boost brightness to 100% on flashlight launch
                       id(display_brightness).turn_on().set_brightness(1.0f).perform();
+                    } else if (id(stuff_subpage) == 6) {
+                      // Auto-reset calculator state upon launch
+                      id(calc_entry) = "0";
+                      id(calc_history) = "";
+                      id(calc_prev_val) = 0.0f;
+                      id(calc_op) = 0;
+                      id(calc_new_entry) = true;
                     }
                     ESP_LOGI("touch", "Page 8 Tools Launcher -> Subpage %d", id(stuff_subpage));
                     id(disp1).update();
@@ -11232,6 +11239,12 @@ touchscreen:
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(stuff_subpage) = 0;
+                    // Auto-reset calculator state upon exit
+                    id(calc_entry) = "0";
+                    id(calc_history) = "";
+                    id(calc_prev_val) = 0.0f;
+                    id(calc_op) = 0;
+                    id(calc_new_entry) = true;
                     id(disp1).update();
                   }
                   return;
@@ -11310,29 +11323,31 @@ touchscreen:
                       else if (r == 3) new_op = 1; // +
                       else if (r == 4) new_op = 5; // =
 
-                      double cur = std::atof(id(calc_entry).c_str());
+                      double cur = id(calc_entry).empty() ? (double)id(calc_prev_val) : std::atof(id(calc_entry).c_str());
+
                       if (new_op == 5) { // =
                         if (id(calc_op) != 0) {
-                          id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op)) + " " + id(calc_entry) + " =";
+                          std::string operand_str = id(calc_entry).empty() ? format_calc_num(cur) : id(calc_entry);
+                          id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op)) + " " + operand_str + " =";
                           double res = compute_op(id(calc_prev_val), cur, id(calc_op));
                           id(calc_entry) = format_calc_num(res);
                           id(calc_op) = 0;
                           id(calc_new_entry) = true;
                         }
-                      } else { // Binary op
-                        if (id(calc_op) != 0 && !id(calc_new_entry)) {
+                      } else { // Binary op (+, -, x, /)
+                        if (id(calc_op) != 0 && !id(calc_new_entry) && !id(calc_entry).empty()) {
                           double res = compute_op(id(calc_prev_val), cur, id(calc_op));
                           id(calc_prev_val) = (float)res;
-                          id(calc_entry) = format_calc_num(res);
-                        } else {
+                        } else if (!id(calc_entry).empty()) {
                           id(calc_prev_val) = (float)cur;
                         }
                         id(calc_op) = new_op;
                         id(calc_new_entry) = true;
                         id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op));
+                        id(calc_entry) = ""; // Clear active input line so second operand starts fresh
                       }
                     } else if (r == 4 && c == 1) { // .
-                      if (id(calc_new_entry)) {
+                      if (id(calc_new_entry) || id(calc_entry).empty()) {
                         id(calc_entry) = "0.";
                         id(calc_new_entry) = false;
                       } else if (id(calc_entry).find('.') == std::string::npos) {
@@ -11352,7 +11367,7 @@ touchscreen:
                       else if (r == 1 && c == 1) digit = '8';
                       else if (r == 1 && c == 2) digit = '9';
 
-                      if (id(calc_new_entry)) {
+                      if (id(calc_new_entry) || id(calc_entry).empty()) {
                         id(calc_entry) = std::string(1, digit);
                         id(calc_new_entry) = false;
                       } else {
