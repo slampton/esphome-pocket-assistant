@@ -532,15 +532,15 @@ script:
                 id(remote_subpage) = 0;
                 id(disp1).update();
                 return;
-              } else if (id(gui_page) == 6 && id(alarm_edit_idx) > 0) {
+              } else if ((id(gui_page) == 6 || (id(gui_page) == 8 && id(stuff_subpage) == 2)) && id(alarm_edit_idx) > 0) {
                 // In Alarm Editor -> back out to Alarm List
                 id(alarm_edit_idx) = 0;
                 id(disp1).update();
                 return;
               } else if (id(gui_page) == 8 && id(stuff_subpage) > 0) {
                 // In Stuff Micro-App (Flashlight, Level, etc.) -> exit back to Stuff Launcher Menu
-                // If exiting Flashlight, restore normal scheduled brightness
-                if (id(stuff_subpage) == 2) {
+                // If exiting Flashlight (subpage 5), restore normal scheduled brightness
+                if (id(stuff_subpage) == 5 || id(stuff_subpage) == 2) {
                   id(sync_display_brightness).execute();
                 }
                 id(stuff_subpage) = 0;

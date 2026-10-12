@@ -377,7 +377,11 @@ globals:
   - id: stuff_subpage
     type: int
     restore_value: no
-    initial_value: '0' # 0 = Launcher, 1 = Bubble Level, 2 = Flashlight, 3 = Coin Flip, 4 = Dice Roller, 5 = Tip Calc
+    initial_value: '0' # 0 = Launcher, 1 = Timer, 2 = Alarms, 3 = Stopwatch, 4 = Dice Roll, 5 = Flashlight, 6 = Calculator, 7 = Level, 8 = Coin Flip
+  - id: stuff_menu_page
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = Page 1 (6 icons), 1 = Page 2 (2 icons)
   - id: stuff_flashlight_mode
     type: int
     restore_value: no
@@ -1044,14 +1048,12 @@ select:
     initial_option: ${default_start_app}
     options:
       - "Clock"
-      - "Stopwatch"
       - "Music"
       - "Games"
       - "Sky & Weather"
-      - "Timer & Alarm"
-      - "System"
       - "Remote"
       - "Stuff"
+      - "System"
 
 button:
   - platform: restart
@@ -1450,12 +1452,12 @@ interval:
 
           // 10 FPS Precision Mechanical Chronograph Sweep (100ms cadence)
           // Frame executes in ~45ms on native AMOLED black canvas, leaving a massive 55ms CPU idle window for touch
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 1 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
+          if (id(display_brightness).current_values.is_on() && (id(gui_page) == 1 || (id(gui_page) == 8 && id(stuff_subpage) == 3)) && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
             id(disp1).update();
           }
 
           // 10 FPS real-time tilt refresh for Level (Page 8, Subpage 1)
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 1 && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 7 && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
             id(disp1).update();
           }
 
@@ -1464,7 +1466,7 @@ interval:
     then:
       - lambda: |-
           // 20 FPS high-refresh animation loop for Coin Flip and Dice Roll
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && (id(stuff_subpage) == 3 || id(stuff_subpage) == 4)) {
+          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && (id(stuff_subpage) == 8 || id(stuff_subpage) == 4)) {
             if (id(coin_anim_active) || id(dice_anim_active)) {
               id(disp1).update();
             }
@@ -1561,8 +1563,8 @@ interval:
               id(timer_paused) = false;
               id(timer_remaining_sec) = 0;
               id(timer_ringing) = true;
-              id(gui_page) = 6;
-              id(timer_alarm_subpage) = 0;
+              id(gui_page) = 8;
+              id(stuff_subpage) = 1;
               id(wake_to_active_state).execute();
               id(play_alarm_sound).execute();
               id(disp1).update();
@@ -1572,7 +1574,7 @@ interval:
               if (rem != id(timer_remaining_sec)) {
                 id(timer_remaining_sec) = rem;
                 if (!id(va_active) && id(va_status_text).empty()) {
-                  if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
+                  if (((id(gui_page) == 6 && id(timer_alarm_subpage) == 0) || (id(gui_page) == 8 && id(stuff_subpage) == 1)) && id(display_power_state) == 0) {
                     id(disp1).update();
                   }
                 }
@@ -1602,8 +1604,8 @@ interval:
             if (id(alarm_snooze_until) > 0 && now_epoch >= id(alarm_snooze_until)) {
               id(alarm_snooze_until) = 0;
               id(alarm_ringing) = true;
-              id(gui_page) = 6;
-              id(timer_alarm_subpage) = 1;
+              id(gui_page) = 8;
+              id(stuff_subpage) = 2;
               id(wake_to_active_state).execute();
               id(play_alarm_sound).execute();
               id(disp1).update();
@@ -1642,8 +1644,8 @@ interval:
                 id(alarm_last_fired_min) = now.minute;
                 id(alarm_ringing) = true;
                 id(alarm_ringing_idx) = trig_idx;
-                id(gui_page) = 6;
-                id(timer_alarm_subpage) = 1;
+                id(gui_page) = 8;
+                id(stuff_subpage) = 2;
                 id(wake_to_active_state).execute();
                 id(play_alarm_sound).execute();
                 id(disp1).update();
@@ -1841,7 +1843,7 @@ sensor:
         uint32_t now_m = millis();
         if (delta > 0.45f && (now_m - last_shake_time > 800)) {
           last_shake_time = now_m;
-          if (id(stuff_subpage) == 3 && !id(coin_anim_active)) {
+          if (id(stuff_subpage) == 8 && !id(coin_anim_active)) {
             id(coin_anim_active) = true;
             id(coin_anim_start_ms) = now_m;
             id(coin_side) = (esp_random() % 2);
@@ -2309,21 +2311,19 @@ script:
             bool enabled;
           };
 
-          AppEntry pool[9] = {
+          AppEntry pool[7] = {
             {0, id(app_order_clock).state, id(show_clock_switch).state},
-            {1, id(app_order_stopwatch).state, id(show_stopwatch_switch).state},
             {2, id(app_order_music).state, id(show_music_switch).state},
             {3, id(app_order_games).state, id(show_games_switch).state},
             {5, id(app_order_weather).state, id(show_weather_switch).state},
-            {6, id(app_order_timer).state, id(show_timer_switch).state},
             {7, id(app_order_remote).state, id(show_remote_switch).state},
             {8, id(app_order_stuff).state, id(show_stuff_switch).state},
             {4, id(app_order_system).state, id(show_system_switch).state}
           };
 
           // Stable bubble sort by user-configured position rank (1..10)
-          for (int i = 0; i < 8; i++) {
-            for (int j = 0; j < 8 - i; j++) {
+          for (int i = 0; i < 6; i++) {
+            for (int j = 0; j < 6 - i; j++) {
               if (pool[j].rank > pool[j + 1].rank) {
                 AppEntry tmp = pool[j];
                 pool[j] = pool[j + 1];
@@ -2333,7 +2333,7 @@ script:
           }
 
           int count = 0;
-          for (int i = 0; i < 9; i++) {
+          for (int i = 0; i < 7; i++) {
             if (pool[i].enabled) {
               if (count == 0) id(deck_slot_0) = pool[i].page_id;
               else if (count == 1) id(deck_slot_1) = pool[i].page_id;
@@ -2342,8 +2342,6 @@ script:
               else if (count == 4) id(deck_slot_4) = pool[i].page_id;
               else if (count == 5) id(deck_slot_5) = pool[i].page_id;
               else if (count == 6) id(deck_slot_6) = pool[i].page_id;
-              else if (count == 7) id(deck_slot_7) = pool[i].page_id;
-              else if (count == 8) id(deck_slot_8) = pool[i].page_id;
               count++;
             }
           }
@@ -4561,172 +4559,10 @@ display:
       // 1/10s High-Speed Spinning Subdial, Bold Arrow Hand & Large Digital Readout
       // ==========================================
       } else if (id(gui_page) == 1) {
-        // Clean Dual Perimeter Rings: Crisp White Outer Ring (r=230) with Polished Silver Inner Highlight (r=228)
-        it.circle(cx, cy, 230, id(col_white));
-        it.circle(cx, cy, 228, id(col_silver));
-
-        // Inner Chapter Track Boundaries (Polished steel inner rehaut flange)
-        it.circle(cx, cy, 197, id(col_dark_gray));
-        it.circle(cx, cy, 196, id(col_silver));
-
-        // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
-        for (int s = 0; s < 60; s++) {
-          float t_sin = DIAL_SIN[s];
-          float t_cos = DIAL_COS[s];
-          
-          if (s % 5 == 0) {
-            // Major 5-Second Applied Faceted Steel Baton: Silver highlight, Slate shadow, White luminous core
-            float perp_x = -t_cos;
-            float perp_y = t_sin;
-            int x1 = cx + (int)(196.0f * t_sin);
-            int y1 = cy - (int)(196.0f * t_cos);
-            int x2 = cx + (int)(227.0f * t_sin);
-            int y2 = cy - (int)(227.0f * t_cos);
-            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_silver));
-            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_slate));
-            it.line(x1, y1, x2, y2, id(col_white));
-          } else {
-            // Standard 1-Second Tick: 2px wide from r=210 to r=227 in brushed slate
-            int x1 = cx + (int)(210.0f * t_sin);
-            int y1 = cy - (int)(210.0f * t_cos);
-            int x2 = cx + (int)(227.0f * t_sin);
-            int y2 = cy - (int)(227.0f * t_cos);
-            it.line(x1, y1, x2, y2, id(col_slate));
-            it.line(x1 + 1, y1, x2 + 1, y2, id(col_slate));
-          }
-        }
-
-        // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math)
-        static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[12] = {
-          {233,  61,  "0"},
-          {319,  84,  "5"},
-          {382, 147, "10"},
-          {405, 233, "15"},
-          {382, 319, "20"},
-          {319, 382, "25"},
-          {233, 405, "30"},
-          {147, 382, "35"},
-          { 84, 319, "40"},
-          { 61, 233, "45"},
-          { 84, 147, "50"},
-          {147,  84, "55"}
-        };
-        for (const auto &n : CHRONO_NUMS) {
-          it.print(n.x, n.y, id(font_small), id(col_white), TextAlign::CENTER, n.str);
-        }
-
-        uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
-        int mins = (total_ms / 60000) % 60;
-        int secs = (total_ms / 1000) % 60;
-        int tenths = (total_ms / 100) % 10;
-
-        // ----------------------------------------------------
-        // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
-        // ----------------------------------------------------
-        it.print(cx, 132, id(font_small), id(col_silver), TextAlign::CENTER, "CHRONOGRAPH");
-
-        // ----------------------------------------------------
-        // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility at y=238)
-        // ----------------------------------------------------
-        char chrono_buf[32];
-        snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
-        it.print(cx, 238, id(font_chrono_time), id(col_white), TextAlign::CENTER, chrono_buf);
-
-        // Display lap time readout if recorded (centered at y=274 in high-contrast Racing Red)
-        if (id(stopwatch_lap_ms) > 0) {
-          int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
-          int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
-          int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
-          char lap_buf[32];
-          snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
-          it.print(cx, 274, id(font_small), id(col_red), TextAlign::CENTER, lap_buf);
-        }
-
-        // ----------------------------------------------------
-        // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
-        // Authentic machined stainless steel piston pushers with stepped metallic bezels
-        // ----------------------------------------------------
-        const int btn_y = 332;
-        const int btn_lap_x = 176;
-        const int btn_rst_x = 290;
-        const int btn_r = 36;
-
-        // LAP Button (Machined steel piston: polished silver rim, dark core, metallic typography)
-        it.filled_circle(btn_lap_x, btn_y, btn_r - 2, id(col_dark_gray));
-        it.circle(btn_lap_x, btn_y, btn_r, id(col_silver));
-        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_slate));
-        it.circle(btn_lap_x, btn_y, btn_r - 4, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
-        it.print(btn_lap_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "LAP");
-
-        // RESET Button (Machined steel piston: polished silver rim, dark core, metallic typography)
-        it.filled_circle(btn_rst_x, btn_y, btn_r - 2, id(col_dark_gray));
-        it.circle(btn_rst_x, btn_y, btn_r, id(col_silver));
-        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_slate));
-        it.circle(btn_rst_x, btn_y, btn_r - 4, id(col_slate));
-        it.print(btn_rst_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "RESET");
-
-        // ----------------------------------------------------
-        // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
-        // Sweeps over top of LAP and RESET buttons; matches red SPLIT digital readout
-        // ----------------------------------------------------
-        if (id(stopwatch_lap_ms) > 0) {
-          float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
-          float l_sin, l_cos;
-          sincosf(lap_angle, &l_sin, &l_cos);
-          it.line(cx, cy, cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), id(col_red));
-          it.line(cx + 1, cy, cx + (int)(154.0f * l_sin) + 1, cy - (int)(154.0f * l_cos), id(col_red));
-          it.circle(cx + (int)(158.0f * l_sin), cy - (int)(158.0f * l_cos), 4, id(col_red));
-        }
-
-        // ----------------------------------------------------
-        // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
-        // Faceted stainless steel pointer: Polished silver highlight, steel shadow, white luminous core
-        // ----------------------------------------------------
-        float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
-        float s_sin, s_cos;
-        sincosf(chrono_angle, &s_sin, &s_cos);
-
-        int tip_x = cx + (int)(178.0f * s_sin);
-        int tip_y = cy - (int)(178.0f * s_cos);
-        int arr_base_x = cx + (int)(152.0f * s_sin);
-        int arr_base_y = cy - (int)(152.0f * s_cos);
-        int tail_x = cx - (int)(36.0f * s_sin);
-        int tail_y = cy + (int)(36.0f * s_cos);
-
-        // True perpendicular vector (Rotated 90 deg clockwise from radial vector)
-        // v = (s_sin, -s_cos) -> perp = (s_cos, s_sin). Dot product = 0.00 at all 360 degrees!
-        float perp_x = s_cos;
-        float perp_y = s_sin;
-        int left_x = arr_base_x + (int)(8.0f * perp_x);
-        int left_y = arr_base_y + (int)(8.0f * perp_y);
-        int right_x = arr_base_x - (int)(8.0f * perp_x);
-        int right_y = arr_base_y - (int)(8.0f * perp_y);
-
-        // Faceted shaft: Left flank polished silver, right flank steel shadow, center white core
-        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_silver));
-        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_slate));
-        it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_white));
-
-        // Faceted arrowhead: Pure white luminous core with polished steel bevel edges
-        it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_white));
-        it.line(tip_x, tip_y, left_x, left_y, id(col_silver));
-        it.line(tip_x, tip_y, right_x, right_y, id(col_slate));
-        it.line(left_x, left_y, right_x, right_y, id(col_silver));
-
-        // Teardrop counter-weight tail: Machined steel disc with polished silver bezel & inner jewel
-        it.filled_circle(tail_x, tail_y, 8, id(col_dark_gray));
-        it.circle(tail_x, tail_y, 8, id(col_silver));
-        it.filled_circle(tail_x, tail_y, 3, id(col_silver));
-
-        // Multi-tier Center Pinion Arbor Cap: Polished steel & rhodium arbor
-        it.filled_circle(cx, cy, 9, id(col_silver));
-        it.circle(cx, cy, 9, id(col_slate));
-        it.filled_circle(cx, cy, 6, id(col_dark_gray));
-        it.filled_circle(cx, cy, 2, id(col_white));
-
-      // ==========================================
-      // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
-      // ==========================================
+        id(gui_page) = 8;
+        id(stuff_subpage) = 3;
+        id(disp1).update();
+        return;
       } else if (id(gui_page) == 2) {
         if (id(music_overlay_mode) == 0) {
           // --------------------------------------------------
@@ -6997,7 +6833,7 @@ display:
             current_offset = (id(deck_menu_page) == 2) ? 232 : 0;
           }
 
-          static char deck_labels[10][32];
+          static char deck_labels[8][32];
           static uint32_t last_deck_label_time = 0;
           if (!id(menu_scroll_active) || millis() - last_deck_label_time > 1000) {
             std::string def_app = id(default_start_app).current_option();
@@ -7008,9 +6844,7 @@ display:
             snprintf(deck_labels[4], sizeof(deck_labels[4]), "Weather: %s", id(show_weather_switch).state ? "Visible" : "Hidden");
             snprintf(deck_labels[5], sizeof(deck_labels[5]), "Games: %s", id(show_games_switch).state ? "Visible" : "Hidden");
             snprintf(deck_labels[6], sizeof(deck_labels[6]), "Stuff: %s", id(show_stuff_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[7], sizeof(deck_labels[7]), "Timer: %s", id(show_timer_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[8], sizeof(deck_labels[8]), "Stopwatch: %s", id(show_stopwatch_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[9], sizeof(deck_labels[9]), "System: %s", id(show_system_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[7], sizeof(deck_labels[7]), "System: %s", id(show_system_switch).state ? "Visible" : "Hidden");
             last_deck_label_time = millis();
           }
 
@@ -7018,7 +6852,7 @@ display:
             draw_menu_card_y(y, deck_labels[idx]);
           };
 
-          for (int i = 0; i < 10; i++) {
+          for (int i = 0; i < 8; i++) {
             int y = 104 + i * 58 - current_offset;
             if (y >= 50 && y <= 390) {
               draw_deck_item(i, y);
@@ -7901,6 +7735,147 @@ display:
       // PAGE 6: TIMER & ALARM APP (v1.1 OVERHAUL)
       // ==============================================================================
       } else if (id(gui_page) == 6) {
+        id(gui_page) = 8;
+        id(stuff_subpage) = 1;
+        id(disp1).update();
+        return;
+      } else if (id(gui_page) == 7) {
+        // ==============================================================================
+        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)
+        // ==============================================================================
+        std::string rem_name = id(remote_target_name);
+        if (rem_name.empty()) {
+          if (id(ha_remote_friendly_name).has_state() && !id(ha_remote_friendly_name).state.empty() &&
+              id(ha_remote_friendly_name).state != "unknown" && id(ha_remote_friendly_name).state != "unavailable") {
+            rem_name = id(ha_remote_friendly_name).state;
+            id(remote_target_name) = rem_name;
+          } else {
+            std::string s = "${tv_remote_entity}";
+            size_t dot = s.find('.');
+            if (dot != std::string::npos) s = s.substr(dot + 1);
+            bool cap = true;
+            for (size_t i = 0; i < s.length(); i++) {
+              if (s[i] == '_') { s[i] = ' '; cap = true; }
+              else if (cap) { s[i] = toupper(s[i]); cap = false; }
+            }
+            if (s == "Tv") s = "TV";
+            else if (s.length() >= 2 && s.substr(s.length() - 2) == "Tv") {
+              s.replace(s.length() - 2, 2, "TV");
+            }
+            rem_name = s;
+          }
+        }
+
+        if (id(remote_subpage) == 1) {
+          // --------------------------------------------------
+          // SUBPAGE 1: REMOTE & DEVICE SETTINGS (DIRECT POWER TOGGLE)
+          // Modeled after System Dashboard (y=46 Title, y=78 Subtitle buffer of 32px)
+          // --------------------------------------------------
+          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "DEVICE SETTINGS");
+
+          // Active target device name (y = 78, font_small, col_white, matching System page buffer of 32px)
+          std::string upper_sub = rem_name;
+          for (char &c : upper_sub) c = (char)toupper((unsigned char)c);
+          std::string rem_sub = fit_text_to_width(upper_sub, 260);
+          it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, rem_sub.c_str());
+
+          // Active remote profile badge (y = 114, font_micro, theme_secondary)
+          std::string prof_label = "Profile: " + id(tv_remote_profile).current_option();
+          it.print(cx, 114, id(font_micro), id(theme_secondary), TextAlign::CENTER, prof_label.c_str());
+
+          // Clean Pill Button: Toggle Power at y = 200 (h = 44, r = 22, span: 120..346)
+          // Rendered using standard draw_pill_button for clean continuous geometry with zero internal artifacts
+          draw_pill_button(120, 346, 200, 22, id(col_red), id(col_dark_gray), "Toggle Power", id(col_white), false);
+
+          // Standardized Centered < BACK Button at y = 408 (Matching OS Subpage Standard)
+          draw_back_button();
+        } else {
+          // --------------------------------------------------
+          // MAIN REMOTE CONTROL INTERFACE (SUBPAGE 0)
+          // Unified Title: Active Entity Name displayed as Title at y = 50
+          // Tapping Title opens Remote Settings Subpage
+          // --------------------------------------------------
+          bool is_fb = (millis() - id(remote_feedback_timer) < 1500 && !id(remote_action_feedback).empty());
+          if (is_fb) {
+            std::string fb_str = id(remote_action_feedback);
+            for (char &c : fb_str) c = (char)toupper((unsigned char)c);
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, fb_str.c_str());
+          } else {
+            std::string upper_name = rem_name;
+            for (char &c : upper_name) c = (char)toupper((unsigned char)c);
+            std::string disp_title = fit_text_to_width_font(upper_name, 246, id(font_date));
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, disp_title.c_str());
+          }
+
+          // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
+          // Upper Pair: y = 140. Lower Pair: y = 326. Left: x = 71. Right: x = 395.
+          const int left_fx = 71;
+          const int right_fx = 395;
+          const int top_fy = 140;
+          const int btm_fy = 326;
+          const int f_r = 18;
+
+          // 1. HOME: Top-Left (71, 140)
+          it.filled_circle(left_fx, top_fy, f_r, id(col_dark_gray));
+          it.circle(left_fx, top_fy, f_r, id(col_gray));
+          it.filled_triangle(left_fx, top_fy - 8, left_fx - 9, top_fy - 1, left_fx + 9, top_fy - 1, id(col_white));
+          it.filled_rectangle(left_fx - 6, top_fy - 1, 13, 8, id(col_white));
+          it.filled_rectangle(left_fx - 2, top_fy + 2, 5, 5, id(col_dark_gray));
+
+          // 2. VOL UP: Top-Right (395, 140)
+          it.filled_circle(right_fx, top_fy, f_r, id(col_dark_gray));
+          it.circle(right_fx, top_fy, f_r, id(col_gray));
+          it.filled_rectangle(right_fx - 7, top_fy - 1, 15, 3, id(col_white));
+          it.filled_rectangle(right_fx - 1, top_fy - 7, 3, 15, id(col_white));
+
+          // 3. BACK: Bottom-Left (71, 326) - LOWERED FOR RADIAL SYMMETRY
+          it.filled_circle(left_fx, btm_fy, f_r, id(col_dark_gray));
+          it.circle(left_fx, btm_fy, f_r, id(col_gray));
+          it.line(left_fx + 3, btm_fy - 7, left_fx - 4, btm_fy, id(col_white));
+          it.line(left_fx + 4, btm_fy - 7, left_fx - 3, btm_fy, id(col_white));
+          it.line(left_fx - 4, btm_fy, left_fx + 3, btm_fy + 7, id(col_white));
+          it.line(left_fx - 3, btm_fy, left_fx + 4, btm_fy + 7, id(col_white));
+
+          // 4. VOL DOWN: Bottom-Right (395, 326) - LOWERED FOR RADIAL SYMMETRY
+          it.filled_circle(right_fx, btm_fy, f_r, id(col_dark_gray));
+          it.circle(right_fx, btm_fy, f_r, id(col_gray));
+          it.filled_rectangle(right_fx - 7, btm_fy - 1, 15, 3, id(col_white));
+
+          // Concentric D-Pad with Expanded Outer Radius (r_out = 132 for generous Left/Right reach)
+          const int dpad_r_in = 48;
+          const int dpad_r_out = 132;
+
+          // Outer directional ring
+          it.circle(cx, cy, dpad_r_out, id(col_gray));
+          it.circle(cx, cy, dpad_r_in, id(col_gray));
+
+          // 45-degree sector dividers (cos 45 = sin 45 = 0.7071)
+          const int d_in = 34;   // 48 * 0.7071
+          const int d_out = 93;  // 132 * 0.7071
+          it.line(cx + d_in, cy + d_in, cx + d_out, cy + d_out, id(col_gray));
+          it.line(cx - d_in, cy + d_in, cx - d_out, cy + d_out, id(col_gray));
+          it.line(cx + d_in, cy - d_in, cx + d_out, cy - d_out, id(col_gray));
+          it.line(cx - d_in, cy - d_in, cx - d_out, cy - d_out, id(col_gray));
+
+          // Directional Arrows centered at radius ~90px
+          // UP Arrow
+          it.filled_triangle(cx, cy - 97, cx - 10, cy - 82, cx + 10, cy - 82, id(col_white));
+          // DOWN Arrow
+          it.filled_triangle(cx, cy + 97, cx - 10, cy + 82, cx + 10, cy + 82, id(col_white));
+          // LEFT Arrow
+          it.filled_triangle(cx - 97, cy, cx - 82, cy - 10, cx - 82, cy + 10, id(col_white));
+          // RIGHT Arrow
+          it.filled_triangle(cx + 97, cy, cx + 82, cy - 10, cx + 82, cy + 10, id(col_white));
+
+          // Center OK Button (Radius 40)
+          it.filled_circle(cx, cy, 40, id(col_dark_gray));
+          it.circle(cx, cy, 40, id(theme_primary));
+          it.print(cx, cy, id(font_date), id(col_white), TextAlign::CENTER, "OK");
+        }
+      } else if (id(gui_page) == 8) {
+        // ==============================================================================
+        // PAGE 8: STUFF SUITE (LAUNCHER, TIMER, ALARMS, STOPWATCH, DICE, FLASHLIGHT, CALC, LEVEL, COIN)
+        // ==============================================================================
         // ----------------------------------------------------------------------
         // ALERT / RINGING OVERLAY: FULL-SCREEN TAKEOVER
         // ----------------------------------------------------------------------
@@ -7951,14 +7926,152 @@ display:
             draw_pill_button(133, 333, 330, 22, id(theme_primary), id(theme_primary), "DISMISS", id(col_white), false);
             it.print(cx, 372, id(font_micro), id(col_gray), TextAlign::CENTER, "(or press Top Crown button)");
           }
-        } else {
-          // --------------------------------------------------------------------
-          // STANDARDIZED TOP TITLE AT y = 50 ("TIMER", "ALARM", or "EDIT ALARM X")
-          // --------------------------------------------------------------------
-          bool is_timer = (id(timer_alarm_subpage) == 0);
-          if (is_timer) {
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
+          return;
+        }
+
+        if (id(stuff_subpage) == 0) {
+          // --------------------------------------------------
+          // SUBPAGE 0: STUFF LAUNCHER MENU (2-Page 6+2 Scaled Icon Card Grid)
+          // Row 0 (y = 118), Row 1 (y = 214), Row 2 (y = 310)
+          // Left Column (x = 140), Right Column (x = 264)
+          // Standard Right-Flank Navigation Chevrons at x = 415 (Up at 162, Down at 278)
+          // --------------------------------------------------
+          draw_menu_header(46, "STUFF");
+
+          // Standardized Right-Flank Navigation Chevrons
+          draw_right_flank_chevrons(id(stuff_menu_page) == 1, id(stuff_menu_page) == 0);
+
+          auto draw_icon_card = [&](int cx_card, int cy_card, int app_id, const char* label) {
+            const int cw = 114;
+            const int ch = 84;
+            const int cr = 14;
+            int x0 = cx_card - cw / 2;
+            int y0 = cy_card - ch / 2;
+
+            it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, Color(22, 27, 36));
+            it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cr, y0 + cr, cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cw - cr, y0 + cr, cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cr, y0 + ch - cr, cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, Color(22, 27, 36));
+
+            it.line(x0 + cr, y0, x0 + cw - cr, y0, Color(48, 56, 70));
+            it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, Color(48, 56, 70));
+            it.line(x0, y0 + cr, x0, y0 + ch - cr, Color(48, 56, 70));
+            it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, Color(48, 56, 70));
+
+            int ix = cx_card;
+            int iy = cy_card - 14;
+
+            if (app_id == 1) {
+              // Timer Icon: Hourglass with sand
+              it.line(ix - 10, iy - 12, ix + 10, iy - 12, id(col_white));
+              it.line(ix - 10, iy + 12, ix + 10, iy + 12, id(col_white));
+              it.line(ix - 9, iy - 11, ix - 2, iy, id(col_white));
+              it.line(ix + 9, iy - 11, ix + 2, iy, id(col_white));
+              it.line(ix - 2, iy, ix - 9, iy + 11, id(col_white));
+              it.line(ix + 2, iy, ix + 9, iy + 11, id(col_white));
+              it.filled_triangle(ix - 6, iy + 10, ix + 6, iy + 10, ix, iy + 3, id(col_white));
+              it.line(ix, iy - 2, ix, iy + 2, id(col_white));
+              it.filled_triangle(ix - 5, iy - 6, ix + 5, iy - 6, ix, iy - 1, id(col_white));
+            } else if (app_id == 2) {
+              // Alarms Icon: Classic twin-bell alarm clock
+              it.circle(ix, iy + 1, 12, id(col_white));
+              it.line(ix, iy + 1, ix - 5, iy - 3, id(col_white));
+              it.line(ix, iy + 1, ix + 5, iy + 1, id(col_white));
+              it.circle(ix - 10, iy - 10, 4, id(col_white));
+              it.circle(ix + 10, iy - 10, 4, id(col_white));
+              it.line(ix - 8, iy + 12, ix - 12, iy + 16, id(col_white));
+              it.line(ix + 8, iy + 12, ix + 12, iy + 16, id(col_white));
+            } else if (app_id == 3) {
+              // Stopwatch Icon: Chronometer with top pusher and crown
+              it.circle(ix, iy + 2, 13, id(col_white));
+              it.line(ix, iy - 11, ix, iy - 15, id(col_white));
+              it.line(ix - 5, iy - 16, ix + 5, iy - 16, id(col_white));
+              it.line(ix + 9, iy - 7, ix + 13, iy - 11, id(col_white));
+              it.line(ix, iy + 2, ix + 5, iy - 5, id(col_white));
+              it.filled_circle(ix, iy + 2, 2, id(col_white));
+            } else if (app_id == 4) {
+              // Dice Icon: Scaled die cube outline with 5 pips
+              it.rectangle(ix - 14, iy - 14, 29, 29, id(col_white));
+              it.filled_circle(ix, iy, 2, id(col_white));
+              it.filled_circle(ix - 7, iy - 7, 2, id(col_white));
+              it.filled_circle(ix + 7, iy + 7, 2, id(col_white));
+              it.filled_circle(ix + 7, iy - 7, 2, id(col_white));
+              it.filled_circle(ix - 7, iy + 7, 2, id(col_white));
+            } else if (app_id == 5) {
+              // Flashlight Icon: Scaled torch barrel, reflector head, and light rays
+              it.rectangle(ix - 5, iy - 1, 11, 16, id(col_white));
+              it.line(ix - 9, iy - 9, ix - 5, iy - 1, id(col_white));
+              it.line(ix + 9, iy - 9, ix + 5, iy - 1, id(col_white));
+              it.line(ix - 9, iy - 9, ix + 9, iy - 9, id(col_white));
+              it.line(ix - 7, iy - 12, ix - 10, iy - 16, id(col_white));
+              it.line(ix, iy - 12, ix, iy - 17, id(col_white));
+              it.line(ix + 7, iy - 12, ix + 10, iy - 16, id(col_white));
+            } else if (app_id == 6) {
+              // Calculator Icon: Scaled calculator outline with screen and button grid
+              it.rectangle(ix - 13, iy - 16, 27, 33, id(col_white));
+              it.rectangle(ix - 9, iy - 13, 19, 8, id(col_white));
+              it.line(ix - 7, iy - 1, ix - 2, iy - 1, id(col_white));
+              it.line(ix + 2, iy - 1, ix + 7, iy - 1, id(col_white));
+              it.line(ix - 7, iy + 5, ix - 2, iy + 5, id(col_white));
+              it.line(ix + 2, iy + 5, ix + 7, iy + 5, id(col_white));
+              it.line(ix - 7, iy + 10, ix + 7, iy + 10, id(col_white));
+            } else if (app_id == 7) {
+              // Level Icon: Scaled spirit level circle with crosshair & center bubble
+              it.circle(ix, iy, 16, id(col_white));
+              it.circle(ix, iy, 8, id(col_white));
+              it.filled_circle(ix, iy, 3, id(col_white));
+              it.line(ix - 20, iy, ix - 16, iy, id(col_white));
+              it.line(ix + 16, iy, ix + 20, iy, id(col_white));
+              it.line(ix, iy - 20, ix, iy - 16, id(col_white));
+              it.line(ix, iy + 16, ix, iy + 20, id(col_white));
+            } else if (app_id == 8) {
+              // Coin Icon: Scaled coin rim with Home Assistant house outline
+              it.circle(ix, iy, 17, id(col_white));
+              it.circle(ix, iy, 14, id(col_slate));
+              it.line(ix, iy - 9, ix - 8, iy - 2, id(col_white));
+              it.line(ix, iy - 9, ix + 8, iy - 2, id(col_white));
+              it.line(ix - 6, iy - 2, ix - 6, iy + 5, id(col_white));
+              it.line(ix + 6, iy - 2, ix + 6, iy + 5, id(col_white));
+              it.line(ix - 6, iy + 5, ix + 6, iy + 5, id(col_white));
+            }
+
+            // High-legibility font_small (21pt) label
+            it.print(cx_card, cy_card + 22, id(font_small), id(col_white), TextAlign::CENTER, label);
+          };
+
+          if (id(stuff_menu_page) == 0) {
+            // PAGE 1: 6 ICONS
+            draw_icon_card(140, 118, 1, "Timer");
+            draw_icon_card(264, 118, 2, "Alarms");
+            draw_icon_card(140, 214, 3, "Stopwatch");
+            draw_icon_card(264, 214, 4, "Dice Roll");
+            draw_icon_card(140, 310, 5, "Flashlight");
+            draw_icon_card(264, 310, 6, "Calculator");
           } else {
+            // PAGE 2: 2 ICONS
+            draw_icon_card(140, 118, 7, "Level");
+            draw_icon_card(264, 118, 8, "Coin Flip");
+          }
+
+        } else if (id(stuff_subpage) == 1) {
+          // --------------------------------------------------
+          // SUBPAGE 1: TIMER (COUNTDOWN TIMER)
+          // --------------------------------------------------
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
+
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
+          
+
+          // Standardized Centered < BACK Button at y = 408 (r = 16)
+          draw_back_button();
+
+        } else if (id(stuff_subpage) == 2) {
+          // --------------------------------------------------
+          // SUBPAGE 2: ALARMS (MULTI-ALARM MANAGER)
+          // --------------------------------------------------
+
             if (id(alarm_edit_idx) == 0) {
               it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
             } else {
@@ -8161,239 +8274,321 @@ display:
           }
 
           // --------------------------------------------------------------------
-          // STANDARDIZED BOTTOM NAVIGATION ROW (y = 356)
-          // Matching Sky & Weather App Standard: [ Timer ]  [ Alarm ]
-          // --------------------------------------------------------------------
-          if (id(alarm_edit_idx) == 0) {
-            draw_pill_button(89, 201, 356, 20, is_timer ? id(theme_primary) : id(theme_secondary), is_timer ? id(theme_primary) : id(col_dark_gray), "Timer", id(col_white), false);
-            draw_pill_button(265, 377, 356, 20, !is_timer ? id(theme_primary) : id(theme_secondary), !is_timer ? id(theme_primary) : id(col_dark_gray), "Alarm", id(col_white), false);
-          }
-        }
-      } else if (id(gui_page) == 7) {
-        // ==============================================================================
-        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)
-        // ==============================================================================
-        std::string rem_name = id(remote_target_name);
-        if (rem_name.empty()) {
-          if (id(ha_remote_friendly_name).has_state() && !id(ha_remote_friendly_name).state.empty() &&
-              id(ha_remote_friendly_name).state != "unknown" && id(ha_remote_friendly_name).state != "unavailable") {
-            rem_name = id(ha_remote_friendly_name).state;
-            id(remote_target_name) = rem_name;
-          } else {
-            std::string s = "${tv_remote_entity}";
-            size_t dot = s.find('.');
-            if (dot != std::string::npos) s = s.substr(dot + 1);
-            bool cap = true;
-            for (size_t i = 0; i < s.length(); i++) {
-              if (s[i] == '_') { s[i] = ' '; cap = true; }
-              else if (cap) { s[i] = toupper(s[i]); cap = false; }
-            }
-            if (s == "Tv") s = "TV";
-            else if (s.length() >= 2 && s.substr(s.length() - 2) == "Tv") {
-              s.replace(s.length() - 2, 2, "TV");
-            }
-            rem_name = s;
-          }
-        }
+          
 
-        if (id(remote_subpage) == 1) {
-          // --------------------------------------------------
-          // SUBPAGE 1: REMOTE & DEVICE SETTINGS (DIRECT POWER TOGGLE)
-          // Modeled after System Dashboard (y=46 Title, y=78 Subtitle buffer of 32px)
-          // --------------------------------------------------
-          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "DEVICE SETTINGS");
-
-          // Active target device name (y = 78, font_small, col_white, matching System page buffer of 32px)
-          std::string upper_sub = rem_name;
-          for (char &c : upper_sub) c = (char)toupper((unsigned char)c);
-          std::string rem_sub = fit_text_to_width(upper_sub, 260);
-          it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, rem_sub.c_str());
-
-          // Active remote profile badge (y = 114, font_micro, theme_secondary)
-          std::string prof_label = "Profile: " + id(tv_remote_profile).current_option();
-          it.print(cx, 114, id(font_micro), id(theme_secondary), TextAlign::CENTER, prof_label.c_str());
-
-          // Clean Pill Button: Toggle Power at y = 200 (h = 44, r = 22, span: 120..346)
-          // Rendered using standard draw_pill_button for clean continuous geometry with zero internal artifacts
-          draw_pill_button(120, 346, 200, 22, id(col_red), id(col_dark_gray), "Toggle Power", id(col_white), false);
-
-          // Standardized Centered < BACK Button at y = 408 (Matching OS Subpage Standard)
+          // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
-        } else {
+
+        } else if (id(stuff_subpage) == 3) {
           // --------------------------------------------------
-          // MAIN REMOTE CONTROL INTERFACE (SUBPAGE 0)
-          // Unified Title: Active Entity Name displayed as Title at y = 50
-          // Tapping Title opens Remote Settings Subpage
+          // SUBPAGE 3: STOPWATCH (VINTAGE 1970 HEUER SWISS CHRONOMETER)
           // --------------------------------------------------
-          bool is_fb = (millis() - id(remote_feedback_timer) < 1500 && !id(remote_action_feedback).empty());
-          if (is_fb) {
-            std::string fb_str = id(remote_action_feedback);
-            for (char &c : fb_str) c = (char)toupper((unsigned char)c);
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, fb_str.c_str());
+
+        // Clean Dual Perimeter Rings: Crisp White Outer Ring (r=230) with Polished Silver Inner Highlight (r=228)
+        it.circle(cx, cy, 230, id(col_white));
+        it.circle(cx, cy, 228, id(col_silver));
+
+        // Inner Chapter Track Boundaries (Polished steel inner rehaut flange)
+        it.circle(cx, cy, 197, id(col_dark_gray));
+        it.circle(cx, cy, 196, id(col_silver));
+
+        // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
+        for (int s = 0; s < 60; s++) {
+          float t_sin = DIAL_SIN[s];
+          float t_cos = DIAL_COS[s];
+          
+          if (s % 5 == 0) {
+            // Major 5-Second Applied Faceted Steel Baton: Silver highlight, Slate shadow, White luminous core
+            float perp_x = -t_cos;
+            float perp_y = t_sin;
+            int x1 = cx + (int)(196.0f * t_sin);
+            int y1 = cy - (int)(196.0f * t_cos);
+            int x2 = cx + (int)(227.0f * t_sin);
+            int y2 = cy - (int)(227.0f * t_cos);
+            it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_silver));
+            it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_slate));
+            it.line(x1, y1, x2, y2, id(col_white));
           } else {
-            std::string upper_name = rem_name;
-            for (char &c : upper_name) c = (char)toupper((unsigned char)c);
-            std::string disp_title = fit_text_to_width_font(upper_name, 246, id(font_date));
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, disp_title.c_str());
+            // Standard 1-Second Tick: 2px wide from r=210 to r=227 in brushed slate
+            int x1 = cx + (int)(210.0f * t_sin);
+            int y1 = cy - (int)(210.0f * t_cos);
+            int x2 = cx + (int)(227.0f * t_sin);
+            int y2 = cy - (int)(227.0f * t_cos);
+            it.line(x1, y1, x2, y2, id(col_slate));
+            it.line(x1 + 1, y1, x2 + 1, y2, id(col_slate));
+          }
+        }
+
+        // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math)
+        static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[12] = {
+          {233,  61,  "0"},
+          {319,  84,  "5"},
+          {382, 147, "10"},
+          {405, 233, "15"},
+          {382, 319, "20"},
+          {319, 382, "25"},
+          {233, 405, "30"},
+          {147, 382, "35"},
+          { 84, 319, "40"},
+          { 61, 233, "45"},
+          { 84, 147, "50"},
+          {147,  84, "55"}
+        };
+        for (const auto &n : CHRONO_NUMS) {
+          it.print(n.x, n.y, id(font_small), id(col_white), TextAlign::CENTER, n.str);
+        }
+
+        uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
+        int mins = (total_ms / 60000) % 60;
+        int secs = (total_ms / 1000) % 60;
+        int tenths = (total_ms / 100) % 10;
+
+        // ----------------------------------------------------
+        // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
+        // ----------------------------------------------------
+        it.print(cx, 132, id(font_small), id(col_silver), TextAlign::CENTER, "CHRONOGRAPH");
+
+        // ----------------------------------------------------
+        // CHRONOMETER DIGITAL READOUT (Large, Bold, High-Legibility at y=238)
+        // ----------------------------------------------------
+        char chrono_buf[32];
+        snprintf(chrono_buf, sizeof(chrono_buf), "%02d:%02d.%d", mins, secs, tenths);
+        it.print(cx, 238, id(font_chrono_time), id(col_white), TextAlign::CENTER, chrono_buf);
+
+        // Display lap time readout if recorded (centered at y=274 in high-contrast Racing Red)
+        if (id(stopwatch_lap_ms) > 0) {
+          int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
+          int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
+          int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
+          char lap_buf[32];
+          snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
+          it.print(cx, 274, id(font_small), id(col_red), TextAlign::CENTER, lap_buf);
+        }
+
+        // ----------------------------------------------------
+        // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
+        // Authentic machined stainless steel piston pushers with stepped metallic bezels
+        // ----------------------------------------------------
+        const int btn_y = 332;
+        const int btn_lap_x = 176;
+        const int btn_rst_x = 290;
+        const int btn_r = 36;
+
+        // LAP Button (Machined steel piston: polished silver rim, dark core, metallic typography)
+        it.filled_circle(btn_lap_x, btn_y, btn_r - 2, id(col_dark_gray));
+        it.circle(btn_lap_x, btn_y, btn_r, id(col_silver));
+        it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_slate));
+        it.circle(btn_lap_x, btn_y, btn_r - 4, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
+        it.print(btn_lap_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "LAP");
+
+        // RESET Button (Machined steel piston: polished silver rim, dark core, metallic typography)
+        it.filled_circle(btn_rst_x, btn_y, btn_r - 2, id(col_dark_gray));
+        it.circle(btn_rst_x, btn_y, btn_r, id(col_silver));
+        it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_slate));
+        it.circle(btn_rst_x, btn_y, btn_r - 4, id(col_slate));
+        it.print(btn_rst_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "RESET");
+
+        // ----------------------------------------------------
+        // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
+        // Sweeps over top of LAP and RESET buttons; matches red SPLIT digital readout
+        // ----------------------------------------------------
+        if (id(stopwatch_lap_ms) > 0) {
+          float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
+          float l_sin, l_cos;
+          sincosf(lap_angle, &l_sin, &l_cos);
+          it.line(cx, cy, cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), id(col_red));
+          it.line(cx + 1, cy, cx + (int)(154.0f * l_sin) + 1, cy - (int)(154.0f * l_cos), id(col_red));
+          it.circle(cx + (int)(158.0f * l_sin), cy - (int)(158.0f * l_cos), 4, id(col_red));
+        }
+
+        // ----------------------------------------------------
+        // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
+        // Faceted stainless steel pointer: Polished silver highlight, steel shadow, white luminous core
+        // ----------------------------------------------------
+        float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
+        float s_sin, s_cos;
+        sincosf(chrono_angle, &s_sin, &s_cos);
+
+        int tip_x = cx + (int)(178.0f * s_sin);
+        int tip_y = cy - (int)(178.0f * s_cos);
+        int arr_base_x = cx + (int)(152.0f * s_sin);
+        int arr_base_y = cy - (int)(152.0f * s_cos);
+        int tail_x = cx - (int)(36.0f * s_sin);
+        int tail_y = cy + (int)(36.0f * s_cos);
+
+        // True perpendicular vector (Rotated 90 deg clockwise from radial vector)
+        // v = (s_sin, -s_cos) -> perp = (s_cos, s_sin). Dot product = 0.00 at all 360 degrees!
+        float perp_x = s_cos;
+        float perp_y = s_sin;
+        int left_x = arr_base_x + (int)(8.0f * perp_x);
+        int left_y = arr_base_y + (int)(8.0f * perp_y);
+        int right_x = arr_base_x - (int)(8.0f * perp_x);
+        int right_y = arr_base_y - (int)(8.0f * perp_y);
+
+        // Faceted shaft: Left flank polished silver, right flank steel shadow, center white core
+        it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_silver));
+        it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_slate));
+        it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_white));
+
+        // Faceted arrowhead: Pure white luminous core with polished steel bevel edges
+        it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_white));
+        it.line(tip_x, tip_y, left_x, left_y, id(col_silver));
+        it.line(tip_x, tip_y, right_x, right_y, id(col_slate));
+        it.line(left_x, left_y, right_x, right_y, id(col_silver));
+
+        // Teardrop counter-weight tail: Machined steel disc with polished silver bezel & inner jewel
+        it.filled_circle(tail_x, tail_y, 8, id(col_dark_gray));
+        it.circle(tail_x, tail_y, 8, id(col_silver));
+        it.filled_circle(tail_x, tail_y, 3, id(col_silver));
+
+        // Multi-tier Center Pinion Arbor Cap: Polished steel & rhodium arbor
+        it.filled_circle(cx, cy, 9, id(col_silver));
+        it.circle(cx, cy, 9, id(col_slate));
+        it.filled_circle(cx, cy, 6, id(col_dark_gray));
+        it.filled_circle(cx, cy, 2, id(col_white));
+
+      // ==========================================
+      // PAGE 2: MUSIC PLAYER & MULTI-ROOM EXPANSION
+      // ==========================================
+      
+
+          // Dedicated High-Contrast Black & White < BACK Button at y = 408 (Matching Chronograph Aesthetics)
+          draw_pill_button(180, 286, 408, 16, id(col_white), id(col_black), "< BACK", id(col_white), false);
+
+        } else if (id(stuff_subpage) == 4) {
+
+          // --------------------------------------------------
+          // SUBPAGE 4: DICE ROLL (ALWAYS DUAL D6)
+          // Dominant, Centered Ivory White Dual D6 Dice (130x130)
+          // Direct Full-Screen Tap or Shake Trigger (No Menu Row)
+          // --------------------------------------------------
+          uint32_t now_d = millis();
+          int cur_val_d6_1 = id(dice_val_d6);
+          int cur_val_d6_2 = id(dice_val_d6_2);
+
+          if (id(dice_anim_active)) {
+            uint32_t elapsed = now_d - id(dice_anim_start_ms);
+            const uint32_t roll_dur = 650; // ms
+            if (elapsed >= roll_dur) {
+              id(dice_anim_active) = false;
+            
+
+        } else if (id(stuff_subpage) == 5) {
+
+          // --------------------------------------------------
+          // SUBPAGE 2: FULL-SCREEN OLED FLASHLIGHT
+          // 466x466 pure full-screen light emitter with 3 tap-toggle modes:
+          // Mode 0: Pure White Torch (100% display brightness)
+          // Mode 1: Warm Amber Soft Light (255, 190, 70)
+          // Mode 2: Night-Vision Red (255, 0, 0, preserves dark adaptation)
+          // Tap anywhere to cycle modes; tap bottom back button to exit
+          // --------------------------------------------------
+          Color flash_col = id(col_white);
+          const char* mode_name = "WHITE TORCH";
+          if (id(stuff_flashlight_mode) == 1) {
+            flash_col = Color(255, 190, 70); // Warm Amber
+            mode_name = "WARM AMBER";
+          } else if (id(stuff_flashlight_mode) == 2) {
+            flash_col = Color(255, 20, 20);  // Night-Vision Red
+            mode_name = "NIGHT RED";
           }
 
-          // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
-          // Upper Pair: y = 140. Lower Pair: y = 326. Left: x = 71. Right: x = 395.
-          const int left_fx = 71;
-          const int right_fx = 395;
-          const int top_fy = 140;
-          const int btm_fy = 326;
-          const int f_r = 18;
+          // Flood the circular AMOLED screen with light
+          it.filled_circle(cx, cy, 233, flash_col);
 
-          // 1. HOME: Top-Left (71, 140)
-          it.filled_circle(left_fx, top_fy, f_r, id(col_dark_gray));
-          it.circle(left_fx, top_fy, f_r, id(col_gray));
-          it.filled_triangle(left_fx, top_fy - 8, left_fx - 9, top_fy - 1, left_fx + 9, top_fy - 1, id(col_white));
-          it.filled_rectangle(left_fx - 6, top_fy - 1, 13, 8, id(col_white));
-          it.filled_rectangle(left_fx - 2, top_fy + 2, 5, 5, id(col_dark_gray));
+          // Subtle unobtrusive mode hint at top (y = 50) and back prompt at bottom (y = 412)
+          Color text_c = (id(stuff_flashlight_mode) == 2) ? id(col_white) : id(col_black);
+          it.print(cx, 50, id(font_micro), text_c, TextAlign::CENTER, mode_name);
+          it.print(cx, 412, id(font_micro), text_c, TextAlign::CENTER, "< TAP TO EXIT >");
 
-          // 2. VOL UP: Top-Right (395, 140)
-          it.filled_circle(right_fx, top_fy, f_r, id(col_dark_gray));
-          it.circle(right_fx, top_fy, f_r, id(col_gray));
-          it.filled_rectangle(right_fx - 7, top_fy - 1, 15, 3, id(col_white));
-          it.filled_rectangle(right_fx - 1, top_fy - 7, 3, 15, id(col_white));
+        
 
-          // 3. BACK: Bottom-Left (71, 326) - LOWERED FOR RADIAL SYMMETRY
-          it.filled_circle(left_fx, btm_fy, f_r, id(col_dark_gray));
-          it.circle(left_fx, btm_fy, f_r, id(col_gray));
-          it.line(left_fx + 3, btm_fy - 7, left_fx - 4, btm_fy, id(col_white));
-          it.line(left_fx + 4, btm_fy - 7, left_fx - 3, btm_fy, id(col_white));
-          it.line(left_fx - 4, btm_fy, left_fx + 3, btm_fy + 7, id(col_white));
-          it.line(left_fx - 3, btm_fy, left_fx + 4, btm_fy + 7, id(col_white));
-
-          // 4. VOL DOWN: Bottom-Right (395, 326) - LOWERED FOR RADIAL SYMMETRY
-          it.filled_circle(right_fx, btm_fy, f_r, id(col_dark_gray));
-          it.circle(right_fx, btm_fy, f_r, id(col_gray));
-          it.filled_rectangle(right_fx - 7, btm_fy - 1, 15, 3, id(col_white));
-
-          // Concentric D-Pad with Expanded Outer Radius (r_out = 132 for generous Left/Right reach)
-          const int dpad_r_in = 48;
-          const int dpad_r_out = 132;
-
-          // Outer directional ring
-          it.circle(cx, cy, dpad_r_out, id(col_gray));
-          it.circle(cx, cy, dpad_r_in, id(col_gray));
-
-          // 45-degree sector dividers (cos 45 = sin 45 = 0.7071)
-          const int d_in = 34;   // 48 * 0.7071
-          const int d_out = 93;  // 132 * 0.7071
-          it.line(cx + d_in, cy + d_in, cx + d_out, cy + d_out, id(col_gray));
-          it.line(cx - d_in, cy + d_in, cx - d_out, cy + d_out, id(col_gray));
-          it.line(cx + d_in, cy - d_in, cx + d_out, cy - d_out, id(col_gray));
-          it.line(cx - d_in, cy - d_in, cx - d_out, cy - d_out, id(col_gray));
-
-          // Directional Arrows centered at radius ~90px
-          // UP Arrow
-          it.filled_triangle(cx, cy - 97, cx - 10, cy - 82, cx + 10, cy - 82, id(col_white));
-          // DOWN Arrow
-          it.filled_triangle(cx, cy + 97, cx - 10, cy + 82, cx + 10, cy + 82, id(col_white));
-          // LEFT Arrow
-          it.filled_triangle(cx - 97, cy, cx - 82, cy - 10, cx - 82, cy + 10, id(col_white));
-          // RIGHT Arrow
-          it.filled_triangle(cx + 97, cy, cx + 82, cy - 10, cx + 82, cy + 10, id(col_white));
-
-          // Center OK Button (Radius 40)
-          it.filled_circle(cx, cy, 40, id(col_dark_gray));
-          it.circle(cx, cy, 40, id(theme_primary));
-          it.print(cx, cy, id(font_date), id(col_white), TextAlign::CENTER, "OK");
-        }
-      } else if (id(gui_page) == 8) {
-        // ==============================================================================
-        // PAGE 8: STUFF SUITE (LAUNCHER, BUBBLE LEVEL, FLASHLIGHT, COIN, DICE, TIP CALC)
-        // ==============================================================================
-        if (id(stuff_subpage) == 0) {
+        } else if (id(stuff_subpage) == 6) {
           // --------------------------------------------------
-          // SUBPAGE 0: STUFF LAUNCHER MENU (2-2-1 Scaled Icon Tile Grid)
-          // Scaled vector outline icons with font_small (21pt) labels
-          // Dimensioned for 2x3 6-button expansion capability
-          // Row 0 (y = 118): Level & Flashlight
-          // Row 1 (y = 214): Coin Flip & Dice Roll
-          // Row 2 (y = 310): Calculator
+          // SUBPAGE 6: CALCULATOR WITH PERCENT SUPPORT
           // --------------------------------------------------
-          draw_menu_header(46, "STUFF");
+// SUBPAGE 5: CALCULATOR WITH PERCENT SUPPORT
+          // 4x5 Keypad Matrix on 466x466 AMOLED: 68x44px Touch Targets
+          // Arithmetic Engine with Instant Tip / Discount Percent Logic
+          // --------------------------------------------------
+          // Top Display Panel: Expression history and active entry (Title omitted for clean layout)
+          if (!id(calc_history).empty()) {
+            it.print(370, 52, id(font_small), id(col_slate), TextAlign::RIGHT, id(calc_history).c_str());
+          }
+          it.print(370, 84, id(font_date), id(col_white), TextAlign::RIGHT, id(calc_entry).c_str());
 
-          auto draw_icon_card = [&](int cx_card, int cy_card, int app_id, const char* label) {
-            const int cw = 120;
-            const int ch = 84;
-            const int cr = 14;
-            int x0 = cx_card - cw / 2;
-            int y0 = cy_card - ch / 2;
+          // Subtle Divider Line
+          it.line(80, 112, 386, 112, Color(50, 58, 72));
 
-            it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, Color(22, 27, 36));
-            it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cr, y0 + cr, cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cw - cr, y0 + cr, cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cr, y0 + ch - cr, cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, Color(22, 27, 36));
+          // Keypad Matrix: 4 Columns x 5 Rows
+          const int rows_y[5] = {138, 192, 246, 300, 354};
+          const int cols_x[4] = {119, 195, 271, 347};
 
-            it.line(x0 + cr, y0, x0 + cw - cr, y0, Color(48, 56, 70));
-            it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, Color(48, 56, 70));
-            it.line(x0, y0 + cr, x0, y0 + ch - cr, Color(48, 56, 70));
-            it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, Color(48, 56, 70));
-
-            int ix = cx_card;
-            int iy = cy_card - 14;
-
-            if (app_id == 1) {
-              // Level Icon: Scaled spirit level circle with crosshair & center bubble
-              it.circle(ix, iy, 16, id(col_white));
-              it.circle(ix, iy, 8, id(col_white));
-              it.filled_circle(ix, iy, 3, id(col_white));
-              it.line(ix - 20, iy, ix - 16, iy, id(col_white));
-              it.line(ix + 16, iy, ix + 20, iy, id(col_white));
-              it.line(ix, iy - 20, ix, iy - 16, id(col_white));
-              it.line(ix, iy + 16, ix, iy + 20, id(col_white));
-            } else if (app_id == 2) {
-              // Flashlight Icon: Scaled torch barrel, reflector head, and light rays
-              it.rectangle(ix - 5, iy - 1, 11, 16, id(col_white));
-              it.line(ix - 9, iy - 9, ix - 5, iy - 1, id(col_white));
-              it.line(ix + 9, iy - 9, ix + 5, iy - 1, id(col_white));
-              it.line(ix - 9, iy - 9, ix + 9, iy - 9, id(col_white));
-              it.line(ix - 7, iy - 12, ix - 10, iy - 16, id(col_white));
-              it.line(ix, iy - 12, ix, iy - 17, id(col_white));
-              it.line(ix + 7, iy - 12, ix + 10, iy - 16, id(col_white));
-            } else if (app_id == 3) {
-              // Coin Icon: Scaled coin rim with Home Assistant house outline
-              it.circle(ix, iy, 17, id(col_white));
-              it.circle(ix, iy, 14, id(col_slate));
-              it.line(ix, iy - 9, ix - 8, iy - 2, id(col_white));
-              it.line(ix, iy - 9, ix + 8, iy - 2, id(col_white));
-              it.line(ix - 6, iy - 2, ix - 6, iy + 5, id(col_white));
-              it.line(ix + 6, iy - 2, ix + 6, iy + 5, id(col_white));
-              it.line(ix - 6, iy + 5, ix + 6, iy + 5, id(col_white));
-            } else if (app_id == 4) {
-              // Dice Icon: Scaled die cube outline with 5 pips
-              it.rectangle(ix - 14, iy - 14, 29, 29, id(col_white));
-              it.filled_circle(ix, iy, 2, id(col_white));
-              it.filled_circle(ix - 7, iy - 7, 2, id(col_white));
-              it.filled_circle(ix + 7, iy + 7, 2, id(col_white));
-              it.filled_circle(ix + 7, iy - 7, 2, id(col_white));
-              it.filled_circle(ix - 7, iy + 7, 2, id(col_white));
-            } else if (app_id == 5) {
-              // Calculator Icon: Scaled calculator outline with screen and button grid
-              it.rectangle(ix - 13, iy - 16, 27, 33, id(col_white));
-              it.rectangle(ix - 9, iy - 13, 19, 8, id(col_white));
-              it.line(ix - 7, iy - 1, ix - 2, iy - 1, id(col_white));
-              it.line(ix + 2, iy - 1, ix + 7, iy - 1, id(col_white));
-              it.line(ix - 7, iy + 5, ix - 2, iy + 5, id(col_white));
-              it.line(ix + 2, iy + 5, ix + 7, iy + 5, id(col_white));
-              it.line(ix - 7, iy + 10, ix + 7, iy + 10, id(col_white));
-            }
-
-            // High-legibility font_small (21pt) label
-            it.print(cx_card, cy_card + 22, id(font_small), id(col_white), TextAlign::CENTER, label);
+          const char* key_labels[5][4] = {
+            {"C", "±", "%", "/"},
+            {"7", "8", "9", "x"},
+            {"4", "5", "6", "-"},
+            {"1", "2", "3", "+"},
+            {"0", ".", "DEL", "="}
           };
 
-          draw_icon_card(148, 118, 1, "Level");
-          draw_icon_card(318, 118, 2, "Flashlight");
-          draw_icon_card(148, 214, 3, "Coin Flip");
-          draw_icon_card(318, 214, 4, "Dice Roll");
-          draw_icon_card(233, 310, 5, "Calculator");        } else if (id(stuff_subpage) == 1) {
+          auto draw_calc_key = [&](int kx, int ky, const char* label, Color bg_c, Color text_c, Color border_c) {
+            const int kw = 68;
+            const int kh = 44;
+            const int kr = 8;
+            int x0 = kx - kw / 2;
+            int y0 = ky - kh / 2;
+            it.filled_rectangle(x0 + kr, y0, kw - 2 * kr, kh, bg_c);
+            it.filled_rectangle(x0, y0 + kr, kw, kh - 2 * kr, bg_c);
+            it.filled_circle(x0 + kr, y0 + kr, kr, bg_c);
+            it.filled_circle(x0 + kw - kr, y0 + kr, kr, bg_c);
+            it.filled_circle(x0 + kr, y0 + kh - kr, kr, bg_c);
+            it.filled_circle(x0 + kw - kr, y0 + kh - kr, kr, bg_c);
+
+            it.line(x0 + kr, y0, x0 + kw - kr, y0, border_c);
+            it.line(x0 + kr, y0 + kh - 1, x0 + kw - kr, y0 + kh - 1, border_c);
+            it.line(x0, y0 + kr, x0, y0 + kh - kr, border_c);
+            it.line(x0 + kw - 1, y0 + kr, x0 + kw - 1, y0 + kh - kr, border_c);
+
+            it.print(kx, ky, id(font_btn_bold), text_c, TextAlign::CENTER, label);
+          };
+
+          for (int r = 0; r < 5; r++) {
+            for (int c = 0; c < 4; c++) {
+              Color bg_c;
+              Color text_c = id(col_white);
+              Color border_c;
+
+              if (c == 3) {
+                // Operator Column (Vivid Amber-Orange)
+                bg_c = Color(230, 115, 0);
+                border_c = Color(255, 145, 30);
+              } else if (r == 0) {
+                // Top Function Row (Muted Slate Navy)
+                bg_c = Color(65, 75, 90);
+                border_c = Color(90, 105, 125);
+              } else if (r == 4 && c == 2) {
+                // DEL key (Muted Dark Ruby/Slate)
+                bg_c = Color(60, 50, 60);
+                border_c = Color(85, 70, 85);
+              } else {
+                // Number Pad (Deep Matte Charcoal)
+                bg_c = Color(35, 40, 52);
+                border_c = Color(55, 62, 78);
+              }
+
+              draw_calc_key(cols_x[c], rows_y[r], key_labels[r][c], bg_c, text_c, border_c);
+            }
+          }
+
+          draw_back_button();
+        }
+
+        } else if (id(stuff_subpage) == 7) {
+          // --------------------------------------------------
+          // SUBPAGE 7: LEVEL (PRECISION 2D BUBBLE SPIRIT LEVEL)
+          // --------------------------------------------------
+
           // --------------------------------------------------
           // SUBPAGE 1: LEVEL (PRECISION 2D BUBBLE SPIRIT LEVEL)
           // Exact trigonometric pitch and roll calculation from 100ms QMI8658 accelerometer
@@ -8480,34 +8675,13 @@ display:
           // Standardized Centered < BACK Button at y = 408 (r = 16, height 32, span 150..316)
           draw_back_button();
 
-        } else if (id(stuff_subpage) == 2) {
+        
+
+        } else if (id(stuff_subpage) == 8) {
           // --------------------------------------------------
-          // SUBPAGE 2: FULL-SCREEN OLED FLASHLIGHT
-          // 466x466 pure full-screen light emitter with 3 tap-toggle modes:
-          // Mode 0: Pure White Torch (100% display brightness)
-          // Mode 1: Warm Amber Soft Light (255, 190, 70)
-          // Mode 2: Night-Vision Red (255, 0, 0, preserves dark adaptation)
-          // Tap anywhere to cycle modes; tap bottom back button to exit
+          // SUBPAGE 8: COIN FLIP (HOME ASSISTANT COMMEMORATIVE EDITION)
           // --------------------------------------------------
-          Color flash_col = id(col_white);
-          const char* mode_name = "WHITE TORCH";
-          if (id(stuff_flashlight_mode) == 1) {
-            flash_col = Color(255, 190, 70); // Warm Amber
-            mode_name = "WARM AMBER";
-          } else if (id(stuff_flashlight_mode) == 2) {
-            flash_col = Color(255, 20, 20);  // Night-Vision Red
-            mode_name = "NIGHT RED";
-          }
 
-          // Flood the circular AMOLED screen with light
-          it.filled_circle(cx, cy, 233, flash_col);
-
-          // Subtle unobtrusive mode hint at top (y = 50) and back prompt at bottom (y = 412)
-          Color text_c = (id(stuff_flashlight_mode) == 2) ? id(col_white) : id(col_black);
-          it.print(cx, 50, id(font_micro), text_c, TextAlign::CENTER, mode_name);
-          it.print(cx, 412, id(font_micro), text_c, TextAlign::CENTER, "< TAP TO EXIT >");
-
-        } else if (id(stuff_subpage) == 3) {
           // --------------------------------------------------
           // SUBPAGE 3: COIN FLIP (HOME ASSISTANT COMMEMORATIVE EDITION)
           // Heads: Home Assistant Voice Assistant Smiley Character
@@ -8681,158 +8855,7 @@ display:
 
           draw_back_button();
 
-        } else if (id(stuff_subpage) == 4) {
-          // --------------------------------------------------
-          // SUBPAGE 4: DICE ROLL (ALWAYS DUAL D6)
-          // Dominant, Centered Ivory White Dual D6 Dice (130x130)
-          // Direct Full-Screen Tap or Shake Trigger (No Menu Row)
-          // --------------------------------------------------
-          uint32_t now_d = millis();
-          int cur_val_d6_1 = id(dice_val_d6);
-          int cur_val_d6_2 = id(dice_val_d6_2);
-
-          if (id(dice_anim_active)) {
-            uint32_t elapsed = now_d - id(dice_anim_start_ms);
-            const uint32_t roll_dur = 650; // ms
-            if (elapsed >= roll_dur) {
-              id(dice_anim_active) = false;
-            } else {
-              // Rapid random tumble during roll animation
-              cur_val_d6_1 = ((now_d / 50) % 6) + 1;
-              cur_val_d6_2 = (((now_d + 27) / 45) % 6) + 1;
-            }
-          }
-
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "DICE ROLL");
-
-          const int dice_cy = 180;
-          const int d1_cx = cx - 74; // 159
-          const int d2_cx = cx + 74; // 307
-          const int d_size = 130;
-
-          // Helper to draw a single dominant D6 die
-          auto draw_dominant_d6 = [&](int center_x, int cur_val) {
-            int x0 = center_x - d_size / 2;
-            int y0 = dice_cy - d_size / 2;
-
-            // Soft Drop Shadow
-            it.filled_rectangle(x0 + 5, y0 + 7, d_size, d_size, id(col_dark_gray));
-            // Ivory Die Body
-            it.filled_rectangle(x0, y0, d_size, d_size, Color(248, 246, 240));
-            it.rectangle(x0, y0, d_size, d_size, Color(185, 180, 170));
-
-            // Circular Pips (Obsidian Black, Radius 9)
-            const int pr = 9;
-            const int p_dist = 33;
-            Color pip_c = Color(25, 28, 35);
-            auto draw_pip = [&](int px, int py) {
-              it.filled_circle(px, py, pr, pip_c);
-            };
-
-            bool p_center = (cur_val == 1 || cur_val == 3 || cur_val == 5);
-            bool p_tl_br  = (cur_val >= 2);
-            bool p_tr_bl  = (cur_val >= 4);
-            bool p_mid_lr = (cur_val == 6);
-
-            if (p_center) draw_pip(center_x, dice_cy);
-            if (p_tl_br)  { draw_pip(center_x - p_dist, dice_cy - p_dist); draw_pip(center_x + p_dist, dice_cy + p_dist); }
-            if (p_tr_bl)  { draw_pip(center_x + p_dist, dice_cy - p_dist); draw_pip(center_x - p_dist, dice_cy + p_dist); }
-            if (p_mid_lr) { draw_pip(center_x - p_dist, dice_cy); draw_pip(center_x + p_dist, dice_cy); }
-          };
-
-          draw_dominant_d6(d1_cx, cur_val_d6_1);
-          draw_dominant_d6(d2_cx, cur_val_d6_2);
-
-          // Prominent Large Total Readout below dice
-          if (id(dice_anim_active)) {
-            it.print(cx, 285, id(font_date), id(theme_secondary), TextAlign::CENTER, "ROLLING...");
-          } else {
-            char total_buf[32];
-            snprintf(total_buf, sizeof(total_buf), "TOTAL: %d", cur_val_d6_1 + cur_val_d6_2);
-            it.print(cx, 285, id(font_date), id(col_white), TextAlign::CENTER, total_buf);
-          }
-
-          // Large legible action prompt
-          it.print(cx, 350, id(font_small), id(col_white), TextAlign::CENTER, "Tap or shake to roll");
-
-          draw_back_button();
-        } else {
-          // --------------------------------------------------
-          // SUBPAGE 5: CALCULATOR WITH PERCENT SUPPORT
-          // 4x5 Keypad Matrix on 466x466 AMOLED: 68x44px Touch Targets
-          // Arithmetic Engine with Instant Tip / Discount Percent Logic
-          // --------------------------------------------------
-          // Top Display Panel: Expression history and active entry (Title omitted for clean layout)
-          if (!id(calc_history).empty()) {
-            it.print(370, 52, id(font_small), id(col_slate), TextAlign::RIGHT, id(calc_history).c_str());
-          }
-          it.print(370, 84, id(font_date), id(col_white), TextAlign::RIGHT, id(calc_entry).c_str());
-
-          // Subtle Divider Line
-          it.line(80, 112, 386, 112, Color(50, 58, 72));
-
-          // Keypad Matrix: 4 Columns x 5 Rows
-          const int rows_y[5] = {138, 192, 246, 300, 354};
-          const int cols_x[4] = {119, 195, 271, 347};
-
-          const char* key_labels[5][4] = {
-            {"C", "±", "%", "/"},
-            {"7", "8", "9", "x"},
-            {"4", "5", "6", "-"},
-            {"1", "2", "3", "+"},
-            {"0", ".", "DEL", "="}
-          };
-
-          auto draw_calc_key = [&](int kx, int ky, const char* label, Color bg_c, Color text_c, Color border_c) {
-            const int kw = 68;
-            const int kh = 44;
-            const int kr = 8;
-            int x0 = kx - kw / 2;
-            int y0 = ky - kh / 2;
-            it.filled_rectangle(x0 + kr, y0, kw - 2 * kr, kh, bg_c);
-            it.filled_rectangle(x0, y0 + kr, kw, kh - 2 * kr, bg_c);
-            it.filled_circle(x0 + kr, y0 + kr, kr, bg_c);
-            it.filled_circle(x0 + kw - kr, y0 + kr, kr, bg_c);
-            it.filled_circle(x0 + kr, y0 + kh - kr, kr, bg_c);
-            it.filled_circle(x0 + kw - kr, y0 + kh - kr, kr, bg_c);
-
-            it.line(x0 + kr, y0, x0 + kw - kr, y0, border_c);
-            it.line(x0 + kr, y0 + kh - 1, x0 + kw - kr, y0 + kh - 1, border_c);
-            it.line(x0, y0 + kr, x0, y0 + kh - kr, border_c);
-            it.line(x0 + kw - 1, y0 + kr, x0 + kw - 1, y0 + kh - kr, border_c);
-
-            it.print(kx, ky, id(font_btn_bold), text_c, TextAlign::CENTER, label);
-          };
-
-          for (int r = 0; r < 5; r++) {
-            for (int c = 0; c < 4; c++) {
-              Color bg_c;
-              Color text_c = id(col_white);
-              Color border_c;
-
-              if (c == 3) {
-                // Operator Column (Vivid Amber-Orange)
-                bg_c = Color(230, 115, 0);
-                border_c = Color(255, 145, 30);
-              } else if (r == 0) {
-                // Top Function Row (Muted Slate Navy)
-                bg_c = Color(65, 75, 90);
-                border_c = Color(90, 105, 125);
-              } else if (r == 4 && c == 2) {
-                // DEL key (Muted Dark Ruby/Slate)
-                bg_c = Color(60, 50, 60);
-                border_c = Color(85, 70, 85);
-              } else {
-                // Number Pad (Deep Matte Charcoal)
-                bg_c = Color(35, 40, 52);
-                border_c = Color(55, 62, 78);
-              }
-
-              draw_calc_key(cols_x[c], rows_y[r], key_labels[r][c], bg_c, text_c, border_c);
-            }
-          }
-
-          draw_back_button();
+        
         }
       }
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
@@ -9074,7 +9097,7 @@ touchscreen:
                     ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                     id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(menu_scroll_active) = false;
-                    id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0;
+                    id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
                     id(disp1).update();
                   }
                 }
@@ -9154,61 +9177,10 @@ touchscreen:
             // 4. Bottom Footer (y >= 400): Handled by Deck Navigation
             // Completely eliminates the 19,440-pixel dead zone and the y:385..399 gap!
             if (id(gui_page) == 1) {
-              static uint32_t last_dial_tap = 0;
-              static uint32_t last_lap_tap = 0;
-              static uint32_t last_rst_tap = 0;
-              uint32_t now_chrono_tap = millis();
-
-              if (touch.y >= 280 && touch.y < 400) {
-                if (touch.x < 233) {
-                  // Zone A: LAP Action (Entire lower-left quadrant)
-                  if (now_chrono_tap - last_lap_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_lap_tap = now_chrono_tap;
-                    if (id(stopwatch_running)) {
-                      id(stopwatch_lap_ms) = now_chrono_tap - id(stopwatch_start_time);
-                    } else if (id(stopwatch_elapsed_ms) > 0) {
-                      id(stopwatch_lap_ms) = id(stopwatch_elapsed_ms);
-                    }
-                    ESP_LOGI("touch", "Page 1 Stopwatch LAP: x=%d y=%d lap=%lums",
-                             touch.x, touch.y, (unsigned long)id(stopwatch_lap_ms));
-                    id(disp1).update();
-                  }
-                  return;
-                } else {
-                  // Zone B: RESET Action (Entire lower-right quadrant)
-                  if (now_chrono_tap - last_rst_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_rst_tap = now_chrono_tap;
-                    id(stopwatch_running) = false;
-                    id(stopwatch_elapsed_ms) = 0;
-                    id(stopwatch_lap_ms) = 0;
-                    ESP_LOGI("touch", "Page 1 Stopwatch RESET: x=%d y=%d", touch.x, touch.y);
-                    id(disp1).update();
-                  }
-                  return;
-                }
-              } else if (touch.y < 280) {
-                // Zone C: START / STOP (Full Upper 70% Dial Surface: y < 280)
-                // Tuned to TOUCH_DEBOUNCE_RAPID (100ms) for snappy tactile responsiveness
-                if (now_chrono_tap - last_dial_tap > TOUCH_DEBOUNCE_RAPID) {
-                  last_dial_tap = now_chrono_tap;
-                  if (!id(stopwatch_running)) {
-                    id(stopwatch_running) = true;
-                    id(stopwatch_start_time) = now_chrono_tap - id(stopwatch_elapsed_ms);
-                    id(sleep_start_time) = 0;
-                    id(display_brightness).turn_on().perform();
-                    ESP_LOGI("touch", "Page 1 Stopwatch START: x=%d y=%d elapsed=%lums",
-                             touch.x, touch.y, (unsigned long)id(stopwatch_elapsed_ms));
-                  } else {
-                    id(stopwatch_running) = false;
-                    id(stopwatch_elapsed_ms) = now_chrono_tap - id(stopwatch_start_time);
-                    ESP_LOGI("touch", "Page 1 Stopwatch STOP: x=%d y=%d elapsed=%lums",
-                             touch.x, touch.y, (unsigned long)id(stopwatch_elapsed_ms));
-                  }
-                  id(disp1).update();
-                }
-                return;
-              }
-            // Page 2: Music (Player Controls OR Speaker/Preset Overlay)
+              id(gui_page) = 8;
+              id(stuff_subpage) = 3;
+              id(disp1).update();
+              return;
             } else if (id(gui_page) == 2) {
               if (id(music_overlay_mode) == 0) {
                 // ----------------------------------------------------
@@ -10587,7 +10559,7 @@ touchscreen:
                       // Default Start App Cycler
                       std::string cur = std::string(id(default_start_app).current_option().c_str());
                       auto call = id(default_start_app).make_call();
-                      call.set_option(cycle_option(cur, {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Stuff", "Timer & Alarm", "Stopwatch", "System"}));
+                      call.set_option(cycle_option(cur, {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Stuff", "System"}));
                       call.perform();
                       id(disp1).update();
                     } else if (item_idx == 1) {
@@ -10615,14 +10587,6 @@ touchscreen:
                       id(rebuild_active_deck).execute();
                       id(disp1).update();
                     } else if (item_idx == 7) {
-                      id(show_timer_switch).toggle();
-                      id(rebuild_active_deck).execute();
-                      id(disp1).update();
-                    } else if (item_idx == 8) {
-                      id(show_stopwatch_switch).toggle();
-                      id(rebuild_active_deck).execute();
-                      id(disp1).update();
-                    } else if (item_idx == 9) {
                       id(show_system_switch).toggle();
                       id(rebuild_active_deck).execute();
                       id(disp1).update();
@@ -10746,260 +10710,10 @@ touchscreen:
                 return;
               }
             } else if (id(gui_page) == 6) {
-              // ----------------------------------------------------------------
-              // PAGE 6: TIMER & ALARM TOUCH ROUTING (v1.1 OVERHAUL)
-              // ----------------------------------------------------------------
-              // Zone 1: Standardized In-App 2-Pill Navigation (y: 326..399) -> Timer (Left) | Alarm (Right)
-              // Generous downward thumb cushion (+23px into black area below pill y=376)
-              if (id(alarm_edit_idx) == 0 && touch.y >= 326 && touch.y <= 399) {
-                static uint32_t last_ta_sub_touch = 0;
-                uint32_t now_ta = millis();
-                if (now_ta - last_ta_sub_touch > TOUCH_DEBOUNCE_BUTTON) {
-                  last_ta_sub_touch = now_ta;
-                  int target = (touch.x < 233) ? 0 : 1;
-                  if (id(timer_alarm_subpage) != target) {
-                    id(timer_alarm_subpage) = target;
-                    id(disp1).update();
-                  }
-                }
-                return;
-              }
-
-              if (id(timer_alarm_subpage) == 0) {
-                // ==============================================================
-                // SUBPAGE 0: COUNTDOWN TIMER TOUCH
-                // ==============================================================
-                static uint32_t last_timer_hero_tap = 0;
-                static uint32_t last_timer_adj_tap = 0;
-                uint32_t now_timer = millis();
-
-                // Zone 2: Centered Hero Button (START / PAUSE / RESUME) (y: 188..240, button at y=214)
-                if (touch.y >= 202 && touch.y <= 254 && touch.x >= 125 && touch.x <= 341) {
-                  if (now_timer - last_timer_hero_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_timer_hero_tap = now_timer;
-                    if (!id(timer_running) && !id(timer_paused)) {
-                      // START
-                      id(timer_running) = true;
-                      id(timer_paused) = false;
-                      id(timer_remaining_sec) = id(timer_duration_sec);
-                      id(timer_target_ms) = millis() + (id(timer_duration_sec) * 1000);
-                      id(disp1).update();
-                    } else if (id(timer_running)) {
-                      // PAUSE
-                      id(timer_running) = false;
-                      id(timer_paused) = true;
-                      id(timer_remaining_sec) = (id(timer_target_ms) > millis()) ? ((id(timer_target_ms) - millis() + 999) / 1000) : 0;
-                      id(disp1).update();
-                    } else if (id(timer_paused)) {
-                      // RESUME
-                      id(timer_running) = true;
-                      id(timer_paused) = false;
-                      id(timer_target_ms) = millis() + (id(timer_remaining_sec) * 1000);
-                      id(disp1).update();
-                    }
-                  }
-                  return;
-                }
-
-                // Zone 3: Adjustment Pills or Reset with natural gap spacing (y: 258..301, pills at y=278)
-                if (touch.y >= 272 && touch.y <= 315) {
-                  if (!id(timer_running) && !id(timer_paused)) {
-                    if (now_timer - last_timer_adj_tap > TOUCH_DEBOUNCE_RAPID) {
-                      if (touch.x >= 40 && touch.x <= 133) {
-                        last_timer_adj_tap = now_timer;
-                        // -5m (span 48..126)
-                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), -300, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
-                      } else if (touch.x >= 134 && touch.x <= 220) {
-                        last_timer_adj_tap = now_timer;
-                        // -1m (span 140..204)
-                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), -60, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
-                      } else if (touch.x >= 246 && touch.x <= 333) {
-                        last_timer_adj_tap = now_timer;
-                        // +1m (span 262..326)
-                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), +60, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
-                      } else if (touch.x >= 334 && touch.x <= 426) {
-                        last_timer_adj_tap = now_timer;
-                        // +5m (span 340..418)
-                        id(timer_duration_sec) = step_clamp(id(timer_duration_sec), +300, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
-                      }
-                    }
-                  } else {
-                    // RESET pill while running or paused
-                    if (touch.x >= 150 && touch.x <= 316) {
-                      if (now_timer - last_timer_hero_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_timer_hero_tap = now_timer;
-                        id(timer_running) = false;
-                        id(timer_paused) = false;
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                  }
-                }
-
-                // Zone 4: Tap digits to reset duration to default 5m when stopped (y: 66..146, x: 120..346)
-                if (!id(timer_running) && !id(timer_paused) && touch.y >= 80 && touch.y <= 160 && touch.x >= 120 && touch.x <= 346) {
-                  if (now_timer - last_timer_hero_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_timer_hero_tap = now_timer;
-                    if (id(timer_duration_sec) != 300) {
-                      id(timer_duration_sec) = 300;
-                      id(timer_remaining_sec) = 300;
-                      id(disp1).update();
-                    }
-                  }
-                  return;
-                }
-              } else {
-                // ==============================================================
-                // SUBPAGE 1: ALARM MANAGER TOUCH
-                // ==============================================================
-                static uint32_t last_alarm_action_tap = 0;
-                static uint32_t last_alarm_step_tap = 0;
-                uint32_t now_alm = millis();
-
-                if (id(alarm_edit_idx) == 0) {
-                  // Alarm 1 Touch Interception (If Alarm 1 is snoozed, tapping dismisses snooze without altering schedule)
-                  if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == 1 || id(alarm_ringing_idx) == 0)) {
-                    if (touch.y >= 84 && touch.y <= 176 && touch.x >= 50 && touch.x <= 385) {
-                      if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_alarm_action_tap = now_alm;
-                        id(alarm_snooze_until) = 0;
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                  } else {
-                    // Alarm 1 Toggle Switch (x: 305..385, y: 93..153)
-                    if (touch.y >= 93 && touch.y <= 153 && touch.x >= 305 && touch.x <= 385) {
-                      if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_alarm_action_tap = now_alm;
-                        id(alarm1_enabled) = !id(alarm1_enabled);
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                    // Alarm 1 Card Area -> Enter Editor (x: 50..304, y: 84..176)
-                    if (touch.y >= 84 && touch.y <= 176 && touch.x >= 50 && touch.x <= 304) {
-                      if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_alarm_action_tap = now_alm;
-                        id(alarm_edit_idx) = 1;
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                  }
-
-                  // Alarm 2 Touch Interception (If Alarm 2 is snoozed, tapping dismisses snooze without altering schedule)
-                  if (id(alarm_snooze_until) > 0 && id(alarm_ringing_idx) == 2) {
-                    if (touch.y >= 194 && touch.y <= 286 && touch.x >= 50 && touch.x <= 385) {
-                      if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_alarm_action_tap = now_alm;
-                        id(alarm_snooze_until) = 0;
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                  } else {
-                    // Alarm 2 Toggle Switch (x: 305..385, y: 203..263)
-                    if (touch.y >= 203 && touch.y <= 263 && touch.x >= 305 && touch.x <= 385) {
-                      if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_alarm_action_tap = now_alm;
-                        id(alarm2_enabled) = !id(alarm2_enabled);
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                    // Alarm 2 Card Area -> Enter Editor (x: 50..304, y: 194..286)
-                    if (touch.y >= 194 && touch.y <= 286 && touch.x >= 50 && touch.x <= 304) {
-                      if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_alarm_action_tap = now_alm;
-                        id(alarm_edit_idx) = 2;
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                  }
-
-                  // Tapping the snooze countdown text at y = 302 also dismisses snooze
-                  if (id(alarm_snooze_until) > 0 && touch.y >= 287 && touch.y <= 321 && touch.x >= 80 && touch.x <= 386) {
-                    if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_alarm_action_tap = now_alm;
-                      id(alarm_snooze_until) = 0;
-                      id(disp1).update();
-                    }
-                    return;
-                  }
-                } else {
-                  // Alarm Editor Touch Controls
-                  int edit_idx = id(alarm_edit_idx);
-                  int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
-                  int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
-                  int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
-
-                  // Hour & Minute Steppers (y: 211..256, matching buttons at center line y=233)
-                  if (touch.y >= 211 && touch.y <= 256) {
-                    if (now_alm - last_alarm_step_tap > TOUCH_DEBOUNCE_RAPID) {
-                      if (touch.x >= 75 && touch.x <= 145) {
-                        last_alarm_step_tap = now_alm;
-                        cur_h = step_wrap(cur_h, -1, 24);
-                        id(disp1).update();
-                        return;
-                      } else if (touch.x >= 146 && touch.x <= 225) {
-                        last_alarm_step_tap = now_alm;
-                        cur_h = step_wrap(cur_h, +1, 24);
-                        id(disp1).update();
-                        return;
-                      }
-                      if (touch.x >= 245 && touch.x <= 320) {
-                        last_alarm_step_tap = now_alm;
-                        cur_m = step_wrap(cur_m, -5, 60);
-                        id(disp1).update();
-                        return;
-                      } else if (touch.x >= 321 && touch.x <= 395) {
-                        last_alarm_step_tap = now_alm;
-                        cur_m = step_wrap(cur_m, +5, 60);
-                        id(disp1).update();
-                        return;
-                      }
-                    }
-                  }
-
-                  // Recurrence Selector Button (y: 271..326, x: 100..366, matching pill at y=296)
-                  if (touch.y >= 271 && touch.y <= 326 && touch.x >= 100 && touch.x <= 366) {
-                    if (now_alm - last_alarm_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_alarm_action_tap = now_alm;
-                      cur_rec = step_wrap(cur_rec, 1, 4);
-                      id(disp1).update();
-                    }
-                    return;
-                  }
-
-                  // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
-                  if (is_back_button(touch)) {
-                    if (now_alm - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_back_tap = now_alm;
-                      id(alarm_edit_idx) = 0;
-                      if (edit_idx == 1) id(alarm1_enabled) = true;
-                      if (edit_idx == 2) id(alarm2_enabled) = true;
-                      id(disp1).update();
-                    }
-                    return;
-                  }
-                }
-              }
+              id(gui_page) = 8;
+              id(stuff_subpage) = 1;
+              id(disp1).update();
+              return;
             } else if (id(gui_page) == 7) {
               // ==============================================================================
               // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (SETTINGS SUBPAGE & ENLARGED OK)
@@ -11136,27 +10850,54 @@ touchscreen:
 
               if (id(stuff_subpage) == 0) {
                 // ----------------------------------------------------
-                // SUBPAGE 0: STUFF LAUNCHER (2-2-1 Icon Tile Hit Testing)
-                // Row 0 (y in 70..165): Left=Level, Right=Flashlight
-                // Row 1 (y in 166..260): Left=Coin Flip, Right=Dice Roll
-                // Row 2 (y in 261..360): Center=Calculator
+                // SUBPAGE 0: STUFF LAUNCHER (2-Page 6+2 Icon Grid Hit Testing)
                 // ----------------------------------------------------
+                // Right Flank Navigation (x >= 370, y in [70..375])
+                if (touch.x >= 370 && touch.y >= 70 && touch.y <= 375) {
+                  static uint32_t last_stuff_scroll_tap = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_stuff_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
+                    last_stuff_scroll_tap = now_s;
+                    if (id(stuff_menu_page) == 0) {
+                      id(stuff_menu_page) = 1;
+                    } else {
+                      id(stuff_menu_page) = 0;
+                    }
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
                 int target_subpage = 0;
-                if (touch.y >= 70 && touch.y <= 165) {
-                  if (touch.x <= 233) target_subpage = 1; // Level
-                  else target_subpage = 2; // Flashlight
-                } else if (touch.y >= 166 && touch.y <= 260) {
-                  if (touch.x <= 233) target_subpage = 3; // Coin Flip
-                  else target_subpage = 4; // Dice Roll
-                } else if (touch.y >= 261 && touch.y <= 360) {
-                  if (touch.x >= 120 && touch.x <= 346) target_subpage = 5; // Calculator
+                if (id(stuff_menu_page) == 0) {
+                  // PAGE 1: 6 ICONS
+                  // Row 0 (y in 70..165): Left = Timer (1), Right = Alarms (2)
+                  // Row 1 (y in 166..260): Left = Stopwatch (3), Right = Dice Roll (4)
+                  // Row 2 (y in 261..360): Left = Flashlight (5), Right = Calculator (6)
+                  if (touch.y >= 70 && touch.y <= 165) {
+                    if (touch.x <= 200) target_subpage = 1; // Timer
+                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 2; // Alarms
+                  } else if (touch.y >= 166 && touch.y <= 260) {
+                    if (touch.x <= 200) target_subpage = 3; // Stopwatch
+                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 4; // Dice Roll
+                  } else if (touch.y >= 261 && touch.y <= 360) {
+                    if (touch.x <= 200) target_subpage = 5; // Flashlight
+                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 6; // Calculator
+                  }
+                } else {
+                  // PAGE 2: 2 ICONS
+                  // Row 0 (y in 70..200): Left = Level (7), Right = Coin Flip (8)
+                  if (touch.y >= 70 && touch.y <= 200) {
+                    if (touch.x <= 200) target_subpage = 7; // Level
+                    else if (touch.x >= 201 && touch.x <= 365) target_subpage = 8; // Coin Flip
+                  }
                 }
 
                 if (target_subpage > 0) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(stuff_subpage) = target_subpage;
-                    if (id(stuff_subpage) == 2) {
+                    if (id(stuff_subpage) == 5) {
                       // Boost brightness to 100% on flashlight launch
                       id(display_brightness).turn_on().set_brightness(1.0f).perform();
                     }
@@ -11168,8 +10909,7 @@ touchscreen:
 
               } else if (id(stuff_subpage) == 1) {
                 // ----------------------------------------------------
-                // SUBPAGE 1: BUBBLE LEVEL TOUCH HANDLING
-                // Tap < BACK to return to Stuff Launcher
+                // SUBPAGE 1: TIMER TOUCH HANDLING
                 // ----------------------------------------------------
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -11180,17 +10920,284 @@ touchscreen:
                   return;
                 }
 
+                // Hero Button (Start / Pause / Resume): y in [200..260], x in [140..326]
+                if (touch.y >= 200 && touch.y <= 260 && touch.x >= 140 && touch.x <= 326) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    if (!id(timer_running) && !id(timer_paused)) {
+                      id(timer_running) = true;
+                      id(timer_paused) = false;
+                      id(timer_remaining_sec) = id(timer_duration_sec);
+                      id(timer_target_ms) = millis() + (id(timer_duration_sec) * 1000);
+                      id(disp1).update();
+                    } else if (id(timer_running)) {
+                      id(timer_running) = false;
+                      id(timer_paused) = true;
+                      id(timer_remaining_sec) = (id(timer_target_ms) > millis()) ? ((id(timer_target_ms) - millis() + 999) / 1000) : 0;
+                      id(disp1).update();
+                    } else if (id(timer_paused)) {
+                      id(timer_running) = true;
+                      id(timer_paused) = false;
+                      id(timer_target_ms) = millis() + (id(timer_remaining_sec) * 1000);
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+
+                // Quick Stepper Row: y in [270..320]
+                if (touch.y >= 270 && touch.y <= 320) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    if (!id(timer_running) && !id(timer_paused)) {
+                      if (touch.x >= 45 && touch.x <= 130) {
+                        id(timer_duration_sec) = clamp(id(timer_duration_sec) - 300, 60, 3600);
+                        id(timer_remaining_sec) = id(timer_duration_sec);
+                        id(disp1).update();
+                        return;
+                      } else if (touch.x >= 135 && touch.x <= 215) {
+                        id(timer_duration_sec) = clamp(id(timer_duration_sec) - 60, 60, 3600);
+                        id(timer_remaining_sec) = id(timer_duration_sec);
+                        id(disp1).update();
+                        return;
+                      } else if (touch.x >= 250 && touch.x <= 330) {
+                        id(timer_duration_sec) = clamp(id(timer_duration_sec) + 60, 60, 3600);
+                        id(timer_remaining_sec) = id(timer_duration_sec);
+                        id(disp1).update();
+                        return;
+                      } else if (touch.x >= 335 && touch.x <= 420) {
+                        id(timer_duration_sec) = clamp(id(timer_duration_sec) + 300, 60, 3600);
+                        id(timer_remaining_sec) = id(timer_duration_sec);
+                        id(disp1).update();
+                        return;
+                      }
+                    } else {
+                      // Reset Button (x in 150..316)
+                      if (touch.x >= 150 && touch.x <= 316) {
+                        id(timer_running) = false;
+                        id(timer_paused) = false;
+                        id(timer_remaining_sec) = id(timer_duration_sec);
+                        id(disp1).update();
+                      }
+                      return;
+                    }
+                  }
+                }
+
+                // Readout Tap to reset default 5m: y in [100..160], x in [140..326]
+                if (touch.y >= 100 && touch.y <= 160 && touch.x >= 140 && touch.x <= 326) {
+                  if (!id(timer_running) && !id(timer_paused)) {
+                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_stuff_tap = now_stuff;
+                      id(timer_duration_sec) = 300;
+                      id(timer_remaining_sec) = 300;
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+
               } else if (id(stuff_subpage) == 2) {
                 // ----------------------------------------------------
-                // SUBPAGE 2: FLASHLIGHT TOUCH HANDLING
-                // Bottom exit zone (y >= 390) -> Exits to Launcher & restores brightness
-                // Anywhere else on glass -> Cycles Flashlight Color (White -> Amber -> Red)
+                // SUBPAGE 2: ALARMS TOUCH HANDLING
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    if (id(alarm_edit_idx) > 0) {
+                      id(alarm_edit_idx) = 0; // Exit editor back to alarm list
+                    } else {
+                      id(stuff_subpage) = 0;  // Exit alarm list back to Stuff menu
+                    }
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                if (id(alarm_edit_idx) == 0) {
+                  // Alarm list view:
+                  // Snooze dismiss tap if snoozed
+                  if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == 1 || id(alarm_ringing_idx) == 0)) {
+                    if (touch.y >= 84 && touch.y <= 176 && touch.x >= 50 && touch.x <= 385) {
+                      if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                        last_stuff_tap = now_stuff;
+                        id(alarm_snooze_until) = 0;
+                        id(disp1).update();
+                      }
+                      return;
+                    }
+                  }
+                  if (id(alarm_snooze_until) > 0 && id(alarm_ringing_idx) == 2) {
+                    if (touch.y >= 194 && touch.y <= 286 && touch.x >= 50 && touch.x <= 385) {
+                      if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                        last_stuff_tap = now_stuff;
+                        id(alarm_snooze_until) = 0;
+                        id(disp1).update();
+                      }
+                      return;
+                    }
+                  }
+
+                  // Alarm 1 Card: y in [84..176]
+                  if (touch.y >= 84 && touch.y <= 176 && touch.x >= 50 && touch.x <= 385) {
+                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_stuff_tap = now_stuff;
+                      if (touch.x >= 310) {
+                        id(alarm1_enabled) = !id(alarm1_enabled);
+                      } else {
+                        id(alarm_edit_idx) = 1;
+                      }
+                      id(disp1).update();
+                    }
+                    return;
+                  }
+
+                  // Alarm 2 Card: y in [194..286]
+                  if (touch.y >= 194 && touch.y <= 286 && touch.x >= 50 && touch.x <= 385) {
+                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_stuff_tap = now_stuff;
+                      if (touch.x >= 310) {
+                        id(alarm2_enabled) = !id(alarm2_enabled);
+                      } else {
+                        id(alarm_edit_idx) = 2;
+                      }
+                      id(disp1).update();
+                    }
+                    return;
+                  }
+                } else {
+                  // Alarm editor view:
+                  int edit_idx = id(alarm_edit_idx);
+                  int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
+                  int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
+                  int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
+
+                  // Hour / Minute Steppers: y in [210..260]
+                  if (touch.y >= 210 && touch.y <= 260) {
+                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_stuff_tap = now_stuff;
+                      if (touch.x >= 90 && touch.x <= 135) {
+                        cur_h = (cur_h - 1 + 24) % 24;
+                        id(disp1).update();
+                        return;
+                      } else if (touch.x >= 155 && touch.x <= 200) {
+                        cur_h = (cur_h + 1) % 24;
+                        id(disp1).update();
+                        return;
+                      } else if (touch.x >= 265 && touch.x <= 310) {
+                        cur_m = (cur_m - 5 + 60) % 60;
+                        id(disp1).update();
+                        return;
+                      } else if (touch.x >= 330 && touch.x <= 375) {
+                        cur_m = (cur_m + 5) % 60;
+                        id(disp1).update();
+                        return;
+                      }
+                    }
+                  }
+
+                  // Recurrence Pill: y in [275..320], x in [100..366]
+                  if (touch.y >= 275 && touch.y <= 320 && touch.x >= 100 && touch.x <= 366) {
+                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_stuff_tap = now_stuff;
+                      cur_rec = (cur_rec + 1) % 4;
+                      id(disp1).update();
+                    }
+                    return;
+                  }
+                }
+
+              } else if (id(stuff_subpage) == 3) {
+                // ----------------------------------------------------
+                // SUBPAGE 3: STOPWATCH TOUCH HANDLING
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                static uint32_t last_dial_tap = 0;
+                static uint32_t last_lap_tap = 0;
+                static uint32_t last_rst_tap = 0;
+                uint32_t now_chrono_tap = millis();
+
+                if (touch.y >= 280 && touch.y < 385) {
+                  if (touch.x < 233) {
+                    // LAP Action (Lower-left quadrant)
+                    if (now_chrono_tap - last_lap_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_lap_tap = now_chrono_tap;
+                      if (id(stopwatch_running)) {
+                        id(stopwatch_lap_ms) = now_chrono_tap - id(stopwatch_start_time);
+                      } else if (id(stopwatch_elapsed_ms) > 0) {
+                        id(stopwatch_lap_ms) = id(stopwatch_elapsed_ms);
+                      }
+                      id(disp1).update();
+                    }
+                    return;
+                  } else {
+                    // RESET Action (Lower-right quadrant)
+                    if (now_chrono_tap - last_rst_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_rst_tap = now_chrono_tap;
+                      id(stopwatch_running) = false;
+                      id(stopwatch_elapsed_ms) = 0;
+                      id(stopwatch_lap_ms) = 0;
+                      id(stopwatch_split_hold) = false;
+                      id(disp1).update();
+                    }
+                    return;
+                  }
+                } else if (touch.y < 280) {
+                  // Upper Dial: START / STOP Toggle
+                  if (now_chrono_tap - last_dial_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_dial_tap = now_chrono_tap;
+                    if (!id(stopwatch_running)) {
+                      id(stopwatch_running) = true;
+                      id(stopwatch_start_time) = now_chrono_tap - id(stopwatch_elapsed_ms);
+                      id(sleep_start_time) = 0;
+                    } else {
+                      id(stopwatch_running) = false;
+                      id(stopwatch_elapsed_ms) = now_chrono_tap - id(stopwatch_start_time);
+                      id(stopwatch_split_hold) = false;
+                    }
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+              } else if (id(stuff_subpage) == 4) {
+                // ----------------------------------------------------
+                // SUBPAGE 4: DICE ROLL TOUCH HANDLING (ALWAYS DUAL D6)
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+                if (!id(dice_anim_active)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(dice_anim_active) = true;
+                    id(dice_anim_start_ms) = millis();
+                    id(disp1).update();
+                  }
+                }
+
+              } else if (id(stuff_subpage) == 5) {
+                // ----------------------------------------------------
+                // SUBPAGE 5: FLASHLIGHT TOUCH HANDLING
                 // ----------------------------------------------------
                 if (touch.y >= 390) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(stuff_subpage) = 0;
-                    id(sync_display_brightness).execute(); // Restore scheduled brightness
+                    id(sync_display_brightness).execute();
                     id(disp1).update();
                   }
                   return;
@@ -11203,9 +11210,9 @@ touchscreen:
                   return;
                 }
 
-              } else if (id(stuff_subpage) == 3) {
+              } else if (id(stuff_subpage) == 6) {
                 // ----------------------------------------------------
-                // SUBPAGE 3: COIN FLIP TOUCH HANDLING
+                // SUBPAGE 6: CALCULATOR TOUCH HANDLING
                 // ----------------------------------------------------
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -11214,196 +11221,172 @@ touchscreen:
                     id(disp1).update();
                   }
                   return;
-                } else {
-                  // Tap coin or canvas to flip
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON && !id(coin_anim_active)) {
+                }
+                // Keypad grid hit-testing
+                const int cols_x[4] = {113, 193, 273, 353};
+                const int rows_y[5] = {136, 192, 248, 304, 360};
+                const int kw = 72;
+                const int kh = 48;
+
+                for (int r = 0; r < 5; r++) {
+                  for (int c = 0; c < 4; c++) {
+                    int kx = cols_x[c];
+                    int ky = rows_y[r];
+                    if (touch.x >= kx - kw / 2 && touch.x <= kx + kw / 2 &&
+                        touch.y >= ky - kh / 2 && touch.y <= ky + kh / 2) {
+                      if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                        last_stuff_tap = now_stuff;
+
+                        auto compute_op = [](double a, double b, int op) -> double {
+                          if (op == 1) return a + b;
+                          if (op == 2) return a - b;
+                          if (op == 3) return a * b;
+                          if (op == 4) return (b != 0.0) ? (a / b) : NAN;
+                          return b;
+                        };
+
+                        auto op_to_str = [](int op) -> const char* {
+                          if (op == 1) return "+";
+                          if (op == 2) return "-";
+                          if (op == 3) return "x";
+                          if (op == 4) return "/";
+                          return "";
+                        };
+
+                        if (r == 0 && c == 0) { // C
+                          id(calc_entry) = "0";
+                          id(calc_history) = "";
+                          id(calc_prev_val) = 0.0f;
+                          id(calc_op) = 0;
+                          id(calc_new_entry) = true;
+                        } else if (r == 0 && c == 1) { // ±
+                          if (id(calc_entry) != "0" && id(calc_entry) != "Error") {
+                            if (id(calc_entry)[0] == '-') id(calc_entry) = id(calc_entry).substr(1);
+                            else id(calc_entry) = "-" + id(calc_entry);
+                          }
+                        } else if (r == 0 && c == 2) { // %
+                          double cur = std::atof(id(calc_entry).c_str());
+                          if (id(calc_op) == 1 || id(calc_op) == 2) { // Tip or discount
+                            double pct_val = (double)id(calc_prev_val) * (cur / 100.0);
+                            id(calc_entry) = format_calc_num(pct_val);
+                            id(calc_new_entry) = false;
+                          } else {
+                            double pct_val = cur / 100.0;
+                            id(calc_entry) = format_calc_num(pct_val);
+                            id(calc_new_entry) = true;
+                          }
+                        } else if (r == 4 && c == 2) { // DEL
+                          if (!id(calc_new_entry) && id(calc_entry) != "Error") {
+                            if (id(calc_entry).length() > 1) {
+                              id(calc_entry).pop_back();
+                              if (id(calc_entry) == "-") id(calc_entry) = "0";
+                            } else {
+                              id(calc_entry) = "0";
+                            }
+                          }
+                        } else if (c == 3) { // Operators: /, x, -, +, =
+                          int new_op = 0;
+                          if (r == 0) new_op = 4; // /
+                          else if (r == 1) new_op = 3; // x
+                          else if (r == 2) new_op = 2; // -
+                          else if (r == 3) new_op = 1; // +
+                          else if (r == 4) new_op = 5; // =
+
+                          double cur = std::atof(id(calc_entry).c_str());
+                          if (new_op == 5) { // =
+                            if (id(calc_op) != 0) {
+                              id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op)) + " " + id(calc_entry) + " =";
+                              double res = compute_op(id(calc_prev_val), cur, id(calc_op));
+                              id(calc_entry) = format_calc_num(res);
+                              id(calc_op) = 0;
+                              id(calc_new_entry) = true;
+                            }
+                          } else { // Binary op
+                            if (id(calc_op) != 0 && !id(calc_new_entry)) {
+                              double res = compute_op(id(calc_prev_val), cur, id(calc_op));
+                              id(calc_prev_val) = (float)res;
+                              id(calc_entry) = format_calc_num(res);
+                            } else {
+                              id(calc_prev_val) = (float)cur;
+                            }
+                            id(calc_op) = new_op;
+                            id(calc_new_entry) = true;
+                            id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op));
+                          }
+                        } else if (r == 4 && c == 1) { // .
+                          if (id(calc_new_entry)) {
+                            id(calc_entry) = "0.";
+                            id(calc_new_entry) = false;
+                          } else if (id(calc_entry).find('.') == std::string::npos) {
+                            id(calc_entry) += ".";
+                          }
+                        } else {
+                          // Digits (0..9)
+                          char digit = '0';
+                          if (r == 4 && c == 0) digit = '0';
+                          else if (r == 3 && c == 0) digit = '1';
+                          else if (r == 3 && c == 1) digit = '2';
+                          else if (r == 3 && c == 2) digit = '3';
+                          else if (r == 2 && c == 0) digit = '4';
+                          else if (r == 2 && c == 1) digit = '5';
+                          else if (r == 2 && c == 2) digit = '6';
+                          else if (r == 1 && c == 0) digit = '7';
+                          else if (r == 1 && c == 1) digit = '8';
+                          else if (r == 1 && c == 2) digit = '9';
+
+                          if (id(calc_new_entry)) {
+                            id(calc_entry) = std::string(1, digit);
+                            id(calc_new_entry) = false;
+                          } else {
+                            if (id(calc_entry) == "0") id(calc_entry) = std::string(1, digit);
+                            else if (id(calc_entry).length() < 9) id(calc_entry) += digit;
+                          }
+                        }
+
+                        id(disp1).update();
+                      }
+                    }
+                  }
+                }
+
+              } else if (id(stuff_subpage) == 7) {
+                // ----------------------------------------------------
+                // SUBPAGE 7: BUBBLE LEVEL TOUCH HANDLING
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+              } else if (id(stuff_subpage) == 8) {
+                // ----------------------------------------------------
+                // SUBPAGE 8: COIN FLIP TOUCH HANDLING
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+                if (!id(coin_anim_active)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(coin_anim_active) = true;
                     id(coin_anim_start_ms) = millis();
-                    id(coin_side) = (esp_random() % 2); // 0 = Heads, 1 = Tails
+                    id(coin_side) = (esp_random() % 2);
                     id(disp1).update();
                   }
-                  return;
-                }
-
-              } else if (id(stuff_subpage) == 4) {
-                // ----------------------------------------------------
-                // SUBPAGE 4: DICE ROLL TOUCH HANDLING (ALWAYS DUAL D6)
-                // Back button at y: 385..445
-                // Tap anywhere else to roll both dice!
-                // ----------------------------------------------------
-                if (is_back_button(touch)) {
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_stuff_tap = now_stuff;
-                    id(stuff_subpage) = 0;
-                    id(disp1).update();
-                  }
-                  return;
-                } else {
-                  // Tap anywhere on the screen to roll both dice
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON && !id(dice_anim_active)) {
-                    last_stuff_tap = now_stuff;
-                    id(dice_anim_active) = true;
-                    id(dice_anim_start_ms) = millis();
-                    id(dice_val_d6) = (esp_random() % 6) + 1;
-                    id(dice_val_d6_2) = (esp_random() % 6) + 1;
-                    id(disp1).update();
-                  }
-                  return;
-                }
-              } else {
-                // ----------------------------------------------------
-                // SUBPAGE 5: CALCULATOR TOUCH HANDLING
-                // ----------------------------------------------------
-                if (is_back_button(touch)) {
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_stuff_tap = now_stuff;
-                    id(stuff_subpage) = 0;
-                    id(disp1).update();
-                  }
-                  return;
-                } else if (touch.x >= 81 && touch.x <= 385 && touch.y >= 111 && touch.y <= 381) {
-                  if (now_stuff - last_stuff_tap > 180) { // Crisp 180ms keypad debounce
-                    last_stuff_tap = now_stuff;
-                    int c = (touch.x - 81) / 76;
-                    int r = (touch.y - 111) / 54;
-                    if (c >= 0 && c < 4 && r >= 0 && r < 5) {
-                      auto format_calc_num = [](double val) -> std::string {
-                        if (std::isnan(val) || std::isinf(val)) return "Error";
-                        char buf[32];
-                        if (std::fabs(val - std::round(val)) < 1e-6 && std::fabs(val) < 1e10) {
-                          snprintf(buf, sizeof(buf), "%lld", (long long)std::round(val));
-                          return std::string(buf);
-                        }
-                        snprintf(buf, sizeof(buf), "%.6f", val);
-                        std::string s(buf);
-                        while (s.find('.') != std::string::npos && (s.back() == '0' || s.back() == '.')) {
-                          char last = s.back();
-                          s.pop_back();
-                          if (last == '.') break;
-                        }
-                        if (s.length() > 10) {
-                          snprintf(buf, sizeof(buf), "%.4e", val);
-                          s = std::string(buf);
-                        }
-                        return s;
-                      };
-
-                      auto compute_op = [](double a, double b, int op) -> double {
-                        if (op == 1) return a + b;
-                        if (op == 2) return a - b;
-                        if (op == 3) return a * b;
-                        if (op == 4) return (b != 0.0) ? (a / b) : NAN;
-                        return b;
-                      };
-
-                      auto op_to_str = [](int op) -> const char* {
-                        if (op == 1) return "+";
-                        if (op == 2) return "-";
-                        if (op == 3) return "x";
-                        if (op == 4) return "/";
-                        return "";
-                      };
-
-                      if (r == 0 && c == 0) { // C
-                        id(calc_entry) = "0";
-                        id(calc_history) = "";
-                        id(calc_prev_val) = 0.0f;
-                        id(calc_op) = 0;
-                        id(calc_new_entry) = true;
-                      } else if (r == 0 && c == 1) { // ±
-                        if (id(calc_entry) != "0" && id(calc_entry) != "Error") {
-                          if (id(calc_entry)[0] == '-') id(calc_entry) = id(calc_entry).substr(1);
-                          else id(calc_entry) = "-" + id(calc_entry);
-                        }
-                      } else if (r == 0 && c == 2) { // %
-                        double cur = std::atof(id(calc_entry).c_str());
-                        if (id(calc_op) == 1 || id(calc_op) == 2) { // Tip or discount
-                          double pct_val = (double)id(calc_prev_val) * (cur / 100.0);
-                          id(calc_entry) = format_calc_num(pct_val);
-                          id(calc_new_entry) = false;
-                        } else {
-                          double pct_val = cur / 100.0;
-                          id(calc_entry) = format_calc_num(pct_val);
-                          id(calc_new_entry) = true;
-                        }
-                      } else if (r == 4 && c == 2) { // DEL
-                        if (!id(calc_new_entry) && id(calc_entry) != "Error") {
-                          if (id(calc_entry).length() > 1) {
-                            id(calc_entry).pop_back();
-                            if (id(calc_entry) == "-") id(calc_entry) = "0";
-                          } else {
-                            id(calc_entry) = "0";
-                          }
-                        }
-                      } else if (c == 3) { // Operators: /, x, -, +, =
-                        int new_op = 0;
-                        if (r == 0) new_op = 4; // /
-                        else if (r == 1) new_op = 3; // x
-                        else if (r == 2) new_op = 2; // -
-                        else if (r == 3) new_op = 1; // +
-                        else if (r == 4) new_op = 5; // =
-
-                        double cur = std::atof(id(calc_entry).c_str());
-                        if (new_op == 5) { // =
-                          if (id(calc_op) != 0) {
-                            id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op)) + " " + id(calc_entry) + " =";
-                            double res = compute_op(id(calc_prev_val), cur, id(calc_op));
-                            id(calc_entry) = format_calc_num(res);
-                            id(calc_op) = 0;
-                            id(calc_new_entry) = true;
-                          }
-                        } else { // Binary op
-                          if (id(calc_op) != 0 && !id(calc_new_entry)) {
-                            double res = compute_op(id(calc_prev_val), cur, id(calc_op));
-                            id(calc_prev_val) = (float)res;
-                            id(calc_entry) = format_calc_num(res);
-                          } else {
-                            id(calc_prev_val) = (float)cur;
-                          }
-                          id(calc_op) = new_op;
-                          id(calc_new_entry) = true;
-                          id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op));
-                        }
-                      } else if (r == 4 && c == 1) { // .
-                        if (id(calc_new_entry)) {
-                          id(calc_entry) = "0.";
-                          id(calc_new_entry) = false;
-                        } else if (id(calc_entry).find('.') == std::string::npos) {
-                          id(calc_entry) += ".";
-                        }
-                      } else {
-                        // Digits (0..9)
-                        char digit = '0';
-                        if (r == 4 && c == 0) digit = '0';
-                        else if (r == 3 && c == 0) digit = '1';
-                        else if (r == 3 && c == 1) digit = '2';
-                        else if (r == 3 && c == 2) digit = '3';
-                        else if (r == 2 && c == 0) digit = '4';
-                        else if (r == 2 && c == 1) digit = '5';
-                        else if (r == 2 && c == 2) digit = '6';
-                        else if (r == 1 && c == 0) digit = '7';
-                        else if (r == 1 && c == 1) digit = '8';
-                        else if (r == 1 && c == 2) digit = '9';
-
-                        if (id(calc_new_entry)) {
-                          id(calc_entry) = std::string(1, digit);
-                          id(calc_new_entry) = false;
-                        } else {
-                          if (id(calc_entry) == "0") id(calc_entry) = std::string(1, digit);
-                          else if (id(calc_entry).length() < 9) id(calc_entry) += digit;
-                        }
-                      }
-
-                      id(disp1).update();
-                    }
-                  }
-                  return;
                 }
               }
             }
 
-        - script.execute: screen_sleep_timer
+    - script.execute: screen_sleep_timer
 
     on_release:
       then:
