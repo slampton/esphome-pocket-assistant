@@ -8305,15 +8305,14 @@ display:
             }
           }
 
-          // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math)
-          static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[12] = {
+          // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math; 30 omitted to clear bottom < BACK button)
+          static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[11] = {
             {233,  61,  "0"},
             {319,  84,  "5"},
             {382, 147, "10"},
             {405, 233, "15"},
             {382, 319, "20"},
             {319, 382, "25"},
-            {233, 405, "30"},
             {147, 382, "35"},
             { 84, 319, "40"},
             { 61, 233, "45"},
@@ -9008,7 +9007,7 @@ touchscreen:
             constexpr uint32_t TOUCH_GUARD_DISMISS    = 250; // ms: Minimum post-wake delay before dismissal
 
             auto is_back_button = [](const auto &t) -> bool {
-              return (t.y >= 385 && t.y <= 445 && t.x >= 80 && t.x <= 386);
+              return (t.y >= 385 && t.y <= 465 && t.x >= 50 && t.x <= 416);
             };
 
             auto get_5slot_index = [](const auto &t, int x_min, int x_max) -> int {
@@ -11192,6 +11191,7 @@ touchscreen:
                   }
                   return;
                 }
+                if (touch.y >= 385) return; // Chin guard: lower display taps never trigger accidental roll
                 if (!id(dice_anim_active)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
@@ -11228,142 +11228,134 @@ touchscreen:
                   }
                   return;
                 }
-                // Keypad grid hit-testing
-                const int cols_x[4] = {113, 193, 273, 353};
-                const int rows_y[5] = {136, 192, 248, 304, 360};
-                const int kw = 72;
-                const int kh = 48;
+                // Keypad grid hit-testing (Seamless Partitioning & Pixel-Exact Alignment with Render)
+                if (touch.x >= 78 && touch.x <= 388 && touch.y >= 112 && touch.y <= 384) {
+                  int c = (touch.x < 157) ? 0 : ((touch.x < 233) ? 1 : ((touch.x < 309) ? 2 : 3));
+                  int r = (touch.y < 165) ? 0 : ((touch.y < 219) ? 1 : ((touch.y < 273) ? 2 : ((touch.y < 327) ? 3 : 4)));
 
-                for (int r = 0; r < 5; r++) {
-                  for (int c = 0; c < 4; c++) {
-                    int kx = cols_x[c];
-                    int ky = rows_y[r];
-                    if (touch.x >= kx - kw / 2 && touch.x <= kx + kw / 2 &&
-                        touch.y >= ky - kh / 2 && touch.y <= ky + kh / 2) {
-                      if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_stuff_tap = now_stuff;
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
 
-                        auto compute_op = [](double a, double b, int op) -> double {
-                          if (op == 1) return a + b;
-                          if (op == 2) return a - b;
-                          if (op == 3) return a * b;
-                          if (op == 4) return (b != 0.0) ? (a / b) : NAN;
-                          return b;
-                        };
+                    auto compute_op = [](double a, double b, int op) -> double {
+                      if (op == 1) return a + b;
+                      if (op == 2) return a - b;
+                      if (op == 3) return a * b;
+                      if (op == 4) return (b != 0.0) ? (a / b) : NAN;
+                      return b;
+                    };
 
-                        auto op_to_str = [](int op) -> const char* {
-                          if (op == 1) return "+";
-                          if (op == 2) return "-";
-                          if (op == 3) return "x";
-                          if (op == 4) return "/";
-                          return "";
-                        };
+                    auto op_to_str = [](int op) -> const char* {
+                      if (op == 1) return "+";
+                      if (op == 2) return "-";
+                      if (op == 3) return "x";
+                      if (op == 4) return "/";
+                      return "";
+                    };
 
-                        auto format_calc_num = [](double v) -> std::string {
-                          if (std::isnan(v) || std::isinf(v)) return "Error";
-                          char b[32];
-                          if (std::abs(v - std::round(v)) < 1e-7 && std::abs(v) < 1e9) {
-                            snprintf(b, sizeof(b), "%lld", (long long)std::round(v));
-                            return std::string(b);
-                          }
-                          snprintf(b, sizeof(b), "%.8g", v);
-                          return std::string(b);
-                        };
+                    auto format_calc_num = [](double v) -> std::string {
+                      if (std::isnan(v) || std::isinf(v)) return "Error";
+                      char b[32];
+                      if (std::abs(v - std::round(v)) < 1e-7 && std::abs(v) < 1e9) {
+                        snprintf(b, sizeof(b), "%lld", (long long)std::round(v));
+                        return std::string(b);
+                      }
+                      snprintf(b, sizeof(b), "%.8g", v);
+                      return std::string(b);
+                    };
 
-                        if (r == 0 && c == 0) { // C
+                    if (r == 0 && c == 0) { // C
+                      id(calc_entry) = "0";
+                      id(calc_history) = "";
+                      id(calc_prev_val) = 0.0f;
+                      id(calc_op) = 0;
+                      id(calc_new_entry) = true;
+                    } else if (r == 0 && c == 1) { // ±
+                      if (id(calc_entry) != "0" && id(calc_entry) != "Error") {
+                        if (id(calc_entry)[0] == -) id(calc_entry) = id(calc_entry).substr(1);
+                        else id(calc_entry) = "-" + id(calc_entry);
+                      }
+                    } else if (r == 0 && c == 2) { // %
+                      double cur = std::atof(id(calc_entry).c_str());
+                      if (id(calc_op) == 1 || id(calc_op) == 2) { // Tip or discount
+                        double pct_val = (double)id(calc_prev_val) * (cur / 100.0);
+                        id(calc_entry) = format_calc_num(pct_val);
+                        id(calc_new_entry) = false;
+                      } else {
+                        double pct_val = cur / 100.0;
+                        id(calc_entry) = format_calc_num(pct_val);
+                        id(calc_new_entry) = true;
+                      }
+                    } else if (r == 4 && c == 2) { // DEL
+                      if (!id(calc_new_entry) && id(calc_entry) != "Error") {
+                        if (id(calc_entry).length() > 1) {
+                          id(calc_entry).pop_back();
+                          if (id(calc_entry) == "-") id(calc_entry) = "0";
+                        } else {
                           id(calc_entry) = "0";
-                          id(calc_history) = "";
-                          id(calc_prev_val) = 0.0f;
+                        }
+                      }
+                    } else if (c == 3) { // Operators: /, x, -, +, =
+                      int new_op = 0;
+                      if (r == 0) new_op = 4; // /
+                      else if (r == 1) new_op = 3; // x
+                      else if (r == 2) new_op = 2; // -
+                      else if (r == 3) new_op = 1; // +
+                      else if (r == 4) new_op = 5; // =
+
+                      double cur = std::atof(id(calc_entry).c_str());
+                      if (new_op == 5) { // =
+                        if (id(calc_op) != 0) {
+                          id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op)) + " " + id(calc_entry) + " =";
+                          double res = compute_op(id(calc_prev_val), cur, id(calc_op));
+                          id(calc_entry) = format_calc_num(res);
                           id(calc_op) = 0;
                           id(calc_new_entry) = true;
-                        } else if (r == 0 && c == 1) { // ±
-                          if (id(calc_entry) != "0" && id(calc_entry) != "Error") {
-                            if (id(calc_entry)[0] == '-') id(calc_entry) = id(calc_entry).substr(1);
-                            else id(calc_entry) = "-" + id(calc_entry);
-                          }
-                        } else if (r == 0 && c == 2) { // %
-                          double cur = std::atof(id(calc_entry).c_str());
-                          if (id(calc_op) == 1 || id(calc_op) == 2) { // Tip or discount
-                            double pct_val = (double)id(calc_prev_val) * (cur / 100.0);
-                            id(calc_entry) = format_calc_num(pct_val);
-                            id(calc_new_entry) = false;
-                          } else {
-                            double pct_val = cur / 100.0;
-                            id(calc_entry) = format_calc_num(pct_val);
-                            id(calc_new_entry) = true;
-                          }
-                        } else if (r == 4 && c == 2) { // DEL
-                          if (!id(calc_new_entry) && id(calc_entry) != "Error") {
-                            if (id(calc_entry).length() > 1) {
-                              id(calc_entry).pop_back();
-                              if (id(calc_entry) == "-") id(calc_entry) = "0";
-                            } else {
-                              id(calc_entry) = "0";
-                            }
-                          }
-                        } else if (c == 3) { // Operators: /, x, -, +, =
-                          int new_op = 0;
-                          if (r == 0) new_op = 4; // /
-                          else if (r == 1) new_op = 3; // x
-                          else if (r == 2) new_op = 2; // -
-                          else if (r == 3) new_op = 1; // +
-                          else if (r == 4) new_op = 5; // =
-
-                          double cur = std::atof(id(calc_entry).c_str());
-                          if (new_op == 5) { // =
-                            if (id(calc_op) != 0) {
-                              id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op)) + " " + id(calc_entry) + " =";
-                              double res = compute_op(id(calc_prev_val), cur, id(calc_op));
-                              id(calc_entry) = format_calc_num(res);
-                              id(calc_op) = 0;
-                              id(calc_new_entry) = true;
-                            }
-                          } else { // Binary op
-                            if (id(calc_op) != 0 && !id(calc_new_entry)) {
-                              double res = compute_op(id(calc_prev_val), cur, id(calc_op));
-                              id(calc_prev_val) = (float)res;
-                              id(calc_entry) = format_calc_num(res);
-                            } else {
-                              id(calc_prev_val) = (float)cur;
-                            }
-                            id(calc_op) = new_op;
-                            id(calc_new_entry) = true;
-                            id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op));
-                          }
-                        } else if (r == 4 && c == 1) { // .
-                          if (id(calc_new_entry)) {
-                            id(calc_entry) = "0.";
-                            id(calc_new_entry) = false;
-                          } else if (id(calc_entry).find('.') == std::string::npos) {
-                            id(calc_entry) += ".";
-                          }
-                        } else {
-                          // Digits (0..9)
-                          char digit = '0';
-                          if (r == 4 && c == 0) digit = '0';
-                          else if (r == 3 && c == 0) digit = '1';
-                          else if (r == 3 && c == 1) digit = '2';
-                          else if (r == 3 && c == 2) digit = '3';
-                          else if (r == 2 && c == 0) digit = '4';
-                          else if (r == 2 && c == 1) digit = '5';
-                          else if (r == 2 && c == 2) digit = '6';
-                          else if (r == 1 && c == 0) digit = '7';
-                          else if (r == 1 && c == 1) digit = '8';
-                          else if (r == 1 && c == 2) digit = '9';
-
-                          if (id(calc_new_entry)) {
-                            id(calc_entry) = std::string(1, digit);
-                            id(calc_new_entry) = false;
-                          } else {
-                            if (id(calc_entry) == "0") id(calc_entry) = std::string(1, digit);
-                            else if (id(calc_entry).length() < 9) id(calc_entry) += digit;
-                          }
                         }
+                      } else { // Binary op
+                        if (id(calc_op) != 0 && !id(calc_new_entry)) {
+                          double res = compute_op(id(calc_prev_val), cur, id(calc_op));
+                          id(calc_prev_val) = (float)res;
+                          id(calc_entry) = format_calc_num(res);
+                        } else {
+                          id(calc_prev_val) = (float)cur;
+                        }
+                        id(calc_op) = new_op;
+                        id(calc_new_entry) = true;
+                        id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op));
+                      }
+                    } else if (r == 4 && c == 1) { // .
+                      if (id(calc_new_entry)) {
+                        id(calc_entry) = "0.";
+                        id(calc_new_entry) = false;
+                      } else if (id(calc_entry).find(.) == std::string::npos) {
+                        id(calc_entry) += ".";
+                      }
+                    } else {
+                      // Digits (0..9)
+                      char digit = 0;
+                      if (r == 4 && c == 0) digit = 0;
+                      else if (r == 3 && c == 0) digit = 1;
+                      else if (r == 3 && c == 1) digit = 2;
+                      else if (r == 3 && c == 2) digit = 3;
+                      else if (r == 2 && c == 0) digit = 4;
+                      else if (r == 2 && c == 1) digit = 5;
+                      else if (r == 2 && c == 2) digit = 6;
+                      else if (r == 1 && c == 0) digit = 7;
+                      else if (r == 1 && c == 1) digit = 8;
+                      else if (r == 1 && c == 2) digit = 9;
 
-                        id(disp1).update();
+                      if (id(calc_new_entry)) {
+                        id(calc_entry) = std::string(1, digit);
+                        id(calc_new_entry) = false;
+                      } else {
+                        if (id(calc_entry) == "0") id(calc_entry) = std::string(1, digit);
+                        else if (id(calc_entry).length() < 9) id(calc_entry) += digit;
                       }
                     }
+
+                    id(disp1).update();
                   }
+                  return;
                 }
 
               } else if (id(stuff_subpage) == 7) {
@@ -11391,6 +11383,7 @@ touchscreen:
                   }
                   return;
                 }
+                if (touch.y >= 385) return; // Chin guard: lower display taps never trigger accidental flip
                 if (!id(coin_anim_active)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
