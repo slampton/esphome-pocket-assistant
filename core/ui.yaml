@@ -1824,10 +1824,12 @@ sensor:
       float z = id(accel_z).state;
       if (isnan(x) || isnan(y) || isnan(z)) return NAN;
 
+      // Gravity low-pass filter (faster alpha = 0.20 absorbs static tilt quickly)
       static float grav_x = 0.0f;
       static float grav_y = 0.0f;
       static float grav_z = 1.0f;
-      const float alpha = 0.08f;
+      static float prev_x = 0.0f;
+      const float alpha = 0.20f;
       grav_x = (1.0f - alpha) * grav_x + alpha * x;
       grav_y = (1.0f - alpha) * grav_y + alpha * y;
       grav_z = (1.0f - alpha) * grav_z + alpha * z;
@@ -1837,11 +1839,19 @@ sensor:
       float dz = z - grav_z;
       float delta = sqrtf(dx*dx + dy*dy + dz*dz);
 
-      // Shake-to-trigger detection for Coin Flip (subpage 3) and Dice Roll (subpage 4)
+      // Deliberate Side-to-Side Shake Detection for Tools Suite (Page 8)
+      // Exclusively inspects lateral X-axis dynamic force and rapid sample-to-sample jerk,
+      // completely immune to table set-downs (Z-axis) and smooth pitch/roll tilts.
       if (id(gui_page) == 8 && id(display_power_state) == 0) {
         static uint32_t last_shake_time = 0;
         uint32_t now_m = millis();
-        if (delta > 0.45f && (now_m - last_shake_time > 800)) {
+        float lateral_jerk = fabsf(x - prev_x);
+        float lateral_dyn = fabsf(dx);
+
+        // Requires both deliberate lateral dynamic force (>= 0.85g) and rapid jerk change (>= 0.75g)
+        bool is_deliberate_lateral_shake = (lateral_dyn >= 0.85f && lateral_jerk >= 0.75f);
+
+        if (is_deliberate_lateral_shake && (now_m - last_shake_time > 1200)) {
           last_shake_time = now_m;
           if (id(stuff_subpage) == 8 && !id(coin_anim_active)) {
             id(coin_anim_active) = true;
@@ -1857,6 +1867,7 @@ sensor:
           }
         }
       }
+      prev_x = x;
 
       return delta;
 
@@ -8208,21 +8219,20 @@ display:
               it.filled_circle(knob_x, y_mid - 6, 9, id(col_white));
             };
 
-            // Alarm 1: Weekdays default (y = 182, r = 42, card span [140..224])
-            draw_alarm_card(182, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
+            // Alarm 1: Weekdays default (y = 156, r = 42, card span [114..198], halfway split)
+            draw_alarm_card(156, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
 
-            // Alarm 2: Weekends default (y = 284, r = 42, card span [242..326])
-            // Buffer between Card 1 bottom (224) and Card 2 top (242) is 18px, centered exactly on screen centerline cy = 233!
-            draw_alarm_card(284, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
+            // Alarm 2: Weekends default (y = 262, r = 42, card span [220..304], halfway split)
+            draw_alarm_card(262, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
 
-            // Snooze Status (y = 356, centered between Card 2 at 326 and < BACK at 392)
+            // Snooze Status (y = 336, comfortably positioned below Card 2)
             if (id(alarm_snooze_until) > 0) {
               auto now = id(ha_time).now();
               int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
               int snz_idx = (id(alarm_ringing_idx) > 0) ? id(alarm_ringing_idx) : 1;
               char snz_buf[48];
               snprintf(snz_buf, sizeof(snz_buf), "Alarm %d Snoozed (%dm %ds)", snz_idx, rem_s / 60, rem_s % 60);
-              it.print(cx, 356, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
+              it.print(cx, 336, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
             }
           } else {
             // ----------------------------------------------------------------
@@ -11032,7 +11042,7 @@ touchscreen:
                   // Alarm list view:
                   // Snooze dismiss tap if snoozed
                   if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == 1 || id(alarm_ringing_idx) == 0)) {
-                    if (touch.y >= 135 && touch.y <= 229 && touch.x >= 50 && touch.x <= 385) {
+                    if (touch.y >= 110 && touch.y <= 202 && touch.x >= 50 && touch.x <= 385) {
                       if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_stuff_tap = now_stuff;
                         id(alarm_snooze_until) = 0;
@@ -11042,7 +11052,7 @@ touchscreen:
                     }
                   }
                   if (id(alarm_snooze_until) > 0 && id(alarm_ringing_idx) == 2) {
-                    if (touch.y >= 237 && touch.y <= 331 && touch.x >= 50 && touch.x <= 385) {
+                    if (touch.y >= 216 && touch.y <= 308 && touch.x >= 50 && touch.x <= 385) {
                       if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_stuff_tap = now_stuff;
                         id(alarm_snooze_until) = 0;
@@ -11052,8 +11062,8 @@ touchscreen:
                     }
                   }
 
-                  // Alarm 1 Card: y in [135..229] (centered at y=182)
-                  if (touch.y >= 135 && touch.y <= 229 && touch.x >= 50 && touch.x <= 385) {
+                  // Alarm 1 Card: y in [110..202] (centered at y=156)
+                  if (touch.y >= 110 && touch.y <= 202 && touch.x >= 50 && touch.x <= 385) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       if (touch.x >= 310) {
@@ -11066,8 +11076,8 @@ touchscreen:
                     return;
                   }
 
-                  // Alarm 2 Card: y in [237..331] (centered at y=284)
-                  if (touch.y >= 237 && touch.y <= 331 && touch.x >= 50 && touch.x <= 385) {
+                  // Alarm 2 Card: y in [216..308] (centered at y=262)
+                  if (touch.y >= 216 && touch.y <= 308 && touch.x >= 50 && touch.x <= 385) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       if (touch.x >= 310) {
