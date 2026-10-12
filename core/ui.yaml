@@ -4714,13 +4714,14 @@ display:
           spk_title = fit_text_to_width(spk_title, 260);
 
           // Top Header displays active speaker only when HUD overlay is active (HUD awake or always visible)
-          // Standardized at y = 50 in theme_primary (with 1px drop shadow in Full Screen / Letterbox), matching Remote & OS standard
+          // Standardized at y = 50 in brushed silver-gray (col_silver / #C0C0C0, matching digital clock AM/PM & seconds)
+          // with 1px black drop shadow in Full Screen / Letterbox for optimal neutral contrast over varied album art
           if (show_controls || id(music_hud_active)) {
             if (is_standard) {
-              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx, 50, id(font_date), id(col_silver), TextAlign::CENTER, spk_title.c_str());
             } else {
               it.print(cx + 1, 51, id(font_date), id(col_black), TextAlign::CENTER, spk_title.c_str());
-              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx, 50, id(font_date), id(col_silver), TextAlign::CENTER, spk_title.c_str());
             }
           }
 
