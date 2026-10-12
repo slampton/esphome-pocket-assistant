@@ -8308,8 +8308,9 @@ display:
         // ==============================================================================
         if (id(stuff_subpage) == 0) {
           // --------------------------------------------------
-          // SUBPAGE 0: STUFF LAUNCHER MENU (2-2-1 Icon Tile Grid)
-          // Clean white outline vector icons with clear text labels
+          // SUBPAGE 0: STUFF LAUNCHER MENU (2-2-1 Scaled Icon Tile Grid)
+          // Scaled vector outline icons with font_small (21pt) labels
+          // Dimensioned for 2x3 6-button expansion capability
           // Row 0 (y = 118): Level & Flashlight
           // Row 1 (y = 214): Coin Flip & Dice Roll
           // Row 2 (y = 310): Calculator
@@ -8317,8 +8318,8 @@ display:
           draw_menu_header(46, "STUFF");
 
           auto draw_icon_card = [&](int cx_card, int cy_card, int app_id, const char* label) {
-            const int cw = 116;
-            const int ch = 80;
+            const int cw = 120;
+            const int ch = 84;
             const int cr = 14;
             int x0 = cx_card - cw / 2;
             int y0 = cy_card - ch / 2;
@@ -8336,62 +8337,63 @@ display:
             it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, Color(48, 56, 70));
 
             int ix = cx_card;
-            int iy = cy_card - 12;
+            int iy = cy_card - 14;
 
             if (app_id == 1) {
-              // Level Icon: Spirit level circle with crosshair & center bubble
-              it.circle(ix, iy, 14, id(col_white));
-              it.circle(ix, iy, 7, id(col_white));
+              // Level Icon: Scaled spirit level circle with crosshair & center bubble
+              it.circle(ix, iy, 16, id(col_white));
+              it.circle(ix, iy, 8, id(col_white));
               it.filled_circle(ix, iy, 3, id(col_white));
-              it.line(ix - 17, iy, ix - 14, iy, id(col_white));
-              it.line(ix + 14, iy, ix + 17, iy, id(col_white));
-              it.line(ix, iy - 17, ix, iy - 14, id(col_white));
-              it.line(ix, iy + 14, ix, iy + 17, id(col_white));
+              it.line(ix - 20, iy, ix - 16, iy, id(col_white));
+              it.line(ix + 16, iy, ix + 20, iy, id(col_white));
+              it.line(ix, iy - 20, ix, iy - 16, id(col_white));
+              it.line(ix, iy + 16, ix, iy + 20, id(col_white));
             } else if (app_id == 2) {
-              // Flashlight Icon: Torch barrel, reflector head, and light rays
-              it.rectangle(ix - 4, iy, 9, 14, id(col_white));
-              it.line(ix - 8, iy - 7, ix - 4, iy, id(col_white));
-              it.line(ix + 8, iy - 7, ix + 4, iy, id(col_white));
-              it.line(ix - 8, iy - 7, ix + 8, iy - 7, id(col_white));
-              it.line(ix - 6, iy - 10, ix - 9, iy - 14, id(col_white));
-              it.line(ix, iy - 10, ix, iy - 15, id(col_white));
-              it.line(ix + 6, iy - 10, ix + 9, iy - 14, id(col_white));
+              // Flashlight Icon: Scaled torch barrel, reflector head, and light rays
+              it.rectangle(ix - 5, iy - 1, 11, 16, id(col_white));
+              it.line(ix - 9, iy - 9, ix - 5, iy - 1, id(col_white));
+              it.line(ix + 9, iy - 9, ix + 5, iy - 1, id(col_white));
+              it.line(ix - 9, iy - 9, ix + 9, iy - 9, id(col_white));
+              it.line(ix - 7, iy - 12, ix - 10, iy - 16, id(col_white));
+              it.line(ix, iy - 12, ix, iy - 17, id(col_white));
+              it.line(ix + 7, iy - 12, ix + 10, iy - 16, id(col_white));
             } else if (app_id == 3) {
-              // Coin Icon: Coin rim with Home Assistant house outline
-              it.circle(ix, iy, 15, id(col_white));
-              it.circle(ix, iy, 12, id(col_slate));
-              it.line(ix, iy - 7, ix - 6, iy - 1, id(col_white));
-              it.line(ix, iy - 7, ix + 6, iy - 1, id(col_white));
-              it.line(ix - 5, iy - 1, ix - 5, iy + 5, id(col_white));
-              it.line(ix + 5, iy - 1, ix + 5, iy + 5, id(col_white));
-              it.line(ix - 5, iy + 5, ix + 5, iy + 5, id(col_white));
+              // Coin Icon: Scaled coin rim with Home Assistant house outline
+              it.circle(ix, iy, 17, id(col_white));
+              it.circle(ix, iy, 14, id(col_slate));
+              it.line(ix, iy - 9, ix - 8, iy - 2, id(col_white));
+              it.line(ix, iy - 9, ix + 8, iy - 2, id(col_white));
+              it.line(ix - 6, iy - 2, ix - 6, iy + 5, id(col_white));
+              it.line(ix + 6, iy - 2, ix + 6, iy + 5, id(col_white));
+              it.line(ix - 6, iy + 5, ix + 6, iy + 5, id(col_white));
             } else if (app_id == 4) {
-              // Dice Icon: Die cube outline with 3 pips
-              it.rectangle(ix - 12, iy - 12, 25, 25, id(col_white));
+              // Dice Icon: Scaled die cube outline with 5 pips
+              it.rectangle(ix - 14, iy - 14, 29, 29, id(col_white));
               it.filled_circle(ix, iy, 2, id(col_white));
-              it.filled_circle(ix - 6, iy - 6, 2, id(col_white));
-              it.filled_circle(ix + 6, iy + 6, 2, id(col_white));
+              it.filled_circle(ix - 7, iy - 7, 2, id(col_white));
+              it.filled_circle(ix + 7, iy + 7, 2, id(col_white));
+              it.filled_circle(ix + 7, iy - 7, 2, id(col_white));
+              it.filled_circle(ix - 7, iy + 7, 2, id(col_white));
             } else if (app_id == 5) {
-              // Calculator Icon: Calculator outline with screen and button grid
-              it.rectangle(ix - 11, iy - 14, 23, 29, id(col_white));
-              it.rectangle(ix - 8, iy - 11, 17, 6, id(col_white));
-              it.line(ix - 6, iy, ix - 2, iy, id(col_white));
-              it.line(ix + 2, iy, ix + 6, iy, id(col_white));
-              it.line(ix - 6, iy + 5, ix - 2, iy + 5, id(col_white));
-              it.line(ix + 2, iy + 5, ix + 6, iy + 5, id(col_white));
-              it.line(ix - 6, iy + 10, ix + 6, iy + 10, id(col_white));
+              // Calculator Icon: Scaled calculator outline with screen and button grid
+              it.rectangle(ix - 13, iy - 16, 27, 33, id(col_white));
+              it.rectangle(ix - 9, iy - 13, 19, 8, id(col_white));
+              it.line(ix - 7, iy - 1, ix - 2, iy - 1, id(col_white));
+              it.line(ix + 2, iy - 1, ix + 7, iy - 1, id(col_white));
+              it.line(ix - 7, iy + 5, ix - 2, iy + 5, id(col_white));
+              it.line(ix + 2, iy + 5, ix + 7, iy + 5, id(col_white));
+              it.line(ix - 7, iy + 10, ix + 7, iy + 10, id(col_white));
             }
 
-            it.print(cx_card, cy_card + 23, id(font_micro), id(col_white), TextAlign::CENTER, label);
+            // High-legibility font_small (21pt) label
+            it.print(cx_card, cy_card + 22, id(font_small), id(col_white), TextAlign::CENTER, label);
           };
 
-          draw_icon_card(140, 118, 1, "Level");
-          draw_icon_card(326, 118, 2, "Flashlight");
-          draw_icon_card(140, 214, 3, "Coin Flip");
-          draw_icon_card(326, 214, 4, "Dice Roll");
-          draw_icon_card(233, 310, 5, "Calculator");
-
-        } else if (id(stuff_subpage) == 1) {
+          draw_icon_card(148, 118, 1, "Level");
+          draw_icon_card(318, 118, 2, "Flashlight");
+          draw_icon_card(148, 214, 3, "Coin Flip");
+          draw_icon_card(318, 214, 4, "Dice Roll");
+          draw_icon_card(233, 310, 5, "Calculator");        } else if (id(stuff_subpage) == 1) {
           // --------------------------------------------------
           // SUBPAGE 1: LEVEL (PRECISION 2D BUBBLE SPIRIT LEVEL)
           // Exact trigonometric pitch and roll calculation from 100ms QMI8658 accelerometer
