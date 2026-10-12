@@ -8060,28 +8060,6 @@ display:
           // SUBPAGE 1: TIMER (COUNTDOWN TIMER)
           // --------------------------------------------------
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
-
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
-          
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16)
-          draw_back_button();
-
-        } else if (id(stuff_subpage) == 2) {
-          // --------------------------------------------------
-          // SUBPAGE 2: ALARMS (MULTI-ALARM MANAGER)
-          // --------------------------------------------------
-
-            if (id(alarm_edit_idx) == 0) {
-              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
-            } else {
-              char hdr_buf[32];
-              snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", id(alarm_edit_idx));
-              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
-            }
-          }
-
-          if (is_timer) {
             // ==================================================================
             // SUBPAGE 0: COUNTDOWN TIMER (HERO BUTTON CENTERED AT y = 228)
             // ==================================================================
@@ -8160,11 +8138,16 @@ display:
                 }
               }
             }
-          } else {
-            // ==================================================================
-            // SUBPAGE 1: MULTI-ALARM MANAGER
-            // ==================================================================
-            if (id(alarm_edit_idx) == 0) {
+
+          // Standardized Centered < BACK Button at y = 408 (r = 16)
+          draw_back_button();
+
+        } else if (id(stuff_subpage) == 2) {
+          // --------------------------------------------------
+          // SUBPAGE 2: ALARMS (MULTI-ALARM MANAGER)
+          // --------------------------------------------------
+          if (id(alarm_edit_idx) == 0) {
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
               // ----------------------------------------------------------------
               // ALARM LIST VIEW: 2 RECURRING ALARM CARDS
               // ----------------------------------------------------------------
@@ -8238,6 +8221,10 @@ display:
               // ----------------------------------------------------------------
               // ALARM EDITOR VIEW (alarm_edit_idx == 1 or 2)
               // ----------------------------------------------------------------
+              char hdr_buf[32];
+              snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", id(alarm_edit_idx));
+              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
+
               int edit_idx = id(alarm_edit_idx);
               int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
               int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
@@ -8269,12 +8256,9 @@ display:
               draw_pill_button(120, 346, 296, 18, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
 
               // Standardized System < BACK Button nestled right above navigation (y = 368)
-              draw_back_button();
+              // (rendered globally below)
             }
           }
-
-          // --------------------------------------------------------------------
-          
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
@@ -11248,6 +11232,17 @@ touchscreen:
                           if (op == 3) return "x";
                           if (op == 4) return "/";
                           return "";
+                        };
+
+                        auto format_calc_num = [](double v) -> std::string {
+                          if (std::isnan(v) || std::isinf(v)) return "Error";
+                          char b[32];
+                          if (std::abs(v - std::round(v)) < 1e-7 && std::abs(v) < 1e9) {
+                            snprintf(b, sizeof(b), "%lld", (long long)std::round(v));
+                            return std::string(b);
+                          }
+                          snprintf(b, sizeof(b), "%.8g", v);
+                          return std::string(b);
                         };
 
                         if (r == 0 && c == 0) { // C
