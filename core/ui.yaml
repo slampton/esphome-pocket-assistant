@@ -4714,13 +4714,13 @@ display:
           spk_title = fit_text_to_width(spk_title, 260);
 
           // Top Header displays active speaker only when HUD overlay is active (HUD awake or always visible)
-          // Color matches transport icons (col_white with col_black drop shadow in full screen/letterbox)
+          // Standardized at y = 50 in theme_primary (with 1px drop shadow in Full Screen / Letterbox), matching Remote & OS standard
           if (show_controls || id(music_hud_active)) {
             if (is_standard) {
-              it.print(cx, 46, id(font_date), id(col_white), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, spk_title.c_str());
             } else {
-              it.print(cx + 1, 47, id(font_date), id(col_black), TextAlign::CENTER, spk_title.c_str());
-              it.print(cx, 46, id(font_date), id(col_white), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx + 1, 51, id(font_date), id(col_black), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, spk_title.c_str());
             }
           }
 
@@ -4961,15 +4961,7 @@ display:
               it.print(cx, 390, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
             }
 
-            // Right Flank Volume HUD Overlay: Centered between Volume Up (+) and Volume Down (-) at (405, 212)
-            if (millis() - id(vol_hud_timer) < 1800) {
-              int v_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
-              char v_buf[16];
-              snprintf(v_buf, sizeof(v_buf), "%d%%", v_pct);
-              it.filled_circle(405, art_center_y, 22, id(col_black));
-              it.circle(405, art_center_y, 22, id(theme_primary));
-              it.print(405, art_center_y, id(font_small), id(col_white), TextAlign::CENTER, v_buf);
-            }
+            // Right Flank Volume HUD Overlay retired: volume level is communicated with zero clutter via universal Top Title status bar
           }
 
         } else if (id(music_overlay_mode) == 5) {
@@ -8576,16 +8568,18 @@ touchscreen:
                 }
 
                 // -----------------------------------------------------------------
-                // 2. RIGHT FLANK: Generous outer-edge touch zones
+                // 2. RIGHT FLANK & NEXT TRACK TOUCH ZONES
+                // Symmetrical partition: Outer flank (x >= 370) dedicated exclusively to Volume Up (y < 233)
+                // and Volume Down (y >= 233), preventing high Volume Down taps from ever clipping Next Track.
+                // Inner button (x in [285..369], y in [190..275]) accurately captures Next Track at (342, 233).
                 // -----------------------------------------------------------------
-                // Volume Up (+): Upper-Right Quadrant (x > 306 with y < 176, or x >= 288 with y < 150)
-                if ((touch.x > 306 && touch.y < 176) || (touch.x >= 288 && touch.y < 150)) {
+                // Volume Up (+): Upper-Right Quadrant
+                if ((touch.x >= 370 && touch.y < 233 && touch.y >= 70) || 
+                    (touch.x >= 285 && touch.x < 370 && touch.y < 190 && touch.y >= 70)) {
                   static uint32_t last_vol_up_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_up_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_vol_up_tap = now_vol_tap;
-                    id(vol_hud_direction) = 1;
-                    id(vol_hud_timer) = now_vol_tap;
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
                     int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
@@ -8598,14 +8592,13 @@ touchscreen:
                   return;
                 }
 
-                // Volume Down (-): Lower-Right Quadrant (x > 306 with y >= 280 && y < 400, or x >= 288 with y >= 285 && y < 400)
-                if ((touch.x > 306 && touch.y >= 280 && touch.y < 400) || (touch.x >= 288 && touch.y >= 285 && touch.y < 400)) {
+                // Volume Down (-): Lower-Right Quadrant
+                if ((touch.x >= 370 && touch.y >= 233 && touch.y < 415) || 
+                    (touch.x >= 285 && touch.x < 370 && touch.y > 275 && touch.y < 415)) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_vol_dn_tap = now_vol_tap;
-                    id(vol_hud_direction) = -1;
-                    id(vol_hud_timer) = now_vol_tap;
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
                     int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
@@ -8618,8 +8611,8 @@ touchscreen:
                   return;
                 }
 
-                // Next Track (▶|) / +30s Skip: Middle-Right Horizon (x >= 288, y in [150..274])
-                if (touch.x >= 288 && touch.y >= 150 && touch.y <= 274) {
+                // Next Track (▶|) / +30s Skip: Middle-Right Horizon centered at (342, 233)
+                if (touch.x >= 285 && touch.x < 370 && touch.y >= 190 && touch.y <= 275) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -8644,9 +8637,13 @@ touchscreen:
 
                 // -----------------------------------------------------------------
                 // 3. LEFT FLANK: Optional Speaker & Library Shortcuts & Previous Track
+                // Symmetrical with Right Flank: Outer flank (x <= 95) dedicated to shortcuts when enabled,
+                // Inner button (x in [96..180], y in [190..275]) captures Prev Track at (124, 233).
                 // -----------------------------------------------------------------
-                // Optional Speaker Shortcut: Upper-Left Quadrant (x < 160 with y < 176, or x <= 178 with y < 150)
-                if (id(music_show_speaker_shortcut).state && ((touch.x < 160 && touch.y < 176) || (touch.x <= 178 && touch.y < 150))) {
+                // Optional Speaker Shortcut: Upper-Left Quadrant
+                if (id(music_show_speaker_shortcut).state && 
+                    ((touch.x <= 95 && touch.y < 233 && touch.y >= 70) || 
+                     (touch.x > 95 && touch.x <= 180 && touch.y < 190 && touch.y >= 70))) {
                   static uint32_t last_sc_spk_tap = 0;
                   uint32_t now_sc = millis();
                   if (now_sc - last_sc_spk_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -8662,8 +8659,10 @@ touchscreen:
                   return;
                 }
 
-                // Optional Library Shortcut: Lower-Left Quadrant (x < 160 with y >= 280 && y < 400, or x <= 178 with y >= 285 && y < 400)
-                if (id(music_show_library_shortcut).state && ((touch.x < 160 && touch.y >= 280 && touch.y < 400) || (touch.x <= 178 && touch.y >= 285 && touch.y < 400))) {
+                // Optional Library Shortcut: Lower-Left Quadrant
+                if (id(music_show_library_shortcut).state && 
+                    ((touch.x <= 95 && touch.y >= 233 && touch.y < 415) || 
+                     (touch.x > 95 && touch.x <= 180 && touch.y > 275 && touch.y < 415))) {
                   static uint32_t last_sc_lib_tap = 0;
                   uint32_t now_sc = millis();
                   if (now_sc - last_sc_lib_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -8678,8 +8677,11 @@ touchscreen:
                   return;
                 }
 
-                // Previous Track (|◀) / -10s Replay: Middle-Left Horizon (x <= 178, y in [150..274])
-                if (touch.x <= 178 && touch.y >= 150 && touch.y <= 274) {
+                // Previous Track (|◀) / -10s Replay: Middle-Left Horizon centered at (124, 233)
+                bool prev_hit = (id(music_show_speaker_shortcut).state || id(music_show_library_shortcut).state) ?
+                                (touch.x > 95 && touch.x <= 180 && touch.y >= 190 && touch.y <= 275) :
+                                (touch.x <= 180 && touch.y >= 150 && touch.y <= 316);
+                if (prev_hit) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_prev_tap > TOUCH_DEBOUNCE_BUTTON) {
