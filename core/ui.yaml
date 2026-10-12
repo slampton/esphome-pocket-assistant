@@ -1052,7 +1052,7 @@ select:
       - "Games"
       - "Sky & Weather"
       - "Remote"
-      - "Stuff"
+      - "Tools"
       - "System"
 
 button:
@@ -1199,7 +1199,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Apps: Visibility Stuff"
+    name: "Apps: Visibility Tools"
     id: show_stuff_switch
     entity_category: config
     optimistic: true
@@ -1324,7 +1324,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order Stuff"
+    name: "Apps: Order Tools"
     id: app_order_stuff
     entity_category: config
     optimistic: true
@@ -2440,7 +2440,7 @@ script:
           else if (def_app == "Sky & Weather" || def_app == "Sky and Weather") init_p = 5;
           else if (def_app == "Timer & Alarm" || def_app == "Timer and Alarm") init_p = 6;
           else if (def_app == "Remote" || def_app == "TV Remote") init_p = 7;
-          else if (def_app == "Stuff") init_p = 8;
+          else if (def_app == "Tools" || def_app == "Stuff") init_p = 8;
 
           auto is_app_enabled = [](int p) -> bool {
             if (p == 0) return id(show_clock_switch).state;
@@ -6843,7 +6843,7 @@ display:
             snprintf(deck_labels[3], sizeof(deck_labels[3]), "Remote: %s", id(show_remote_switch).state ? "Visible" : "Hidden");
             snprintf(deck_labels[4], sizeof(deck_labels[4]), "Weather: %s", id(show_weather_switch).state ? "Visible" : "Hidden");
             snprintf(deck_labels[5], sizeof(deck_labels[5]), "Games: %s", id(show_games_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[6], sizeof(deck_labels[6]), "Stuff: %s", id(show_stuff_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[6], sizeof(deck_labels[6]), "Tools: %s", id(show_stuff_switch).state ? "Visible" : "Hidden");
             snprintf(deck_labels[7], sizeof(deck_labels[7]), "System: %s", id(show_system_switch).state ? "Visible" : "Hidden");
             last_deck_label_time = millis();
           }
@@ -7874,7 +7874,7 @@ display:
         }
       } else if (id(gui_page) == 8) {
         // ==============================================================================
-        // PAGE 8: STUFF SUITE (LAUNCHER, TIMER, ALARMS, STOPWATCH, DICE, FLASHLIGHT, CALC, LEVEL, COIN)
+        // PAGE 8: TOOLS SUITE (LAUNCHER, TIMER, ALARMS, STOPWATCH, DICE, FLASHLIGHT, CALC, LEVEL, COIN)
         // ==============================================================================
         // ----------------------------------------------------------------------
         // ALERT / RINGING OVERLAY: FULL-SCREEN TAKEOVER
@@ -7931,13 +7931,13 @@ display:
 
         if (id(stuff_subpage) == 0) {
           // --------------------------------------------------
-          // SUBPAGE 0: STUFF LAUNCHER MENU (2-Page 6+2 Scaled Icon Card Grid)
+          // SUBPAGE 0: TOOLS LAUNCHER MENU (2-Page 6+2 Scaled Icon Card Grid)
           // Standard title at y = 50 with 36px system buffer before Row 0 (y = 128)
           // Balanced inter-row spacing (24px) across Row 0, 1, 2 (y = 128, 236, 344)
           // Symmetrical dual-column placement (x = 158, 294) with 22px inter-column buffer
           // Standard Right-Flank Navigation Chevrons at x = 415 (Up at 162, Down at 278)
           // --------------------------------------------------
-          draw_menu_header(50, "STUFF");
+          draw_menu_header(50, "TOOLS");
 
           // Standardized Right-Flank Navigation Chevrons
           draw_right_flank_chevrons(id(stuff_menu_page) == 1, id(stuff_menu_page) == 0);
@@ -8068,25 +8068,25 @@ display:
           // --------------------------------------------------
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
 
-          // 1. Time Readout above Hero Button (y = 120, font_time, standardized buffer below y=50 title)
+          // 1. Time Readout above Hero Button (y = 148, font_time, centered between y=50 title and y=408 back)
           int disp_sec = (id(timer_running) || id(timer_paused)) ? id(timer_remaining_sec) : id(timer_duration_sec);
           int m_part = disp_sec / 60;
           int s_part = disp_sec % 60;
           char t_str[16];
           snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
-          it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_str);
+          it.print(cx, 148, id(font_time), id(col_white), TextAlign::CENTER, t_str);
 
-          // Subtitle status (y = 168)
+          // Subtitle status (y = 196)
           if (id(timer_running)) {
-            it.print(cx, 168, id(font_small), id(theme_secondary), TextAlign::CENTER, "Countdown");
+            it.print(cx, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "Countdown");
           } else if (id(timer_paused)) {
-            it.print(cx, 168, id(font_small), id(theme_primary), TextAlign::CENTER, "Paused");
+            it.print(cx, 196, id(font_small), id(theme_primary), TextAlign::CENTER, "Paused");
           } else {
-            it.print(cx, 168, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
+            it.print(cx, 196, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
           }
 
-          // 2. Centered Hero Action Button (y = 228, r = 22, 180px wide, black text on theme_secondary)
-          const int hero_y = 228;
+          // 2. Centered Hero Action Button (y = 256, r = 22, 180px wide, black text on theme_secondary)
+          const int hero_y = 256;
           if (!id(timer_running) && !id(timer_paused)) {
             draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black));
           } else if (id(timer_running)) {
@@ -8095,18 +8095,18 @@ display:
             draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black));
           }
 
-          // 3. Quick Steppers with Natural Gap or Reset (y = 292, r = 14, leaving generous 30px gap above nav buttons)
+          // 3. Quick Steppers with Natural Gap or Reset (y = 320, r = 14, leaving generous 40px buffer above back button)
           if (!id(timer_running) && !id(timer_paused)) {
             // -5m: span 48..126
-            draw_pill_button(62, 112, 292, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
+            draw_pill_button(62, 112, 320, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
             // -1m: moved inward to span 140..204 (14px natural gap from -5m)
-            draw_pill_button(154, 190, 292, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
+            draw_pill_button(154, 190, 320, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
             // +1m: moved inward to span 262..326 (14px natural gap to +5m)
-            draw_pill_button(276, 312, 292, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
+            draw_pill_button(276, 312, 320, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
             // +5m: span 340..418
-            draw_pill_button(354, 404, 292, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
+            draw_pill_button(354, 404, 320, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
           } else {
-            draw_pill_button(170, 296, 292, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
+            draw_pill_button(170, 296, 320, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
           }
 
           // 4. Standardized Perimeter Progress Ticks (r = 219..228, Zero Outer Ring)
@@ -8162,19 +8162,19 @@ display:
             auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
               bool is_snoozed = (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == idx || id(alarm_ringing_idx) == 0));
 
-              // Card Background (Clean 2px Stadium Pill - zero inner circular artifacts)
+              // Card Background (Clean 2px Stadium Pill - r = 42, 84px tall for snugger top padding above time)
               Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
               Color border_c = en ? id(theme_secondary) : Color(45, 52, 60);
 
-              // Outer border pill (r = 46, 92px tall for enhanced readability)
-              it.filled_circle(90, y_mid, 46, border_c);
-              it.filled_circle(376, y_mid, 46, border_c);
-              it.filled_rectangle(90, y_mid - 46, 286, 93, border_c);
+              // Outer border pill (r = 42, 84px tall)
+              it.filled_circle(90, y_mid, 42, border_c);
+              it.filled_circle(376, y_mid, 42, border_c);
+              it.filled_rectangle(90, y_mid - 42, 286, 85, border_c);
 
-              // Inner card pill (r = 44, 2px border inset)
-              it.filled_circle(90, y_mid, 44, card_bg);
-              it.filled_circle(376, y_mid, 44, card_bg);
-              it.filled_rectangle(90, y_mid - 44, 286, 89, card_bg);
+              // Inner card pill (r = 40, 2px border inset)
+              it.filled_circle(90, y_mid, 40, card_bg);
+              it.filled_circle(376, y_mid, 40, card_bg);
+              it.filled_rectangle(90, y_mid - 40, 286, 81, card_bg);
 
               if (is_snoozed) {
                 // Active Snooze Dismiss Overlay across configuration pill
@@ -8182,46 +8182,47 @@ display:
                 return;
               }
 
-              // Alarm Time String (All text and toggle elements shifted up 8px as a unit for vertical centering)
+              // Alarm Time String
               char t_buf[16];
               char ap_buf[8] = "";
               format_time_hhmm(h, m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf, true);
               Color time_col = en ? id(col_white) : id(col_gray);
-              // Time & AM baselines (AM/PM brought in tighter to x=194)
-              it.print(92, y_mid + 4, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
+              // Time & AM baselines
+              it.print(92, y_mid + 2, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
               if (!id(is_24h_format) && ap_buf[0] != 0) {
-                it.print(194, y_mid + 4, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
+                it.print(194, y_mid + 2, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
               }
 
-              // Recurrence Tag: centered vertically with equal whitespace above and below (y_mid + 14)
+              // Recurrence Tag: positioned below time at y_mid + 14
               char tag_buf[32];
               snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
               it.print(92, y_mid + 14, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
 
-              // Toggle Switch Pill: shifted up 8px (center y_mid - 8, width 44, height 26)
+              // Toggle Switch Pill: center y_mid - 6, width 44, height 24
               Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
-              it.filled_circle(330, y_mid - 8, 12, sw_bg);
-              it.filled_circle(354, y_mid - 8, 12, sw_bg);
-              it.filled_rectangle(330, y_mid - 20, 24, 25, sw_bg);
+              it.filled_circle(330, y_mid - 6, 12, sw_bg);
+              it.filled_circle(354, y_mid - 6, 12, sw_bg);
+              it.filled_rectangle(330, y_mid - 18, 24, 25, sw_bg);
               // Toggle Knob
               int knob_x = en ? 354 : 330;
-              it.filled_circle(knob_x, y_mid - 8, 9, id(col_white));
+              it.filled_circle(knob_x, y_mid - 6, 9, id(col_white));
             };
 
-            // Alarm 1: Weekdays default (y = 130, elevated by 14px to match standard 34px title buffer)
-            draw_alarm_card(130, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
+            // Alarm 1: Weekdays default (y = 182, r = 42, card span [140..224])
+            draw_alarm_card(182, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
 
-            // Alarm 2: Weekends default (y = 240, elevated by 14px, leaving generous 50px buffer above bottom nav)
-            draw_alarm_card(240, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
+            // Alarm 2: Weekends default (y = 284, r = 42, card span [242..326])
+            // Buffer between Card 1 bottom (224) and Card 2 top (242) is 18px, centered exactly on screen centerline cy = 233!
+            draw_alarm_card(284, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
 
-            // Snooze Status (y = 302, elevated by 14px)
+            // Snooze Status (y = 356, centered between Card 2 at 326 and < BACK at 392)
             if (id(alarm_snooze_until) > 0) {
               auto now = id(ha_time).now();
               int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
               int snz_idx = (id(alarm_ringing_idx) > 0) ? id(alarm_ringing_idx) : 1;
               char snz_buf[48];
               snprintf(snz_buf, sizeof(snz_buf), "Alarm %d Snoozed (%dm %ds)", snz_idx, rem_s / 60, rem_s % 60);
-              it.print(cx, 302, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
+              it.print(cx, 356, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
             }
           } else {
             // ----------------------------------------------------------------
@@ -10572,7 +10573,7 @@ touchscreen:
                       // Default Start App Cycler
                       std::string cur = std::string(id(default_start_app).current_option().c_str());
                       auto call = id(default_start_app).make_call();
-                      call.set_option(cycle_option(cur, {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Stuff", "System"}));
+                      call.set_option(cycle_option(cur, {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Tools", "System"}));
                       call.perform();
                       id(disp1).update();
                     } else if (item_idx == 1) {
@@ -10856,14 +10857,14 @@ touchscreen:
                 }
                 return;
               }
-            // Page 8: Stuff Suite (Launcher, Bubble Level, Flashlight, Coin, Dice, Tip Calc)
+            // Page 8: Tools Suite (Launcher, Bubble Level, Flashlight, Coin, Dice, Tip Calc)
             } else if (id(gui_page) == 8) {
               static uint32_t last_stuff_tap = 0;
               uint32_t now_stuff = millis();
 
               if (id(stuff_subpage) == 0) {
                 // ----------------------------------------------------
-                // SUBPAGE 0: STUFF LAUNCHER (2-Page 6+2 Icon Grid Hit Testing)
+                // SUBPAGE 0: TOOLS LAUNCHER (2-Page 6+2 Icon Grid Hit Testing)
                 // ----------------------------------------------------
                 // Right Flank Navigation (x >= 370, y in [70..375])
                 if (touch.x >= 370 && touch.y >= 70 && touch.y <= 375) {
@@ -10914,7 +10915,7 @@ touchscreen:
                       // Boost brightness to 100% on flashlight launch
                       id(display_brightness).turn_on().set_brightness(1.0f).perform();
                     }
-                    ESP_LOGI("touch", "Page 8 Stuff Launcher -> Subpage %d", id(stuff_subpage));
+                    ESP_LOGI("touch", "Page 8 Tools Launcher -> Subpage %d", id(stuff_subpage));
                     id(disp1).update();
                   }
                   return;
@@ -10933,8 +10934,8 @@ touchscreen:
                   return;
                 }
 
-                // Hero Button (Start / Pause / Resume): y in [200..260], x in [140..326]
-                if (touch.y >= 200 && touch.y <= 260 && touch.x >= 140 && touch.x <= 326) {
+                // Hero Button (Start / Pause / Resume): y in [228..284], x in [140..326]
+                if (touch.y >= 228 && touch.y <= 284 && touch.x >= 140 && touch.x <= 326) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     if (!id(timer_running) && !id(timer_paused)) {
@@ -10958,8 +10959,8 @@ touchscreen:
                   return;
                 }
 
-                // Quick Stepper Row: y in [270..320]
-                if (touch.y >= 270 && touch.y <= 320) {
+                // Quick Stepper Row: y in [295..345]
+                if (touch.y >= 295 && touch.y <= 345) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     if (!id(timer_running) && !id(timer_paused)) {
@@ -10997,8 +10998,8 @@ touchscreen:
                   }
                 }
 
-                // Readout Tap to reset default 5m: y in [100..160], x in [140..326]
-                if (touch.y >= 100 && touch.y <= 160 && touch.x >= 140 && touch.x <= 326) {
+                // Readout Tap to reset default 5m: y in [120..178], x in [140..326]
+                if (touch.y >= 120 && touch.y <= 178 && touch.x >= 140 && touch.x <= 326) {
                   if (!id(timer_running) && !id(timer_paused)) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
@@ -11020,7 +11021,7 @@ touchscreen:
                     if (id(alarm_edit_idx) > 0) {
                       id(alarm_edit_idx) = 0; // Exit editor back to alarm list
                     } else {
-                      id(stuff_subpage) = 0;  // Exit alarm list back to Stuff menu
+                      id(stuff_subpage) = 0;  // Exit alarm list back to Tools menu
                     }
                     id(disp1).update();
                   }
@@ -11031,7 +11032,7 @@ touchscreen:
                   // Alarm list view:
                   // Snooze dismiss tap if snoozed
                   if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == 1 || id(alarm_ringing_idx) == 0)) {
-                    if (touch.y >= 84 && touch.y <= 176 && touch.x >= 50 && touch.x <= 385) {
+                    if (touch.y >= 135 && touch.y <= 229 && touch.x >= 50 && touch.x <= 385) {
                       if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_stuff_tap = now_stuff;
                         id(alarm_snooze_until) = 0;
@@ -11041,7 +11042,7 @@ touchscreen:
                     }
                   }
                   if (id(alarm_snooze_until) > 0 && id(alarm_ringing_idx) == 2) {
-                    if (touch.y >= 194 && touch.y <= 286 && touch.x >= 50 && touch.x <= 385) {
+                    if (touch.y >= 237 && touch.y <= 331 && touch.x >= 50 && touch.x <= 385) {
                       if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_stuff_tap = now_stuff;
                         id(alarm_snooze_until) = 0;
@@ -11051,8 +11052,8 @@ touchscreen:
                     }
                   }
 
-                  // Alarm 1 Card: y in [84..176]
-                  if (touch.y >= 84 && touch.y <= 176 && touch.x >= 50 && touch.x <= 385) {
+                  // Alarm 1 Card: y in [135..229] (centered at y=182)
+                  if (touch.y >= 135 && touch.y <= 229 && touch.x >= 50 && touch.x <= 385) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       if (touch.x >= 310) {
@@ -11065,8 +11066,8 @@ touchscreen:
                     return;
                   }
 
-                  // Alarm 2 Card: y in [194..286]
-                  if (touch.y >= 194 && touch.y <= 286 && touch.x >= 50 && touch.x <= 385) {
+                  // Alarm 2 Card: y in [237..331] (centered at y=284)
+                  if (touch.y >= 237 && touch.y <= 331 && touch.x >= 50 && touch.x <= 385) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       if (touch.x >= 310) {
@@ -11207,7 +11208,7 @@ touchscreen:
                 // ----------------------------------------------------
                 // SUBPAGE 5: FLASHLIGHT TOUCH HANDLING (WHITE TORCH ONLY)
                 // ----------------------------------------------------
-                // Any tap anywhere on the screen exits back to Stuff launcher
+                // Any tap anywhere on the screen exits back to Tools launcher
                 if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_stuff_tap = now_stuff;
                   id(stuff_subpage) = 0;
