@@ -8732,7 +8732,7 @@ display:
           Color col_bevel = Color(225, 232, 242);
           Color col_groove = Color(160, 168, 180);
           Color text_col = Color(15, 30, 50);     // High-contrast dark navy for HEADS / TAILS
-          Color ha_blue = Color(3, 169, 244);     // Official Home Assistant Blue
+          Color ha_blue = Color(24, 188, 242);    // Exact Official Home Assistant Blue (#18BCF2)
 
           if (scale_y >= 0.98f) {
             // Flat resting circle: crisp solid disc & concentric rings
@@ -8765,78 +8765,101 @@ display:
             }
           }
 
-          // Center Motif: Official Home Assistant Icons in Home Assistant Blue
+          // Center Motif: High-Fidelity Home Assistant Icons (Sample-Matched)
           if (scale_y > 0.35f) {
             int hx = cx;
-            int hy = coin_cy - (int)(18.0f * scale_y);
-            int hw = 42;
+            int hy = coin_cy - (int)(12.0f * scale_y);
+            int hw = 43;
 
-            int roof_peak_y = hy - (int)(32.0f * scale_y);
-            int eave_y = hy - (int)(4.0f * scale_y);
-            int body_bot_y = hy + (int)(28.0f * scale_y);
+            int y_top = hy - (int)(40.0f * scale_y);
+            int y_eave = hy - (int)(1.0f * scale_y);
+            int y_bot = hy + (int)(41.0f * scale_y);
 
-            // Home Assistant Blue House Base
-            it.filled_triangle(hx, roof_peak_y, hx - (hw + 5), eave_y, hx + (hw + 5), eave_y, ha_blue);
-            it.line(hx, roof_peak_y, hx - (hw + 5), eave_y, id(col_white));
-            it.line(hx, roof_peak_y, hx + (hw + 5), eave_y, id(col_white));
-
-            int body_box_h = body_bot_y - eave_y;
-            if (body_box_h > 0) {
-              it.filled_rectangle(hx - hw, eave_y, hw * 2, body_box_h, ha_blue);
-              it.line(hx - hw, eave_y, hx - hw, body_bot_y, id(col_white));
-              it.line(hx + hw, eave_y, hx + hw, body_bot_y, id(col_white));
-              it.line(hx - hw, body_bot_y, hx + hw, body_bot_y, id(col_white));
+            // Monolithic Home Assistant House Base with 45-deg Roof Slope and Rounded Bottom Corners
+            for (int y = y_top; y <= y_bot; y++) {
+              int cur_hw = 0;
+              if (y < y_eave) {
+                if (y_eave > y_top) {
+                  cur_hw = (int)((float)(y - y_top) / (float)(y_eave - y_top) * (float)hw);
+                }
+              } else {
+                int dy_b = y_bot - y;
+                cur_hw = (dy_b < 4 && scale_y > 0.8f) ? (hw - (4 - dy_b)) : hw;
+              }
+              if (cur_hw > 0) {
+                it.horizontal_line(hx - cur_hw, y, 2 * cur_hw + 1, ha_blue);
+              }
             }
 
             if (show_heads) {
               // HEADS: Home Assistant Voice Assistant (Assist/Casita) Smiling Face
-              int eye_y = hy + (int)(6.0f * scale_y);
-              int eye_r = (int)(7.0f * scale_y);
-              if (eye_r >= 2) {
-                it.filled_circle(hx - 14, eye_y, eye_r, id(col_white));
-                it.filled_circle(hx + 14, eye_y, eye_r, id(col_white));
-                int pupil_r = (int)(3.0f * scale_y);
-                if (pupil_r >= 1) {
-                  it.filled_circle(hx - 14, eye_y, pupil_r, Color(10, 40, 75));
-                  it.filled_circle(hx + 14, eye_y, pupil_r, Color(10, 40, 75));
+              // 1. Two Solid Circular White Eyes (Zero Pupils)
+              int eye_y = hy + (int)(5.0f * scale_y);
+              int eye_r = std::max(2, (int)(5.0f * scale_y));
+              it.filled_circle(hx - 19, eye_y, eye_r, id(col_white));
+              it.filled_circle(hx + 19, eye_y, eye_r, id(col_white));
+
+              // 2. Continuous U-Shaped White Smile
+              int smile_top_y = hy + (int)(16.0f * scale_y);
+              int smile_mid_y = hy + (int)(20.0f * scale_y);
+              int smile_bot_y = hy + (int)(28.0f * scale_y);
+              int smile_hw = 13;
+
+              // Vertical Arms
+              for (int y = smile_top_y; y <= smile_mid_y; y++) {
+                for (int t = -1; t <= 1; t++) {
+                  it.draw_pixel_at(hx - smile_hw + t, y, id(col_white));
+                  it.draw_pixel_at(hx + smile_hw + t, y, id(col_white));
                 }
               }
-              int smile_y = hy + (int)(14.0f * scale_y);
-              int smile_r = (int)(12.0f * scale_y);
-              for (float sa = 0.2f * PI_F; sa <= 0.8f * PI_F; sa += 0.05f) {
-                int sx = hx + (int)(14.0f * cosf(sa));
-                int sy = smile_y + (int)(smile_r * sinf(sa));
-                it.draw_pixel_at(sx, sy, id(col_white));
-                it.draw_pixel_at(sx, sy + 1, id(col_white));
+
+              // Curved Bottom Arc
+              for (float sa = 0.0f; sa <= PI_F; sa += 0.04f) {
+                int sx = hx - (int)(smile_hw * cosf(sa));
+                int sy = smile_mid_y + (int)((smile_bot_y - smile_mid_y) * sinf(sa));
+                for (int t = -1; t <= 1; t++) {
+                  it.draw_pixel_at(sx, sy + t, id(col_white));
+                  it.draw_pixel_at(sx + t, sy, id(col_white));
+                }
               }
+
               if (scale_y > 0.65f) {
                 it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), text_col, TextAlign::CENTER, "HEADS");
               }
             } else {
-              // TAILS: Home Assistant Standard System Icon (Network Graph Topology)
-              int top_y = hy - (int)(12.0f * scale_y);
-              int center_y = hy + (int)(4.0f * scale_y);
-              int left_y = hy + (int)(14.0f * scale_y);
-              int right_y = hy + (int)(14.0f * scale_y);
-              int bot_y = hy + (int)(22.0f * scale_y);
+              // TAILS: Standard Home Assistant Network Tree Topology
+              int H_total = y_bot - y_top;
+              int top_node_y = y_top + (int)(0.331f * (float)H_total);
+              int right_node_x = hx + 21;
+              int right_node_y = y_top + (int)(0.596f * (float)H_total);
+              int left_node_x = hx - 21;
+              int left_node_y = y_top + (int)(0.742f * (float)H_total);
 
-              // 2px wide white bus/connection lines
-              it.line(hx, top_y, hx, bot_y, id(col_white));
-              it.line(hx + 1, top_y, hx + 1, bot_y, id(col_white));
-              it.line(hx, center_y, hx - 20, left_y, id(col_white));
-              it.line(hx, center_y + 1, hx - 20, left_y + 1, id(col_white));
-              it.line(hx, center_y, hx + 20, right_y, id(col_white));
-              it.line(hx, center_y + 1, hx + 20, right_y + 1, id(col_white));
+              int node_r = std::max(3, (int)(7.0f * scale_y));
+              int line_hw = std::max(1, (int)(2.5f * scale_y));
 
-              // 5 Network Circular Nodes
-              int nr = (int)(5.0f * scale_y);
-              if (nr >= 2) {
-                it.filled_circle(hx, top_y, nr, id(col_white));
-                it.filled_circle(hx, center_y, nr, id(col_white));
-                it.filled_circle(hx - 20, left_y, nr, id(col_white));
-                it.filled_circle(hx + 20, right_y, nr, id(col_white));
-                it.filled_circle(hx, bot_y, nr, id(col_white));
+              // 1. Central Vertical Trunk (from Top Node down to Bottom Baseline)
+              for (int w = -line_hw; w <= line_hw; w++) {
+                it.line(hx + w, top_node_y, hx + w, y_bot, id(col_white));
               }
+
+              // 2. Right 45-degree Branch (from Trunk to Right Node)
+              int right_junct_y = right_node_y + 21;
+              for (int w = -line_hw; w <= line_hw; w++) {
+                it.line(hx + w, right_junct_y, right_node_x + w, right_node_y, id(col_white));
+              }
+
+              // 3. Left 45-degree Branch (from Trunk Bottom to Left Node)
+              int left_junct_y = left_node_y + 21;
+              for (int w = -line_hw; w <= line_hw; w++) {
+                it.line(hx + w, left_junct_y, left_node_x + w, left_node_y, id(col_white));
+              }
+
+              // 4. Three Distinct Network Node Circles
+              it.filled_circle(hx, top_node_y, node_r, id(col_white));
+              it.filled_circle(right_node_x, right_node_y, node_r, id(col_white));
+              it.filled_circle(left_node_x, left_node_y, node_r, id(col_white));
+
               if (scale_y > 0.65f) {
                 it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), text_col, TextAlign::CENTER, "TAILS");
               }
