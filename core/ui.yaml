@@ -8308,26 +8308,88 @@ display:
         // ==============================================================================
         if (id(stuff_subpage) == 0) {
           // --------------------------------------------------
-          // SUBPAGE 0: STUFF LAUNCHER MENU (Canonical 5-Slot Layout)
-          // Title at y = 50 in theme_primary ("STUFF")
-          // Slots 1-5 at y = 104, 162, 220, 278, 336 (h = 44, r = 22, span: 95..371)
+          // SUBPAGE 0: STUFF LAUNCHER MENU (2-2-1 Icon Tile Grid)
+          // Clean white outline vector icons with clear text labels
+          // Row 0 (y = 118): Level & Flashlight
+          // Row 1 (y = 214): Coin Flip & Dice Roll
+          // Row 2 (y = 310): Calculator
           // --------------------------------------------------
-          draw_menu_header(50, "STUFF");
+          draw_menu_header(46, "STUFF");
 
-          // Slot 1 (y = 104): Bubble Level
-          draw_menu_card_y(104, "Level");
+          auto draw_icon_card = [&](int cx_card, int cy_card, int app_id, const char* label) {
+            const int cw = 116;
+            const int ch = 80;
+            const int cr = 14;
+            int x0 = cx_card - cw / 2;
+            int y0 = cy_card - ch / 2;
 
-          // Slot 2 (y = 162): Flashlight
-          draw_menu_card_y(162, "Flashlight");
+            it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, Color(22, 27, 36));
+            it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cr, y0 + cr, cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cw - cr, y0 + cr, cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cr, y0 + ch - cr, cr, Color(22, 27, 36));
+            it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, Color(22, 27, 36));
 
-          // Slot 3 (y = 220): Coin Flip
-          draw_menu_card_y(220, "Coin Flip");
+            it.line(x0 + cr, y0, x0 + cw - cr, y0, Color(48, 56, 70));
+            it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, Color(48, 56, 70));
+            it.line(x0, y0 + cr, x0, y0 + ch - cr, Color(48, 56, 70));
+            it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, Color(48, 56, 70));
 
-          // Slot 4 (y = 278): Dice Roll
-          draw_menu_card_y(278, "Dice Roll");
+            int ix = cx_card;
+            int iy = cy_card - 12;
 
-          // Slot 5 (y = 336): Calculator
-          draw_menu_card_y(336, "Calculator");
+            if (app_id == 1) {
+              // Level Icon: Spirit level circle with crosshair & center bubble
+              it.circle(ix, iy, 14, id(col_white));
+              it.circle(ix, iy, 7, id(col_white));
+              it.filled_circle(ix, iy, 3, id(col_white));
+              it.line(ix - 17, iy, ix - 14, iy, id(col_white));
+              it.line(ix + 14, iy, ix + 17, iy, id(col_white));
+              it.line(ix, iy - 17, ix, iy - 14, id(col_white));
+              it.line(ix, iy + 14, ix, iy + 17, id(col_white));
+            } else if (app_id == 2) {
+              // Flashlight Icon: Torch barrel, reflector head, and light rays
+              it.rectangle(ix - 4, iy, 9, 14, id(col_white));
+              it.line(ix - 8, iy - 7, ix - 4, iy, id(col_white));
+              it.line(ix + 8, iy - 7, ix + 4, iy, id(col_white));
+              it.line(ix - 8, iy - 7, ix + 8, iy - 7, id(col_white));
+              it.line(ix - 6, iy - 10, ix - 9, iy - 14, id(col_white));
+              it.line(ix, iy - 10, ix, iy - 15, id(col_white));
+              it.line(ix + 6, iy - 10, ix + 9, iy - 14, id(col_white));
+            } else if (app_id == 3) {
+              // Coin Icon: Coin rim with Home Assistant house outline
+              it.circle(ix, iy, 15, id(col_white));
+              it.circle(ix, iy, 12, id(col_slate));
+              it.line(ix, iy - 7, ix - 6, iy - 1, id(col_white));
+              it.line(ix, iy - 7, ix + 6, iy - 1, id(col_white));
+              it.line(ix - 5, iy - 1, ix - 5, iy + 5, id(col_white));
+              it.line(ix + 5, iy - 1, ix + 5, iy + 5, id(col_white));
+              it.line(ix - 5, iy + 5, ix + 5, iy + 5, id(col_white));
+            } else if (app_id == 4) {
+              // Dice Icon: Die cube outline with 3 pips
+              it.rectangle(ix - 12, iy - 12, 25, 25, id(col_white));
+              it.filled_circle(ix, iy, 2, id(col_white));
+              it.filled_circle(ix - 6, iy - 6, 2, id(col_white));
+              it.filled_circle(ix + 6, iy + 6, 2, id(col_white));
+            } else if (app_id == 5) {
+              // Calculator Icon: Calculator outline with screen and button grid
+              it.rectangle(ix - 11, iy - 14, 23, 29, id(col_white));
+              it.rectangle(ix - 8, iy - 11, 17, 6, id(col_white));
+              it.line(ix - 6, iy, ix - 2, iy, id(col_white));
+              it.line(ix + 2, iy, ix + 6, iy, id(col_white));
+              it.line(ix - 6, iy + 5, ix - 2, iy + 5, id(col_white));
+              it.line(ix + 2, iy + 5, ix + 6, iy + 5, id(col_white));
+              it.line(ix - 6, iy + 10, ix + 6, iy + 10, id(col_white));
+            }
+
+            it.print(cx_card, cy_card + 23, id(font_micro), id(col_white), TextAlign::CENTER, label);
+          };
+
+          draw_icon_card(140, 118, 1, "Level");
+          draw_icon_card(326, 118, 2, "Flashlight");
+          draw_icon_card(140, 214, 3, "Coin Flip");
+          draw_icon_card(326, 214, 4, "Dice Roll");
+          draw_icon_card(233, 310, 5, "Calculator");
 
         } else if (id(stuff_subpage) == 1) {
           // --------------------------------------------------
@@ -8698,13 +8760,11 @@ display:
           // 4x5 Keypad Matrix on 466x466 AMOLED: 68x44px Touch Targets
           // Arithmetic Engine with Instant Tip / Discount Percent Logic
           // --------------------------------------------------
-          it.print(cx, 32, id(font_micro), id(theme_primary), TextAlign::CENTER, "CALCULATOR");
-
-          // Top Display Panel: Expression history and active entry
+          // Top Display Panel: Expression history and active entry (Title omitted for clean layout)
           if (!id(calc_history).empty()) {
-            it.print(370, 56, id(font_small), id(col_slate), TextAlign::RIGHT, id(calc_history).c_str());
+            it.print(370, 52, id(font_small), id(col_slate), TextAlign::RIGHT, id(calc_history).c_str());
           }
-          it.print(370, 86, id(font_date), id(col_white), TextAlign::RIGHT, id(calc_entry).c_str());
+          it.print(370, 84, id(font_date), id(col_white), TextAlign::RIGHT, id(calc_entry).c_str());
 
           // Subtle Divider Line
           it.line(80, 112, 386, 112, Color(50, 58, 72));
@@ -8739,7 +8799,7 @@ display:
             it.line(x0, y0 + kr, x0, y0 + kh - kr, border_c);
             it.line(x0 + kw - 1, y0 + kr, x0 + kw - 1, y0 + kh - kr, border_c);
 
-            it.print(kx, ky - 10, id(font_btn_bold), text_c, TextAlign::CENTER, label);
+            it.print(kx, ky, id(font_btn_bold), text_c, TextAlign::CENTER, label);
           };
 
           for (int r = 0; r < 5; r++) {
@@ -11074,18 +11134,26 @@ touchscreen:
 
               if (id(stuff_subpage) == 0) {
                 // ----------------------------------------------------
-                // SUBPAGE 0: STUFF LAUNCHER (5-Slot Hit Testing)
+                // SUBPAGE 0: STUFF LAUNCHER (2-2-1 Icon Tile Hit Testing)
+                // Row 0 (y in 70..165): Left=Level, Right=Flashlight
+                // Row 1 (y in 166..260): Left=Coin Flip, Right=Dice Roll
+                // Row 2 (y in 261..360): Center=Calculator
                 // ----------------------------------------------------
-                int slot_idx = get_5slot_index(touch, 95, 371);
-                if (slot_idx >= 0) {
+                int target_subpage = 0;
+                if (touch.y >= 70 && touch.y <= 165) {
+                  if (touch.x <= 233) target_subpage = 1; // Level
+                  else target_subpage = 2; // Flashlight
+                } else if (touch.y >= 166 && touch.y <= 260) {
+                  if (touch.x <= 233) target_subpage = 3; // Coin Flip
+                  else target_subpage = 4; // Dice Roll
+                } else if (touch.y >= 261 && touch.y <= 360) {
+                  if (touch.x >= 120 && touch.x <= 346) target_subpage = 5; // Calculator
+                }
+
+                if (target_subpage > 0) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
-                    // Slot 0: Bubble Level (subpage 1)
-                    // Slot 1: Flashlight (subpage 2)
-                    // Slot 2: Coin Flip (subpage 3)
-                    // Slot 3: Dice Roller (subpage 4)
-                    // Slot 4: Tip Calc (subpage 5)
-                    id(stuff_subpage) = slot_idx + 1;
+                    id(stuff_subpage) = target_subpage;
                     if (id(stuff_subpage) == 2) {
                       // Boost brightness to 100% on flashlight launch
                       id(display_brightness).turn_on().set_brightness(1.0f).perform();
