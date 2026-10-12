@@ -2702,7 +2702,7 @@ script:
           data:
             entity_id: !lambda |-
               std::string spk = id(active_speaker_entity);
-              if (spk.empty() || spk == "None") spk = "";
+              if (spk.empty() || spk == "None") spk = "${local_player_id}";
               return spk.c_str();
             media_id: !lambda |-
               std::string mid = id(selected_slot_id);
@@ -2722,6 +2722,7 @@ script:
               std::string mtype = id(selected_slot_type);
               if (mtype.empty()) return "music";
               return mtype.c_str();
+            enqueue: "play"
       - if:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
@@ -2873,7 +2874,7 @@ script:
                       data:
                         entity_id: !lambda |-
                           std::string spk = id(active_speaker_entity);
-                          if (spk.empty() || spk == "None") spk = "";
+                          if (spk.empty() || spk == "None") spk = "${local_player_id}";
                           return spk.c_str();
                         media_id: !lambda |-
                           std::string mid = id(selected_slot_id);
@@ -2893,6 +2894,7 @@ script:
                           std::string mtype = id(selected_slot_type);
                           if (mtype.empty()) return "music";
                           return mtype.c_str();
+                        enqueue: "play"
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
@@ -4652,8 +4654,8 @@ display:
                 // Note: Full HUD dither scrim is fused directly into the album art pass above, saving ~85,000 pixel loops.
                 if (!apply_scrim && show_metadata) {
                   // Subtle bottom metadata scrim when metadata is set to always show without controls
-                  int scrim_end = is_letterbox ? 385 : 395;
-                  for (int y = 330; y < scrim_end; y++) {
+                  int scrim_end = is_letterbox ? 398 : 405;
+                  for (int y = 340; y < scrim_end; y++) {
                     int hw = CIRCLE_HW[y];
                     int start_x = cx - hw;
                     if ((start_x + y) % 2 != 0) start_x++;
@@ -4691,13 +4693,15 @@ display:
           }
           spk_title = fit_text_to_width(spk_title, 260);
 
-          if (is_standard) {
-            // Standard Mode: Top crescent is pure AMOLED black -> Crisp clean title with zero drop shadow
-            it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, spk_title.c_str());
-          } else if (show_controls || show_metadata) {
-            // Full Screen & Letterbox: Render with 1px subtle drop shadow over underlying art highlights
-            it.print(cx + 1, 47, id(font_date), id(col_black), TextAlign::CENTER, spk_title.c_str());
-            it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, spk_title.c_str());
+          // Top Header displays active speaker only when HUD overlay is active (HUD awake or always visible)
+          // Color matches transport icons (col_white with col_black drop shadow in full screen/letterbox)
+          if (show_controls || id(music_hud_active)) {
+            if (is_standard) {
+              it.print(cx, 46, id(font_date), id(col_white), TextAlign::CENTER, spk_title.c_str());
+            } else {
+              it.print(cx + 1, 47, id(font_date), id(col_black), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx, 46, id(font_date), id(col_white), TextAlign::CENTER, spk_title.c_str());
+            }
           }
 
           if (show_controls) {
