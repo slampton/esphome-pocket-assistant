@@ -8152,7 +8152,7 @@ display:
           // SUBPAGE 2: ALARMS (MULTI-ALARM MANAGER)
           // --------------------------------------------------
           if (id(alarm_edit_idx) == 0) {
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARM");
+            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARMS");
 
             // ----------------------------------------------------------------
             // ALARM LIST VIEW: 2 RECURRING ALARM CARDS
@@ -8432,7 +8432,7 @@ display:
           it.filled_circle(cx, cy, 2, id(col_white));
 
           // Dedicated High-Contrast Black & White < BACK Button at y = 408 (Matching Chronograph Aesthetics)
-          draw_pill_button(180, 286, 408, 16, id(col_white), id(col_black), "< BACK", id(col_white), false);
+          it.print(cx, 408, id(font_small), id(col_white), TextAlign::CENTER, "< BACK");
 
         } else if (id(stuff_subpage) == 4) {
           // --------------------------------------------------
@@ -8512,25 +8512,10 @@ display:
 
         } else if (id(stuff_subpage) == 5) {
           // --------------------------------------------------
-          // SUBPAGE 5: FULL-SCREEN OLED FLASHLIGHT
+          // SUBPAGE 5: FULL-SCREEN OLED FLASHLIGHT (WHITE TORCH ONLY)
           // --------------------------------------------------
-          Color flash_col = id(col_white);
-          const char* mode_name = "WHITE TORCH";
-          if (id(stuff_flashlight_mode) == 1) {
-            flash_col = Color(255, 190, 70); // Warm Amber
-            mode_name = "WARM AMBER";
-          } else if (id(stuff_flashlight_mode) == 2) {
-            flash_col = Color(255, 20, 20);  // Night-Vision Red
-            mode_name = "NIGHT RED";
-          }
-
-          // Flood the circular AMOLED screen with light
-          it.filled_circle(cx, cy, 233, flash_col);
-
-          // Subtle unobtrusive mode hint at top (y = 50) and back prompt at bottom (y = 412)
-          Color text_c = (id(stuff_flashlight_mode) == 2) ? id(col_white) : id(col_black);
-          it.print(cx, 50, id(font_micro), text_c, TextAlign::CENTER, mode_name);
-          it.print(cx, 412, id(font_micro), text_c, TextAlign::CENTER, "< TAP TO EXIT >");
+          // Pure 100% full-screen AMOLED white illumination
+          it.filled_circle(cx, cy, 233, id(col_white));
 
         } else if (id(stuff_subpage) == 6) {
           // --------------------------------------------------
@@ -8726,93 +8711,134 @@ display:
 
           int coin_cy = 205 + (int)y_hop;
           const int r_outer = 98;
-          const int r_field = 86;
 
-          // Floor Shadow
+          // Floor Shadow: Smooth horizontal scanline ellipse during airborne hop (zero radial lines)
           if (y_hop < -6.0f) {
             float shadow_scale = 1.0f - (-y_hop / 80.0f);
             if (shadow_scale < 0.4f) shadow_scale = 0.4f;
             int sh_rx = (int)(80.0f * shadow_scale);
-            int sh_ry = (int)(24.0f * shadow_scale);
-            for (float a = 0.0f; a < 2.0f * PI_F; a += 0.08f) {
-              it.line(cx, 265, cx + (int)(sh_rx * cosf(a)), 265 + (int)(sh_ry * sinf(a)), Color(12, 14, 18));
+            int sh_ry = (int)(20.0f * shadow_scale);
+            if (sh_ry > 0) {
+              for (int sdy = -sh_ry; sdy <= sh_ry; sdy++) {
+                int sdx = (int)(sh_rx * sqrtf(fmaxf(0.0f, 1.0f - ((float)(sdy * sdy) / (float)(sh_ry * sh_ry + 1)))));
+                it.horizontal_line(cx - sdx, 265 + sdy, 2 * sdx + 1, Color(12, 14, 18));
+              }
             }
           }
 
-          // Coin Rim & Bevel
-          Color col_rim = Color(145, 152, 165);
-          Color col_field = Color(188, 195, 206);
-          Color col_bevel = Color(225, 230, 240);
-          Color ha_dark = Color(20, 24, 32);
+          // Solid Silver-Gray Coin Disc (Zero radiating spoke lines)
+          Color col_rim = Color(140, 148, 160);
+          Color col_field = Color(192, 198, 208); // Silver-gray coin face
+          Color col_bevel = Color(225, 232, 242);
+          Color col_groove = Color(160, 168, 180);
+          Color text_col = Color(15, 30, 50);     // High-contrast dark navy for HEADS / TAILS
+          Color ha_blue = Color(3, 169, 244);     // Official Home Assistant Blue
 
-          for (float a = 0.0f; a < 2.0f * PI_F; a += 0.05f) {
-            it.line(cx, coin_cy, cx + (int)(r_outer * cosf(a)), coin_cy + (int)(r_outer * scale_y * sinf(a)), col_rim);
-          }
-          for (float rf = 0.0f; rf <= r_field; rf += 1.5f) {
-            for (float a = 0.0f; a < 2.0f * PI_F; a += 0.08f) {
-              it.line(cx, coin_cy, cx + (int)(rf * cosf(a)), coin_cy + (int)(rf * scale_y * sinf(a)), col_field);
+          if (scale_y >= 0.98f) {
+            // Flat resting circle: crisp solid disc & concentric rings
+            it.filled_circle(cx, coin_cy, r_outer, col_field);
+            it.circle(cx, coin_cy, r_outer, col_rim);
+            it.circle(cx, coin_cy, r_outer - 1, col_bevel);
+            it.circle(cx, coin_cy, r_outer - 5, col_groove);
+            it.circle(cx, coin_cy, r_outer - 6, col_bevel);
+          } else {
+            // 3D perspective flip: solid horizontal scanline fill (zero radial spoke artifacts)
+            int b_outer = (int)(r_outer * scale_y);
+            if (b_outer > 0) {
+              for (int dy = -b_outer; dy <= b_outer; dy++) {
+                float norm_y = (float)dy / (float)b_outer;
+                float w_ratio = sqrtf(fmaxf(0.0f, 1.0f - norm_y * norm_y));
+                int dx_outer = (int)(r_outer * w_ratio);
+                it.horizontal_line(cx - dx_outer, coin_cy + dy, 2 * dx_outer + 1, col_field);
+              }
+              int b_groove = (int)((r_outer - 5) * scale_y);
+              for (float a = 0.0f; a < 2.0f * PI_F; a += 0.04f) {
+                int px = cx + (int)(r_outer * cosf(a));
+                int py = coin_cy + (int)(b_outer * sinf(a));
+                it.draw_pixel_at(px, py, col_rim);
+                if (b_groove > 0) {
+                  int gx = cx + (int)((r_outer - 5) * cosf(a));
+                  int gy = coin_cy + (int)(b_groove * sinf(a));
+                  it.draw_pixel_at(gx, gy, col_groove);
+                }
+              }
             }
           }
-          for (float a = 0.0f; a < 2.0f * PI_F; a += 0.04f) {
-            it.line(cx + (int)(r_field * cosf(a)), coin_cy + (int)(r_field * scale_y * sinf(a)),
-                    cx + (int)(r_outer * cosf(a)), coin_cy + (int)(r_outer * scale_y * sinf(a)), col_bevel);
-          }
 
-          // Center Motif
+          // Center Motif: Official Home Assistant Icons in Home Assistant Blue
           if (scale_y > 0.35f) {
             int hx = cx;
             int hy = coin_cy - (int)(18.0f * scale_y);
-            int hw_half = 44;
-            int hh_half = (int)(36.0f * scale_y);
+            int hw = 42;
 
             int roof_peak_y = hy - (int)(32.0f * scale_y);
             int eave_y = hy - (int)(4.0f * scale_y);
-            int body_bot_y = hy + (int)(30.0f * scale_y);
+            int body_bot_y = hy + (int)(28.0f * scale_y);
 
-            it.filled_triangle(hx, roof_peak_y, hx - (hw_half + 6), eave_y, hx + (hw_half + 6), eave_y, ha_dark);
-            it.line(hx, roof_peak_y, hx - (hw_half + 6), eave_y, id(col_white));
-            it.line(hx, roof_peak_y, hx + (hw_half + 6), eave_y, id(col_white));
+            // Home Assistant Blue House Base
+            it.filled_triangle(hx, roof_peak_y, hx - (hw + 5), eave_y, hx + (hw + 5), eave_y, ha_blue);
+            it.line(hx, roof_peak_y, hx - (hw + 5), eave_y, id(col_white));
+            it.line(hx, roof_peak_y, hx + (hw + 5), eave_y, id(col_white));
 
             int body_box_h = body_bot_y - eave_y;
             if (body_box_h > 0) {
-              it.filled_rectangle(hx - hw_half, eave_y, hw_half * 2, body_box_h, ha_dark);
-              it.line(hx - hw_half, eave_y, hx - hw_half, body_bot_y, id(col_white));
-              it.line(hx + hw_half, eave_y, hx + hw_half, body_bot_y, id(col_white));
-              it.line(hx - hw_half, body_bot_y, hx + hw_half, body_bot_y, id(col_white));
+              it.filled_rectangle(hx - hw, eave_y, hw * 2, body_box_h, ha_blue);
+              it.line(hx - hw, eave_y, hx - hw, body_bot_y, id(col_white));
+              it.line(hx + hw, eave_y, hx + hw, body_bot_y, id(col_white));
+              it.line(hx - hw, body_bot_y, hx + hw, body_bot_y, id(col_white));
             }
 
             if (show_heads) {
-              int eye_y = hy + (int)(4.0f * scale_y);
-              int eye_r = (int)(8.0f * scale_y);
-              if (eye_r >= 3) {
-                it.filled_circle(hx - 16, eye_y, eye_r, id(col_white));
-                it.filled_circle(hx + 16, eye_y, eye_r, id(col_white));
-                it.filled_circle(hx - 15, eye_y, eye_r / 2, ha_dark);
-                it.filled_circle(hx + 17, eye_y, eye_r / 2, ha_dark);
+              // HEADS: Home Assistant Voice Assistant (Assist/Casita) Smiling Face
+              int eye_y = hy + (int)(6.0f * scale_y);
+              int eye_r = (int)(7.0f * scale_y);
+              if (eye_r >= 2) {
+                it.filled_circle(hx - 14, eye_y, eye_r, id(col_white));
+                it.filled_circle(hx + 14, eye_y, eye_r, id(col_white));
+                int pupil_r = (int)(3.0f * scale_y);
+                if (pupil_r >= 1) {
+                  it.filled_circle(hx - 14, eye_y, pupil_r, Color(10, 40, 75));
+                  it.filled_circle(hx + 14, eye_y, pupil_r, Color(10, 40, 75));
+                }
               }
-              int smile_y = hy + (int)(16.0f * scale_y);
-              int smile_r = (int)(14.0f * scale_y);
-              for (float sa = 0.2f * PI_F; sa <= 0.8f * PI_F; sa += 0.06f) {
-                it.line(hx + (int)(14.0f * cosf(sa)), smile_y + (int)(smile_r * sinf(sa)),
-                        hx + (int)(14.0f * cosf(sa)), smile_y + (int)(smile_r * sinf(sa)) + 1, id(col_white));
+              int smile_y = hy + (int)(14.0f * scale_y);
+              int smile_r = (int)(12.0f * scale_y);
+              for (float sa = 0.2f * PI_F; sa <= 0.8f * PI_F; sa += 0.05f) {
+                int sx = hx + (int)(14.0f * cosf(sa));
+                int sy = smile_y + (int)(smile_r * sinf(sa));
+                it.draw_pixel_at(sx, sy, id(col_white));
+                it.draw_pixel_at(sx, sy + 1, id(col_white));
               }
               if (scale_y > 0.65f) {
-                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "HEADS");
+                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), text_col, TextAlign::CENTER, "HEADS");
               }
             } else {
-              int root_y = hy + (int)(22.0f * scale_y);
-              int node_y = hy + (int)(2.0f * scale_y);
-              int node_r = (int)(6.0f * scale_y);
-              if (node_r >= 2) {
-                it.line(hx, root_y, hx, node_y, id(col_white));
-                it.line(hx, node_y, hx - 14, node_y, id(col_white));
-                it.line(hx, node_y, hx + 14, node_y, id(col_white));
-                it.filled_circle(hx, root_y, node_r, id(col_white));
-                it.filled_circle(hx - 14, node_y, node_r, id(col_white));
-                it.filled_circle(hx + 14, node_y, node_r, id(col_white));
+              // TAILS: Home Assistant Standard System Icon (Network Graph Topology)
+              int top_y = hy - (int)(12.0f * scale_y);
+              int center_y = hy + (int)(4.0f * scale_y);
+              int left_y = hy + (int)(14.0f * scale_y);
+              int right_y = hy + (int)(14.0f * scale_y);
+              int bot_y = hy + (int)(22.0f * scale_y);
+
+              // 2px wide white bus/connection lines
+              it.line(hx, top_y, hx, bot_y, id(col_white));
+              it.line(hx + 1, top_y, hx + 1, bot_y, id(col_white));
+              it.line(hx, center_y, hx - 20, left_y, id(col_white));
+              it.line(hx, center_y + 1, hx - 20, left_y + 1, id(col_white));
+              it.line(hx, center_y, hx + 20, right_y, id(col_white));
+              it.line(hx, center_y + 1, hx + 20, right_y + 1, id(col_white));
+
+              // 5 Network Circular Nodes
+              int nr = (int)(5.0f * scale_y);
+              if (nr >= 2) {
+                it.filled_circle(hx, top_y, nr, id(col_white));
+                it.filled_circle(hx, center_y, nr, id(col_white));
+                it.filled_circle(hx - 20, left_y, nr, id(col_white));
+                it.filled_circle(hx + 20, right_y, nr, id(col_white));
+                it.filled_circle(hx, bot_y, nr, id(col_white));
               }
               if (scale_y > 0.65f) {
-                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "TAILS");
+                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), text_col, TextAlign::CENTER, "TAILS");
               }
             }
           }
@@ -11154,24 +11180,16 @@ touchscreen:
 
               } else if (id(stuff_subpage) == 5) {
                 // ----------------------------------------------------
-                // SUBPAGE 5: FLASHLIGHT TOUCH HANDLING
+                // SUBPAGE 5: FLASHLIGHT TOUCH HANDLING (WHITE TORCH ONLY)
                 // ----------------------------------------------------
-                if (touch.y >= 390) {
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_stuff_tap = now_stuff;
-                    id(stuff_subpage) = 0;
-                    id(sync_display_brightness).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                } else {
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_stuff_tap = now_stuff;
-                    id(stuff_flashlight_mode) = (id(stuff_flashlight_mode) + 1) % 3;
-                    id(disp1).update();
-                  }
-                  return;
+                // Any tap anywhere on the screen exits back to Stuff launcher
+                if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_stuff_tap = now_stuff;
+                  id(stuff_subpage) = 0;
+                  id(sync_display_brightness).execute();
+                  id(disp1).update();
                 }
+                return;
 
               } else if (id(stuff_subpage) == 6) {
                 // ----------------------------------------------------
