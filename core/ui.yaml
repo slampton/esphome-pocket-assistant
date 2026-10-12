@@ -418,6 +418,26 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: calc_entry
+    type: std::string
+    restore_value: no
+    initial_value: '"0"'
+  - id: calc_history
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: calc_prev_val
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: calc_op
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = none, 1 = +, 2 = -, 3 = *, 4 = /
+  - id: calc_new_entry
+    type: bool
+    restore_value: no
+    initial_value: 'true'
   - id: dice_anim_start_ms
     type: uint32_t
     restore_value: no
@@ -8673,10 +8693,83 @@ display:
 
           draw_back_button();
         } else {
-          // Subpage 5: Calculator (Coming Soon)
-          draw_menu_header(50, "CALCULATOR");
-          it.print(cx, 220, id(font_date), id(theme_secondary), TextAlign::CENTER, "COMING SOON");
-          it.print(cx, 255, id(font_micro), id(col_gray), TextAlign::CENTER, "In Active Development");
+          // --------------------------------------------------
+          // SUBPAGE 5: CALCULATOR WITH PERCENT SUPPORT
+          // 4x5 Keypad Matrix on 466x466 AMOLED: 68x44px Touch Targets
+          // Arithmetic Engine with Instant Tip / Discount Percent Logic
+          // --------------------------------------------------
+          it.print(cx, 32, id(font_micro), id(theme_primary), TextAlign::CENTER, "CALCULATOR");
+
+          // Top Display Panel: Expression history and active entry
+          if (!id(calc_history).empty()) {
+            it.print(370, 56, id(font_small), id(col_slate), TextAlign::RIGHT, id(calc_history).c_str());
+          }
+          it.print(370, 86, id(font_date), id(col_white), TextAlign::RIGHT, id(calc_entry).c_str());
+
+          // Subtle Divider Line
+          it.line(80, 112, 386, 112, Color(50, 58, 72));
+
+          // Keypad Matrix: 4 Columns x 5 Rows
+          const int rows_y[5] = {138, 192, 246, 300, 354};
+          const int cols_x[4] = {119, 195, 271, 347};
+
+          const char* key_labels[5][4] = {
+            {"C", "±", "%", "/"},
+            {"7", "8", "9", "x"},
+            {"4", "5", "6", "-"},
+            {"1", "2", "3", "+"},
+            {"0", ".", "DEL", "="}
+          };
+
+          auto draw_calc_key = [&](int kx, int ky, const char* label, Color bg_c, Color text_c, Color border_c) {
+            const int kw = 68;
+            const int kh = 44;
+            const int kr = 8;
+            int x0 = kx - kw / 2;
+            int y0 = ky - kh / 2;
+            it.filled_rectangle(x0 + kr, y0, kw - 2 * kr, kh, bg_c);
+            it.filled_rectangle(x0, y0 + kr, kw, kh - 2 * kr, bg_c);
+            it.filled_circle(x0 + kr, y0 + kr, kr, bg_c);
+            it.filled_circle(x0 + kw - kr, y0 + kr, kr, bg_c);
+            it.filled_circle(x0 + kr, y0 + kh - kr, kr, bg_c);
+            it.filled_circle(x0 + kw - kr, y0 + kh - kr, kr, bg_c);
+
+            it.line(x0 + kr, y0, x0 + kw - kr, y0, border_c);
+            it.line(x0 + kr, y0 + kh - 1, x0 + kw - kr, y0 + kh - 1, border_c);
+            it.line(x0, y0 + kr, x0, y0 + kh - kr, border_c);
+            it.line(x0 + kw - 1, y0 + kr, x0 + kw - 1, y0 + kh - kr, border_c);
+
+            it.print(kx, ky - 10, id(font_btn_bold), text_c, TextAlign::CENTER, label);
+          };
+
+          for (int r = 0; r < 5; r++) {
+            for (int c = 0; c < 4; c++) {
+              Color bg_c;
+              Color text_c = id(col_white);
+              Color border_c;
+
+              if (c == 3) {
+                // Operator Column (Vivid Amber-Orange)
+                bg_c = Color(230, 115, 0);
+                border_c = Color(255, 145, 30);
+              } else if (r == 0) {
+                // Top Function Row (Muted Slate Navy)
+                bg_c = Color(65, 75, 90);
+                border_c = Color(90, 105, 125);
+              } else if (r == 4 && c == 2) {
+                // DEL key (Muted Dark Ruby/Slate)
+                bg_c = Color(60, 50, 60);
+                border_c = Color(85, 70, 85);
+              } else {
+                // Number Pad (Deep Matte Charcoal)
+                bg_c = Color(35, 40, 52);
+                border_c = Color(55, 62, 78);
+              }
+
+              draw_calc_key(cols_x[c], rows_y[r], key_labels[r][c], bg_c, text_c, border_c);
+            }
+          }
+
           draw_back_button();
         }
       }
@@ -11089,12 +11182,151 @@ touchscreen:
                   return;
                 }
               } else {
-                // Subpage 5: Calculator placeholder
+                // ----------------------------------------------------
+                // SUBPAGE 5: CALCULATOR TOUCH HANDLING
+                // ----------------------------------------------------
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(stuff_subpage) = 0;
                     id(disp1).update();
+                  }
+                  return;
+                } else if (touch.x >= 81 && touch.x <= 385 && touch.y >= 111 && touch.y <= 381) {
+                  if (now_stuff - last_stuff_tap > 180) { // Crisp 180ms keypad debounce
+                    last_stuff_tap = now_stuff;
+                    int c = (touch.x - 81) / 76;
+                    int r = (touch.y - 111) / 54;
+                    if (c >= 0 && c < 4 && r >= 0 && r < 5) {
+                      auto format_calc_num = [](double val) -> std::string {
+                        if (std::isnan(val) || std::isinf(val)) return "Error";
+                        char buf[32];
+                        if (std::fabs(val - std::round(val)) < 1e-6 && std::fabs(val) < 1e10) {
+                          snprintf(buf, sizeof(buf), "%lld", (long long)std::round(val));
+                          return std::string(buf);
+                        }
+                        snprintf(buf, sizeof(buf), "%.6f", val);
+                        std::string s(buf);
+                        while (s.find('.') != std::string::npos && (s.back() == '0' || s.back() == '.')) {
+                          char last = s.back();
+                          s.pop_back();
+                          if (last == '.') break;
+                        }
+                        if (s.length() > 10) {
+                          snprintf(buf, sizeof(buf), "%.4e", val);
+                          s = std::string(buf);
+                        }
+                        return s;
+                      };
+
+                      auto compute_op = [](double a, double b, int op) -> double {
+                        if (op == 1) return a + b;
+                        if (op == 2) return a - b;
+                        if (op == 3) return a * b;
+                        if (op == 4) return (b != 0.0) ? (a / b) : NAN;
+                        return b;
+                      };
+
+                      auto op_to_str = [](int op) -> const char* {
+                        if (op == 1) return "+";
+                        if (op == 2) return "-";
+                        if (op == 3) return "x";
+                        if (op == 4) return "/";
+                        return "";
+                      };
+
+                      if (r == 0 && c == 0) { // C
+                        id(calc_entry) = "0";
+                        id(calc_history) = "";
+                        id(calc_prev_val) = 0.0f;
+                        id(calc_op) = 0;
+                        id(calc_new_entry) = true;
+                      } else if (r == 0 && c == 1) { // ±
+                        if (id(calc_entry) != "0" && id(calc_entry) != "Error") {
+                          if (id(calc_entry)[0] == '-') id(calc_entry) = id(calc_entry).substr(1);
+                          else id(calc_entry) = "-" + id(calc_entry);
+                        }
+                      } else if (r == 0 && c == 2) { // %
+                        double cur = std::atof(id(calc_entry).c_str());
+                        if (id(calc_op) == 1 || id(calc_op) == 2) { // Tip or discount
+                          double pct_val = (double)id(calc_prev_val) * (cur / 100.0);
+                          id(calc_entry) = format_calc_num(pct_val);
+                          id(calc_new_entry) = false;
+                        } else {
+                          double pct_val = cur / 100.0;
+                          id(calc_entry) = format_calc_num(pct_val);
+                          id(calc_new_entry) = true;
+                        }
+                      } else if (r == 4 && c == 2) { // DEL
+                        if (!id(calc_new_entry) && id(calc_entry) != "Error") {
+                          if (id(calc_entry).length() > 1) {
+                            id(calc_entry).pop_back();
+                            if (id(calc_entry) == "-") id(calc_entry) = "0";
+                          } else {
+                            id(calc_entry) = "0";
+                          }
+                        }
+                      } else if (c == 3) { // Operators: /, x, -, +, =
+                        int new_op = 0;
+                        if (r == 0) new_op = 4; // /
+                        else if (r == 1) new_op = 3; // x
+                        else if (r == 2) new_op = 2; // -
+                        else if (r == 3) new_op = 1; // +
+                        else if (r == 4) new_op = 5; // =
+
+                        double cur = std::atof(id(calc_entry).c_str());
+                        if (new_op == 5) { // =
+                          if (id(calc_op) != 0) {
+                            id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op)) + " " + id(calc_entry) + " =";
+                            double res = compute_op(id(calc_prev_val), cur, id(calc_op));
+                            id(calc_entry) = format_calc_num(res);
+                            id(calc_op) = 0;
+                            id(calc_new_entry) = true;
+                          }
+                        } else { // Binary op
+                          if (id(calc_op) != 0 && !id(calc_new_entry)) {
+                            double res = compute_op(id(calc_prev_val), cur, id(calc_op));
+                            id(calc_prev_val) = (float)res;
+                            id(calc_entry) = format_calc_num(res);
+                          } else {
+                            id(calc_prev_val) = (float)cur;
+                          }
+                          id(calc_op) = new_op;
+                          id(calc_new_entry) = true;
+                          id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op));
+                        }
+                      } else if (r == 4 && c == 1) { // .
+                        if (id(calc_new_entry)) {
+                          id(calc_entry) = "0.";
+                          id(calc_new_entry) = false;
+                        } else if (id(calc_entry).find('.') == std::string::npos) {
+                          id(calc_entry) += ".";
+                        }
+                      } else {
+                        // Digits (0..9)
+                        char digit = '0';
+                        if (r == 4 && c == 0) digit = '0';
+                        else if (r == 3 && c == 0) digit = '1';
+                        else if (r == 3 && c == 1) digit = '2';
+                        else if (r == 3 && c == 2) digit = '3';
+                        else if (r == 2 && c == 0) digit = '4';
+                        else if (r == 2 && c == 1) digit = '5';
+                        else if (r == 2 && c == 2) digit = '6';
+                        else if (r == 1 && c == 0) digit = '7';
+                        else if (r == 1 && c == 1) digit = '8';
+                        else if (r == 1 && c == 2) digit = '9';
+
+                        if (id(calc_new_entry)) {
+                          id(calc_entry) = std::string(1, digit);
+                          id(calc_new_entry) = false;
+                        } else {
+                          if (id(calc_entry) == "0") id(calc_entry) = std::string(1, digit);
+                          else if (id(calc_entry).length() < 9) id(calc_entry) += digit;
+                        }
+                      }
+
+                      id(disp1).update();
+                    }
                   }
                   return;
                 }
