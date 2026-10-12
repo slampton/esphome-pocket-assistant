@@ -366,10 +366,22 @@ globals:
     type: int
     restore_value: no
     initial_value: '7'
+  - id: deck_slot_8
+    type: int
+    restore_value: no
+    initial_value: '8'
   - id: remote_subpage
     type: int
     restore_value: no
     initial_value: '0'
+  - id: stuff_subpage
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = Launcher, 1 = Bubble Level, 2 = Flashlight, 3 = Coin Flip, 4 = Dice Roller, 5 = Tip Calc
+  - id: stuff_flashlight_mode
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = White, 1 = Warm Amber, 2 = Red Night-Vision
   - id: remote_action_feedback
     type: std::string
     restore_value: no
@@ -979,6 +991,7 @@ select:
       - "Timer & Alarm"
       - "System"
       - "Remote"
+      - "Stuff"
 
 button:
   - platform: restart
@@ -1123,6 +1136,18 @@ switch:
     on_turn_off:
       then:
         - script.execute: rebuild_active_deck
+  - platform: template
+    name: "Apps: Visibility Stuff"
+    id: show_stuff_switch
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
+    on_turn_off:
+      then:
+        - script.execute: rebuild_active_deck
 
   - platform: template
     name: "Voice: Wake Screen on Assist"
@@ -1181,82 +1206,12 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order Stopwatch"
-    id: app_order_stopwatch
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_value: 2
-    min_value: 1
-    max_value: 10
-    step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_deck
-
-  - platform: template
     name: "Apps: Order Music"
     id: app_order_music
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 3
-    min_value: 1
-    max_value: 10
-    step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_deck
-
-  - platform: template
-    name: "Apps: Order Games"
-    id: app_order_games
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_value: 4
-    min_value: 1
-    max_value: 10
-    step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_deck
-
-  - platform: template
-    name: "Apps: Order Sky & Weather"
-    id: app_order_weather
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_value: 5
-    min_value: 1
-    max_value: 10
-    step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_deck
-
-  - platform: template
-    name: "Apps: Order Timer & Alarm"
-    id: app_order_timer
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_value: 6
-    min_value: 1
-    max_value: 10
-    step: 1
-    on_value:
-      then:
-        - script.execute: rebuild_active_deck
-
-  - platform: template
-    name: "Apps: Order System"
-    id: app_order_system
-    entity_category: config
-    optimistic: true
-    restore_value: true
-    initial_value: 7
+    initial_value: 2
     min_value: 1
     max_value: 10
     step: 1
@@ -1270,7 +1225,91 @@ number:
     entity_category: config
     optimistic: true
     restore_value: true
+    initial_value: 3
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
+    name: "Apps: Order Sky & Weather"
+    id: app_order_weather
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 4
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
+    name: "Apps: Order Games"
+    id: app_order_games
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 5
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
+    name: "Apps: Order Stuff"
+    id: app_order_stuff
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 6
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
+    name: "Apps: Order Timer & Alarm"
+    id: app_order_timer
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 7
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
+    name: "Apps: Order Stopwatch"
+    id: app_order_stopwatch
+    entity_category: config
+    optimistic: true
+    restore_value: true
     initial_value: 8
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
+    name: "Apps: Order System"
+    id: app_order_system
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 9
     min_value: 1
     max_value: 10
     step: 1
@@ -2175,7 +2214,7 @@ script:
             bool enabled;
           };
 
-          AppEntry pool[8] = {
+          AppEntry pool[9] = {
             {0, id(app_order_clock).state, id(show_clock_switch).state},
             {1, id(app_order_stopwatch).state, id(show_stopwatch_switch).state},
             {2, id(app_order_music).state, id(show_music_switch).state},
@@ -2183,12 +2222,13 @@ script:
             {5, id(app_order_weather).state, id(show_weather_switch).state},
             {6, id(app_order_timer).state, id(show_timer_switch).state},
             {7, id(app_order_remote).state, id(show_remote_switch).state},
+            {8, id(app_order_stuff).state, id(show_stuff_switch).state},
             {4, id(app_order_system).state, id(show_system_switch).state}
           };
 
           // Stable bubble sort by user-configured position rank (1..10)
-          for (int i = 0; i < 7; i++) {
-            for (int j = 0; j < 7 - i; j++) {
+          for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8 - i; j++) {
               if (pool[j].rank > pool[j + 1].rank) {
                 AppEntry tmp = pool[j];
                 pool[j] = pool[j + 1];
@@ -2198,7 +2238,7 @@ script:
           }
 
           int count = 0;
-          for (int i = 0; i < 8; i++) {
+          for (int i = 0; i < 9; i++) {
             if (pool[i].enabled) {
               if (count == 0) id(deck_slot_0) = pool[i].page_id;
               else if (count == 1) id(deck_slot_1) = pool[i].page_id;
@@ -2208,6 +2248,7 @@ script:
               else if (count == 5) id(deck_slot_5) = pool[i].page_id;
               else if (count == 6) id(deck_slot_6) = pool[i].page_id;
               else if (count == 7) id(deck_slot_7) = pool[i].page_id;
+              else if (count == 8) id(deck_slot_8) = pool[i].page_id;
               count++;
             }
           }
@@ -2227,6 +2268,7 @@ script:
             if (idx == 5) return id(deck_slot_5);
             if (idx == 6) return id(deck_slot_6);
             if (idx == 7) return id(deck_slot_7);
+            if (idx == 8) return id(deck_slot_8);
             return 0;
           };
 
@@ -2305,6 +2347,7 @@ script:
           else if (def_app == "Sky & Weather" || def_app == "Sky and Weather") init_p = 5;
           else if (def_app == "Timer & Alarm" || def_app == "Timer and Alarm") init_p = 6;
           else if (def_app == "Remote" || def_app == "TV Remote") init_p = 7;
+          else if (def_app == "Stuff") init_p = 8;
 
           auto is_app_enabled = [](int p) -> bool {
             if (p == 0) return id(show_clock_switch).state;
@@ -2315,6 +2358,7 @@ script:
             if (p == 5) return id(show_weather_switch).state;
             if (p == 6) return id(show_timer_switch).state;
             if (p == 7) return id(show_remote_switch).state;
+            if (p == 8) return id(show_stuff_switch).state;
             return false;
           };
 
@@ -6858,19 +6902,20 @@ display:
             current_offset = (id(deck_menu_page) == 2) ? 232 : 0;
           }
 
-          static char deck_labels[9][32];
+          static char deck_labels[10][32];
           static uint32_t last_deck_label_time = 0;
           if (!id(menu_scroll_active) || millis() - last_deck_label_time > 1000) {
             std::string def_app = id(default_start_app).current_option();
             snprintf(deck_labels[0], sizeof(deck_labels[0]), "Default: %s", def_app.empty() ? "Clock" : def_app.c_str());
             snprintf(deck_labels[1], sizeof(deck_labels[1]), "Clock: %s", id(show_clock_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[2], sizeof(deck_labels[2]), "Stopwatch: %s", id(show_stopwatch_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[3], sizeof(deck_labels[3]), "Music: %s", id(show_music_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[4], sizeof(deck_labels[4]), "Games: %s", id(show_games_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[5], sizeof(deck_labels[5]), "Weather: %s", id(show_weather_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[6], sizeof(deck_labels[6]), "Timer: %s", id(show_timer_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[7], sizeof(deck_labels[7]), "Remote: %s", id(show_remote_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[8], sizeof(deck_labels[8]), "System: %s", id(show_system_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[2], sizeof(deck_labels[2]), "Music: %s", id(show_music_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[3], sizeof(deck_labels[3]), "Remote: %s", id(show_remote_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[4], sizeof(deck_labels[4]), "Weather: %s", id(show_weather_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[5], sizeof(deck_labels[5]), "Games: %s", id(show_games_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[6], sizeof(deck_labels[6]), "Stuff: %s", id(show_stuff_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[7], sizeof(deck_labels[7]), "Timer: %s", id(show_timer_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[8], sizeof(deck_labels[8]), "Stopwatch: %s", id(show_stopwatch_switch).state ? "Visible" : "Hidden");
+            snprintf(deck_labels[9], sizeof(deck_labels[9]), "System: %s", id(show_system_switch).state ? "Visible" : "Hidden");
             last_deck_label_time = millis();
           }
 
@@ -6878,7 +6923,7 @@ display:
             draw_menu_card_y(y, deck_labels[idx]);
           };
 
-          for (int i = 0; i < 9; i++) {
+          for (int i = 0; i < 10; i++) {
             int y = 104 + i * 58 - current_offset;
             if (y >= 50 && y <= 390) {
               draw_deck_item(i, y);
@@ -8162,6 +8207,146 @@ display:
           it.circle(cx, cy, 40, id(theme_primary));
           it.print(cx, cy, id(font_date), id(col_white), TextAlign::CENTER, "OK");
         }
+      } else if (id(gui_page) == 8) {
+        // ==============================================================================
+        // PAGE 8: STUFF SUITE (LAUNCHER, BUBBLE LEVEL, FLASHLIGHT, COIN, DICE, TIP CALC)
+        // ==============================================================================
+        if (id(stuff_subpage) == 0) {
+          // --------------------------------------------------
+          // SUBPAGE 0: STUFF LAUNCHER MENU (Canonical 5-Slot Layout)
+          // Title at y = 50 in theme_primary ("STUFF")
+          // Slots 1-5 at y = 104, 162, 220, 278, 336 (h = 44, r = 22, span: 95..371)
+          // --------------------------------------------------
+          draw_menu_header(50, "STUFF");
+
+          // Slot 1 (y = 104): Bubble Level
+          draw_menu_card_y(104, "Bubble Level");
+
+          // Slot 2 (y = 162): Flashlight
+          draw_menu_card_y(162, "Flashlight");
+
+          // Slot 3 (y = 220): Coin Flip (Coming Soon badge)
+          draw_menu_card_y(220, "Coin Flip");
+
+          // Slot 4 (y = 278): Dice Roller (Coming Soon badge)
+          draw_menu_card_y(278, "Dice Roller");
+
+          // Slot 5 (y = 336): Tip Calculator (Coming Soon badge)
+          draw_menu_card_y(336, "Tip Calculator");
+
+        } else if (id(stuff_subpage) == 1) {
+          // --------------------------------------------------
+          // SUBPAGE 1: BUBBLE LEVEL (SPIRIT LEVEL)
+          // Real-time 2D gravity vector from QMI8658 accelerometer (accel_x, accel_y)
+          // Liquid bubble with concentric tolerance rings and live numeric readout
+          // --------------------------------------------------
+          float ax = id(accel_x).state;
+          float ay = id(accel_y).state;
+          float az = id(accel_z).state;
+          if (std::isnan(ax)) ax = 0.0f;
+          if (std::isnan(ay)) ay = 0.0f;
+          if (std::isnan(az)) az = 9.8f;
+
+          // Convert lateral acceleration to tilt angles in degrees
+          // On 1.75C AMOLED: X is rightwards, Y is downwards
+          float r_deg = ax * 5.73f; // ~1g = 9.8 m/s^2 -> ~57.3 deg / 10
+          float p_deg = ay * 5.73f;
+          float total_tilt = sqrtf(r_deg * r_deg + p_deg * p_deg);
+          bool is_level = (total_tilt <= 0.5f);
+
+          Color reticle_c = is_level ? id(col_green) : id(col_gray);
+          Color center_c  = is_level ? id(col_green) : id(col_dark_gray);
+
+          // Header Title at y = 50 in theme_primary
+          it.print(cx, 50, id(font_date), is_level ? id(col_green) : id(theme_primary), TextAlign::CENTER, "SPIRIT LEVEL");
+
+          // Concentric Reticle Rings:
+          // Outer limit ring (r = 140)
+          it.circle(cx, cy, 140, id(col_dark_gray));
+          // Mid tolerance ring 2° (r = 70)
+          it.circle(cx, cy, 70, id(col_gray));
+          // Dead-level target ring (r = 28)
+          it.circle(cx, cy, 28, reticle_c);
+          it.circle(cx, cy, 27, reticle_c);
+
+          // Crosshairs (leaving center open for target ring)
+          it.line(cx - 150, cy, cx - 35, cy, reticle_c);
+          it.line(cx + 35, cy, cx + 150, cy, reticle_c);
+          it.line(cx, cy - 150, cx, cy - 35, reticle_c);
+          it.line(cx, cy + 35, cx, cy + 150, reticle_c);
+
+          // Center dead-level pip
+          it.filled_circle(cx, cy, 2, reticle_c);
+
+          // Liquid Bubble Position (1° tilt = 18px offset)
+          int bx = cx + (int)(r_deg * 18.0f);
+          int by = cy + (int)(p_deg * 18.0f);
+
+          // Clamp bubble within boundary circle (r = 135)
+          float b_dist = sqrtf((float)((bx - cx) * (bx - cx) + (by - cy) * (by - cy)));
+          if (b_dist > 135.0f && b_dist > 0.001f) {
+            bx = cx + (int)((float)(bx - cx) * 135.0f / b_dist);
+            by = cy + (int)((float)(by - cy) * 135.0f / b_dist);
+          }
+
+          // Liquid Bubble Body (Radius 22)
+          Color bub_fill = is_level ? id(col_green) : id(theme_secondary);
+          it.filled_circle(bx, by, 22, bub_fill);
+          it.circle(bx, by, 22, id(col_white));
+          // Specular glint reflection on top-left of bubble
+          it.filled_circle(bx - 7, by - 7, 4, id(col_white));
+
+          // Numeric Angle Readout at y = 356 (Large, High-Contrast)
+          char deg_buf[16];
+          snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
+          it.print(cx, 356, id(font_date), is_level ? id(col_green) : id(col_white), TextAlign::CENTER, deg_buf);
+
+          // Secondary Status / Pitch-Roll breakdown at y = 388
+          char status_buf[32];
+          if (is_level) {
+            snprintf(status_buf, sizeof(status_buf), "DEAD LEVEL");
+          } else {
+            snprintf(status_buf, sizeof(status_buf), "P: %+.1f°  R: %+.1f°", p_deg, r_deg);
+          }
+          it.print(cx, 388, id(font_micro), is_level ? id(col_green) : id(col_gray), TextAlign::CENTER, status_buf);
+
+          // Standardized Centered < BACK Button at y = 412 (r = 16)
+          draw_back_button();
+
+        } else if (id(stuff_subpage) == 2) {
+          // --------------------------------------------------
+          // SUBPAGE 2: FULL-SCREEN OLED FLASHLIGHT
+          // 466x466 pure full-screen light emitter with 3 tap-toggle modes:
+          // Mode 0: Pure White Torch (100% display brightness)
+          // Mode 1: Warm Amber Soft Light (255, 190, 70)
+          // Mode 2: Night-Vision Red (255, 0, 0, preserves dark adaptation)
+          // Tap anywhere to cycle modes; tap bottom back button to exit
+          // --------------------------------------------------
+          Color flash_col = id(col_white);
+          const char* mode_name = "WHITE TORCH";
+          if (id(stuff_flashlight_mode) == 1) {
+            flash_col = Color(255, 190, 70); // Warm Amber
+            mode_name = "WARM AMBER";
+          } else if (id(stuff_flashlight_mode) == 2) {
+            flash_col = Color(255, 20, 20);  // Night-Vision Red
+            mode_name = "NIGHT RED";
+          }
+
+          // Flood the circular AMOLED screen with light
+          it.filled_circle(cx, cy, 233, flash_col);
+
+          // Subtle unobtrusive mode hint at top (y = 50) and back prompt at bottom (y = 412)
+          Color text_c = (id(stuff_flashlight_mode) == 2) ? id(col_white) : id(col_black);
+          it.print(cx, 50, id(font_micro), text_c, TextAlign::CENTER, mode_name);
+          it.print(cx, 412, id(font_micro), text_c, TextAlign::CENTER, "< TAP TO EXIT >");
+
+        } else {
+          // Placeholder for upcoming Coin Flip, Dice Roller, Tip Calculator
+          draw_menu_header(50, "STUFF");
+          it.print(cx, 220, id(font_date), id(theme_secondary), TextAlign::CENTER, "COMING SOON");
+          it.print(cx, 255, id(font_micro), id(col_gray), TextAlign::CENTER, "In Active Development");
+          draw_back_button();
+        }
       }
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
       // Guaranteed visibility over any page: stopwatch parchment, full-screen album art, etc.
@@ -8171,7 +8356,7 @@ display:
       bool show_meta_in_deck = (current_overlay_mode == "Art + Metadata" || current_overlay_mode == "Always Visible");
       bool music_clean_art = (id(gui_page) == 2 && !show_meta_in_deck && !id(music_hud_active));
 
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(gui_page) == 8 && id(stuff_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
         bool is_stopwatch = (id(gui_page) == 1);
         Color chevron_col = id(col_white);
 
@@ -8360,6 +8545,7 @@ touchscreen:
               if (idx == 5) return id(deck_slot_5);
               if (idx == 6) return id(deck_slot_6);
               if (idx == 7) return id(deck_slot_7);
+              if (idx == 8) return id(deck_slot_8);
               return 0;
             };
 
@@ -8400,7 +8586,7 @@ touchscreen:
                     ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                     id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(menu_scroll_active) = false;
-                    id(music_hud_active) = false; id(remote_subpage) = 0;
+                    id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0;
                     id(disp1).update();
                   }
                 }
@@ -9913,7 +10099,7 @@ touchscreen:
                       // Default Start App Cycler
                       std::string cur = std::string(id(default_start_app).current_option().c_str());
                       auto call = id(default_start_app).make_call();
-                      call.set_option(cycle_option(cur, {"Clock", "Stopwatch", "Music", "Games", "Sky & Weather", "Timer & Alarm", "System", "Remote"}));
+                      call.set_option(cycle_option(cur, {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Stuff", "Timer & Alarm", "Stopwatch", "System"}));
                       call.perform();
                       id(disp1).update();
                     } else if (item_idx == 1) {
@@ -9921,30 +10107,34 @@ touchscreen:
                       id(rebuild_active_deck).execute();
                       id(disp1).update();
                     } else if (item_idx == 2) {
-                      id(show_stopwatch_switch).toggle();
-                      id(rebuild_active_deck).execute();
-                      id(disp1).update();
-                    } else if (item_idx == 3) {
                       id(show_music_switch).toggle();
                       id(rebuild_active_deck).execute();
                       id(disp1).update();
-                    } else if (item_idx == 4) {
-                      id(show_games_switch).toggle();
-                      id(rebuild_active_deck).execute();
-                      id(disp1).update();
-                    } else if (item_idx == 5) {
-                      id(show_weather_switch).toggle();
-                      id(rebuild_active_deck).execute();
-                      id(disp1).update();
-                    } else if (item_idx == 6) {
-                      id(show_timer_switch).toggle();
-                      id(rebuild_active_deck).execute();
-                      id(disp1).update();
-                    } else if (item_idx == 7) {
+                    } else if (item_idx == 3) {
                       id(show_remote_switch).toggle();
                       id(rebuild_active_deck).execute();
                       id(disp1).update();
+                    } else if (item_idx == 4) {
+                      id(show_weather_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 5) {
+                      id(show_games_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 6) {
+                      id(show_stuff_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 7) {
+                      id(show_timer_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
                     } else if (item_idx == 8) {
+                      id(show_stopwatch_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                      id(disp1).update();
+                    } else if (item_idx == 9) {
                       id(show_system_switch).toggle();
                       id(rebuild_active_deck).execute();
                       id(disp1).update();
@@ -10450,6 +10640,83 @@ touchscreen:
                   id(disp1).update();
                 }
                 return;
+              }
+            // Page 8: Stuff Suite (Launcher, Bubble Level, Flashlight, Coin, Dice, Tip Calc)
+            } else if (id(gui_page) == 8) {
+              static uint32_t last_stuff_tap = 0;
+              uint32_t now_stuff = millis();
+
+              if (id(stuff_subpage) == 0) {
+                // ----------------------------------------------------
+                // SUBPAGE 0: STUFF LAUNCHER (5-Slot Hit Testing)
+                // ----------------------------------------------------
+                int slot_idx = get_5slot_index(touch, 95, 371);
+                if (slot_idx >= 0) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    // Slot 0: Bubble Level (subpage 1)
+                    // Slot 1: Flashlight (subpage 2)
+                    // Slot 2: Coin Flip (subpage 3)
+                    // Slot 3: Dice Roller (subpage 4)
+                    // Slot 4: Tip Calc (subpage 5)
+                    id(stuff_subpage) = slot_idx + 1;
+                    if (id(stuff_subpage) == 2) {
+                      // Boost brightness to 100% on flashlight launch
+                      id(display_brightness).turn_on().set_brightness(1.0f).perform();
+                    }
+                    ESP_LOGI("touch", "Page 8 Stuff Launcher -> Subpage %d", id(stuff_subpage));
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+              } else if (id(stuff_subpage) == 1) {
+                // ----------------------------------------------------
+                // SUBPAGE 1: BUBBLE LEVEL TOUCH HANDLING
+                // Tap < BACK to return to Stuff Launcher
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+              } else if (id(stuff_subpage) == 2) {
+                // ----------------------------------------------------
+                // SUBPAGE 2: FLASHLIGHT TOUCH HANDLING
+                // Bottom exit zone (y >= 390) -> Exits to Launcher & restores brightness
+                // Anywhere else on glass -> Cycles Flashlight Color (White -> Amber -> Red)
+                // ----------------------------------------------------
+                if (touch.y >= 390) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    id(sync_display_brightness).execute(); // Restore scheduled brightness
+                    id(disp1).update();
+                  }
+                  return;
+                } else {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_flashlight_mode) = (id(stuff_flashlight_mode) + 1) % 3;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+              } else {
+                // Subpages 3, 4, 5 (Placeholders): Tap < BACK to exit
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
               }
             }
 
