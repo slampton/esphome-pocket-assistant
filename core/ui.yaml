@@ -1829,13 +1829,8 @@ sensor:
           } else if (id(stuff_subpage) == 4 && !id(dice_anim_active)) {
             id(dice_anim_active) = true;
             id(dice_anim_start_ms) = now_m;
-            if (id(dice_type) == 0) {
-              id(dice_val_d6) = (esp_random() % 6) + 1;
-              id(dice_val_d6_2) = (esp_random() % 6) + 1;
-            } else {
-              id(dice_val_d20) = (esp_random() % 20) + 1;
-              id(dice_val_d20_2) = (esp_random() % 20) + 1;
-            }
+            id(dice_val_d6) = (esp_random() % 6) + 1;
+            id(dice_val_d6_2) = (esp_random() % 6) + 1;
             id(disp1).update();
           }
         }
@@ -8433,61 +8428,74 @@ display:
           // SUBPAGE 3: COIN FLIP (HOME ASSISTANT COMMEMORATIVE EDITION)
           // Heads: Home Assistant Voice Assistant Smiley Character
           // Tails: Iconic Home Assistant Network Graph House Logo
-          // 3D vertical perspective flip animation with shake or tap trigger
+          // Advanced 3D vertical perspective flip animation with airborne arc
+          // Silver-gray planchet with prominent enlarged house iconography
           // --------------------------------------------------
           uint32_t now_c = millis();
           float flip_progress = 1.0f;
           float scale_y = 1.0f;
+          float y_hop = 0.0f;
           bool show_heads = (id(coin_side) == 0);
 
           if (id(coin_anim_active)) {
             uint32_t elapsed = now_c - id(coin_anim_start_ms);
-            const uint32_t flip_dur = 850; // ms
+            const uint32_t flip_dur = 950; // ms
             if (elapsed >= flip_dur) {
               id(coin_anim_active) = false;
               flip_progress = 1.0f;
               scale_y = 1.0f;
+              y_hop = 0.0f;
             } else {
               flip_progress = (float)elapsed / (float)flip_dur;
-              // High-speed rotational spin (5 complete revolutions over duration)
-              float theta = flip_progress * (5.0f * 2.0f * PI_F);
+              // Parabolic airborne hop: rises 50px into the air, falls back down
+              y_hop = -50.0f * sinf(flip_progress * PI_F);
+
+              // Multi-flip rotation: 6*pi (3 full flips) for Heads, 7*pi (3.5 flips) for Tails
+              float total_rot = (id(coin_side) == 0) ? (6.0f * PI_F) : (7.0f * PI_F);
+              float eased_t = sinf(flip_progress * (PI_F / 2.0f));
+              float theta = total_rot * (0.35f * flip_progress + 0.65f * eased_t);
               scale_y = cosf(theta);
-              // Face visible during tumble alternates with cosine sign
               show_heads = (scale_y >= 0.0f);
               scale_y = fabsf(scale_y);
-              if (scale_y < 0.08f) scale_y = 0.08f; // Thin reeded edge visible on edge-on pass
+              if (scale_y < 0.08f) scale_y = 0.08f;
             }
           }
 
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "COIN FLIP");
 
-          const int coin_cy = 195;
+          const int coin_base_cy = 195;
+          const int coin_cy = coin_base_cy + (int)y_hop;
           const float r_coin = 98.0f;
           float ry = r_coin * scale_y;
 
-          // 1. Outer Reeded Rim (Lustrous Minted Gold Edge)
-          Color col_rim = Color(225, 185, 65);
-          Color col_field = Color(248, 240, 205);
-          Color col_border = Color(185, 145, 40);
+          // Airborne Drop Shadow (visible during vertical flight)
+          if (y_hop < -6.0f) {
+            float shadow_scale = 1.0f - (-y_hop / 120.0f);
+            if (shadow_scale < 0.4f) shadow_scale = 0.4f;
+            int s_rx = (int)(r_coin * shadow_scale * 0.75f);
+            int s_ry = (int)(18.0f * shadow_scale);
+            it.filled_circle(cx, coin_base_cy + 85, s_ry, Color(15, 18, 24));
+            it.filled_rectangle(cx - s_rx, coin_base_cy + 85 - s_ry, 2 * s_rx, 2 * s_ry + 1, Color(15, 18, 24));
+          }
+
+          // 1. Silver-Gray Planchet Outer Rim (Concentric Bevels - Zero Radial Lines)
+          Color col_outer_rim = Color(145, 152, 165);
+          Color col_bevel = Color(225, 230, 240);
+          Color col_field = Color(188, 195, 206);
+          Color col_inner_ring = Color(135, 142, 155);
           Color ha_blue = Color(3, 169, 244);
-          Color ha_dark = Color(18, 55, 95);
+          Color ha_dark = Color(15, 45, 80);
 
           it.filled_circle(cx, coin_cy, (int)r_coin);
-          for (int deg = 0; deg < 360; deg += 4) {
-            float rad = (float)deg * (PI_F / 180.0f);
-            float s = sinf(rad), c = cosf(rad);
-            int ox = (int)(r_coin * s);
-            int oy = (int)(ry * c);
-            it.line(cx, coin_cy, cx + ox, coin_cy + oy, col_border);
-          }
+
           // Outer edge stroke
           for (float a = 0.0f; a < 2.0f * PI_F; a += 0.05f) {
             float s = sinf(a), c = cosf(a);
-            it.draw_pixel_at(cx + (int)(r_coin * s), coin_cy + (int)(ry * c), col_rim);
+            it.draw_pixel_at(cx + (int)(r_coin * s), coin_cy + (int)(ry * c), col_outer_rim);
           }
 
-          // 2. Inner Planchet Field (Smooth Burnished Gold Planchet)
-          float r_field = r_coin - 6.0f;
+          // 2. Inner Planchet Field (Smooth Solid Silver-Gray)
+          float r_field = r_coin - 5.0f;
           float ry_f = r_field * scale_y;
           for (float rf = 0.0f; rf <= r_field; rf += 1.5f) {
             float cur_ry = rf * scale_y;
@@ -8496,31 +8504,32 @@ display:
             }
           }
 
-          // Inner Bevel Ring
+          // Inset Bevel Ring
           for (float a = 0.0f; a < 2.0f * PI_F; a += 0.04f) {
             float s = sinf(a), c = cosf(a);
-            it.draw_pixel_at(cx + (int)((r_field - 3.0f) * s), coin_cy + (int)((ry_f - 3.0f * scale_y) * c), col_border);
+            it.draw_pixel_at(cx + (int)((r_field - 2.0f) * s), coin_cy + (int)((ry_f - 2.0f * scale_y) * c), col_bevel);
+            it.draw_pixel_at(cx + (int)((r_field - 4.0f) * s), coin_cy + (int)((ry_f - 4.0f * scale_y) * c), col_inner_ring);
           }
 
-          // 3. Coin Motifs (Only drawn when coin is sufficiently face-on)
+          // 3. Dominant Enlarged Home Assistant House Motif (Centered, High-Impact)
           if (scale_y > 0.35f) {
             int hx = cx;
-            int hy = coin_cy - (int)(18.0f * scale_y);
-            int hw_roof = 26;
-            int hw_body = 20;
-            int roof_h = 22;
-            int body_h = 22;
+            int hy = coin_cy - (int)(14.0f * scale_y);
+            int hw_roof = 42;
+            int hw_body = 34;
+            int roof_h = 34;
+            int body_h = 34;
 
             int hy_apex = hy - (int)((float)roof_h * scale_y);
             int hy_eave = hy;
             int hy_base = hy + (int)((float)body_h * scale_y);
 
-            // Roof
+            // House Roof (Gable Roof)
             it.filled_triangle(hx, hy_apex, hx - hw_roof, hy_eave, hx + hw_roof, hy_eave, ha_blue);
             it.line(hx, hy_apex, hx - hw_roof, hy_eave, ha_dark);
             it.line(hx, hy_apex, hx + hw_roof, hy_eave, ha_dark);
 
-            // Body
+            // House Body
             int body_box_h = hy_base - hy_eave + 1;
             if (body_box_h > 0) {
               it.filled_rectangle(hx - hw_body, hy_eave, 2 * hw_body + 1, body_box_h, ha_blue);
@@ -8531,46 +8540,54 @@ display:
 
             if (show_heads) {
               // Heads: Home Assistant Voice Assistant Smiley Face
-              int eye_y = hy + (int)(5.0f * scale_y);
-              int eye_r = (int)(2.8f * scale_y);
+              int eye_y = hy + (int)(8.0f * scale_y);
+              int eye_r = (int)(4.0f * scale_y);
               if (eye_r < 1) eye_r = 1;
-              it.filled_circle(hx - 7, eye_y, eye_r, id(col_white));
-              it.filled_circle(hx + 7, eye_y, eye_r, id(col_white));
+              it.filled_circle(hx - 12, eye_y, eye_r, id(col_white));
+              it.filled_circle(hx + 12, eye_y, eye_r, id(col_white));
+              if (eye_r >= 3) {
+                it.draw_pixel_at(hx - 12, eye_y, ha_dark);
+                it.draw_pixel_at(hx + 12, eye_y, ha_dark);
+              }
 
               // Smile Arc
-              int smile_y = hy + (int)(12.0f * scale_y);
-              for (float sa = 0.2f * PI_F; sa <= 0.8f * PI_F; sa += 0.08f) {
-                int smx = hx + (int)(7.0f * cosf(sa));
-                int smy = smile_y + (int)(5.0f * sinf(sa) * scale_y);
+              int smile_y = hy + (int)(18.0f * scale_y);
+              for (float sa = 0.2f * PI_F; sa <= 0.8f * PI_F; sa += 0.06f) {
+                int smx = hx + (int)(12.0f * cosf(sa));
+                int smy = smile_y + (int)(8.0f * sinf(sa) * scale_y);
                 it.draw_pixel_at(smx, smy, id(col_white));
                 it.draw_pixel_at(smx, smy + 1, id(col_white));
               }
 
               // Text on Coin
               if (scale_y > 0.65f) {
-                it.print(cx, coin_cy + (int)(46.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "HEADS");
+                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "HEADS");
               }
             } else {
               // Tails: Classic Home Assistant Network Node Tree Logo
-              int root_y = hy + (int)(2.0f * scale_y);
-              int node_y = hy + (int)(12.0f * scale_y);
-              int node_r = (int)(2.8f * scale_y);
+              int root_y = hy + (int)(4.0f * scale_y);
+              int node_y = hy + (int)(18.0f * scale_y);
+              int node_r = (int)(4.0f * scale_y);
               if (node_r < 1) node_r = 1;
 
-              // Node Tree Lines
-              it.line(hx, hy_apex + (int)(6.0f * scale_y), hx, root_y, id(col_white));
-              it.line(hx, root_y, hx - 8, node_y, id(col_white));
-              it.line(hx, root_y, hx + 8, node_y, id(col_white));
-              it.line(hx, root_y, hx, hy_base - (int)(3.0f * scale_y), id(col_white));
+              // Node Tree Lines (2px thick)
+              it.line(hx, hy_apex + (int)(8.0f * scale_y), hx, root_y, id(col_white));
+              it.line(hx + 1, hy_apex + (int)(8.0f * scale_y), hx + 1, root_y, id(col_white));
+              it.line(hx, root_y, hx - 14, node_y, id(col_white));
+              it.line(hx + 1, root_y, hx - 13, node_y, id(col_white));
+              it.line(hx, root_y, hx + 14, node_y, id(col_white));
+              it.line(hx + 1, root_y, hx + 15, node_y, id(col_white));
+              it.line(hx, root_y, hx, hy_base - (int)(4.0f * scale_y), id(col_white));
+              it.line(hx + 1, root_y, hx + 1, hy_base - (int)(4.0f * scale_y), id(col_white));
 
               // Circular Nodes
               it.filled_circle(hx, root_y, node_r, id(col_white));
-              it.filled_circle(hx - 8, node_y, node_r, id(col_white));
-              it.filled_circle(hx + 8, node_y, node_r, id(col_white));
+              it.filled_circle(hx - 14, node_y, node_r, id(col_white));
+              it.filled_circle(hx + 14, node_y, node_r, id(col_white));
 
               // Text on Coin
               if (scale_y > 0.65f) {
-                it.print(cx, coin_cy + (int)(46.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "TAILS");
+                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), ha_dark, TextAlign::CENTER, "TAILS");
               }
             }
           }
@@ -8582,15 +8599,13 @@ display:
 
         } else if (id(stuff_subpage) == 4) {
           // --------------------------------------------------
-          // SUBPAGE 4: DICE ROLL (DUAL D6 & DUAL D20)
-          // Classic Ivory White Dual D6 & Tabletop Ruby Red Dual D20
-          // Non-overlapping Dual Selector Pills at y = 285
+          // SUBPAGE 4: DICE ROLL (ALWAYS DUAL D6)
+          // Dominant, Centered Ivory White Dual D6 Dice (130x130)
+          // Direct Full-Screen Tap or Shake Trigger (No Menu Row)
           // --------------------------------------------------
           uint32_t now_d = millis();
           int cur_val_d6_1 = id(dice_val_d6);
           int cur_val_d6_2 = id(dice_val_d6_2);
-          int cur_val_d20_1 = id(dice_val_d20);
-          int cur_val_d20_2 = id(dice_val_d20_2);
 
           if (id(dice_anim_active)) {
             uint32_t elapsed = now_d - id(dice_anim_start_ms);
@@ -8601,127 +8616,60 @@ display:
               // Rapid random tumble during roll animation
               cur_val_d6_1 = ((now_d / 50) % 6) + 1;
               cur_val_d6_2 = (((now_d + 27) / 45) % 6) + 1;
-              cur_val_d20_1 = ((now_d / 35) % 20) + 1;
-              cur_val_d20_2 = (((now_d + 19) / 40) % 20) + 1;
             }
           }
 
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "DICE ROLL");
 
-          const int dice_cy = 165;
-          const int d1_cx = cx - 58;
-          const int d2_cx = cx + 58;
+          const int dice_cy = 180;
+          const int d1_cx = cx - 74; // 159
+          const int d2_cx = cx + 74; // 307
+          const int d_size = 130;
 
-          if (id(dice_type) == 0) {
-            // Dual D6: Ivory White Rounded Cubes (90x90)
-            auto draw_single_d6 = [&](int center_x, int cur_val) {
-              const int d_size = 90;
-              int x0 = center_x - d_size / 2;
-              int y0 = dice_cy - d_size / 2;
+          // Helper to draw a single dominant D6 die
+          auto draw_dominant_d6 = [&](int center_x, int cur_val) {
+            int x0 = center_x - d_size / 2;
+            int y0 = dice_cy - d_size / 2;
 
-              it.filled_rectangle(x0 + 3, y0 + 5, d_size, d_size, id(col_dark_gray));
-              it.filled_rectangle(x0, y0, d_size, d_size, Color(248, 246, 240));
-              it.rectangle(x0, y0, d_size, d_size, Color(195, 190, 180));
+            // Soft Drop Shadow
+            it.filled_rectangle(x0 + 5, y0 + 7, d_size, d_size, id(col_dark_gray));
+            // Ivory Die Body
+            it.filled_rectangle(x0, y0, d_size, d_size, Color(248, 246, 240));
+            it.rectangle(x0, y0, d_size, d_size, Color(185, 180, 170));
 
-              const int pr = 6;
-              const int p_dist = 22;
-              Color pip_c = Color(25, 28, 35);
-              auto draw_pip = [&](int px, int py) {
-                it.filled_circle(px, py, pr, pip_c);
-              };
-
-              bool p_center = (cur_val == 1 || cur_val == 3 || cur_val == 5);
-              bool p_tl_br  = (cur_val >= 2);
-              bool p_tr_bl  = (cur_val >= 4);
-              bool p_mid_lr = (cur_val == 6);
-
-              if (p_center) draw_pip(center_x, dice_cy);
-              if (p_tl_br)  { draw_pip(center_x - p_dist, dice_cy - p_dist); draw_pip(center_x + p_dist, dice_cy + p_dist); }
-              if (p_tr_bl)  { draw_pip(center_x + p_dist, dice_cy - p_dist); draw_pip(center_x - p_dist, dice_cy + p_dist); }
-              if (p_mid_lr) { draw_pip(center_x - p_dist, dice_cy); draw_pip(center_x + p_dist, dice_cy); }
+            // Circular Pips (Obsidian Black, Radius 9)
+            const int pr = 9;
+            const int p_dist = 33;
+            Color pip_c = Color(25, 28, 35);
+            auto draw_pip = [&](int px, int py) {
+              it.filled_circle(px, py, pr, pip_c);
             };
 
-            draw_single_d6(d1_cx, cur_val_d6_1);
-            draw_single_d6(d2_cx, cur_val_d6_2);
+            bool p_center = (cur_val == 1 || cur_val == 3 || cur_val == 5);
+            bool p_tl_br  = (cur_val >= 2);
+            bool p_tr_bl  = (cur_val >= 4);
+            bool p_mid_lr = (cur_val == 6);
 
-            // Readout below dice
-            if (id(dice_anim_active)) {
-              it.print(cx, 230, id(font_small), id(theme_secondary), TextAlign::CENTER, "Rolling...");
-            } else {
-              char d6_sum_buf[32];
-              snprintf(d6_sum_buf, sizeof(d6_sum_buf), "Total: %d", cur_val_d6_1 + cur_val_d6_2);
-              it.print(cx, 230, id(font_small), id(col_white), TextAlign::CENTER, d6_sum_buf);
-            }
+            if (p_center) draw_pip(center_x, dice_cy);
+            if (p_tl_br)  { draw_pip(center_x - p_dist, dice_cy - p_dist); draw_pip(center_x + p_dist, dice_cy + p_dist); }
+            if (p_tr_bl)  { draw_pip(center_x + p_dist, dice_cy - p_dist); draw_pip(center_x - p_dist, dice_cy + p_dist); }
+            if (p_mid_lr) { draw_pip(center_x - p_dist, dice_cy); draw_pip(center_x + p_dist, dice_cy); }
+          };
 
+          draw_dominant_d6(d1_cx, cur_val_d6_1);
+          draw_dominant_d6(d2_cx, cur_val_d6_2);
+
+          // Prominent Large Total Readout below dice
+          if (id(dice_anim_active)) {
+            it.print(cx, 285, id(font_date), id(theme_secondary), TextAlign::CENTER, "ROLLING...");
           } else {
-            // Dual D20: Tabletop Ruby Red Icosahedrons
-            auto draw_single_d20 = [&](int center_x, int cur_val) {
-              const int r_d20 = 46;
-              const int r_in  = 22;
-              Color c_ruby = Color(205, 30, 45);
-              Color c_facet = Color(255, 120, 130);
-
-              int vx_out[6], vy_out[6];
-              for (int i = 0; i < 6; i++) {
-                float ang = (float)i * (PI_F / 3.0f) - PI_F / 6.0f;
-                vx_out[i] = center_x + (int)((float)r_d20 * cosf(ang));
-                vy_out[i] = dice_cy + (int)((float)r_d20 * sinf(ang));
-              }
-              int vx_in[3], vy_in[3];
-              for (int i = 0; i < 3; i++) {
-                float ang = (float)i * (2.0f * PI_F / 3.0f) + PI_F / 2.0f;
-                vx_in[i] = center_x + (int)((float)r_in * cosf(ang));
-                vy_in[i] = dice_cy + (int)((float)r_in * sinf(ang));
-              }
-
-              it.filled_triangle(vx_out[0], vy_out[0], vx_out[1], vy_out[1], vx_in[0], vy_in[0], c_ruby);
-              it.filled_triangle(vx_out[1], vy_out[1], vx_out[2], vy_out[2], vx_in[1], vy_in[1], Color(175, 22, 36));
-              it.filled_triangle(vx_out[2], vy_out[2], vx_out[3], vy_out[3], vx_in[1], vy_in[1], c_ruby);
-              it.filled_triangle(vx_out[3], vy_out[3], vx_out[4], vy_out[4], vx_in[2], vy_in[2], Color(155, 18, 30));
-              it.filled_triangle(vx_out[4], vy_out[4], vx_out[5], vy_out[5], vx_in[2], vy_in[2], c_ruby);
-              it.filled_triangle(vx_out[5], vy_out[5], vx_out[0], vy_out[0], vx_in[0], vy_in[0], Color(225, 45, 60));
-              it.filled_triangle(vx_in[0], vy_in[0], vx_in[1], vy_in[1], vx_in[2], vy_in[2], Color(235, 55, 70));
-
-              for (int i = 0; i < 6; i++) {
-                it.line(vx_out[i], vy_out[i], vx_out[(i+1)%6], vy_out[(i+1)%6], c_facet);
-              }
-              for (int i = 0; i < 3; i++) {
-                it.line(vx_in[i], vy_in[i], vx_out[i*2], vy_out[i*2], c_facet);
-                it.line(vx_in[i], vy_in[i], vx_out[(i*2+1)%6], vy_out[(i*2+1)%6], c_facet);
-                it.line(vx_in[i], vy_in[i], vx_out[(i*2+5)%6], vy_out[(i*2+5)%6], c_facet);
-              }
-
-              char d20_buf[16];
-              snprintf(d20_buf, sizeof(d20_buf), "%d", cur_val);
-              Color num_c = (cur_val == 20) ? id(col_gold) : (cur_val == 1 ? Color(255, 90, 90) : id(col_white));
-              it.print(center_x, dice_cy - 12, id(font_date), num_c, TextAlign::CENTER, d20_buf);
-            };
-
-            draw_single_d20(d1_cx, cur_val_d20_1);
-            draw_single_d20(d2_cx, cur_val_d20_2);
-
-            // Readout below dice
-            if (id(dice_anim_active)) {
-              it.print(cx, 230, id(font_small), id(theme_secondary), TextAlign::CENTER, "Rolling...");
-            } else if (cur_val_d20_1 == 20 || cur_val_d20_2 == 20) {
-              char crit_buf[48];
-              snprintf(crit_buf, sizeof(crit_buf), "NAT 20! (Total: %d)", cur_val_d20_1 + cur_val_d20_2);
-              it.print(cx, 230, id(font_small), id(col_gold), TextAlign::CENTER, crit_buf);
-            } else {
-              char d20_sum_buf[32];
-              snprintf(d20_sum_buf, sizeof(d20_sum_buf), "Total: %d", cur_val_d20_1 + cur_val_d20_2);
-              it.print(cx, 230, id(font_small), id(col_white), TextAlign::CENTER, d20_sum_buf);
-            }
+            char total_buf[32];
+            snprintf(total_buf, sizeof(total_buf), "TOTAL: %d", cur_val_d6_1 + cur_val_d6_2);
+            it.print(cx, 285, id(font_date), id(col_white), TextAlign::CENTER, total_buf);
           }
 
-          // Mode Selector Pills: [ 2x D6 ]  [ 2x D20 ] at y = 285
-          // Non-overlapping geometry: Left [139..221], Right [245..327], 24px clear gap
-          bool is_d6 = (id(dice_type) == 0);
-          draw_pill_button(155, 205, 285, 16, is_d6 ? id(theme_primary) : id(col_dark_gray), id(col_gray), "2x D6", is_d6 ? id(col_black) : id(col_white), false);
-          draw_pill_button(261, 311, 285, 16, !is_d6 ? id(theme_primary) : id(col_dark_gray), id(col_gray), "2x D20", !is_d6 ? id(col_black) : id(col_white), false);
-
-          // Action prompt (Large readable font)
-          it.print(cx, 345, id(font_small), id(col_white), TextAlign::CENTER, "Tap or shake to roll");
+          // Large legible action prompt
+          it.print(cx, 350, id(font_small), id(col_white), TextAlign::CENTER, "Tap or shake to roll");
 
           draw_back_button();
         } else {
@@ -11117,10 +11065,9 @@ touchscreen:
 
               } else if (id(stuff_subpage) == 4) {
                 // ----------------------------------------------------
-                // SUBPAGE 4: DICE ROLL TOUCH HANDLING
+                // SUBPAGE 4: DICE ROLL TOUCH HANDLING (ALWAYS DUAL D6)
                 // Back button at y: 385..445
-                // Mode Selector Pills at y: 260..315 (Left: 2x D6, Right: 2x D20)
-                // Tap anywhere else to roll both dice
+                // Tap anywhere else to roll both dice!
                 // ----------------------------------------------------
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -11129,36 +11076,14 @@ touchscreen:
                     id(disp1).update();
                   }
                   return;
-                } else if (touch.y >= 260 && touch.y <= 315) {
-                  // Dedicated Mode Selector Row:
-                  // Any touch in this row ONLY toggles mode, NEVER triggers a roll!
-                  if (touch.x <= 230) {
-                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_stuff_tap = now_stuff;
-                      id(dice_type) = 0; // 2x D6
-                      id(disp1).update();
-                    }
-                  } else if (touch.x >= 236) {
-                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_stuff_tap = now_stuff;
-                      id(dice_type) = 1; // 2x D20
-                      id(disp1).update();
-                    }
-                  }
-                  return;
                 } else {
-                  // Tap anywhere else (e.g. on the dice themselves at y < 260) to roll both dice!
+                  // Tap anywhere on the screen to roll both dice
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON && !id(dice_anim_active)) {
                     last_stuff_tap = now_stuff;
                     id(dice_anim_active) = true;
                     id(dice_anim_start_ms) = millis();
-                    if (id(dice_type) == 0) {
-                      id(dice_val_d6) = (esp_random() % 6) + 1;
-                      id(dice_val_d6_2) = (esp_random() % 6) + 1;
-                    } else {
-                      id(dice_val_d20) = (esp_random() % 20) + 1;
-                      id(dice_val_d20_2) = (esp_random() % 20) + 1;
-                    }
+                    id(dice_val_d6) = (esp_random() % 6) + 1;
+                    id(dice_val_d6_2) = (esp_random() % 6) + 1;
                     id(disp1).update();
                   }
                   return;
