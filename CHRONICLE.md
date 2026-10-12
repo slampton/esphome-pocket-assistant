@@ -5321,3 +5321,42 @@ Slated for the v2.0 Home Assistant Companion Package:
   * Extracts `integration_name(device_attr(device_id(entity), "manufacturer"))` and integration domain (`androidtvremote`, `apple_tv`, `roku`, `webostv`, `braviatv`, `samsungtv`, etc.).
   * Broadens coverage to include Samsung Tizen, Sony Bravia, Panasonic Viera, and HDMI-CEC.
 * **Synchronous Platform Publishing**: Automatically publishes the verified device platform to Pocket Assistant via an attribute on the companion sensor or native API service call, achieving 100% deterministic, zero-config device recognition without relying on entity naming heuristics.
+
+
+## Part CXXXV: Music Player Overhaul: Standard Uncropped 328x328 Inscribed Square, Clean Floating HUD & Direct Music Hub Gateway (Release v1.3 Chunk 3)
+
+### 1. Architectural Summary & Problem Definition
+In prior releases, the Music Player on Page 2 featured three disparate presentation modes: Full Screen (466x466 circular bleed), Letterbox (horizontal band), and Compact (216x216 thumbnail with a custom button layout). 
+
+This split caused several UX and code maintenance frictions:
+1. **Thumbnail Inefficiency**: The 216x216 thumbnail occupied only 21% of the circular display, leaving massive unused empty space while forcing album covers to appear tiny.
+2. **Code Fragmentation**: Compact mode maintained a separate rendering pipeline and bespoke touch hit-testing for solid dark gray pill buttons, duplicating transport logic and preventing feature parity with Full Screen.
+3. **Flank Button Crowding**: The floating HUD placed small 36px Speaker (top-left) and Library (bottom-left) icons on the left flank, competing with the album art, causing visual clutter, and risking accidental touches during perimeter track scrubbing.
+4. **Header Disconnect**: While Page 7 (Remote) pioneered the single dynamic device header at $y=50$, Page 2 Compact retained the legacy static "MUSIC" header and secondary subtitle line.
+
+### 2. Engineering Remediation & The Inscribed Square Architecture
+Release v1.3 Chunk 3 completes a comprehensive architectural overhaul of the Music Player:
+
+1. **Standard Uncropped Inscribed Square Mode (328x328)**:
+   * **Renaming & Deprecation**: The legacy "Compact" mode is officially retired and upgraded to **"Standard"** (`music_fullscreen_art_mode` options: `Full Screen`, `Letterbox`, `Standard`).
+   * **Inscribed Square Geometry**: On the 466px circular AMOLED ($R = 233\text{px}$), an uncropped square has side length $S = 466 / \sqrt{2} \approx 329.5\text{px}$. Implemented as an exact $328 \times 328$ square centered at $(cx, cy) = (233, 233)$, spanning $x \in [69, 396]$ and $y \in [69, 396]$. All four corners touch the circular bezel border without a single pixel of the album cover cropped.
+   * **Area Expansion**: Expands album art surface area from $46,656\text{px}^2$ to $107,584\text{px}^2$ (**+133% larger**, over $2.3\times$ area increase).
+   * **Native AMOLED Crescents**:
+     * Top crescent ($y \in [0, 68]$): Displays active speaker title at $y = 46$ (`font_date`, `theme_primary`) on pure black background with zero drop shadow.
+     * Bottom crescent ($y \in [397, 465]$): Displays track title at $y = 412$ (`font_small`, `col_white`) and artist at $y = 434$ (`font_micro`, `theme_secondary`) completely beneath the album art, delivering full metadata visibility with zero art obscuration.
+
+2. **Unified Floating HUD Transport & Clean Art-First Left Flank**:
+   * All three art modes (Full Screen, Letterbox, Standard) now share the exact same modern floating YouTube-style vector transport HUD with 50% dither scrim and 5-second auto-fade.
+   * **Clean Left Flank**: Removed the small Speaker and Library flank icons entirely. The left flank is now completely unobstructed, allowing the artwork to shine through uninterrupted while drawing ergonomic focus to the Right Flank volume controls (Vol + at $y=140$, Vol - at $y=284$).
+
+3. **Direct Music Hub Gateway (Subpage 5)**:
+   * **Instant 1-Tap Access**: Tapping the top header zone ($x \in [100, 366], y \le 85$) directly opens the Music Hub submenu (`music_overlay_mode = 5`), even when the HUD is dormant.
+   * **Subpage 5 Visual Hierarchy**: Modeled after the System Dashboard with an exact 32px vertical buffer:
+     * Title: `"MUSIC HUB"` at $y = 46$ (`font_date`, `theme_primary`).
+     * Subtitle: Active speaker name at $y = 78$ (`font_small`, `col_white`).
+     * Pill 1 ($y = 140$): `[ Speakers > ]` $\to$ opens Speakers Browser (Mode 1).
+     * Pill 2 ($y = 204$): `[ Library > ]` $\to$ opens Music Assistant Library Categories (Mode 2).
+     * Pill 3 ($y = 268$): `[ Audio Settings > ]` $\to$ opens Page 4 Audio Submenu with parent return tracking.
+     * Pill 4 ($y = 356$): `[ Back ]` $\to$ returns to Now Playing view (Mode 0).
+   * **Hierarchical Back Navigation**: In Mode 1 (Speakers Browser) and Mode 2 (Library Categories), tapping `< BACK` now returns directly to the Music Hub (Mode 5) rather than exiting to the player view.
+   * **Cross-Submenu State Preservation**: Added persistent `audio_menu_parent_page` tracking: exiting Audio Settings via Back button or hardware crown press returns directly to Music Hub when opened from Page 2, and to System Dashboard when opened from Page 4.

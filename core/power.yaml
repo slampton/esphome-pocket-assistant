@@ -517,8 +517,14 @@ script:
                 id(disp1).update();
                 return;
               } else if (id(gui_page) == 4 && id(system_menu_mode) > 0) {
-                // In System Submenu -> back out to main System Dashboard
-                id(system_menu_mode) = 0;
+                // In System Submenu -> back out to main System Dashboard or Music Hub
+                if (id(audio_menu_parent_page) == 2 && id(system_menu_mode) == 7) {
+                  id(gui_page) = 2;
+                  id(music_overlay_mode) = 5;
+                  id(audio_menu_parent_page) = 4;
+                } else {
+                  id(system_menu_mode) = 0;
+                }
                 id(disp1).update();
                 return;
               } else if (id(gui_page) == 7 && id(remote_subpage) > 0) {
