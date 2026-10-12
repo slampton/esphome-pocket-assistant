@@ -1824,11 +1824,10 @@ sensor:
       float z = id(accel_z).state;
       if (isnan(x) || isnan(y) || isnan(z)) return NAN;
 
-      // Gravity low-pass filter (faster alpha = 0.20 absorbs static tilt quickly)
+      // Gravity low-pass filter (alpha = 0.20 absorbs static tilt quickly within ~500ms)
       static float grav_x = 0.0f;
       static float grav_y = 0.0f;
       static float grav_z = 1.0f;
-      static float prev_x = 0.0f;
       const float alpha = 0.20f;
       grav_x = (1.0f - alpha) * grav_x + alpha * x;
       grav_y = (1.0f - alpha) * grav_y + alpha * y;
@@ -1838,21 +1837,19 @@ sensor:
       float dy = y - grav_y;
       float dz = z - grav_z;
       float delta = sqrtf(dx*dx + dy*dy + dz*dz);
+      float planar_dyn = sqrtf(dx*dx + dy*dy);
 
-      // Balanced Deliberate Shake Detection for Tools Suite (Page 8)
-      // Perfectly calibrated between over-sensitive (0.45g) and stiff (0.85g):
-      // Inspects planar motion (X/Y) with moderate jerk, completely ignoring Z-axis table set-downs.
+      // Omnidirectional Natural Shake Detection for Tools Suite (Page 8)
+      // Balanced sweet spot between over-sensitive (0.45g) and stiff (0.85g / jerk-locked):
+      // Triggers reliably on any natural wrist motion (planar flick >= 0.52g, or vertical dip / 3D shake >= 0.55g),
+      // while alpha=0.20 filter and 1200ms lockout prevent false triggers from tilts and table set-downs.
       if (id(gui_page) == 8 && id(display_power_state) == 0) {
         static uint32_t last_shake_time = 0;
         uint32_t now_m = millis();
-        float lateral_dyn = fabsf(dx);
-        float planar_dyn = sqrtf(dx*dx + dy*dy);
-        float lateral_jerk = fabsf(x - prev_x);
 
-        // Balanced deliberate shake: natural lateral wrist snap (>= 0.60g) or planar flick (>= 0.68g)
-        bool is_deliberate_shake = (lateral_dyn >= 0.60f && lateral_jerk >= 0.45f) || (planar_dyn >= 0.68f && lateral_jerk >= 0.40f);
+        bool is_deliberate_shake = (planar_dyn >= 0.52f || delta >= 0.55f);
 
-        if (is_deliberate_shake && (now_m - last_shake_time > 1000)) {
+        if (is_deliberate_shake && (now_m - last_shake_time > 1200)) {
           last_shake_time = now_m;
           if (id(stuff_subpage) == 8 && !id(coin_anim_active)) {
             id(coin_anim_active) = true;
@@ -1868,7 +1865,6 @@ sensor:
           }
         }
       }
-      prev_x = x;
 
       return delta;
 
