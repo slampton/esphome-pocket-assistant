@@ -2662,8 +2662,29 @@ script:
     mode: restart
     then:
       - delay: 0ms
-      - script.execute: resolve_selected_music_slot
       - lambda: |-
+          int s = id(selected_music_slot);
+          if (s == 1) {
+            id(selected_slot_name) = id(slot_1_name);
+            id(selected_slot_id)   = id(slot_1_id);
+            id(selected_slot_type) = id(slot_1_type);
+          } else if (s == 2) {
+            id(selected_slot_name) = id(slot_2_name);
+            id(selected_slot_id)   = id(slot_2_id);
+            id(selected_slot_type) = id(slot_2_type);
+          } else if (s == 3) {
+            id(selected_slot_name) = id(slot_3_name);
+            id(selected_slot_id)   = id(slot_3_id);
+            id(selected_slot_type) = id(slot_3_type);
+          } else if (s == 4) {
+            id(selected_slot_name) = id(slot_4_name);
+            id(selected_slot_id)   = id(slot_4_id);
+            id(selected_slot_type) = id(slot_4_type);
+          } else {
+            id(selected_slot_name) = id(slot_5_name);
+            id(selected_slot_id)   = id(slot_5_id);
+            id(selected_slot_type) = id(slot_5_type);
+          }
           id(music_action_feedback) = "Playing: " + id(selected_slot_name);
           id(music_feedback_timer) = millis();
           if (id(selected_category_mode) == "podcast_episodes") {
@@ -2673,19 +2694,34 @@ script:
           } else {
             id(active_playback_media_type) = "music";
           }
-          if (id(active_speaker_entity) != "${local_player_id}") {
+          if (id(active_speaker_entity) != "") {
             id(current_loaded_art_url) = "";
           }
       - homeassistant.action:
           action: music_assistant.play_media
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-            media_id: !lambda 'return id(selected_slot_id).c_str();'
+            entity_id: !lambda |-
+              std::string spk = id(active_speaker_entity);
+              if (spk.empty() || spk == "None") spk = "";
+              return spk.c_str();
+            media_id: !lambda |-
+              std::string mid = id(selected_slot_id);
+              if (mid.empty()) {
+                int s = id(selected_music_slot);
+                if (s == 1) mid = id(slot_1_id);
+                else if (s == 2) mid = id(slot_2_id);
+                else if (s == 3) mid = id(slot_3_id);
+                else if (s == 4) mid = id(slot_4_id);
+                else if (s == 5) mid = id(slot_5_id);
+              }
+              return mid.c_str();
             media_type: !lambda |-
               if (id(selected_category_mode) == "artist") return "artist";
               if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
               if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-              return id(selected_slot_type).c_str();
+              std::string mtype = id(selected_slot_type);
+              if (mtype.empty()) return "music";
+              return mtype.c_str();
       - if:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
@@ -2801,6 +2837,28 @@ script:
                   - component.update: disp1
                 else:
                   - lambda: |-
+                      int s = id(selected_music_slot);
+                      if (s == 1) {
+                        id(selected_slot_name) = id(slot_1_name);
+                        id(selected_slot_id)   = id(slot_1_id);
+                        id(selected_slot_type) = id(slot_1_type);
+                      } else if (s == 2) {
+                        id(selected_slot_name) = id(slot_2_name);
+                        id(selected_slot_id)   = id(slot_2_id);
+                        id(selected_slot_type) = id(slot_2_type);
+                      } else if (s == 3) {
+                        id(selected_slot_name) = id(slot_3_name);
+                        id(selected_slot_id)   = id(slot_3_id);
+                        id(selected_slot_type) = id(slot_3_type);
+                      } else if (s == 4) {
+                        id(selected_slot_name) = id(slot_4_name);
+                        id(selected_slot_id)   = id(slot_4_id);
+                        id(selected_slot_type) = id(slot_4_type);
+                      } else {
+                        id(selected_slot_name) = id(slot_5_name);
+                        id(selected_slot_id)   = id(slot_5_id);
+                        id(selected_slot_type) = id(slot_5_type);
+                      }
                       id(music_action_feedback) = "Playing: " + id(selected_slot_name);
                       id(music_feedback_timer) = millis();
                       if (id(selected_category_mode) == "podcast_episodes") {
@@ -2813,13 +2871,28 @@ script:
                   - homeassistant.action:
                       action: music_assistant.play_media
                       data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                        media_id: !lambda 'return id(selected_slot_id).c_str();'
+                        entity_id: !lambda |-
+                          std::string spk = id(active_speaker_entity);
+                          if (spk.empty() || spk == "None") spk = "";
+                          return spk.c_str();
+                        media_id: !lambda |-
+                          std::string mid = id(selected_slot_id);
+                          if (mid.empty()) {
+                            int s = id(selected_music_slot);
+                            if (s == 1) mid = id(slot_1_id);
+                            else if (s == 2) mid = id(slot_2_id);
+                            else if (s == 3) mid = id(slot_3_id);
+                            else if (s == 4) mid = id(slot_4_id);
+                            else if (s == 5) mid = id(slot_5_id);
+                          }
+                          return mid.c_str();
                         media_type: !lambda |-
                           if (id(selected_category_mode) == "artist") return "artist";
                           if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") return "album";
                           if (id(selected_category_mode) == "podcast_episodes") return "podcast_episode";
-                          return id(selected_slot_type).c_str();
+                          std::string mtype = id(selected_slot_type);
+                          if (mtype.empty()) return "music";
+                          return mtype.c_str();
                   - delay: 800ms
                   - lambda: |-
                       id(music_overlay_mode) = 0;
@@ -4580,7 +4653,7 @@ display:
                 if (!apply_scrim && show_metadata) {
                   // Subtle bottom metadata scrim when metadata is set to always show without controls
                   int scrim_end = is_letterbox ? 385 : 395;
-                  for (int y = 320; y < scrim_end; y++) {
+                  for (int y = 330; y < scrim_end; y++) {
                     int hw = CIRCLE_HW[y];
                     int start_x = cx - hw;
                     if ((start_x + y) % 2 != 0) start_x++;
@@ -4629,7 +4702,7 @@ display:
 
           if (show_controls) {
             // Floating Vector Transport Glyphs with 1px Drop Shadows
-            // Flank Controls: Left flank is clean and blank (art shines through); Right flank has Vol + (y=140) and Vol - (y=284)
+            // Flank Controls: Left flank is clean and blank (art shines through); Right flank has Vol + (y=140) and Vol - (y=326)
             const int prev_btn_x = 124;
             const int next_btn_x = 342;
             const int right_flank_x = 395;
@@ -4711,7 +4784,7 @@ display:
 
             auto draw_vol_dn_glyph = [&](int ox, int oy, Color c) {
               int vx = right_flank_x + ox;
-              int vy = 284 + oy;
+              int vy = 326 + oy;
               it.filled_rectangle(vx - 7, vy - 1, 15, 3, c);
             };
 
@@ -4804,34 +4877,26 @@ display:
             if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
             if (title.length() > 24) title = title.substr(0, 22) + "...";
 
-            if (is_standard) {
-              // Standard Mode: Clean typography in bottom AMOLED crescent (y=412, y=434) with zero art overlap
-              it.print(cx, 412, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
-              if (!artist.empty() && artist != "None") {
-                if (artist.length() > 28) artist = artist.substr(0, 26) + "...";
-                it.print(cx, 434, id(font_micro), id(theme_secondary), TextAlign::CENTER, artist.c_str());
-              }
-            } else {
-              // Full Screen & Letterbox: Floating metadata with 1px drop shadow (y=336, 358, 378)
-              bool has_shadow = has_art;
+            // Standardized Floating Track Metadata across all 3 Album Art Modes (y=348, 370, 390)
+            // Sits comfortably clear of Volume Down on the right flank (y=326) and page chevrons at bottom (y=424)
+            bool has_shadow = has_art;
+            if (has_shadow) {
+              it.print(cx + 1, 348 + 1, id(font_small), id(col_black), TextAlign::CENTER, title.c_str());
+            }
+            it.print(cx, 348, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
+            if (!artist.empty() && artist != "None") {
+              if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
               if (has_shadow) {
-                it.print(cx + 1, 336 + 1, id(font_small), id(col_black), TextAlign::CENTER, title.c_str());
+                it.print(cx + 1, 370 + 1, id(font_small), id(col_black), TextAlign::CENTER, artist.c_str());
               }
-              it.print(cx, 336, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
-              if (!artist.empty() && artist != "None") {
-                if (artist.length() > 26) artist = artist.substr(0, 24) + "...";
-                if (has_shadow) {
-                  it.print(cx + 1, 358 + 1, id(font_small), id(col_black), TextAlign::CENTER, artist.c_str());
-                }
-                it.print(cx, 358, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
+              it.print(cx, 370, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
+            }
+            if (!album.empty() && album != "None") {
+              if (album.length() > 28) album = album.substr(0, 26) + "...";
+              if (has_shadow) {
+                it.print(cx + 1, 390 + 1, id(font_small), id(col_black), TextAlign::CENTER, album.c_str());
               }
-              if (!album.empty() && album != "None") {
-                if (album.length() > 28) album = album.substr(0, 26) + "...";
-                if (has_shadow) {
-                  it.print(cx + 1, 378 + 1, id(font_small), id(col_black), TextAlign::CENTER, album.c_str());
-                }
-                it.print(cx, 378, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
-              }
+              it.print(cx, 390, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
             }
 
             // Right Flank Volume HUD Overlay: Centered between Volume Up (+) and Volume Down (-) at (405, 212)
@@ -4859,14 +4924,15 @@ display:
           // Clean Pill Button 1: Speakers > at y = 140 (h = 42, r = 21, span: 120..346)
           draw_pill_button(120, 346, 140, 21, id(theme_primary), id(col_dark_gray), "Speakers >", id(col_white), false);
 
-          // Clean Pill Button 2: Library > at y = 204 (h = 42, r = 21, span: 120..346)
-          draw_pill_button(120, 346, 204, 21, id(theme_primary), id(col_dark_gray), "Library >", id(col_white), false);
+          // Clean Pill Button 2: Library > at y = 200 (h = 42, r = 21, span: 120..346)
+          draw_pill_button(120, 346, 200, 21, id(theme_primary), id(col_dark_gray), "Library >", id(col_white), false);
 
-          // Clean Pill Button 3: Audio Settings > at y = 268 (h = 42, r = 21, span: 120..346)
-          draw_pill_button(120, 346, 268, 21, id(theme_secondary), id(col_dark_gray), "Audio Settings >", id(col_white), false);
+          // Clean Pill Button 3: Audio Settings > at y = 290 (h = 42, r = 21, span: 120..346)
+          // Lowered with a distinct gap to visually communicate separation of duties
+          draw_pill_button(120, 346, 290, 21, id(theme_secondary), id(col_dark_gray), "Audio Settings >", id(col_white), false);
 
-          // Clean Pill Button 4: Back Button at y = 356 (Matching OS Subpage Standard)
-          draw_pill_button(140, 326, 356, 20, id(theme_secondary), id(col_dark_gray), "Back", id(col_white), false);
+          // Universal Standard Centered < BACK Button at y = 408 (Matching Speakers and Library)
+          draw_back_button();
 
         } else if (id(music_overlay_mode) == 1) {
           // --------------------------------------------------
@@ -8388,7 +8454,7 @@ touchscreen:
                 const int right_flank_x = 395;
                 const int btn_y_top = 140;
                 const int btn_y_mid = 233;
-                const int btn_y_vol_dn = 284;
+                const int btn_y_vol_dn = 326;
 
                 std::string overlay_mode = id(music_overlay_style).current_option();
                 if (overlay_mode.empty()) overlay_mode = "Art Only";
@@ -8464,8 +8530,8 @@ touchscreen:
                   return;
                 }
 
-                // Volume Down (-): Lower-Right Quadrant (x > 306 with y >= 248 && y < 400, or x >= 288 with y >= 275 && y < 400)
-                if ((touch.x > 306 && touch.y >= 248 && touch.y < 400) || (touch.x >= 288 && touch.y >= 275 && touch.y < 400)) {
+                // Volume Down (-): Lower-Right Quadrant (x > 306 with y >= 280 && y < 400, or x >= 288 with y >= 285 && y < 400)
+                if ((touch.x > 306 && touch.y >= 280 && touch.y < 400) || (touch.x >= 288 && touch.y >= 285 && touch.y < 400)) {
                   static uint32_t last_vol_dn_tap = 0;
                   uint32_t now_vol_tap = millis();
                   if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
@@ -8565,8 +8631,8 @@ touchscreen:
                 // Subpage 5: Music Hub Touch Navigation
                 // ----------------------------------------------------
                 uint32_t now_hub = millis();
-                // Back Button: y in [336..376], x in [140..326] (or is_back_button)
-                if ((touch.y >= 336 && touch.y <= 376 && touch.x >= 140 && touch.x <= 326) || is_back_button(touch)) {
+                // Universal Back Button at y = 408 (handled via is_back_button)
+                if (is_back_button(touch)) {
                   static uint32_t last_hub_back = 0;
                   if (now_hub - last_hub_back > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_back = now_hub;
@@ -8579,8 +8645,8 @@ touchscreen:
                   return;
                 }
 
-                // Pill 1: Speakers > (y in [119..161], x in [120..346])
-                if (touch.y >= 119 && touch.y <= 161 && touch.x >= 120 && touch.x <= 346) {
+                // Pill 1: Speakers > (y in [118..162], x in [120..346], center y = 140)
+                if (touch.y >= 118 && touch.y <= 162 && touch.x >= 120 && touch.x <= 346) {
                   static uint32_t last_hub_spk = 0;
                   if (now_hub - last_hub_spk > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_spk = now_hub;
@@ -8595,8 +8661,8 @@ touchscreen:
                   return;
                 }
 
-                // Pill 2: Library > (y in [183..225], x in [120..346])
-                if (touch.y >= 183 && touch.y <= 225 && touch.x >= 120 && touch.x <= 346) {
+                // Pill 2: Library > (y in [178..222], x in [120..346], center y = 200)
+                if (touch.y >= 178 && touch.y <= 222 && touch.x >= 120 && touch.x <= 346) {
                   static uint32_t last_hub_lib = 0;
                   if (now_hub - last_hub_lib > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_lib = now_hub;
@@ -8610,8 +8676,8 @@ touchscreen:
                   return;
                 }
 
-                // Pill 3: Audio Settings > (y in [247..289], x in [120..346])
-                if (touch.y >= 247 && touch.y <= 289 && touch.x >= 120 && touch.x <= 346) {
+                // Pill 3: Audio Settings > (y in [268..312], x in [120..346], center y = 290)
+                if (touch.y >= 268 && touch.y <= 312 && touch.x >= 120 && touch.x <= 346) {
                   static uint32_t last_hub_set = 0;
                   if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_set = now_hub;
@@ -8790,6 +8856,12 @@ touchscreen:
                         id(fetch_music_browse).execute();
                       } else if (is_drill && touch.x <= 118) {
                         id(selected_music_slot) = slot_num;
+                        id(selected_slot_name) = s_name;
+                        id(selected_slot_id) = s_id;
+                        id(selected_slot_type) = (slot_num == 1) ? id(slot_1_type) :
+                                                 (slot_num == 2) ? id(slot_2_type) :
+                                                 (slot_num == 3) ? id(slot_3_type) :
+                                                 (slot_num == 4) ? id(slot_4_type) : id(slot_5_type);
                         id(play_music_slot).execute();
                       } else if (is_drill && touch.x > 118) {
                         if (id(selected_category_mode) == "artist") {
@@ -8811,6 +8883,12 @@ touchscreen:
                         }
                       } else {
                         id(selected_music_slot) = slot_num;
+                        id(selected_slot_name) = s_name;
+                        id(selected_slot_id) = s_id;
+                        id(selected_slot_type) = (slot_num == 1) ? id(slot_1_type) :
+                                                 (slot_num == 2) ? id(slot_2_type) :
+                                                 (slot_num == 3) ? id(slot_3_type) :
+                                                 (slot_num == 4) ? id(slot_4_type) : id(slot_5_type);
                         id(select_music_slot).execute();
                       }
                     }

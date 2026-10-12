@@ -5360,3 +5360,58 @@ Release v1.3 Chunk 3 completes a comprehensive architectural overhaul of the Mus
      * Pill 4 ($y = 356$): `[ Back ]` $\to$ returns to Now Playing view (Mode 0).
    * **Hierarchical Back Navigation**: In Mode 1 (Speakers Browser) and Mode 2 (Library Categories), tapping `< BACK` now returns directly to the Music Hub (Mode 5) rather than exiting to the player view.
    * **Cross-Submenu State Preservation**: Added persistent `audio_menu_parent_page` tracking: exiting Audio Settings via Back button or hardware crown press returns directly to Music Hub when opened from Page 2, and to System Dashboard when opened from Page 4.
+
+
+---
+
+
+---
+
+## Part CXXXVIII: Unified Music Ergonomics, Universal Flank Symmetry & Asynchronous Slot Resolution Safeguards (Release v1.3 Chunk 4)
+
+### 1. Architectural Summary & Problem Definition
+Following the initial deployment of the uncropped 328x328 inscribed square album art architecture in Release v1.3 Chunk 3, user ergonomic testing and direct library interaction revealed several layout and dispatch discrepancies across Page 2:
+1. **Track Metadata Clutter & Chevron Crowding**: In Standard Album Art mode, placing track metadata at the lower edge (y=412, 434) crowded the deck navigation chevrons (y=424) and introduced a non-standard visual rhythm compared to Full Screen and Letterbox modes.
+2. **Right-Flank Radial Asymmetry**: On Page 2, Volume Up sat at y=140 (dy = -93 from cy=233), while Volume Down was positioned at y=284 (dy = +51). On Page 7 (Universal TV Remote), Volume Down sat at y=326 (dy = +93). This vertical discrepancy degraded cross-app muscle memory and cramped the right flank.
+3. **Music Hub (Mode 5) Coherence & Separation of Duties**: The initial Music Hub layout utilized a non-standard back button and lacked visual breathing room between browse operations ("Speakers >", "Library >") and system-level configuration ("Audio Settings >").
+4. **Library Direct Play Button Failure**: When browsing artists or albums in Level 3 Item Browser (Mode 3), tapping the discrete left play button (x <= 118) failed to initiate playback via Music Assistant.
+
+---
+
+### 2. Root Cause Analysis: ESPHome Asynchronous Script Execution Race
+Investigation of the Library Play Button failure revealed a timing race condition within the ESPHome action execution model:
+* **The Mechanism**: In ESPHome, `- script.execute: <script_id>` dispatches the referenced script asynchronously without awaiting completion before advancing to subsequent action items in the sequence.
+* **The Failure Mode**: Both `play_music_slot` and `select_music_slot` relied on `- script.execute: resolve_selected_music_slot` immediately prior to issuing `homeassistant.action: music_assistant.play_media`. Because `resolve_selected_music_slot` ran asynchronously on the next event loop tick, the lambda evaluating `media_id` evaluated `id(selected_slot_id)` while it was still empty or populated with stale data from a prior selection.
+* **Backend Verification**: Direct verification confirmed the Home Assistant backend, `pocket_assistant_companion.yaml` package, and `pocket_assistant_music_browser.yaml` blueprint were 100% operational and capable of direct URI playback (`library://artist/1`, `library://album/1`). The root failure was entirely confined to the firmware dispatch timing.
+
+---
+
+### 3. Firmware Implementation & Ergonomic Standardizations (`core/ui.yaml`)
+
+#### A. Synchronous Slot Resolution & Direct Fallback Pipeline
+* Eliminated the asynchronous `resolve_selected_music_slot` call inside `play_music_slot` and `select_music_slot`.
+* Implemented synchronous inline lambda resolution mapping `selected_music_slot` (1..5) directly to `selected_slot_name`, `selected_slot_id`, and `selected_slot_type`.
+* Enhanced `on_touch:` tap routing in Level 3 Item Browser to populate `selected_slot_id`, `selected_slot_name`, and `selected_slot_type` synchronously before invoking `play_music_slot.execute()` or `select_music_slot.execute()`.
+* Implemented fail-safe lambda resolution for `entity_id` (defaulting cleanly to `${local_player_id}` if `active_speaker_entity` is unset or invalid) and `media_id` (evaluating `slot_X_id` directly if `selected_slot_id` is somehow unpopulated).
+
+#### B. Standardized Floating Metadata Overlay (y = 348, 370, 390)
+* Standardized track metadata presentation across all three album art modes (Standard, Full Screen, Letterbox).
+* Shifted the floating text block to:
+  * **Track Title**: y = 348 (`font_small`, `col_white`) with 1px black drop shadow.
+  * **Artist**: y = 370 (`font_small`, `theme_secondary`) with 1px black drop shadow.
+  * **Album**: y = 390 (`font_small`, `col_slate`) with 1px black drop shadow.
+* This placement provides ~26px of clean buffer above the deck navigation chevrons at y = 424 while remaining entirely clear of the newly lowered Volume Down glyph.
+
+#### C. Volume Down Realignment to y = 326
+* Lowered the Volume Down button from y = 284 to y = 326 on the right flank (x = 395).
+* Achieves exact physical coordinate and radial symmetry (dy = +/- 93 from screen center cy = 233) with Volume Up (y = 140), matching the exact geometry of the Universal TV Remote (Page 7).
+* Centers the transient volume HUD overlay indicator circle at (405, 233) directly between both controls.
+* Expanded the Volume Down touch hit zone to y in [280, 375] (x > 306).
+
+#### D. Music Hub (Mode 5) Universal Standard & Duty Separation
+* Replaced the non-standard pill back button with the canonical `< BACK` button rendered via `draw_back_button()` centered at y = 408 (r = 16, x in [180, 286]).
+* Re-spaced menu options:
+  * `Speakers >`: y = 140 (h = 42, r = 21, x in [120, 346]).
+  * `Library >`: y = 200 (h = 42, r = 21, x in [120, 346]).
+  * `Audio Settings >`: Shifted down to y = 290 (h = 42, r = 21, x in [120, 346]), creating an intentional 90px visual gap that reinforces clear separation between playback routing and system audio settings.
+* Standardized back button hit-testing via `is_back_button(touch)` across all subpages.
