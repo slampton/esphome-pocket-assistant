@@ -7546,7 +7546,7 @@ display:
 
           uint32_t now_ms = millis();
           const int cel_cx = 346;
-          const int cel_cy = 92;
+          const int cel_cy = 87;
 
           // ====================================================================
           // LAYER 0: ATMOSPHERIC CANVAS
@@ -7855,11 +7855,11 @@ display:
           // ====================================================================
           // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
           // ====================================================================
-          // Hero Temperature moved to y = 104
+          // Hero Temperature moved to y = 99
           char temp_buf[16];
           if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
-          it.print(cx, 104, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
+          it.print(cx, 99, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
           // Condition Subtitle moved to y = 168
           auto format_cond = [](const std::string& c_in) -> std::string {
@@ -8209,12 +8209,12 @@ display:
           // Divider below lunar disc at y = 234
           it.line(110, 234, 356, 234, id(col_dark_gray));
 
-          // Centered Phase Name (y = 258) and Illumination (y = 290) preserving exact 32px inter-line spacing
-          it.print(cx, 258, id(font_btn_bold), id(col_white), TextAlign::CENTER, mp_label.c_str());
+          // Centered Phase Name (y = 258) and Illumination (y = 290) - swapped font colors
+          it.print(cx, 258, id(font_btn_bold), id(theme_secondary), TextAlign::CENTER, mp_label.c_str());
 
           char illum_buf[32];
           snprintf(illum_buf, sizeof(illum_buf), "%d%% Illumination", illum_pct);
-          it.print(cx, 290, id(font_small), id(theme_secondary), TextAlign::CENTER, illum_buf);
+          it.print(cx, 290, id(font_small), id(col_white), TextAlign::CENTER, illum_buf);
 
           // Standard baseline divider at y = 310 defining 26px buffer above enlarged bottom buttons
           it.line(80, 310, 386, 310, id(col_dark_gray));
@@ -9435,8 +9435,14 @@ display:
       // ==============================================================================
       std::string current_art_mode = id(music_fullscreen_art_mode).current_option();
       std::string current_overlay_mode = id(music_overlay_style).current_option();
-      bool show_meta_in_deck = (current_overlay_mode == "Art + Metadata" || current_overlay_mode == "Always Visible");
-      bool music_clean_art = (id(gui_page) == 2 && !show_meta_in_deck && !id(music_hud_active));
+      if (current_overlay_mode.empty()) current_overlay_mode = "Art Only";
+
+      // On Music Player (Page 2), deck navigation chevrons are visible in:
+      // - "Always Visible" overlay
+      // - "Art + Metadata" overlay
+      // - "Art Only" when HUD overlay is actively awakened (music_hud_active == true)
+      // Chevrons are solely suppressed during dormant clean art in "Art Only" mode.
+      bool music_clean_art = (id(gui_page) == 2 && current_overlay_mode == "Art Only" && !id(music_hud_active));
 
       if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(gui_page) == 8 && id(stuff_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
         bool is_stopwatch = (id(gui_page) == 1);
@@ -9638,9 +9644,13 @@ touchscreen:
             // Main App Deck: y >= 400 universally across all primary pages (0..6),
             //   establishing a clean 66px deck navigation hit zone (y: 400..465) around chevrons at y=424.
             // ==========================================
+            std::string cur_music_ov = id(music_overlay_style).current_option();
+            if (cur_music_ov.empty()) cur_music_ov = "Art Only";
+            bool music_dormant_art_only = (id(gui_page) == 2 && cur_music_ov == "Art Only" && !id(music_hud_active));
+
             bool is_deck_nav = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                !(id(gui_page) == 3 && id(active_game) > 0) &&
-                               !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
+                               !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_dormant_art_only)) &&
                                !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) &&
                                !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
@@ -11239,9 +11249,9 @@ touchscreen:
                 return;
               }
 
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 165)
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 160)
               // Generous zero-deadzone envelope covering entire upper-right quadrant from bezel (y~29px) inward
-              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 165) {
+              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 160) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   std::string s_state = id(ha_sun_state).state;
