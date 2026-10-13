@@ -4648,7 +4648,7 @@ display:
                 // Inscribed completely inside 466px circle with zero edge cropping
                 int step_x = (src_w << 12) / 328;
                 int step_y = (src_h << 12) / 328;
-                bool apply_scrim = id(music_hud_active);
+                bool apply_scrim = always_visible || id(music_hud_active);
                 int curr_y = 0;
                 for (int y = 0; y < 328; y++) {
                   int sy = curr_y >> 12;
@@ -4672,7 +4672,7 @@ display:
                 // Full Screen & Letterbox: Direct Row-Major Pointer Reads with CIRCLE_HW clipping
                 int start_y = is_letterbox ? 60 : 0;
                 int end_y = is_letterbox ? 385 : 466;
-                bool apply_scrim = id(music_hud_active);
+                bool apply_scrim = always_visible || id(music_hud_active);
                 if (src_w == 466 && src_h == 466) {
                   for (int y = start_y; y < end_y; y++) {
                     int hw = CIRCLE_HW[y];
@@ -9721,22 +9721,7 @@ touchscreen:
               }
             }
 
-            // Page 0: Clock Face - Tap center/digital time complication to toggle 12h/24h on the fly
-            if (id(gui_page) == 0 && id(ha_time).now().is_valid()) {
-              static uint32_t last_clock_tap = 0;
-              uint32_t now_c = millis();
-              if (touch.x >= 100 && touch.x <= 366 && touch.y >= 180 && touch.y <= 330) {
-                if (now_c - last_clock_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_clock_tap = now_c;
-                  id(is_24h_format) = !id(is_24h_format);
-                  auto call = id(time_format_select).make_call();
-                  call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
-                  call.perform();
-                  id(disp1).update();
-                }
-                return;
-              }
-            }
+
 
             // Page 1: Stopwatch Zero-Deadzone Ergonomic Touch Routing
             // --------------------------------------------------------
