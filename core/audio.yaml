@@ -99,11 +99,13 @@ rtttl:
 
 # ==============================================================================
 # 📌 TODO (REVISIT IN RELEASE v2.0 / AFTER MUSIC ASSISTANT 2.11+ STABLE SHIPS):
-# ESPHome 2026.10.0b2+ upgraded `sendspin-cpp` to v0.9.3 (PR #20347), which
+# ESPHome 2026.10.0b2+ upgraded `sendspin-cpp` to v0.9.3 (PR #20347) and coupled
+# `api` to `sendspin_::global_sendspin_hub` for pairing tokens (PR #20355), which
 # mandates the new Noise KKpsk2 `psk_category` field only supported in Music
 # Assistant 2.11+. While Music Assistant 2.10.x is the current stable release,
-# pin the `sendspin` component to `2026.10.0b1` (which includes all ESPHome
-# 2026.10 C++ core refactors while retaining the MA 2.10.6 compatible handshake).
+# pin `[api, sendspin]` to `2026.10.0b1` (which already includes `api: outgoing_connection:`
+# from PR #18919 and all ESPHome 2026.10 C++ core refactors while retaining the
+# MA 2.10.6 compatible handshake).
 # Remove this `external_components:` block once Music Assistant 2.11+ is stable.
 # ==============================================================================
 external_components:
@@ -111,7 +113,7 @@ external_components:
       type: git
       url: https://github.com/esphome/esphome
       ref: 2026.10.0b1
-    components: [sendspin]
+    components: [api, sendspin]
 
 sendspin:
   id: sendspin_hub
