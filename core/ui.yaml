@@ -6501,15 +6501,9 @@ display:
             }
           }
 
-          // Dynamic IMU Tilt Steering:
-          float tilt_mag = hypotf(roll_delta, pitch_delta);
-          if (tilt_mag > 3.5f && !ast_game_over) {
-            float target_angle = atan2f(pitch_delta, roll_delta);
-            float diff = target_angle - ship_angle;
-            while (diff > 3.14159265f) diff -= 6.2831853f;
-            while (diff < -3.14159265f) diff += 6.2831853f;
-            ship_angle += diff * 0.25f; // Smooth, responsive lag-free turn
-          }
+          // Pure Touch-Aim Architecture:
+          // Decoupled from IMU gyro to eliminate unwanted rotational drift when shifting hand grip.
+          // Ship heading is piloted exclusively and instantaneously by touchscreen tap/drag aiming.
 
           // 2. Continuous Spawning: Keep arena populated
           if (!ast_game_over && now_ast > next_spawn_ms) {
@@ -6778,8 +6772,8 @@ display:
             int cpy = (int)(cy + sinf(ship_angle) * 3.0f);
             it.filled_circle(cpx, cpy, 2, id(theme_secondary));
 
-            // Thruster flame when active
-            if (tilt_mag > 3.5f) {
+            // Thruster flame recoil flash when firing photon cannon
+            if (now_ast - last_shot_time < 120) {
               int fx = (int)(cx - cosf(ship_angle) * 12.0f);
               int fy = (int)(cy - sinf(ship_angle) * 12.0f);
               it.line(kx, ky, fx, fy, id(col_orange));
