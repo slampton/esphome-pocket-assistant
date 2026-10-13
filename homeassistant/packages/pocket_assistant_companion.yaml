@@ -1,6 +1,6 @@
 # ==============================================================================
 # 🌟 Home Assistant Companion Package: Pocket Assistant All-in-One Helpers & Sensors
-# Consolidated Single-Drop Companion Package (Release v1.2)
+# Consolidated Single-Drop Companion Package (Release v1.3)
 # Combines Active Media Mirroring and 5-Day Weather Forecast into 2 efficient sensors
 # ==============================================================================
 
@@ -24,8 +24,27 @@ template:
   - trigger:
       - trigger: state
         entity_id: input_text.pocket_assistant_active_speaker
+        id: speaker_changed
+      - trigger: homeassistant
+        event: start
+        id: ha_start
       - trigger: time_pattern
         seconds: "/2"
+        id: poll_tick
+    condition:
+      - condition: template
+        value_template: >-
+          {% if trigger.id in ['speaker_changed', 'ha_start'] %}
+            true
+          {% else %}
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {{ target not in ['unknown', 'unavailable', ''] and (
+               states(target) in ['playing', 'buffering']
+               or states(target) != states('sensor.pocket_assistant_active_media')
+               or (state_attr(target, 'media_title') | default('Idle', true)) != (state_attr('sensor.pocket_assistant_active_media', 'title') | default('Idle', true))
+               or (state_attr(target, 'volume_level') | default(0.7, true) | round(2)) != (state_attr('sensor.pocket_assistant_active_media', 'volume') | default(0.7, true) | round(2))
+            ) }}
+          {% endif %}
     sensor:
       - name: "Pocket Assistant Active Media"
         unique_id: pocket_assistant_active_media

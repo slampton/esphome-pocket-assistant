@@ -1,7 +1,7 @@
 # ==============================================================================
 # 🧭 Pocket Assistant (v1.3 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
-# Framework: ESPHome 2026.9.0+ (ESP-IDF 5.5+)
+# Framework: ESPHome 2026.10.0+ (ESP-IDF 5.5+)
 # Repository: https://github.com/slampton/esphome-pocket-assistant
 # ==============================================================================
 
@@ -53,7 +53,7 @@ dashboard_import:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
-  min_version: 2026.9.0
+  min_version: 2026.10.0
   project:
     name: "slampton.pocket-assistant-175c"
     version: "${version}"
@@ -68,8 +68,6 @@ esphome:
           extern uint32_t rtc_clk_cal(int cal_clk, uint32_t slow_clk_cycles) __asm__("rtc_clk_cal");
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
-
-          id(abort_boot) = false;
 
           // Release all deep sleep pad holds immediately so all peripherals initialize without delay
           gpio_deep_sleep_hold_dis();
@@ -109,8 +107,8 @@ esphome:
             id: es8311_dac
             volume: 90%
         - audio_dac.mute_on: es8311_dac
-        - script.execute: apply_default_start_page
         - script.execute: rebuild_active_deck
+        - script.execute: apply_default_start_page
         - script.execute: apply_theme_preset
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
@@ -122,9 +120,10 @@ logger:
   level: INFO
 
 api:
-  # Native API Outgoing Connection (ESPHome 2026.10+)
+  # Native API Noise Encryption & Outgoing Connection (ESPHome 2026.10+)
   # Enables client-initiated dial-out to Home Assistant upon waking from sleep or roaming APs,
   # eliminating reconnection timeouts and mDNS discovery latency.
+  encryption:
   outgoing_connection:
   actions:
     - action: set_browse_slots
@@ -158,8 +157,6 @@ api:
         - lambda: |-
             id(music_browse_page) = page;
             id(music_browse_total_pages) = total_pages;
-            id(music_browse_has_prev) = has_prev;
-            id(music_browse_has_next) = has_next;
             id(slot_1_name) = s1_name;
             id(slot_1_id) = s1_id;
             id(slot_1_type) = s1_type;
@@ -194,8 +191,8 @@ api:
               id(timer_running) = true;
               id(timer_paused) = false;
               id(timer_ringing) = false;
-              id(gui_page) = 6;
-              id(timer_alarm_subpage) = 0;
+              id(gui_page) = 8;
+              id(stuff_subpage) = 1;
               id(wake_to_active_state).execute();
               id(disp1).update();
               ESP_LOGI("timer", "Voice/HA Timer started for %d seconds", (int)seconds);
@@ -220,7 +217,6 @@ ota:
         - lambda: |-
             id(ota_in_progress) = true;
             id(ota_progress_pct) = 0;
-            id(ota_display_pct) = 0.0f;
             id(sleep_start_time) = 0; // Inhibit auto-deep sleep during OTA!
             // Ensure hardware pads are unheld and display is awake for OTA progress
             gpio_deep_sleep_hold_dis();
@@ -258,8 +254,6 @@ update:
 wifi:
   fast_connect: true
   power_save_mode: NONE
-  ap:
-    ssid: "Pocket Assistant Fallback"
 
 esp32_ble:
 

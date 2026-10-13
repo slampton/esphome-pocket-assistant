@@ -92,7 +92,7 @@ binary_sensor:
         - if:
             condition:
               lambda: |-
-                std::string mode = std::string(id(pickup_wake_mode).current_option().c_str());
+                auto mode = id(pickup_wake_mode).current_option();
                 if (mode == "Disabled") return false;
                 if (mode == "Docked Only" && !id(usb_connected).state) return false;
                 return true;
@@ -365,7 +365,7 @@ interval:
 
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
           uint32_t hibernate_timeout_ms = 600000; // default 10 min
-          std::string st_opt = std::string(id(hibernate_timeout_mode).current_option().c_str());
+          auto st_opt = id(hibernate_timeout_mode).current_option();
           bool auto_sleep_enabled = true;
           if (st_opt == "5 min") hibernate_timeout_ms = 300000;
           else if (st_opt == "10 min") hibernate_timeout_ms = 600000;
@@ -401,7 +401,7 @@ interval:
           if (++anim_div >= 2) {
             anim_div = 0;
             if (id(display_power_state) == 1) {
-              std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
+              auto s_style = id(screensaver_style_select).current_option();
               if (s_style != "Ambient Clock") {
                 id(disp1).update();
               }
@@ -532,25 +532,13 @@ script:
                 id(remote_subpage) = 0;
                 id(disp1).update();
                 return;
-              } else if ((id(gui_page) == 6 || (id(gui_page) == 8 && id(stuff_subpage) == 2)) && id(alarm_edit_idx) > 0) {
+              } else if (id(gui_page) == 8 && id(stuff_subpage) == 2 && id(alarm_edit_idx) > 0) {
                 // In Alarm Editor -> back out to Alarm List
                 id(alarm_edit_idx) = 0;
                 id(disp1).update();
                 return;
-              } else if (id(gui_page) == 8 && id(stuff_subpage) > 0) {
-                // In Tools Micro-App (Flashlight, Level, etc.) -> exit back to Tools Launcher Menu
-                // If exiting Flashlight (subpage 5), restore normal scheduled brightness
-                if (id(stuff_subpage) == 5 || id(stuff_subpage) == 2) {
-                  id(sync_display_brightness).execute();
-                }
-                id(stuff_subpage) = 0;
-                id(disp1).update();
-                return;
-              }
-
-              // Priority 3: Primary App Screen Action
-              if (id(gui_page) == 1) {
-                // Stopwatch: Physical tactile start/stop pusher with dwell latency compensation
+              } else if (id(gui_page) == 8 && id(stuff_subpage) == 3) {
+                // Stopwatch (Tools Subpage 3): Physical tactile start/stop pusher with dwell latency compensation
                 if (!id(stopwatch_running)) {
                   id(stopwatch_running) = true;
                   id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
@@ -568,22 +556,13 @@ script:
                 }
                 id(disp1).update();
                 return;
-              } else if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0) {
-                // Timer: Physical tactile start/pause/resume toggle
-                if (id(timer_running)) {
-                  id(timer_running) = false;
-                  id(timer_paused) = true;
-                  id(timer_remaining_sec) = (id(timer_target_ms) > millis()) ? ((id(timer_target_ms) - millis() + 999) / 1000) : 0;
-                } else if (id(timer_paused)) {
-                  id(timer_running) = true;
-                  id(timer_paused) = false;
-                  id(timer_target_ms) = millis() + (id(timer_remaining_sec) * 1000);
-                } else if (id(timer_duration_sec) > 0) {
-                  id(timer_running) = true;
-                  id(timer_paused) = false;
-                  id(timer_remaining_sec) = id(timer_duration_sec);
-                  id(timer_target_ms) = millis() + (id(timer_duration_sec) * 1000);
+              } else if (id(gui_page) == 8 && id(stuff_subpage) > 0) {
+                // In Tools Micro-App (Timer, Alarms, Flashlight, Level, etc.) -> exit back to Tools Launcher Menu
+                // If exiting Flashlight (subpage 5) or Alarms (subpage 2), restore normal scheduled brightness
+                if (id(stuff_subpage) == 5 || id(stuff_subpage) == 2) {
+                  id(sync_display_brightness).execute();
                 }
+                id(stuff_subpage) = 0;
                 id(disp1).update();
                 return;
               }
@@ -628,7 +607,7 @@ script:
     mode: restart
     then:
       - lambda: |-
-          std::string s_style = std::string(id(screensaver_style_select).current_option().c_str());
+          auto s_style = id(screensaver_style_select).current_option();
           bool screensaver_allowed = id(usb_connected).state && 
                                      id(docked_screensaver_switch).state && 
                                      (s_style != "Screen Off");
@@ -885,9 +864,9 @@ script:
           condition:
             lambda: |-
               if (id(usb_connected).state) {
-                if (std::string(id(screensaver_docked_timeout).current_option().c_str()) == "Never") return false;
+                if (id(screensaver_docked_timeout).current_option() == "Never") return false;
               } else {
-                if (std::string(id(display_off_timeout).current_option().c_str()) == "Never") return false;
+                if (id(display_off_timeout).current_option() == "Never") return false;
               }
               // On battery power, screen sleep strictly honors display_off_timeout (default 15s)
               // regardless of remote playback status, protecting OLED panel and battery.
