@@ -81,6 +81,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '1' # 1 to 2
+  - id: system_dashboard_page
+    type: int
+    restore_value: no
+    initial_value: '1' # 1 to 2
   - id: music_category_page
     type: int
     restore_value: no
@@ -3217,6 +3221,8 @@ script:
             id(audio_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 4 && id(system_menu_mode) == 10) {
             id(deck_menu_page) = id(menu_scroll_target_page);
+          } else if (id(gui_page) == 4 && id(system_menu_mode) == 0) {
+            id(system_dashboard_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 2 && id(music_overlay_mode) == 2) {
             id(music_category_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 3 && id(active_game) == 0) {
@@ -6830,8 +6836,49 @@ display:
 
         if (id(system_menu_mode) == 0) {
           // --------------------------------------------------
-          // VIEW 0: MAIN SYSTEM DASHBOARD (2x4 Grid, Standardized 56px Pitch)
+          // VIEW 0: MAIN SYSTEM DASHBOARD (2-Page Vertical Scroll Architecture, 4 Pills per Page)
+          // Page 1: Display, Clock, Sleep & Wake, Audio
+          // Page 2: App Deck, Voice, Info, Actions
+          // Model A: 4-Step Eased 232px (4-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
+          // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
           // --------------------------------------------------
+          int current_offset = 0;
+          if (id(menu_scroll_active)) {
+            int cur_step = id(menu_scroll_step);
+            if (cur_step < 0) cur_step = 0;
+            if (cur_step > 4) cur_step = 4;
+            int shift = SHARED_SCROLL_EASE_232[cur_step];
+            if (id(menu_scroll_dir) == 1) {
+              current_offset = shift;
+            } else {
+              current_offset = 232 - shift;
+            }
+          } else {
+            current_offset = (id(system_dashboard_page) == 2) ? 232 : 0;
+          }
+
+          static const char* const sys_labels[8] = {
+            "Display >",
+            "Clock >",
+            "Sleep & Wake >",
+            "Audio >",
+            "App Deck >",
+            "Voice >",
+            "Info >",
+            "Actions >"
+          };
+
+          for (int i = 0; i < 8; i++) {
+            int y = 118 + i * 58 - current_offset;
+            if (y >= 40 && y <= 370) {
+              draw_menu_card_y(y, sys_labels[i]);
+            }
+          }
+
+          // Clean Viewport Masks: clip scrolling pills outside y in [94, 320]
+          it.filled_rectangle(0, 0, 466, 94, id(col_bg));
+          it.filled_rectangle(0, 320, 466, 146, id(col_bg));
+
           // Top Header: Pure iconic "SYSTEM" title (Theme Primary, standardized at y=46)
           it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
 
@@ -6845,25 +6892,7 @@ display:
             it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, "Pocket Assistant v${version}");
           }
 
-          // Center Zone: Balanced 2x4 Grid of Standardized Pill Buttons (r = 18, 36px tall, 20px gap)
-          // Lowered to provide comfortable standard 54px buffer below subtitle at y=86
-          // Row 1 (y = 140): Display > (Left: x 69..221) | Clock > (Right: x 245..397)
-          draw_pill_button(89, 201, 140, 18, id(theme_secondary), id(col_dark_gray), "Display >", id(col_white), false);
-          draw_pill_button(265, 377, 140, 18, id(theme_secondary), id(col_dark_gray), "Clock >", id(col_white), false);
-
-          // Row 2 (y = 196): Sleep & Wake > (Left) | Audio > (Right)
-          draw_pill_button(89, 201, 196, 18, id(theme_secondary), id(col_dark_gray), "Sleep & Wake >", id(col_white), false);
-          draw_pill_button(265, 377, 196, 18, id(theme_secondary), id(col_dark_gray), "Audio >", id(col_white), false);
-
-          // Row 3 (y = 252): App Deck > (Left) | Voice > (Right)
-          draw_pill_button(89, 201, 252, 18, id(theme_secondary), id(col_dark_gray), "App Deck >", id(col_white), false);
-          draw_pill_button(265, 377, 252, 18, id(theme_secondary), id(col_dark_gray), "Voice >", id(col_white), false);
-
-          // Row 4 (y = 308): Info > (Left) | Actions > (Right)
-          draw_pill_button(89, 201, 308, 18, id(theme_secondary), id(col_dark_gray), "Info >", id(col_white), false);
-          draw_pill_button(265, 377, 308, 18, id(theme_secondary), id(col_dark_gray), "Actions >", id(col_white), false);
-
-          // Lower Zone: Centered Battery Status at y = 370 (Elevated half-row from y=380 to give comfortable cushion above chevrons)
+          // Lower Zone: Centered Battery Status at y = 370
           char b_main[32];
           snprintf(b_main, sizeof(b_main), "Battery: %.0f%%", batt);
           if (id(batt_charging).state) {
@@ -6878,6 +6907,10 @@ display:
           } else {
             it.print(cx, 370, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
           }
+
+          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
+          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(system_dashboard_page);
+          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
 
         } else if (id(system_menu_mode) == 1) {
           // --------------------------------------------------
@@ -7546,7 +7579,7 @@ display:
 
           uint32_t now_ms = millis();
           const int cel_cx = 346;
-          const int cel_cy = 82;
+          const int cel_cy = 116;
 
           // ====================================================================
           // LAYER 0: ATMOSPHERIC CANVAS
@@ -7589,7 +7622,7 @@ display:
               int sx = stars_x[k];
               int sy = stars_y[k];
               // Temperature & Moon sanctuary bounds
-              if (sx >= 165 && sx <= 302 && sy >= 55 && sy <= 110) continue;
+              if (sx >= 165 && sx <= 302 && sy >= 89 && sy <= 144) continue;
               if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
               float twinkle = sinf(now_ms * 0.003f + (float)k * 0.8f);
@@ -7855,13 +7888,13 @@ display:
           // ====================================================================
           // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
           // ====================================================================
-          // Hero Temperature moved to y = 100
+          // Hero Temperature moved down to y = 134 (+34px downward unit shift)
           char temp_buf[16];
           if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
-          it.print(cx, 100, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
+          it.print(cx, 134, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
-          // Condition Subtitle moved to y = 168
+          // Condition Subtitle moved down to y = 202 (+34px, aligning with former 3rd line)
           auto format_cond = [](const std::string& c_in) -> std::string {
             if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
             if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "PARTLY CLOUDY";
@@ -7885,21 +7918,7 @@ display:
           };
           std::string cond_title = format_cond(cond);
           Color cond_color = is_night ? id(theme_primary) : Color(255, 225, 110);
-          it.print(cx, 168, id(font_date), cond_color, TextAlign::CENTER, cond_title.c_str());
-
-          // Feels like / High-Low Line moved to y = 202
-          char fl_buf[64];
-          if (!isnan(t_high) && !isnan(t_low) && !isnan(app_temp)) {
-            snprintf(fl_buf, sizeof(fl_buf), "Feels %.0f°  •  H: %.0f°  L: %.0f°", app_temp, t_high, t_low);
-          } else if (!isnan(t_high) && !isnan(t_low)) {
-            snprintf(fl_buf, sizeof(fl_buf), "H: %.0f°  L: %.0f°", t_high, t_low);
-          } else if (!isnan(app_temp)) {
-            snprintf(fl_buf, sizeof(fl_buf), "Feels like %.0f°", app_temp);
-          } else {
-            snprintf(fl_buf, sizeof(fl_buf), "Current Weather");
-          }
-          Color fl_color = is_night ? id(col_slate) : Color(195, 215, 235);
-          it.print(cx, 202, id(font_small), fl_color, TextAlign::CENTER, fl_buf);
+          it.print(cx, 202, id(font_date), cond_color, TextAlign::CENTER, cond_title.c_str());
 
           // ----------------------------------------------------
           // PRIMARY METRICS: HUMIDITY & WIND (Harmonized 26px buffer above enlarged buttons)
@@ -9677,7 +9696,7 @@ touchscreen:
                     }
                     ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
-                    id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(menu_scroll_active) = false;
+                    id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
                     id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
                     id(sky_weather_subpage) = 0;
                     id(disp1).update();
@@ -10466,60 +10485,92 @@ touchscreen:
               uint32_t now_sys = millis();
 
               if (id(system_menu_mode) == 0) {
+                if (id(menu_scroll_active)) return;
+
+                // Right Flank Navigation (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
+                // Generous vertical right flank hit zone (x >= 370, y: 70..365)
+                if (touch.x >= 370 && touch.y >= 70 && touch.y <= 365) {
+                  static uint32_t last_dash_scroll_tap = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_dash_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
+                    last_dash_scroll_tap = now_s;
+                    if (id(system_dashboard_page) == 1) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = 1;
+                      id(menu_scroll_target_page) = 2;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    } else if (id(system_dashboard_page) == 2) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = -1;
+                      id(menu_scroll_target_page) = 1;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    }
+                  }
+                  return;
+                }
+
+                // Left Flank (x < 75): Discard to prevent misfires
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 365) {
+                  return;
+                }
+
                 if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 65..94)
                   if (touch.y >= 65 && touch.y <= 94 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 5; // Open Software Update Screen
                     id(disp1).update();
-                  // Row 1 Left: "Display >" (y: 111..167, x: 50..233, center y=140)
-                  } else if (touch.y >= 111 && touch.y <= 167 && touch.x <= 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 2; // Open Display Submenu
-                    id(display_menu_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(disp1).update();
-                  // Row 1 Right: "Clock >" (y: 111..167, x: 234..416, center y=140)
-                  } else if (touch.y >= 111 && touch.y <= 167 && touch.x > 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 9; // Open Clock & Time Submenu
-                    id(disp1).update();
-                  // Row 2 Left: "Sleep & Wake >" (y: 168..223, x: 50..233, center y=196)
-                  } else if (touch.y >= 168 && touch.y <= 223 && touch.x <= 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
-                    id(sleep_menu_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(disp1).update();
-                  // Row 2 Right: "Audio >" (y: 168..223, x: 234..416, center y=196)
-                  } else if (touch.y >= 168 && touch.y <= 223 && touch.x > 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 7; // Open Audio & Media Submenu
-                    id(audio_menu_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(disp1).update();
-                  // Row 3 Left: "App Deck >" (y: 224..279, x: 50..233, center y=252)
-                  } else if (touch.y >= 224 && touch.y <= 279 && touch.x <= 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 10; // Open App Deck Submenu
-                    id(deck_menu_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(disp1).update();
-                  // Row 3 Right: "Voice >" (y: 224..279, x: 234..416, center y=252)
-                  } else if (touch.y >= 224 && touch.y <= 279 && touch.x > 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 11; // Open Voice Assistant Submenu
-                    id(disp1).update();
-                  // Row 4 Left: "Info >" (y: 280..340, x: 50..233, center y=308)
-                  } else if (touch.y >= 280 && touch.y <= 340 && touch.x <= 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 8; // Open System Info Submenu
-                    id(disp1).update();
-                  // Row 4 Right: "Actions >" (y: 280..340, x: 234..416, center y=308)
-                  } else if (touch.y >= 280 && touch.y <= 340 && touch.x > 233) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 3; // Open System Actions Submenu
-                    id(disp1).update();
+                    return;
+                  }
+
+                  // Central 4 Button Slots (x: 90..370 across 4 slots: slot 0..3 at y=118, 176, 234, 292)
+                  if (touch.x >= 90 && touch.x <= 370) {
+                    int slot = -1;
+                    if (touch.y >= 90 && touch.y < 147) slot = 0;
+                    else if (touch.y >= 147 && touch.y < 205) slot = 1;
+                    else if (touch.y >= 205 && touch.y < 263) slot = 2;
+                    else if (touch.y >= 263 && touch.y <= 325) slot = 3;
+
+                    if (slot >= 0) {
+                      last_sys_action_tap = now_sys;
+                      int item_idx = (id(system_dashboard_page) == 1) ? slot : (slot + 4);
+                      if (item_idx == 0) {
+                        id(system_menu_mode) = 2; // Open Display Submenu
+                        id(display_menu_page) = 1;
+                        id(menu_scroll_active) = false;
+                        id(disp1).update();
+                      } else if (item_idx == 1) {
+                        id(system_menu_mode) = 9; // Open Clock & Time Submenu
+                        id(disp1).update();
+                      } else if (item_idx == 2) {
+                        id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
+                        id(sleep_menu_page) = 1;
+                        id(menu_scroll_active) = false;
+                        id(disp1).update();
+                      } else if (item_idx == 3) {
+                        id(system_menu_mode) = 7; // Open Audio & Media Submenu
+                        id(audio_menu_page) = 1;
+                        id(menu_scroll_active) = false;
+                        id(disp1).update();
+                      } else if (item_idx == 4) {
+                        id(system_menu_mode) = 10; // Open App Deck Submenu
+                        id(deck_menu_page) = 1;
+                        id(menu_scroll_active) = false;
+                        id(disp1).update();
+                      } else if (item_idx == 5) {
+                        id(system_menu_mode) = 11; // Open Voice Assistant Submenu
+                        id(disp1).update();
+                      } else if (item_idx == 6) {
+                        id(system_menu_mode) = 8; // Open System Info Submenu
+                        id(disp1).update();
+                      } else if (item_idx == 7) {
+                        id(system_menu_mode) = 3; // Open System Actions Submenu
+                        id(disp1).update();
+                      }
+                      return;
+                    }
                   }
                 }
               } else if (id(system_menu_mode) == 1) {
@@ -11251,9 +11302,9 @@ touchscreen:
                 return;
               }
 
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 150)
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 184)
               // Generous zero-deadzone envelope covering entire upper-right quadrant from bezel (y~29px) inward
-              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 150) {
+              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 184) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   std::string s_state = id(ha_sun_state).state;
