@@ -3536,9 +3536,10 @@ display:
         draw_menu_card_y(104 + slot_idx * 58, label, border_c, text_c, bg_c);
       };
 
-      // Standardized Centered < BACK Button Helper across all submenus (y = 408, r = 16, 106px wide, theme accent)
+      // Standardized Centered < BACK Button Helper across all submenus (y = 410, r = 14, 106px wide, theme accent)
+      // Top dropped by 4px from 392 to 396; bottom stationary at 424; text realigned to y_mid = 410
       auto draw_back_button = [&]() {
-        draw_pill_button(180, 286, 408, 16, C_PRIMARY, C_DARK_GRAY, "< BACK", C_PRIMARY, false);
+        draw_pill_button(180, 286, 410, 14, C_PRIMARY, C_DARK_GRAY, "< BACK", C_PRIMARY, false);
       };
 
       // Standardized Right-Flank Navigation Chevron Helpers (Global Display Scope)
@@ -7579,7 +7580,7 @@ display:
 
           uint32_t now_ms = millis();
           const int cel_cx = 346;
-          const int cel_cy = 106;
+          const int cel_cy = 91;
 
           // ====================================================================
           // LAYER 0: ATMOSPHERIC CANVAS
@@ -11302,9 +11303,9 @@ touchscreen:
                 return;
               }
 
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 174)
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 159)
               // Generous zero-deadzone envelope covering entire upper-right quadrant from bezel (y~29px) inward
-              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 174) {
+              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 159) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   std::string s_state = id(ha_sun_state).state;
