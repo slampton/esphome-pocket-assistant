@@ -7546,7 +7546,7 @@ display:
 
           uint32_t now_ms = millis();
           const int cel_cx = 346;
-          const int cel_cy = 87;
+          const int cel_cy = 82;
 
           // ====================================================================
           // LAYER 0: ATMOSPHERIC CANVAS
@@ -7855,11 +7855,11 @@ display:
           // ====================================================================
           // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
           // ====================================================================
-          // Hero Temperature moved to y = 99
+          // Hero Temperature moved to y = 94
           char temp_buf[16];
           if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
-          it.print(cx, 99, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
+          it.print(cx, 94, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
           // Condition Subtitle moved to y = 168
           auto format_cond = [](const std::string& c_in) -> std::string {
@@ -9444,7 +9444,7 @@ display:
       // Chevrons are solely suppressed during dormant clean art in "Art Only" mode.
       bool music_clean_art = (id(gui_page) == 2 && current_overlay_mode == "Art Only" && !id(music_hud_active));
 
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && (id(system_menu_mode) == 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(gui_page) == 8 && id(stuff_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && !(id(gui_page) == 4 && id(system_menu_mode) > 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 6 && id(alarm_edit_idx) > 0) && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(gui_page) == 8 && id(stuff_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing)) && !(id(gui_page) == 0 && !now.is_valid())) {
         bool is_stopwatch = (id(gui_page) == 1);
         Color chevron_col = id(col_white);
 
@@ -10001,6 +10001,7 @@ touchscreen:
                     id(music_overlay_mode) = 0; // Return to Now Playing view
                     id(music_hud_active) = true;
                     id(music_hud_timer) = now_hub;
+                    id(system_menu_mode) = 0;
                     ESP_LOGI("touch", "Music Hub -> Back to Player: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
@@ -11025,6 +11026,7 @@ touchscreen:
                       id(gui_page) = 2;
                       id(music_overlay_mode) = 5; // Return to Music Hub
                       id(audio_menu_parent_page) = 4;
+                      id(system_menu_mode) = 0;
                     } else {
                       id(system_menu_mode) = 0; // Return to Main System Dashboard
                     }
@@ -11249,9 +11251,9 @@ touchscreen:
                 return;
               }
 
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 160)
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 150)
               // Generous zero-deadzone envelope covering entire upper-right quadrant from bezel (y~29px) inward
-              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 160) {
+              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 150) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   std::string s_state = id(ha_sun_state).state;
