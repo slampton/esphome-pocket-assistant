@@ -777,6 +777,7 @@ select:
       - "Android TV / Fire TV / Bravia"
       - "Apple TV"
       - "Roku"
+      - "Samsung TV"
       - "LG webOS"
       - "Custom"
     set_action:
@@ -2052,6 +2053,8 @@ text_sensor:
                   id(tv_remote_profile).publish_state("Apple TV");
                 } else if (s_name.find("roku") != std::string::npos || s_ent.find("roku") != std::string::npos) {
                   id(tv_remote_profile).publish_state("Roku");
+                } else if (s_name.find("samsung") != std::string::npos || s_name.find("tizen") != std::string::npos || s_ent.find("samsung") != std::string::npos) {
+                  id(tv_remote_profile).publish_state("Samsung TV");
                 } else if (s_name.find("webos") != std::string::npos || s_name.find("lg") != std::string::npos || s_ent.find("webos") != std::string::npos) {
                   id(tv_remote_profile).publish_state("LG webOS");
                 } else {
@@ -3245,16 +3248,26 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Up";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV" || p == "Roku") return "up";
-              if (p == "LG webOS") return "UP";
-              if (p == "Custom") return "${remote_cmd_up}";
-              return "DPAD_UP";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "UP"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV" || p == "Roku") return "up";
+                    if (p == "Samsung TV") return "KEY_UP";
+                    if (p == "Custom") return "${remote_cmd_up}";
+                    return "DPAD_UP";
 
   - id: remote_send_down
     mode: restart
@@ -3263,16 +3276,26 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Down";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV" || p == "Roku") return "down";
-              if (p == "LG webOS") return "DOWN";
-              if (p == "Custom") return "${remote_cmd_down}";
-              return "DPAD_DOWN";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "DOWN"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV" || p == "Roku") return "down";
+                    if (p == "Samsung TV") return "KEY_DOWN";
+                    if (p == "Custom") return "${remote_cmd_down}";
+                    return "DPAD_DOWN";
 
   - id: remote_send_left
     mode: restart
@@ -3281,16 +3304,26 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Left";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV" || p == "Roku") return "left";
-              if (p == "LG webOS") return "LEFT";
-              if (p == "Custom") return "${remote_cmd_left}";
-              return "DPAD_LEFT";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "LEFT"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV" || p == "Roku") return "left";
+                    if (p == "Samsung TV") return "KEY_LEFT";
+                    if (p == "Custom") return "${remote_cmd_left}";
+                    return "DPAD_LEFT";
 
   - id: remote_send_right
     mode: restart
@@ -3299,16 +3332,26 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Right";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV" || p == "Roku") return "right";
-              if (p == "LG webOS") return "RIGHT";
-              if (p == "Custom") return "${remote_cmd_right}";
-              return "DPAD_RIGHT";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "RIGHT"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV" || p == "Roku") return "right";
+                    if (p == "Samsung TV") return "KEY_RIGHT";
+                    if (p == "Custom") return "${remote_cmd_right}";
+                    return "DPAD_RIGHT";
 
   - id: remote_send_select
     mode: restart
@@ -3317,16 +3360,26 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Select";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV" || p == "Roku") return "select";
-              if (p == "LG webOS") return "ENTER";
-              if (p == "Custom") return "${remote_cmd_select}";
-              return "DPAD_CENTER";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "ENTER"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV" || p == "Roku") return "select";
+                    if (p == "Samsung TV") return "KEY_ENTER";
+                    if (p == "Custom") return "${remote_cmd_select}";
+                    return "DPAD_CENTER";
 
   - id: remote_send_back
     mode: restart
@@ -3335,17 +3388,27 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Back";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV") return "menu";
-              if (p == "Roku") return "back";
-              if (p == "LG webOS") return "BACK";
-              if (p == "Custom") return "${remote_cmd_back}";
-              return "BACK";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "BACK"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV") return "menu";
+                    if (p == "Roku") return "back";
+                    if (p == "Samsung TV") return "KEY_RETURN";
+                    if (p == "Custom") return "${remote_cmd_back}";
+                    return "BACK";
 
   - id: remote_send_home
     mode: restart
@@ -3354,17 +3417,27 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Home";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV") return "top_menu";
-              if (p == "Roku") return "home";
-              if (p == "LG webOS") return "HOME";
-              if (p == "Custom") return "${remote_cmd_home}";
-              return "HOME";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "HOME"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV") return "top_menu";
+                    if (p == "Roku") return "home";
+                    if (p == "Samsung TV") return "KEY_HOME";
+                    if (p == "Custom") return "${remote_cmd_home}";
+                    return "HOME";
 
   - id: remote_send_vol_up
     mode: restart
@@ -3373,16 +3446,26 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Vol +";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV" || p == "Roku") return "volume_up";
-              if (p == "LG webOS") return "VOLUMEUP";
-              if (p == "Custom") return "${remote_cmd_vol_up}";
-              return "VOLUME_UP";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "VOLUMEUP"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV" || p == "Roku") return "volume_up";
+                    if (p == "Samsung TV") return "KEY_VOLUP";
+                    if (p == "Custom") return "${remote_cmd_vol_up}";
+                    return "VOLUME_UP";
 
   - id: remote_send_vol_down
     mode: restart
@@ -3391,16 +3474,26 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Vol -";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV" || p == "Roku") return "volume_down";
-              if (p == "LG webOS") return "VOLUMEDOWN";
-              if (p == "Custom") return "${remote_cmd_vol_down}";
-              return "VOLUME_DOWN";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "VOLUMEDOWN"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV" || p == "Roku") return "volume_down";
+                    if (p == "Samsung TV") return "KEY_VOLDOWN";
+                    if (p == "Custom") return "${remote_cmd_vol_down}";
+                    return "VOLUME_DOWN";
 
   - id: remote_send_power
     mode: restart
@@ -3409,17 +3502,27 @@ script:
       - lambda: |-
           id(remote_action_feedback) = "Toggle Power";
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: remote.send_command
-          data:
-            entity_id: ${tv_remote_entity}
-            command: !lambda |-
-              std::string p = id(tv_remote_profile).current_option();
-              if (p == "Apple TV") return "wakeup";
-              if (p == "Roku") return "power";
-              if (p == "LG webOS") return "POWER";
-              if (p == "Custom") return "${remote_cmd_power}";
-              return "POWER";
+      - if:
+          condition:
+            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+          then:
+            - homeassistant.action:
+                action: webostv.button
+                data:
+                  entity_id: ${tv_remote_entity}
+                  button: "POWER"
+          else:
+            - homeassistant.action:
+                action: remote.send_command
+                data:
+                  entity_id: ${tv_remote_entity}
+                  command: !lambda |-
+                    std::string p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV") return "wakeup";
+                    if (p == "Roku") return "power";
+                    if (p == "Samsung TV") return "KEY_POWER";
+                    if (p == "Custom") return "${remote_cmd_power}";
+                    return "POWER";
 
 display:
   - platform: mipi_spi

@@ -94,8 +94,8 @@ After adding the configuration, reload Template Entities and Input Texts under *
 
 ### Universal TV & Media Remote Control (Page 7)
 - **Universal Home Assistant Dispatch**: Full-featured remote control interface dispatching over standard `remote.send_command` with eyes-free 4-corner radial geometry, 85px equatorial volume isolation dead-zone, and an expanded 52px (104px diameter) center OK touch target.
-- **Native Platform Profiles Drop-Down**: Exposes an interactive `select.tv_remote_profile` entity to Home Assistant (`Android TV / Fire TV / Bravia`, `Apple TV`, `Roku`, `LG webOS`, `Custom`) with NVS flash persistence (`restore_value: true`). Switch devices directly in the Home Assistant web UI without touching code or reflashing.
-- **Automatic Heuristic Detection**: Automatically detects device platform on first boot by scanning entity ID and friendly name for platform signatures (`apple`, `roku`, `webos`, `lg`), with manual lock protection.
+- **Native Platform Profiles Drop-Down**: Exposes an interactive `select.tv_remote_profile` entity to Home Assistant (`Android TV / Fire TV / Bravia`, `Apple TV`, `Roku`, `Samsung TV`, `LG webOS`, `Custom`) with NVS flash persistence (`restore_value: true`). Switch devices directly in the Home Assistant web UI without touching code or reflashing.
+- **Automatic Heuristic Detection**: Automatically detects device platform on first boot by scanning entity ID and friendly name for platform signatures (`apple`, `roku`, `samsung`, `webos`, `lg`), with manual lock protection.
 - **Device Settings Subpage**: Tap the top device name header to open the settings subpage featuring an active profile status badge, direct unconfirmed Power toggle, and Back navigation.
 
 ### Multi-Tier Power Management
