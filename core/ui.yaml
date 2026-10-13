@@ -57,6 +57,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '0' # 0 = Player, 1 = Top Menu, 2 = Library Submenu, 3 = Item Browser
+  - id: music_direct_nav
+    type: bool
+    restore_value: no
+    initial_value: 'false' # true when entered Speakers (1) or Library (2) via overlay shortcuts
   - id: music_hud_active
     type: bool
     restore_value: no
@@ -2761,6 +2765,7 @@ script:
             - online_image.release: remote_album_art
       - lambda: |-
           id(music_overlay_mode) = 0;
+          id(music_direct_nav) = false;
           id(music_hud_active) = true;
           id(music_hud_timer) = millis();
       - component.update: disp1
@@ -4767,17 +4772,17 @@ display:
           for (char &c : spk_title) {
             c = (char)toupper((unsigned char)c);
           }
-          spk_title = fit_text_to_width(spk_title, 260);
+          spk_title = fit_text_to_width(spk_title, 280);
 
           // Top Header displays active speaker only when HUD overlay is active (HUD awake or always visible)
           // Standardized at y = 50 in brushed silver-gray (col_silver / #C0C0C0, matching digital clock AM/PM & seconds)
           // with 1px black drop shadow in Full Screen / Letterbox for optimal neutral contrast over varied album art
           if (show_controls || id(music_hud_active)) {
             if (is_standard) {
-              it.print(cx, 50, id(font_date), id(col_silver), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx, 50, id(font_small), id(col_white), TextAlign::CENTER, spk_title.c_str());
             } else {
-              it.print(cx + 1, 51, id(font_date), id(col_black), TextAlign::CENTER, spk_title.c_str());
-              it.print(cx, 50, id(font_date), id(col_silver), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx + 1, 51, id(font_small), id(col_black), TextAlign::CENTER, spk_title.c_str());
+              it.print(cx, 50, id(font_small), id(col_white), TextAlign::CENTER, spk_title.c_str());
             }
           }
 
@@ -5008,14 +5013,14 @@ display:
               if (has_shadow) {
                 it.print(cx + 1, 370 + 1, id(font_small), id(col_black), TextAlign::CENTER, artist.c_str());
               }
-              it.print(cx, 370, id(font_small), id(theme_secondary), TextAlign::CENTER, artist.c_str());
+              it.print(cx, 370, id(font_small), id(col_white), TextAlign::CENTER, artist.c_str());
             }
             if (!album.empty() && album != "None") {
               if (album.length() > 28) album = album.substr(0, 26) + "...";
               if (has_shadow) {
                 it.print(cx + 1, 390 + 1, id(font_small), id(col_black), TextAlign::CENTER, album.c_str());
               }
-              it.print(cx, 390, id(font_small), id(col_slate), TextAlign::CENTER, album.c_str());
+              it.print(cx, 390, id(font_small), id(col_white), TextAlign::CENTER, album.c_str());
             }
 
             // Right Flank Volume HUD Overlay retired: volume level is communicated with zero clutter via universal Top Title status bar
@@ -9696,7 +9701,7 @@ touchscreen:
                       id(gui_page) = get_slot(next_idx);
                     }
                     ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
-                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
+                    id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0; id(music_direct_nav) = false;
                     id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
                     id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
                     id(sky_weather_subpage) = 0;
@@ -9780,6 +9785,7 @@ touchscreen:
                   uint32_t now_hdr = millis();
                   if (now_hdr - last_hdr_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_hdr_tap = now_hdr;
+                    id(music_direct_nav) = false;
                     id(music_overlay_mode) = 5; // Open Music Hub Submenu
                     ESP_LOGI("touch", "Page 2 Header Tap -> Music Hub: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
@@ -9932,6 +9938,7 @@ touchscreen:
                     id(selected_category_mode) = "speakers";
                     id(selected_category_title) = "SPEAKERS";
                     id(music_browse_page) = 1;
+                    id(music_direct_nav) = true;
                     id(music_overlay_mode) = 1; // Open Speakers Browser directly
                     id(fetch_music_browse).execute();
                     ESP_LOGI("touch", "Page 2 Left Flank Shortcut -> Speakers Browser: x=%d y=%d", touch.x, touch.y);
@@ -9951,6 +9958,7 @@ touchscreen:
                     id(music_category_page) = 1;
                     id(menu_scroll_active) = false;
                     id(menu_scroll_step) = 0;
+                    id(music_direct_nav) = true;
                     id(music_overlay_mode) = 2; // Open Library Categories directly
                     ESP_LOGI("touch", "Page 2 Left Flank Shortcut -> Library Categories: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
@@ -10036,6 +10044,7 @@ touchscreen:
                     id(selected_category_mode) = "speakers";
                     id(selected_category_title) = "SPEAKERS";
                     id(music_browse_page) = 1;
+                    id(music_direct_nav) = false;
                     id(music_overlay_mode) = 1; // Open Speakers Browser
                     id(fetch_music_browse).execute();
                     ESP_LOGI("touch", "Music Menu -> Speakers: x=%d y=%d", touch.x, touch.y);
@@ -10052,6 +10061,7 @@ touchscreen:
                     id(music_category_page) = 1;
                     id(menu_scroll_active) = false;
                     id(menu_scroll_step) = 0;
+                    id(music_direct_nav) = false;
                     id(music_overlay_mode) = 2; // Open Library Categories
                     ESP_LOGI("touch", "Music Menu -> Library: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
@@ -10120,7 +10130,12 @@ touchscreen:
                 if (is_back_button(touch)) {
                   if (now_spk - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_spk;
-                    id(music_overlay_mode) = 5; // Return to Music Hub
+                    if (id(music_direct_nav)) {
+                      id(music_overlay_mode) = 0; // Return directly to Player View
+                      id(music_direct_nav) = false;
+                    } else {
+                      id(music_overlay_mode) = 5; // Return to Music Hub
+                    }
                     id(music_hud_active) = true;
                     id(music_hud_timer) = millis();
                     id(disp1).update();
@@ -10193,7 +10208,12 @@ touchscreen:
                 if (is_back_button(touch)) {
                   if (now_cat - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_cat;
-                    id(music_overlay_mode) = 5; // Return to Music Hub
+                    if (id(music_direct_nav)) {
+                      id(music_overlay_mode) = 0; // Return directly to Player View
+                      id(music_direct_nav) = false;
+                    } else {
+                      id(music_overlay_mode) = 5; // Return to Music Hub
+                    }
                     id(music_category_page) = 1;
                     id(menu_scroll_active) = false;
                     id(menu_scroll_step) = 0;
