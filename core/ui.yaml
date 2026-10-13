@@ -7546,7 +7546,7 @@ display:
 
           uint32_t now_ms = millis();
           const int cel_cx = 346;
-          const int cel_cy = 104;
+          const int cel_cy = 97;
 
           // ====================================================================
           // LAYER 0: ATMOSPHERIC CANVAS
@@ -8122,12 +8122,12 @@ display:
           float elev = id(ha_sun_elevation).state;
           float azim = id(ha_sun_azimuth).state;
 
-          // Enlarged Solar Arc with Horizon at screen midpoint y = 218 (Radius 118, top apex at y = 100)
-          // Maintains generous 37px safety buffer between top sun rays and Title at y = 50
-          int arc_cy = 218;
+          // Solar Arc block shifted up by 10px (reducing title-to-apex gap by 25% from 40px to 30px, apex at y = 90)
+          // Horizon line at y = 208, arc radius 118px
+          int arc_cy = 208;
           int arc_r = 118;
 
-          // Horizon Line at screen midpoint y = 218 between arc endpoints
+          // Horizon Line at y = 208 between arc endpoints
           for (int hx = 112; hx <= 354; hx += 8) {
             it.line(hx, arc_cy, hx + 4, arc_cy, id(col_gray));
           }
@@ -8135,7 +8135,7 @@ display:
           it.print(98, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
           it.print(368, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
 
-          // Day Arc (Above Horizon y <= 218, top apex at y = 100)
+          // Day Arc (Above Horizon y <= 208, top apex at y = 90)
           for (int a = 0; a <= 180; a += 2) {
             float rad = (float)a * 3.14159265f / 180.0f;
             int ax = cx - (int)((float)arc_r * cosf(rad));
@@ -8144,10 +8144,10 @@ display:
             it.draw_pixel_at(ax, ay + 1, Color(100, 75, 20));
           }
 
-          // Status Text placed UNDERNEATH the horizon line at y = 234 in font_micro
+          // Status Text placed UNDERNEATH the horizon line at y = 224 in font_micro
           if (!isnan(elev)) {
             const char* sol_st = (elev > 0.0f) ? "Above Horizon" : "Below Horizon";
-            it.print(cx, 234, id(font_micro), elev > 0.0f ? id(col_warm_gold) : id(col_slate), TextAlign::CENTER, sol_st);
+            it.print(cx, 224, id(font_micro), elev > 0.0f ? id(col_warm_gold) : id(col_slate), TextAlign::CENTER, sol_st);
           }
 
           // Current Sun Position: ONLY displayed if above horizon (elev >= 0)
@@ -8169,8 +8169,8 @@ display:
             it.line(sx, sy - 13, sx, sy + 13, Color(255, 200, 50));
           }
 
-          // Horizontal divider at y = 248
-          it.line(80, 248, 386, 248, id(col_dark_gray));
+          // Horizontal divider at y = 238
+          it.line(80, 238, 386, 238, id(col_dark_gray));
 
           // Telemetry Row: Sunrise and Sunset (Titles at y = 264, Times at y = 290)
           std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
@@ -8198,15 +8198,16 @@ display:
 
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
 
-          // Maximized Lunar Disc utilizing reclaimed vertical space (Radius 72, cy = 142, apex at y = 70)
+          // Standard Title-to-Object Gap (top apex at y = 84, matching 34px menu buffer)
+          // Scaled Lunar Disc (Radius 66, cy = 150, apex y = 84, bottom y = 216)
           int moon_cx = cx;
-          int moon_cy = 142;
-          int moon_r = 72;
+          int moon_cy = 150;
+          int moon_r = 66;
 
           draw_lunar_disc(moon_cx, moon_cy, moon_r, cycle, true);
 
-          // Divider below enlarged lunar disc at y = 238
-          it.line(110, 238, 356, 238, id(col_dark_gray));
+          // Divider below lunar disc at y = 234
+          it.line(110, 234, 356, 234, id(col_dark_gray));
 
           // Centered Phase Name (y = 258) and Illumination (y = 290) preserving exact 32px inter-line spacing
           it.print(cx, 258, id(font_btn_bold), id(col_white), TextAlign::CENTER, mp_label.c_str());
