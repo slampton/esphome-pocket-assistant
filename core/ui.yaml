@@ -298,6 +298,10 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
+  - id: high_score_asteroids
+    type: int
+    restore_value: yes
+    initial_value: '0'
   - id: clock_face_digital
     type: bool
     restore_value: yes
@@ -5471,6 +5475,55 @@ display:
               it.line(t3_x - 12, t3_y + 4, t3_x - 6, t3_y, id(col_magenta));
               it.line(t3_x + 12, t3_y - 4, t3_x + 6, t3_y, id(col_magenta));
               it.line(t3_x + 12, t3_y + 4, t3_x + 6, t3_y, id(col_magenta));
+            } else if (g_idx == 4) {
+              // ------------------------------------------------------------------
+              // GAME 4: ASTEROIDS
+              // ------------------------------------------------------------------
+              it.filled_circle(icon_x, icon_y, 52, Color(12, 16, 24));
+              it.circle(icon_x, icon_y, 52, id(col_slate));
+              it.circle(icon_x, icon_y, 51, id(col_slate));
+
+              // Stardust background dots
+              it.draw_pixel_at(icon_x - 30, icon_y - 25, id(col_white));
+              it.draw_pixel_at(icon_x + 35, icon_y - 30, id(col_silver));
+              it.draw_pixel_at(icon_x - 35, icon_y + 30, id(col_silver));
+              it.draw_pixel_at(icon_x + 30, icon_y + 35, id(col_white));
+
+              // Large vector space rock
+              int ax = icon_x + 14, ay = icon_y - 14;
+              it.line(ax - 18, ay - 8, ax - 4, ay - 22, id(col_silver));
+              it.line(ax - 4, ay - 22, ax + 14, ay - 18, id(col_white));
+              it.line(ax + 14, ay - 18, ax + 22, ay - 2, id(col_silver));
+              it.line(ax + 22, ay - 2, ax + 16, ay + 16, id(col_slate));
+              it.line(ax + 16, ay + 16, ax + 2, ay + 20, id(col_slate));
+              it.line(ax + 2, ay + 20, ax - 12, ay + 14, id(col_slate));
+              it.line(ax - 12, ay + 14, ax - 20, ay + 4, id(col_silver));
+              it.line(ax - 20, ay + 4, ax - 18, ay - 8, id(col_silver));
+              it.line(ax - 4, ay - 2, ax + 8, ay - 4, id(col_dark_gray));
+              it.line(ax + 8, ay - 4, ax + 4, ay + 8, id(col_dark_gray));
+
+              // Small tumbling asteroid
+              int a2x = icon_x + 28, a2y = icon_y + 22;
+              it.line(a2x - 8, a2y - 6, a2x + 2, a2y - 10, id(col_slate));
+              it.line(a2x + 2, a2y - 10, a2x + 10, a2y - 2, id(col_slate));
+              it.line(a2x + 10, a2y - 2, a2x + 6, a2y + 8, id(col_dark_gray));
+              it.line(a2x + 6, a2y + 8, a2x - 6, a2y + 6, id(col_dark_gray));
+              it.line(a2x - 6, a2y + 6, a2x - 8, a2y - 6, id(col_slate));
+
+              // Vector Player Starship aiming at 45 deg
+              int sx = icon_x - 16, sy = icon_y + 16;
+              it.line(sx + 14, sy - 14, sx - 12, sy - 2, id(col_white));
+              it.line(sx + 14, sy - 14, sx + 2, sy + 12, id(col_white));
+              it.line(sx - 12, sy - 2, sx - 2, sy + 2, id(col_silver));
+              it.line(sx + 2, sy + 12, sx - 2, sy + 2, id(col_silver));
+              it.draw_pixel_at(sx + 4, sy - 4, id(theme_secondary));
+              it.draw_pixel_at(sx + 5, sy - 4, id(theme_secondary));
+              it.line(sx - 2, sy + 2, sx - 8, sy + 8, id(col_orange));
+
+              // Photon Torpedo Blast
+              it.line(sx + 16, sy - 16, sx + 20, sy - 20, id(col_white));
+              it.draw_pixel_at(sx + 19, sy - 19, id(theme_secondary));
+              it.draw_pixel_at(sx + 21, sy - 21, id(theme_secondary));
             }
           };
 
@@ -5487,9 +5540,12 @@ display:
             } else if (g_idx == 2) {
               title = "BREAKOUT";
               score = id(high_score_breakout);
-            } else {
+            } else if (g_idx == 3) {
               title = "CHOMP FOR KIDS";
               score = id(high_score_chomp);
+            } else {
+              title = "ASTEROIDS";
+              score = id(high_score_asteroids);
             }
 
             // 1. Game Icon at (icon_x, icon_y)
@@ -6215,7 +6271,7 @@ display:
 
         // GAME 4: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
-        } else {
+        } else if (id(active_game) == 4) {
           it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "CHOMP FOR KIDS");
 
           static int treat_score = 0;
@@ -6328,6 +6384,432 @@ display:
           it.print(cx, 84, id(font_small), id(col_gold), TextAlign::CENTER, t_buf);
 
           it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt to Roll Treat into Mouth");
+          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
+
+        // ----------------------------------------------------
+        // GAME 5: ASTEROIDS (360-DEGREE VECTOR SPACE COMBAT)
+        // ----------------------------------------------------
+        } else if (id(active_game) == 5) {
+          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ASTEROIDS");
+
+          struct AsteroidRock {
+            float x, y, vx, vy;
+            int tier; // 3 = Large (r=26), 2 = Medium (r=16), 1 = Small (r=10)
+            int shape; // 0, 1, 2
+            float rot, vrot;
+            bool active;
+          };
+
+          struct SpacePhoton {
+            float x, y, vx, vy;
+            bool active;
+          };
+
+          struct SpaceDebris {
+            float x, y, vx, vy;
+            int life;
+            Color col;
+            bool active;
+          };
+
+          static AsteroidRock rocks[10];
+          static SpacePhoton shots[5];
+          static SpaceDebris sparks[16];
+
+          static float ship_angle = -1.570796f; // Initial heading: pointing straight up
+          static int ast_score = 0;
+          static int ast_lives = 3;
+          static bool ast_game_over = false;
+          static uint32_t last_shot_time = 0;
+          static uint32_t invuln_until_ms = 0;
+          static uint32_t shield_flash_ms = 0;
+          static uint32_t next_spawn_ms = 0;
+
+          // Fresh Game Reset when entering from menu
+          if (game_just_entered) {
+            ast_score = 0;
+            ast_lives = 3;
+            ast_game_over = false;
+            ship_angle = -1.570796f;
+            last_shot_time = 0;
+            shield_flash_ms = 0;
+            invuln_until_ms = millis() + 1800;
+            next_spawn_ms = millis() + 500;
+
+            for (int i = 0; i < 10; i++) rocks[i].active = false;
+            for (int i = 0; i < 5; i++) shots[i].active = false;
+            for (int i = 0; i < 16; i++) sparks[i].active = false;
+
+            // Spawn 3 initial Large space rocks drifting inward from perimeter
+            for (int i = 0; i < 3; i++) {
+              float sp_ang = (i * 2.094395f) + 0.5f;
+              rocks[i].x = cx + cosf(sp_ang) * 225.0f;
+              rocks[i].y = cy + sinf(sp_ang) * 225.0f;
+              float tgt_x = cx + (((i * 47) % 60) - 30);
+              float tgt_y = cy + (((i * 73) % 60) - 30);
+              float d_tgt = hypotf(tgt_x - rocks[i].x, tgt_y - rocks[i].y);
+              float spd = 1.3f;
+              rocks[i].vx = (tgt_x - rocks[i].x) / d_tgt * spd;
+              rocks[i].vy = (tgt_y - rocks[i].y) / d_tgt * spd;
+              rocks[i].tier = 3;
+              rocks[i].shape = i % 3;
+              rocks[i].rot = (float)i;
+              rocks[i].vrot = 0.03f * (i % 2 == 0 ? 1.0f : -1.0f);
+              rocks[i].active = true;
+            }
+          }
+
+          uint32_t now_ast = millis();
+
+          // 1. Controls & Input:
+          // Touch screen aiming & tap-to-fire:
+          if (id(marble_touch_x) >= 0.0f) {
+            float tx = id(marble_touch_x);
+            float ty = id(marble_touch_y);
+            id(marble_touch_x) = -1.0f;
+
+            if (ast_game_over) {
+              // Tap to play again
+              game_just_entered = true;
+            } else {
+              // Aim ship directly at tap location and fire
+              if (hypotf(tx - cx, ty - cy) > 15.0f) {
+                ship_angle = atan2f(ty - cy, tx - cx);
+              }
+              id(game_btn_pressed) = true; // Trigger photon shot
+            }
+          }
+
+          // Side / bottom button (GPIO0) fire:
+          if (id(game_btn_pressed)) {
+            id(game_btn_pressed) = false;
+            if (ast_game_over) {
+              game_just_entered = true;
+            } else if (now_ast - last_shot_time > 150) {
+              // Fire photon torpedo from ship nose
+              for (int i = 0; i < 5; i++) {
+                if (!shots[i].active) {
+                  shots[i].x = cx + cosf(ship_angle) * 18.0f;
+                  shots[i].y = cy + sinf(ship_angle) * 18.0f;
+                  shots[i].vx = cosf(ship_angle) * 11.0f;
+                  shots[i].vy = sinf(ship_angle) * 11.0f;
+                  shots[i].active = true;
+                  last_shot_time = now_ast;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Dynamic IMU Tilt Steering:
+          float tilt_mag = hypotf(roll_delta, pitch_delta);
+          if (tilt_mag > 3.5f && !ast_game_over) {
+            float target_angle = atan2f(pitch_delta, roll_delta);
+            float diff = target_angle - ship_angle;
+            while (diff > 3.14159265f) diff -= 6.2831853f;
+            while (diff < -3.14159265f) diff += 6.2831853f;
+            ship_angle += diff * 0.25f; // Smooth, responsive lag-free turn
+          }
+
+          // 2. Continuous Spawning: Keep arena populated
+          if (!ast_game_over && now_ast > next_spawn_ms) {
+            int active_cnt = 0;
+            for (int i = 0; i < 10; i++) { if (rocks[i].active) active_cnt++; }
+            if (active_cnt < 4) {
+              for (int i = 0; i < 10; i++) {
+                if (!rocks[i].active) {
+                  float sp_ang = (esp_random() % 360) * 0.0174533f;
+                  rocks[i].x = cx + cosf(sp_ang) * 228.0f;
+                  rocks[i].y = cy + sinf(sp_ang) * 228.0f;
+                  float tgt_x = cx + ((esp_random() % 80) - 40);
+                  float tgt_y = cy + ((esp_random() % 80) - 40);
+                  float d_tgt = hypotf(tgt_x - rocks[i].x, tgt_y - rocks[i].y);
+                  float spd = 1.2f + ((esp_random() % 6) * 0.1f);
+                  rocks[i].vx = (tgt_x - rocks[i].x) / d_tgt * spd;
+                  rocks[i].vy = (tgt_y - rocks[i].y) / d_tgt * spd;
+                  rocks[i].tier = 3; // Spawn Large
+                  rocks[i].shape = esp_random() % 3;
+                  rocks[i].rot = (esp_random() % 360) * 0.0174533f;
+                  rocks[i].vrot = 0.025f * ((esp_random() % 2 == 0) ? 1.0f : -1.0f);
+                  rocks[i].active = true;
+                  next_spawn_ms = now_ast + 2500;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Helper lambda to spawn explosion sparks
+          auto spawn_debris = [&](float sx, float sy, Color sc, int count) {
+            int spawned = 0;
+            for (int s = 0; s < 16 && spawned < count; s++) {
+              if (!sparks[s].active) {
+                float sa = (esp_random() % 360) * 0.0174533f;
+                float spd = 1.5f + (esp_random() % 25) * 0.1f;
+                sparks[s].x = sx;
+                sparks[s].y = sy;
+                sparks[s].vx = cosf(sa) * spd;
+                sparks[s].vy = sinf(sa) * spd;
+                sparks[s].life = 10;
+                sparks[s].col = sc;
+                sparks[s].active = true;
+                spawned++;
+              }
+            }
+          };
+
+          // 3. Physics & Movement:
+          // Move Photons:
+          for (int i = 0; i < 5; i++) {
+            if (shots[i].active) {
+              shots[i].x += shots[i].vx;
+              shots[i].y += shots[i].vy;
+              if (hypotf(shots[i].x - cx, shots[i].y - cy) > 228.0f) {
+                shots[i].active = false;
+              }
+            }
+          }
+
+          // Move Asteroids:
+          for (int i = 0; i < 10; i++) {
+            if (rocks[i].active) {
+              rocks[i].x += rocks[i].vx;
+              rocks[i].y += rocks[i].vy;
+              rocks[i].rot += rocks[i].vrot;
+              // Perimeter wrap: if drifts beyond 240px, reflect or wrap inward
+              float d_c = hypotf(rocks[i].x - cx, rocks[i].y - cy);
+              if (d_c > 242.0f) {
+                rocks[i].x = cx - (rocks[i].x - cx) * 0.95f;
+                rocks[i].y = cy - (rocks[i].y - cy) * 0.95f;
+              }
+            }
+          }
+
+          // Move Sparks:
+          for (int s = 0; s < 16; s++) {
+            if (sparks[s].active) {
+              sparks[s].x += sparks[s].vx;
+              sparks[s].y += sparks[s].vy;
+              sparks[s].life--;
+              if (sparks[s].life <= 0) sparks[s].active = false;
+            }
+          }
+
+          // 4. Collision Detection:
+          // Photons vs Asteroids:
+          for (int s = 0; s < 5; s++) {
+            if (!shots[s].active) continue;
+            for (int a = 0; a < 10; a++) {
+              if (!rocks[a].active) continue;
+              float r_hit = (rocks[a].tier == 3) ? 26.0f : ((rocks[a].tier == 2) ? 16.0f : 10.0f);
+              if (hypotf(shots[s].x - rocks[a].x, shots[s].y - rocks[a].y) < r_hit) {
+                shots[s].active = false;
+                spawn_debris(rocks[a].x, rocks[a].y, id(col_gold), 6);
+
+                if (rocks[a].tier == 3) {
+                  // Large splits into 2 Mediums
+                  ast_score += 20;
+                  rocks[a].tier = 2;
+                  rocks[a].shape = (rocks[a].shape + 1) % 3;
+                  float old_vx = rocks[a].vx;
+                  float old_vy = rocks[a].vy;
+                  rocks[a].vx = -old_vy * 1.2f;
+                  rocks[a].vy = old_vx * 1.2f;
+
+                  // Find slot for 2nd Medium asteroid
+                  for (int n = 0; n < 10; n++) {
+                    if (!rocks[n].active) {
+                      rocks[n].x = rocks[a].x;
+                      rocks[n].y = rocks[a].y;
+                      rocks[n].vx = old_vy * 1.2f;
+                      rocks[n].vy = -old_vx * 1.2f;
+                      rocks[n].tier = 2;
+                      rocks[n].shape = (rocks[a].shape + 2) % 3;
+                      rocks[n].rot = rocks[a].rot;
+                      rocks[n].vrot = -rocks[a].vrot;
+                      rocks[n].active = true;
+                      break;
+                    }
+                  }
+                } else if (rocks[a].tier == 2) {
+                  // Medium splits into 2 Smalls
+                  ast_score += 50;
+                  rocks[a].tier = 1;
+                  rocks[a].shape = (rocks[a].shape + 1) % 3;
+                  float old_vx = rocks[a].vx;
+                  float old_vy = rocks[a].vy;
+                  rocks[a].vx = -old_vy * 1.4f;
+                  rocks[a].vy = old_vx * 1.4f;
+
+                  // Find slot for 2nd Small asteroid
+                  for (int n = 0; n < 10; n++) {
+                    if (!rocks[n].active) {
+                      rocks[n].x = rocks[a].x;
+                      rocks[n].y = rocks[a].y;
+                      rocks[n].vx = old_vy * 1.4f;
+                      rocks[n].vy = -old_vx * 1.4f;
+                      rocks[n].tier = 1;
+                      rocks[n].shape = (rocks[a].shape + 2) % 3;
+                      rocks[n].rot = rocks[a].rot;
+                      rocks[n].vrot = -rocks[a].vrot;
+                      rocks[n].active = true;
+                      break;
+                    }
+                  }
+                } else {
+                  // Small asteroid vaporized!
+                  ast_score += 100;
+                  rocks[a].active = false;
+                }
+
+                if (ast_score > id(high_score_asteroids)) {
+                  id(high_score_asteroids) = ast_score;
+                }
+                break;
+              }
+            }
+          }
+
+          // Asteroids vs Ship:
+          if (!ast_game_over && now_ast > invuln_until_ms) {
+            for (int a = 0; a < 10; a++) {
+              if (!rocks[a].active) continue;
+              float r_hit = (rocks[a].tier == 3) ? 26.0f : ((rocks[a].tier == 2) ? 16.0f : 10.0f);
+              if (hypotf(rocks[a].x - cx, rocks[a].y - cy) < (r_hit + 10.0f)) {
+                // Ship collision!
+                ast_lives--;
+                shield_flash_ms = now_ast;
+                invuln_until_ms = now_ast + 1800; // 1.8s invulnerability
+                spawn_debris(cx, cy, id(col_red), 8);
+
+                // Vaporize colliding asteroid so player isn't repeatedly hit
+                rocks[a].active = false;
+
+                if (ast_lives <= 0) {
+                  ast_game_over = true;
+                }
+                break;
+              }
+            }
+          }
+
+          // 5. Drawing:
+          // Starfield:
+          static const int16_t STAR_X[16] = {65, 140, 310, 395, 75, 130, 340, 400, 85, 160, 305, 380, 195, 270, 200, 265};
+          static const int16_t STAR_Y[16] = {80, 115, 75, 110, 195, 240, 205, 265, 315, 360, 330, 375, 95, 115, 375, 360};
+          for (int s = 0; s < 16; s++) {
+            it.draw_pixel_at(STAR_X[s], STAR_Y[s], Color(130, 145, 165));
+          }
+
+          // Sparks:
+          for (int s = 0; s < 16; s++) {
+            if (sparks[s].active) {
+              it.draw_pixel_at((int)sparks[s].x, (int)sparks[s].y, sparks[s].col);
+              it.draw_pixel_at((int)sparks[s].x + 1, (int)sparks[s].y, sparks[s].col);
+            }
+          }
+
+          // Photons:
+          for (int i = 0; i < 5; i++) {
+            if (shots[i].active) {
+              int px = (int)shots[i].x;
+              int py = (int)shots[i].y;
+              it.filled_circle(px, py, 2, id(col_white));
+              it.line(px, py, px - (int)(shots[i].vx * 0.7f), py - (int)(shots[i].vy * 0.7f), id(theme_secondary));
+            }
+          }
+
+          // Asteroids Vector Polygons:
+          static const float SHAPE_OFFSETS[3][8] = {
+            {0.85f, 1.15f, 0.90f, 1.20f, 0.80f, 1.10f, 0.95f, 1.05f},
+            {1.10f, 0.85f, 1.15f, 0.80f, 1.20f, 0.90f, 1.05f, 0.85f},
+            {0.95f, 1.20f, 0.85f, 1.10f, 0.90f, 1.15f, 0.80f, 1.05f}
+          };
+
+          for (int a = 0; a < 10; a++) {
+            if (!rocks[a].active) continue;
+            float r_base = (rocks[a].tier == 3) ? 26.0f : ((rocks[a].tier == 2) ? 16.0f : 10.0f);
+            Color ast_col = (rocks[a].tier == 3) ? id(col_white) : ((rocks[a].tier == 2) ? id(col_silver) : id(col_slate));
+
+            int px_prev = 0, py_prev = 0, px_first = 0, py_first = 0;
+            for (int v = 0; v < 8; v++) {
+              float ang = rocks[a].rot + v * 0.785398f;
+              float r = r_base * SHAPE_OFFSETS[rocks[a].shape % 3][v];
+              int vx = (int)(rocks[a].x + cosf(ang) * r);
+              int vy = (int)(rocks[a].y + sinf(ang) * r);
+              if (v == 0) {
+                px_first = vx; py_first = vy;
+              } else {
+                it.line(px_prev, py_prev, vx, vy, ast_col);
+              }
+              px_prev = vx; py_prev = vy;
+            }
+            it.line(px_prev, py_prev, px_first, py_first, ast_col);
+          }
+
+          // Starship:
+          bool show_ship = true;
+          if (now_ast < invuln_until_ms) {
+            // Flash ship during invulnerability
+            show_ship = ((now_ast / 100) % 2 == 0);
+            // Draw protective shield bubble
+            Color sh_c = (now_ast - shield_flash_ms < 300) ? id(col_red) : id(theme_secondary);
+            it.circle(cx, cy, 18, sh_c);
+          }
+
+          if (show_ship && !ast_game_over) {
+            int nx = (int)(cx + cosf(ship_angle) * 16.0f);
+            int ny = (int)(cy + sinf(ship_angle) * 16.0f);
+            int lwx = (int)(cx + cosf(ship_angle + 2.5f) * 12.0f);
+            int lwy = (int)(cy + sinf(ship_angle + 2.5f) * 12.0f);
+            int rwx = (int)(cx + cosf(ship_angle - 2.5f) * 12.0f);
+            int rwy = (int)(cy + sinf(ship_angle - 2.5f) * 12.0f);
+            int kx = (int)(cx - cosf(ship_angle) * 4.0f);
+            int ky = (int)(cy - sinf(ship_angle) * 4.0f);
+
+            // Vector Hull
+            it.line(nx, ny, lwx, lwy, id(col_white));
+            it.line(nx, ny, rwx, rwy, id(col_white));
+            it.line(lwx, lwy, kx, ky, id(col_silver));
+            it.line(rwx, rwy, kx, ky, id(col_silver));
+
+            // Cyan Cockpit Canopy
+            int cpx = (int)(cx + cosf(ship_angle) * 3.0f);
+            int cpy = (int)(cy + sinf(ship_angle) * 3.0f);
+            it.filled_circle(cpx, cpy, 2, id(theme_secondary));
+
+            // Thruster flame when active
+            if (tilt_mag > 3.5f) {
+              int fx = (int)(cx - cosf(ship_angle) * 12.0f);
+              int fy = (int)(cy - sinf(ship_angle) * 12.0f);
+              it.line(kx, ky, fx, fy, id(col_orange));
+            }
+          }
+
+          // HUD Score & Best:
+          char hud_sc[48];
+          snprintf(hud_sc, sizeof(hud_sc), "SCORE: %d   BEST: %d", ast_score, id(high_score_asteroids));
+          it.print(cx, 82, id(font_small), id(col_gold), TextAlign::CENTER, hud_sc);
+
+          // Lives Silhouettes at top right:
+          for (int l = 0; l < ast_lives; l++) {
+            int lx = 360 + l * 16;
+            int ly = 54;
+            it.line(lx, ly - 6, lx - 4, ly + 4, id(col_white));
+            it.line(lx, ly - 6, lx + 4, ly + 4, id(col_white));
+            it.line(lx - 4, ly + 4, lx, ly + 2, id(col_silver));
+            it.line(lx + 4, ly + 4, lx, ly + 2, id(col_silver));
+          }
+
+          // Game Over overlay:
+          if (ast_game_over) {
+            it.print(cx, 170, id(font_date), id(col_red), TextAlign::CENTER, "GAME OVER");
+            char fin_buf[32];
+            snprintf(fin_buf, sizeof(fin_buf), "FINAL SCORE: %d", ast_score);
+            it.print(cx, 210, id(font_btn_bold), id(col_white), TextAlign::CENTER, fin_buf);
+            it.print(cx, 260, id(font_small), id(col_gold), TextAlign::CENTER, "Tap to Play Again");
+          }
+
           it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
         }
       // ==========================================
@@ -9854,7 +10336,7 @@ touchscreen:
                     int dir = (touch.y < 220) ? -1 : 1;
                     id(menu_scroll_active) = true;
                     id(menu_scroll_dir) = dir;
-                    id(menu_scroll_target_page) = step_wrap(id(game_carousel_idx), dir, 4);
+                    id(menu_scroll_target_page) = step_wrap(id(game_carousel_idx), dir, 5);
                     id(menu_scroll_step) = 0;
                     ESP_LOGI("touch", "Page 3 Game Chevron: x=%d y=%d dir=%d target=%d", touch.x, touch.y, dir, id(menu_scroll_target_page));
                     id(menu_scroll_transition).execute();
@@ -9873,7 +10355,7 @@ touchscreen:
                   uint32_t now_gl = millis();
                   if (now_gl - last_game_launch_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_game_launch_tap = now_gl;
-                    id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp)
+                    id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp), 4->5 (Asteroids)
                     ESP_LOGI("touch", "Page 3 Launch Game: x=%d y=%d game=%d", touch.x, touch.y, id(active_game));
                     if (id(active_game) > 0) {
                       // Pause background music and mute DAC for dedicated game resources
