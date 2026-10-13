@@ -5022,24 +5022,24 @@ display:
 
         } else if (id(music_overlay_mode) == 5) {
           // --------------------------------------------------
-          // SUBPAGE 5: MUSIC HUB (SPEAKERS, LIBRARY, AUDIO SETTINGS)
-          // Modeled after System Dashboard (y=46 Title, y=78 Subtitle buffer of 32px)
+          // SUBPAGE 5: MUSIC MENU (SPEAKERS, LIBRARY, SETTINGS)
+          // Standard pill width 150..316 (matching Library main menu), r=18, without arrows
           // --------------------------------------------------
-          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC HUB");
+          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
 
           // Active target speaker name (y = 78, font_small, col_white, 32px buffer)
           std::string spk_sub = fit_text_to_width(id(active_speaker_name), 260);
           it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, spk_sub.c_str());
 
-          // Clean Pill Button 1: Speakers > at y = 140 (h = 42, r = 21, span: 120..346)
-          draw_pill_button(120, 346, 140, 21, id(theme_primary), id(col_dark_gray), "Speakers >", id(col_white), false);
+          // Clean Pill Button 1: Speakers at y = 140 (span: 150..316, r = 18)
+          draw_pill_button(150, 316, 140, 18, id(theme_primary), id(col_dark_gray), "Speakers", id(col_white), false);
 
-          // Clean Pill Button 2: Library > at y = 200 (h = 42, r = 21, span: 120..346)
-          draw_pill_button(120, 346, 200, 21, id(theme_primary), id(col_dark_gray), "Library >", id(col_white), false);
+          // Clean Pill Button 2: Library at y = 200 (span: 150..316, r = 18)
+          draw_pill_button(150, 316, 200, 18, id(theme_primary), id(col_dark_gray), "Library", id(col_white), false);
 
-          // Clean Pill Button 3: Audio Settings > at y = 290 (h = 42, r = 21, span: 120..346)
+          // Clean Pill Button 3: Settings at y = 290 (span: 150..316, r = 18)
           // Lowered with a distinct gap to visually communicate separation of duties
-          draw_pill_button(120, 346, 290, 21, id(theme_secondary), id(col_dark_gray), "Audio Settings >", id(col_white), false);
+          draw_pill_button(150, 316, 290, 18, id(theme_secondary), id(col_dark_gray), "Settings", id(col_white), false);
 
           // Universal Standard Centered < BACK Button at y = 408 (Matching Speakers and Library)
           draw_back_button();
@@ -6858,26 +6858,26 @@ display:
           }
 
           static const char* const sys_labels[8] = {
-            "Display >",
-            "Clock >",
-            "Sleep & Wake >",
-            "Audio >",
-            "App Deck >",
-            "Voice >",
-            "Info >",
-            "Actions >"
+            "Display",
+            "Clock",
+            "Sleep & Wake",
+            "Audio",
+            "App Deck",
+            "Voice",
+            "Info",
+            "Actions"
           };
 
           for (int i = 0; i < 8; i++) {
-            int y = 118 + i * 58 - current_offset;
-            if (y >= 40 && y <= 370) {
-              draw_menu_card_y(y, sys_labels[i]);
+            int y = 132 + i * 58 - current_offset;
+            if (y >= 40 && y <= 390) {
+              draw_pill_button(150, 316, y, 18, id(theme_secondary), id(col_dark_gray), sys_labels[i], id(col_white), false);
             }
           }
 
-          // Clean Viewport Masks: clip scrolling pills outside y in [94, 320]
-          it.filled_rectangle(0, 0, 466, 94, id(col_bg));
-          it.filled_rectangle(0, 320, 466, 146, id(col_bg));
+          // Clean Viewport Masks: clip scrolling pills outside y in [106, 332]
+          it.filled_rectangle(0, 0, 466, 106, id(col_bg));
+          it.filled_rectangle(0, 332, 466, 134, id(col_bg));
 
           // Top Header: Pure iconic "SYSTEM" title (Theme Primary, standardized at y=46)
           it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
@@ -7579,7 +7579,7 @@ display:
 
           uint32_t now_ms = millis();
           const int cel_cx = 346;
-          const int cel_cy = 116;
+          const int cel_cy = 106;
 
           // ====================================================================
           // LAYER 0: ATMOSPHERIC CANVAS
@@ -10027,8 +10027,8 @@ touchscreen:
                   return;
                 }
 
-                // Pill 1: Speakers > (y in [118..162], x in [120..346], center y = 140)
-                if (touch.y >= 118 && touch.y <= 162 && touch.x >= 120 && touch.x <= 346) {
+                // Pill 1: Speakers (y in [118..162], x in [130..336], center y = 140)
+                if (touch.y >= 118 && touch.y <= 162 && touch.x >= 130 && touch.x <= 336) {
                   static uint32_t last_hub_spk = 0;
                   if (now_hub - last_hub_spk > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_spk = now_hub;
@@ -10037,14 +10037,14 @@ touchscreen:
                     id(music_browse_page) = 1;
                     id(music_overlay_mode) = 1; // Open Speakers Browser
                     id(fetch_music_browse).execute();
-                    ESP_LOGI("touch", "Music Hub -> Speakers Browser: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Music Menu -> Speakers: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
                   return;
                 }
 
-                // Pill 2: Library > (y in [178..222], x in [120..346], center y = 200)
-                if (touch.y >= 178 && touch.y <= 222 && touch.x >= 120 && touch.x <= 346) {
+                // Pill 2: Library (y in [178..222], x in [130..336], center y = 200)
+                if (touch.y >= 178 && touch.y <= 222 && touch.x >= 130 && touch.x <= 336) {
                   static uint32_t last_hub_lib = 0;
                   if (now_hub - last_hub_lib > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_lib = now_hub;
@@ -10052,14 +10052,14 @@ touchscreen:
                     id(menu_scroll_active) = false;
                     id(menu_scroll_step) = 0;
                     id(music_overlay_mode) = 2; // Open Library Categories
-                    ESP_LOGI("touch", "Music Hub -> Library Categories: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Music Menu -> Library: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
                   return;
                 }
 
-                // Pill 3: Audio Settings > (y in [268..312], x in [120..346], center y = 290)
-                if (touch.y >= 268 && touch.y <= 312 && touch.x >= 120 && touch.x <= 346) {
+                // Pill 3: Settings (y in [268..312], x in [130..336], center y = 290)
+                if (touch.y >= 268 && touch.y <= 312 && touch.x >= 130 && touch.x <= 336) {
                   static uint32_t last_hub_set = 0;
                   if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_set = now_hub;
@@ -10068,7 +10068,7 @@ touchscreen:
                     id(audio_menu_parent_page) = 2;
                     id(audio_menu_page) = 1;
                     id(menu_scroll_active) = false;
-                    ESP_LOGI("touch", "Music Hub -> Audio Settings: x=%d y=%d", touch.x, touch.y);
+                    ESP_LOGI("touch", "Music Menu -> Settings: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
                   }
                   return;
@@ -10525,13 +10525,13 @@ touchscreen:
                     return;
                   }
 
-                  // Central 4 Button Slots (x: 90..370 across 4 slots: slot 0..3 at y=118, 176, 234, 292)
-                  if (touch.x >= 90 && touch.x <= 370) {
+                  // Central 4 Button Slots (x: 130..336 across 4 slots: slot 0..3 at y=132, 190, 248, 306)
+                  if (touch.x >= 130 && touch.x <= 336) {
                     int slot = -1;
-                    if (touch.y >= 90 && touch.y < 147) slot = 0;
-                    else if (touch.y >= 147 && touch.y < 205) slot = 1;
-                    else if (touch.y >= 205 && touch.y < 263) slot = 2;
-                    else if (touch.y >= 263 && touch.y <= 325) slot = 3;
+                    if (touch.y >= 105 && touch.y < 161) slot = 0;
+                    else if (touch.y >= 161 && touch.y < 219) slot = 1;
+                    else if (touch.y >= 219 && touch.y < 277) slot = 2;
+                    else if (touch.y >= 277 && touch.y <= 340) slot = 3;
 
                     if (slot >= 0) {
                       last_sys_action_tap = now_sys;
@@ -11302,9 +11302,9 @@ touchscreen:
                 return;
               }
 
-              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 184)
+              // Zone 3: Interactive Upper-Right Celestial Icon Shortcut (x >= 280, y <= 174)
               // Generous zero-deadzone envelope covering entire upper-right quadrant from bezel (y~29px) inward
-              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 184) {
+              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 174) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   std::string s_state = id(ha_sun_state).state;
