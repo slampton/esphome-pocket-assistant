@@ -7855,11 +7855,11 @@ display:
           // ====================================================================
           // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
           // ====================================================================
-          // Hero Temperature moved to y = 94
+          // Hero Temperature moved to y = 96
           char temp_buf[16];
           if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
-          it.print(cx, 94, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
+          it.print(cx, 96, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
           // Condition Subtitle moved to y = 168
           auto format_cond = [](const std::string& c_in) -> std::string {
@@ -8209,8 +8209,8 @@ display:
           // Divider below lunar disc at y = 234
           it.line(110, 234, 356, 234, id(col_dark_gray));
 
-          // Centered Phase Name (y = 258) and Illumination (y = 290) - swapped font colors
-          it.print(cx, 258, id(font_btn_bold), id(theme_secondary), TextAlign::CENTER, mp_label.c_str());
+          // Centered Phase Name (y = 258) in col_slate and Illumination (y = 290) in col_white
+          it.print(cx, 258, id(font_btn_bold), id(col_slate), TextAlign::CENTER, mp_label.c_str());
 
           char illum_buf[32];
           snprintf(illum_buf, sizeof(illum_buf), "%d%% Illumination", illum_pct);
