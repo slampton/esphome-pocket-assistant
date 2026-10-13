@@ -8502,9 +8502,9 @@ display:
           draw_right_flank_chevrons(id(stuff_menu_page) == 1, id(stuff_menu_page) == 0);
 
           auto draw_icon_card = [&](int cx_card, int cy_card, int app_id, const char* label) {
-            const int cw = 114;
-            const int ch = 84;
-            const int cr = 14;
+            const int cw = 124;
+            const int ch = 100;
+            const int cr = 16;
             int x0 = cx_card - cw / 2;
             int y0 = cy_card - ch / 2;
 
@@ -8521,7 +8521,7 @@ display:
             it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, Color(48, 56, 70));
 
             int ix = cx_card;
-            int iy = cy_card - 14;
+            int iy = cy_card - 16;
 
             if (app_id == 1) {
               // Timer Icon: Hourglass with sand
@@ -8598,13 +8598,13 @@ display:
             }
 
             // High-legibility font_small (21pt) label
-            it.print(cx_card, cy_card + 22, id(font_small), id(col_white), TextAlign::CENTER, label);
+            it.print(cx_card, cy_card + 26, id(font_small), id(col_white), TextAlign::CENTER, label);
           };
 
           const int col_left_x = 158;
           const int col_right_x = 294;
-          const int row_0_y = 156;
-          const int row_1_y = 264;
+          const int row_0_y = 154;
+          const int row_1_y = 278;
 
           if (id(stuff_menu_page) == 0) {
             // PAGE 1: 4 ICONS (Timer, Alarms, Flashlight, Calculator)
@@ -11434,23 +11434,23 @@ touchscreen:
                 int target_subpage = 0;
                 if (id(stuff_menu_page) == 0) {
                   // PAGE 1: 4 ICONS (Timer, Alarms, Flashlight, Calculator)
-                  // Row 0 (y in 85..210): Left = Timer (1), Right = Alarms (2)
-                  // Row 1 (y in 210..370): Left = Flashlight (5), Right = Calculator (6)
-                  if (touch.y >= 85 && touch.y < 210) {
+                  // Row 0 (y in 85..216): Left = Timer (1), Right = Alarms (2)
+                  // Row 1 (y in 216..380): Left = Flashlight (5), Right = Calculator (6)
+                  if (touch.y >= 85 && touch.y < 216) {
                     if (touch.x <= 226) target_subpage = 1; // Timer
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 2; // Alarms
-                  } else if (touch.y >= 210 && touch.y <= 370) {
+                  } else if (touch.y >= 216 && touch.y <= 380) {
                     if (touch.x <= 226) target_subpage = 5; // Flashlight
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 6; // Calculator
                   }
                 } else {
                   // PAGE 2: 4 ICONS (Stopwatch, Dice Roll, Level, Coin Flip)
-                  // Row 0 (y in 85..210): Left = Stopwatch (3), Right = Dice Roll (4)
-                  // Row 1 (y in 210..370): Left = Level (7), Right = Coin Flip (8)
-                  if (touch.y >= 85 && touch.y < 210) {
+                  // Row 0 (y in 85..216): Left = Stopwatch (3), Right = Dice Roll (4)
+                  // Row 1 (y in 216..380): Left = Level (7), Right = Coin Flip (8)
+                  if (touch.y >= 85 && touch.y < 216) {
                     if (touch.x <= 226) target_subpage = 3; // Stopwatch
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 4; // Dice Roll
-                  } else if (touch.y >= 210 && touch.y <= 370) {
+                  } else if (touch.y >= 216 && touch.y <= 380) {
                     if (touch.x <= 226) target_subpage = 7; // Level
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 8; // Coin Flip
                   }
