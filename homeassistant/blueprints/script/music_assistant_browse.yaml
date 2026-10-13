@@ -385,7 +385,8 @@ sequence:
           {{ ns.items | to_json }}
   - conditions:
     - condition: template
-      value_template: '{{ mode in ["playlist", "artist", "album", "radio", "track", "podcast", "audiobook"] }}'
+      value_template: >-
+        {{ mode in ['playlist', 'artist', 'album', 'radio', 'track', 'podcast', 'audiobook'] }}
     sequence:
     - action: music_assistant.get_library
       data:
