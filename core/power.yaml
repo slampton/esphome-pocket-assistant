@@ -826,9 +826,19 @@ script:
           // Enable deep sleep pad holds across all held GPIOs
           gpio_deep_sleep_hold_en();
 
-          // 8. Command AXP2101 PMIC to POWER OFF all system voltage rails (DCDC & LDOs)
+          // 8. Flush all dirty NVS preferences (learned outgoing_connection target IP, saved_battery_level,
+          // and UI configuration selects) to flash BEFORE the AXP2101 cuts the 3.3V DCDC1 rail,
+          // since hardware rail cutoff bypasses deep_sleep.enter's on_shutdown hooks.
+          global_preferences->sync();
+
+          // 9. Command AXP2101 PMIC to POWER OFF all system voltage rails (DCDC & LDOs)
           // Writing bit 0 of Register 0x10 (0x01) initiates immediate PMU hardware shutdown (<40µA).
           // Pressing the Top Crown Button (PEK) or plugging in USB power cold-boots the device cleanly.
+          // Flush all dirty NVS preferences (learned outgoing_connection target IP, saved_battery_level,
+          // and UI configuration selects) to flash BEFORE the AXP2101 cuts the 3.3V DCDC1 rail,
+          // since hardware rail cutoff bypasses deep_sleep.enter's on_shutdown hooks.
+          global_preferences->sync();
+
           uint8_t axp_pwr_off[2] = {0x10, 0x01};
           id(bus_internal).write(0x34, axp_pwr_off, 2);
 
