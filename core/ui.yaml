@@ -3536,10 +3536,10 @@ display:
         draw_menu_card_y(104 + slot_idx * 58, label, border_c, text_c, bg_c);
       };
 
-      // Standardized Centered < BACK Button Helper across all submenus (y = 410, r = 14, 106px wide, theme accent)
-      // Top dropped by 4px from 392 to 396; bottom stationary at 424; text realigned to y_mid = 410
+      // Standardized Centered < BACK Button Helper across all submenus (y = 410, r = 14, 76px inner / 104px outer width, theme accent)
+      // Narrowed from 180..286 to 195..271; top dropped 4px (396); bottom stationary (424); y_mid = 410
       auto draw_back_button = [&]() {
-        draw_pill_button(180, 286, 410, 14, C_PRIMARY, C_DARK_GRAY, "< BACK", C_PRIMARY, false);
+        draw_pill_button(195, 271, 410, 14, C_PRIMARY, C_DARK_GRAY, "< BACK", C_PRIMARY, false);
       };
 
       // Standardized Right-Flank Navigation Chevron Helpers (Global Display Scope)
@@ -7895,7 +7895,7 @@ display:
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
           it.print(cx, 134, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
-          // Condition Subtitle moved down to y = 202 (+34px, aligning with former 3rd line)
+          // Condition Subtitle moved up 5px to y = 197
           auto format_cond = [](const std::string& c_in) -> std::string {
             if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
             if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "PARTLY CLOUDY";
@@ -7919,7 +7919,7 @@ display:
           };
           std::string cond_title = format_cond(cond);
           Color cond_color = is_night ? id(theme_primary) : Color(255, 225, 110);
-          it.print(cx, 202, id(font_date), cond_color, TextAlign::CENTER, cond_title.c_str());
+          it.print(cx, 197, id(font_date), cond_color, TextAlign::CENTER, cond_title.c_str());
 
           // ----------------------------------------------------
           // PRIMARY METRICS: HUMIDITY & WIND (Harmonized 26px buffer above enlarged buttons)
