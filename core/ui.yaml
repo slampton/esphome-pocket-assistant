@@ -5614,8 +5614,8 @@ display:
           // Bottom Viewport Mask (lines up with apex of lower chevron at y = 282)
           it.filled_rectangle(0, 282, 466, 184, id(col_bg));
 
-          // Taller Action Button: "PLAY" at y = 352 (r = 22, height = 44px, font_btn_bold)
-          draw_hero_button(cx - 55, cx + 55, 352, 22, id(theme_primary), id(col_dark_gray), "PLAY", id(col_white));
+          // Taller Action Button: "PLAY" moved up 3px to y = 349 (r = 22, height = 44px, font_btn_bold)
+          draw_hero_button(cx - 55, cx + 55, 349, 22, id(theme_primary), id(col_dark_gray), "PLAY", id(col_white));
 
           // Standardized Right-Flank Vertical Chevrons (x = 415, Up at 162, Down at 278)
           // Always visible in true continuous carousel mode
@@ -7855,11 +7855,11 @@ display:
           // ====================================================================
           // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
           // ====================================================================
-          // Hero Temperature moved to y = 98
+          // Hero Temperature moved to y = 100
           char temp_buf[16];
           if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
-          it.print(cx, 98, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
+          it.print(cx, 100, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
           // Condition Subtitle moved to y = 168
           auto format_cond = [](const std::string& c_in) -> std::string {
@@ -8603,8 +8603,8 @@ display:
 
           const int col_left_x = 158;
           const int col_right_x = 294;
-          const int row_0_y = 154;
-          const int row_1_y = 278;
+          const int row_0_y = 159;
+          const int row_1_y = 283;
 
           if (id(stuff_menu_page) == 0) {
             // PAGE 1: 4 ICONS (Timer, Alarms, Flashlight, Calculator)
@@ -9679,6 +9679,7 @@ touchscreen:
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0;
                     id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(menu_scroll_active) = false;
                     id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
+                    id(sky_weather_subpage) = 0;
                     id(disp1).update();
                   }
                 }
@@ -11434,23 +11435,23 @@ touchscreen:
                 int target_subpage = 0;
                 if (id(stuff_menu_page) == 0) {
                   // PAGE 1: 4 ICONS (Timer, Alarms, Flashlight, Calculator)
-                  // Row 0 (y in 85..216): Left = Timer (1), Right = Alarms (2)
-                  // Row 1 (y in 216..380): Left = Flashlight (5), Right = Calculator (6)
-                  if (touch.y >= 85 && touch.y < 216) {
+                  // Row 0 (y in 85..221): Left = Timer (1), Right = Alarms (2)
+                  // Row 1 (y in 221..385): Left = Flashlight (5), Right = Calculator (6)
+                  if (touch.y >= 85 && touch.y < 221) {
                     if (touch.x <= 226) target_subpage = 1; // Timer
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 2; // Alarms
-                  } else if (touch.y >= 216 && touch.y <= 380) {
+                  } else if (touch.y >= 221 && touch.y <= 385) {
                     if (touch.x <= 226) target_subpage = 5; // Flashlight
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 6; // Calculator
                   }
                 } else {
                   // PAGE 2: 4 ICONS (Stopwatch, Dice Roll, Level, Coin Flip)
-                  // Row 0 (y in 85..216): Left = Stopwatch (3), Right = Dice Roll (4)
-                  // Row 1 (y in 216..380): Left = Level (7), Right = Coin Flip (8)
-                  if (touch.y >= 85 && touch.y < 216) {
+                  // Row 0 (y in 85..221): Left = Stopwatch (3), Right = Dice Roll (4)
+                  // Row 1 (y in 221..385): Left = Level (7), Right = Coin Flip (8)
+                  if (touch.y >= 85 && touch.y < 221) {
                     if (touch.x <= 226) target_subpage = 3; // Stopwatch
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 4; // Dice Roll
-                  } else if (touch.y >= 216 && touch.y <= 380) {
+                  } else if (touch.y >= 221 && touch.y <= 385) {
                     if (touch.x <= 226) target_subpage = 7; // Level
                     else if (touch.x > 226 && touch.x < 370) target_subpage = 8; // Coin Flip
                   }
