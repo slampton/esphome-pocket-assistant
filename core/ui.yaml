@@ -1339,58 +1339,57 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
+          uint32_t now_100 = millis();
           // Active Update Check animation refresh
           if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            id(disp1).update();
+            update_display_paced(id(disp1), now_100, 35);
           }
 
           // Music Overlay HUD Auto-Dismissal (5.0s timeout in Full Screen / Letterbox)
           if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_hud_active)) {
-            if (millis() - id(music_hud_timer) >= 5000) {
+            if (now_100 - id(music_hud_timer) >= 5000) {
               id(music_hud_active) = false;
               id(disp1).update();
+              last_display_finish_ms() = millis();
             }
           }
 
-          // 10 FPS Precision Mechanical Chronograph Sweep (100ms cadence)
-          // Frame executes in ~45ms on native AMOLED black canvas, leaving a massive 55ms CPU idle window for touch
+          // Precision Mechanical Chronograph Sweep (paced with >=35ms post-frame idle window for touch)
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 3 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
-            id(disp1).update();
+            update_display_paced(id(disp1), now_100, 35);
           }
 
-          // 10 FPS real-time tilt refresh for Level (Page 8, Subpage 1)
+          // Real-time tilt refresh for Bubble Level (Page 8, Subpage 7)
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 7 && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
-            id(disp1).update();
+            update_display_paced(id(disp1), now_100, 35);
           }
 
 
   - interval: 50ms
     then:
       - lambda: |-
-          // 20 FPS high-refresh animation loop for Coin Flip and Dice Roll
+          uint32_t now_50 = millis();
+          // High-refresh animation loop for Coin Flip and Dice Roll (guaranteed 35ms post-frame touch idle window)
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && (id(stuff_subpage) == 8 || id(stuff_subpage) == 4)) {
             if (id(coin_anim_active) || id(dice_anim_active)) {
-              id(disp1).update();
+              update_display_paced(id(disp1), now_50, 35);
             }
           }
 
-          // 20 FPS high-refresh physics loop exclusively for active games
+          // High-refresh physics loop for active games (guaranteed 35ms post-frame touch & IMU idle window)
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            id(disp1).update();
+            update_display_paced(id(disp1), now_50, 35);
           }
 
           // High-refresh fluid Voice Assistant loop
-          // While Listening/Thinking: 50ms (20 FPS) fluid organic breathing (speaker silent, zero DMA contention)
-          // While Speaking: precisely paced by va_speech_anim_interval (default 100ms, safe floor 75ms, restore_value enabled)
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
             static bool prev_tts_active = false;
-            uint32_t now_va_ms = millis();
 
             // Smooth state transition: When speech starts, reserve quiet bus air for DAC unmute and first syllables
             if (id(va_tts_received) != prev_tts_active) {
               prev_tts_active = id(va_tts_received);
-              last_va_anim_time = now_va_ms;
+              last_va_anim_time = now_50;
               return;
             }
 
@@ -1399,9 +1398,9 @@ interval:
               cadence = (uint32_t)id(va_speech_anim_interval).state;
               if (cadence < 75) cadence = 75;
             }
-            if (now_va_ms - last_va_anim_time >= cadence) {
-              last_va_anim_time = now_va_ms;
-              id(disp1).update();
+            if (now_50 - last_va_anim_time >= cadence) {
+              last_va_anim_time = now_50;
+              update_display_paced(id(disp1), now_50, 35);
             }
           }
 
@@ -2862,15 +2861,14 @@ script:
   - id: menu_scroll_transition
     mode: restart
     then:
-      - repeat:
-          count: 4
-          then:
-            - lambda: |-
-                id(menu_scroll_step)++;
-                id(disp1).update();
-            - delay: 28ms
-      - delay: 30ms
       - lambda: |-
+          // Frame 1: Render 50% eased midpoint frame (SHARED_SCROLL_EASE_*[2])
+          id(menu_scroll_step) = 2;
+          id(disp1).update();
+          last_display_finish_ms() = millis();
+      - delay: 12ms
+      - lambda: |-
+          // Frame 2: Commit target page, release touch lock, and render final settled frame
           id(menu_scroll_active) = false;
           if (id(gui_page) == 4 && id(system_menu_mode) == 1) {
             id(sleep_menu_page) = id(menu_scroll_target_page);
@@ -2888,6 +2886,8 @@ script:
             id(game_carousel_idx) = id(menu_scroll_target_page);
           }
           id(menu_scroll_step) = 0;
+          id(disp1).update();
+          last_display_finish_ms() = millis();
 
   # ==============================================================================
   # 📺 UNIVERSAL TV & MEDIA REMOTE COMMAND SCRIPTS
@@ -3576,105 +3576,9 @@ display:
             }
           }
 
-          bool rendered_art = false;
-          if (has_art && target_art != nullptr) {
-            const uint16_t *src_data = reinterpret_cast<const uint16_t *>(target_art->get_data_start());
-            int src_w = target_art->get_width();
-            int src_h = target_art->get_height();
-
-            if (src_data != nullptr && src_w > 0 && src_h > 0) {
-              rendered_art = true;
-              if (is_standard) {
-                // Standard mode: Downscale to uncropped 328x328 square centered at (233, 233)
-                // Inscribed completely inside 466px circle with zero edge cropping
-                int step_x = (src_w << 12) / 328;
-                int step_y = (src_h << 12) / 328;
-                bool apply_scrim = always_visible || id(music_hud_active);
-                int curr_y = 0;
-                for (int y = 0; y < 328; y++) {
-                  int sy = curr_y >> 12;
-                  curr_y += step_y;
-                  const uint16_t *src_row = src_data + sy * src_w;
-                  int py = 69 + y;
-                  int curr_x = 0;
-                  for (int x = 0; x < 328; x++) {
-                    if (apply_scrim && ((x + py) % 2 == 0)) {
-                      it.draw_pixel_at(69 + x, py, id(col_black));
-                    } else {
-                      uint16_t p = src_row[curr_x >> 12];
-                      uint8_t r = (p & 0xF800) >> 8;
-                      uint8_t g = (p & 0x07E0) >> 3;
-                      uint8_t b = (p & 0x001F) << 3;
-                      it.draw_pixel_at(69 + x, py, Color(r, g, b));
-                    }
-                    curr_x += step_x;
-                  }
-                }              } else {
-                // Full Screen & Letterbox: Direct Row-Major Pointer Reads with CIRCLE_HW clipping
-                int start_y = is_letterbox ? 60 : 0;
-                int end_y = is_letterbox ? 385 : 466;
-                bool apply_scrim = always_visible || id(music_hud_active);
-                if (src_w == 466 && src_h == 466) {
-                  for (int y = start_y; y < end_y; y++) {
-                    int hw = CIRCLE_HW[y];
-                    int start_x = cx - hw;
-                    int end_x = cx + hw;
-                    const uint16_t *src_row = src_data + y * 466;
-                    for (int x = start_x; x <= end_x; x++) {
-                      if (apply_scrim && ((x + y) % 2 == 0)) {
-                        it.draw_pixel_at(x, y, id(col_black));
-                      } else {
-                        uint16_t p = src_row[x];
-                        uint8_t r = (p & 0xF800) >> 8;
-                        uint8_t g = (p & 0x07E0) >> 3;
-                        uint8_t b = (p & 0x001F) << 3;
-                        it.draw_pixel_at(x, y, Color(r, g, b));
-                      }
-                    }
-                  }
-                } else {
-                  int step_x = (src_w << 12) / 466;
-                  int step_y = (src_h << 12) / 466;
-                  int curr_y = start_y * step_y;
-                  for (int y = start_y; y < end_y; y++) {
-                    int sy = curr_y >> 12;
-                    curr_y += step_y;
-                    const uint16_t *src_row = src_data + sy * src_w;
-                    int hw = CIRCLE_HW[y];
-                    int start_x = cx - hw;
-                    int end_x = cx + hw;
-                    for (int x = start_x; x <= end_x; x++) {
-                      if (apply_scrim && ((x + y) % 2 == 0)) {
-                        it.draw_pixel_at(x, y, id(col_black));
-                      } else {
-                        uint16_t p = src_row[(x * step_x) >> 12];
-                        uint8_t r = (p & 0xF800) >> 8;
-                        uint8_t g = (p & 0x07E0) >> 3;
-                        uint8_t b = (p & 0x001F) << 3;
-                        it.draw_pixel_at(x, y, Color(r, g, b));
-                      }
-                    }
-                  }
-                }
-
-                // Scrim handling based on HUD and Metadata visibility
-                // Note: Full HUD dither scrim is fused directly into the album art pass above, saving ~85,000 pixel loops.
-                if (!apply_scrim && show_metadata) {
-                  // Subtle bottom metadata scrim when metadata is set to always show without controls
-                  int scrim_end = is_letterbox ? 398 : 405;
-                  for (int y = 340; y < scrim_end; y++) {
-                    int hw = CIRCLE_HW[y];
-                    int start_x = cx - hw;
-                    if ((start_x + y) % 2 != 0) start_x++;
-                    int end_x = cx + hw;
-                    for (int x = start_x; x <= end_x; x += 2) {
-                      it.draw_pixel_at(x, y, id(col_black));
-                    }
-                  }
-                }
-              }
-            }
-          }
+          bool apply_scrim = always_visible || id(music_hud_active);
+          bool rendered_art = has_art && render_album_art_canvas(
+              it, target_art, cx, is_standard, is_letterbox, apply_scrim, show_metadata);
 
           if (!rendered_art) {
             // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
@@ -8078,6 +7982,9 @@ display:
           it.print(cx, 424, id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
         }
       }
+      // Record estimated QSPI flush completion timestamp (~105ms after lambda exit)
+      // so 50ms/100ms animation intervals always preserve a clean post-frame idle window.
+      last_display_finish_ms() = millis() + 105;
 
 
 

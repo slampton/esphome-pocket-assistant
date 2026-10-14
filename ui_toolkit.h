@@ -362,6 +362,133 @@ inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool
   }
 }
 
+// Zero-overdraw album art blitter with fused 2x-stride checkerboard scrim
+// and black-pixel skip (leverages mipi_spi's pre-cleared black framebuffer).
+template<typename DisplayT, typename ImageT>
+inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
+                                    bool is_standard, bool is_letterbox,
+                                    bool apply_scrim, bool show_metadata) {
+  if (target_art == nullptr) return false;
+  const uint16_t *src_data = reinterpret_cast<const uint16_t *>(target_art->get_data_start());
+  int src_w = target_art->get_width();
+  int src_h = target_art->get_height();
+  if (src_data == nullptr || src_w <= 0 || src_h <= 0) return false;
+
+  if (is_standard) {
+    int step_x = (src_w << 12) / 328;
+    int step_y = (src_h << 12) / 328;
+    int curr_y = 0;
+    for (int y = 0; y < 328; y++) {
+      int sy = curr_y >> 12;
+      curr_y += step_y;
+      const uint16_t *src_row = src_data + sy * src_w;
+      int py = 69 + y;
+      int curr_x = 0;
+      for (int x = 0; x < 328; x++) {
+        if (!apply_scrim || ((x + py) & 1) != 0) {
+          uint16_t p = src_row[curr_x >> 12];
+          if (p != 0) {
+            uint8_t r = (p & 0xF800) >> 8;
+            uint8_t g = (p & 0x07E0) >> 3;
+            uint8_t b = (p & 0x001F) << 3;
+            it.draw_pixel_at(69 + x, py, esphome::Color(r, g, b));
+          }
+        }
+        curr_x += step_x;
+      }
+    }
+    return true;
+  }
+
+  int start_y = is_letterbox ? 60 : 0;
+  int end_y = is_letterbox ? 385 : 466;
+  int scrim_end = is_letterbox ? 398 : 405;
+
+  if (src_w == 466 && src_h == 466) {
+    for (int y = start_y; y < end_y; y++) {
+      int hw = CIRCLE_HW[y];
+      int start_x = cx - hw;
+      int end_x = cx + hw;
+      const uint16_t *src_row = src_data + y * 466;
+      bool row_scrim = apply_scrim || (show_metadata && y >= 340 && y < scrim_end);
+      if (row_scrim) {
+        int x0 = start_x + (((start_x + y) & 1) == 0 ? 1 : 0);
+        for (int x = x0; x <= end_x; x += 2) {
+          uint16_t p = src_row[x];
+          if (p != 0) {
+            uint8_t r = (p & 0xF800) >> 8;
+            uint8_t g = (p & 0x07E0) >> 3;
+            uint8_t b = (p & 0x001F) << 3;
+            it.draw_pixel_at(x, y, esphome::Color(r, g, b));
+          }
+        }
+      } else {
+        for (int x = start_x; x <= end_x; x++) {
+          uint16_t p = src_row[x];
+          if (p != 0) {
+            uint8_t r = (p & 0xF800) >> 8;
+            uint8_t g = (p & 0x07E0) >> 3;
+            uint8_t b = (p & 0x001F) << 3;
+            it.draw_pixel_at(x, y, esphome::Color(r, g, b));
+          }
+        }
+      }
+    }
+  } else {
+    int step_x = (src_w << 12) / 466;
+    int step_y = (src_h << 12) / 466;
+    int curr_y = start_y * step_y;
+    for (int y = start_y; y < end_y; y++) {
+      int sy = curr_y >> 12;
+      curr_y += step_y;
+      const uint16_t *src_row = src_data + sy * src_w;
+      int hw = CIRCLE_HW[y];
+      int start_x = cx - hw;
+      int end_x = cx + hw;
+      bool row_scrim = apply_scrim || (show_metadata && y >= 340 && y < scrim_end);
+      if (row_scrim) {
+        int x0 = start_x + (((start_x + y) & 1) == 0 ? 1 : 0);
+        for (int x = x0; x <= end_x; x += 2) {
+          uint16_t p = src_row[(x * step_x) >> 12];
+          if (p != 0) {
+            uint8_t r = (p & 0xF800) >> 8;
+            uint8_t g = (p & 0x07E0) >> 3;
+            uint8_t b = (p & 0x001F) << 3;
+            it.draw_pixel_at(x, y, esphome::Color(r, g, b));
+          }
+        }
+      } else {
+        for (int x = start_x; x <= end_x; x++) {
+          uint16_t p = src_row[(x * step_x) >> 12];
+          if (p != 0) {
+            uint8_t r = (p & 0xF800) >> 8;
+            uint8_t g = (p & 0x07E0) >> 3;
+            uint8_t b = (p & 0x001F) << 3;
+            it.draw_pixel_at(x, y, esphome::Color(r, g, b));
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+// Frame completion tracker & post-frame idle breathing guard (prevents 50ms/100ms
+// intervals from firing back-to-back with 0ms gap after a ~125ms QSPI display flush).
+inline uint32_t &last_display_finish_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
+template<typename DispT>
+inline void update_display_paced(DispT *disp, uint32_t now_ms, uint32_t min_idle_ms = 35) {
+  if (disp == nullptr) return;
+  if (static_cast<int32_t>(now_ms - last_display_finish_ms()) < static_cast<int32_t>(min_idle_ms)) {
+    return;
+  }
+  disp->update();
+}
+
 // ------------------------------------------------------------------------------
 // 3. Text, Time, SemVer & Synodic Astronomy Helpers
 // ------------------------------------------------------------------------------
