@@ -738,6 +738,8 @@ select:
     options:
       - "Nebula"
       - "Solaris"
+      - "Classic Nebula"
+      - "Classic Solaris"
     set_action:
       - lambda: |-
           id(va_visual_profile).publish_state(x);
@@ -1309,19 +1311,7 @@ number:
     on_value:
       then:
         - script.execute: sync_display_brightness
-  - platform: template
-    name: "Voice: Speaking Animation Interval"
-    id: va_speech_anim_interval
-    optimistic: true
-    restore_value: true
-    min_value: 75
-    max_value: 800
-    step: 25
-    initial_value: 100
-    mode: slider
-    icon: "mdi:speedometer"
-    unit_of_measurement: "ms"
-    entity_category: config
+
 
 
 interval:
@@ -1379,6 +1369,7 @@ interval:
           }
 
           // High-refresh fluid Voice Assistant loop
+          // Listening/Thinking: 50ms cadence (speaker silent); Speaking (TTS): hardcoded 100ms cadence (10 FPS) for audio-safe DMA headroom
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
             static bool prev_tts_active = false;
@@ -1391,11 +1382,7 @@ interval:
               return;
             }
 
-            uint32_t cadence = 50;
-            if (id(va_tts_received)) {
-              cadence = (uint32_t)id(va_speech_anim_interval).state;
-              if (cadence < 75) cadence = 75;
-            }
+            const uint32_t cadence = id(va_tts_received) ? 100U : 50U;
             if (now_va_ms - last_va_anim_time >= cadence) {
               last_va_anim_time = now_va_ms;
               id(disp1).update();
@@ -3183,205 +3170,11 @@ display:
         uint32_t now_ms = millis();
         bool is_speaking = id(va_tts_received);
         bool is_thinking = (!is_speaking && id(va_status_text) == "Thinking...");
-        bool is_solaris = (id(va_visual_profile).current_option() == "Solaris");
-
-        auto get_nuanced_radiation_color = [is_solaris](float t) -> Color { return get_va_radiation_color(is_solaris, t); };
-
-        if (is_speaking) {
-          // ====================================================
-          // STATE 3: SPEAKING (TTS) — RADIATING EXPANDING HARMONIC BANDS
-          // ====================================================
-          for (int w = 0; w < 5; w++) {
-            uint32_t wave_t = (now_ms + w * 400) % 2000;
-            float progress = (float)wave_t / 2000.0f;
-            int r_center = 36 + (int)(progress * 180.0f);
-
-            float width_factor = sinf(progress * PI_F);
-            int base_w = (w % 2 == 0) ? 7 : 4;
-            int band_w = base_w + (int)(5.0f * width_factor);
-            if (band_w < 3) band_w = 3;
-            int half_w = band_w / 2;
-
-            float wave_color_phase = (float)w * 0.20f + progress * 0.30f + (float)(now_ms % 4000) / 4000.0f;
-            float fade = 1.0f - (progress * 0.45f);
-
-            for (int d = -half_w; d <= half_w; d++) {
-              int r_curr = r_center + d;
-              if (r_curr < 34 || r_curr > 226) continue;
-
-              float edge_dist = fabsf((float)d) / (float)(half_w + 1);
-              float band_phase = wave_color_phase + (float)d * 0.02f;
-              Color base_col = get_nuanced_radiation_color(band_phase);
-
-              Color stroke_col;
-              if (edge_dist < 0.35f) {
-                stroke_col = Color(
-                  (uint8_t)((base_col.red * 0.70f + 255.0f * 0.30f) * fade),
-                  (uint8_t)((base_col.green * 0.70f + 255.0f * 0.30f) * fade),
-                  (uint8_t)((base_col.blue * 0.70f + 255.0f * 0.30f) * fade)
-                );
-              } else {
-                stroke_col = Color(
-                  (uint8_t)(base_col.red * fade),
-                  (uint8_t)(base_col.green * fade),
-                  (uint8_t)(base_col.blue * fade)
-                );
-              }
-              it.circle(cx, cy, r_curr, stroke_col);
-            }
-          }
-
-          // Pulsing Acoustic Core (800ms rhythmic beat, matte layered depth with subtle shadow)
-          float core_pulse = sinf((float)(now_ms % 800) * (2.0f * PI_F / 800.0f));
-          int core_r = 22 + (int)(4.0f * core_pulse);
-
-          Color aura_col = is_solaris ? C_SOLARIS_GOLD : get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f);
-          Color body_col = is_solaris ? Color(250, 100, 15) : get_nuanced_radiation_color((float)(now_ms % 3000) / 3000.0f + 0.33f);
-
-          it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
-          it.circle(cx, cy, core_r + 4, aura_col);
-          it.circle(cx, cy, core_r + 3, aura_col);
-          it.circle(cx, cy, core_r + 2, aura_col);
-          it.filled_circle(cx, cy, core_r, body_col);
-
-          if (core_r > 6) {
-            Color inner_tone = is_solaris ? C_SOLARIS_GOLD : Color(
-              (uint8_t)(body_col.red * 0.82f + 35),
-              (uint8_t)(body_col.green * 0.82f + 35),
-              (uint8_t)(body_col.blue * 0.82f + 35)
-            );
-            it.circle(cx, cy - 1, core_r - 3, inner_tone);
-          }
-
-        } else if (is_thinking) {
-          // ====================================================
-          // STATE 2: THINKING — EXPANDED QUANTUM / SOLAR CONSTELLATION
-          // ====================================================
-          it.circle(cx, cy, 68, id(col_dark_gray));
-          it.circle(cx, cy, 114, id(col_dark_gray));
-
-          float spin_cw = (float)(now_ms % 1100) * (2.0f * PI_F / 1100.0f);
-          float spin_ccw = -(float)(now_ms % 1100) * (2.0f * PI_F / 1100.0f);
-
-          Color inner_star_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
-          Color outer_star_col = is_solaris ? Color(35, 210, 110) : id(col_purple);
-          Color outer_star_body = is_solaris ? Color(35, 210, 110) : id(col_magenta);
-          Color outer_star_aura = is_solaris ? C_SOLARIS_GOLD : id(col_purple);
-          Color text_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
-
-          // Inner CW orbit stars (4-point sparkle tips at r=68)
-          for (int i = 0; i < 4; i++) {
-            float ang = spin_cw + i * (PI_F / 2.0f);
-            float s_node, c_node;
-            sincosf(ang, &s_node, &c_node);
-            int nx = cx + (int)(68.0f * c_node);
-            int ny = cy + (int)(68.0f * s_node);
-            it.horizontal_line(nx - 4, ny, 9, inner_star_col);
-            it.vertical_line(nx, ny - 4, 9, inner_star_col);
-            it.filled_circle(nx, ny, 3, inner_star_col);
-            it.filled_circle(nx, ny, 1, id(col_white));
-          }
-
-          // Outer CCW orbit stars (4-point sparkle tips at r=114)
-          for (int i = 0; i < 4; i++) {
-            float ang = spin_ccw + i * (PI_F / 2.0f) + (PI_F / 4.0f);
-            float s_node, c_node;
-            sincosf(ang, &s_node, &c_node);
-            int nx = cx + (int)(114.0f * c_node);
-            int ny = cy + (int)(114.0f * s_node);
-            it.horizontal_line(nx - 5, ny, 11, outer_star_col);
-            it.vertical_line(nx, ny - 5, 11, outer_star_col);
-            it.filled_circle(nx, ny, 4, outer_star_body);
-            it.filled_circle(nx, ny, 2, outer_star_aura);
-            it.filled_circle(nx, ny, 1, id(col_white));
-          }
-
-          // Cognitive Pulse Core
-          float pulse = sinf((float)(now_ms % 600) * (2.0f * PI_F / 600.0f));
-          int core_r = 24 + (int)(5.0f * pulse);
-
-          Color core_ring_col = is_solaris ? C_SOLARIS_GOLD : id(col_purple);
-          Color core_fill_col = is_solaris ? Color(250, 100, 15) : id(col_cyan);
-
-          it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
-          it.circle(cx, cy, core_r + 5, core_ring_col);
-          it.circle(cx, cy, core_r + 4, core_ring_col);
-          it.circle(cx, cy, core_r + 3, core_ring_col);
-          it.filled_circle(cx, cy, core_r, core_fill_col);
-
-          if (core_r > 6) {
-            Color inner_tone = is_solaris ? C_SOLARIS_GOLD : Color(30, 200, 230);
-            it.circle(cx, cy - 1, core_r - 3, inner_tone);
-          }
-
-          it.print(cx, 401, id(font_small), text_col, TextAlign::CENTER, "Thinking...");
-
-        } else {
-          // ====================================================
-          // STATE 1: LISTENING — ROBUST ATTENTIVE LIVING CORE
-          // ====================================================
-          float vad_boost = id(va_vad_active) ? 6.0f : 0.0f;
-          float pulse = sinf((float)(now_ms % 1600) * (2.0f * PI_F / 1600.0f));
-
-          Color outer_halo_col = is_solaris ? Color(35, 210, 110) : id(col_purple);
-          Color mid_ring_col = is_solaris ? C_SOLARIS_GOLD : id(col_light_blue);
-          Color mid_ring_inner = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
-          Color sat_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
-          Color sat_aura = is_solaris ? C_SOLARIS_GOLD : id(col_light_blue);
-          Color core_aura_col = is_solaris ? C_SOLARIS_GOLD : id(col_purple);
-          Color core_ring_col = is_solaris ? C_SOLARIS_GOLD : id(col_light_blue);
-          Color core_fill_col = is_solaris ? Color(250, 100, 15) : id(col_cyan);
-          Color text_col = is_solaris ? C_SOLARIS_GOLD : id(col_cyan);
-
-          // 1. Broad Outer Attentive Halo (r=118..126)
-          int outer_halo_r = 118 + (int)(8.0f * pulse + vad_boost);
-          it.circle(cx, cy, outer_halo_r + 1, id(col_dark_gray));
-          it.circle(cx, cy, outer_halo_r, outer_halo_col);
-          it.circle(cx, cy, outer_halo_r - 1, outer_halo_col);
-
-          // 2. Harmonic Acoustic Wave Ring (r=74..82)
-          int mid_ring_r = 74 + (int)(5.0f * pulse + vad_boost * 0.5f);
-          it.circle(cx, cy, mid_ring_r + 1, id(col_dark_gray));
-          it.circle(cx, cy, mid_ring_r, mid_ring_col);
-          it.circle(cx, cy, mid_ring_r - 1, mid_ring_inner);
-
-          // 3. 4 Orbital Satellites revolving at 3.2s pace at r=mid_ring_r
-          float orbit_ang = (float)(now_ms % 3200) * (2.0f * PI_F / 3200.0f);
-          for (int i = 0; i < 4; i++) {
-            float ang = orbit_ang + i * (PI_F / 2.0f);
-            float s_node, c_node;
-            sincosf(ang, &s_node, &c_node);
-            int nx = cx + (int)((float)mid_ring_r * c_node);
-            int ny = cy + (int)((float)mid_ring_r * s_node);
-            it.horizontal_line(nx - 3, ny, 7, sat_aura);
-            it.vertical_line(nx, ny - 3, 7, sat_aura);
-            it.filled_circle(nx, ny, 4, sat_col);
-            it.filled_circle(nx, ny, 2, id(col_white));
-          }
-
-          // 4. Robust Living Core (core_r = 26..37 with VAD boost)
-          int core_r = 26 + (int)(5.0f * pulse + vad_boost);
-          int aura_r = 44 + (int)(8.0f * pulse + vad_boost * 1.2f);
-
-          it.circle(cx, cy, aura_r + 2, id(col_dark_gray));
-          it.circle(cx, cy, aura_r + 1, core_aura_col);
-          it.circle(cx, cy, aura_r, core_aura_col);
-          it.circle(cx, cy, aura_r - 1, core_aura_col);
-
-          it.filled_circle(cx, cy + 3, core_r + 4, id(col_dark_gray)); // drop shadow
-          it.circle(cx, cy, core_r + 4, core_ring_col);
-          it.circle(cx, cy, core_r + 3, core_ring_col);
-          it.circle(cx, cy, core_r + 2, core_ring_col);
-          it.filled_circle(cx, cy, core_r, core_fill_col);
-
-          if (core_r > 6) {
-            Color inner_tone = is_solaris ? C_SOLARIS_GOLD : Color(30, 200, 230);
-            it.circle(cx, cy - 1, core_r - 3, inner_tone);
-          }
-
-          const char *status_str = id(va_status_text).empty() ? "Listening..." : id(va_status_text).c_str();
-          it.print(cx, 401, id(font_small), text_col, TextAlign::CENTER, status_str);
-        }
+        render_voice_assistant_overlay(
+            it, cx, cy, now_ms, is_speaking, is_thinking, id(va_vad_active),
+            id(va_visual_profile).current_option(), id(va_status_text),
+            id(font_small), C_WHITE, C_DARK_GRAY, C_CYAN, id(col_light_blue),
+             id(col_purple), id(col_magenta), C_SOLARIS_GOLD);
         return;
       }
 
@@ -6247,13 +6040,13 @@ display:
 
         } else if (id(system_menu_mode) == 11) {
           // --------------------------------------------------
-          // VIEW 11: VOICE ASSISTANT SUBMENU (Canonical 58px Pitch, 3 Slots)
+          // VIEW 11: VOICE ASSISTANT SUBMENU (Canonical 58px Pitch, 2 Slots)
           // --------------------------------------------------
           draw_menu_header(50, "VOICE");
 
-          // Slot 0: Visual Profile Cycler
-          std::string va_prof = id(va_visual_profile).current_option();
-          char prof_buf[32];
+          // Slot 0: Visual Profile Cycler (Nebula, Solaris, Classic Nebula, Classic Solaris)
+          auto va_prof = id(va_visual_profile).current_option();
+          char prof_buf[36];
           snprintf(prof_buf, sizeof(prof_buf), "Profile: %s", va_prof.c_str());
           draw_menu_slot_card(0, prof_buf);
 
@@ -6262,13 +6055,6 @@ display:
           char va_scr_buf[32];
           snprintf(va_scr_buf, sizeof(va_scr_buf), "Wake Screen: %s", va_scr ? "ON" : "OFF");
           draw_menu_slot_card(1, va_scr_buf);
-
-          // Slot 2: Speaking Animation Speed Cycler
-          int anim_ms = (int)id(va_speech_anim_interval).state;
-          if (anim_ms <= 0) anim_ms = 75;
-          char anim_buf[32];
-          snprintf(anim_buf, sizeof(anim_buf), "Cadence: %dms", anim_ms);
-          draw_menu_slot_card(2, anim_buf);
 
           // Standardized Centered < BACK Button at y = 408 (r = 16)
           draw_back_button();
@@ -9656,30 +9442,21 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 11) {
-                // Mode 11: Voice Assistant Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
+                // Mode 11: Voice Assistant Submenu (Canonical 58px Pitch, 2 Slots)
                 int slot = get_5slot_index(touch, 90, 376);
-                if (slot >= 0 && slot <= 2 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                if (slot >= 0 && slot <= 1 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
                     // Card 1: Visual Profile Cycler (Slot 0, y = 104)
-                    std::string cur = id(va_visual_profile).current_option();
+                    auto cur = id(va_visual_profile).current_option();
                     auto call = id(va_visual_profile).make_call();
-                    call.set_option(cycle_option(cur, {"Nebula", "Solaris"}));
+                    call.set_option(cycle_option(cur, {"Nebula", "Solaris", "Classic Nebula", "Classic Solaris"}));
                     call.perform();
                     id(disp1).update();
                     return;
                   } else if (slot == 1) {
                     // Card 2: Wake Screen on Assist Toggle (Slot 1, y = 162)
                     id(va_wake_screen_switch).toggle();
-                    id(disp1).update();
-                    return;
-                  } else if (slot == 2) {
-                    // Card 3: Speaking Animation Speed Cycler (Slot 2, y = 220)
-                    int cur_ms = (int)id(va_speech_anim_interval).state;
-                    int nxt_ms = (cur_ms == 75) ? 100 : ((cur_ms == 100) ? 125 : 75);
-                    auto call = id(va_speech_anim_interval).make_call();
-                    call.set_value(nxt_ms);
-                    call.perform();
                     id(disp1).update();
                     return;
                   }

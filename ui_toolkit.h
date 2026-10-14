@@ -963,6 +963,25 @@ inline void render_screensaver_solar_flare(DisplayT &it, int cx, int cy, uint32_
   it.filled_circle(scx, scy, eye_r, esphome::Color(255, eye_g, 15));
 }
 
+// Linear RGB color interpolation helper (k in [0.0f .. 1.0f])
+inline esphome::Color lerp_color(esphome::Color a, esphome::Color b, float k) {
+  if (k <= 0.0f) return a;
+  if (k >= 1.0f) return b;
+  return esphome::Color(
+      static_cast<uint8_t>(a.r + (b.r - a.r) * k),
+      static_cast<uint8_t>(a.g + (b.g - a.g) * k),
+      static_cast<uint8_t>(a.b + (b.b - a.b) * k));
+}
+
+inline esphome::Color scale_color(esphome::Color c, float scale) {
+  if (scale <= 0.0f) return esphome::Color(0, 0, 0);
+  if (scale >= 1.0f) return c;
+  return esphome::Color(
+      static_cast<uint8_t>(c.r * scale),
+      static_cast<uint8_t>(c.g * scale),
+      static_cast<uint8_t>(c.b * scale));
+}
+
 inline esphome::Color get_va_radiation_color(bool is_solaris, float t) {
   t = t - floorf(t);
   if (is_solaris) {
@@ -994,6 +1013,545 @@ inline esphome::Color get_va_radiation_color(bool is_solaris, float t) {
       return esphome::Color((uint8_t)(224.0f * (1.0f - k)), (uint8_t)(64.0f * (1.0f - k) + 229.0f * k), 255);
     }
   }
+}
+
+// Complete Voice Assistant Visual Engine supporting 4 profiles:
+//   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven)
+//   - "Solaris": Flagship Radial Acoustic Corona & Solar Astrolabe Spectrometer
+//   - "Classic Nebula": Original Nebula visual design with trig & loop optimizations
+//   - "Classic Solaris": Original Solaris visual design with trig & loop optimizations
+template<typename DisplayT, typename FontT, typename StrRefT>
+inline void render_voice_assistant_overlay(
+    DisplayT &it, int cx, int cy, uint32_t now_ms,
+    bool is_speaking, bool is_thinking, bool va_vad_active,
+    const StrRefT &profile_opt, const std::string &va_status_text,
+    FontT *font_small,
+    esphome::Color col_white, esphome::Color col_dark_gray,
+    esphome::Color col_cyan, esphome::Color col_light_blue,
+    esphome::Color col_purple, esphome::Color col_magenta,
+    esphome::Color col_solaris_gold) {
+
+  const bool is_classic_nebula = (profile_opt == "Classic Nebula");
+  const bool is_classic_solaris = (profile_opt == "Classic Solaris");
+  const bool is_classic = (is_classic_nebula || is_classic_solaris);
+  const bool is_solaris = (profile_opt == "Solaris" || is_classic_solaris);
+
+  // Smooth exponential VAD envelope (0.0f -> 1.0f) for fluid organic transitions
+  static float smooth_vad = 0.0f;
+  const float vad_target = va_vad_active ? 1.0f : 0.0f;
+  smooth_vad += (vad_target - smooth_vad) * 0.35f;
+
+  // ============================================================================
+  // A. CLASSIC NEBULA & CLASSIC SOLARIS (Preserved Visuals, C++ Trig Optimized)
+  // ============================================================================
+  if (is_classic) {
+    if (is_speaking) {
+      for (int w = 0; w < 5; w++) {
+        uint32_t wave_t = (now_ms + static_cast<uint32_t>(w) * 400U) % 2000U;
+        float progress = static_cast<float>(wave_t) * 0.0005f;
+        int r_center = 36 + static_cast<int>(progress * 180.0f);
+
+        float width_factor = sinf(progress * PI_F);
+        int base_w = (w % 2 == 0) ? 7 : 4;
+        int band_w = base_w + static_cast<int>(5.0f * width_factor);
+        if (band_w < 3) band_w = 3;
+        int half_w = band_w >> 1;
+
+        float wave_color_phase = static_cast<float>(w) * 0.20f + progress * 0.30f +
+                                 static_cast<float>(now_ms % 4000U) * 0.00025f;
+        float fade = 1.0f - (progress * 0.45f);
+        float inv_half = 1.0f / static_cast<float>(half_w + 1);
+        float white_boost = 76.5f * fade;  // 255 * 0.30 * fade
+        float body_scale = 0.70f * fade;
+
+        for (int d = -half_w; d <= half_w; d++) {
+          int r_curr = r_center + d;
+          if (r_curr < 34 || r_curr > 226) continue;
+
+          float edge_dist = static_cast<float>(d < 0 ? -d : d) * inv_half;
+          esphome::Color base_col = get_va_radiation_color(is_solaris, wave_color_phase + static_cast<float>(d) * 0.02f);
+
+          esphome::Color stroke_col = (edge_dist < 0.35f)
+              ? esphome::Color(
+                    static_cast<uint8_t>(base_col.r * body_scale + white_boost),
+                    static_cast<uint8_t>(base_col.g * body_scale + white_boost),
+                    static_cast<uint8_t>(base_col.b * body_scale + white_boost))
+              : scale_color(base_col, fade);
+          it.circle(cx, cy, r_curr, stroke_col);
+        }
+      }
+
+      float core_pulse = sinf(static_cast<float>(now_ms % 800U) * (2.0f * PI_F / 800.0f));
+      int core_r = 22 + static_cast<int>(4.0f * core_pulse);
+
+      float color_t = static_cast<float>(now_ms % 3000U) * (1.0f / 3000.0f);
+      esphome::Color aura_col = is_solaris ? col_solaris_gold : get_va_radiation_color(false, color_t);
+      esphome::Color body_col = is_solaris ? esphome::Color(250, 100, 15) : get_va_radiation_color(false, color_t + 0.33f);
+
+      it.filled_circle(cx, cy + 3, core_r + 4, col_dark_gray);
+      it.circle(cx, cy, core_r + 4, aura_col);
+      it.circle(cx, cy, core_r + 3, aura_col);
+      it.circle(cx, cy, core_r + 2, aura_col);
+      it.filled_circle(cx, cy, core_r, body_col);
+
+      if (core_r > 6) {
+        esphome::Color inner_tone = is_solaris ? col_solaris_gold : esphome::Color(
+            static_cast<uint8_t>(body_col.r * 0.82f + 35),
+            static_cast<uint8_t>(body_col.g * 0.82f + 35),
+            static_cast<uint8_t>(body_col.b * 0.82f + 35));
+        it.circle(cx, cy - 1, core_r - 3, inner_tone);
+      }
+      return;
+    }
+
+    if (is_thinking) {
+      it.circle(cx, cy, 68, col_dark_gray);
+      it.circle(cx, cy, 114, col_dark_gray);
+
+      float spin_cw = static_cast<float>(now_ms % 1100U) * (2.0f * PI_F / 1100.0f);
+      float s0 = sinf(spin_cw), c0 = cosf(spin_cw);
+
+      esphome::Color inner_star_col = is_solaris ? col_solaris_gold : col_cyan;
+      esphome::Color outer_star_col = is_solaris ? esphome::Color(35, 210, 110) : col_purple;
+      esphome::Color outer_star_body = is_solaris ? esphome::Color(35, 210, 110) : col_magenta;
+      esphome::Color outer_star_aura = is_solaris ? col_solaris_gold : col_purple;
+      esphome::Color text_col = is_solaris ? col_solaris_gold : col_cyan;
+
+      // 4 orthogonal points via 90-degree rotation of (c0, s0) -> only 1 sinf/cosf call!
+      const float rot_c[4] = {c0, -s0, -c0, s0};
+      const float rot_s[4] = {s0,  c0, -s0, -c0};
+      for (int i = 0; i < 4; i++) {
+        int nx = cx + static_cast<int>(68.0f * rot_c[i]);
+        int ny = cy + static_cast<int>(68.0f * rot_s[i]);
+        it.line(nx - 4, ny, nx + 4, ny, inner_star_col);
+        it.line(nx, ny - 4, nx, ny + 4, inner_star_col);
+        it.filled_circle(nx, ny, 3, inner_star_col);
+        it.filled_circle(nx, ny, 1, col_white);
+      }
+
+      // Outer CCW orbit offset by +pi/4: cos(-a + pi/4) = (c0 + s0)*0.70710678f
+      const float oc0 = (c0 + s0) * 0.70710678f;
+      const float os0 = (c0 - s0) * 0.70710678f;
+      const float orot_c[4] = {oc0, -os0, -oc0, os0};
+      const float orot_s[4] = {os0,  oc0, -os0, -oc0};
+      for (int i = 0; i < 4; i++) {
+        int nx = cx + static_cast<int>(114.0f * orot_c[i]);
+        int ny = cy + static_cast<int>(114.0f * orot_s[i]);
+        it.line(nx - 5, ny, nx + 5, ny, outer_star_col);
+        it.line(nx, ny - 5, nx, ny + 5, outer_star_col);
+        it.filled_circle(nx, ny, 4, outer_star_body);
+        it.filled_circle(nx, ny, 2, outer_star_aura);
+        it.filled_circle(nx, ny, 1, col_white);
+      }
+
+      float pulse = sinf(static_cast<float>(now_ms % 600U) * (2.0f * PI_F / 600.0f));
+      int core_r = 24 + static_cast<int>(5.0f * pulse);
+      esphome::Color core_ring_col = is_solaris ? col_solaris_gold : col_purple;
+      esphome::Color core_fill_col = is_solaris ? esphome::Color(250, 100, 15) : col_cyan;
+
+      it.filled_circle(cx, cy + 3, core_r + 4, col_dark_gray);
+      it.circle(cx, cy, core_r + 5, core_ring_col);
+      it.circle(cx, cy, core_r + 4, core_ring_col);
+      it.circle(cx, cy, core_r + 3, core_ring_col);
+      it.filled_circle(cx, cy, core_r, core_fill_col);
+      if (core_r > 6) {
+        esphome::Color inner_tone = is_solaris ? col_solaris_gold : esphome::Color(30, 200, 230);
+        it.circle(cx, cy - 1, core_r - 3, inner_tone);
+      }
+      it.print(cx, 401, font_small, text_col, esphome::display::TextAlign::CENTER, "Thinking...");
+      return;
+    }
+
+    // Classic Listening
+    float vad_boost = va_vad_active ? 6.0f : 0.0f;
+    float pulse = sinf(static_cast<float>(now_ms % 1600U) * (2.0f * PI_F / 1600.0f));
+
+    esphome::Color outer_halo_col = is_solaris ? esphome::Color(35, 210, 110) : col_purple;
+    esphome::Color mid_ring_col = is_solaris ? col_solaris_gold : col_light_blue;
+    esphome::Color mid_ring_inner = is_solaris ? col_solaris_gold : col_cyan;
+    esphome::Color sat_col = is_solaris ? col_solaris_gold : col_cyan;
+    esphome::Color sat_aura = is_solaris ? col_solaris_gold : col_light_blue;
+    esphome::Color core_aura_col = is_solaris ? col_solaris_gold : col_purple;
+    esphome::Color core_ring_col = is_solaris ? col_solaris_gold : col_light_blue;
+    esphome::Color core_fill_col = is_solaris ? esphome::Color(250, 100, 15) : col_cyan;
+    esphome::Color text_col = is_solaris ? col_solaris_gold : col_cyan;
+
+    int outer_halo_r = 118 + static_cast<int>(8.0f * pulse + vad_boost);
+    it.circle(cx, cy, outer_halo_r + 1, col_dark_gray);
+    it.circle(cx, cy, outer_halo_r, outer_halo_col);
+    it.circle(cx, cy, outer_halo_r - 1, outer_halo_col);
+
+    int mid_ring_r = 74 + static_cast<int>(5.0f * pulse + vad_boost * 0.5f);
+    it.circle(cx, cy, mid_ring_r + 1, col_dark_gray);
+    it.circle(cx, cy, mid_ring_r, mid_ring_col);
+    it.circle(cx, cy, mid_ring_r - 1, mid_ring_inner);
+
+    float orbit_ang = static_cast<float>(now_ms % 3200U) * (2.0f * PI_F / 3200.0f);
+    float s0 = sinf(orbit_ang), c0 = cosf(orbit_ang);
+    const float rot_c[4] = {c0, -s0, -c0, s0};
+    const float rot_s[4] = {s0,  c0, -s0, -c0};
+    for (int i = 0; i < 4; i++) {
+      int nx = cx + static_cast<int>(static_cast<float>(mid_ring_r) * rot_c[i]);
+      int ny = cy + static_cast<int>(static_cast<float>(mid_ring_r) * rot_s[i]);
+      it.line(nx - 3, ny, nx + 3, ny, sat_aura);
+      it.line(nx, ny - 3, nx, ny + 3, sat_aura);
+      it.filled_circle(nx, ny, 4, sat_col);
+      it.filled_circle(nx, ny, 2, col_white);
+    }
+
+    int core_r = 26 + static_cast<int>(5.0f * pulse + vad_boost);
+    int aura_r = 44 + static_cast<int>(8.0f * pulse + vad_boost * 1.2f);
+    it.circle(cx, cy, aura_r + 2, col_dark_gray);
+    it.circle(cx, cy, aura_r + 1, core_aura_col);
+    it.circle(cx, cy, aura_r, core_aura_col);
+    it.circle(cx, cy, aura_r - 1, core_aura_col);
+
+    it.filled_circle(cx, cy + 3, core_r + 4, col_dark_gray);
+    it.circle(cx, cy, core_r + 4, core_ring_col);
+    it.circle(cx, cy, core_r + 3, core_ring_col);
+    it.circle(cx, cy, core_r + 2, core_ring_col);
+    it.filled_circle(cx, cy, core_r, core_fill_col);
+    if (core_r > 6) {
+      esphome::Color inner_tone = is_solaris ? col_solaris_gold : esphome::Color(30, 200, 230);
+      it.circle(cx, cy - 1, core_r - 3, inner_tone);
+    }
+    const char *status_str = va_status_text.empty() ? "Listening..." : va_status_text.c_str();
+    it.print(cx, 401, font_small, text_col, esphome::display::TextAlign::CENTER, status_str);
+    return;
+  }
+
+  // ============================================================================
+  // B. NEW FLAGSHIP "NEBULA" — 3D MULTI-RIBBON SILK WAVE ORB (Siri / Gemini Style)
+  //    Uses 60-entry .rodata DIAL_SIN / DIAL_COS LUT for zero-sinf ribbon meshes!
+  // ============================================================================
+  if (!is_solaris) {
+    const esphome::Color c_elec_cyan(0, 229, 255);
+    const esphome::Color c_royal_indigo(115, 65, 255);
+    const esphome::Color c_neon_magenta(255, 45, 145);
+    const esphome::Color c_deep_azure(20, 95, 195);
+    const esphome::Color c_ice_white(215, 248, 255);
+
+    // Helper: Draws a 60-segment closed harmonic silk ribbon using DIAL_SIN/DIAL_COS LUT
+    auto draw_silk_ribbon = [&](float base_r, float a2, float a3, float a5,
+                                int ph2, int ph3, int ph5,
+                                esphome::Color col_main, esphome::Color col_glow,
+                                bool double_stroke) {
+      int prev_x = 0, prev_y = 0, first_x = 0, first_y = 0;
+      int prev_gx = 0, prev_gy = 0, first_gx = 0, first_gy = 0;
+      for (int i = 0; i < 60; i++) {
+        float w2 = DIAL_SIN[(i * 2 + ph2) % 60];
+        float w3 = DIAL_COS[(i * 3 + ph3) % 60];
+        float w5 = DIAL_SIN[(i * 5 + ph5) % 60];
+        float r = base_r + a2 * w2 + a3 * w3 + a5 * w5;
+
+        float ux = DIAL_SIN[i];
+        float uy = -DIAL_COS[i];
+        int x = cx + static_cast<int>(r * ux);
+        int y = cy + static_cast<int>(r * uy);
+        int gx = cx + static_cast<int>((r + 2.5f) * ux);
+        int gy = cy + static_cast<int>((r + 2.5f) * uy);
+
+        if (i == 0) {
+          first_x = x; first_y = y;
+          first_gx = gx; first_gy = gy;
+        } else {
+          if (double_stroke) {
+            it.line(prev_gx, prev_gy, gx, gy, col_glow);
+          }
+          it.line(prev_x, prev_y, x, y, col_main);
+        }
+        prev_x = x; prev_y = y;
+        prev_gx = gx; prev_gy = gy;
+      }
+      if (double_stroke) {
+        it.line(prev_gx, prev_gy, first_gx, first_gy, col_glow);
+      }
+      it.line(prev_x, prev_y, first_x, first_y, col_main);
+    };
+
+    if (is_speaking) {
+      // Natural syllabic speech-cadence envelope (combines 3 incommensurate frequencies)
+      float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
+      float syl_env = 0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f);
+      if (syl_env < 0.15f) syl_env = 0.15f;
+
+      int tick = static_cast<int>(now_ms / 35U);
+
+      // 3 Expanding Organic Acoustic Wave Contours (moiré-free 60-chord silk pressure rings)
+      for (int w = 0; w < 3; w++) {
+        uint32_t wave_t = (now_ms + static_cast<uint32_t>(w) * 600U) % 1800U;
+        float prog = static_cast<float>(wave_t) * (1.0f / 1800.0f);
+        float fade = (1.0f - prog) * (0.45f + 0.45f * syl_env);
+        float r_wave = 68.0f + prog * 142.0f;
+        float amp = (1.0f - prog * 0.5f) * (6.0f + 8.0f * syl_env);
+
+        esphome::Color w_col = scale_color(get_va_radiation_color(false, prog + static_cast<float>(w) * 0.33f + t_sec * 0.25f), fade);
+        esphome::Color w_glow = scale_color(w_col, 0.45f);
+        draw_silk_ribbon(r_wave, amp, amp * 0.6f, amp * 0.3f,
+                         (tick + w * 19) % 60, (tick * 2 + w * 11) % 60, (tick + w * 7) % 60,
+                         w_col, w_glow, true);
+      }
+
+      // 4 Interweaving Inner Silk Voice Ribbons (Siri / Gemini multi-lobe acoustic membrane)
+      float base_r = 52.0f + 12.0f * syl_env;
+      float a2 = 7.0f + 11.0f * syl_env;
+      float a3 = 5.0f + 8.0f * syl_env;
+      float a5 = 2.5f + 4.5f * syl_env;
+
+      draw_silk_ribbon(base_r + 4.0f, a2, a3, a5, (tick) % 60, (tick * 2 + 15) % 60, (tick + 30) % 60,
+                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), true);
+      draw_silk_ribbon(base_r, -a2 * 0.9f, a3 * 1.1f, -a5, (tick + 20) % 60, (tick + 40) % 60, (tick * 2) % 60,
+                       c_neon_magenta, scale_color(c_neon_magenta, 0.4f), true);
+      draw_silk_ribbon(base_r - 2.0f, a2 * 0.8f, -a3, a5 * 1.2f, (tick * 2 + 7) % 60, (tick + 25) % 60, (tick + 12) % 60,
+                       c_elec_cyan, c_deep_azure, true);
+      draw_silk_ribbon(base_r - 5.0f, a2 * 0.5f, a3 * 0.5f, 0.0f, (tick + 35) % 60, (tick + 10) % 60, 0,
+                       c_ice_white, c_elec_cyan, false);
+
+      // Luminous Layered Glass Core
+      int core_r = 22 + static_cast<int>(7.0f * syl_env);
+      it.filled_circle(cx, cy, core_r + 5, scale_color(c_royal_indigo, 0.45f));
+      it.filled_circle(cx, cy, core_r, c_deep_azure);
+      it.circle(cx, cy, core_r + 1, c_elec_cyan);
+      it.circle(cx, cy, core_r, c_ice_white);
+      it.filled_circle(cx - 4, cy - 4, core_r / 3, c_ice_white);
+      it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, "Responding...");
+      return;
+    }
+
+    if (is_thinking) {
+      int tick = static_cast<int>(now_ms / 25U);
+      float pulse = sinf(static_cast<float>(now_ms % 700U) * (2.0f * PI_F / 700.0f));
+
+      // Tightly wound high-velocity inner silk vortex
+      draw_silk_ribbon(50.0f + 3.0f * pulse, 6.0f, 5.0f, 3.0f,
+                       (tick * 2) % 60, (tick * 3) % 60, (tick) % 60,
+                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), true);
+      draw_silk_ribbon(48.0f - 2.0f * pulse, -5.0f, 6.0f, -2.5f,
+                       (tick * 2 + 30) % 60, (tick + 15) % 60, (tick * 2) % 60,
+                       c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
+      draw_silk_ribbon(46.0f, 4.0f, -4.0f, 2.0f,
+                       (tick + 45) % 60, (tick * 2 + 20) % 60, (tick * 3) % 60,
+                       c_elec_cyan, c_deep_azure, true);
+
+      // 6 Relativistic Orbital Neural Nodes with 5-Step Fading Comet Trails (LUT-driven)
+      const int head_idx_cw = static_cast<int>((now_ms / 18U) % 60U);
+      const int head_idx_ccw = (60 - static_cast<int>((now_ms / 22U) % 60U)) % 60;
+
+      for (int n = 0; n < 3; n++) {
+        int base_cw = (head_idx_cw + n * 20) % 60;
+        for (int tail = 4; tail >= 0; tail--) {
+          int idx = (base_cw - tail * 2 + 60) % 60;
+          int nx = cx + static_cast<int>(84.0f * DIAL_SIN[idx]);
+          int ny = cy - static_cast<int>(84.0f * DIAL_COS[idx]);
+          float k = static_cast<float>(5 - tail) * 0.20f;
+          it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+                           (tail == 0) ? c_ice_white : scale_color(c_elec_cyan, k));
+        }
+
+        int base_ccw = (head_idx_ccw + n * 20 + 10) % 60;
+        for (int tail = 4; tail >= 0; tail--) {
+          int idx = (base_ccw + tail * 2) % 60;
+          int nx = cx + static_cast<int>(114.0f * DIAL_SIN[idx]);
+          int ny = cy - static_cast<int>(114.0f * DIAL_COS[idx]);
+          float k = static_cast<float>(5 - tail) * 0.20f;
+          it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+                           (tail == 0) ? c_ice_white : scale_color(c_neon_magenta, k));
+        }
+      }
+
+      // Cognitive Core
+      int core_r = 22 + static_cast<int>(4.0f * pulse);
+      it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.35f));
+      it.filled_circle(cx, cy, core_r, c_royal_indigo);
+      it.circle(cx, cy, core_r + 1, c_elec_cyan);
+      it.filled_circle(cx, cy, core_r / 2, c_ice_white);
+      it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, "Thinking...");
+      return;
+    }
+
+    // New Nebula Listening: Fluid Breathing Silk Aura + Smooth VAD Bloom
+    float breath = sinf(static_cast<float>(now_ms % 2000U) * (2.0f * PI_F / 2000.0f));
+    int tick = static_cast<int>(now_ms / 45U);
+
+    float base_r = 76.0f + 6.0f * breath + 22.0f * smooth_vad;
+    float a2 = 5.0f + 10.0f * smooth_vad;
+    float a3 = 4.0f + 8.0f * smooth_vad;
+    float a5 = 2.0f + 5.0f * smooth_vad;
+
+    // Subtle outer attentive containment halo
+    int outer_r = 122 + static_cast<int>(5.0f * breath + 12.0f * smooth_vad);
+    it.circle(cx, cy, outer_r, scale_color(c_royal_indigo, 0.45f + 0.35f * smooth_vad));
+    it.circle(cx, cy, outer_r - 1, scale_color(c_elec_cyan, 0.25f + 0.35f * smooth_vad));
+
+    // 4 Fluid Silk Ribbons
+    draw_silk_ribbon(base_r + 5.0f, a2, a3, a5, (tick) % 60, (tick + 20) % 60, (tick + 40) % 60,
+                     c_royal_indigo, scale_color(c_royal_indigo, 0.35f), true);
+    draw_silk_ribbon(base_r, -a2, a3 * 0.9f, -a5, (tick + 15) % 60, (tick * 2) % 60, (tick + 10) % 60,
+                     c_neon_magenta, scale_color(c_neon_magenta, 0.35f), true);
+    draw_silk_ribbon(base_r - 4.0f, a2 * 0.8f, -a3, a5, (tick + 35) % 60, (tick + 12) % 60, (tick * 2) % 60,
+                     c_elec_cyan, c_deep_azure, true);
+    draw_silk_ribbon(base_r - 8.0f, a2 * 0.4f, a3 * 0.4f, 0.0f, (tick + 50) % 60, (tick + 30) % 60, 0,
+                     c_ice_white, c_elec_cyan, false);
+
+    // Living Glass Core
+    int core_r = 25 + static_cast<int>(4.0f * breath + 8.0f * smooth_vad);
+    it.filled_circle(cx, cy, core_r + 5, scale_color(c_royal_indigo, 0.40f));
+    it.filled_circle(cx, cy, core_r, lerp_color(c_deep_azure, c_elec_cyan, smooth_vad * 0.5f));
+    it.circle(cx, cy, core_r + 1, c_elec_cyan);
+    it.circle(cx, cy, core_r, c_ice_white);
+    it.filled_circle(cx - 4, cy - 4, core_r / 3, c_ice_white);
+
+    const char *status_str = va_status_text.empty() ? "Listening..." : va_status_text.c_str();
+    it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, status_str);
+    return;
+  }
+
+  // ============================================================================
+  // C. NEW FLAGSHIP "SOLARIS" — RADIAL ACOUSTIC CORONA & SOLAR ASTROLABE
+  //    60-Ray Circular Spectrometer + Golden/Emerald Coronal Waves (LUT-driven)
+  // ============================================================================
+  const esphome::Color c_gold = col_solaris_gold;                 // #FFDC1E
+  const esphome::Color c_amber(255, 105, 15);                     // Molten Solar Amber
+  const esphome::Color c_crimson_ember(185, 35, 10);              // Deep Corona Crimson
+  const esphome::Color c_emerald(35, 215, 115);                   // Solar Aurora Emerald
+  const esphome::Color c_warm_white(255, 248, 215);               // Photosphere White-Gold
+
+  if (is_speaking) {
+    float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
+    float syl_env = 0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f);
+    if (syl_env < 0.15f) syl_env = 0.15f;
+    int tick = static_cast<int>(now_ms / 35U);
+
+    // 3 Expanding Coronal Shockwave Rings (moiré-free 2-pass glowing rings)
+    for (int w = 0; w < 3; w++) {
+      uint32_t wave_t = (now_ms + static_cast<uint32_t>(w) * 600U) % 1800U;
+      float prog = static_cast<float>(wave_t) * (1.0f / 1800.0f);
+      float fade = (1.0f - prog) * (0.45f + 0.45f * syl_env);
+      int r_wave = 82 + static_cast<int>(prog * 132.0f);
+      esphome::Color ring_c = scale_color(get_va_radiation_color(true, prog + static_cast<float>(w) * 0.33f), fade);
+      esphome::Color glow_c = scale_color(ring_c, 0.45f);
+      it.circle(cx, cy, r_wave - 1, glow_c);
+      it.circle(cx, cy, r_wave, ring_c);
+      it.circle(cx, cy, r_wave + 1, glow_c);
+    }
+
+    // 60-Ray Circular Acoustic Spectrometer around the Solar Core
+    const float r_inner = 42.0f;
+    for (int i = 0; i < 60; i++) {
+      float h1 = DIAL_SIN[(i * 3 + tick * 2) % 60];
+      float h2 = DIAL_COS[(i * 5 + tick * 3) % 60];
+      float bar_len = (14.0f + 28.0f * syl_env) * (0.55f + 0.28f * h1 + 0.17f * h2);
+      float r_outer = r_inner + bar_len;
+
+      float ux = DIAL_SIN[i];
+      float uy = -DIAL_COS[i];
+      int x0 = cx + static_cast<int>(r_inner * ux);
+      int y0 = cy + static_cast<int>(r_inner * uy);
+      int xm = cx + static_cast<int>((r_inner + bar_len * 0.65f) * ux);
+      int ym = cy + static_cast<int>((r_inner + bar_len * 0.65f) * uy);
+      int x1 = cx + static_cast<int>(r_outer * ux);
+      int y1 = cy + static_cast<int>(r_outer * uy);
+
+      it.line(x0, y0, xm, ym, c_amber);
+      it.line(xm, ym, x1, y1, (i % 2 == 0) ? c_gold : c_emerald);
+    }
+
+    // Pulsing Photosphere Core
+    int core_r = 26 + static_cast<int>(6.0f * syl_env);
+    it.filled_circle(cx, cy, core_r + 6, c_crimson_ember);
+    it.filled_circle(cx, cy, core_r + 2, c_amber);
+    it.filled_circle(cx, cy, core_r - 3, c_gold);
+    it.circle(cx, cy, core_r - 5, c_warm_white);
+    it.print(cx, 401, font_small, c_gold, esphome::display::TextAlign::CENTER, "Responding...");
+    return;
+  }
+
+  if (is_thinking) {
+    // 3-Ring Counter-Rotating Solar Astrolabe with Comet Trails
+    const int head_1 = static_cast<int>((now_ms / 18U) % 60U);
+    const int head_2 = (60 - static_cast<int>((now_ms / 22U) % 60U)) % 60;
+    const int head_3 = static_cast<int>((now_ms / 28U) % 60U);
+
+    // Subtle astrolabe meridian rings
+    it.circle(cx, cy, 62, scale_color(c_amber, 0.30f));
+    it.circle(cx, cy, 90, scale_color(c_gold, 0.25f));
+    it.circle(cx, cy, 118, scale_color(c_emerald, 0.25f));
+
+    for (int n = 0; n < 3; n++) {
+      // Inner Ring (r = 62, CW, Gold)
+      int b1 = (head_1 + n * 20) % 60;
+      for (int tail = 5; tail >= 0; tail--) {
+        int idx = (b1 - tail * 2 + 60) % 60;
+        int nx = cx + static_cast<int>(62.0f * DIAL_SIN[idx]);
+        int ny = cy - static_cast<int>(62.0f * DIAL_COS[idx]);
+        it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+                         (tail == 0) ? c_warm_white : scale_color(c_gold, (6 - tail) * 0.16f));
+      }
+      // Middle Ring (r = 90, CCW, Emerald)
+      int b2 = (head_2 + n * 20 + 10) % 60;
+      for (int tail = 5; tail >= 0; tail--) {
+        int idx = (b2 + tail * 2) % 60;
+        int nx = cx + static_cast<int>(90.0f * DIAL_SIN[idx]);
+        int ny = cy - static_cast<int>(90.0f * DIAL_COS[idx]);
+        it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+                         (tail == 0) ? c_warm_white : scale_color(c_emerald, (6 - tail) * 0.16f));
+      }
+      // Outer Ring (r = 118, CW, Amber)
+      int b3 = (head_3 + n * 20 + 5) % 60;
+      for (int tail = 4; tail >= 0; tail--) {
+        int idx = (b3 - tail * 2 + 60) % 60;
+        int nx = cx + static_cast<int>(118.0f * DIAL_SIN[idx]);
+        int ny = cy - static_cast<int>(118.0f * DIAL_COS[idx]);
+        it.filled_circle(nx, ny, (tail == 0) ? 3 : 2,
+                         (tail == 0) ? c_gold : scale_color(c_amber, (5 - tail) * 0.18f));
+      }
+    }
+
+    float pulse = sinf(static_cast<float>(now_ms % 600U) * (2.0f * PI_F / 600.0f));
+    int core_r = 25 + static_cast<int>(4.0f * pulse);
+    it.filled_circle(cx, cy, core_r + 5, c_crimson_ember);
+    it.filled_circle(cx, cy, core_r + 1, c_amber);
+    it.filled_circle(cx, cy, core_r - 3, c_gold);
+    it.circle(cx, cy, core_r - 5, c_warm_white);
+    it.print(cx, 401, font_small, c_gold, esphome::display::TextAlign::CENTER, "Thinking...");
+    return;
+  }
+
+  // New Solaris Listening: Breathing 60-Ray Solar Corona + Emerald-Gold VAD Bloom
+  float breath = sinf(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
+  int tick = static_cast<int>(now_ms / 45U);
+
+  int outer_r = 120 + static_cast<int>(6.0f * breath + 12.0f * smooth_vad);
+  it.circle(cx, cy, outer_r, scale_color(c_emerald, 0.45f + 0.45f * smooth_vad));
+  it.circle(cx, cy, outer_r - 1, scale_color(c_gold, 0.30f + 0.40f * smooth_vad));
+
+  const float r_inner = 42.0f + 3.0f * breath;
+  for (int i = 0; i < 60; i++) {
+    float wave = DIAL_SIN[(i * 3 + tick) % 60] * 0.6f + DIAL_COS[(i * 2 + tick) % 60] * 0.4f;
+    float bar_len = (16.0f + 6.0f * breath + 24.0f * smooth_vad) + (6.0f + 10.0f * smooth_vad) * wave;
+    if (bar_len < 6.0f) bar_len = 6.0f;
+
+    float ux = DIAL_SIN[i];
+    float uy = -DIAL_COS[i];
+    int x0 = cx + static_cast<int>(r_inner * ux);
+    int y0 = cy + static_cast<int>(r_inner * uy);
+    int xm = cx + static_cast<int>((r_inner + bar_len * 0.65f) * ux);
+    int ym = cy + static_cast<int>((r_inner + bar_len * 0.65f) * uy);
+    int x1 = cx + static_cast<int>((r_inner + bar_len) * ux);
+    int y1 = cy + static_cast<int>((r_inner + bar_len) * uy);
+
+    it.line(x0, y0, xm, ym, c_amber);
+    it.line(xm, ym, x1, y1, (smooth_vad > 0.25f && (i % 2 == 0)) ? c_emerald : c_gold);
+  }
+
+  int core_r = 27 + static_cast<int>(4.0f * breath + 7.0f * smooth_vad);
+  it.filled_circle(cx, cy, core_r + 5, c_crimson_ember);
+  it.filled_circle(cx, cy, core_r + 1, c_amber);
+  it.filled_circle(cx, cy, core_r - 3, c_gold);
+  it.circle(cx, cy, core_r - 5, c_warm_white);
+
+  const char *status_str = va_status_text.empty() ? "Listening..." : va_status_text.c_str();
+  it.print(cx, 401, font_small, c_gold, esphome::display::TextAlign::CENTER, status_str);
 }
 
 // ------------------------------------------------------------------------------
