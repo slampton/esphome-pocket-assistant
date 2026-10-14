@@ -622,7 +622,9 @@ script:
             id(screensaver_start_time) = millis();
             id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
             id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
-            id(disp1).update();
+            if (s_style == "Ambient Clock") {
+              id(disp1).update();
+            }
           } else {
             id(display_power_state) = 2; // SCREEN_OFF
             id(screensaver_start_time) = 0;

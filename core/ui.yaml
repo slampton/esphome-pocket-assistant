@@ -1042,7 +1042,11 @@ button:
             - script.execute: cancel_voice_assistant
           else:
             - script.execute: pause_all_music
-            - delay: 100ms
+            - if:
+                condition:
+                  lambda: 'return id(va_resume_music_after);'
+                then:
+                  - delay: 100ms
             - script.execute: route_i2s_to_mic
             - light.turn_on: display_brightness
             - lambda: 'id(va_tts_received) = false;'
@@ -1608,7 +1612,6 @@ sensor:
         - lambda: |-
             id(music_pos_base) = x;
             id(music_pos_sync_time) = millis();
-            id(throttled_disp_update).execute();
 
   - platform: homeassistant
     id: ha_target_volume
@@ -1773,7 +1776,11 @@ binary_sensor:
                           id(screen_sleep_timer).execute();
                         }
                     - script.execute: pause_all_music
-                    - delay: 150ms
+                    - if:
+                        condition:
+                          lambda: 'return id(va_resume_music_after);'
+                        then:
+                          - delay: 150ms
                     - script.execute: route_i2s_to_mic
                     - lambda: 'id(va_tts_received) = false;'
                     - voice_assistant.start:
@@ -2129,14 +2136,14 @@ script:
   - id: throttled_disp_update
     mode: restart
     then:
-      - delay: 35ms
+      - delay: 180ms
       - if:
           condition:
             lambda: |-
               static uint32_t last_throttled_draw = 0;
               uint32_t now = millis();
-              if (now - last_throttled_draw < 200) return false;
-              if (id(display_power_state) == 0 && id(gui_page) == 2) {
+              if (now - last_throttled_draw < 350) return false;
+              if (id(display_power_state) == 0 && id(gui_page) == 2 && !id(va_active)) {
                 last_throttled_draw = now;
                 return true;
               }
@@ -2812,6 +2819,7 @@ script:
           id: announcement_mixing_input
           decibel_reduction: 50
           duration: 0.1s
+      - speaker.stop: announcement_mixing_input
       - voice_assistant.stop:
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
@@ -2820,8 +2828,9 @@ script:
           id(va_vad_active) = false;
           id(va_active) = false;
           id(gui_page) = id(return_page);
+      - delay: 15ms
       - component.update: disp1
-      - delay: 100ms
+      - delay: 160ms
       - script.execute: resume_music_after_va
       - if:
           condition:
@@ -3587,21 +3596,8 @@ display:
               if (prog > 1.0f) prog = 1.0f;
             }
 
-            // Perimeter continuous track playback progress arc (r = 224, 2px continuous stroke)
-            if (prog > 0.005f) {
-              float end_a = prog * 2.0f * PI_F;
-              float step = 0.035f;
-              for (float a = 0.0f; a < end_a; a += step) {
-                float next_a = std::min(a + step, end_a);
-                float s1, c1, s2, c2;
-                sincosf(a, &s1, &c1);
-                sincosf(next_a, &s2, &c2);
-                it.line(cx + (int)(224.0f * s1), cy - (int)(224.0f * c1),
-                        cx + (int)(224.0f * s2), cy - (int)(224.0f * c2), id(theme_secondary));
-                it.line(cx + (int)(225.0f * s1), cy - (int)(225.0f * c1),
-                        cx + (int)(225.0f * s2), cy - (int)(225.0f * c2), id(theme_secondary));
-              }
-            }
+            // Perimeter continuous track playback progress arc (r = 224, 2px continuous stroke, LUT-driven)
+            render_progress_arc_r224(it, cx, cy, prog, id(theme_secondary));
 
             // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
             std::string title = "";

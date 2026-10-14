@@ -1015,6 +1015,38 @@ inline esphome::Color get_va_radiation_color(bool is_solaris, float t) {
   }
 }
 
+// Zero-trig LUT-driven 2px perimeter track progress arc (r = 224..225) for Page 2 Now Playing
+// Replaces 180-step (360 sincosf + 360 line) loop with 60-segment DIAL_SIN/DIAL_COS LUT + fractional tip
+template<typename DisplayT>
+inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, esphome::Color col) {
+  if (prog <= 0.005f) return;
+  if (prog > 1.0f) prog = 1.0f;
+  float total_segs = prog * 60.0f;
+  int full_segs = static_cast<int>(total_segs);
+  if (full_segs > 60) full_segs = 60;
+  float frac = total_segs - static_cast<float>(full_segs);
+
+  for (int i = 0; i < full_segs; i++) {
+    int nxt = (i + 1) % 60;
+    float s1 = DIAL_SIN[i], c1 = DIAL_COS[i];
+    float s2 = DIAL_SIN[nxt], c2 = DIAL_COS[nxt];
+    it.line(cx + static_cast<int>(224.0f * s1), cy - static_cast<int>(224.0f * c1),
+            cx + static_cast<int>(224.0f * s2), cy - static_cast<int>(224.0f * c2), col);
+    it.line(cx + static_cast<int>(225.0f * s1), cy - static_cast<int>(225.0f * c1),
+            cx + static_cast<int>(225.0f * s2), cy - static_cast<int>(225.0f * c2), col);
+  }
+  if (full_segs < 60 && frac > 0.05f) {
+    int nxt = (full_segs + 1) % 60;
+    float s1 = DIAL_SIN[full_segs], c1 = DIAL_COS[full_segs];
+    float s2 = s1 + (DIAL_SIN[nxt] - s1) * frac;
+    float c2 = c1 + (DIAL_COS[nxt] - c1) * frac;
+    it.line(cx + static_cast<int>(224.0f * s1), cy - static_cast<int>(224.0f * c1),
+            cx + static_cast<int>(224.0f * s2), cy - static_cast<int>(224.0f * c2), col);
+    it.line(cx + static_cast<int>(225.0f * s1), cy - static_cast<int>(225.0f * c1),
+            cx + static_cast<int>(225.0f * s2), cy - static_cast<int>(225.0f * c2), col);
+  }
+}
+
 // Complete Voice Assistant Visual Engine supporting 4 profiles:
 //   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven)
 //   - "Solaris": Flagship Radial Acoustic Corona & Solar Astrolabe Spectrometer
