@@ -215,9 +215,9 @@ voice_assistant:
           id(va_vad_active) = false;
           id(va_tts_received) = false;
           id(va_status_text) = "Listening...";
-          // Pre-warm announcement_mixing_input so its 15s (480 KB) PSRAM ring_buffer_
-          // is allocated and in SPEAKER_STATE_RUNNING before TTS audio packets arrive
-          id(announcement_mixing_input).start();
+          // Clear any stale stream_ended_ flag or orphaned 5000ms "speaker-timeout"
+          // left over from a previously cancelled TTS stream
+          esphome::voice_assistant::reset_va_stream_flags(id(va));
           ESP_LOGI("va", "Status: Listening...");
       - light.turn_on: display_brightness
       - component.update: disp1
@@ -227,6 +227,7 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = true;
           id(va_status_text) = "Listening...";
+          esphome::voice_assistant::reset_va_stream_flags(id(va));
           ESP_LOGI("va", "Status: Listening (VAD active)...");
       - component.update: disp1
   on_stt_vad_end:
@@ -235,6 +236,9 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
+          esphome::voice_assistant::reset_va_stream_flags(id(va));
+          // Pre-warm announcement_mixing_input once speech capture ends so its 15s (480 KB)
+          // PSRAM ring_buffer_ is in SPEAKER_STATE_RUNNING before TTS packets arrive
           id(announcement_mixing_input).start();
           ESP_LOGI("va", "Status: Thinking...");
       - component.update: disp1
@@ -245,6 +249,7 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
+          esphome::voice_assistant::ComponentTimeoutAccessor::cancel_va_speaker_timeout(id(va));
           id(announcement_mixing_input).start();
           if (id(announcement_mixing_input).is_running()) {
             const int16_t silence_pcm = 0;

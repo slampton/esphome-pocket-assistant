@@ -1,7 +1,7 @@
 #pragma once
 #include "esphome.h"
 
-// Template accessor technique to safely access protected members of final VoiceAssistant
+// Template accessor technique to safely access protected/private members of final VoiceAssistant
 template<typename Tag, typename Tag::type M>
 struct Rob {
   friend typename Tag::type get(Tag) { return M; }
@@ -64,17 +64,35 @@ template struct Rob<VA_ContinueConversation_Tag, &esphome::voice_assistant::Voic
 namespace esphome {
 namespace voice_assistant {
 
-inline void abort_voice_assistant(VoiceAssistant *va) {
-  if (va != nullptr) {
-    va->request_stop();
-    va->reset_conversation_id();
+// Accessor for protected Component::cancel_timeout on VoiceAssistant
+struct ComponentTimeoutAccessor : public esphome::Component {
+  static void cancel_va_speaker_timeout(esphome::Component *comp) {
+    if (comp != nullptr) {
+      static_cast<ComponentTimeoutAccessor *>(comp)->cancel_timeout("speaker-timeout");
+      static_cast<ComponentTimeoutAccessor *>(comp)->cancel_timeout("playing");
+    }
+  }
+};
 
-    // Directly reset buffers and flags via template accessor
+// Clears stale stream_ended_ / wait_for_stream_end_ flags and disarms orphaned
+// 5000ms "speaker-timeout" timers from any previously cancelled TTS stream.
+inline void reset_va_stream_flags(VoiceAssistant *va) {
+  if (va != nullptr) {
     va->*get(VA_BufSize_Tag()) = 0;
     va->*get(VA_BufIndex_Tag()) = 0;
     va->*get(VA_BytesReceived_Tag()) = 0;
     va->*get(VA_WaitForStreamEnd_Tag()) = false;
     va->*get(VA_StreamEnded_Tag()) = false;
+    ComponentTimeoutAccessor::cancel_va_speaker_timeout(va);
+  }
+}
+
+inline void abort_voice_assistant(VoiceAssistant *va) {
+  if (va != nullptr) {
+    va->request_stop();
+    va->reset_conversation_id();
+
+    reset_va_stream_flags(va);
     va->*get(VA_Continuous_Tag()) = false;
     va->*get(VA_ContinueConversation_Tag()) = false;
 

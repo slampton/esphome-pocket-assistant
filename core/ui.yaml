@@ -1383,16 +1383,22 @@ interval:
             static bool prev_tts_active = false;
             uint32_t now_va_ms = millis();
 
-            // Keep announcement_mixing_input warm in SPEAKER_STATE_RUNNING with its 15s (480 KB)
-            // PSRAM ring_buffer_ allocated throughout Listening and Thinking (while es8311_dac is muted),
-            // so sub-20ms local-intent TTS bursts ("What time is it?") write directly into PSRAM on
-            // the very first packet without overflowing VoiceAssistant's 16 KB speaker_buffer_.
-            if (id(va_active) && !id(va_tts_received)) {
-              if (!id(announcement_mixing_input).is_running()) {
-                id(announcement_mixing_input).start();
+            // During Thinking (after microphone capture ends), keep announcement_mixing_input warm
+            // in SPEAKER_STATE_RUNNING with its 15s (480 KB) PSRAM ring_buffer_ open.
+            // During Speaking, disarm VoiceAssistant's internal 5000ms "speaker-timeout" so
+            // State::RESPONSE_FINISHED never prematurely stops a >5s buffered TTS response.
+            if (id(va_active)) {
+              if (!id(va_tts_received)) {
+                if (id(va_status_text) == "Thinking...") {
+                  if (!id(announcement_mixing_input).is_running()) {
+                    id(announcement_mixing_input).start();
+                  } else {
+                    const int16_t silence_pcm = 0;
+                    id(announcement_mixing_input).play(reinterpret_cast<const uint8_t *>(&silence_pcm), sizeof(silence_pcm));
+                  }
+                }
               } else {
-                const int16_t silence_pcm = 0;
-                id(announcement_mixing_input).play(reinterpret_cast<const uint8_t *>(&silence_pcm), sizeof(silence_pcm));
+                esphome::voice_assistant::ComponentTimeoutAccessor::cancel_va_speaker_timeout(id(va));
               }
             }
 
