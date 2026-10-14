@@ -345,22 +345,28 @@ interval:
   - interval: 1s
     then:
       - lambda: |-
-          // Poll AXP2101 VBUS and battery charging telemetry
-          uint8_t reg0 = 0x00;
-          uint8_t stat0 = 0;
-          bool vbus = false;
-          if (id(bus_internal).write_readv(0x34, &reg0, 1, &stat0, 1) == esphome::i2c::ERROR_OK) {
-            vbus = (stat0 & 0x20) != 0;
-            id(usb_connected).publish_state(vbus);
-          }
-          uint8_t reg1 = 0x01;
-          uint8_t stat1 = 0;
-          if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
-            uint8_t chg_dir = (stat1 >> 5) & 0x03;
-            uint8_t chg_state = stat1 & 0x07;
-            // Active charging: VBUS present, current flowing into battery (BatDir==1), and not charge-done (state < 4)
-            bool is_charging = vbus && (chg_dir == 1) && (chg_state < 4);
-            id(batt_charging).publish_state(is_charging);
+          // Poll AXP2101 VBUS and battery charging telemetry (skip during active Voice Assistant to keep bus_internal quiet)
+          if (!id(va_active) && !id(va_tts_received)) {
+            uint8_t reg0 = 0x00;
+            uint8_t stat0 = 0;
+            bool vbus = id(usb_connected).state;
+            if (id(bus_internal).write_readv(0x34, &reg0, 1, &stat0, 1) == esphome::i2c::ERROR_OK) {
+              vbus = (stat0 & 0x20) != 0;
+              if (!id(usb_connected).has_state() || id(usb_connected).state != vbus) {
+                id(usb_connected).publish_state(vbus);
+              }
+            }
+            uint8_t reg1 = 0x01;
+            uint8_t stat1 = 0;
+            if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
+              uint8_t chg_dir = (stat1 >> 5) & 0x03;
+              uint8_t chg_state = stat1 & 0x07;
+              // Active charging: VBUS present, current flowing into battery (BatDir==1), and not charge-done (state < 4)
+              bool is_charging = vbus && (chg_dir == 1) && (chg_state < 4);
+              if (!id(batt_charging).has_state() || id(batt_charging).state != is_charging) {
+                id(batt_charging).publish_state(is_charging);
+              }
+            }
           }
 
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep

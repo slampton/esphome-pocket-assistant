@@ -1369,22 +1369,21 @@ interval:
           }
 
           // High-refresh fluid Voice Assistant loop
-          // Unified 100ms cadence (10 FPS) across Listening, Thinking, and Speaking for audio/network-safe loop headroom
+          // Listening/Thinking: 100ms (10 FPS); Speaking: 125ms (8 FPS) for extra PSRAM/DMA headroom on long TTS streams
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
             static bool prev_tts_active = false;
             uint32_t now_va_ms = millis();
 
-            // Smooth state transition: When speech starts, reserve a 250ms quiet network-ingress window
-            // so announcement_mixing_input allocates its PSRAM ring buffer and absorbs the initial TCP burst
+            // Smooth state transition: reserve 1 quiet tick when speech starts so DAC unmutes cleanly
             if (id(va_tts_received) != prev_tts_active) {
               prev_tts_active = id(va_tts_received);
-              last_va_anim_time = prev_tts_active ? (now_va_ms + 150U) : now_va_ms;
+              last_va_anim_time = now_va_ms;
               return;
             }
 
-            const uint32_t cadence = 100U;
-            if ((int32_t)(now_va_ms - last_va_anim_time) >= (int32_t)cadence) {
+            const uint32_t cadence = id(va_tts_received) ? 125U : 100U;
+            if (now_va_ms - last_va_anim_time >= cadence) {
               last_va_anim_time = now_va_ms;
               id(disp1).update();
             }
@@ -2091,7 +2090,7 @@ script:
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
                       decibel_reduction: 10
-                      duration: 0.5s
+                      duration: 0.8s
                   - mixer_speaker.apply_ducking:
                       id: announcement_mixing_input
                       decibel_reduction: 50
@@ -2104,7 +2103,8 @@ script:
                             action: media_player.media_play
                             data:
                               entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                  - media_player.play: pocket_music_player
+                      else:
+                        - media_player.play: pocket_music_player
           else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic

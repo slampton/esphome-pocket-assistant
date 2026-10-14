@@ -82,7 +82,7 @@ speaker:
     source_speakers:
       - id: announcement_mixing_input
         buffer_duration: 15s
-        timeout: 500ms
+        timeout: 300ms
       - id: media_mixing_input
         timeout: 1500ms
 
@@ -159,7 +159,7 @@ media_player:
         - mixer_speaker.apply_ducking:
             id: media_mixing_input
             decibel_reduction: 10
-            duration: 0.1s
+            duration: 0.6s
         - mixer_speaker.apply_ducking:
             id: announcement_mixing_input
             decibel_reduction: 50
@@ -193,8 +193,9 @@ voice_assistant:
       - if:
           condition:
             lambda: |-
-              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                     (!id(active_speaker_entity).empty() && id(ha_target_state).state == "playing");
+              return !id(va_resume_music_after) &&
+                     ((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                      (!id(active_speaker_entity).empty() && id(ha_target_state).state == "playing"));
           then:
             - script.execute: pause_all_music
             - delay: 150ms
@@ -354,10 +355,7 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
-      # By the time on_tts_stream_end triggers, VoiceAssistant::loop() has already
-      # drained speaker_buffer_ and announcement_mixing_input. Wait if still running,
-      # plus a 150ms post-mixer DMA drain delay so the final syllable in physical_speaker
-      # finishes playing before es8311_dac is muted.
+      # 1. If triggered via on_end while announcement_mixing_input is still active, wait for it to finish
       - if:
           condition:
             lambda: 'return id(announcement_mixing_input).is_running();'
@@ -366,9 +364,15 @@ script:
                 condition:
                   lambda: 'return !id(announcement_mixing_input).is_running() || !id(va_active);'
                 timeout: 15s
-            - delay: 100ms
-      - delay: 150ms
-      - script.execute: resume_music_after_va
+      # 2. Let the remaining ~450ms of TTS audio inside physical_speaker's 1000ms hardware buffer
+      #    finish playing out of the ES8311 DAC before muting or resuming music
+      - if:
+          condition:
+            lambda: 'return id(va_tts_received) && id(va_active);'
+          then:
+            - delay: 450ms
+      # 3. Exit the overlay and redraw return_page FIRST (before waking Sendspin FLAC streaming)
+      #    so the QSPI display flush completes with zero audio/network contention
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "";
@@ -376,6 +380,9 @@ script:
           id(va_active) = false;
           id(gui_page) = id(return_page);
       - component.update: disp1
+      - delay: 160ms
+      # 4. Now smoothly restore music playback (with 600ms fade-in) or mute & route I2S back to mic
+      - script.execute: resume_music_after_va
       - if:
           condition:
             binary_sensor.is_off: pickup_detected

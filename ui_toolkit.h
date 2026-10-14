@@ -1036,18 +1036,36 @@ inline void render_voice_assistant_overlay(
   const bool is_classic = (is_classic_nebula || is_classic_solaris);
   const bool is_solaris = (profile_opt == "Solaris" || is_classic_solaris);
 
-  // Smooth exponential VAD envelope (0.0f -> 1.0f) for fluid organic transitions
+  // Smooth exponential envelopes (0.0f -> 1.0f) for fluid organic transitions
+  // across Listening -> Thinking -> Speaking and progressive wave launch from the core
   static float smooth_vad = 0.0f;
+  static float smooth_think = 0.0f;
+  static float smooth_speak = 0.0f;
+  static bool prev_speaking = false;
+  static uint32_t speak_start_ms = 0;
+
+  if (is_speaking && !prev_speaking) {
+    speak_start_ms = now_ms;
+  }
+  prev_speaking = is_speaking;
+
   const float vad_target = va_vad_active ? 1.0f : 0.0f;
+  const float think_target = is_thinking ? 1.0f : 0.0f;
+  const float speak_target = is_speaking ? 1.0f : 0.0f;
   smooth_vad += (vad_target - smooth_vad) * 0.35f;
+  smooth_think += (think_target - smooth_think) * 0.35f;
+  smooth_speak += (speak_target - smooth_speak) * 0.35f;
 
   // ============================================================================
   // A. CLASSIC NEBULA & CLASSIC SOLARIS (Preserved Visuals, C++ Trig Optimized)
   // ============================================================================
   if (is_classic) {
     if (is_speaking) {
+      uint32_t speak_elapsed = now_ms - speak_start_ms;
       for (int w = 0; w < 5; w++) {
-        uint32_t wave_t = (now_ms + static_cast<uint32_t>(w) * 400U) % 2000U;
+        uint32_t launch_offset = static_cast<uint32_t>(w) * 400U;
+        if (speak_elapsed < launch_offset) continue;
+        uint32_t wave_t = (speak_elapsed - launch_offset) % 2000U;
         float progress = static_cast<float>(wave_t) * 0.0005f;
         int r_center = 36 + static_cast<int>(progress * 180.0f);
 
@@ -1059,7 +1077,7 @@ inline void render_voice_assistant_overlay(
 
         float wave_color_phase = static_cast<float>(w) * 0.20f + progress * 0.30f +
                                  static_cast<float>(now_ms % 4000U) * 0.00025f;
-        float fade = 1.0f - (progress * 0.45f);
+        float fade = (1.0f - (progress * 0.45f)) * smooth_speak;
         float inv_half = 1.0f / static_cast<float>(half_w + 1);
         float white_boost = 76.5f * fade;  // 255 * 0.30 * fade
         float body_scale = 0.70f * fade;
@@ -1229,7 +1247,7 @@ inline void render_voice_assistant_overlay(
     const esphome::Color c_deep_azure(20, 95, 195);
     const esphome::Color c_ice_white(215, 248, 255);
 
-    // Helper: Draws a 60-segment closed harmonic silk ribbon using DIAL_SIN/DIAL_COS LUT
+    // Helper: Draws a 30-segment closed harmonic silk ribbon using DIAL_SIN/DIAL_COS LUT
     auto draw_silk_ribbon = [&](float base_r, float a2, float a3, float a5,
                                 int ph2, int ph3, int ph5,
                                 esphome::Color col_main, esphome::Color col_glow,
@@ -1270,36 +1288,38 @@ inline void render_voice_assistant_overlay(
     if (is_speaking) {
       // Natural syllabic speech-cadence envelope (combines 3 incommensurate frequencies)
       float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
-      float syl_env = 0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f);
+      float syl_env = (0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f)) * smooth_speak;
       if (syl_env < 0.15f) syl_env = 0.15f;
 
       int tick = static_cast<int>(now_ms / 35U);
+      uint32_t speak_elapsed = now_ms - speak_start_ms;
 
-      // 3 Expanding Organic Acoustic Wave Contours (moiré-free 60-chord silk pressure rings)
+      // 3 Expanding Acoustic Wave Rings launched progressively from the core (fast integer midpoint circles)
       for (int w = 0; w < 3; w++) {
-        uint32_t wave_t = (now_ms + static_cast<uint32_t>(w) * 600U) % 1800U;
+        uint32_t launch_offset = static_cast<uint32_t>(w) * 600U;
+        if (speak_elapsed < launch_offset) continue;
+        uint32_t wave_t = (speak_elapsed - launch_offset) % 1800U;
         float prog = static_cast<float>(wave_t) * (1.0f / 1800.0f);
-        float fade = (1.0f - prog) * (0.45f + 0.45f * syl_env);
-        float r_wave = 68.0f + prog * 142.0f;
-        float amp = (1.0f - prog * 0.5f) * (6.0f + 8.0f * syl_env);
+        float fade = sinf(prog * PI_F) * (0.45f + 0.45f * syl_env) * smooth_speak;
+        int r_wave = 68 + static_cast<int>(prog * 144.0f);
 
         esphome::Color w_col = scale_color(get_va_radiation_color(false, prog + static_cast<float>(w) * 0.33f + t_sec * 0.25f), fade);
         esphome::Color w_glow = scale_color(w_col, 0.45f);
-        draw_silk_ribbon(r_wave, amp, amp * 0.6f, amp * 0.3f,
-                         (tick + w * 19) % 60, (tick * 2 + w * 11) % 60, (tick + w * 7) % 60,
-                         w_col, w_glow, false);
+        it.circle(cx, cy, r_wave - 1, w_glow);
+        it.circle(cx, cy, r_wave, w_col);
+        it.circle(cx, cy, r_wave + 1, w_glow);
       }
 
-      // 4 Interweaving Inner Silk Voice Ribbons (Siri / Gemini multi-lobe acoustic membrane)
-      float base_r = 52.0f + 12.0f * syl_env;
-      float a2 = 7.0f + 11.0f * syl_env;
-      float a3 = 5.0f + 8.0f * syl_env;
-      float a5 = 2.5f + 4.5f * syl_env;
+      // 4 Interweaving Inner Silk Voice Ribbons (150 short inner-core line segments total)
+      float base_r = 48.0f + 16.0f * syl_env;
+      float a2 = 6.0f + 11.0f * syl_env;
+      float a3 = 4.5f + 8.0f * syl_env;
+      float a5 = 2.0f + 4.5f * syl_env;
 
       draw_silk_ribbon(base_r + 4.0f, a2, a3, a5, (tick) % 60, (tick * 2 + 15) % 60, (tick + 30) % 60,
-                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), true);
+                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
       draw_silk_ribbon(base_r, -a2 * 0.9f, a3 * 1.1f, -a5, (tick + 20) % 60, (tick + 40) % 60, (tick * 2) % 60,
-                       c_neon_magenta, scale_color(c_neon_magenta, 0.4f), true);
+                       c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
       draw_silk_ribbon(base_r - 2.0f, a2 * 0.8f, -a3, a5 * 1.2f, (tick * 2 + 7) % 60, (tick + 25) % 60, (tick + 12) % 60,
                        c_elec_cyan, c_deep_azure, true);
       draw_silk_ribbon(base_r - 5.0f, a2 * 0.5f, a3 * 0.5f, 0.0f, (tick + 35) % 60, (tick + 10) % 60, 0,
@@ -1319,14 +1339,15 @@ inline void render_voice_assistant_overlay(
       int tick = static_cast<int>(now_ms / 25U);
       float pulse = sinf(static_cast<float>(now_ms % 700U) * (2.0f * PI_F / 700.0f));
 
-      // Tightly wound high-velocity inner silk vortex
-      draw_silk_ribbon(50.0f + 3.0f * pulse, 6.0f, 5.0f, 3.0f,
+      // Smoothly contract silk ribbons from Listening radius (76px) into Thinking vortex (50px)
+      float vortex_r = 72.0f - 22.0f * smooth_think;
+      draw_silk_ribbon(vortex_r + 3.0f * pulse, 6.0f, 5.0f, 3.0f,
                        (tick * 2) % 60, (tick * 3) % 60, (tick) % 60,
-                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), true);
-      draw_silk_ribbon(48.0f - 2.0f * pulse, -5.0f, 6.0f, -2.5f,
+                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
+      draw_silk_ribbon(vortex_r - 2.0f - 2.0f * pulse, -5.0f, 6.0f, -2.5f,
                        (tick * 2 + 30) % 60, (tick + 15) % 60, (tick * 2) % 60,
                        c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
-      draw_silk_ribbon(46.0f, 4.0f, -4.0f, 2.0f,
+      draw_silk_ribbon(vortex_r - 4.0f, 4.0f, -4.0f, 2.0f,
                        (tick + 45) % 60, (tick * 2 + 20) % 60, (tick * 3) % 60,
                        c_elec_cyan, c_deep_azure, true);
 
@@ -1340,9 +1361,9 @@ inline void render_voice_assistant_overlay(
           int idx = (base_cw - tail * 2 + 60) % 60;
           int nx = cx + static_cast<int>(84.0f * DIAL_SIN[idx]);
           int ny = cy - static_cast<int>(84.0f * DIAL_COS[idx]);
-          float k = static_cast<float>(5 - tail) * 0.20f;
+          float k = static_cast<float>(5 - tail) * 0.20f * smooth_think;
           it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
-                           (tail == 0) ? c_ice_white : scale_color(c_elec_cyan, k));
+                           (tail == 0) ? scale_color(c_ice_white, smooth_think) : scale_color(c_elec_cyan, k));
         }
 
         int base_ccw = (head_idx_ccw + n * 20 + 10) % 60;
@@ -1350,9 +1371,9 @@ inline void render_voice_assistant_overlay(
           int idx = (base_ccw + tail * 2) % 60;
           int nx = cx + static_cast<int>(114.0f * DIAL_SIN[idx]);
           int ny = cy - static_cast<int>(114.0f * DIAL_COS[idx]);
-          float k = static_cast<float>(5 - tail) * 0.20f;
+          float k = static_cast<float>(5 - tail) * 0.20f * smooth_think;
           it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
-                           (tail == 0) ? c_ice_white : scale_color(c_neon_magenta, k));
+                           (tail == 0) ? scale_color(c_ice_white, smooth_think) : scale_color(c_neon_magenta, k));
         }
       }
 
@@ -1361,6 +1382,7 @@ inline void render_voice_assistant_overlay(
       it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.35f));
       it.filled_circle(cx, cy, core_r, c_royal_indigo);
       it.circle(cx, cy, core_r + 1, c_elec_cyan);
+      it.filled_circle(cx, cy, (core_r * 2) / 3, c_deep_azure);
       it.filled_circle(cx, cy, core_r / 2, c_ice_white);
       return;
     }
@@ -1381,9 +1403,9 @@ inline void render_voice_assistant_overlay(
 
     // 4 Fluid Silk Ribbons
     draw_silk_ribbon(base_r + 5.0f, a2, a3, a5, (tick) % 60, (tick + 20) % 60, (tick + 40) % 60,
-                     c_royal_indigo, scale_color(c_royal_indigo, 0.35f), true);
+                     c_royal_indigo, scale_color(c_royal_indigo, 0.35f), false);
     draw_silk_ribbon(base_r, -a2, a3 * 0.9f, -a5, (tick + 15) % 60, (tick * 2) % 60, (tick + 10) % 60,
-                     c_neon_magenta, scale_color(c_neon_magenta, 0.35f), true);
+                     c_neon_magenta, scale_color(c_neon_magenta, 0.35f), false);
     draw_silk_ribbon(base_r - 4.0f, a2 * 0.8f, -a3, a5, (tick + 35) % 60, (tick + 12) % 60, (tick * 2) % 60,
                      c_elec_cyan, c_deep_azure, true);
     draw_silk_ribbon(base_r - 8.0f, a2 * 0.4f, a3 * 0.4f, 0.0f, (tick + 50) % 60, (tick + 30) % 60, 0,
@@ -1404,7 +1426,7 @@ inline void render_voice_assistant_overlay(
 
   // ============================================================================
   // C. NEW FLAGSHIP "SOLARIS" — RADIAL ACOUSTIC CORONA & SOLAR ASTROLABE
-  //    60-Ray Circular Spectrometer + Golden/Emerald Coronal Waves (LUT-driven)
+  //    30-Ray Circular Spectrometer + Golden/Emerald Coronal Waves (LUT-driven)
   // ============================================================================
   const esphome::Color c_gold = col_solaris_gold;                 // #FFDC1E
   const esphome::Color c_amber(255, 105, 15);                     // Molten Solar Amber
@@ -1414,15 +1436,18 @@ inline void render_voice_assistant_overlay(
 
   if (is_speaking) {
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
-    float syl_env = 0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f);
+    float syl_env = (0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f)) * smooth_speak;
     if (syl_env < 0.15f) syl_env = 0.15f;
     int tick = static_cast<int>(now_ms / 35U);
+    uint32_t speak_elapsed = now_ms - speak_start_ms;
 
-    // 3 Expanding Coronal Shockwave Rings (moiré-free 2-pass glowing rings)
+    // 3 Expanding Coronal Shockwave Rings launched progressively from the core
     for (int w = 0; w < 3; w++) {
-      uint32_t wave_t = (now_ms + static_cast<uint32_t>(w) * 600U) % 1800U;
+      uint32_t launch_offset = static_cast<uint32_t>(w) * 600U;
+      if (speak_elapsed < launch_offset) continue;
+      uint32_t wave_t = (speak_elapsed - launch_offset) % 1800U;
       float prog = static_cast<float>(wave_t) * (1.0f / 1800.0f);
-      float fade = (1.0f - prog) * (0.45f + 0.45f * syl_env);
+      float fade = sinf(prog * PI_F) * (0.45f + 0.45f * syl_env) * smooth_speak;
       int r_wave = 82 + static_cast<int>(prog * 132.0f);
       esphome::Color ring_c = scale_color(get_va_radiation_color(true, prog + static_cast<float>(w) * 0.33f), fade);
       esphome::Color glow_c = scale_color(ring_c, 0.45f);
@@ -1468,9 +1493,9 @@ inline void render_voice_assistant_overlay(
     const int head_3 = static_cast<int>((now_ms / 28U) % 60U);
 
     // Subtle astrolabe meridian rings
-    it.circle(cx, cy, 62, scale_color(c_amber, 0.30f));
-    it.circle(cx, cy, 90, scale_color(c_gold, 0.25f));
-    it.circle(cx, cy, 118, scale_color(c_emerald, 0.25f));
+    it.circle(cx, cy, 62, scale_color(c_amber, 0.30f * smooth_think));
+    it.circle(cx, cy, 90, scale_color(c_gold, 0.25f * smooth_think));
+    it.circle(cx, cy, 118, scale_color(c_emerald, 0.25f * smooth_think));
 
     for (int n = 0; n < 3; n++) {
       // Inner Ring (r = 62, CW, Gold)
@@ -1480,7 +1505,7 @@ inline void render_voice_assistant_overlay(
         int nx = cx + static_cast<int>(62.0f * DIAL_SIN[idx]);
         int ny = cy - static_cast<int>(62.0f * DIAL_COS[idx]);
         it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
-                         (tail == 0) ? c_warm_white : scale_color(c_gold, (6 - tail) * 0.16f));
+                         (tail == 0) ? scale_color(c_warm_white, smooth_think) : scale_color(c_gold, (6 - tail) * 0.16f * smooth_think));
       }
       // Middle Ring (r = 90, CCW, Emerald)
       int b2 = (head_2 + n * 20 + 10) % 60;
@@ -1489,7 +1514,7 @@ inline void render_voice_assistant_overlay(
         int nx = cx + static_cast<int>(90.0f * DIAL_SIN[idx]);
         int ny = cy - static_cast<int>(90.0f * DIAL_COS[idx]);
         it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
-                         (tail == 0) ? c_warm_white : scale_color(c_emerald, (6 - tail) * 0.16f));
+                         (tail == 0) ? scale_color(c_warm_white, smooth_think) : scale_color(c_emerald, (6 - tail) * 0.16f * smooth_think));
       }
       // Outer Ring (r = 118, CW, Amber)
       int b3 = (head_3 + n * 20 + 5) % 60;
@@ -1498,7 +1523,7 @@ inline void render_voice_assistant_overlay(
         int nx = cx + static_cast<int>(118.0f * DIAL_SIN[idx]);
         int ny = cy - static_cast<int>(118.0f * DIAL_COS[idx]);
         it.filled_circle(nx, ny, (tail == 0) ? 3 : 2,
-                         (tail == 0) ? c_gold : scale_color(c_amber, (5 - tail) * 0.18f));
+                         (tail == 0) ? scale_color(c_gold, smooth_think) : scale_color(c_amber, (5 - tail) * 0.18f * smooth_think));
       }
     }
 
@@ -1511,7 +1536,7 @@ inline void render_voice_assistant_overlay(
     return;
   }
 
-  // New Solaris Listening: Breathing 60-Ray Solar Corona + Emerald-Gold VAD Bloom
+  // New Solaris Listening: Breathing 30-Ray Solar Corona + Emerald-Gold VAD Bloom
   float breath = sinf(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
   int tick = static_cast<int>(now_ms / 45U);
 
