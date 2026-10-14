@@ -1015,6 +1015,14 @@ inline esphome::Color get_va_radiation_color(bool is_solaris, float t) {
   }
 }
 
+// Tracks the last timestamp (millis) when Page 2 (Now Playing) completed a redraw
+// so throttled_disp_update never stacks redundant 466x466 PSRAM album-art blits
+// on top of va_tts_drain_and_finish, cancel_voice_assistant, or disp1's 1s timer.
+inline uint32_t &last_page2_draw_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
 // Zero-trig LUT-driven 2px perimeter track progress arc (r = 224..225) for Page 2 Now Playing
 // Replaces 180-step (360 sincosf + 360 line) loop with 60-segment DIAL_SIN/DIAL_COS LUT + fractional tip
 template<typename DisplayT>

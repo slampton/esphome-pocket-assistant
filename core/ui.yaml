@@ -543,6 +543,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: va_was_cancelled
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 
   - id: menu_scroll_active
@@ -1955,7 +1959,14 @@ text_sensor:
     entity_id: ${active_media_sensor}
     on_value:
       then:
-        - script.execute: throttled_disp_update
+        - lambda: |-
+            static std::string prev_state = "";
+            if (x != prev_state) {
+              prev_state = x;
+              if (id(active_speaker_entity) != "${local_player_id}") {
+                id(throttled_disp_update).execute();
+              }
+            }
 
   - platform: homeassistant
     id: ha_track_title
@@ -1964,8 +1975,12 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
+            static std::string prev_title = "";
             id(music_action_feedback) = "";
-        - script.execute: throttled_disp_update
+            if (x != prev_title) {
+              prev_title = x;
+              id(throttled_disp_update).execute();
+            }
 
   - platform: homeassistant
     id: ha_track_artist
@@ -1973,7 +1988,12 @@ text_sensor:
     attribute: artist
     on_value:
       then:
-        - script.execute: throttled_disp_update
+        - lambda: |-
+            static std::string prev_artist = "";
+            if (x != prev_artist) {
+              prev_artist = x;
+              id(throttled_disp_update).execute();
+            }
 
   - platform: homeassistant
     id: ha_track_album
@@ -1981,7 +2001,12 @@ text_sensor:
     attribute: album
     on_value:
       then:
-        - script.execute: throttled_disp_update
+        - lambda: |-
+            static std::string prev_album = "";
+            if (x != prev_album) {
+              prev_album = x;
+              id(throttled_disp_update).execute();
+            }
 
   - platform: homeassistant
     id: ha_target_media_type
@@ -2079,11 +2104,12 @@ script:
           then:
             - lambda: |-
                 id(va_resume_music_after) = false;
-                ESP_LOGI("audio", "resume_music_after_va: restoring playback for %s", id(active_speaker_entity).c_str());
+                ESP_LOGI("audio", "resume_music_after_va: restoring playback for %s (cancelled=%d)", id(active_speaker_entity).c_str(), id(va_was_cancelled));
             - if:
                 condition:
                   lambda: 'return !id(active_speaker_entity).empty() && (id(active_speaker_entity) != "${local_player_id}");'
                 then:
+                  - lambda: 'id(va_was_cancelled) = false;'
                   - homeassistant.action:
                       action: media_player.media_play
                       data:
@@ -2092,7 +2118,6 @@ script:
                   - script.execute: route_i2s_to_mic
                 else:
                   - script.execute: route_i2s_to_spk
-                  - audio_dac.mute_off: es8311_dac
                   - switch.turn_on: speaker_enable
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
@@ -2102,6 +2127,7 @@ script:
                       id: announcement_mixing_input
                       decibel_reduction: 50
                       duration: 0.1s
+                  # Dispatch media_play immediately so Home Assistant / Sendspin reconnects in parallel
                   - if:
                       condition:
                         lambda: 'return !id(active_speaker_entity).empty();'
@@ -2112,7 +2138,18 @@ script:
                               entity_id: !lambda 'return id(active_speaker_entity).c_str();'
                       else:
                         - media_player.play: pocket_music_player
+                  # If VA was terminated early, keep es8311_dac muted for 700ms while Sendspin
+                  # handshakes so any residual TTS audio inside physical_speaker's 1000ms buffer
+                  # drains completely silently instead of playing a 0.4s burst before music starts
+                  - if:
+                      condition:
+                        lambda: 'return id(va_was_cancelled);'
+                      then:
+                        - lambda: 'id(va_was_cancelled) = false;'
+                        - delay: 700ms
+                  - audio_dac.mute_off: es8311_dac
           else:
+            - lambda: 'id(va_was_cancelled) = false;'
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
   - id: fetch_remote_art_debounced
@@ -2143,6 +2180,7 @@ script:
               static uint32_t last_throttled_draw = 0;
               uint32_t now = millis();
               if (now - last_throttled_draw < 350) return false;
+              if (now - pocket_ui::last_page2_draw_ms() < 550) return false;
               if (id(display_power_state) == 0 && id(gui_page) == 2 && !id(va_active)) {
                 last_throttled_draw = now;
                 return true;
@@ -2823,6 +2861,7 @@ script:
       - voice_assistant.stop:
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
+          id(va_was_cancelled) = true;
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_vad_active) = false;
@@ -3332,6 +3371,7 @@ display:
         id(disp1).update();
         return;
       } else if (id(gui_page) == 2) {
+        pocket_ui::last_page2_draw_ms() = millis();
         if (id(music_overlay_mode) == 0) {
           // --------------------------------------------------
           // VIEW 0: NOW PLAYING MUSIC PLAYER
