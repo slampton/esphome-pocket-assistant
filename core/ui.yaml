@@ -114,10 +114,6 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
-  - id: selected_music_slot
-    type: int
-    restore_value: no
-    initial_value: '1'
   - id: selected_slot_name
     type: std::string
     restore_value: no
@@ -1422,7 +1418,7 @@ interval:
             if (now_w_ms - last_cond_eval_time >= 1000) {
               last_cond_eval_time = now_w_ms;
               std::string c_cond = id(ha_weather_condition).state;
-              std::string s_opt = std::string(id(weather_sim_condition).current_option().c_str());
+              std::string s_opt = id(weather_sim_condition).current_option();
               if (!s_opt.empty() && s_opt != "Live (Home Assistant)") {
                 if (s_opt == "Clear Night") c_cond = "clear-night";
                 else if (s_opt.find("Rain") != std::string::npos) c_cond = "rainy";
@@ -2176,7 +2172,7 @@ script:
     mode: restart
     then:
       - lambda: |-
-          std::string p = std::string(id(theme_palette_select).current_option().c_str());
+          std::string p = id(theme_palette_select).current_option();
           if (p == "Pink & Gray") {
             id(theme_primary) = Color(168, 120, 132);  // Muted Ash Pink #A87884 (faint, gray undertones)
             id(theme_secondary) = Color(192, 192, 192);// Brushed Silver / Gray #C0C0C0
@@ -2283,13 +2279,13 @@ script:
           };
 
           float b_target = 0.90f;
-          std::string mode = std::string(id(auto_brightness_mode).current_option().c_str());
+          std::string mode = id(auto_brightness_mode).current_option();
 
           if (mode == "Sun Synchronized") {
             std::string sun = id(ha_sun_state).state;
             bool is_night = (sun == "below_horizon");
-            std::string opt = is_night ? std::string(id(night_brightness_preset).current_option().c_str())
-                                       : std::string(id(day_brightness_preset).current_option().c_str());
+            std::string opt = is_night ? id(night_brightness_preset).current_option()
+                                       : id(day_brightness_preset).current_option();
             b_target = parse_bri(opt);
           } else if (mode == "Time Schedule") {
             auto now = id(ha_time).now();
@@ -2303,11 +2299,11 @@ script:
                 is_day = (now.hour >= day_h || now.hour < night_h);
               }
             }
-            std::string opt = is_day ? std::string(id(day_brightness_preset).current_option().c_str())
-                                     : std::string(id(night_brightness_preset).current_option().c_str());
+            std::string opt = is_day ? id(day_brightness_preset).current_option()
+                                     : id(night_brightness_preset).current_option();
             b_target = parse_bri(opt);
           } else {
-            std::string opt = std::string(id(display_brightness_preset).current_option().c_str());
+            std::string opt = id(display_brightness_preset).current_option();
             b_target = parse_bri(opt);
           }
 
@@ -2548,11 +2544,7 @@ script:
       - homeassistant.action:
           action: ${browse_script}
           data:
-            mode: !lambda |-
-              if (id(selected_category_mode) == "speaker_takeover") {
-                return "speakers";
-              }
-              return id(selected_category_mode).c_str();
+            mode: !lambda 'return id(selected_category_mode).c_str();'
             page: !lambda 'return to_string(id(music_browse_page));'
             page_size: "5"
             search: !lambda |-
@@ -2746,51 +2738,26 @@ script:
       - component.update: disp1
 
 
-  - id: resolve_selected_music_slot
-    then:
-      - lambda: |-
-          int s = id(selected_music_slot);
-          if (s == 1) {
-            id(selected_slot_name) = id(slot_1_name);
-            id(selected_slot_id)   = id(slot_1_id);
-            id(selected_slot_type) = id(slot_1_type);
-          } else if (s == 2) {
-            id(selected_slot_name) = id(slot_2_name);
-            id(selected_slot_id)   = id(slot_2_id);
-            id(selected_slot_type) = id(slot_2_type);
-          } else if (s == 3) {
-            id(selected_slot_name) = id(slot_3_name);
-            id(selected_slot_id)   = id(slot_3_id);
-            id(selected_slot_type) = id(slot_3_type);
-          } else if (s == 4) {
-            id(selected_slot_name) = id(slot_4_name);
-            id(selected_slot_id)   = id(slot_4_id);
-            id(selected_slot_type) = id(slot_4_type);
-          } else {
-            id(selected_slot_name) = id(slot_5_name);
-            id(selected_slot_id)   = id(slot_5_id);
-            id(selected_slot_type) = id(slot_5_type);
-          }
-
   - id: play_music_slot
     mode: restart
+    parameters:
+      slot: int
     then:
       - delay: 0ms
       - lambda: |-
-          int s = id(selected_music_slot);
-          if (s == 1) {
+          if (slot == 1) {
             id(selected_slot_name) = id(slot_1_name);
             id(selected_slot_id)   = id(slot_1_id);
             id(selected_slot_type) = id(slot_1_type);
-          } else if (s == 2) {
+          } else if (slot == 2) {
             id(selected_slot_name) = id(slot_2_name);
             id(selected_slot_id)   = id(slot_2_id);
             id(selected_slot_type) = id(slot_2_type);
-          } else if (s == 3) {
+          } else if (slot == 3) {
             id(selected_slot_name) = id(slot_3_name);
             id(selected_slot_id)   = id(slot_3_id);
             id(selected_slot_type) = id(slot_3_type);
-          } else if (s == 4) {
+          } else if (slot == 4) {
             id(selected_slot_name) = id(slot_4_name);
             id(selected_slot_id)   = id(slot_4_id);
             id(selected_slot_type) = id(slot_4_type);
@@ -2820,7 +2787,7 @@ script:
           } else {
             id(active_playback_media_type) = "music";
           }
-          if (id(active_speaker_entity) != "") {
+          if (!id(active_speaker_entity).empty()) {
             id(current_loaded_art_url) = "";
           }
       - homeassistant.action:
@@ -2841,188 +2808,6 @@ script:
           id(music_hud_active) = true;
           id(music_hud_timer) = millis();
       - component.update: disp1
-
-  - id: select_music_slot
-    mode: restart
-    then:
-      - delay: 0ms
-      - if:
-          condition:
-            lambda: 'return id(selected_category_mode) == "speakers";'
-          then:
-            - lambda: |-
-                id(music_action_feedback) = "Transferring -> " + id(selected_slot_name);
-                id(music_feedback_timer) = millis();
-                if (id(active_speaker_entity) == "${local_player_id}" && id(selected_slot_id) != "${local_player_id}") {
-                  if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                    auto call = id(pocket_music_player).make_call();
-                    call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                    call.perform();
-                  }
-                }
-            - homeassistant.action:
-                action: music_assistant.transfer_queue
-                data:
-                  entity_id: !lambda 'return id(selected_slot_id).c_str();'
-                  source_player: !lambda 'return id(active_speaker_entity).c_str();'
-                  auto_play: !lambda |-
-                    bool source_playing = false;
-                    if (id(active_speaker_entity) == "${local_player_id}") {
-                      source_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-                    } else {
-                      source_playing = (id(ha_target_state).state == "playing");
-                    }
-                    return source_playing ? "true" : "false";
-            - lambda: |-
-                if (id(selected_slot_id).rfind("media_player.", 0) == 0) {
-                  if (id(active_speaker_entity) != id(selected_slot_id) && !id(active_speaker_entity).empty()) {
-                    id(last_speaker_entity) = id(active_speaker_entity);
-                  }
-                  id(active_speaker_entity) = id(selected_slot_id);
-                  id(active_speaker_name) = id(selected_slot_name);
-                  id(music_action_feedback) = "Active: " + id(selected_slot_name);
-                } else {
-                  ESP_LOGW("ui", "Rejecting non-media_player speaker slot: %s", id(selected_slot_id).c_str());
-                  id(music_action_feedback) = "Invalid Speaker";
-                }
-                id(music_feedback_timer) = millis();
-            - homeassistant.action:
-                action: input_text.set_value
-                data:
-                  entity_id: ${active_speaker_helper}
-                  value: !lambda 'return id(active_speaker_entity).c_str();'
-            - if:
-                condition:
-                  lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-                then:
-                  - lambda: 'id(current_loaded_art_url) = "";'
-            - if:
-                condition:
-                  lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
-                then:
-                  - lambda: 'id(current_loaded_art_url) = "";'
-                  - online_image.release: remote_album_art
-            - component.update: disp1
-            - delay: 200ms
-            - lambda: |-
-                id(music_overlay_mode) = 0;
-            - component.update: disp1
-          else:
-            - if:
-                condition:
-                  lambda: 'return id(selected_category_mode) == "speaker_takeover";'
-                then:
-                  - lambda: |-
-                      if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                        auto call = id(pocket_music_player).make_call();
-                        call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                        call.perform();
-                      }
-                      if (id(selected_slot_id).rfind("media_player.", 0) == 0) {
-                        if (id(active_speaker_entity) != id(selected_slot_id) && !id(active_speaker_entity).empty()) {
-                          id(last_speaker_entity) = id(active_speaker_entity);
-                        }
-                        id(active_speaker_entity) = id(selected_slot_id);
-                        id(active_speaker_name) = id(selected_slot_name);
-                        id(music_action_feedback) = "Controlling: " + id(selected_slot_name);
-                      } else {
-                        ESP_LOGW("ui", "Rejecting non-media_player takeover slot: %s", id(selected_slot_id).c_str());
-                        id(music_action_feedback) = "Invalid Speaker";
-                      }
-                      id(music_feedback_timer) = millis();
-                  - homeassistant.action:
-                      action: input_text.set_value
-                      data:
-                        entity_id: ${active_speaker_helper}
-                        value: !lambda 'return id(active_speaker_entity).c_str();'
-                  - component.update: disp1
-                  - delay: 600ms
-                  - lambda: |-
-                      id(music_overlay_mode) = 0;
-                      id(music_hud_active) = true;
-                      id(music_hud_timer) = millis();
-                  - component.update: disp1
-                else:
-                  - lambda: |-
-                      int s = id(selected_music_slot);
-                      if (s == 1) {
-                        id(selected_slot_name) = id(slot_1_name);
-                        id(selected_slot_id)   = id(slot_1_id);
-                        id(selected_slot_type) = id(slot_1_type);
-                      } else if (s == 2) {
-                        id(selected_slot_name) = id(slot_2_name);
-                        id(selected_slot_id)   = id(slot_2_id);
-                        id(selected_slot_type) = id(slot_2_type);
-                      } else if (s == 3) {
-                        id(selected_slot_name) = id(slot_3_name);
-                        id(selected_slot_id)   = id(slot_3_id);
-                        id(selected_slot_type) = id(slot_3_type);
-                      } else if (s == 4) {
-                        id(selected_slot_name) = id(slot_4_name);
-                        id(selected_slot_id)   = id(slot_4_id);
-                        id(selected_slot_type) = id(slot_4_type);
-                      } else {
-                        id(selected_slot_name) = id(slot_5_name);
-                        id(selected_slot_id)   = id(slot_5_id);
-                        id(selected_slot_type) = id(slot_5_type);
-                      }
-                      if (id(active_speaker_entity).empty() || id(active_speaker_entity) == "None") {
-                        id(active_speaker_entity) = "${local_player_id}";
-                      }
-                      if (id(selected_category_mode) == "artist") {
-                        id(selected_slot_type) = "artist";
-                      } else if (id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums") {
-                        id(selected_slot_type) = "album";
-                      } else if (id(selected_category_mode) == "podcast_episodes") {
-                        id(selected_slot_type) = "podcast_episode";
-                      } else if (id(selected_slot_type).empty()) {
-                        id(selected_slot_type) = "music";
-                      }
-                      id(music_action_feedback) = "Playing: " + id(selected_slot_name);
-                      id(music_feedback_timer) = millis();
-                      if (id(selected_category_mode) == "podcast_episodes") {
-                        id(active_playback_media_type) = "podcast";
-                      } else if (id(selected_category_mode) == "audiobook") {
-                        id(active_playback_media_type) = "audiobook";
-                      } else {
-                        id(active_playback_media_type) = "music";
-                      }
-                  - homeassistant.action:
-                      action: music_assistant.play_media
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                        media_id: !lambda 'return id(selected_slot_id).c_str();'
-                        media_type: !lambda 'return id(selected_slot_type).c_str();'
-                        enqueue: "play"
-                  - delay: 800ms
-                  - lambda: |-
-                      id(music_overlay_mode) = 0;
-                      id(music_hud_active) = true;
-                      id(music_hud_timer) = millis();
-                  - component.update: disp1
-
-  # Thin Backward-Compatible Slot Wrappers (0 overhead)
-  - id: play_music_slot_1
-    then: [{lambda: 'id(selected_music_slot) = 1;'}, {script.execute: play_music_slot}]
-  - id: play_music_slot_2
-    then: [{lambda: 'id(selected_music_slot) = 2;'}, {script.execute: play_music_slot}]
-  - id: play_music_slot_3
-    then: [{lambda: 'id(selected_music_slot) = 3;'}, {script.execute: play_music_slot}]
-  - id: play_music_slot_4
-    then: [{lambda: 'id(selected_music_slot) = 4;'}, {script.execute: play_music_slot}]
-  - id: play_music_slot_5
-    then: [{lambda: 'id(selected_music_slot) = 5;'}, {script.execute: play_music_slot}]
-
-  - id: select_music_slot_1
-    then: [{lambda: 'id(selected_music_slot) = 1;'}, {script.execute: select_music_slot}]
-  - id: select_music_slot_2
-    then: [{lambda: 'id(selected_music_slot) = 2;'}, {script.execute: select_music_slot}]
-  - id: select_music_slot_3
-    then: [{lambda: 'id(selected_music_slot) = 3;'}, {script.execute: select_music_slot}]
-  - id: select_music_slot_4
-    then: [{lambda: 'id(selected_music_slot) = 4;'}, {script.execute: select_music_slot}]
-  - id: select_music_slot_5
-    then: [{lambda: 'id(selected_music_slot) = 5;'}, {script.execute: select_music_slot}]
 
   - id: mp_idle_debounce
     mode: restart
@@ -3116,12 +2901,19 @@ script:
   # ==============================================================================
   # 📺 UNIVERSAL TV & MEDIA REMOTE COMMAND SCRIPTS
   # ==============================================================================
-  - id: remote_send_up
+  - id: remote_send_key
     mode: restart
+    parameters:
+      key_idx: int
     then:
       - delay: 0ms
       - lambda: |-
-          id(remote_action_feedback) = "Up";
+          static constexpr const char *kFeedback[10] = {
+            "Up", "Down", "Left", "Right", "Select",
+            "Back", "Home", "Vol +", "Vol -", "Toggle Power"
+          };
+          int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
+          id(remote_action_feedback) = kFeedback[idx];
           id(remote_feedback_timer) = millis();
       - if:
           condition:
@@ -3131,273 +2923,44 @@ script:
                 action: webostv.button
                 data:
                   entity_id: ${tv_remote_entity}
-                  button: "UP"
+                  button: !lambda |-
+                    static constexpr const char *kWebosBtns[10] = {
+                      "UP", "DOWN", "LEFT", "RIGHT", "ENTER",
+                      "BACK", "HOME", "VOLUMEUP", "VOLUMEDOWN", "POWER"
+                    };
+                    return kWebosBtns[(key_idx >= 0 && key_idx < 10) ? key_idx : 0];
           else:
             - homeassistant.action:
                 action: remote.send_command
                 data:
                   entity_id: ${tv_remote_entity}
                   command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV" || p == "Roku") return "up";
-                    if (p == "Samsung TV") return "KEY_UP";
-                    if (p == "Custom") return "${remote_cmd_up}";
-                    return "DPAD_UP";
-
-  - id: remote_send_down
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Down";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "DOWN"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV" || p == "Roku") return "down";
-                    if (p == "Samsung TV") return "KEY_DOWN";
-                    if (p == "Custom") return "${remote_cmd_down}";
-                    return "DPAD_DOWN";
-
-  - id: remote_send_left
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Left";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "LEFT"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV" || p == "Roku") return "left";
-                    if (p == "Samsung TV") return "KEY_LEFT";
-                    if (p == "Custom") return "${remote_cmd_left}";
-                    return "DPAD_LEFT";
-
-  - id: remote_send_right
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Right";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "RIGHT"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV" || p == "Roku") return "right";
-                    if (p == "Samsung TV") return "KEY_RIGHT";
-                    if (p == "Custom") return "${remote_cmd_right}";
-                    return "DPAD_RIGHT";
-
-  - id: remote_send_select
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Select";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "ENTER"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV" || p == "Roku") return "select";
-                    if (p == "Samsung TV") return "KEY_ENTER";
-                    if (p == "Custom") return "${remote_cmd_select}";
-                    return "DPAD_CENTER";
-
-  - id: remote_send_back
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Back";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "BACK"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV") return "menu";
-                    if (p == "Roku") return "back";
-                    if (p == "Samsung TV") return "KEY_RETURN";
-                    if (p == "Custom") return "${remote_cmd_back}";
-                    return "BACK";
-
-  - id: remote_send_home
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Home";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "HOME"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV") return "top_menu";
-                    if (p == "Roku") return "home";
-                    if (p == "Samsung TV") return "KEY_HOME";
-                    if (p == "Custom") return "${remote_cmd_home}";
-                    return "HOME";
-
-  - id: remote_send_vol_up
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Vol +";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "VOLUMEUP"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV" || p == "Roku") return "volume_up";
-                    if (p == "Samsung TV") return "KEY_VOLUP";
-                    if (p == "Custom") return "${remote_cmd_vol_up}";
-                    return "VOLUME_UP";
-
-  - id: remote_send_vol_down
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Vol -";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "VOLUMEDOWN"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV" || p == "Roku") return "volume_down";
-                    if (p == "Samsung TV") return "KEY_VOLDOWN";
-                    if (p == "Custom") return "${remote_cmd_vol_down}";
-                    return "VOLUME_DOWN";
-
-  - id: remote_send_power
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          id(remote_action_feedback) = "Toggle Power";
-          id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
-          then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: "POWER"
-          else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    std::string p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV") return "wakeup";
-                    if (p == "Roku") return "power";
-                    if (p == "Samsung TV") return "KEY_POWER";
-                    if (p == "Custom") return "${remote_cmd_power}";
-                    return "POWER";
+                    struct RemoteCmdRow {
+                      const char *apple_cmd;
+                      const char *roku_cmd;
+                      const char *samsung_cmd;
+                      const char *custom_cmd;
+                      const char *android_cmd;
+                    };
+                    static constexpr RemoteCmdRow kCmds[10] = {
+                      {"up",          "up",          "KEY_UP",      "${remote_cmd_up}",       "DPAD_UP"},
+                      {"down",        "down",        "KEY_DOWN",    "${remote_cmd_down}",     "DPAD_DOWN"},
+                      {"left",        "left",        "KEY_LEFT",    "${remote_cmd_left}",     "DPAD_LEFT"},
+                      {"right",       "right",       "KEY_RIGHT",   "${remote_cmd_right}",    "DPAD_RIGHT"},
+                      {"select",      "select",      "KEY_ENTER",   "${remote_cmd_select}",   "DPAD_CENTER"},
+                      {"menu",        "back",        "KEY_RETURN",  "${remote_cmd_back}",     "BACK"},
+                      {"top_menu",    "home",        "KEY_HOME",    "${remote_cmd_home}",     "HOME"},
+                      {"volume_up",   "volume_up",   "KEY_VOLUP",   "${remote_cmd_vol_up}",   "VOLUME_UP"},
+                      {"volume_down", "volume_down", "KEY_VOLDOWN", "${remote_cmd_vol_down}", "VOLUME_DOWN"},
+                      {"wakeup",      "power",       "KEY_POWER",   "${remote_cmd_power}",    "POWER"}
+                    };
+                    int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
+                    auto p = id(tv_remote_profile).current_option();
+                    if (p == "Apple TV") return kCmds[idx].apple_cmd;
+                    if (p == "Roku") return kCmds[idx].roku_cmd;
+                    if (p == "Samsung TV") return kCmds[idx].samsung_cmd;
+                    if (p == "Custom") return kCmds[idx].custom_cmd;
+                    return kCmds[idx].android_cmd;
 
 display:
   - platform: mipi_spi
@@ -3867,7 +3430,7 @@ display:
       if (id(display_power_state) == 1) {
         it.fill(id(col_bg));
 
-        std::string ss_style = std::string(id(screensaver_style_select).current_option().c_str());
+        std::string ss_style = id(screensaver_style_select).current_option();
         if (ss_style.empty()) ss_style = "Aurora Borealis";
 
         uint32_t now_ms = millis();
@@ -5135,7 +4698,7 @@ display:
           // --------------------------------------------------
           // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards - 5 Slots)
           // --------------------------------------------------
-          bool is_spk = (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover");
+          bool is_spk = (id(selected_category_mode) == "speakers");
           bool is_podcast_list = (id(selected_category_mode) == "podcast");
           bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
 
@@ -7486,7 +7049,7 @@ display:
           bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
 
           // Condition Simulation Override from Home Assistant Dropdown
-          std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
+          std::string sim_opt = id(weather_sim_condition).current_option();
           if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
             if (sim_opt == "Clear Night") {
               cond = "clear-night";
@@ -9582,11 +9145,14 @@ touchscreen:
               return next;
             };
 
-            auto cycle_option = [](const std::string &cur, const std::vector<std::string> &opts) -> std::string {
-              for (size_t i = 0; i < opts.size(); i++) {
-                if (opts[i] == cur) return opts[(i + 1) % opts.size()];
+            auto cycle_option = [](const auto &cur, std::initializer_list<const char *> opts) -> const char * {
+              for (auto it = opts.begin(); it != opts.end(); ++it) {
+                if (cur == *it) {
+                  ++it;
+                  return (it != opts.end()) ? *it : *opts.begin();
+                }
               }
-              return opts.empty() ? "" : opts[0];
+              return (opts.size() > 0) ? *opts.begin() : "";
             };
 
             static uint32_t last_back_tap = 0;
@@ -10198,14 +9764,7 @@ touchscreen:
                         id(music_browse_page) = 1;
                         id(fetch_music_browse).execute();
                       } else if (is_drill && touch.x <= 118) {
-                        id(selected_music_slot) = slot_num;
-                        id(selected_slot_name) = s_name;
-                        id(selected_slot_id) = s_id;
-                        id(selected_slot_type) = (slot_num == 1) ? id(slot_1_type) :
-                                                 (slot_num == 2) ? id(slot_2_type) :
-                                                 (slot_num == 3) ? id(slot_3_type) :
-                                                 (slot_num == 4) ? id(slot_4_type) : id(slot_5_type);
-                        id(play_music_slot).execute();
+                        id(play_music_slot).execute(slot_num);
                       } else if (is_drill && touch.x > 118) {
                         if (id(selected_category_mode) == "artist") {
                           id(drilldown_artist_name) = s_name;
@@ -10225,14 +9784,7 @@ touchscreen:
                           id(fetch_music_browse).execute();
                         }
                       } else {
-                        id(selected_music_slot) = slot_num;
-                        id(selected_slot_name) = s_name;
-                        id(selected_slot_id) = s_id;
-                        id(selected_slot_type) = (slot_num == 1) ? id(slot_1_type) :
-                                                 (slot_num == 2) ? id(slot_2_type) :
-                                                 (slot_num == 3) ? id(slot_3_type) :
-                                                 (slot_num == 4) ? id(slot_4_type) : id(slot_5_type);
-                        id(select_music_slot).execute();
+                        id(play_music_slot).execute(slot_num);
                       }
                     }
                   }
@@ -10253,7 +9805,7 @@ touchscreen:
                       id(selected_category_title) = "ARTISTS";
                       id(music_browse_page) = std::max(1, id(drilldown_artist_page));
                       id(fetch_music_browse).execute();
-                    } else if (id(selected_category_mode) == "speakers" || id(selected_category_mode) == "speaker_takeover") {
+                    } else if (id(selected_category_mode) == "speakers") {
                       id(music_overlay_mode) = 1; // Return to Speakers Browser
                     } else {
                       id(drilldown_artist_page) = 1;
@@ -10573,14 +10125,14 @@ touchscreen:
                 auto trigger_sleep_item = [&](int idx) {
                   if (idx == 0) {
                     // Slot 1 (Page 1): Motion Wake Cycler
-                    std::string cur = std::string(id(pickup_wake_mode).current_option().c_str());
+                    std::string cur = id(pickup_wake_mode).current_option();
                     auto call = id(pickup_wake_mode).make_call();
                     call.set_option(cycle_option(cur, {"Always On", "Docked Only", "Disabled"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 1) {
                     // Slot 2 (Page 1): Tap Wake Cycler
-                    std::string cur = std::string(id(tap_wake_mode).current_option().c_str());
+                    std::string cur = id(tap_wake_mode).current_option();
                     auto call = id(tap_wake_mode).make_call();
                     call.set_option(cycle_option(cur, {"Always On", "Docked Only", "Disabled"}));
                     call.perform();
@@ -10591,21 +10143,21 @@ touchscreen:
                     id(disp1).update();
                   } else if (idx == 3) {
                     // Slot 4 (Page 1): Screensaver Style Cycler
-                    std::string cur = std::string(id(screensaver_style_select).current_option().c_str());
+                    std::string cur = id(screensaver_style_select).current_option();
                     auto call = id(screensaver_style_select).make_call();
                     call.set_option(cycle_option(cur, {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Solar Flare", "Screen Off"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 4) {
                     // Slot 5 (Page 1): Dock Inactivity Timeout Cycler
-                    std::string cur = std::string(id(screensaver_docked_timeout).current_option().c_str());
+                    std::string cur = id(screensaver_docked_timeout).current_option();
                     auto call = id(screensaver_docked_timeout).make_call();
                     call.set_option(cycle_option(cur, {"10s", "15s", "30s", "1 min", "5 min", "Never"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 5) {
                     // Slot 6 (Page 2): Screen Off Dimming Timeout Cycler
-                    std::string cur = std::string(id(display_off_timeout).current_option().c_str());
+                    std::string cur = id(display_off_timeout).current_option();
                     auto call = id(display_off_timeout).make_call();
                     call.set_option(cycle_option(cur, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
                     call.perform();
@@ -10616,7 +10168,7 @@ touchscreen:
                     id(disp1).update();
                   } else if (idx == 7) {
                     // Slot 8 (Page 2): Auto-Hibernate Timeout Cycler
-                    std::string cur = std::string(id(hibernate_timeout_mode).current_option().c_str());
+                    std::string cur = id(hibernate_timeout_mode).current_option();
                     auto call = id(hibernate_timeout_mode).make_call();
                     call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
                     call.perform();
@@ -10688,7 +10240,7 @@ touchscreen:
                     int item_idx = (id(display_menu_page) == 1) ? slot_idx : (slot_idx + 3);
                     if (item_idx == 0) {
                       // Item 0: Auto-Brightness Mode Cycler (Off -> Sun Synchronized -> Time Schedule)
-                      std::string cur = std::string(id(auto_brightness_mode).current_option().c_str());
+                      std::string cur = id(auto_brightness_mode).current_option();
                       std::string next_m = cycle_option(cur, {"Disabled", "Sun Synchronized", "Time Schedule"});
                       auto call = id(auto_brightness_mode).make_call();
                       call.set_option(next_m);
@@ -10699,9 +10251,9 @@ touchscreen:
                       return;
                     } else if (item_idx == 1) {
                       // Item 1: Manual Brightness Preset Cycler (active only when Auto Bright is Disabled)
-                      std::string ab = std::string(id(auto_brightness_mode).current_option().c_str());
+                      std::string ab = id(auto_brightness_mode).current_option();
                       if (ab == "Disabled") {
-                        std::string cur = std::string(id(display_brightness_preset).current_option().c_str());
+                        std::string cur = id(display_brightness_preset).current_option();
                         std::string next_b = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
                         auto call = id(display_brightness_preset).make_call();
                         call.set_option(next_b);
@@ -10727,7 +10279,7 @@ touchscreen:
                       return;
                     } else if (item_idx == 3) {
                       // Item 3: Day Brightness Preset Cycler
-                      std::string cur = std::string(id(day_brightness_preset).current_option().c_str());
+                      std::string cur = id(day_brightness_preset).current_option();
                       std::string next_db = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
                       auto call = id(day_brightness_preset).make_call();
                       call.set_option(next_db);
@@ -10738,7 +10290,7 @@ touchscreen:
                       return;
                     } else if (item_idx == 4) {
                       // Item 4: Night Brightness Preset Cycler
-                      std::string cur = std::string(id(night_brightness_preset).current_option().c_str());
+                      std::string cur = id(night_brightness_preset).current_option();
                       std::string next_nb = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
                       auto call = id(night_brightness_preset).make_call();
                       call.set_option(next_nb);
@@ -10749,7 +10301,7 @@ touchscreen:
                       return;
                     } else if (item_idx == 5) {
                       // Item 5: Color Palette Cycler
-                      std::string cur = std::string(id(theme_palette_select).current_option().c_str());
+                      std::string cur = id(theme_palette_select).current_option();
                       auto call = id(theme_palette_select).make_call();
                       call.set_option(cycle_option(cur, {"Steel & Silver", "Pink & Gray", "Blue & Gold", "Green & Gold"}));
                       call.perform();
@@ -10757,7 +10309,7 @@ touchscreen:
                       return;
                     } else if (item_idx == 6) {
                       // Item 6: Screen Off Inactivity Timeout Cycler
-                      std::string cur_so = std::string(id(display_off_timeout).current_option().c_str());
+                      std::string cur_so = id(display_off_timeout).current_option();
                       auto call = id(display_off_timeout).make_call();
                       call.set_option(cycle_option(cur_so, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
                       call.perform();
@@ -10765,7 +10317,7 @@ touchscreen:
                       return;
                     } else if (item_idx == 7) {
                       // Item 7: Page Counter Mode Cycler
-                      std::string cur_pc = std::string(id(page_counter_mode).current_option().c_str());
+                      std::string cur_pc = id(page_counter_mode).current_option();
                       auto call = id(page_counter_mode).make_call();
                       call.set_option(cycle_option(cur_pc, {"Always", "Never"}));
                       call.perform();
@@ -10798,7 +10350,7 @@ touchscreen:
                     return;
                   } else if (slot == 1) {
                     // Card 2: Auto-Hibernate Timeout Cycler (Slot 1, y = 162)
-                    std::string cur = std::string(id(hibernate_timeout_mode).current_option().c_str());
+                    std::string cur = id(hibernate_timeout_mode).current_option();
                     auto call = id(hibernate_timeout_mode).make_call();
                     call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
                     call.perform();
@@ -11138,7 +10690,7 @@ touchscreen:
                     int item_idx = (id(deck_menu_page) == 1) ? slot_idx : (slot_idx + 4);
                     if (item_idx == 0) {
                       // Default Start App Cycler
-                      std::string cur = std::string(id(default_start_app).current_option().c_str());
+                      std::string cur = id(default_start_app).current_option();
                       auto call = id(default_start_app).make_call();
                       call.set_option(cycle_option(cur, {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Tools", "System"}));
                       call.perform();
@@ -11194,7 +10746,7 @@ touchscreen:
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
                     // Card 1: Visual Profile Cycler (Slot 0, y = 104)
-                    std::string cur = std::string(id(va_visual_profile).current_option().c_str());
+                    std::string cur = id(va_visual_profile).current_option();
                     auto call = id(va_visual_profile).make_call();
                     call.set_option(cycle_option(cur, {"Nebula", "Solaris"}));
                     call.perform();
@@ -11271,7 +10823,7 @@ touchscreen:
                   std::string s_state = id(ha_sun_state).state;
                   std::string cond = id(ha_weather_condition).state;
                   bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
-                  std::string sim_opt = std::string(id(weather_sim_condition).current_option().c_str());
+                  std::string sim_opt = id(weather_sim_condition).current_option();
                   if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
                     if (sim_opt.find("(Night)") != std::string::npos || sim_opt == "Clear Night") is_night = true;
                     else if (sim_opt.find("(Day)") != std::string::npos || sim_opt == "Sunny / Clear Day" || sim_opt == "Windy" || sim_opt == "Pouring / Heavy Rain") is_night = false;
@@ -11303,7 +10855,7 @@ touchscreen:
                 if (touch.x >= 100 && touch.x <= 366 && touch.y >= 170 && touch.y <= 230) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
-                    id(remote_send_power).execute();
+                    id(remote_send_key).execute(9);
                     id(disp1).update();
                   }
                   return;
@@ -11346,7 +10898,7 @@ touchscreen:
               if (touch.x <= 115 && touch.y >= 90 && touch.y <= 190) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_home).execute();
+                  id(remote_send_key).execute(6);
                   id(disp1).update();
                 }
                 return;
@@ -11356,7 +10908,7 @@ touchscreen:
               if (touch.x >= 351 && touch.y >= 90 && touch.y <= 190) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_vol_up).execute();
+                  id(remote_send_key).execute(7);
                   id(disp1).update();
                 }
                 return;
@@ -11366,7 +10918,7 @@ touchscreen:
               if (touch.x <= 115 && touch.y >= 276 && touch.y <= 376) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_back).execute();
+                  id(remote_send_key).execute(5);
                   id(disp1).update();
                 }
                 return;
@@ -11376,7 +10928,7 @@ touchscreen:
               if (touch.x >= 351 && touch.y >= 276 && touch.y <= 376) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_vol_down).execute();
+                  id(remote_send_key).execute(8);
                   id(disp1).update();
                 }
                 return;
@@ -11392,7 +10944,7 @@ touchscreen:
               if (dist_sq <= 2704) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_select).execute();
+                  id(remote_send_key).execute(4);
                   id(disp1).update();
                 }
                 return;
@@ -11404,15 +10956,15 @@ touchscreen:
                   last_remote_btn_tap = now_rem;
                   if (abs(dy) >= abs(dx)) {
                     if (dy < 0) {
-                      id(remote_send_up).execute();
+                      id(remote_send_key).execute(0);
                     } else {
-                      id(remote_send_down).execute();
+                      id(remote_send_key).execute(1);
                     }
                   } else {
                     if (dx < 0) {
-                      id(remote_send_left).execute();
+                      id(remote_send_key).execute(2);
                     } else {
-                      id(remote_send_right).execute();
+                      id(remote_send_key).execute(3);
                     }
                   }
                   id(disp1).update();

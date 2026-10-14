@@ -842,7 +842,7 @@ script:
       - delay: !lambda |-
           // When docked to USB power: use docked screensaver inactivity timeout
           if (id(usb_connected).state) {
-            std::string ss_to = std::string(id(screensaver_docked_timeout).current_option().c_str());
+            std::string ss_to = id(screensaver_docked_timeout).current_option();
             if (ss_to == "10s") return 10000;
             if (ss_to == "15s") return 15000;
             if (ss_to == "30s") return 30000;
@@ -852,7 +852,7 @@ script:
             return 300000; // default 5m
           }
           // When on battery: use screen_off_timeout
-          std::string opt = std::string(id(display_off_timeout).current_option().c_str());
+          std::string opt = id(display_off_timeout).current_option();
           if (opt == "10s") return 10000;
           if (opt == "15s") return 15000;
           if (opt == "30s") return 30000;
