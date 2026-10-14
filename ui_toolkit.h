@@ -365,8 +365,134 @@ inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool
 // ------------------------------------------------------------------------------
 // 3. Text, Time, SemVer & Synodic Astronomy Helpers
 // ------------------------------------------------------------------------------
+// UTF-8 sanitizer & normalizer for Roboto / Orbitron embedded bitmap fonts.
+// Preserves ASCII (0x20..0x7E), full Latin-1 Supplement (U+00A1..U+00FF, e.g. ¡, ¿, ñ, é, ü, ß),
+// Latin Extended-A (U+0100..U+017F), and core typographic symbols (•—–…‘’“”€™),
+// while normalizing exotic Unicode spaces/dashes/quotes and stripping unsupported emojis
+// or malformed UTF-8 sequences so ESPHome's font renderer never logs missing-glyph errors.
+inline void append_utf8_cp(std::string &out, uint32_t cp) {
+  if (cp <= 0x7F) {
+    out.push_back(static_cast<char>(cp));
+  } else if (cp <= 0x7FF) {
+    out.push_back(static_cast<char>(0xC0 | ((cp >> 6) & 0x1F)));
+    out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+  } else if (cp <= 0xFFFF) {
+    out.push_back(static_cast<char>(0xE0 | ((cp >> 12) & 0x0F)));
+    out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+    out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+  }
+}
+
+inline bool is_supported_font_cp(uint32_t cp) {
+  if (cp >= 0x20 && cp <= 0x7E) return true;
+  if (cp >= 0xA1 && cp <= 0xFF && cp != 0xAD) return true;  // Full Latin-1 Supplement (¡, ¿, À..ÿ)
+  switch (cp) {
+    // Supported Latin Extended-A & B (European languages in GF_Latin_Core)
+    case 0x0100: case 0x0101: case 0x0102: case 0x0103: case 0x0104: case 0x0105:
+    case 0x0106: case 0x0107: case 0x010C: case 0x010D: case 0x010E: case 0x010F:
+    case 0x0110: case 0x0111: case 0x0112: case 0x0113: case 0x0116: case 0x0117:
+    case 0x0118: case 0x0119: case 0x011A: case 0x011B: case 0x011E: case 0x011F:
+    case 0x012A: case 0x012B: case 0x012E: case 0x012F: case 0x0130: case 0x0131:
+    case 0x0136: case 0x0137: case 0x0139: case 0x013A: case 0x013B: case 0x013C:
+    case 0x013D: case 0x013E: case 0x0141: case 0x0142: case 0x0143: case 0x0144:
+    case 0x0145: case 0x0146: case 0x0147: case 0x0148: case 0x014C: case 0x014D:
+    case 0x0150: case 0x0151: case 0x0152: case 0x0153: case 0x0154: case 0x0155:
+    case 0x0158: case 0x0159: case 0x015A: case 0x015B: case 0x015E: case 0x015F:
+    case 0x0160: case 0x0161: case 0x0162: case 0x0163: case 0x0164: case 0x0165:
+    case 0x016A: case 0x016B: case 0x016E: case 0x016F: case 0x0170: case 0x0171:
+    case 0x0172: case 0x0173: case 0x0178: case 0x0179: case 0x017A: case 0x017B:
+    case 0x017C: case 0x017D: case 0x017E:
+    // Typographic punctuation & symbols compiled into font_micro / font_small / font_date / font_btn_bold
+    case 0x2013: case 0x2014: case 0x2018: case 0x2019: case 0x201C: case 0x201D:
+    case 0x2022: case 0x2026: case 0x20AC: case 0x2122:
+      return true;
+    default:
+      return false;
+  }
+}
+
+inline std::string sanitize_utf8_for_font(const std::string &str) {
+  if (str.empty()) return str;
+  std::string out;
+  out.reserve(str.size());
+  const size_t n = str.size();
+  size_t i = 0;
+  while (i < n) {
+    unsigned char b0 = static_cast<unsigned char>(str[i]);
+    if (b0 < 0x80) {
+      if (b0 >= 0x20 && b0 <= 0x7E) out.push_back(static_cast<char>(b0));
+      i++;
+      continue;
+    }
+    uint32_t cp = 0;
+    size_t len = 0;
+    if ((b0 & 0xE0) == 0xC0 && i + 1 < n) {
+      unsigned char b1 = static_cast<unsigned char>(str[i + 1]);
+      if ((b1 & 0xC0) == 0x80) {
+        cp = (static_cast<uint32_t>(b0 & 0x1F) << 6) | static_cast<uint32_t>(b1 & 0x3F);
+        if (cp >= 0x80) len = 2;
+      }
+    } else if ((b0 & 0xF0) == 0xE0 && i + 2 < n) {
+      unsigned char b1 = static_cast<unsigned char>(str[i + 1]);
+      unsigned char b2 = static_cast<unsigned char>(str[i + 2]);
+      if ((b1 & 0xC0) == 0x80 && (b2 & 0xC0) == 0x80) {
+        cp = (static_cast<uint32_t>(b0 & 0x0F) << 12) | (static_cast<uint32_t>(b1 & 0x3F) << 6) | static_cast<uint32_t>(b2 & 0x3F);
+        if (cp >= 0x800) len = 3;
+      }
+    } else if ((b0 & 0xF8) == 0xF0 && i + 3 < n) {
+      unsigned char b1 = static_cast<unsigned char>(str[i + 1]);
+      unsigned char b2 = static_cast<unsigned char>(str[i + 2]);
+      unsigned char b3 = static_cast<unsigned char>(str[i + 3]);
+      if ((b1 & 0xC0) == 0x80 && (b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80) {
+        cp = (static_cast<uint32_t>(b0 & 0x07) << 18) | (static_cast<uint32_t>(b1 & 0x3F) << 12) |
+             (static_cast<uint32_t>(b2 & 0x3F) << 6) | static_cast<uint32_t>(b3 & 0x3F);
+        if (cp >= 0x10000) len = 4;
+      }
+    }
+    if (len == 0) {
+      i++;
+      continue;
+    }
+    i += len;
+
+    // Normalize common Unicode whitespace, dashes, quotes, and zero-width characters
+    if (cp == 0x00A0 || (cp >= 0x2000 && cp <= 0x200A) || cp == 0x202F || cp == 0x205F || cp == 0x3000) {
+      out.push_back(' ');
+      continue;
+    }
+    if (cp == 0x00AD || (cp >= 0x200B && cp <= 0x200F) || (cp >= 0x202A && cp <= 0x202E) ||
+        (cp >= 0xFE00 && cp <= 0xFE0F) || cp == 0xFEFF) {
+      continue;
+    }
+    if (cp == 0x2010 || cp == 0x2011 || cp == 0x2012 || cp == 0x2212 || cp == 0xFF0D) {
+      out.push_back('-');
+      continue;
+    }
+    if (cp == 0x2015) {
+      append_utf8_cp(out, 0x2014);  // Horizontal bar -> em-dash
+      continue;
+    }
+    if (cp == 0x02B9 || cp == 0x02BB || cp == 0x02BC || cp == 0x201A || cp == 0x2032 || cp == 0x2039 || cp == 0x203A || cp == 0xFF07) {
+      out.push_back('\'');
+      continue;
+    }
+    if (cp == 0x201E || cp == 0x2033 || cp == 0xFF02) {
+      out.push_back('"');
+      continue;
+    }
+    if (cp == 0xFF01) { out.push_back('!'); continue; }
+    if (cp == 0xFF1F) { out.push_back('?'); continue; }
+
+    if (is_supported_font_cp(cp)) {
+      append_utf8_cp(out, cp);
+    }
+  }
+  return out;
+}
+
 template<typename FontT>
-inline std::string fit_text_to_width_font(const std::string &str, int max_w, FontT *font) {
+inline std::string fit_text_to_width_font(const std::string &raw_str, int max_w, FontT *font) {
+  std::string str = sanitize_utf8_for_font(raw_str);
   if (str.empty() || font == nullptr) return "";
   int w = 0, x_off = 0, base = 0, text_h = 0;
   font->measure(str.c_str(), &w, &x_off, &base, &text_h);

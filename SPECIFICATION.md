@@ -68,7 +68,8 @@
 | **Tier 2 (Display Standby)** | 15 – 25 mA | Inactivity timeout / Crown click | Top Crown (`GPIO3`), In-hand pickup (`QMI8658`) | < 5 ms |
 | **Tier 3 (Hardware Hibernate)** | < 40 µA | Hibernate timeout / Long Crown press | Top Crown hardware PEK interrupt only | Cold boot (~400ms UI, <1s API) |
 
-### NVS Flush & Client-Initiated Outgoing API (`ESPHome 2026.10+`)
+### NVS Flush & Client-Initiated Outgoing API (`ESPHome 2026.10+` & `Home Assistant 2026.10+`)
+* **Minimum Platform Dependency**: Client-initiated dial-back (`api: outgoing_connection:`) requires **ESPHome `2026.10.0+`** and **Home Assistant Core `2026.10.0+`** (`aioesphomeapi >= 46.4.0`, which wired up the inbound listener for client-initiated ESPHome connections).
 * **Pre-Shutdown NVS Sync**: Before writing `0x10 = 0x01` to the AXP2101 PMIC in `enter_deep_sleep`, firmware explicitly invokes `global_preferences->sync()` so all dirty NVS preferences (`outgoing_connection` dial-back target IP, `saved_battery_level`, and UI configuration selects) are committed to flash prior to rail cutoff.
 * **Client-Initiated Native API (`api: outgoing_connection:`)**: Uses zero-IP dial-back learning mode (`ESPPreferenceObject`) protected by Noise encryption (`api: encryption:`) so the ESP32-S3 automatically remembers Home Assistant's IP and initiates an outbound TCP connection immediately upon Wi-Fi association after waking from Hibernate.
 

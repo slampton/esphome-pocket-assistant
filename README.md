@@ -5,7 +5,7 @@ A local-first handheld companion, voice satellite, and universal media remote fo
 [![Build & Release Firmware](https://github.com/slampton/esphome-pocket-assistant/actions/workflows/build.yml/badge.svg)](https://github.com/slampton/esphome-pocket-assistant/actions/workflows/build.yml)
 [![Version](https://img.shields.io/badge/Version-v1.3-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.10.0%2B-blue.svg)](https://esphome.io)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.10.0%2B-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
@@ -25,6 +25,11 @@ Pocket Assistant started as a personal home lab project to explore what is possi
 ---
 
 ## Quick Start & Installation
+
+### Prerequisites & Version Requirements
+- **Home Assistant Core `2026.10.0` or newer**: Required for client-initiated native API dial-back (`api: outgoing_connection:`, introduced in `aioesphomeapi 46.4.0` / Home Assistant `2026.10.0`).
+- **ESPHome `2026.10.0` or newer**: Required for `api: outgoing_connection:`, `nvs_cache_in_psram: true`, and `flash_chip: gd` IRAM optimization.
+- **Music Assistant `2.10+`** *(optional)*: Required for local Sendspin FLAC/Opus playback and 5-slot library browsing.
 
 ### Supported Hardware
 - **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (1.75" 466×466 round AMOLED, CO5300 80 MHz QSPI display, CST9220 capacitive touch, ES8311 DAC, ES7210 ADC, AXP2101 PMIC, QMI8658 6-axis IMU, 32MB GigaDevice Octal Flash, 8MB Octal PSRAM).
