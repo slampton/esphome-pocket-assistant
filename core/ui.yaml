@@ -1418,18 +1418,9 @@ interval:
             if (now_w_ms - last_cond_eval_time >= 1000) {
               last_cond_eval_time = now_w_ms;
               std::string c_cond = id(ha_weather_condition).state;
-              std::string s_opt = id(weather_sim_condition).current_option();
-              if (!s_opt.empty() && s_opt != "Live (Home Assistant)") {
-                if (s_opt == "Clear Night") c_cond = "clear-night";
-                else if (s_opt.find("Rain") != std::string::npos) c_cond = "rainy";
-                else if (s_opt.find("Snow") != std::string::npos) c_cond = "snowy";
-                else if (s_opt.find("Thunderstorm") != std::string::npos) c_cond = "lightning-rainy";
-                else if (s_opt.find("Partly") != std::string::npos) c_cond = "partlycloudy";
-                else if (s_opt.find("Cloudy") != std::string::npos) c_cond = "cloudy";
-                else c_cond = "sunny";
-              }
               std::string s_sun = id(ha_sun_state).state;
               bool is_night_time = (s_sun == "below_horizon" || c_cond == "clear-night" || c_cond == "clearnight" || (c_cond.find("night") != std::string::npos));
+              apply_weather_sim_override(id(weather_sim_condition).current_option(), c_cond, is_night_time);
               cached_has_motion = (c_cond.find("rain") != std::string::npos ||
                                    c_cond.find("pouring") != std::string::npos ||
                                    c_cond.find("drizzle") != std::string::npos ||
@@ -3146,254 +3137,17 @@ display:
           }
           return;
 
-        // --------------------------------------------------
-        // STYLE 2: AURORA BOREALIS (Full-Bleed Organic Cosmic Ribbons)
-        // --------------------------------------------------
         } else if (ss_style == "Aurora Borealis") {
-          float t = now_ms * 0.0010f;
-
-          // Full circular screen coverage (R = 228, edge-to-edge, zero static content)
-          for (int x = 8; x <= 458; x += 2) {
-            int dx = x - cx;
-            int dx2 = dx * dx;
-            if (dx2 >= 51984) continue; // 228^2
-            int h_half = (int)sqrtf(51984.0f - (float)dx2);
-            int y_min = cy - h_half;
-            int y_max = cy + h_half;
-
-            // Wave 1: Cosmic Violet / High-Altitude Mauve Ribbon
-            int y1 = cy - 35 + (int)(sinf(x * 0.011f + t * 0.6f) * 55.0f + cosf(x * 0.006f - t * 0.35f) * 25.0f);
-            int len1 = 55 + (int)(sinf(x * 0.024f + t * 1.2f) * 25.0f);
-            for (int py = y1; py >= y1 - len1; py -= 2) {
-              if (py >= y_min && py <= y_max) {
-                float k = (float)(y1 - py) / (float)len1;
-                it.draw_pixel_at(x, py, Color((uint8_t)(180.0f - 80.0f * k), (uint8_t)(30.0f - 15.0f * k), (uint8_t)(190.0f - 60.0f * k)));
-              }
-            }
-
-            // Wave 2: Electric Cyan / Turquoise Ionosphere Ribbon
-            int y2 = cy + 15 + (int)(sinf(x * 0.014f - t * 0.8f + 1.6f) * 60.0f + sinf(x * 0.008f + t * 0.5f) * 30.0f);
-            int len2 = 65 + (int)(cosf(x * 0.028f - t * 1.5f) * 30.0f);
-            for (int py = y2; py >= y2 - len2; py -= 2) {
-              if (py >= y_min && py <= y_max) {
-                float k = (float)(y2 - py) / (float)len2;
-                it.draw_pixel_at(x, py, Color((uint8_t)(15.0f * (1.0f - k)), (uint8_t)(230.0f - 110.0f * k), (uint8_t)(240.0f - 70.0f * k)));
-              }
-            }
-
-            // Wave 3: Emerald Jade Primary Aurora Curtain (Seamless gradient, NO white line)
-            int y3 = cy + 65 + (int)(sinf(x * 0.017f + t * 1.0f + 3.1f) * 65.0f + cosf(x * 0.010f - t * 0.7f) * 35.0f);
-            int len3 = 80 + (int)(sinf(x * 0.032f + t * 1.8f) * 35.0f);
-            for (int py = y3; py >= y3 - len3; py -= 2) {
-              if (py >= y_min && py <= y_max) {
-                float k = (float)(y3 - py) / (float)len3;
-                it.draw_pixel_at(x, py, Color((uint8_t)(25.0f * (1.0f - k)), (uint8_t)(235.0f - 120.0f * k), (uint8_t)(85.0f - 40.0f * k)));
-              }
-            }
-          }
+          render_screensaver_aurora(it, cx, cy, now_ms);
           return;
-
-        // --------------------------------------------------
-        // STYLE 3: 3D WARP-SPEED STARFIELD (Authentic Hyperspace Simulation)
-        // --------------------------------------------------
         } else if (ss_style == "Starfield") {
-          struct Star3D {
-            float x, y, z;
-          };
-          static Star3D stars[90];
-          static bool stars_init = false;
-          static uint32_t star_seed = 123456789;
-
-          auto star_rand = [&]() -> float {
-            star_seed = star_seed * 1664525u + 1013904223u;
-            return (float)(star_seed & 0xFFFF) / 65535.0f;
-          };
-
-          auto respawn_star = [&](int i, bool init_z) {
-            float ang = star_rand() * 2.0f * PI_F;
-            float dist = 40.0f + star_rand() * 650.0f;
-            stars[i].x = cosf(ang) * dist;
-            stars[i].y = sinf(ang) * dist;
-            stars[i].z = init_z ? (30.0f + star_rand() * 950.0f) : (850.0f + star_rand() * 150.0f);
-          };
-
-          if (!stars_init) {
-            for (int i = 0; i < 90; i++) {
-              respawn_star(i, true);
-            }
-            stars_init = true;
-          }
-
-          float speed = 25.0f;
-          for (int i = 0; i < 90; i++) {
-            stars[i].z -= speed;
-
-            float k = 230.0f / stars[i].z;
-            int sx = cx + (int)(stars[i].x * k);
-            int sy = cy + (int)(stars[i].y * k);
-
-            int dx = sx - cx; int dy = sy - cy;
-            if (stars[i].z <= 25.0f || (dx * dx + dy * dy) >= 51529) { // 227^2
-              respawn_star(i, false);
-              continue;
-            }
-
-            float prev_k = 230.0f / (stars[i].z + speed * 1.5f);
-            int px = cx + (int)(stars[i].x * prev_k);
-            int py = cy + (int)(stars[i].y * prev_k);
-
-            if (stars[i].z > 650.0f) {
-              it.draw_pixel_at(sx, sy, Color(80, 100, 130));
-            } else if (stars[i].z > 350.0f) {
-              it.line(px, py, sx, sy, Color(100, 180, 230));
-              it.draw_pixel_at(sx, sy, Color(180, 220, 255));
-            } else {
-              it.line(px, py, sx, sy, Color(40, 180, 255));
-              it.filled_circle(sx, sy, 2, Color(255, 255, 255));
-            }
-          }
+          render_screensaver_starfield(it, cx, cy);
           return;
-
-        // --------------------------------------------------
-        // STYLE 4: MATRIX CYBER RAIN (Full-Bleed Pre-Scattered Engine: 19 Columns, x: 17..449)
-        // --------------------------------------------------
         } else if (ss_style == "Matrix Rain") {
-          // Full-bleed edge-to-edge cyber rain: 31 streams across 19 columns (MATRIX_* LUTs in ui_toolkit.h)
-
-          for (int i = 0; i < 31; i++) {
-            int lead_y = (MATRIX_Y[i] + (int)((uint64_t)now_ms * (uint32_t)MATRIX_SPD[i] / 1000ULL)) % 820 - 120;
-            int sx = MATRIX_X[i];
-            int slen = MATRIX_LEN[i];
-
-            for (int j = 0; j < slen; j++) {
-              int gy = lead_y - j * 16;
-              int dx = sx - cx; int dy = gy - cy;
-              if (dx * dx + dy * dy < 51529 && gy > 10 && gy < 456) {
-                if (j == 0) {
-                  // Bold white lead droplet with neon green aura
-                  it.filled_rectangle(sx - 3, gy - 5, 7, 11, Color(140, 255, 140));
-                  it.filled_rectangle(sx - 2, gy - 4, 5, 9, Color(255, 255, 255));
-                } else if (j <= 2) {
-                  // Electric lime green upper trail
-                  it.filled_rectangle(sx - 3, gy - 5, 6, 10, Color(40, 255, 80));
-                  it.filled_rectangle(sx - 2, gy - 4, 4, 8, Color(160, 255, 180));
-                } else if (j <= 5) {
-                  // Emerald matrix green
-                  it.filled_rectangle(sx - 2, gy - 4, 5, 8, Color(20, 200, 50));
-                } else if (j <= 8) {
-                  // Phosphor mid-green
-                  it.filled_rectangle(sx - 2, gy - 3, 4, 6, Color(10, 130, 30));
-                } else {
-                  // Fading phosphor trail
-                  it.filled_rectangle(sx - 1, gy - 2, 3, 4, Color(5, 65, 15));
-                }
-              }
-            }
-          }
+          render_screensaver_matrix(it, cx, cy, now_ms);
           return;
-
-        // --------------------------------------------------
-        // STYLE 5: SOLAR FLARE (Pulsing Living Sun & Radiating Coronal Waves)
-        // --------------------------------------------------
         } else if (ss_style == "Solar Flare") {
-          float t = now_ms * 0.0015f;
-
-          // Anti-burn-in orbital drift: solar anchor wanders smoothly by +/- 6px over a 30s cycle
-          int scx = cx + (int)(sinf(t * 0.20f) * 6.0f);
-          int scy = cy + (int)(cosf(t * 0.16f) * 6.0f);
-
-          // Living solar core pulsation (r0 breathes between 56 and 68)
-          float r0 = 62.0f + 6.0f * sinf(t * 1.5f);
-
-          // 1. Radiating Coronal Mass Ejection Pulses (3 staggered expansion waves rippling outward to bezel)
-          for (int w = 0; w < 3; w++) {
-            float phase = fmodf((float)now_ms + (float)w * 950.0f, 2850.0f) / 2850.0f;
-            int cme_r = (int)((r0 + 10.0f) + phase * (220.0f - (r0 + 10.0f)));
-            float fade = 1.0f - phase;
-            uint8_t c_red = (uint8_t)(220.0f * fade);
-            uint8_t c_grn = (uint8_t)(90.0f * fade * fade);
-            if (cme_r > (int)r0 + 10) {
-              it.circle(scx, scy, cme_r, Color(c_red < 20 ? 20 : c_red, c_grn < 5 ? 5 : c_grn, 5));
-              it.circle(scx, scy, cme_r - 2, Color((uint8_t)(c_red * 0.7f), (uint8_t)(c_grn * 0.7f), 2));
-            }
-          }
-
-          // 2. Coronal Streamers (36 radial plasma rays modulated by harmonic waves)
-          for (int i = 0; i < 36; i++) {
-            float theta = i * (2.0f * PI_F / 36.0f);
-            float sa = sinf(theta);
-            float ca = cosf(theta);
-
-            float L = 35.0f + 25.0f * sinf(theta * 4.0f + t * 2.4f) + 18.0f * cosf(theta * 7.0f - t * 1.8f) + 12.0f * sinf(theta * 11.0f + t * 3.2f);
-            int in_x = scx + (int)((r0 + 4.0f) * ca);
-            int in_y = scy + (int)((r0 + 4.0f) * sa);
-            int mid_x = scx + (int)((r0 + 4.0f + L * 0.6f) * ca);
-            int mid_y = scy + (int)((r0 + 4.0f + L * 0.6f) * sa);
-            int out_x = scx + (int)((r0 + 4.0f + L) * ca);
-            int out_y = scy + (int)((r0 + 4.0f + L) * sa);
-
-            it.line(in_x, in_y, mid_x, mid_y, Color(225, 75, 10));
-            it.line(mid_x, mid_y, out_x, out_y, Color(255, 185, 25));
-
-            // Golden flare sparks at tip (NO WHITE)
-            if (L > 65.0f) {
-              it.draw_pixel_at(out_x, out_y, Color(255, 220, 45));
-              it.draw_pixel_at(out_x + 1, out_y, Color(255, 180, 20));
-            }
-          }
-
-          // 3. Magnetic Prominence Loops (Curved plasma arcs leaping out and returning)
-          auto draw_prominence_loop = [&](float center_ang, float peak_r, float arc_span) {
-            float prev_lx = 0, prev_ly = 0;
-            for (int step = 0; step <= 8; step++) {
-              float prog = (float)step / 8.0f;
-              float cur_ang = center_ang - arc_span * 0.5f + arc_span * prog;
-              float h_factor = 4.0f * prog * (1.0f - prog);
-              float cur_r = (r0 + 6.0f) + (peak_r - (r0 + 6.0f)) * h_factor;
-              float lx = scx + cur_r * cosf(cur_ang);
-              float ly = scy + cur_r * sinf(cur_ang);
-              if (step > 0) {
-                it.line((int)prev_lx, (int)prev_ly, (int)lx, (int)ly, Color(255, 175, 25));
-                it.line((int)prev_lx, (int)prev_ly + 1, (int)lx, (int)ly + 1, Color(220, 60, 5));
-              }
-              prev_lx = lx; prev_ly = ly;
-            }
-          };
-
-          draw_prominence_loop(t * 0.5f, 155.0f + 20.0f * sinf(t * 1.4f), 0.55f);
-          draw_prominence_loop(t * 0.5f + 2.2f, 175.0f + 25.0f * cosf(t * 1.1f), 0.70f);
-          draw_prominence_loop(t * 0.5f + 4.3f, 145.0f + 18.0f * sinf(t * 1.9f), 0.50f);
-
-          // 4. Redesigned Solar Body & Radiating Core (NO STATIC WHITE!)
-          // Concentric breathing gradients strictly in yellow, orange, and crimson red
-          it.filled_circle(scx, scy, (int)(r0 + 14.0f), Color(160, 25, 10));  // Chromosphere glow (Crimson)
-          it.filled_circle(scx, scy, (int)(r0 + 4.0f),  Color(235, 80, 10));  // Fiery orange mantle
-          it.filled_circle(scx, scy, (int)(r0 - 6.0f),  Color(255, 155, 20)); // Radiant golden-orange photosphere
-
-          // Radiating Core Expansion Pulses (concentric waves rippling outward through the core)
-          for (int cp = 0; cp < 2; cp++) {
-            float cp_phase = fmodf(t * 0.9f + (float)cp * 0.5f, 1.0f);
-            int cp_r = (int)(4.0f + cp_phase * (r0 - 12.0f));
-            uint8_t cr = (uint8_t)(255.0f - 30.0f * cp_phase);
-            uint8_t cg = (uint8_t)(210.0f * (1.0f - 0.55f * cp_phase));
-            uint8_t cb = (uint8_t)(35.0f * (1.0f - cp_phase));
-            it.filled_circle(scx, scy, cp_r, Color(cr, cg, cb));
-          }
-
-          // 5. Convection Granulation Vortices (Swirling solar granules in warm gold/orange)
-          for (int k = 0; k < 4; k++) {
-            float c_ang = t * 0.8f + k * (PI_F / 2.0f);
-            float c_rad = 18.0f + 8.0f * sinf(t * 1.8f + (float)k);
-            int vx = scx + (int)(cosf(c_ang) * c_rad);
-            int vy = scy + (int)(sinf(c_ang) * c_rad);
-            uint8_t gran_g = (uint8_t)(160.0f + 50.0f * sinf(t * 2.0f + (float)k));
-            it.filled_circle(vx, vy, 8, Color(255, gran_g, 20));
-          }
-
-          // Absolute Center: Dynamic Pulsing Fusion Eye (Continuously shifts between gold, orange, and red)
-          int eye_r = (int)(7.0f + 3.0f * sinf(t * 2.6f));
-          uint8_t eye_g = (uint8_t)(120.0f + 70.0f * sinf(t * 2.2f));
-          it.filled_circle(scx, scy, eye_r, Color(255, eye_g, 15));
+          render_screensaver_solar_flare(it, cx, cy, now_ms);
           return;
         }
       }
@@ -3435,41 +3189,7 @@ display:
         bool is_thinking = (!is_speaking && id(va_status_text) == "Thinking...");
         bool is_solaris = (id(va_visual_profile).current_option() == "Solaris");
 
-        // Profile-aware spectral gradient loop
-        auto get_nuanced_radiation_color = [is_solaris](float t) -> Color {
-          t = t - floorf(t);
-          if (is_solaris) {
-            // Solaris Spectral Loop: Emerald Green -> Sunburst Yellow -> Solar Orange -> Emerald Green
-            if (t < 0.333f) {
-              float k = t / 0.333f;
-              return Color((uint8_t)(35.0f * (1.0f - k) + 255.0f * k),
-                           (uint8_t)(210.0f * (1.0f - k) + 220.0f * k),
-                           (uint8_t)(110.0f * (1.0f - k) + 30.0f * k));
-            } else if (t < 0.667f) {
-              float k = (t - 0.333f) / 0.334f;
-              return Color((uint8_t)(255.0f * (1.0f - k) + 250.0f * k),
-                           (uint8_t)(220.0f * (1.0f - k) + 100.0f * k),
-                           (uint8_t)(30.0f * (1.0f - k) + 15.0f * k));
-            } else {
-              float k = (t - 0.667f) / 0.333f;
-              return Color((uint8_t)(250.0f * (1.0f - k) + 35.0f * k),
-                           (uint8_t)(100.0f * (1.0f - k) + 210.0f * k),
-                           (uint8_t)(15.0f * (1.0f - k) + 110.0f * k));
-            }
-          } else {
-            // Default Spectral Loop: Soft Cyan -> Royal Purple -> Pink/Magenta -> Soft Cyan
-            if (t < 0.333f) {
-              float k = t / 0.333f;
-              return Color((uint8_t)(138.0f * k), (uint8_t)(229.0f * (1.0f - k) + 43.0f * k), (uint8_t)(255.0f * (1.0f - k) + 226.0f * k));
-            } else if (t < 0.667f) {
-              float k = (t - 0.333f) / 0.334f;
-              return Color((uint8_t)(138.0f + 86.0f * k), (uint8_t)(43.0f + 21.0f * k), (uint8_t)(226.0f + 25.0f * k));
-            } else {
-              float k = (t - 0.667f) / 0.333f;
-              return Color((uint8_t)(224.0f * (1.0f - k)), (uint8_t)(64.0f * (1.0f - k) + 229.0f * k), 255);
-            }
-          }
-        };
+        auto get_nuanced_radiation_color = [is_solaris](float t) -> Color { return get_va_radiation_color(is_solaris, t); };
 
         if (is_speaking) {
           // ====================================================
@@ -6663,106 +6383,12 @@ display:
         //   Subpage 3: Moon (Title "MOON" at y=56, normal & full-screen modes, soft feathered terminator)
         // Navigation: 2x2 System-Sized Pill Grid at bottom [ Current | Forecast ] / [ Sun | Moon ]
         // ==============================================================================
-        // Reusable Helper: Convert UTC ISO-8601 string to Local Time without timegm
-        auto format_iso_time = [](const std::string& iso_str, bool is_24h) -> std::string {
-          if (iso_str.empty() || iso_str == "unknown" || iso_str == "unavailable") return "--:--";
-          int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0, sc = 0;
-          if (sscanf(iso_str.c_str(), "%d-%d-%dT%d:%d:%d", &yr, &mo, &dy, &hr, &mn, &sc) < 5) return "--:--";
-          int y = yr;
-          int m = mo;
-          int d = dy;
-          y -= (m <= 2 ? 1 : 0);
-          int era = (y >= 0 ? y : y - 399) / 400;
-          int yoe = y - era * 400;
-          int doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
-          int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-          long long days = (long long)era * 146097 + doe - 719468;
-          time_t t = (time_t)(days * 86400LL + hr * 3600LL + mn * 60LL + sc);
-          struct tm tm_loc = {};
-          localtime_r(&t, &tm_loc);
-          char buf[16];
-          if (is_24h) {
-            snprintf(buf, sizeof(buf), "%02d:%02d", tm_loc.tm_hour, tm_loc.tm_min);
-          } else {
-            int h12 = tm_loc.tm_hour % 12;
-            if (h12 == 0) h12 = 12;
-            snprintf(buf, sizeof(buf), "%d:%02d %s", h12, tm_loc.tm_min, tm_loc.tm_hour >= 12 ? "PM" : "AM");
-          }
-          return std::string(buf);
-        };
-
-        // Reusable Helper: Wind Bearing to Cardinal Direction
-        auto get_cardinal = [](float deg) -> const char* {
-          if (isnan(deg)) return "";
-          deg = fmodf(deg, 360.0f);
-          if (deg < 0) deg += 360.0f;
-          if (deg >= 337.5f || deg < 22.5f) return "N";
-          if (deg < 67.5f) return "NE";
-          if (deg < 112.5f) return "E";
-          if (deg < 157.5f) return "SE";
-          if (deg < 202.5f) return "S";
-          if (deg < 247.5f) return "SW";
-          if (deg < 292.5f) return "W";
-          return "NW";
-        };
-
-        // ----------------------------------------------------------------------
-        // SUBPAGE 0: CURRENT CONDITIONS & ATMOSPHERIC MOTION WALLPAPER (FULL-SCREEN ENGINE)
-        // ----------------------------------------------------------------------
         if (id(sky_weather_subpage) == 0) {
           float temp = id(ha_weather_temperature).state;
           std::string cond = id(ha_weather_condition).state;
-
           std::string s_state = id(ha_sun_state).state;
           bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
-
-          // Condition Simulation Override from Home Assistant Dropdown
-          std::string sim_opt = id(weather_sim_condition).current_option();
-          if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
-            if (sim_opt == "Clear Night") {
-              cond = "clear-night";
-              is_night = true;
-            } else if (sim_opt == "Sunny / Clear Day") {
-              cond = "sunny";
-              is_night = false;
-            } else if (sim_opt == "Partly Cloudy (Day)") {
-              cond = "partlycloudy";
-              is_night = false;
-            } else if (sim_opt == "Partly Cloudy (Night)") {
-              cond = "partlycloudy";
-              is_night = true;
-            } else if (sim_opt == "Cloudy / Overcast (Day)") {
-              cond = "cloudy";
-              is_night = false;
-            } else if (sim_opt == "Cloudy / Overcast (Night)") {
-              cond = "cloudy";
-              is_night = true;
-            } else if (sim_opt == "Rainy (Day)") {
-              cond = "rainy";
-              is_night = false;
-            } else if (sim_opt == "Rainy (Night)") {
-              cond = "rainy";
-              is_night = true;
-            } else if (sim_opt == "Pouring / Heavy Rain") {
-              cond = "pouring";
-              is_night = false;
-            } else if (sim_opt == "Snow (Day)") {
-              cond = "snowy";
-              is_night = false;
-            } else if (sim_opt == "Snow (Night)") {
-              cond = "snowy";
-              is_night = true;
-            } else if (sim_opt == "Thunderstorm (Day)") {
-              cond = "lightning-rainy";
-              is_night = false;
-            } else if (sim_opt == "Thunderstorm (Night)") {
-              cond = "lightning-rainy";
-              is_night = true;
-            } else if (sim_opt == "Windy") {
-              cond = "windy";
-              is_night = false;
-            }
-          }
+          apply_weather_sim_override(id(weather_sim_condition).current_option(), cond, is_night);
 
           uint32_t now_ms = millis();
           const int cel_cx = 346;
@@ -6946,29 +6572,7 @@ display:
           else snprintf(temp_buf, sizeof(temp_buf), "--°");
           it.print(cx, 134, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
 
-          // Condition Subtitle moved up 5px to y = 197
-          auto format_cond = [](const std::string& c_in) -> std::string {
-            if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
-            if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "PARTLY CLOUDY";
-            if (c_in == "mostlycloudy" || c_in == "mostly-cloudy") return "MOSTLY CLOUDY";
-            if (c_in == "mostlysunny" || c_in == "mostly-sunny") return "MOSTLY SUNNY";
-            if (c_in == "partlysunny" || c_in == "partly-sunny") return "PARTLY SUNNY";
-            if (c_in == "clear-night" || c_in == "clearnight") return "CLEAR NIGHT";
-            if (c_in == "clear-day" || c_in == "clearday" || c_in == "sunny") return "SUNNY";
-            if (c_in == "lightning-rainy" || c_in == "thunderstorm") return "THUNDERSTORM";
-            if (c_in == "lightning") return "LIGHTNING";
-            if (c_in == "snowy-rainy" || c_in == "sleet") return "SLEET / MIX";
-            if (c_in == "windy-variant" || c_in == "windy" || c_in == "breezy") return "WINDY";
-            if (c_in == "pouring" || c_in == "heavy-rain") return "HEAVY RAIN";
-            if (c_in == "exceptional") return "SEVERE ALERT";
-            std::string s = c_in;
-            for (char &c : s) {
-              if (c == '-' || c == '_') c = ' ';
-              else c = toupper(c);
-            }
-            return s;
-          };
-          std::string cond_title = format_cond(cond);
+          std::string cond_title = format_weather_title(cond);
           Color cond_color = is_night ? id(theme_primary) : Color(255, 225, 110);
           it.print(cx, 197, id(font_date), cond_color, TextAlign::CENTER, cond_title.c_str());
 
@@ -7086,68 +6690,7 @@ display:
             }
           }
 
-          auto draw_fc_glyph = [&](int gx, int gy, const std::string& c_name) {
-            if (c_name == "sunny" || c_name == "clear-day" || c_name == "clear") {
-              it.filled_circle(gx, gy, 8, Color(250, 185, 30));
-              it.circle(gx, gy, 11, Color(255, 215, 80));
-            } else if (c_name == "clear-night") {
-              it.filled_circle(gx + 2, gy, 8, Color(225, 235, 250));
-              it.filled_circle(gx, gy, 7, Color(0, 0, 0));
-            } else if (c_name == "partlycloudy" || c_name == "partly-cloudy" || c_name == "mostlycloudy" || c_name == "mostlysunny" || c_name == "partlysunny") {
-              it.filled_circle(gx - 4, gy - 4, 6, Color(245, 175, 30));
-              it.filled_circle(gx + 2, gy + 1, 6, Color(175, 190, 210));
-              it.filled_circle(gx - 3, gy + 2, 5, Color(155, 170, 190));
-              it.filled_circle(gx + 7, gy + 3, 4, Color(145, 160, 180));
-            } else if (c_name == "rainy" || c_name == "pouring") {
-              it.filled_circle(gx, gy - 2, 6, Color(130, 145, 170));
-              it.filled_circle(gx - 5, gy - 1, 5, Color(115, 130, 155));
-              it.filled_circle(gx + 5, gy, 4, Color(115, 130, 155));
-              it.line(gx - 4, gy + 6, gx - 6, gy + 10, Color(70, 170, 245));
-              it.line(gx + 2, gy + 6, gx, gy + 10, Color(70, 170, 245));
-            } else if (c_name == "snowy" || c_name == "snowy-rainy") {
-              it.filled_circle(gx, gy - 2, 6, Color(160, 175, 195));
-              it.draw_pixel_at(gx - 3, gy + 7, Color(255, 255, 255));
-              it.draw_pixel_at(gx + 3, gy + 7, Color(255, 255, 255));
-              it.draw_pixel_at(gx, gy + 9, Color(255, 255, 255));
-            } else if (c_name == "lightning" || c_name == "lightning-rainy") {
-              it.filled_circle(gx, gy - 3, 6, Color(110, 120, 140));
-              it.line(gx - 1, gy + 3, gx - 3, gy + 7, Color(255, 220, 40));
-              it.line(gx - 3, gy + 7, gx + 1, gy + 7, Color(255, 220, 40));
-              it.line(gx + 1, gy + 7, gx - 1, gy + 11, Color(255, 220, 40));
-            } else if (c_name == "windy" || c_name == "windy-variant") {
-              it.line(gx - 8, gy - 2, gx + 6, gy - 2, Color(160, 185, 210));
-              it.line(gx - 6, gy + 2, gx + 8, gy + 2, Color(160, 185, 210));
-              it.line(gx - 4, gy + 6, gx + 4, gy + 6, Color(140, 165, 190));
-            } else {
-              it.filled_circle(gx, gy - 1, 7, Color(165, 180, 200));
-              it.filled_circle(gx - 5, gy + 1, 5, Color(145, 160, 180));
-              it.filled_circle(gx + 5, gy + 1, 5, Color(145, 160, 180));
-            }
-          };
-
-          auto format_fc_name = [](const std::string& c) -> std::string {
-            if (c == "partlycloudy" || c == "partly-cloudy") return "P.Cloudy";
-            if (c == "mostlycloudy" || c == "mostly-cloudy") return "M.Cloudy";
-            if (c == "mostlysunny" || c == "mostly-sunny") return "M.Sunny";
-            if (c == "partlysunny" || c == "partly-sunny") return "P.Sunny";
-            if (c == "clear-night" || c == "clearnight") return "Clear";
-            if (c == "sunny" || c == "clear-day" || c == "clearday" || c == "clear") return "Sunny";
-            if (c == "rainy" || c == "pouring" || c == "heavy-rain") return "Rain";
-            if (c == "cloudy") return "Cloudy";
-            if (c == "snowy") return "Snow";
-            if (c == "lightning" || c == "lightning-rainy" || c == "thunderstorm") return "Storm";
-            if (c == "snowy-rainy" || c == "sleet") return "Sleet";
-            if (c == "windy" || c == "windy-variant" || c == "breezy") return "Windy";
-            if (c == "fog") return "Fog";
-            if (c == "hail") return "Hail";
-            if (c.empty()) return "Fair";
-            std::string s = c;
-            for (char &ch : s) {
-              if (ch == '-' || ch == '_') ch = ' ';
-            }
-            s[0] = toupper(s[0]);
-            return s;
-          };
+          auto draw_fc_glyph = [&](int gx, int gy, const std::string& c_name) { render_forecast_glyph(it, gx, gy, c_name); };
 
           // 5 Spaced Rows with 46px pitch (y = 100, 146, 192, 238, 284) - preserved exact column placement with balanced row padding
           int row_ys[5] = {100, 146, 192, 238, 284};
@@ -7165,7 +6708,7 @@ display:
             draw_fc_glyph(164, ry_data, d.cond);
 
             // 3. Condition short text vertically aligned at x = 187
-            std::string c_txt = format_fc_name(d.cond);
+            std::string c_txt = format_forecast_short_name(d.cond);
             it.print(187, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, c_txt.c_str());
 
             // 4. High / Low temperatures shifted left to x = 315..335 (leaving wide buffer for right-flank chevrons)
@@ -10295,11 +9838,7 @@ touchscreen:
                   std::string s_state = id(ha_sun_state).state;
                   std::string cond = id(ha_weather_condition).state;
                   bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
-                  std::string sim_opt = id(weather_sim_condition).current_option();
-                  if (!sim_opt.empty() && sim_opt != "Live (Home Assistant)") {
-                    if (sim_opt.find("(Night)") != std::string::npos || sim_opt == "Clear Night") is_night = true;
-                    else if (sim_opt.find("(Day)") != std::string::npos || sim_opt == "Sunny / Clear Day" || sim_opt == "Windy" || sim_opt == "Pouring / Heavy Rain") is_night = false;
-                  }
+                  apply_weather_sim_override(id(weather_sim_condition).current_option(), cond, is_night);
                   int target = is_night ? 3 : 2;
                   ESP_LOGI("touch", "Page 5 Celestial Shortcut: x=%d y=%d target=%d is_night=%d", touch.x, touch.y, target, is_night);
                   if (id(sky_weather_subpage) != target) {

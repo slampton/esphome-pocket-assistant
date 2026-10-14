@@ -8,6 +8,7 @@
 
 #include "esphome.h"
 #include <cmath>
+#include <ctime>
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
@@ -526,6 +527,382 @@ inline const char *cycle_option(const CurT &cur, std::initializer_list<const cha
     }
   }
   return (opts.size() > 0) ? *opts.begin() : "";
+}
+
+
+// ------------------------------------------------------------------------------
+// 5. Docked Screensaver & Voice Assistant Spectral Engines
+// ------------------------------------------------------------------------------
+template<typename DisplayT>
+inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now_ms) {
+  float t = now_ms * 0.0010f;
+  for (int x = 8; x <= 458; x += 2) {
+    int dx = x - cx;
+    int dx2 = dx * dx;
+    if (dx2 >= 51984) continue;
+    int h_half = (int)sqrtf(51984.0f - (float)dx2);
+    int y_min = cy - h_half;
+    int y_max = cy + h_half;
+
+    int y1 = cy - 35 + (int)(sinf(x * 0.011f + t * 0.6f) * 55.0f + cosf(x * 0.006f - t * 0.35f) * 25.0f);
+    int len1 = 55 + (int)(sinf(x * 0.024f + t * 1.2f) * 25.0f);
+    for (int py = y1; py >= y1 - len1; py -= 2) {
+      if (py >= y_min && py <= y_max) {
+        float k = (float)(y1 - py) / (float)len1;
+        it.draw_pixel_at(x, py, esphome::Color((uint8_t)(180.0f - 80.0f * k), (uint8_t)(30.0f - 15.0f * k), (uint8_t)(190.0f - 60.0f * k)));
+      }
+    }
+
+    int y2 = cy + 15 + (int)(sinf(x * 0.014f - t * 0.8f + 1.6f) * 60.0f + sinf(x * 0.008f + t * 0.5f) * 30.0f);
+    int len2 = 65 + (int)(cosf(x * 0.028f - t * 1.5f) * 30.0f);
+    for (int py = y2; py >= y2 - len2; py -= 2) {
+      if (py >= y_min && py <= y_max) {
+        float k = (float)(y2 - py) / (float)len2;
+        it.draw_pixel_at(x, py, esphome::Color((uint8_t)(15.0f * (1.0f - k)), (uint8_t)(230.0f - 110.0f * k), (uint8_t)(240.0f - 70.0f * k)));
+      }
+    }
+
+    int y3 = cy + 65 + (int)(sinf(x * 0.017f + t * 1.0f + 3.1f) * 65.0f + cosf(x * 0.010f - t * 0.7f) * 35.0f);
+    int len3 = 80 + (int)(sinf(x * 0.032f + t * 1.8f) * 35.0f);
+    for (int py = y3; py >= y3 - len3; py -= 2) {
+      if (py >= y_min && py <= y_max) {
+        float k = (float)(y3 - py) / (float)len3;
+        it.draw_pixel_at(x, py, esphome::Color((uint8_t)(25.0f * (1.0f - k)), (uint8_t)(235.0f - 120.0f * k), (uint8_t)(85.0f - 40.0f * k)));
+      }
+    }
+  }
+}
+
+template<typename DisplayT>
+inline void render_screensaver_starfield(DisplayT &it, int cx, int cy) {
+  struct Star3D { float x, y, z; };
+  static Star3D stars[90];
+  static bool stars_init = false;
+  static uint32_t star_seed = 123456789;
+
+  auto star_rand = [&]() -> float {
+    star_seed = star_seed * 1664525u + 1013904223u;
+    return (float)(star_seed & 0xFFFF) / 65535.0f;
+  };
+  auto respawn_star = [&](int i, bool init_z) {
+    float ang = star_rand() * 2.0f * PI_F;
+    float dist = 40.0f + star_rand() * 650.0f;
+    stars[i].x = cosf(ang) * dist;
+    stars[i].y = sinf(ang) * dist;
+    stars[i].z = init_z ? (30.0f + star_rand() * 950.0f) : (850.0f + star_rand() * 150.0f);
+  };
+  if (!stars_init) {
+    for (int i = 0; i < 90; i++) respawn_star(i, true);
+    stars_init = true;
+  }
+  float speed = 25.0f;
+  for (int i = 0; i < 90; i++) {
+    stars[i].z -= speed;
+    float k = 230.0f / stars[i].z;
+    int sx = cx + (int)(stars[i].x * k);
+    int sy = cy + (int)(stars[i].y * k);
+    int dx = sx - cx, dy = sy - cy;
+    if (stars[i].z <= 25.0f || (dx * dx + dy * dy) >= 51529) {
+      respawn_star(i, false);
+      continue;
+    }
+    float prev_k = 230.0f / (stars[i].z + speed * 1.5f);
+    int px = cx + (int)(stars[i].x * prev_k);
+    int py = cy + (int)(stars[i].y * prev_k);
+    if (stars[i].z > 650.0f) {
+      it.draw_pixel_at(sx, sy, esphome::Color(80, 100, 130));
+    } else if (stars[i].z > 350.0f) {
+      it.line(px, py, sx, sy, esphome::Color(100, 180, 230));
+      it.draw_pixel_at(sx, sy, esphome::Color(180, 220, 255));
+    } else {
+      it.line(px, py, sx, sy, esphome::Color(40, 180, 255));
+      it.filled_circle(sx, sy, 2, esphome::Color(255, 255, 255));
+    }
+  }
+}
+
+template<typename DisplayT>
+inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now_ms) {
+  for (int i = 0; i < 31; i++) {
+    int lead_y = (MATRIX_Y[i] + (int)((uint64_t)now_ms * (uint32_t)MATRIX_SPD[i] / 1000ULL)) % 820 - 120;
+    int sx = MATRIX_X[i];
+    int slen = MATRIX_LEN[i];
+    for (int j = 0; j < slen; j++) {
+      int gy = lead_y - j * 16;
+      int dx = sx - cx, dy = gy - cy;
+      if (dx * dx + dy * dy < 51529 && gy > 10 && gy < 456) {
+        if (j == 0) {
+          it.filled_rectangle(sx - 3, gy - 5, 7, 11, esphome::Color(140, 255, 140));
+          it.filled_rectangle(sx - 2, gy - 4, 5, 9, esphome::Color(255, 255, 255));
+        } else if (j <= 2) {
+          it.filled_rectangle(sx - 3, gy - 5, 6, 10, esphome::Color(40, 255, 80));
+          it.filled_rectangle(sx - 2, gy - 4, 4, 8, esphome::Color(160, 255, 180));
+        } else if (j <= 5) {
+          it.filled_rectangle(sx - 2, gy - 4, 5, 8, esphome::Color(20, 200, 50));
+        } else if (j <= 8) {
+          it.filled_rectangle(sx - 2, gy - 3, 4, 6, esphome::Color(10, 130, 30));
+        } else {
+          it.filled_rectangle(sx - 1, gy - 2, 3, 4, esphome::Color(5, 65, 15));
+        }
+      }
+    }
+  }
+}
+
+template<typename DisplayT>
+inline void render_screensaver_solar_flare(DisplayT &it, int cx, int cy, uint32_t now_ms) {
+  float t = now_ms * 0.0015f;
+  int scx = cx + (int)(sinf(t * 0.20f) * 6.0f);
+  int scy = cy + (int)(cosf(t * 0.16f) * 6.0f);
+  float r0 = 62.0f + 6.0f * sinf(t * 1.5f);
+
+  for (int w = 0; w < 3; w++) {
+    float phase = fmodf((float)now_ms + (float)w * 950.0f, 2850.0f) / 2850.0f;
+    int cme_r = (int)((r0 + 10.0f) + phase * (220.0f - (r0 + 10.0f)));
+    float fade = 1.0f - phase;
+    uint8_t c_red = (uint8_t)(220.0f * fade);
+    uint8_t c_grn = (uint8_t)(90.0f * fade * fade);
+    if (cme_r > (int)r0 + 10) {
+      it.circle(scx, scy, cme_r, esphome::Color(c_red < 20 ? 20 : c_red, c_grn < 5 ? 5 : c_grn, 5));
+      it.circle(scx, scy, cme_r - 2, esphome::Color((uint8_t)(c_red * 0.7f), (uint8_t)(c_grn * 0.7f), 2));
+    }
+  }
+
+  for (int i = 0; i < 36; i++) {
+    float theta = i * (2.0f * PI_F / 36.0f);
+    float sa = sinf(theta), ca = cosf(theta);
+    float L = 35.0f + 25.0f * sinf(theta * 4.0f + t * 2.4f) + 18.0f * cosf(theta * 7.0f - t * 1.8f) + 12.0f * sinf(theta * 11.0f + t * 3.2f);
+    int in_x = scx + (int)((r0 + 4.0f) * ca), in_y = scy + (int)((r0 + 4.0f) * sa);
+    int mid_x = scx + (int)((r0 + 4.0f + L * 0.6f) * ca), mid_y = scy + (int)((r0 + 4.0f + L * 0.6f) * sa);
+    int out_x = scx + (int)((r0 + 4.0f + L) * ca), out_y = scy + (int)((r0 + 4.0f + L) * sa);
+    it.line(in_x, in_y, mid_x, mid_y, esphome::Color(225, 75, 10));
+    it.line(mid_x, mid_y, out_x, out_y, esphome::Color(255, 185, 25));
+    if (L > 65.0f) {
+      it.draw_pixel_at(out_x, out_y, esphome::Color(255, 220, 45));
+      it.draw_pixel_at(out_x + 1, out_y, esphome::Color(255, 180, 20));
+    }
+  }
+
+  auto draw_prominence_loop = [&](float center_ang, float peak_r, float arc_span) {
+    float prev_lx = 0, prev_ly = 0;
+    for (int step = 0; step <= 8; step++) {
+      float prog = (float)step / 8.0f;
+      float cur_ang = center_ang - arc_span * 0.5f + arc_span * prog;
+      float h_factor = 4.0f * prog * (1.0f - prog);
+      float cur_r = (r0 + 6.0f) + (peak_r - (r0 + 6.0f)) * h_factor;
+      float lx = scx + cur_r * cosf(cur_ang), ly = scy + cur_r * sinf(cur_ang);
+      if (step > 0) {
+        it.line((int)prev_lx, (int)prev_ly, (int)lx, (int)ly, esphome::Color(255, 175, 25));
+        it.line((int)prev_lx, (int)prev_ly + 1, (int)lx, (int)ly + 1, esphome::Color(220, 60, 5));
+      }
+      prev_lx = lx; prev_ly = ly;
+    }
+  };
+  draw_prominence_loop(t * 0.5f, 155.0f + 20.0f * sinf(t * 1.4f), 0.55f);
+  draw_prominence_loop(t * 0.5f + 2.2f, 175.0f + 25.0f * cosf(t * 1.1f), 0.70f);
+  draw_prominence_loop(t * 0.5f + 4.3f, 145.0f + 18.0f * sinf(t * 1.9f), 0.50f);
+
+  it.filled_circle(scx, scy, (int)(r0 + 14.0f), esphome::Color(160, 25, 10));
+  it.filled_circle(scx, scy, (int)(r0 + 4.0f),  esphome::Color(235, 80, 10));
+  it.filled_circle(scx, scy, (int)(r0 - 6.0f),  esphome::Color(255, 155, 20));
+
+  for (int cp = 0; cp < 2; cp++) {
+    float cp_phase = fmodf(t * 0.9f + (float)cp * 0.5f, 1.0f);
+    int cp_r = (int)(4.0f + cp_phase * (r0 - 12.0f));
+    uint8_t cr = (uint8_t)(255.0f - 30.0f * cp_phase);
+    uint8_t cg = (uint8_t)(210.0f * (1.0f - 0.55f * cp_phase));
+    uint8_t cb = (uint8_t)(35.0f * (1.0f - cp_phase));
+    it.filled_circle(scx, scy, cp_r, esphome::Color(cr, cg, cb));
+  }
+  for (int k = 0; k < 4; k++) {
+    float c_ang = t * 0.8f + k * (PI_F / 2.0f);
+    float c_rad = 18.0f + 8.0f * sinf(t * 1.8f + (float)k);
+    int vx = scx + (int)(cosf(c_ang) * c_rad), vy = scy + (int)(sinf(c_ang) * c_rad);
+    uint8_t gran_g = (uint8_t)(160.0f + 50.0f * sinf(t * 2.0f + (float)k));
+    it.filled_circle(vx, vy, 8, esphome::Color(255, gran_g, 20));
+  }
+  int eye_r = (int)(7.0f + 3.0f * sinf(t * 2.6f));
+  uint8_t eye_g = (uint8_t)(120.0f + 70.0f * sinf(t * 2.2f));
+  it.filled_circle(scx, scy, eye_r, esphome::Color(255, eye_g, 15));
+}
+
+inline esphome::Color get_va_radiation_color(bool is_solaris, float t) {
+  t = t - floorf(t);
+  if (is_solaris) {
+    if (t < 0.333f) {
+      float k = t / 0.333f;
+      return esphome::Color((uint8_t)(35.0f * (1.0f - k) + 255.0f * k),
+                            (uint8_t)(210.0f * (1.0f - k) + 220.0f * k),
+                            (uint8_t)(110.0f * (1.0f - k) + 30.0f * k));
+    } else if (t < 0.667f) {
+      float k = (t - 0.333f) / 0.334f;
+      return esphome::Color((uint8_t)(255.0f * (1.0f - k) + 250.0f * k),
+                            (uint8_t)(220.0f * (1.0f - k) + 100.0f * k),
+                            (uint8_t)(30.0f * (1.0f - k) + 15.0f * k));
+    } else {
+      float k = (t - 0.667f) / 0.333f;
+      return esphome::Color((uint8_t)(250.0f * (1.0f - k) + 35.0f * k),
+                            (uint8_t)(100.0f * (1.0f - k) + 210.0f * k),
+                            (uint8_t)(15.0f * (1.0f - k) + 110.0f * k));
+    }
+  } else {
+    if (t < 0.333f) {
+      float k = t / 0.333f;
+      return esphome::Color((uint8_t)(138.0f * k), (uint8_t)(229.0f * (1.0f - k) + 43.0f * k), (uint8_t)(255.0f * (1.0f - k) + 226.0f * k));
+    } else if (t < 0.667f) {
+      float k = (t - 0.333f) / 0.334f;
+      return esphome::Color((uint8_t)(138.0f + 86.0f * k), (uint8_t)(43.0f + 21.0f * k), (uint8_t)(226.0f + 25.0f * k));
+    } else {
+      float k = (t - 0.667f) / 0.333f;
+      return esphome::Color((uint8_t)(224.0f * (1.0f - k)), (uint8_t)(64.0f * (1.0f - k) + 229.0f * k), 255);
+    }
+  }
+}
+
+// ------------------------------------------------------------------------------
+// 6. Weather Suite Formatters, Simulation Override & Forecast Glyph Engine
+// ------------------------------------------------------------------------------
+inline std::string format_iso_time(const std::string &iso_str, bool is_24h) {
+  if (iso_str.empty() || iso_str == "unknown" || iso_str == "unavailable") return "--:--";
+  int yr = 0, mo = 0, dy = 0, hr = 0, mn = 0, sc = 0;
+  if (sscanf(iso_str.c_str(), "%d-%d-%dT%d:%d:%d", &yr, &mo, &dy, &hr, &mn, &sc) < 5) return "--:--";
+  int y = yr - (mo <= 2 ? 1 : 0);
+  int era = (y >= 0 ? y : y - 399) / 400;
+  int yoe = y - era * 400;
+  int doy = (153 * (mo > 2 ? mo - 3 : mo + 9) + 2) / 5 + dy - 1;
+  int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  long long days = (long long)era * 146097 + doe - 719468;
+  time_t t = (time_t)(days * 86400LL + hr * 3600LL + mn * 60LL + sc);
+  struct tm tm_loc = {};
+  localtime_r(&t, &tm_loc);
+  char buf[16];
+  if (is_24h) {
+    snprintf(buf, sizeof(buf), "%02d:%02d", tm_loc.tm_hour, tm_loc.tm_min);
+  } else {
+    int h12 = tm_loc.tm_hour % 12;
+    if (h12 == 0) h12 = 12;
+    snprintf(buf, sizeof(buf), "%d:%02d %s", h12, tm_loc.tm_min, tm_loc.tm_hour >= 12 ? "PM" : "AM");
+  }
+  return std::string(buf);
+}
+
+inline const char *get_cardinal(float deg) {
+  if (std::isnan(deg)) return "";
+  deg = fmodf(deg, 360.0f);
+  if (deg < 0) deg += 360.0f;
+  if (deg >= 337.5f || deg < 22.5f) return "N";
+  if (deg < 67.5f) return "NE";
+  if (deg < 112.5f) return "E";
+  if (deg < 157.5f) return "SE";
+  if (deg < 202.5f) return "S";
+  if (deg < 247.5f) return "SW";
+  if (deg < 292.5f) return "W";
+  return "NW";
+}
+
+template<typename CurT>
+inline void apply_weather_sim_override(const CurT &sim_opt, std::string &cond, bool &is_night) {
+  if (sim_opt.empty() || sim_opt == "Live (Home Assistant)") return;
+  if (sim_opt == "Clear Night") { cond = "clear-night"; is_night = true; }
+  else if (sim_opt == "Sunny / Clear Day") { cond = "sunny"; is_night = false; }
+  else if (sim_opt == "Partly Cloudy (Day)") { cond = "partlycloudy"; is_night = false; }
+  else if (sim_opt == "Partly Cloudy (Night)") { cond = "partlycloudy"; is_night = true; }
+  else if (sim_opt == "Cloudy / Overcast (Day)") { cond = "cloudy"; is_night = false; }
+  else if (sim_opt == "Cloudy / Overcast (Night)") { cond = "cloudy"; is_night = true; }
+  else if (sim_opt == "Rainy (Day)") { cond = "rainy"; is_night = false; }
+  else if (sim_opt == "Rainy (Night)") { cond = "rainy"; is_night = true; }
+  else if (sim_opt == "Pouring / Heavy Rain") { cond = "pouring"; is_night = false; }
+  else if (sim_opt == "Snow (Day)") { cond = "snowy"; is_night = false; }
+  else if (sim_opt == "Snow (Night)") { cond = "snowy"; is_night = true; }
+  else if (sim_opt == "Thunderstorm (Day)") { cond = "lightning-rainy"; is_night = false; }
+  else if (sim_opt == "Thunderstorm (Night)") { cond = "lightning-rainy"; is_night = true; }
+  else if (sim_opt == "Windy") { cond = "windy"; is_night = false; }
+}
+
+inline std::string format_weather_title(const std::string &c_in) {
+  if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
+  if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "PARTLY CLOUDY";
+  if (c_in == "mostlycloudy" || c_in == "mostly-cloudy") return "MOSTLY CLOUDY";
+  if (c_in == "mostlysunny" || c_in == "mostly-sunny") return "MOSTLY SUNNY";
+  if (c_in == "partlysunny" || c_in == "partly-sunny") return "PARTLY SUNNY";
+  if (c_in == "clear-night" || c_in == "clearnight") return "CLEAR NIGHT";
+  if (c_in == "clear-day" || c_in == "clearday" || c_in == "sunny") return "SUNNY";
+  if (c_in == "lightning-rainy" || c_in == "thunderstorm") return "THUNDERSTORM";
+  if (c_in == "lightning") return "LIGHTNING";
+  if (c_in == "snowy-rainy" || c_in == "sleet") return "SLEET / MIX";
+  if (c_in == "windy-variant" || c_in == "windy" || c_in == "breezy") return "WINDY";
+  if (c_in == "pouring" || c_in == "heavy-rain") return "HEAVY RAIN";
+  if (c_in == "exceptional") return "SEVERE ALERT";
+  std::string s = c_in;
+  for (char &c : s) {
+    if (c == '-' || c == '_') c = ' ';
+    else c = toupper(c);
+  }
+  return s;
+}
+
+inline std::string format_forecast_short_name(const std::string &c) {
+  if (c == "partlycloudy" || c == "partly-cloudy") return "P.Cloudy";
+  if (c == "mostlycloudy" || c == "mostly-cloudy") return "M.Cloudy";
+  if (c == "mostlysunny" || c == "mostly-sunny") return "M.Sunny";
+  if (c == "partlysunny" || c == "partly-sunny") return "P.Sunny";
+  if (c == "clear-night" || c == "clearnight") return "Clear";
+  if (c == "sunny" || c == "clear-day" || c == "clearday" || c == "clear") return "Sunny";
+  if (c == "rainy" || c == "pouring" || c == "heavy-rain") return "Rain";
+  if (c == "cloudy") return "Cloudy";
+  if (c == "snowy") return "Snow";
+  if (c == "lightning" || c == "lightning-rainy" || c == "thunderstorm") return "Storm";
+  if (c == "snowy-rainy" || c == "sleet") return "Sleet";
+  if (c == "windy" || c == "windy-variant" || c == "breezy") return "Windy";
+  if (c == "fog") return "Fog";
+  if (c == "hail") return "Hail";
+  if (c.empty()) return "Fair";
+  std::string s = c;
+  for (char &ch : s) {
+    if (ch == '-' || ch == '_') ch = ' ';
+  }
+  s[0] = toupper(s[0]);
+  return s;
+}
+
+template<typename DisplayT>
+inline void render_forecast_glyph(DisplayT &it, int gx, int gy, const std::string &c_name) {
+  if (c_name == "sunny" || c_name == "clear-day" || c_name == "clear") {
+    it.filled_circle(gx, gy, 8, esphome::Color(250, 185, 30));
+    it.circle(gx, gy, 11, esphome::Color(255, 215, 80));
+  } else if (c_name == "clear-night") {
+    it.filled_circle(gx + 2, gy, 8, esphome::Color(225, 235, 250));
+    it.filled_circle(gx, gy, 7, esphome::Color(0, 0, 0));
+  } else if (c_name == "partlycloudy" || c_name == "partly-cloudy" || c_name == "mostlycloudy" || c_name == "mostlysunny" || c_name == "partlysunny") {
+    it.filled_circle(gx - 4, gy - 4, 6, esphome::Color(245, 175, 30));
+    it.filled_circle(gx + 2, gy + 1, 6, esphome::Color(175, 190, 210));
+    it.filled_circle(gx - 3, gy + 2, 5, esphome::Color(155, 170, 190));
+    it.filled_circle(gx + 7, gy + 3, 4, esphome::Color(145, 160, 180));
+  } else if (c_name == "rainy" || c_name == "pouring") {
+    it.filled_circle(gx, gy - 2, 6, esphome::Color(130, 145, 170));
+    it.filled_circle(gx - 5, gy - 1, 5, esphome::Color(115, 130, 155));
+    it.filled_circle(gx + 5, gy, 4, esphome::Color(115, 130, 155));
+    it.line(gx - 4, gy + 6, gx - 6, gy + 10, esphome::Color(70, 170, 245));
+    it.line(gx + 2, gy + 6, gx, gy + 10, esphome::Color(70, 170, 245));
+  } else if (c_name == "snowy" || c_name == "snowy-rainy") {
+    it.filled_circle(gx, gy - 2, 6, esphome::Color(160, 175, 195));
+    it.draw_pixel_at(gx - 3, gy + 7, esphome::Color(255, 255, 255));
+    it.draw_pixel_at(gx + 3, gy + 7, esphome::Color(255, 255, 255));
+    it.draw_pixel_at(gx, gy + 9, esphome::Color(255, 255, 255));
+  } else if (c_name == "lightning" || c_name == "lightning-rainy") {
+    it.filled_circle(gx, gy - 3, 6, esphome::Color(110, 120, 140));
+    it.line(gx - 1, gy + 3, gx - 3, gy + 7, esphome::Color(255, 220, 40));
+    it.line(gx - 3, gy + 7, gx + 1, gy + 7, esphome::Color(255, 220, 40));
+    it.line(gx + 1, gy + 7, gx - 1, gy + 11, esphome::Color(255, 220, 40));
+  } else if (c_name == "windy" || c_name == "windy-variant") {
+    it.line(gx - 8, gy - 2, gx + 6, gy - 2, esphome::Color(160, 185, 210));
+    it.line(gx - 6, gy + 2, gx + 8, gy + 2, esphome::Color(160, 185, 210));
+    it.line(gx - 4, gy + 6, gx + 4, gy + 6, esphome::Color(140, 165, 190));
+  } else {
+    it.filled_circle(gx, gy - 1, 7, esphome::Color(165, 180, 200));
+    it.filled_circle(gx - 5, gy + 1, 5, esphome::Color(145, 160, 180));
+    it.filled_circle(gx + 5, gy + 1, 5, esphome::Color(145, 160, 180));
+  }
 }
 
 }  // namespace pocket_ui
