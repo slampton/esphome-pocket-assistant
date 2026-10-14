@@ -1,7 +1,17 @@
 #pragma once
 #include "esphome.h"
 
-// Template accessor technique to safely access protected/private members of final VoiceAssistant
+// ==============================================================================
+// Voice Assistant Session & Mixer Lifecycle Helpers (va_cancel_helper.h)
+// ==============================================================================
+// Provides clean, encapsulated lifecycle helpers for ESPHome's final VoiceAssistant
+// component and its PSRAM MixerSpeaker announcement channel:
+//   1. disarm_va_speaker_timeout(va)
+//   2. reset_va_session_state(va)
+//   3. prewarm_va_tts_mixer(va, mixer_in)
+//   4. abort_voice_assistant(va)
+// ==============================================================================
+
 template<typename Tag, typename Tag::type M>
 struct Rob {
   friend typename Tag::type get(Tag) { return M; }
@@ -64,7 +74,6 @@ template struct Rob<VA_ContinueConversation_Tag, &esphome::voice_assistant::Voic
 namespace esphome {
 namespace voice_assistant {
 
-// Accessor for protected Component::cancel_timeout on VoiceAssistant
 struct ComponentTimeoutAccessor : public esphome::Component {
   static void cancel_va_speaker_timeout(esphome::Component *comp) {
     if (comp != nullptr) {
@@ -74,25 +83,47 @@ struct ComponentTimeoutAccessor : public esphome::Component {
   }
 };
 
-// Clears stale stream_ended_ / wait_for_stream_end_ flags and disarms orphaned
-// 5000ms "speaker-timeout" timers from any previously cancelled TTS stream.
-inline void reset_va_stream_flags(VoiceAssistant *va) {
+// Disarms VoiceAssistant's internal 5000ms "speaker-timeout" so responses buffered inside
+// announcement_mixing_input's 15s PSRAM ring buffer never prematurely time out at 5.0s.
+inline void disarm_va_speaker_timeout(VoiceAssistant *va) {
+  ComponentTimeoutAccessor::cancel_va_speaker_timeout(va);
+}
+
+// Resets per-utterance stream/buffer tracking flags and disarms any leftover speaker timeouts.
+inline void reset_va_session_state(VoiceAssistant *va) {
   if (va != nullptr) {
     va->*get(VA_BufSize_Tag()) = 0;
     va->*get(VA_BufIndex_Tag()) = 0;
     va->*get(VA_BytesReceived_Tag()) = 0;
     va->*get(VA_WaitForStreamEnd_Tag()) = false;
     va->*get(VA_StreamEnded_Tag()) = false;
-    ComponentTimeoutAccessor::cancel_va_speaker_timeout(va);
+    disarm_va_speaker_timeout(va);
   }
 }
 
+// Pre-warms the announcement SourceSpeaker into SPEAKER_STATE_RUNNING during Thinking
+// (after microphone capture ends and while the ES8311 DAC is hardware-muted) so its
+// 15s (480 KB) PSRAM ring_buffer_ is open before sub-20ms local-intent TTS bursts arrive.
+template<typename SpeakerT>
+inline void prewarm_va_tts_mixer(VoiceAssistant *va, SpeakerT *mixer_in) {
+  disarm_va_speaker_timeout(va);
+  if (mixer_in != nullptr) {
+    if (!mixer_in->is_running()) {
+      mixer_in->start();
+    } else {
+      const int16_t silence_pcm = 0;
+      mixer_in->play(reinterpret_cast<const uint8_t *>(&silence_pcm), sizeof(silence_pcm));
+    }
+  }
+}
+
+// Performs a complete, synchronous client + server VoiceAssistant session abort.
 inline void abort_voice_assistant(VoiceAssistant *va) {
   if (va != nullptr) {
     va->request_stop();
     va->reset_conversation_id();
 
-    reset_va_stream_flags(va);
+    reset_va_session_state(va);
     va->*get(VA_Continuous_Tag()) = false;
     va->*get(VA_ContinueConversation_Tag()) = false;
 
@@ -110,5 +141,5 @@ inline void abort_voice_assistant(VoiceAssistant *va) {
   }
 }
 
-} // namespace voice_assistant
-} // namespace esphome
+}  // namespace voice_assistant
+}  // namespace esphome

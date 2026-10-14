@@ -1037,24 +1037,7 @@ button:
     name: "Voice: Trigger Session"
     id: trigger_va_button
     on_press:
-      - script.stop: screen_sleep_timer
-      - if:
-          condition:
-            lambda: |-
-              return id(va_active) || !id(va_status_text).empty();
-          then:
-            - script.execute: cancel_voice_assistant
-          else:
-            - script.execute: pause_all_music
-            - if:
-                condition:
-                  lambda: 'return id(va_resume_music_after);'
-                then:
-                  - delay: 100ms
-            - script.execute: route_i2s_to_mic
-            - light.turn_on: display_brightness
-            - lambda: 'id(va_tts_received) = false;'
-            - voice_assistant.start:
+      - script.execute: toggle_voice_assistant
 
 
 switch:
@@ -1383,22 +1366,13 @@ interval:
             static bool prev_tts_active = false;
             uint32_t now_va_ms = millis();
 
-            // During Thinking (after microphone capture ends), keep announcement_mixing_input warm
-            // in SPEAKER_STATE_RUNNING with its 15s (480 KB) PSRAM ring_buffer_ open.
-            // During Speaking, disarm VoiceAssistant's internal 5000ms "speaker-timeout" so
-            // State::RESPONSE_FINISHED never prematurely stops a >5s buffered TTS response.
             if (id(va_active)) {
               if (!id(va_tts_received)) {
                 if (id(va_status_text) == "Thinking...") {
-                  if (!id(announcement_mixing_input).is_running()) {
-                    id(announcement_mixing_input).start();
-                  } else {
-                    const int16_t silence_pcm = 0;
-                    id(announcement_mixing_input).play(reinterpret_cast<const uint8_t *>(&silence_pcm), sizeof(silence_pcm));
-                  }
+                  esphome::voice_assistant::prewarm_va_tts_mixer(id(va), id(announcement_mixing_input));
                 }
               } else {
-                esphome::voice_assistant::ComponentTimeoutAccessor::cancel_va_speaker_timeout(id(va));
+                esphome::voice_assistant::disarm_va_speaker_timeout(id(va));
               }
             }
 
@@ -1782,31 +1756,7 @@ binary_sensor:
             then:
               - lambda: 'id(game_btn_pressed) = true;'
             else:
-              - if:
-                  condition:
-                    lambda: |-
-                      return id(va_active) || !id(va_status_text).empty();
-                  then:
-                    - script.execute: cancel_voice_assistant
-                  else:
-                    - lambda: |-
-                        // If waking from screen-off or standby, check Assist Screen Wake preference
-                        if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
-                          if (id(va_wake_screen_switch).state) {
-                            id(wake_to_active_state).execute();
-                          }
-                        } else {
-                          id(screen_sleep_timer).execute();
-                        }
-                    - script.execute: pause_all_music
-                    - if:
-                        condition:
-                          lambda: 'return id(va_resume_music_after);'
-                        then:
-                          - delay: 150ms
-                    - script.execute: route_i2s_to_mic
-                    - lambda: 'id(va_tts_received) = false;'
-                    - voice_assistant.start:
+              - script.execute: toggle_voice_assistant
 
 text_sensor:
   # --------------------------------------------------------------------------
@@ -2192,7 +2142,7 @@ script:
   - id: throttled_disp_update
     mode: restart
     then:
-      - delay: 180ms
+      - delay: 220ms
       - if:
           condition:
             lambda: |-
@@ -2867,6 +2817,34 @@ script:
             - switch.turn_off: speaker_enable
             - script.execute: route_i2s_to_mic
 
+  - id: toggle_voice_assistant
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(va_active) || !id(va_status_text).empty();'
+          then:
+            - script.execute: cancel_voice_assistant
+          else:
+            - lambda: |-
+                // If waking from screen-off or standby, honor Assist Screen Wake preference
+                if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
+                  if (id(va_wake_screen_switch).state) {
+                    id(wake_to_active_state).execute();
+                  }
+                } else {
+                  id(screen_sleep_timer).execute();
+                }
+            - script.execute: pause_all_music
+            - if:
+                condition:
+                  lambda: 'return id(va_resume_music_after);'
+                then:
+                  - delay: 150ms
+            - script.execute: route_i2s_to_mic
+            - lambda: 'id(va_tts_received) = false;'
+            - voice_assistant.start:
+
   - id: cancel_voice_assistant
     mode: restart
     then:
@@ -3379,16 +3357,6 @@ display:
         }
       }
 
-      // ==========================================
-      // PAGE 1: VINTAGE 1970 HEUER SWISS CHRONOMETER
-      // High-Contrast Aged Parchment Dial, Dual Silver & Black Bezels,
-      // 1/10s High-Speed Spinning Subdial, Bold Arrow Hand & Large Digital Readout
-      // ==========================================
-      } else if (id(gui_page) == 1) {
-        id(gui_page) = 8;
-        id(stuff_subpage) = 3;
-        id(disp1).update();
-        return;
       } else if (id(gui_page) == 2) {
         pocket_ui::last_page2_draw_ms() = millis();
         if (id(music_overlay_mode) == 0) {
@@ -6646,14 +6614,6 @@ display:
             }
           }
         }
-      // ==============================================================================
-      // PAGE 6: TIMER & ALARM APP (v1.1 OVERHAUL)
-      // ==============================================================================
-      } else if (id(gui_page) == 6) {
-        id(gui_page) = 8;
-        id(stuff_subpage) = 1;
-        id(disp1).update();
-        return;
       } else if (id(gui_page) == 7) {
         // ==============================================================================
         // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)
@@ -8022,22 +7982,7 @@ touchscreen:
 
 
 
-            // Page 1: Stopwatch Zero-Deadzone Ergonomic Touch Routing
-            // --------------------------------------------------------
-            // 1. Lower Left Quadrant (y in [280..399], x < 233): LAP Button
-            //    Full-coverage quadrant centered around LAP pusher at (176, 332)
-            // 2. Lower Right Quadrant (y in [280..399], x >= 233): RESET Button
-            //    Full-coverage quadrant centered around RESET pusher at (290, 332)
-            // 3. Upper 70% Dial Surface (y < 280): START / STOP Action
-            //    Enormous 280px tall by 466px wide dial target with snappy 100ms debounce
-            // 4. Bottom Footer (y >= 400): Handled by Deck Navigation
-            // Completely eliminates the 19,440-pixel dead zone and the y:385..399 gap!
-            if (id(gui_page) == 1) {
-              id(gui_page) = 8;
-              id(stuff_subpage) = 3;
-              id(disp1).update();
-              return;
-            } else if (id(gui_page) == 2) {
+            if (id(gui_page) == 2) {
               if (id(music_overlay_mode) == 0) {
                 // ----------------------------------------------------
                 // Normal Player Mode (Dedicated Radial Geometry & Clean HUD Dismissal)
@@ -9582,11 +9527,6 @@ touchscreen:
                 }
                 return;
               }
-            } else if (id(gui_page) == 6) {
-              id(gui_page) = 8;
-              id(stuff_subpage) = 1;
-              id(disp1).update();
-              return;
             } else if (id(gui_page) == 7) {
               // ==============================================================================
               // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (SETTINGS SUBPAGE & ENLARGED OK)
