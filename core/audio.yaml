@@ -82,7 +82,7 @@ speaker:
     source_speakers:
       - id: announcement_mixing_input
         buffer_duration: 15s
-        timeout: 300ms
+        timeout: 500ms
       - id: media_mixing_input
         timeout: 1500ms
 
@@ -215,6 +215,9 @@ voice_assistant:
           id(va_vad_active) = false;
           id(va_tts_received) = false;
           id(va_status_text) = "Listening...";
+          // Pre-warm announcement_mixing_input so its 15s (480 KB) PSRAM ring_buffer_
+          // is allocated and in SPEAKER_STATE_RUNNING before TTS audio packets arrive
+          id(announcement_mixing_input).start();
           ESP_LOGI("va", "Status: Listening...");
       - light.turn_on: display_brightness
       - component.update: disp1
@@ -232,6 +235,7 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
+          id(announcement_mixing_input).start();
           ESP_LOGI("va", "Status: Thinking...");
       - component.update: disp1
   on_stt_end:
@@ -241,6 +245,11 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
+          id(announcement_mixing_input).start();
+          if (id(announcement_mixing_input).is_running()) {
+            const int16_t silence_pcm = 0;
+            id(announcement_mixing_input).play(reinterpret_cast<const uint8_t *>(&silence_pcm), sizeof(silence_pcm));
+          }
           ESP_LOGI("va", "STT End (hidden): %s", x.c_str());
   on_tts_start:
     then:

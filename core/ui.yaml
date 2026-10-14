@@ -1383,6 +1383,19 @@ interval:
             static bool prev_tts_active = false;
             uint32_t now_va_ms = millis();
 
+            // Keep announcement_mixing_input warm in SPEAKER_STATE_RUNNING with its 15s (480 KB)
+            // PSRAM ring_buffer_ allocated throughout Listening and Thinking (while es8311_dac is muted),
+            // so sub-20ms local-intent TTS bursts ("What time is it?") write directly into PSRAM on
+            // the very first packet without overflowing VoiceAssistant's 16 KB speaker_buffer_.
+            if (id(va_active) && !id(va_tts_received)) {
+              if (!id(announcement_mixing_input).is_running()) {
+                id(announcement_mixing_input).start();
+              } else {
+                const int16_t silence_pcm = 0;
+                id(announcement_mixing_input).play(reinterpret_cast<const uint8_t *>(&silence_pcm), sizeof(silence_pcm));
+              }
+            }
+
             // Smooth state transition: reserve 1 quiet tick when speech starts so DAC unmutes cleanly
             if (id(va_tts_received) != prev_tts_active) {
               prev_tts_active = id(va_tts_received);
@@ -2180,7 +2193,7 @@ script:
               static uint32_t last_throttled_draw = 0;
               uint32_t now = millis();
               if (now - last_throttled_draw < 350) return false;
-              if (now - pocket_ui::last_page2_draw_ms() < 550) return false;
+              if (now - pocket_ui::last_page2_draw_ms() < 950) return false;
               if (id(display_power_state) == 0 && id(gui_page) == 2 && !id(va_active)) {
                 last_throttled_draw = now;
                 return true;
