@@ -1339,57 +1339,55 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          uint32_t now_100 = millis();
           // Active Update Check animation refresh
           if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            update_display_paced(id(disp1), now_100, 35);
+            id(disp1).update();
           }
 
           // Music Overlay HUD Auto-Dismissal (5.0s timeout in Full Screen / Letterbox)
           if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_hud_active)) {
-            if (now_100 - id(music_hud_timer) >= 5000) {
+            if (millis() - id(music_hud_timer) >= 5000) {
               id(music_hud_active) = false;
               id(disp1).update();
-              last_display_finish_ms() = millis();
             }
           }
 
-          // Precision Mechanical Chronograph Sweep (paced with >=35ms post-frame idle window for touch)
+          // 10 FPS Precision Mechanical Chronograph Sweep (100ms cadence)
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 3 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
-            update_display_paced(id(disp1), now_100, 35);
+            id(disp1).update();
           }
 
-          // Real-time tilt refresh for Bubble Level (Page 8, Subpage 7)
+          // 10 FPS real-time tilt refresh for Bubble Level (Page 8, Subpage 7)
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 7 && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
-            update_display_paced(id(disp1), now_100, 35);
+            id(disp1).update();
           }
 
 
   - interval: 50ms
     then:
       - lambda: |-
-          uint32_t now_50 = millis();
-          // High-refresh animation loop for Coin Flip and Dice Roll (guaranteed 35ms post-frame touch idle window)
+          // 20 FPS high-refresh animation loop for Coin Flip and Dice Roll
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && (id(stuff_subpage) == 8 || id(stuff_subpage) == 4)) {
             if (id(coin_anim_active) || id(dice_anim_active)) {
-              update_display_paced(id(disp1), now_50, 35);
+              id(disp1).update();
             }
           }
 
-          // High-refresh physics loop for active games (guaranteed 35ms post-frame touch & IMU idle window)
+          // 20 FPS high-refresh physics loop exclusively for active games
           if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            update_display_paced(id(disp1), now_50, 35);
+            id(disp1).update();
           }
 
           // High-refresh fluid Voice Assistant loop
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
             static bool prev_tts_active = false;
+            uint32_t now_va_ms = millis();
 
             // Smooth state transition: When speech starts, reserve quiet bus air for DAC unmute and first syllables
             if (id(va_tts_received) != prev_tts_active) {
               prev_tts_active = id(va_tts_received);
-              last_va_anim_time = now_50;
+              last_va_anim_time = now_va_ms;
               return;
             }
 
@@ -1398,9 +1396,9 @@ interval:
               cadence = (uint32_t)id(va_speech_anim_interval).state;
               if (cadence < 75) cadence = 75;
             }
-            if (now_50 - last_va_anim_time >= cadence) {
-              last_va_anim_time = now_50;
-              update_display_paced(id(disp1), now_50, 35);
+            if (now_va_ms - last_va_anim_time >= cadence) {
+              last_va_anim_time = now_va_ms;
+              id(disp1).update();
             }
           }
 
@@ -2865,7 +2863,6 @@ script:
           // Frame 1: Render 50% eased midpoint frame (SHARED_SCROLL_EASE_*[2])
           id(menu_scroll_step) = 2;
           id(disp1).update();
-          last_display_finish_ms() = millis();
       - delay: 12ms
       - lambda: |-
           // Frame 2: Commit target page, release touch lock, and render final settled frame
@@ -2887,7 +2884,6 @@ script:
           }
           id(menu_scroll_step) = 0;
           id(disp1).update();
-          last_display_finish_ms() = millis();
 
   # ==============================================================================
   # 📺 UNIVERSAL TV & MEDIA REMOTE COMMAND SCRIPTS
@@ -7982,9 +7978,7 @@ display:
           it.print(cx, 424, id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
         }
       }
-      // Record estimated QSPI flush completion timestamp (~105ms after lambda exit)
-      // so 50ms/100ms animation intervals always preserve a clean post-frame idle window.
-      last_display_finish_ms() = millis() + 105;
+
 
 
 

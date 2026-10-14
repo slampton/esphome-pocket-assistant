@@ -473,22 +473,6 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
   return true;
 }
 
-// Frame completion tracker & post-frame idle breathing guard (prevents 50ms/100ms
-// intervals from firing back-to-back with 0ms gap after a ~125ms QSPI display flush).
-inline uint32_t &last_display_finish_ms() {
-  static uint32_t ts = 0;
-  return ts;
-}
-
-template<typename DispT>
-inline void update_display_paced(DispT *disp, uint32_t now_ms, uint32_t min_idle_ms = 35) {
-  if (disp == nullptr) return;
-  if (static_cast<int32_t>(now_ms - last_display_finish_ms()) < static_cast<int32_t>(min_idle_ms)) {
-    return;
-  }
-  disp->update();
-}
-
 // ------------------------------------------------------------------------------
 // 3. Text, Time, SemVer & Synodic Astronomy Helpers
 // ------------------------------------------------------------------------------
