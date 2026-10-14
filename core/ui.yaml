@@ -1369,21 +1369,22 @@ interval:
           }
 
           // High-refresh fluid Voice Assistant loop
-          // Listening/Thinking: 50ms cadence (speaker silent); Speaking (TTS): hardcoded 100ms cadence (10 FPS) for audio-safe DMA headroom
+          // Unified 100ms cadence (10 FPS) across Listening, Thinking, and Speaking for audio/network-safe loop headroom
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
             static bool prev_tts_active = false;
             uint32_t now_va_ms = millis();
 
-            // Smooth state transition: When speech starts, reserve quiet bus air for DAC unmute and first syllables
+            // Smooth state transition: When speech starts, reserve a 250ms quiet network-ingress window
+            // so announcement_mixing_input allocates its PSRAM ring buffer and absorbs the initial TCP burst
             if (id(va_tts_received) != prev_tts_active) {
               prev_tts_active = id(va_tts_received);
-              last_va_anim_time = now_va_ms;
+              last_va_anim_time = prev_tts_active ? (now_va_ms + 150U) : now_va_ms;
               return;
             }
 
-            const uint32_t cadence = id(va_tts_received) ? 100U : 50U;
-            if (now_va_ms - last_va_anim_time >= cadence) {
+            const uint32_t cadence = 100U;
+            if ((int32_t)(now_va_ms - last_va_anim_time) >= (int32_t)cadence) {
               last_va_anim_time = now_va_ms;
               id(disp1).update();
             }

@@ -81,7 +81,8 @@ speaker:
     task_stack_in_psram: true
     source_speakers:
       - id: announcement_mixing_input
-        timeout: 250ms
+        buffer_duration: 15s
+        timeout: 500ms
       - id: media_mixing_input
         timeout: 1500ms
 
@@ -353,10 +354,10 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
-      # Wait for full TTS playback to drain through announcement_mixing_input and physical_speaker DMA.
-      # Note: on_tts_stream_end fires as soon as Home Assistant finishes sending network bytes (often
-      # several seconds before a long weather forecast finishes playing out of the 16kHz DAC).
-      - delay: 150ms
+      # By the time on_tts_stream_end triggers, VoiceAssistant::loop() has already
+      # drained speaker_buffer_ and announcement_mixing_input. Wait if still running,
+      # plus a 150ms post-mixer DMA drain delay so the final syllable in physical_speaker
+      # finishes playing before es8311_dac is muted.
       - if:
           condition:
             lambda: 'return id(announcement_mixing_input).is_running();'
@@ -364,8 +365,9 @@ script:
             - wait_until:
                 condition:
                   lambda: 'return !id(announcement_mixing_input).is_running() || !id(va_active);'
-                timeout: 30s
-            - delay: 350ms
+                timeout: 15s
+            - delay: 100ms
+      - delay: 150ms
       - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;

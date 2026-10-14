@@ -1115,7 +1115,6 @@ inline void render_voice_assistant_overlay(
       esphome::Color outer_star_col = is_solaris ? esphome::Color(35, 210, 110) : col_purple;
       esphome::Color outer_star_body = is_solaris ? esphome::Color(35, 210, 110) : col_magenta;
       esphome::Color outer_star_aura = is_solaris ? col_solaris_gold : col_purple;
-      esphome::Color text_col = is_solaris ? col_solaris_gold : col_cyan;
 
       // 4 orthogonal points via 90-degree rotation of (c0, s0) -> only 1 sinf/cosf call!
       const float rot_c[4] = {c0, -s0, -c0, s0};
@@ -1158,7 +1157,6 @@ inline void render_voice_assistant_overlay(
         esphome::Color inner_tone = is_solaris ? col_solaris_gold : esphome::Color(30, 200, 230);
         it.circle(cx, cy - 1, core_r - 3, inner_tone);
       }
-      it.print(cx, 401, font_small, text_col, esphome::display::TextAlign::CENTER, "Thinking...");
       return;
     }
 
@@ -1238,7 +1236,7 @@ inline void render_voice_assistant_overlay(
                                 bool double_stroke) {
       int prev_x = 0, prev_y = 0, first_x = 0, first_y = 0;
       int prev_gx = 0, prev_gy = 0, first_gx = 0, first_gy = 0;
-      for (int i = 0; i < 60; i++) {
+      for (int i = 0; i < 60; i += 2) {
         float w2 = DIAL_SIN[(i * 2 + ph2) % 60];
         float w3 = DIAL_COS[(i * 3 + ph3) % 60];
         float w5 = DIAL_SIN[(i * 5 + ph5) % 60];
@@ -1289,7 +1287,7 @@ inline void render_voice_assistant_overlay(
         esphome::Color w_glow = scale_color(w_col, 0.45f);
         draw_silk_ribbon(r_wave, amp, amp * 0.6f, amp * 0.3f,
                          (tick + w * 19) % 60, (tick * 2 + w * 11) % 60, (tick + w * 7) % 60,
-                         w_col, w_glow, true);
+                         w_col, w_glow, false);
       }
 
       // 4 Interweaving Inner Silk Voice Ribbons (Siri / Gemini multi-lobe acoustic membrane)
@@ -1314,7 +1312,6 @@ inline void render_voice_assistant_overlay(
       it.circle(cx, cy, core_r + 1, c_elec_cyan);
       it.filled_circle(cx, cy, (core_r * 2) / 3, c_deep_azure);
       it.filled_circle(cx, cy, core_r / 2, c_ice_white);
-      it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, "Responding...");
       return;
     }
 
@@ -1365,7 +1362,6 @@ inline void render_voice_assistant_overlay(
       it.filled_circle(cx, cy, core_r, c_royal_indigo);
       it.circle(cx, cy, core_r + 1, c_elec_cyan);
       it.filled_circle(cx, cy, core_r / 2, c_ice_white);
-      it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, "Thinking...");
       return;
     }
 
@@ -1435,9 +1431,9 @@ inline void render_voice_assistant_overlay(
       it.circle(cx, cy, r_wave + 1, glow_c);
     }
 
-    // 60-Ray Circular Acoustic Spectrometer around the Solar Core
+    // 30-Ray Circular Acoustic Spectrometer around the Solar Core
     const float r_inner = 42.0f;
-    for (int i = 0; i < 60; i++) {
+    for (int i = 0; i < 60; i += 2) {
       float h1 = DIAL_SIN[(i * 3 + tick * 2) % 60];
       float h2 = DIAL_COS[(i * 5 + tick * 3) % 60];
       float bar_len = (14.0f + 28.0f * syl_env) * (0.55f + 0.28f * h1 + 0.17f * h2);
@@ -1453,7 +1449,7 @@ inline void render_voice_assistant_overlay(
       int y1 = cy + static_cast<int>(r_outer * uy);
 
       it.line(x0, y0, xm, ym, c_amber);
-      it.line(xm, ym, x1, y1, (i % 2 == 0) ? c_gold : c_emerald);
+      it.line(xm, ym, x1, y1, (i % 4 == 0) ? c_gold : c_emerald);
     }
 
     // Pulsing Photosphere Core
@@ -1462,7 +1458,6 @@ inline void render_voice_assistant_overlay(
     it.filled_circle(cx, cy, core_r + 2, c_amber);
     it.filled_circle(cx, cy, core_r - 3, c_gold);
     it.circle(cx, cy, core_r - 5, c_warm_white);
-    it.print(cx, 401, font_small, c_gold, esphome::display::TextAlign::CENTER, "Responding...");
     return;
   }
 
@@ -1513,7 +1508,6 @@ inline void render_voice_assistant_overlay(
     it.filled_circle(cx, cy, core_r + 1, c_amber);
     it.filled_circle(cx, cy, core_r - 3, c_gold);
     it.circle(cx, cy, core_r - 5, c_warm_white);
-    it.print(cx, 401, font_small, c_gold, esphome::display::TextAlign::CENTER, "Thinking...");
     return;
   }
 
@@ -1526,7 +1520,7 @@ inline void render_voice_assistant_overlay(
   it.circle(cx, cy, outer_r - 1, scale_color(c_gold, 0.30f + 0.40f * smooth_vad));
 
   const float r_inner = 42.0f + 3.0f * breath;
-  for (int i = 0; i < 60; i++) {
+  for (int i = 0; i < 60; i += 2) {
     float wave = DIAL_SIN[(i * 3 + tick) % 60] * 0.6f + DIAL_COS[(i * 2 + tick) % 60] * 0.4f;
     float bar_len = (16.0f + 6.0f * breath + 24.0f * smooth_vad) + (6.0f + 10.0f * smooth_vad) * wave;
     if (bar_len < 6.0f) bar_len = 6.0f;
@@ -1541,7 +1535,7 @@ inline void render_voice_assistant_overlay(
     int y1 = cy + static_cast<int>((r_inner + bar_len) * uy);
 
     it.line(x0, y0, xm, ym, c_amber);
-    it.line(xm, ym, x1, y1, (smooth_vad > 0.25f && (i % 2 == 0)) ? c_emerald : c_gold);
+    it.line(xm, ym, x1, y1, (smooth_vad > 0.25f && (i % 4 == 0)) ? c_emerald : c_gold);
   }
 
   int core_r = 27 + static_cast<int>(4.0f * breath + 7.0f * smooth_vad);
