@@ -1307,13 +1307,13 @@ inline void render_voice_assistant_overlay(
       draw_silk_ribbon(base_r - 5.0f, a2 * 0.5f, a3 * 0.5f, 0.0f, (tick + 35) % 60, (tick + 10) % 60, 0,
                        c_ice_white, c_elec_cyan, false);
 
-      // Luminous Layered Glass Core
-      int core_r = 22 + static_cast<int>(7.0f * syl_env);
-      it.filled_circle(cx, cy, core_r + 5, scale_color(c_royal_indigo, 0.45f));
-      it.filled_circle(cx, cy, core_r, c_deep_azure);
+      // Symmetrical Concentric Cognitive Core (matching Thinking aesthetic, zero offset 3D spot)
+      int core_r = 22 + static_cast<int>(6.0f * syl_env);
+      it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.35f + 0.20f * syl_env));
+      it.filled_circle(cx, cy, core_r, c_royal_indigo);
       it.circle(cx, cy, core_r + 1, c_elec_cyan);
-      it.circle(cx, cy, core_r, c_ice_white);
-      it.filled_circle(cx - 4, cy - 4, core_r / 3, c_ice_white);
+      it.filled_circle(cx, cy, (core_r * 2) / 3, c_deep_azure);
+      it.filled_circle(cx, cy, core_r / 2, c_ice_white);
       it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, "Responding...");
       return;
     }
@@ -1393,13 +1393,13 @@ inline void render_voice_assistant_overlay(
     draw_silk_ribbon(base_r - 8.0f, a2 * 0.4f, a3 * 0.4f, 0.0f, (tick + 50) % 60, (tick + 30) % 60, 0,
                      c_ice_white, c_elec_cyan, false);
 
-    // Living Glass Core
-    int core_r = 25 + static_cast<int>(4.0f * breath + 8.0f * smooth_vad);
-    it.filled_circle(cx, cy, core_r + 5, scale_color(c_royal_indigo, 0.40f));
-    it.filled_circle(cx, cy, core_r, lerp_color(c_deep_azure, c_elec_cyan, smooth_vad * 0.5f));
+    // Symmetrical Concentric Cognitive Core (matching Thinking aesthetic, zero offset 3D spot)
+    int core_r = 23 + static_cast<int>(4.0f * breath + 7.0f * smooth_vad);
+    it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.30f + 0.25f * smooth_vad));
+    it.filled_circle(cx, cy, core_r, c_royal_indigo);
     it.circle(cx, cy, core_r + 1, c_elec_cyan);
-    it.circle(cx, cy, core_r, c_ice_white);
-    it.filled_circle(cx - 4, cy - 4, core_r / 3, c_ice_white);
+    it.filled_circle(cx, cy, (core_r * 2) / 3, lerp_color(c_deep_azure, c_elec_cyan, smooth_vad * 0.5f));
+    it.filled_circle(cx, cy, core_r / 2, c_ice_white);
 
     const char *status_str = va_status_text.empty() ? "Listening..." : va_status_text.c_str();
     it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, status_str);

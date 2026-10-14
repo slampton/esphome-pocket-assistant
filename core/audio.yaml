@@ -353,16 +353,19 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
-      # Wait for any trailing mixer samples to drain before switching clocks/restoring UI
+      # Wait for full TTS playback to drain through announcement_mixing_input and physical_speaker DMA.
+      # Note: on_tts_stream_end fires as soon as Home Assistant finishes sending network bytes (often
+      # several seconds before a long weather forecast finishes playing out of the 16kHz DAC).
+      - delay: 150ms
       - if:
           condition:
             lambda: 'return id(announcement_mixing_input).is_running();'
           then:
             - wait_until:
                 condition:
-                  lambda: 'return !id(announcement_mixing_input).is_running();'
-                timeout: 3s
-            - delay: 100ms
+                  lambda: 'return !id(announcement_mixing_input).is_running() || !id(va_active);'
+                timeout: 30s
+            - delay: 350ms
       - script.execute: resume_music_after_va
       - lambda: |-
           id(va_vad_active) = false;
