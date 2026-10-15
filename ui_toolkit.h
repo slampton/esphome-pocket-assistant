@@ -1160,92 +1160,218 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
 
 template<typename DisplayT>
 inline void render_screensaver_solar_flare(DisplayT &it, int cx, int cy, uint32_t now_ms) {
-  float t = now_ms * 0.0015f;
-  int scx = cx + static_cast<int>(fast_sin(t * 0.20f) * 6.0f);
-  int scy = cy + static_cast<int>(fast_cos(t * 0.16f) * 6.0f);
-  float r0 = 62.0f + 6.0f * fast_sin(t * 1.5f);
+  float t = now_ms * 0.0012f;
 
+  // 1. True OLED-Safe Lissajous Wandering Coronagraph Epicenter:
+  // Orbits smoothly across an 88x76px figure-8 trajectory while the inner occulting disc
+  // remains pure AMOLED black (0,0,0), guaranteeing ZERO continuously lit pixels.
+  int scx = cx + static_cast<int>(fast_sin(t * 0.19f) * 32.0f + fast_cos(t * 0.31f) * 12.0f);
+  int scy = cy + static_cast<int>(fast_cos(t * 0.15f) * 28.0f + fast_sin(t * 0.27f) * 10.0f);
+
+  // Breathing occulting corona base radius (hollow dark-eclipse core)
+  float r_base = 44.0f + 5.0f * fast_sin(t * 1.4f);
+
+  // Rotating primary flare eruption vectors (two independent active solar regions)
+  float jet1_ang = t * 0.42f + 0.6f * fast_sin(t * 0.7f);
+  float jet2_ang = -t * 0.31f + 2.4f + 0.5f * fast_cos(t * 0.9f);
+  float jet1_pulse = 0.55f + 0.45f * fast_sin(t * 1.8f);
+  float jet2_pulse = 0.55f + 0.45f * fast_cos(t * 2.3f + 1.1f);
+
+  // 2. Asymmetric Coronal Mass Ejection (CME) Shockwave Crescents:
+  // Casts off directional energy wave arcs that radiate from the flare epicenters to the bezel
   for (int w = 0; w < 3; w++) {
-    uint32_t phase_ms = (now_ms + static_cast<uint32_t>(w) * 950U) % 2850U;
-    float phase = static_cast<float>(phase_ms) * (1.0f / 2850.0f);
-    int cme_r = static_cast<int>((r0 + 10.0f) + phase * (220.0f - (r0 + 10.0f)));
-    float fade = 1.0f - phase;
-    uint8_t c_red = static_cast<uint8_t>(220.0f * fade);
-    uint8_t c_grn = static_cast<uint8_t>(90.0f * fade * fade);
-    if (cme_r > static_cast<int>(r0) + 10) {
-      it.circle(scx, scy, cme_r, esphome::Color(c_red < 20 ? 20 : c_red, c_grn < 5 ? 5 : c_grn, 5));
-      it.circle(scx, scy, cme_r - 2, esphome::Color(static_cast<uint8_t>(c_red * 0.7f), static_cast<uint8_t>(c_grn * 0.7f), 2));
+    uint32_t wave_ms = (now_ms + static_cast<uint32_t>(w) * 1100U) % 3300U;
+    float prog = static_cast<float>(wave_ms) * (1.0f / 3300.0f);
+    float ease_r = prog * (1.65f - 0.65f * prog); // Fast initial blast, decelerating in deep space
+    float wave_r = (r_base + 12.0f) + ease_r * 162.0f;
+    float fade = (1.0f - prog) * (1.0f - prog);
+
+    float wave_dir = (w & 1) ? jet2_ang : jet1_ang;
+    int prev_wx = 0, prev_wy = 0;
+    bool prev_valid = false;
+
+    for (int i = 0; i <= 60; i += 2) {
+      int idx = (i == 60) ? 0 : i;
+      float theta = static_cast<float>(idx) * (2.0f * PI_F / 60.0f);
+      float dir_focus = 0.45f + 0.55f * fast_cos(theta - wave_dir);
+      if (dir_focus <= 0.18f) {
+        prev_valid = false;
+        continue;
+      }
+      float ripple = 5.0f * fast_sin(theta * 5.0f + t * 3.0f + static_cast<float>(w));
+      float r_cur = wave_r + ripple * prog;
+      int wx = scx + static_cast<int>(r_cur * DIAL_COS[idx]);
+      int wy = scy + static_cast<int>(r_cur * DIAL_SIN[idx]);
+
+      if (is_inside_bezel(wx, wy, cy, 5)) {
+        if (prev_valid) {
+          float intensity = fade * dir_focus;
+          uint8_t cr = static_cast<uint8_t>(255.0f * intensity);
+          uint8_t cg = static_cast<uint8_t>(165.0f * intensity * dir_focus);
+          uint8_t cb = static_cast<uint8_t>(35.0f * intensity * intensity);
+          if (cr > 12) {
+            it.line(prev_wx, prev_wy, wx, wy, esphome::Color(cr, cg, cb));
+          }
+        }
+        prev_wx = wx;
+        prev_wy = wy;
+        prev_valid = true;
+      } else {
+        prev_valid = false;
+      }
     }
   }
 
-  for (int i = 0; i < 36; i++) {
-    float theta = static_cast<float>(i) * (2.0f * PI_F / 36.0f);
-    float sa, ca;
-    fast_sincos(theta, sa, ca);
-    float L = 35.0f + 25.0f * fast_sin(theta * 4.0f + t * 2.4f)
-                    + 18.0f * fast_cos(theta * 7.0f - t * 1.8f)
-                    + 12.0f * fast_sin(theta * 11.0f + t * 3.2f);
-    int in_x = scx + static_cast<int>((r0 + 4.0f) * ca);
-    int in_y = scy + static_cast<int>((r0 + 4.0f) * sa);
-    int mid_x = scx + static_cast<int>((r0 + 4.0f + L * 0.6f) * ca);
-    int mid_y = scy + static_cast<int>((r0 + 4.0f + L * 0.6f) * sa);
-    int out_x = scx + static_cast<int>((r0 + 4.0f + L) * ca);
-    int out_y = scy + static_cast<int>((r0 + 4.0f + L) * sa);
-    it.line(in_x, in_y, mid_x, mid_y, esphome::Color(225, 75, 10));
-    it.line(mid_x, mid_y, out_x, out_y, esphome::Color(255, 185, 25));
-    if (L > 65.0f) {
-      it.draw_pixel_at(out_x, out_y, esphome::Color(255, 220, 45));
-      it.draw_pixel_at(out_x + 1, out_y, esphome::Color(255, 180, 20));
+  // 3. Curved Parker-Spiral Coronal Streamers (30 Whipping Magnetic Plasma Rays):
+  // Each streamer curves along the solar rotation spiral and blooms where it aligns with jet1 or jet2
+  for (int i = 0; i < 60; i += 2) {
+    float theta = static_cast<float>(i) * (2.0f * PI_F / 60.0f);
+    float align1 = 0.5f + 0.5f * fast_cos(theta - jet1_ang);
+    float align2 = 0.5f + 0.5f * fast_cos(theta - jet2_ang);
+    float flare_boost = (align1 * align1 * align1) * jet1_pulse * 78.0f
+                      + (align2 * align2 * align2) * jet2_pulse * 68.0f;
+
+    float turb = 18.0f * fast_sin(theta * 3.0f + t * 2.2f)
+               + 14.0f * fast_cos(theta * 7.0f - t * 1.7f);
+    float ray_len = 26.0f + turb + flare_boost;
+    if (ray_len < 12.0f) ray_len = 12.0f;
+
+    // 3-segment curved Parker spiral (progressive azimuthal twist with radius)
+    float r0 = r_base + 2.0f;
+    float r1 = r0 + ray_len * 0.42f;
+    float r2 = r0 + ray_len * 0.78f;
+    float r3 = r0 + ray_len;
+
+    float twist = 0.18f * fast_sin(t * 0.9f + static_cast<float>(i) * 0.2f) + (ray_len * 0.0022f);
+    float s1, c1, s2, c2, s3, c3;
+    fast_sincos(theta + twist * 0.35f, s1, c1);
+    fast_sincos(theta + twist * 0.75f, s2, c2);
+    fast_sincos(theta + twist * 1.20f, s3, c3);
+
+    int x0 = scx + static_cast<int>(r0 * DIAL_COS[i]);
+    int y0 = scy + static_cast<int>(r0 * DIAL_SIN[i]);
+    int x1 = scx + static_cast<int>(r1 * c1);
+    int y1 = scy + static_cast<int>(r1 * s1);
+    int x2 = scx + static_cast<int>(r2 * c2);
+    int y2 = scy + static_cast<int>(r2 * s2);
+    int x3 = scx + static_cast<int>(r3 * c3);
+    int y3 = scy + static_cast<int>(r3 * s3);
+
+    bool hot_jet = (flare_boost > 28.0f);
+    if (is_inside_bezel(x1, y1, cy, 5)) {
+      it.line(x0, y0, x1, y1, hot_jet ? esphome::Color(255, 215, 75) : esphome::Color(235, 95, 15));
+    }
+    if (is_inside_bezel(x2, y2, cy, 5)) {
+      it.line(x1, y1, x2, y2, hot_jet ? esphome::Color(255, 130, 20) : esphome::Color(185, 42, 8));
+    }
+    if (is_inside_bezel(x3, y3, cy, 5)) {
+      it.line(x2, y2, x3, y3, hot_jet ? esphome::Color(210, 50, 10) : esphome::Color(115, 18, 4));
     }
   }
 
-  auto draw_prominence_loop = [&](float center_ang, float peak_r, float arc_span) {
+  // 4. Erupting Magnetic Prominence Flux Loops (4 Asynchronous Arching Plasma Bridges):
+  for (int p = 0; p < 4; p++) {
+    uint32_t loop_ms = (now_ms + static_cast<uint32_t>(p) * 1450U) % 5800U;
+    float l_prog = static_cast<float>(loop_ms) * (1.0f / 5800.0f);
+    float env = fast_sin(l_prog * PI_F); // Smooth eruption rise & coronal rain fade
+    if (env <= 0.08f) continue;
+
+    float center_ang = t * (p & 1 ? -0.28f : 0.34f) + static_cast<float>(p) * 1.57f;
+    float arc_span = 0.48f + 0.28f * env;
+    float peak_r = (r_base + 14.0f) + (55.0f + 42.0f * static_cast<float>(p & 1)) * env;
+
     int prev_lx = 0, prev_ly = 0;
-    for (int step = 0; step <= 8; step++) {
-      float prog = static_cast<float>(step) * 0.125f;
-      float cur_ang = center_ang - arc_span * 0.5f + arc_span * prog;
-      float h_factor = 4.0f * prog * (1.0f - prog);
-      float cur_r = (r0 + 6.0f) + (peak_r - (r0 + 6.0f)) * h_factor;
-      int lx = scx + static_cast<int>(cur_r * fast_cos(cur_ang));
-      int ly = scy + static_cast<int>(cur_r * fast_sin(cur_ang));
-      if (step > 0) {
-        it.line(prev_lx, prev_ly, lx, ly, esphome::Color(255, 175, 25));
-        it.line(prev_lx, prev_ly + 1, lx, ly + 1, esphome::Color(220, 60, 5));
+    for (int step = 0; step <= 10; step++) {
+      float u = static_cast<float>(step) * 0.10f;
+      float arch = 4.0f * u * (1.0f - u);
+      // Slight magnetic twist along the loop
+      float cur_ang = center_ang + (u - 0.5f) * arc_span + 0.06f * arch * fast_sin(t * 2.0f + static_cast<float>(p));
+      float cur_r = r_base + (peak_r - r_base) * arch;
+      float sa, ca;
+      fast_sincos(cur_ang, sa, ca);
+      int lx = scx + static_cast<int>(cur_r * ca);
+      int ly = scy + static_cast<int>(cur_r * sa);
+
+      if (step > 0 && is_inside_bezel(lx, ly, cy, 5) && is_inside_bezel(prev_lx, prev_ly, cy, 5)) {
+        uint8_t cr = static_cast<uint8_t>(255.0f * env);
+        uint8_t cg = static_cast<uint8_t>((95.0f + 135.0f * arch) * env);
+        uint8_t cb = static_cast<uint8_t>((12.0f + 70.0f * arch * arch) * env);
+        esphome::Color core_c(cr, cg, cb);
+        esphome::Color halo_c(static_cast<uint8_t>(cr * 0.55f), static_cast<uint8_t>(cg * 0.35f), 4);
+        draw_glow_line(it, prev_lx, prev_ly, lx, ly, core_c, halo_c);
       }
       prev_lx = lx;
       prev_ly = ly;
     }
+  }
+
+  // 5. Ejected Solar Plasma Embers (24 Spiraling Coronal Mass Particles):
+  // Particles launch from the coronal rim, spiral outward, and cool from white-gold -> amber -> crimson
+  for (int e = 0; e < 24; e++) {
+    uint32_t spd = 1800U + static_cast<uint32_t>(e % 7) * 320U;
+    uint32_t e_ms = (now_ms + static_cast<uint32_t>(e) * 410U) % spd;
+    float ep = static_cast<float>(e_ms) / static_cast<float>(spd);
+    float er = (r_base + 8.0f) + ep * 168.0f;
+    float e_ang = static_cast<float>(e) * (2.0f * PI_F / 24.0f) + t * 0.25f + ep * 0.65f;
+    float sa, ca;
+    fast_sincos(e_ang, sa, ca);
+    int ex = scx + static_cast<int>(er * ca);
+    int ey = scy + static_cast<int>(er * sa);
+
+    if (is_inside_bezel(ex, ey, cy, 6)) {
+      float life = 1.0f - ep;
+      uint8_t er_c = static_cast<uint8_t>(255.0f * life);
+      uint8_t eg_c = static_cast<uint8_t>(220.0f * life * life);
+      uint8_t eb_c = static_cast<uint8_t>(90.0f * life * life * life);
+      if (ep < 0.38f) {
+        it.filled_circle(ex, ey, 2, esphome::Color(er_c, eg_c, eb_c));
+      } else {
+        it.draw_pixel_at(ex, ey, esphome::Color(er_c, eg_c, eb_c));
+        if (ex + 1 < 460) it.draw_pixel_at(ex + 1, ey, esphome::Color(er_c >> 1, eg_c >> 1, 0));
+      }
+    }
+  }
+
+  // 6. 3-Ribbon Undulating Chromosphere Limb Around the Dark Coronagraph Core:
+  // Replaces the static central orange blob with 3 counter-rotating 60-segment harmonic plasma rings
+  auto draw_corona_ribbon = [&](float r_off, float amp1, float f1, float s1,
+                                float amp2, float f2, float s2,
+                                esphome::Color col_core, esphome::Color col_halo, bool with_halo) {
+    int first_x = 0, first_y = 0, prev_x = 0, prev_y = 0;
+    for (int i = 0; i < 60; i++) {
+      float a = static_cast<float>(i) * (2.0f * PI_F / 60.0f);
+      float r = r_base + r_off + amp1 * fast_sin(a * f1 + s1) + amp2 * fast_cos(a * f2 + s2);
+      int px = scx + static_cast<int>(r * DIAL_COS[i]);
+      int py = scy + static_cast<int>(r * DIAL_SIN[i]);
+      if (i == 0) {
+        first_x = px;
+        first_y = py;
+      } else {
+        if (with_halo) {
+          draw_glow_line(it, prev_x, prev_y, px, py, col_core, col_halo);
+        } else {
+          it.line(prev_x, prev_y, px, py, col_core);
+        }
+      }
+      prev_x = px;
+      prev_y = py;
+    }
+    if (with_halo) {
+      draw_glow_line(it, prev_x, prev_y, first_x, first_y, col_core, col_halo);
+    } else {
+      it.line(prev_x, prev_y, first_x, first_y, col_core);
+    }
   };
-  draw_prominence_loop(t * 0.5f, 155.0f + 20.0f * fast_sin(t * 1.4f), 0.55f);
-  draw_prominence_loop(t * 0.5f + 2.2f, 175.0f + 25.0f * fast_cos(t * 1.1f), 0.70f);
-  draw_prominence_loop(t * 0.5f + 4.3f, 145.0f + 18.0f * fast_sin(t * 1.9f), 0.50f);
 
-  it.filled_circle(scx, scy, static_cast<int>(r0 + 14.0f), esphome::Color(160, 25, 10));
-  it.filled_circle(scx, scy, static_cast<int>(r0 + 4.0f),  esphome::Color(235, 80, 10));
-  it.filled_circle(scx, scy, static_cast<int>(r0 - 6.0f),  esphome::Color(255, 155, 20));
-
-  for (int cp = 0; cp < 2; cp++) {
-    float raw_cp = t * 0.9f + static_cast<float>(cp) * 0.5f;
-    float cp_phase = raw_cp - static_cast<float>(static_cast<int>(raw_cp));
-    int cp_r = static_cast<int>(4.0f + cp_phase * (r0 - 12.0f));
-    uint8_t cr = static_cast<uint8_t>(255.0f - 30.0f * cp_phase);
-    uint8_t cg = static_cast<uint8_t>(210.0f * (1.0f - 0.55f * cp_phase));
-    uint8_t cb = static_cast<uint8_t>(35.0f * (1.0f - cp_phase));
-    esphome::Color ring_col(cr, cg, cb);
-    it.circle(scx, scy, cp_r, ring_col);
-    if (cp_r > 2) it.circle(scx, scy, cp_r - 1, ring_col);
-  }
-  for (int k = 0; k < 4; k++) {
-    float c_ang = t * 0.8f + static_cast<float>(k) * (PI_F * 0.5f);
-    float c_rad = 18.0f + 8.0f * fast_sin(t * 1.8f + static_cast<float>(k));
-    int vx = scx + static_cast<int>(fast_cos(c_ang) * c_rad);
-    int vy = scy + static_cast<int>(fast_sin(c_ang) * c_rad);
-    uint8_t gran_g = static_cast<uint8_t>(160.0f + 50.0f * fast_sin(t * 2.0f + static_cast<float>(k)));
-    it.filled_circle(vx, vy, 8, esphome::Color(255, gran_g, 20));
-  }
-  int eye_r = static_cast<int>(7.0f + 3.0f * fast_sin(t * 2.6f));
-  uint8_t eye_g = static_cast<uint8_t>(120.0f + 70.0f * fast_sin(t * 2.2f));
-  it.filled_circle(scx, scy, eye_r, esphome::Color(255, eye_g, 15));
+  // Outer Crimson-Amber Corona Veil
+  draw_corona_ribbon(7.0f, 5.5f, 3.0f, t * 2.1f, 4.0f, 5.0f, -t * 1.6f,
+                     esphome::Color(200, 38, 8), esphome::Color(110, 15, 2), false);
+  // Mid Molten Tangelo Chromosphere Ribbon (with 3px glow halo)
+  draw_corona_ribbon(3.0f, 4.5f, 4.0f, -t * 2.5f, 3.5f, 7.0f, t * 1.9f,
+                     esphome::Color(255, 120, 18), esphome::Color(165, 45, 5), true);
+  // Inner White-Gold Photosphere Eclipse Rim
+  draw_corona_ribbon(0.0f, 3.0f, 5.0f, t * 3.0f, 2.0f, 9.0f, -t * 2.3f,
+                     esphome::Color(255, 232, 130), esphome::Color(235, 140, 25), false);
 }
 
 // Unified Docked Screensaver Dispatcher (Ambient Clock + 4 Procedural Engines)
