@@ -1123,37 +1123,164 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
   }
 }
 
+// 32-entry procedural Matrix Katakana & mirrored cipher stroke bitmask LUT in .rodata Flash:
+// Bits 0..9 encode 10 canonical 7x9 cell strokes (top/mid/bot bars, UL/LL/UR/LR stems, center spine,
+// sweeping Katakana diagonal, and dakuten/cross accents) so every grid cell renders a sharp,
+// authentic Japanese half-width Katakana or mirrored cipher character rather than a solid rectangle.
+static constexpr uint16_t MATRIX_GLYPH_MASK[32] = {
+  0x121, // 0: ア (top bar + UR stem + sweeping Katakana diagonal)
+  0x181, // 1: イ / テ (top bar + center spine + sweeping diagonal)
+  0x069, // 2: ウ (top bar + UL stem + UR/LR right vertical)
+  0x085, // 3: エ (top bar + center spine + bottom bar)
+  0x183, // 4: オ (top + mid bar + center spine + diagonal sweep)
+  0x06B, // 5: カ (top + mid bar + UL stem + UR/LR hook)
+  0x083, // 6: キ / 十 (top + mid bar + center spine)
+  0x129, // 7: ク (top bar + UL stem + UR stem + diagonal sweep)
+  0x0A9, // 8: ケ (top bar + UL stem + UR stem + center spine)
+  0x065, // 9: コ (top bar + UR/LR stem + bottom bar)
+  0x0A3, // 10: サ (top + mid bar + UL + UR + center spine)
+  0x105, // 11: ス / Z (top bar + diagonal sweep + bottom bar)
+  0x214, // 12: ソ / レ (LL stem + bottom bar + dakuten accent)
+  0x12B, // 13: タ (top + mid bar + UL/UR + diagonal sweep)
+  0x182, // 14: ナ (mid bar + center spine + diagonal sweep)
+  0x007, // 15: ニ / 三 (top + mid + bottom horizontal bars)
+  0x301, // 16: ヌ (top bar + sweeping diagonal + cross accent)
+  0x381, // 17: ネ (top bar + center spine + diagonal + cross)
+  0x108, // 18: ノ / ハ (UL stem + sweeping Katakana diagonal)
+  0x056, // 19: ヒ (mid + bottom bar + LL + LR stems)
+  0x141, // 20: フ (top bar + LR hook + sweeping diagonal)
+  0x187, // 21: ホ (top + mid + bot bar + spine + diagonal)
+  0x223, // 22: マ (top + mid bar + UR stem + accent)
+  0x207, // 23: ミ (three horizontal bars + diagonal accent)
+  0x114, // 24: ム (LL stem + bottom bar + sweeping diagonal)
+  0x300, // 25: メ (crossing Katakana diagonals)
+  0x097, // 26: モ (top + mid + bot bar + LL stem + center spine)
+  0x067, // 27: ヨ (top + mid + bot bar + UR/LR right stem)
+  0x107, // 28: ラ (top + mid + bot bar + sweeping diagonal)
+  0x028, // 29: リ (UL short stem + UR/LR long stem)
+  0x07D, // 30: ロ (full Katakana box)
+  0x204  // 31: ン (bottom bar + dakuten diagonal accent)
+};
+
+template<typename DisplayT>
+inline void draw_matrix_katakana_glyph(DisplayT &it, int sx, int gy, uint16_t mask,
+                                       esphome::Color col, bool slim_tail) {
+  if (slim_tail) {
+    // Dimmest tail tip: render only primary vertical/diagonal spine + 1 bar so phosphor dissolves cleanly
+    if (mask & 0x080) it.line(sx, gy - 3, sx, gy + 3, col);
+    else if (mask & 0x100) it.line(sx + 2, gy - 2, sx - 2, gy + 3, col);
+    else it.line(sx - 2, gy - 3, sx + 2, gy - 3, col);
+    if (mask & 0x002) it.line(sx - 2, gy, sx + 2, gy, col);
+    return;
+  }
+  if (mask & 0x001) it.line(sx - 3, gy - 4, sx + 3, gy - 4, col); // Top bar
+  if (mask & 0x002) it.line(sx - 3, gy,     sx + 3, gy,     col); // Mid bar
+  if (mask & 0x004) it.line(sx - 3, gy + 4, sx + 3, gy + 4, col); // Bottom bar
+  if (mask & 0x008) it.line(sx - 3, gy - 4, sx - 3, gy,     col); // UL stem
+  if (mask & 0x010) it.line(sx - 3, gy,     sx - 3, gy + 4, col); // LL stem
+  if (mask & 0x020) it.line(sx + 3, gy - 4, sx + 3, gy,     col); // UR stem
+  if (mask & 0x040) it.line(sx + 3, gy,     sx + 3, gy + 4, col); // LR stem
+  if (mask & 0x080) it.line(sx,     gy - 4, sx,     gy + 4, col); // Center spine
+  if (mask & 0x100) it.line(sx + 3, gy - 2, sx - 3, gy + 4, col); // Katakana sweep diagonal
+  if (mask & 0x200) it.line(sx - 2, gy - 2, sx + 2, gy + 2, col); // Cross / dakuten accent
+}
+
 template<typename DisplayT>
 inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now_ms) {
   (void)cx;
-  for (int i = 0; i < 31; i++) {
-    int sx = MATRIX_X[i];
-    int h_half = circle_half_span(sx, 6);
-    if (h_half <= 0) continue;
-    int y_min = cy - h_half;
-    if (y_min < 10) y_min = 10;
-    int y_max = cy + h_half;
-    if (y_max > 456) y_max = 456;
+  static constexpr int CELL_H = 15; // Stationary 15px vertical character grid
 
-    int lead_y = (MATRIX_Y[i] + static_cast<int>((static_cast<uint64_t>(now_ms) * static_cast<uint32_t>(MATRIX_SPD[i])) / 1000ULL)) % 820 - 120;
-    int slen = MATRIX_LEN[i];
+  // Slow anti-burn-in horizontal & vertical grid drift (shifts ±4px X, ±3px Y over a 90s cycle
+  // so no vertical pixel column or row on the AMOLED display is ever permanently favored)
+  float t_drift = now_ms * 0.00007f;
+  int drift_x = static_cast<int>(fast_sin(t_drift) * 4.2f);
+  int drift_y = static_cast<int>(fast_cos(t_drift * 1.3f) * 3.2f);
+
+  for (int i = 0; i < 31; i++) {
+    int sx = MATRIX_X[i] + drift_x;
+    int max_dy = circle_half_span(sx, 7);
+    if (max_dy <= 0) continue;
+    int y_min = cy - max_dy;
+    int y_max = cy + max_dy;
+
+    // Convert circular column chord into discrete 15px grid row indices
+    int min_row = (y_min - drift_y) / CELL_H;
+    int max_row = (y_max - drift_y) / CELL_H;
+    if (max_row - min_row <= 2) continue;
+
+    // Variable per-column step cadence (~95..165 ms per grid row step), modulated per pass
+    uint32_t base_step_ms = 92U + (static_cast<uint32_t>(MATRIX_SPD[i]) * 9U) / 20U;
+    uint32_t total_steps = (now_ms / base_step_ms) + static_cast<uint32_t>(MATRIX_Y[i]);
+
+    // Non-repeating prime-staggered cycle rows per column (43..64 rows) so columns never sync up
+    uint32_t cycle_rows = 43U + static_cast<uint32_t>((i * 13) % 22);
+    uint32_t pass_idx = total_steps / cycle_rows;
+    int local_step = static_cast<int>(total_steps % cycle_rows);
+
+    // Deterministic per-pass randomization via hash2d_01:
+    // Every pass of a column gets a fresh tail length, spawn delay, and 3D depth tier!
+    int pass_seed = static_cast<int>(pass_idx * 41U + static_cast<uint32_t>(i) * 107U);
+    float r_len   = hash2d_01(pass_seed, 13);
+    float r_tier  = hash2d_01(pass_seed, 29);
+    float r_start = hash2d_01(pass_seed, 47);
+
+    // Tail length randomized between 6 and 18 glyphs on each pass
+    int slen = 6 + static_cast<int>(r_len * 12.9f);
+    // ~28% of passes spawn as dimmer background-depth code streams for 3D visual depth
+    bool is_bg_stream = (r_tier < 0.28f);
+    float bright_scale = is_bg_stream ? 0.56f : 1.0f;
+
+    // Head row steps discretely down the stationary grid:
+    // Characters remain locked in their grid cells as the white-mint cursor drops past them,
+    // rather than sliding downward like solid blocks!
+    int start_row = min_row - static_cast<int>(r_start * 7.0f);
+    int head_row = start_row + local_step;
+
     for (int j = 0; j < slen; j++) {
-      int gy = lead_y - j * 16;
-      if (gy >= y_min && gy <= y_max) {
-        if (j == 0) {
-          it.rectangle(sx - 3, gy - 5, 7, 11, esphome::Color(140, 255, 140));
-          it.filled_rectangle(sx - 2, gy - 4, 5, 9, esphome::Color(255, 255, 255));
-        } else if (j <= 2) {
-          it.rectangle(sx - 3, gy - 5, 6, 10, esphome::Color(40, 255, 80));
-          it.filled_rectangle(sx - 2, gy - 4, 4, 8, esphome::Color(160, 255, 180));
-        } else if (j <= 5) {
-          it.filled_rectangle(sx - 2, gy - 4, 5, 8, esphome::Color(20, 200, 50));
-        } else if (j <= 8) {
-          it.filled_rectangle(sx - 2, gy - 3, 4, 6, esphome::Color(10, 130, 30));
-        } else {
-          it.filled_rectangle(sx - 1, gy - 2, 3, 4, esphome::Color(5, 65, 15));
-        }
+      int row = head_row - j;
+      if (row < min_row || row > max_row) continue;
+      int gy = row * CELL_H + drift_y;
+      if (gy < y_min || gy > y_max) continue;
+
+      // Stationary cell glyph hash keyed by (column i, stationary grid row, pass_idx):
+      // - Lead cursor (j == 0) scrambles rapidly every 90ms
+      // - Stationary trail cells (j > 0) hold their printed Katakana glyph, while ~12% of cells
+      //   asynchronously "glitch-mutate" in place at independent intervals (190..445ms)!
+      uint32_t cell_hash = static_cast<uint32_t>(i * 73856093) ^
+                           static_cast<uint32_t>(row * 19349663) ^
+                           (pass_idx * 83492791U);
+      uint32_t glitch_tick = (j == 0)
+          ? (now_ms / 90U)
+          : (((cell_hash & 7U) == 0U) ? (now_ms / (190U + (cell_hash & 255U))) : 0U);
+      uint16_t mask = MATRIX_GLYPH_MASK[(cell_hash + glitch_tick * 19U) & 31U];
+
+      esphome::Color g_col;
+      if (j == 0 && !is_bg_stream) {
+        // Soft emerald phosphor bloom behind incandescent white-mint lead Katakana glyph
+        it.filled_rectangle(sx - 4, gy - 5, 9, 11, esphome::Color(0, 72, 22));
+        g_col = esphome::Color(230, 255, 238);
+      } else if (j == 0 && is_bg_stream) {
+        g_col = esphome::Color(115, 225, 140);
+      } else if (j == 1) {
+        g_col = esphome::Color(
+            static_cast<uint8_t>(105.0f * bright_scale),
+            static_cast<uint8_t>(255.0f * bright_scale),
+            static_cast<uint8_t>(135.0f * bright_scale));
+      } else if (j <= 4) {
+        // Asynchronous phosphor glitch-pulse when a stationary trail glyph mutates
+        bool glitch_flash = ((cell_hash & 7U) == 0U) && (((now_ms / 160U) + static_cast<uint32_t>(row)) % 6U == 0U);
+        uint8_t grn = static_cast<uint8_t>((glitch_flash ? 255.0f : 218.0f) * bright_scale);
+        uint8_t rb  = static_cast<uint8_t>((glitch_flash ? 95.0f  : 22.0f)  * bright_scale);
+        g_col = esphome::Color(rb, grn, static_cast<uint8_t>((glitch_flash ? 120.0f : 55.0f) * bright_scale));
+      } else {
+        int fade = 192 - ((j - 4) * 176) / (slen > 5 ? (slen - 4) : 1);
+        if (fade < 18) fade = 18;
+        uint8_t fg = static_cast<uint8_t>(fade * bright_scale);
+        g_col = esphome::Color(0, fg, static_cast<uint8_t>(fg >> 2));
       }
+
+      bool slim_tail = (j >= slen - 2 && slen > 7);
+      draw_matrix_katakana_glyph(it, sx, gy, mask, g_col, slim_tail);
     }
   }
 }
