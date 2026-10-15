@@ -6070,45 +6070,15 @@ display:
           const int cel_cy = 91;
 
           // ====================================================================
-          // LAYERS 0 & 1: MODULAR ATMOSPHERIC & MOTION WALLPAPER ENGINE (ui_toolkit.h)
-          // Reusable across Sky & Weather (Page 5) and future Home Page / Screensavers
+          // LAYERS 0, 1 & 2: MODULAR ATMOSPHERIC, CELESTIAL & MOTION ENGINE (ui_toolkit.h)
+          // Exact Z-order: Sky -> Stars -> Sun/Moon -> Shooting Star / Birds -> Clouds/Fog/Leaves
           // ====================================================================
-          render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                          CLOUD_SPANS_PACKED, cel_cx, cel_cy, true);
-
-          // ====================================================================
-          // LAYER 2: CELESTIAL CORNER POCKET ICON
-          // ====================================================================
-          const bool is_foggy_sky = (cond.find("fog") != std::string::npos ||
-                                     cond.find("mist") != std::string::npos ||
-                                     cond.find("haze") != std::string::npos);
+          double moon_cycle = 0.5;
           if (is_night) {
-            // Interactive Corner Moon with Astronomical Phase Accuracy (r = 22, cel_cx = 346, cel_cy = 91)
-            int om_r = 22;
-            double cycle = 0.5;
-            calculate_moon_phase(cycle);
-            draw_lunar_disc(cel_cx, cel_cy, om_r, cycle, false);
-            if (is_foggy_sky) {
-              it.circle(cel_cx, cel_cy, 25, Color(55, 70, 88));
-              it.circle(cel_cx, cel_cy, 29, Color(38, 50, 65));
-            }
-          } else {
-            // Interactive Corner Sun: Full brilliance on clear/partly/windy skies; softly diffused halo in fog/mist
-            bool show_sun = (cond == "sunny" || cond == "clear-day" || cond == "clear" || cond == "clearday" ||
-                             cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos ||
-                             cond.find("partlysunny") != std::string::npos || cond.find("wind") != std::string::npos ||
-                             cond.find("breez") != std::string::npos);
-            if (show_sun) {
-              it.filled_circle(cel_cx, cel_cy, 20, Color(245, 165, 25));
-              it.filled_circle(cel_cx, cel_cy, 12, Color(255, 225, 90));
-              it.circle(cel_cx, cel_cy, 26, Color(140, 85, 15));
-            } else if (is_foggy_sky) {
-              it.filled_circle(cel_cx, cel_cy, 19, Color(135, 125, 92));
-              it.filled_circle(cel_cx, cel_cy, 11, Color(188, 178, 135));
-              it.circle(cel_cx, cel_cy, 24, Color(92, 106, 122));
-              it.circle(cel_cx, cel_cy, 28, Color(68, 84, 102));
-            }
+            calculate_moon_phase(moon_cycle);
           }
+          render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
+                                          CLOUD_SPANS_PACKED, moon_cycle, cel_cx, cel_cy, true);
 
           // ====================================================================
           // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
