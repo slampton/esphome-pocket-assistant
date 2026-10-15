@@ -928,20 +928,19 @@ inline const char *cycle_option(const CurT &cur, std::initializer_list<const cha
 // 5. Docked Screensaver & Voice Assistant Spectral Engines
 // ------------------------------------------------------------------------------
 // 64-entry vertical plume intensity LUT in .rodata Flash (0..256 fixed-point scale):
-// Balanced midway between Chunk 71 and Chunk 72:
-// - Indices 0..6   (bottom 10%): soft lower crest bloom (92 -> 244)
-// - Indices 7..24  (core 28%):   luminous ribbon body (252 -> 168) — ~2x thicker than Chunk 71
-// - Indices 25..63 (upper 62%):  gradual translucent veil fade (160 -> 4) so overlapping tails
-//                                blend into rich intermediate colors rather than blowing out to white
+// Full-bodied Chunk 72 physical band thickness paired with Chunk 73 hue-preserving overlap blending:
+// - Indices 0..7   (bottom 12%): soft lower bloom (115 -> 254)
+// - Indices 8..39  (core 50%):   full-bodied luminous ribbon plateau (256 -> 190) for 3x thicker visual body
+// - Indices 40..63 (upper 38%):  hazy atmospheric tail fade into night sky (182 -> 4)
 static constexpr uint16_t AURORA_PLUME_LUT[64] = {
-   92, 122, 152, 182, 208, 230, 244, 252,
-  252, 248, 243, 237, 230, 223, 216, 208,
-  200, 192, 184, 176, 168, 160, 152, 144,
-  136, 128, 120, 112, 105,  98,  91,  84,
-   78,  72,  66,  60,  55,  50,  45,  41,
-   37,  33,  29,  26,  23,  20,  17,  15,
-   13,  11,  10,   9,   8,   7,   6,   5,
-    5,   4,   4,   3,   3,   2,   2,   1
+  115, 138, 162, 186, 208, 228, 244, 254,
+  256, 256, 256, 255, 254, 252, 250, 248,
+  246, 243, 240, 237, 234, 231, 228, 225,
+  222, 219, 216, 213, 210, 207, 204, 202,
+  200, 198, 196, 194, 192, 190, 186, 182,
+  176, 170, 162, 154, 145, 136, 126, 116,
+  106,  96,  86,  76,  66,  57,  48,  40,
+   33,  26,  20,  15,  11,   8,   6,   4
 };
 
 template<typename DisplayT>
@@ -972,20 +971,19 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     int y_max = cy + h_half;
     float xf = static_cast<float>(x);
 
-    // Midway veil lengths (95..118px) and wider vertical separation (cy-28, cy+16, cy+64)
-    // so curtains undulate across each other cleanly without piling all 3 cores onto one spot
-    int y1 = cy - 28 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 55.0f + fast_cos(xf * 0.006f - t * 0.35f) * 25.0f);
-    int len1 = 96 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 30.0f);
+    // Full-bodied Chunk 72 physical veil geometry (120..150px heights & wide organic overlap)
+    int y1 = cy - 10 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 58.0f + fast_cos(xf * 0.006f - t * 0.35f) * 28.0f);
+    int len1 = 120 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 35.0f);
     int top1 = y1 - len1;
     int step1_fp = (63 << 10) / (len1 > 1 ? len1 : 1);
 
-    int y2 = cy + 16 + static_cast<int>(fast_sin(xf * 0.014f - t * 0.8f + 1.6f) * 60.0f + fast_sin(xf * 0.008f + t * 0.5f) * 30.0f);
-    int len2 = 106 + static_cast<int>(fast_cos(xf * 0.028f - t * 1.5f) * 34.0f);
+    int y2 = cy + 32 + static_cast<int>(fast_sin(xf * 0.014f - t * 0.8f + 1.6f) * 62.0f + fast_sin(xf * 0.008f + t * 0.5f) * 32.0f);
+    int len2 = 135 + static_cast<int>(fast_cos(xf * 0.028f - t * 1.5f) * 40.0f);
     int top2 = y2 - len2;
     int step2_fp = (63 << 10) / (len2 > 1 ? len2 : 1);
 
-    int y3 = cy + 64 + static_cast<int>(fast_sin(xf * 0.017f + t * 1.0f + 3.1f) * 65.0f + fast_cos(xf * 0.010f - t * 0.7f) * 35.0f);
-    int len3 = 118 + static_cast<int>(fast_sin(xf * 0.032f + t * 1.8f) * 38.0f);
+    int y3 = cy + 78 + static_cast<int>(fast_sin(xf * 0.017f + t * 1.0f + 3.1f) * 66.0f + fast_cos(xf * 0.010f - t * 0.7f) * 36.0f);
+    int len3 = 150 + static_cast<int>(fast_sin(xf * 0.032f + t * 1.8f) * 44.0f);
     int top3 = y3 - len3;
     int step3_fp = (63 << 10) / (len3 > 1 ? len3 : 1);
 
