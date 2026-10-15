@@ -253,31 +253,6 @@ static constexpr int16_t SHARED_SCROLL_EASE_116[5] = {0, 25, 63, 99, 116}; // 2-
 static constexpr int16_t SHARED_SCROLL_EASE_174[5] = {0, 38, 95, 148, 174}; // 3-Pill 174px shift
 static constexpr int16_t SHARED_SCROLL_EASE_232[5] = {0, 50, 126, 198, 232}; // 4-Pill 232px shift
 
-// Matrix Cyber Rain Screensaver Pre-Scattered Tables (31 streams across 19 columns)
-static constexpr int16_t MATRIX_X[31] = {
-   17,  41,  65,  89,  89, 113, 113, 137, 137, 161,
-  161, 185, 185, 209, 209, 233, 233, 257, 257, 281,
-  281, 305, 305, 329, 329, 353, 353, 377, 401, 425,
-  449
-};
-static constexpr int16_t MATRIX_Y[31] = {
-  340, 610, 150, 420,  20, 260, 680,  90, 510, 370,
-  790, 180, 590,  40, 460, 290, 710, 120, 540, 390,
-  810, 210, 630,  70, 480, 320, 740, 160, 580, 240,
-  470
-};
-static constexpr uint8_t MATRIX_SPD[31] = {
-  132, 129, 124, 137, 108, 109, 126, 108, 123, 111,
-  105, 123, 118, 125, 110, 120, 108, 122, 114, 102,
-  134, 116, 112, 119, 122, 120, 137,  95, 108, 101,
-   96
-};
-static constexpr uint8_t MATRIX_LEN[31] = {
-    9,  10,   8,  12,  12,  10,  13,  10,   8,   9,
-    8,  12,   9,  10,  13,  11,   8,  11,   9,  13,
-   13,  13,  11,   9,   8,  13,  11,  11,  12,  10,
-   10
-};
 
 // Weather Motion Wallpaper Particle Tables (Starfield, Rain, Snow)
 static constexpr int16_t WEATHER_STARS_X[64] = {
@@ -1188,98 +1163,149 @@ inline void draw_matrix_katakana_glyph(DisplayT &it, int sx, int gy, uint16_t ma
 template<typename DisplayT>
 inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now_ms) {
   (void)cx;
-  static constexpr int CELL_H = 15; // Stationary 15px vertical character grid
+  // 22 independent single-stream columns (19px pitch across x = 33..432) instead of 31 double-stacked streams:
+  // Eliminates same-column stream collisions and leaves ~35% of columns in a dark rest gap at any moment
+  // so the rain feels authentically sparse, airy, and un-clumped.
+  static constexpr int NUM_COLS = 22;
+  static constexpr int CELL_H = 14; // Stationary 14px vertical Katakana grid
 
-  // Slow anti-burn-in horizontal & vertical grid drift (shifts ±4px X, ±3px Y over a 90s cycle
-  // so no vertical pixel column or row on the AMOLED display is ever permanently favored)
+  // Slow anti-burn-in horizontal & vertical grid drift (shifts ±4px X, ±3px Y over a 90s cycle)
   float t_drift = now_ms * 0.00007f;
   int drift_x = static_cast<int>(fast_sin(t_drift) * 4.2f);
   int drift_y = static_cast<int>(fast_cos(t_drift * 1.3f) * 3.2f);
+  float t_sec = now_ms * 0.001f;
 
-  for (int i = 0; i < 31; i++) {
-    int sx = MATRIX_X[i] + drift_x;
+  for (int i = 0; i < NUM_COLS; i++) {
+    int base_x = 34 + i * 19;
+    int sx = base_x + drift_x;
     int max_dy = circle_half_span(sx, 7);
     if (max_dy <= 0) continue;
     int y_min = cy - max_dy;
     int y_max = cy + max_dy;
 
-    // Convert circular column chord into discrete 15px grid row indices
+    // Convert circular column chord into discrete 14px grid row indices
     int min_row = (y_min - drift_y) / CELL_H;
     int max_row = (y_max - drift_y) / CELL_H;
-    if (max_row - min_row <= 2) continue;
+    int visible_rows = max_row - min_row + 1;
+    if (visible_rows <= 2) continue;
 
-    // Variable per-column step cadence (~95..165 ms per grid row step), modulated per pass
-    uint32_t base_step_ms = 92U + (static_cast<uint32_t>(MATRIX_SPD[i]) * 9U) / 20U;
-    uint32_t total_steps = (now_ms / base_step_ms) + static_cast<uint32_t>(MATRIX_Y[i]);
+    // Wide 2.3x per-column base velocity spread (5.4 .. 12.4 rows/sec) using low-discrepancy hashing
+    // so adjacent columns never march down the screen in synchronized horizontal waves ("clumps")
+    float col_h1 = hash2d_01(i * 37 + 11, i * 19 + 5);
+    float col_h2 = hash2d_01(i * 53 + 23, i * 29 + 7);
+    float rows_per_sec = 5.4f + col_h1 * 7.0f;
 
-    // Non-repeating prime-staggered cycle rows per column (43..64 rows) so columns never sync up
-    uint32_t cycle_rows = 43U + static_cast<uint32_t>((i * 13) % 22);
-    uint32_t pass_idx = total_steps / cycle_rows;
-    int local_step = static_cast<int>(total_steps % cycle_rows);
+    // Total cycle length per pass = visible rows + max tail (16) + generous dark rest gap (14..32 rows)
+    // so each column rests in pure black for 1.5..3.5s between drops!
+    float cycle_rows_f = static_cast<float>(visible_rows) + 30.0f + col_h2 * 18.0f;
+
+    // Golden-ratio + hash phase scatter (0.0 .. cycle_rows_f):
+    // Guarantees that at t = 0 (and at every moment thereafter), all 22 columns are uniformly
+    // scattered across their lifecycle (some mid-fall, some entering, ~35% in their dark pause gap)
+    float init_phase_frac = fmodf(static_cast<float>(i) * 0.6180339887f + col_h1 * 0.37f, 1.0f);
+    float total_travel = t_sec * rows_per_sec + init_phase_frac * cycle_rows_f;
+
+    uint32_t pass_idx = static_cast<uint32_t>(total_travel / cycle_rows_f);
+    float local_pos = total_travel - static_cast<float>(pass_idx) * cycle_rows_f;
 
     // Deterministic per-pass randomization via hash2d_01:
-    // Every pass of a column gets a fresh tail length, spawn delay, and 3D depth tier!
-    int pass_seed = static_cast<int>(pass_idx * 41U + static_cast<uint32_t>(i) * 107U);
+    // Every pass of column `i` rolls a fresh tail length, extra spawn delay, and 3D depth tier
+    int pass_seed = static_cast<int>(pass_idx * 43U + static_cast<uint32_t>(i) * 109U);
     float r_len   = hash2d_01(pass_seed, 13);
     float r_tier  = hash2d_01(pass_seed, 29);
-    float r_start = hash2d_01(pass_seed, 47);
+    float r_delay = hash2d_01(pass_seed, 47);
 
-    // Tail length randomized between 6 and 18 glyphs on each pass
-    int slen = 6 + static_cast<int>(r_len * 12.9f);
-    // ~28% of passes spawn as dimmer background-depth code streams for 3D visual depth
-    bool is_bg_stream = (r_tier < 0.28f);
-    float bright_scale = is_bg_stream ? 0.56f : 1.0f;
+    // Slightly shorter, crisper tail lengths (5..14 glyphs) for a cleaner, sparser look
+    int slen = 5 + static_cast<int>(r_len * 9.9f);
+    float slen_f = static_cast<float>(slen);
 
-    // Head row steps discretely down the stationary grid:
-    // Characters remain locked in their grid cells as the white-mint cursor drops past them,
-    // rather than sliding downward like solid blocks!
-    int start_row = min_row - static_cast<int>(r_start * 7.0f);
-    int head_row = start_row + local_step;
+    // ~30% of passes run as dimmer background-depth code streams for 3D depth
+    bool is_bg_stream = (r_tier < 0.30f);
+    float bright_scale = is_bg_stream ? 0.54f : 1.0f;
 
-    for (int j = 0; j < slen; j++) {
-      int row = head_row - j;
+    // Continuous floating-point cursor position (head_row_f) over stationary integer grid rows:
+    // Glyphs stay locked to `row * CELL_H`, while `dist = head_row_f - row` interpolates brightness
+    // continuously on every 20 FPS frame so the rain glides down smoothly with zero stepping!
+    float start_row_f = static_cast<float>(min_row) - 1.0f - r_delay * 8.0f;
+    float head_row_f = start_row_f + local_pos;
+    int head_row_top = static_cast<int>(floorf(head_row_f));
+
+    // Sub-pixel phosphor bloom box tracking the continuous cursor head on foreground streams
+    if (!is_bg_stream) {
+      int exact_hy = static_cast<int>(head_row_f * static_cast<float>(CELL_H)) + drift_y;
+      if (exact_hy >= y_min && exact_hy <= y_max) {
+        it.filled_rectangle(sx - 4, exact_hy - 5, 9, 11, esphome::Color(0, 62, 18));
+      }
+    }
+
+    for (int j = 0; j <= slen; j++) {
+      int row = head_row_top - j;
       if (row < min_row || row > max_row) continue;
       int gy = row * CELL_H + drift_y;
       if (gy < y_min || gy > y_max) continue;
 
+      float dist = head_row_f - static_cast<float>(row);
+      if (dist < 0.0f || dist > slen_f) continue;
+
       // Stationary cell glyph hash keyed by (column i, stationary grid row, pass_idx):
-      // - Lead cursor (j == 0) scrambles rapidly every 90ms
-      // - Stationary trail cells (j > 0) hold their printed Katakana glyph, while ~12% of cells
-      //   asynchronously "glitch-mutate" in place at independent intervals (190..445ms)!
+      // - Lead cursor (dist < 1.1) scrambles every 85ms
+      // - Stationary trail cells hold their printed Katakana glyph, while ~12% of cells
+      //   asynchronously "glitch-mutate" in place at independent intervals (190..445ms)
       uint32_t cell_hash = static_cast<uint32_t>(i * 73856093) ^
                            static_cast<uint32_t>(row * 19349663) ^
                            (pass_idx * 83492791U);
-      uint32_t glitch_tick = (j == 0)
-          ? (now_ms / 90U)
+      uint32_t glitch_tick = (dist < 1.1f)
+          ? (now_ms / 85U)
           : (((cell_hash & 7U) == 0U) ? (now_ms / (190U + (cell_hash & 255U))) : 0U);
       uint16_t mask = MATRIX_GLYPH_MASK[(cell_hash + glitch_tick * 19U) & 31U];
 
       esphome::Color g_col;
-      if (j == 0 && !is_bg_stream) {
-        // Soft emerald phosphor bloom behind incandescent white-mint lead Katakana glyph
-        it.filled_rectangle(sx - 4, gy - 5, 9, 11, esphome::Color(0, 72, 22));
-        g_col = esphome::Color(230, 255, 238);
-      } else if (j == 0 && is_bg_stream) {
-        g_col = esphome::Color(115, 225, 140);
-      } else if (j == 1) {
+      if (dist < 0.95f) {
+        // Smooth sub-row attack & incandescent white-mint peak as cursor sweeps across the cell
+        float lead_env = (dist < 0.30f) ? (0.45f + (dist / 0.30f) * 0.55f) : 1.0f;
+        if (!is_bg_stream) {
+          g_col = esphome::Color(
+              static_cast<uint8_t>(225.0f * lead_env),
+              static_cast<uint8_t>(255.0f * lead_env),
+              static_cast<uint8_t>(235.0f * lead_env));
+        } else {
+          g_col = esphome::Color(
+              static_cast<uint8_t>(110.0f * lead_env),
+              static_cast<uint8_t>(225.0f * lead_env),
+              static_cast<uint8_t>(138.0f * lead_env));
+        }
+      } else if (dist < 2.2f) {
+        // Continuous sub-pixel cooling from white-mint (dist=0.95) to bright neon emerald (dist=2.2)
+        float u = (dist - 0.95f) * (1.0f / 1.25f);
+        float r_c = (115.0f * (1.0f - u) + 24.0f * u) * bright_scale;
+        float g_c = (255.0f * (1.0f - u) + 225.0f * u) * bright_scale;
+        float b_c = (140.0f * (1.0f - u) + 58.0f * u) * bright_scale;
         g_col = esphome::Color(
-            static_cast<uint8_t>(105.0f * bright_scale),
-            static_cast<uint8_t>(255.0f * bright_scale),
-            static_cast<uint8_t>(135.0f * bright_scale));
-      } else if (j <= 4) {
-        // Asynchronous phosphor glitch-pulse when a stationary trail glyph mutates
-        bool glitch_flash = ((cell_hash & 7U) == 0U) && (((now_ms / 160U) + static_cast<uint32_t>(row)) % 6U == 0U);
-        uint8_t grn = static_cast<uint8_t>((glitch_flash ? 255.0f : 218.0f) * bright_scale);
-        uint8_t rb  = static_cast<uint8_t>((glitch_flash ? 95.0f  : 22.0f)  * bright_scale);
-        g_col = esphome::Color(rb, grn, static_cast<uint8_t>((glitch_flash ? 120.0f : 55.0f) * bright_scale));
+            static_cast<uint8_t>(r_c),
+            static_cast<uint8_t>(g_c),
+            static_cast<uint8_t>(b_c));
       } else {
-        int fade = 192 - ((j - 4) * 176) / (slen > 5 ? (slen - 4) : 1);
-        if (fade < 18) fade = 18;
-        uint8_t fg = static_cast<uint8_t>(fade * bright_scale);
-        g_col = esphome::Color(0, fg, static_cast<uint8_t>(fg >> 2));
+        // Smooth continuous exponential-like phosphor trail decay from dist=2.2 to slen_f
+        float tail_u = (dist - 2.2f) / (slen_f > 2.4f ? (slen_f - 2.2f) : 1.0f);
+        if (tail_u > 1.0f) tail_u = 1.0f;
+        float inv_u = 1.0f - tail_u;
+        float fade = (16.0f + 198.0f * inv_u * (0.65f + 0.35f * inv_u)) * bright_scale;
+
+        // Asynchronous phosphor glitch-pulse when a stationary trail glyph mutates
+        bool glitch_flash = (dist < 5.0f) && ((cell_hash & 7U) == 0U) &&
+                            (((now_ms / 160U) + static_cast<uint32_t>(row)) % 6U == 0U);
+        if (glitch_flash) {
+          g_col = esphome::Color(
+              static_cast<uint8_t>(90.0f * bright_scale),
+              static_cast<uint8_t>(255.0f * bright_scale),
+              static_cast<uint8_t>(118.0f * bright_scale));
+        } else {
+          uint8_t fg = static_cast<uint8_t>(fade);
+          g_col = esphome::Color(0, fg, static_cast<uint8_t>(fg >> 2));
+        }
       }
 
-      bool slim_tail = (j >= slen - 2 && slen > 7);
+      bool slim_tail = (dist > slen_f - 1.6f && slen > 6);
       draw_matrix_katakana_glyph(it, sx, gy, mask, g_col, slim_tail);
     }
   }
