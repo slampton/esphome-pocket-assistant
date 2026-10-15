@@ -54,10 +54,6 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
-  - id: album_art_loaded
-    type: bool
-    restore_value: no
-    initial_value: 'false'
   - id: display_menu_page
     type: int
     restore_value: no
@@ -665,7 +661,6 @@ image:
     current_image:
       id: album_art
     on_image_display:
-      - lambda: 'id(album_art_loaded) = true;'
       - script.execute: throttled_disp_update
 
   - platform: online_image
@@ -675,9 +670,7 @@ image:
     resize: 466x466
     url: "${initial_art_url}"
     on_download_finished:
-      - lambda: |-
-          id(current_loaded_art_url) = id(ha_target_art_url).state;
-          id(album_art_loaded) = true;
+      - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
       - script.execute: throttled_disp_update
 
 
@@ -1607,7 +1600,10 @@ sensor:
       then:
         - lambda: |-
             if (!std::isnan(x) && x >= 0.0f && x <= 1.0f) {
-              id(pocket_music_player).volume = x;
+              pocket_ui::remote_vol_pct() = (int)std::round(x * 100.0f);
+              if (id(active_speaker_entity) == "${local_player_id}") {
+                id(pocket_music_player).volume = x;
+              }
             }
 
   - platform: wifi_signal
@@ -1987,9 +1983,7 @@ text_sensor:
               lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
             then:
               - script.stop: fetch_remote_art_debounced
-              - lambda: |-
-                  id(current_loaded_art_url) = "";
-                  id(album_art_loaded) = false;
+              - lambda: 'id(current_loaded_art_url) = "";'
               - online_image.release: remote_album_art
               - script.execute: throttled_disp_update
             else:
@@ -2005,21 +1999,42 @@ text_sensor:
     id: track_artist
     on_value:
       then:
-        - script.execute: throttled_disp_update
+        - lambda: |-
+            static std::string prev_s_artist = "";
+            if (x != prev_s_artist) {
+              prev_s_artist = x;
+              if (id(active_speaker_entity) == "${local_player_id}") {
+                id(throttled_disp_update).execute();
+              }
+            }
   - platform: sendspin
     type: title
     name: "Now Playing Title"
     id: track_title
     on_value:
       then:
-        - script.execute: throttled_disp_update
+        - lambda: |-
+            static std::string prev_s_title = "";
+            if (x != prev_s_title) {
+              prev_s_title = x;
+              if (id(active_speaker_entity) == "${local_player_id}") {
+                id(throttled_disp_update).execute();
+              }
+            }
   - platform: sendspin
     type: album
     name: "Now Playing Album"
     id: track_album
     on_value:
       then:
-        - script.execute: throttled_disp_update
+        - lambda: |-
+            static std::string prev_s_album = "";
+            if (x != prev_s_album) {
+              prev_s_album = x;
+              if (id(active_speaker_entity) == "${local_player_id}") {
+                id(throttled_disp_update).execute();
+              }
+            }
 
 
 script:
@@ -2382,10 +2397,11 @@ script:
       - if:
           condition:
             lambda: |-
-              bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                                (id(ha_target_state).state == "playing");
-              return is_playing;
+              bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+              bool local_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+              return pocket_ui::is_music_playing_effective(is_remote, local_playing, id(ha_target_state).state, millis());
           then:
+            - lambda: 'pocket_ui::set_remote_play_override(false, millis());'
             - if:
                 condition:
                   lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
@@ -2396,6 +2412,7 @@ script:
                 data:
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
           else:
+            - lambda: 'pocket_ui::set_remote_play_override(true, millis());'
             - homeassistant.action:
                 action: media_player.media_play
                 data:
@@ -2405,6 +2422,27 @@ script:
                   lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
                 then:
                   - media_player.play: pocket_music_player
+
+  - id: stop_ha_music
+    mode: restart
+    then:
+      - lambda: |-
+          pocket_ui::set_remote_play_override(false, millis());
+          id(music_action_feedback) = "Playback Stopped";
+          id(music_feedback_timer) = millis();
+          id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
+          then:
+            - media_player.pause: pocket_music_player
+      - homeassistant.action:
+          action: media_player.media_pause
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - component.update: disp1
 
   - id: music_next_track
     mode: restart
@@ -2432,8 +2470,10 @@ script:
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
-  - id: music_skip_back_10
+  - id: music_seek_relative
     mode: restart
+    parameters:
+      dir: int
     then:
       - delay: 0ms
       - lambda: |-
@@ -2446,54 +2486,23 @@ script:
           id(music_skip_last_tap_ms) = now_ms;
 
           float step_sec = 10.0f;
-          std::string label = "-10s Replay";
-          switch (id(music_skip_burst_count)) {
-            case 1: step_sec = 10.0f; label = "-10s Replay"; break;
-            case 2: step_sec = 30.0f; label = "-30s Replay"; break;
-            case 3: step_sec = 60.0f; label = "-1m Replay"; break;
-            case 4: step_sec = 120.0f; label = "-2m Replay"; break;
-            default: step_sec = 300.0f; label = "-5m Replay"; break;
-          }
-
-          id(music_action_feedback) = label;
-          id(music_feedback_timer) = now_ms;
-
-          float cur_pos = id(music_pos_base);
-          if (id(music_pos_sync_time) > 0) {
-            cur_pos += (float)(now_ms - id(music_pos_sync_time)) / 1000.0f;
-          }
-          float new_pos = std::max(0.0f, cur_pos - step_sec);
-          id(music_pos_base) = new_pos;
-          id(music_pos_sync_time) = now_ms;
-      - homeassistant.action:
-          action: media_player.media_seek
-          data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-            seek_position: !lambda |-
-              float cur_pos = id(music_pos_base);
-              return to_string((int)std::max(0.0f, cur_pos));
-
-  - id: music_skip_fwd_30
-    mode: restart
-    then:
-      - delay: 0ms
-      - lambda: |-
-          uint32_t now_ms = millis();
-          if (now_ms - id(music_skip_last_tap_ms) < 1000) {
-            id(music_skip_burst_count)++;
+          const char *label = "-10s Replay";
+          if (dir < 0) {
+            switch (id(music_skip_burst_count)) {
+              case 1: step_sec = 10.0f; label = "-10s Replay"; break;
+              case 2: step_sec = 30.0f; label = "-30s Replay"; break;
+              case 3: step_sec = 60.0f; label = "-1m Replay"; break;
+              case 4: step_sec = 120.0f; label = "-2m Replay"; break;
+              default: step_sec = 300.0f; label = "-5m Replay"; break;
+            }
           } else {
-            id(music_skip_burst_count) = 1;
-          }
-          id(music_skip_last_tap_ms) = now_ms;
-
-          float step_sec = 30.0f;
-          std::string label = "+30s Skip";
-          switch (id(music_skip_burst_count)) {
-            case 1: step_sec = 30.0f; label = "+30s Skip"; break;
-            case 2: step_sec = 60.0f; label = "+1m Skip"; break;
-            case 3: step_sec = 120.0f; label = "+2m Skip"; break;
-            case 4: step_sec = 300.0f; label = "+5m Skip"; break;
-            default: step_sec = 600.0f; label = "+10m Skip"; break;
+            switch (id(music_skip_burst_count)) {
+              case 1: step_sec = 30.0f; label = "+30s Skip"; break;
+              case 2: step_sec = 60.0f; label = "+1m Skip"; break;
+              case 3: step_sec = 120.0f; label = "+2m Skip"; break;
+              case 4: step_sec = 300.0f; label = "+5m Skip"; break;
+              default: step_sec = 600.0f; label = "+10m Skip"; break;
+            }
           }
 
           id(music_action_feedback) = label;
@@ -2503,8 +2512,13 @@ script:
           if (id(music_pos_sync_time) > 0) {
             cur_pos += (float)(now_ms - id(music_pos_sync_time)) / 1000.0f;
           }
-          float dur = id(ha_media_duration).state;
-          float new_pos = (!std::isnan(dur) && dur > 0.0f) ? std::min(dur, cur_pos + step_sec) : (cur_pos + step_sec);
+          float new_pos = 0.0f;
+          if (dir < 0) {
+            new_pos = std::max(0.0f, cur_pos - step_sec);
+          } else {
+            float dur = id(ha_media_duration).state;
+            new_pos = (!std::isnan(dur) && dur > 0.0f) ? std::min(dur, cur_pos + step_sec) : (cur_pos + step_sec);
+          }
           id(music_pos_base) = new_pos;
           id(music_pos_sync_time) = now_ms;
       - homeassistant.action:
@@ -2534,19 +2548,55 @@ script:
             speaker: !lambda 'return id(active_speaker_entity).c_str();'
             last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
             album_sort: !lambda |-
-              std::string sort = id(music_album_sort_order).current_option();
+              auto sort = id(music_album_sort_order).current_option();
               if (sort == "Newest on Top") return "year_desc";
               if (sort == "Oldest on Top") return "year";
               return "name";
             artist_album_sort: !lambda |-
-              std::string sort = id(music_artist_album_sort_order).current_option();
+              auto sort = id(music_artist_album_sort_order).current_option();
               if (sort == "Alphabetical") return "name";
               if (sort == "Newest on Top") return "year_desc";
               return "year";
             podcast_sort: !lambda |-
-              std::string sort = id(music_podcast_sort_order).current_option();
+              auto sort = id(music_podcast_sort_order).current_option();
               if (sort == "Oldest on Top") return "oldest";
               return "newest";
+
+  - id: activate_selected_speaker
+    mode: restart
+    parameters:
+      prefix: string
+    then:
+      - lambda: |-
+          if (id(target_speaker_id).rfind("media_player.", 0) == 0) {
+            if (id(active_speaker_entity) != id(target_speaker_id) && !id(active_speaker_entity).empty()) {
+              id(last_speaker_entity) = id(active_speaker_entity);
+            }
+            id(active_speaker_entity) = id(target_speaker_id);
+            id(active_speaker_name) = id(target_speaker_name);
+            id(music_action_feedback) = prefix + id(target_speaker_name);
+          } else {
+            ESP_LOGW("ui", "Rejecting non-media_player target: %s", id(target_speaker_id).c_str());
+            id(music_action_feedback) = "Invalid Speaker";
+          }
+          id(music_feedback_timer) = millis();
+          id(current_loaded_art_url) = "";
+          id(music_overlay_mode) = 0;
+          id(music_direct_nav) = false;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
+      - homeassistant.action:
+          action: input_text.set_value
+          data:
+            entity_id: ${active_speaker_helper}
+            value: !lambda 'return id(active_speaker_entity).c_str();'
+      - online_image.release: remote_album_art
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
+          then:
+            - script.execute: fetch_remote_art_debounced
+      - component.update: disp1
 
   - id: speaker_transfer_to_target
     mode: restart
@@ -2568,54 +2618,13 @@ script:
             entity_id: !lambda 'return id(target_speaker_id).c_str();'
             source_player: !lambda 'return id(active_speaker_entity).c_str();'
             auto_play: !lambda |-
-              bool source_playing = false;
-              if (id(active_speaker_entity) == "${local_player_id}") {
-                source_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-              } else {
-                source_playing = (id(ha_target_state).state == "playing");
-              }
+              bool source_playing = (id(active_speaker_entity) == "${local_player_id}")
+                                        ? (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING)
+                                        : (id(ha_target_state).state == "playing");
               return source_playing ? "true" : "false";
-      - lambda: |-
-          if (id(target_speaker_id).rfind("media_player.", 0) == 0) {
-            if (id(active_speaker_entity) != id(target_speaker_id) && !id(active_speaker_entity).empty()) {
-              id(last_speaker_entity) = id(active_speaker_entity);
-            }
-            id(active_speaker_entity) = id(target_speaker_id);
-            id(active_speaker_name) = id(target_speaker_name);
-            id(music_action_feedback) = "Active: " + id(target_speaker_name);
-          } else {
-            ESP_LOGW("ui", "Rejecting non-media_player target: %s", id(target_speaker_id).c_str());
-            id(music_action_feedback) = "Invalid Speaker";
-          }
-          id(music_feedback_timer) = millis();
-      - homeassistant.action:
-          action: input_text.set_value
-          data:
-            entity_id: ${active_speaker_helper}
-            value: !lambda 'return id(active_speaker_entity).c_str();'
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - lambda: |-
-                id(current_loaded_art_url) = "";
-                id(album_art_loaded) = false;
-            - online_image.release: remote_album_art
-            - script.execute: fetch_remote_art_debounced
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
-          then:
-            - lambda: |-
-                id(current_loaded_art_url) = "";
-                id(album_art_loaded) = (id(album_art).get_width() > 0);
-            - online_image.release: remote_album_art
-      - lambda: |-
-          id(music_overlay_mode) = 0;
-          id(music_direct_nav) = false;
-          id(music_hud_active) = true;
-          id(music_hud_timer) = millis();
-      - component.update: disp1
+      - script.execute:
+          id: activate_selected_speaker
+          prefix: "Active: "
 
   - id: speaker_control_target
     mode: restart
@@ -2627,45 +2636,9 @@ script:
             call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
             call.perform();
           }
-          if (id(target_speaker_id).rfind("media_player.", 0) == 0) {
-            if (id(active_speaker_entity) != id(target_speaker_id) && !id(active_speaker_entity).empty()) {
-              id(last_speaker_entity) = id(active_speaker_entity);
-            }
-            id(active_speaker_entity) = id(target_speaker_id);
-            id(active_speaker_name) = id(target_speaker_name);
-            id(music_action_feedback) = "Controlling: " + id(target_speaker_name);
-          } else {
-            ESP_LOGW("ui", "Rejecting non-media_player target: %s", id(target_speaker_id).c_str());
-            id(music_action_feedback) = "Invalid Speaker";
-          }
-          id(music_feedback_timer) = millis();
-      - homeassistant.action:
-          action: input_text.set_value
-          data:
-            entity_id: ${active_speaker_helper}
-            value: !lambda 'return id(active_speaker_entity).c_str();'
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - lambda: |-
-                id(current_loaded_art_url) = "";
-                id(album_art_loaded) = false;
-            - online_image.release: remote_album_art
-            - script.execute: fetch_remote_art_debounced
-      - if:
-          condition:
-            lambda: 'return id(active_speaker_entity) == "${local_player_id}";'
-          then:
-            - lambda: |-
-                id(current_loaded_art_url) = "";
-                id(album_art_loaded) = (id(album_art).get_width() > 0);
-            - online_image.release: remote_album_art
-      - lambda: |-
-          id(music_overlay_mode) = 0;
-          id(music_hud_active) = true;
-          id(music_hud_timer) = millis();
-      - component.update: disp1
+      - script.execute:
+          id: activate_selected_speaker
+          prefix: "Controlling: "
 
   - id: speaker_join_target
     mode: restart
@@ -2674,16 +2647,14 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Joining -> " + id(target_speaker_name);
           id(music_feedback_timer) = millis();
+          id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - homeassistant.action:
           action: media_player.join
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-            group_members: !lambda |-
-              return id(target_speaker_id).c_str();
-      - lambda: |-
-          id(music_overlay_mode) = 0;
-          id(music_hud_active) = true;
-          id(music_hud_timer) = millis();
+            group_members: !lambda 'return id(target_speaker_id).c_str();'
       - component.update: disp1
 
   - id: speaker_unjoin_target
@@ -2698,12 +2669,10 @@ script:
           data:
             entity_id: !lambda 'return id(target_speaker_id).c_str();'
       - lambda: |-
-          // If unjoining active controlled speaker, or unjoining local player, or if local player is playing, revert control to local
           if (id(target_speaker_id) == id(active_speaker_entity) || id(target_speaker_id) == "${local_player_id}") {
             id(active_speaker_entity) = "${local_player_id}";
             id(active_speaker_name) = "${friendly_name}";
             id(current_loaded_art_url) = "";
-            id(album_art_loaded) = (id(album_art).get_width() > 0);
           }
           id(music_overlay_mode) = 0;
       - homeassistant.action:
@@ -2713,7 +2682,6 @@ script:
             value: !lambda 'return id(active_speaker_entity).c_str();'
       - online_image.release: remote_album_art
       - component.update: disp1
-
 
   - id: play_music_slot
     mode: restart
@@ -2757,6 +2725,7 @@ script:
           }
           id(music_action_feedback) = "Playing: " + id(selected_slot_name);
           id(music_feedback_timer) = millis();
+          pocket_ui::set_remote_play_override(true, millis());
           if (id(selected_category_mode) == "podcast_episodes") {
             id(active_playback_media_type) = "podcast";
           } else if (id(selected_category_mode) == "audiobook") {
@@ -2767,6 +2736,9 @@ script:
           if (!id(active_speaker_entity).empty()) {
             id(current_loaded_art_url) = "";
           }
+          id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
       - homeassistant.action:
           action: music_assistant.play_media
           data:
@@ -2774,16 +2746,6 @@ script:
             media_id: !lambda 'return id(selected_slot_id).c_str();'
             media_type: !lambda 'return id(selected_slot_type).c_str();'
             enqueue: "play"
-      - if:
-          condition:
-            lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
-          then:
-            - delay: 200ms
-      - delay: 200ms
-      - lambda: |-
-          id(music_overlay_mode) = 0;
-          id(music_hud_active) = true;
-          id(music_hud_timer) = millis();
       - component.update: disp1
 
   - id: mp_idle_debounce
@@ -3330,586 +3292,45 @@ display:
       }
 
       } else if (id(gui_page) == 2) {
-        pocket_ui::last_page2_draw_ms() = millis();
+        uint32_t now_p2_ms = millis();
+        pocket_ui::last_page2_draw_ms() = now_p2_ms;
         if (id(music_overlay_mode) == 0) {
-          // --------------------------------------------------
-          // VIEW 0: NOW PLAYING MUSIC PLAYER
-          // Standard Uncropped 328x328 Inscribed Square, Clean Floating HUD & Direct Music Hub Gateway
-          // --------------------------------------------------
-          std::string art_mode = id(music_fullscreen_art_mode).current_option();
-          if (art_mode.empty()) art_mode = "Full Screen";
-          bool is_standard = (art_mode == "Standard");
-          bool is_letterbox = (art_mode == "Letterbox");
-
-          std::string overlay_mode = id(music_overlay_style).current_option();
-          if (overlay_mode.empty()) overlay_mode = "Art Only";
-
-          bool always_visible = (overlay_mode == "Always Visible");
-          bool show_meta_always = always_visible || (overlay_mode == "Art + Metadata");
-
-          bool show_controls = always_visible || id(music_hud_active);
-          bool show_metadata = show_meta_always || id(music_hud_active);
-
           bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-          bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                            (id(ha_target_state).state == "playing");
-
-          const int art_center_y = 233;
-
-          bool has_art = false;
-          esphome::image::Image *target_art = nullptr;
-          if (is_remote) {
-            // Remote playback: Strictly display remote_album_art when synced to HA target art URL
-            // Never fall back to local album_art, preventing stale local artwork from lingering during remote control
-            if (!id(ha_target_art_url).state.empty() && id(ha_target_art_url).state != "none" &&
-                id(current_loaded_art_url) == id(ha_target_art_url).state && id(remote_album_art).get_width() > 0) {
-              target_art = id(remote_album_art);
-              has_art = true;
-            }
-          } else {
-            // Local playback: Display local album_art
-            if (id(album_art).get_width() > 0) {
-              target_art = id(album_art);
-              has_art = true;
-            }
-          }
-
-          bool apply_scrim = always_visible || id(music_hud_active);
-          bool rendered_art = has_art && render_album_art_canvas(
-              it, target_art, cx, is_standard, is_letterbox, apply_scrim, show_metadata);
-
-          if (!rendered_art) {
-            // High-contrast Vinyl Disc with Remote Audio Badge centered at (cx, 212)
-            it.filled_circle(cx, art_center_y, 80, id(col_dark_gray));
-            it.circle(cx, art_center_y, 80, is_remote ? id(theme_secondary) : id(theme_primary));
-            it.circle(cx, art_center_y, 64, id(col_bg));
-            it.circle(cx, art_center_y, 48, id(col_dark_gray));
-            it.circle(cx, art_center_y, 32, id(col_bg));
-            it.filled_circle(cx, art_center_y, 16, is_remote ? id(theme_secondary) : id(theme_primary));
-          }
-
-          // --------------------------------------------------
-          // TOP HEADER: Active Speaker Friendly Name (y = 46)
-          // Tapping Title Header (x in [100..366], y <= 85) directly opens Music Hub
-          // --------------------------------------------------
-          std::string spk_title = id(active_speaker_name);
-          if (spk_title.empty() || spk_title == "None") spk_title = "${friendly_name}";
-          bool is_feedback = (millis() - id(music_feedback_timer) < 1800 && !id(music_action_feedback).empty());
-          if (is_feedback) {
-            spk_title = id(music_action_feedback);
-          } else if (millis() < 4000) {
-            spk_title = "CONNECTING...";
-          }
-          for (char &c : spk_title) {
-            c = (char)toupper((unsigned char)c);
-          }
-          spk_title = fit_text_to_width(spk_title, 280);
-
-          // Top Header displays active speaker only when HUD overlay is active (HUD awake or always visible)
-          // Standardized at y = 50 in brushed silver-gray (col_silver / #C0C0C0, matching digital clock AM/PM & seconds)
-          // with 1px black drop shadow in Full Screen / Letterbox for optimal neutral contrast over varied album art
-          if (show_controls || id(music_hud_active)) {
-            if (is_standard) {
-              it.print(cx, 50, id(font_small), id(col_white), TextAlign::CENTER, spk_title.c_str());
-            } else {
-              it.print(cx + 1, 51, id(font_small), id(col_black), TextAlign::CENTER, spk_title.c_str());
-              it.print(cx, 50, id(font_small), id(col_white), TextAlign::CENTER, spk_title.c_str());
-            }
-          }
-
-          if (show_controls) {
-            // Floating Vector Transport Glyphs with 1px Drop Shadows
-            // Flank Controls: Left flank is clean and blank (art shines through); Right flank has Vol + (y=140) and Vol - (y=326)
-            const int prev_btn_x = 124;
-            const int next_btn_x = 342;
-            const int right_flank_x = 395;
-
-            bool is_speech_media = (id(active_playback_media_type) == "podcast" || 
-                                    id(active_playback_media_type) == "podcast_episode" || 
-                                    id(active_playback_media_type) == "audiobook");
-
-            auto draw_skip_back_glyph = [&](int ox, int oy, Color c) {
-              int px = prev_btn_x + ox;
-              int py = art_center_y + oy;
-              it.filled_triangle(px - 10, py - 15, px - 1, py - 21, px - 1, py - 9, c);
-              const float r1 = 14.5f;
-              const float r2 = 16.5f;
-              const float a_start = 0.28f;
-              const float a_end = 5.28f;
-              const float a_step = 0.16f;
-              for (float a = a_start; a < a_end; a += a_step) {
-                float next_a = std::min(a + a_step, a_end);
-                float s1, c1, s2, c2;
-                sincosf(a, &s1, &c1);
-                sincosf(next_a, &s2, &c2);
-                it.line(px + (int)(r1 * s1), py - (int)(r1 * c1),
-                        px + (int)(r1 * s2), py - (int)(r1 * c2), c);
-                it.line(px + (int)(r2 * s1), py - (int)(r2 * c2),
-                        px + (int)(r2 * s2), py - (int)(r2 * c2), c);
-                it.line(px + (int)((r1 + 1.0f) * s1), py - (int)((r1 + 1.0f) * c1),
-                        px + (int)((r1 + 1.0f) * s2), py - (int)((r1 + 1.0f) * c2), c);
-              }
-              it.print(px, py + 1, id(font_micro), c, TextAlign::CENTER, "10");
-              it.print(px + 1, py + 1, id(font_micro), c, TextAlign::CENTER, "10");
-            };
-
-            auto draw_skip_fwd_glyph = [&](int ox, int oy, Color c) {
-              int nx = next_btn_x + ox;
-              int ny = art_center_y + oy;
-              it.filled_triangle(nx + 10, ny - 15, nx + 1, ny - 21, nx + 1, ny - 9, c);
-              const float r1 = 14.5f;
-              const float r2 = 16.5f;
-              const float a_start = 0.28f;
-              const float a_end = 5.28f;
-              const float a_step = 0.16f;
-              for (float a = a_start; a < a_end; a += a_step) {
-                float next_a = std::min(a + a_step, a_end);
-                float s1, c1, s2, c2;
-                sincosf(a, &s1, &c1);
-                sincosf(next_a, &s2, &c2);
-                it.line(nx - (int)(r1 * s1), ny - (int)(r1 * c1),
-                        nx - (int)(r1 * s2), ny - (int)(r1 * c2), c);
-                it.line(nx - (int)(r2 * s1), ny - (int)(r2 * c2),
-                        nx - (int)(r2 * s2), ny - (int)(r2 * c2), c);
-                it.line(nx - (int)((r1 + 1.0f) * s1), ny - (int)((r1 + 1.0f) * c1),
-                        nx - (int)((r1 + 1.0f) * s2), ny - (int)((r1 + 1.0f) * c2), c);
-              }
-              it.print(nx, ny + 1, id(font_micro), c, TextAlign::CENTER, "30");
-              it.print(nx + 1, ny + 1, id(font_micro), c, TextAlign::CENTER, "30");
-            };
-
-            auto draw_prev_glyph = [&](int ox, int oy, Color c) {
-              int px = prev_btn_x + ox;
-              int py = art_center_y + oy;
-              it.filled_rectangle(px - 14, py - 10, 3, 21, c);
-              it.filled_triangle(px - 8, py, px + 6, py - 10, px + 6, py + 10, c);
-            };
-
-            auto draw_next_glyph = [&](int ox, int oy, Color c) {
-              int nx = next_btn_x + ox;
-              int ny = art_center_y + oy;
-              it.filled_triangle(nx + 8, ny, nx - 6, ny - 10, nx - 6, ny + 10, c);
-              it.filled_rectangle(nx + 11, ny - 10, 3, 21, c);
-            };
-
-            auto draw_vol_up_glyph = [&](int ox, int oy, Color c) {
-              int vx = right_flank_x + ox;
-              int vy = 140 + oy;
-              it.filled_rectangle(vx - 7, vy - 1, 15, 3, c);
-              it.filled_rectangle(vx - 1, vy - 7, 3, 15, c);
-            };
-
-            auto draw_vol_dn_glyph = [&](int ox, int oy, Color c) {
-              int vx = right_flank_x + ox;
-              int vy = 326 + oy;
-              it.filled_rectangle(vx - 7, vy - 1, 15, 3, c);
-            };
-
-            const int left_flank_x = 71;
-
-            auto draw_spk_shortcut_glyph = [&](int ox, int oy, Color c) {
-              int sx = left_flank_x + ox;
-              int sy = 140 + oy;
-              it.filled_triangle(sx - 2, sy - 3, sx - 2, sy + 3, sx + 3, sy + 7, c);
-              it.filled_triangle(sx - 2, sy - 3, sx + 3, sy + 7, sx + 3, sy - 7, c);
-              it.filled_rectangle(sx - 6, sy - 3, 5, 7, c);
-              it.line(sx + 5, sy - 3, sx + 7, sy - 1, c);
-              it.line(sx + 7, sy - 1, sx + 7, sy + 1, c);
-              it.line(sx + 7, sy + 1, sx + 5, sy + 3, c);
-              it.line(sx + 8, sy - 6, sx + 11, sy - 3, c);
-              it.line(sx + 11, sy - 3, sx + 11, sy + 3, c);
-              it.line(sx + 11, sy + 3, sx + 8, sy + 6, c);
-            };
-
-            auto draw_lib_shortcut_glyph = [&](int ox, int oy, Color c) {
-              int lx = left_flank_x + ox;
-              int ly = 326 + oy;
-              it.filled_rectangle(lx - 8, ly - 7, 4, 15, c);
-              it.filled_rectangle(lx - 2, ly - 7, 4, 15, c);
-              it.line(lx + 4, ly + 7, lx + 8, ly - 7, c);
-              it.line(lx + 5, ly + 7, lx + 9, ly - 7, c);
-              it.line(lx + 7, ly + 7, lx + 11, ly - 6, c);
-              it.line(lx + 8, ly + 7, lx + 12, ly - 6, c);
-            };
-
-            // Previous / Skip Back (Left side of center Play button)
-            if (is_speech_media) {
-              draw_skip_back_glyph(1, 1, id(col_black));
-              draw_skip_back_glyph(0, 0, id(col_white));
-            } else {
-              draw_prev_glyph(1, 1, id(col_black));
-              draw_prev_glyph(0, 0, id(col_white));
-            }
-
-            // Next / Skip Forward (Right side of center Play button)
-            if (is_speech_media) {
-              draw_skip_fwd_glyph(1, 1, id(col_black));
-              draw_skip_fwd_glyph(0, 0, id(col_white));
-            } else {
-              draw_next_glyph(1, 1, id(col_black));
-              draw_next_glyph(0, 0, id(col_white));
-            }
-
-            // Right Flank: Volume Up (+) and Volume Down (-)
-            draw_vol_up_glyph(1, 1, id(col_black));
-            draw_vol_up_glyph(0, 0, id(col_white));
-
-            draw_vol_dn_glyph(1, 1, id(col_black));
-            draw_vol_dn_glyph(0, 0, id(col_white));
-
-            // Left Flank (Optional HUD Shortcuts): Speaker at y=140, Library at y=326
-            if (id(music_show_speaker_shortcut).state) {
-              draw_spk_shortcut_glyph(1, 1, id(col_black));
-              draw_spk_shortcut_glyph(0, 0, id(col_white));
-            }
-
-            if (id(music_show_library_shortcut).state) {
-              draw_lib_shortcut_glyph(1, 1, id(col_black));
-              draw_lib_shortcut_glyph(0, 0, id(col_white));
-            }
-
-            // Center Hero Play/Pause Button: High-Contrast Dark Gray Circular Capsule (Radius 34)
-            it.filled_circle(cx, art_center_y, 34, id(col_dark_gray));
-            it.circle(cx, art_center_y, 34, id(col_black));
-            it.circle(cx, art_center_y, 33, id(col_gray));
-
-            if (!is_playing) {
-              it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, id(theme_primary));
-            } else {
-              it.filled_rectangle(cx - 9, art_center_y - 13, 6, 26, id(theme_primary));
-              it.filled_rectangle(cx + 3, art_center_y - 13, 6, 26, id(theme_primary));
-            }
-          }
-
-          if (show_metadata) {
-            // Real-time track progress calculation
-            float dur = id(ha_media_duration).state;
-            float current_pos = id(music_pos_base);
-            if (is_playing && id(music_pos_sync_time) > 0) {
-              current_pos += (millis() - id(music_pos_sync_time)) / 1000.0f;
-            }
-            float prog = 0.0f;
-            if (!isnan(dur) && dur > 0.0f) {
-              prog = current_pos / dur;
-              if (prog < 0.0f) prog = 0.0f;
-              if (prog > 1.0f) prog = 1.0f;
-            }
-
-            // Perimeter continuous track playback progress arc (r = 224, 2px continuous stroke, LUT-driven)
-            render_progress_arc_r224(it, cx, cy, prog, id(theme_secondary));
-
-            // Track Title, Artist, Album extraction (dynamic Home Assistant priority when remote)
-            std::string title = "";
-            std::string artist = "";
-            std::string album = "";
-
-            if (is_remote) {
-              title = id(ha_track_title).state;
-              artist = id(ha_track_artist).state;
-              album = id(ha_track_album).state;
-            } else {
-              title = id(track_title).state;
-              if (title.empty() || title == "None") title = id(ha_track_title).state;
-              artist = id(track_artist).state;
-              if (artist.empty() || artist == "None") artist = id(ha_track_artist).state;
-              album = id(track_album).state;
-              if (album.empty() || album == "None") album = id(ha_track_album).state;
-            }
-
-            if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
-            title = fit_text_to_width(title, 280);
-
-            // Standardized Floating Track Metadata across all 3 Album Art Modes (y=348, 370, 390)
-            // Sits comfortably clear of Volume Down on the right flank (y=326) and page chevrons at bottom (y=424)
-            bool has_shadow = has_art;
-            if (has_shadow) {
-              it.print(cx + 1, 348 + 1, id(font_small), id(col_black), TextAlign::CENTER, title.c_str());
-            }
-            it.print(cx, 348, id(font_small), id(col_white), TextAlign::CENTER, title.c_str());
-            if (!artist.empty() && artist != "None") {
-              artist = fit_text_to_width(artist, 260);
-              if (has_shadow) {
-                it.print(cx + 1, 370 + 1, id(font_small), id(col_black), TextAlign::CENTER, artist.c_str());
-              }
-              it.print(cx, 370, id(font_small), id(col_white), TextAlign::CENTER, artist.c_str());
-            }
-            if (!album.empty() && album != "None") {
-              album = fit_text_to_width(album, 240);
-              if (has_shadow) {
-                it.print(cx + 1, 390 + 1, id(font_small), id(col_black), TextAlign::CENTER, album.c_str());
-              }
-              it.print(cx, 390, id(font_small), id(col_white), TextAlign::CENTER, album.c_str());
-            }
-
-            // Right Flank Volume HUD Overlay retired: volume level is communicated with zero clutter via universal Top Title status bar
-          }
-
-        } else if (id(music_overlay_mode) == 5) {
-          // --------------------------------------------------
-          // SUBPAGE 5: MUSIC MENU (SPEAKERS, LIBRARY, SETTINGS)
-          // Standard pill width 150..316 (matching Library main menu), r=18, without arrows
-          // --------------------------------------------------
-          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "MUSIC");
-
-          // Active target speaker name (y = 78, font_small, col_white, 32px buffer)
-          std::string spk_sub = fit_text_to_width(id(active_speaker_name), 260);
-          it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, spk_sub.c_str());
-
-          // Clean Pill Button 1: Speakers at y = 140 (span: 150..316, r = 18)
-          draw_pill_button(150, 316, 140, 18, id(theme_primary), id(col_dark_gray), "Speakers", id(col_white), false);
-
-          // Clean Pill Button 2: Library at y = 200 (span: 150..316, r = 18)
-          draw_pill_button(150, 316, 200, 18, id(theme_primary), id(col_dark_gray), "Library", id(col_white), false);
-
-          // Clean Pill Button 3: Settings at y = 290 (span: 150..316, r = 18)
-          // Lowered with a distinct gap to visually communicate separation of duties
-          draw_pill_button(150, 316, 290, 18, id(theme_secondary), id(col_dark_gray), "Settings", id(col_white), false);
-
-          // Universal Standard Centered < BACK Button at y = 408 (Matching Speakers and Library)
-          draw_back_button();
-
-        } else if (id(music_overlay_mode) == 1) {
-          // --------------------------------------------------
-          // LEVEL 1: SPEAKERS BROWSER (Direct 5-Slot Speaker Inventory)
-          // Standardized Title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408
-          // --------------------------------------------------
-          draw_menu_header(50, "SPEAKERS");
-
-          auto draw_speaker_card = [&](int y_mid, const std::string &name, const std::string &id_str, bool is_act) {
-            if (name.empty()) return;
-            bool is_current = (is_act || id_str == id(active_speaker_entity));
-            Color border_c = is_current ? id(theme_primary) : id(theme_secondary);
-            Color txt_c = is_current ? id(theme_primary) : id(col_white);
-
-            draw_menu_card_y(y_mid, "", border_c);
-
-            if (is_current) {
-              it.filled_circle(114, y_mid, 6, id(theme_primary));
-            } else {
-              it.circle(114, y_mid, 5, id(col_slate));
-            }
-
-            std::string disp_name = fit_text_to_width(name, 218);
-            it.print(130, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
-          };
-
-          // Standardized Card Pitch = 58px (y = 104, 162, 220, 278, 336, 5 slots)
-          draw_speaker_card(104, id(slot_1_name), id(slot_1_id), id(slot_1_active));
-          draw_speaker_card(162, id(slot_2_name), id(slot_2_id), id(slot_2_active));
-          draw_speaker_card(220, id(slot_3_name), id(slot_3_id), id(slot_3_active));
-          draw_speaker_card(278, id(slot_4_name), id(slot_4_id), id(slot_4_active));
-          draw_speaker_card(336, id(slot_5_name), id(slot_5_id), id(slot_5_active));
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
-          // Always visible in continuous wrap-around carousel mode
-          if (id(music_browse_total_pages) > 1) {
-            draw_right_flank_chevrons(true, true);
-          }
-
-          // Bottom Back to Player (Standardized at y = 408, r = 16)
-          draw_back_button();
-
-        } else if (id(music_overlay_mode) == 2) {
-          // --------------------------------------------------
-          // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Continuous 7-Item Vertical Scroll Architecture)
-          // Standardized Title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
-          // Model A: 4-Step Eased 116px (2-Pill) Dynamic Scroll Animation with Clean Viewport Masking
-          // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-          // Narrowed Pill Width: x1 = 150, x2 = 316 (Calibrated from AUDIOBOOKS padding)
-          // --------------------------------------------------
-          int current_offset = 0;
-          if (id(menu_scroll_active)) {
-            int cur_step = id(menu_scroll_step);
-            if (cur_step < 0) cur_step = 0;
-            if (cur_step > 4) cur_step = 4;
-            int shift = SHARED_SCROLL_EASE_116[cur_step];
-            if (id(menu_scroll_dir) == 1) {
-              // Scrolling Down: offset moves from 0 to 116
-              current_offset = shift;
-            } else {
-              // Scrolling Up: offset moves from 116 down to 0
-              current_offset = 116 - shift;
-            }
-          } else {
-            current_offset = (id(music_category_page) == 2) ? 116 : 0;
-          }
-
-          auto draw_library_item = [&](int idx, int y) {
-            const char* label = "";
-            if (idx == 0) label = "FAVORITES";
-            else if (idx == 1) label = "PLAYLISTS";
-            else if (idx == 2) label = "ARTISTS";
-            else if (idx == 3) label = "ALBUMS";
-            else if (idx == 4) label = "PODCASTS";
-            else if (idx == 5) label = "RADIO";
-            else if (idx == 6) label = "AUDIOBOOKS";
-            draw_pill_button(150, 316, y, 18, id(theme_secondary), id(col_dark_gray), label, id(col_white), false);
-          };
-
-          for (int i = 0; i < 7; i++) {
-            int y = 104 + i * 58 - current_offset;
-            if (y >= 50 && y <= 390) {
-              draw_library_item(i, y);
-            }
-          }
-
-          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
-          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
-          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
-
-          // Standardized Centered Title at y = 50
-          draw_menu_header(50, "LIBRARY");
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16)
-          draw_back_button();
-
-          // Stationary Pagination Dots nestled at bottom curve y = 440
-          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(music_category_page);
-          draw_pagination_dots(current_dot_page, 2, 440);
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(music_category_page);
-          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
-
-        } else if (id(music_overlay_mode) == 3) {
-          // --------------------------------------------------
-          // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards - 5 Slots)
-          // --------------------------------------------------
-          bool is_spk = (id(selected_category_mode) == "speakers");
-          bool is_podcast_list = (id(selected_category_mode) == "podcast");
-          bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
-
-          // Standardized Category/Item Title at y = 50 (matching OS standard)
-          draw_menu_header(50, id(selected_category_title));
-
-          // Using shared fit_text_to_width defined at page 2 scope
-
-          // Dual-Action or Unified Slot Drawer
-          auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &id_str, const std::string &mtype, bool is_act) {
-            if (name.empty()) return;
-
-            if (is_drill) {
-              // ----------------------------------------------
-              // DRILLABLE ITEM: DUAL INLINE BUTTONS (PLAY ▶ + BROWSE >)
-              // Shifted 16px left (play center 82, body 138..357) to clear right-flank chevrons at x=415
-              // ----------------------------------------------
-              // Left Discrete Circular Play Button (center 82, y_mid, radius 18)
-              it.filled_circle(82, y_mid, 18, id(col_dark_gray));
-              it.circle(82, y_mid, 18, id(theme_primary));
-              it.filled_triangle(79, y_mid - 6, 79, y_mid + 6, 88, y_mid, id(theme_primary));
-
-              // Right Card Body with Name and > Drilldown Chevron (x: 120..375, r = 18 matching standard pill height)
-              it.filled_circle(138, y_mid, 18, id(theme_secondary));
-              it.filled_circle(357, y_mid, 18, id(theme_secondary));
-              it.filled_rectangle(138, y_mid - 18, 219, 37, id(theme_secondary));
-
-              it.filled_circle(138, y_mid, 16, id(col_dark_gray));
-              it.filled_circle(357, y_mid, 16, id(col_dark_gray));
-              it.filled_rectangle(138, y_mid - 16, 219, 33, id(col_dark_gray));
-
-              // Dynamic pixel measurement: max 196px width (stops 10px before hamburger icon at x=350)
-              std::string disp_name = fit_text_to_width(name, 196);
-              it.print(144, y_mid, id(font_small), id(col_white), TextAlign::CENTER_LEFT, disp_name.c_str());
-
-              // Drilldown Hamburger Icon [ ☰ ] on right end (x: 350..363)
-              draw_drilldown_icon(350, y_mid, id(theme_secondary));
-            } else if (is_podcast_list) {
-              // ----------------------------------------------
-              // PODCAST SERIES ITEM: SUBMENU / DRILLDOWN ONLY (NO DIRECT PLAY)
-              // Standardized GUI pill geometry (110..356, r = 18) with Hamburger Icon [ ☰ ] on right
-              // ----------------------------------------------
-              Color bg_c = id(col_dark_gray);
-              Color border_c = id(theme_secondary);
-              Color txt_c = id(col_white);
-
-              draw_menu_card_y(y_mid, "", border_c, txt_c, bg_c);
-
-              // Dynamic pixel measurement: max 196px width (stops cleanly before hamburger icon at x=336)
-              std::string disp_name = fit_text_to_width(name, 196);
-              it.print(126, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
-
-              // Drilldown Hamburger Icon [ ☰ ] on right end (x: 336..349)
-              draw_drilldown_icon(336, y_mid, id(theme_secondary));
-            } else {
-              // ----------------------------------------------
-              // REGULAR / PLAYABLE ITEM: STANDARD GUI-WIDTH UNIFIED CARD (110..356, r = 18)
-              // ----------------------------------------------
-              Color bg_c = id(col_dark_gray);
-              Color border_c = is_act ? id(theme_primary) : id(theme_secondary);
-              Color txt_c = is_act ? id(theme_primary) : id(col_white);
-
-              // Standardized GUI pill geometry matching Library & System menus
-              draw_menu_card_y(y_mid, "", border_c, txt_c, bg_c);
-
-              if (is_spk) {
-                if (is_act || id_str == id(active_speaker_entity)) {
-                  it.filled_circle(114, y_mid, 6, id(theme_primary));
-                } else {
-                  it.circle(114, y_mid, 5, id(col_slate));
-                }
-              } else {
-                Color icon_c = (mtype == "radio") ? id(theme_secondary) : id(theme_primary);
-                it.filled_triangle(108, y_mid - 6, 108, y_mid + 6, 118, y_mid, icon_c);
-              }
-
-              // Dynamic pixel measurement: max 218px width (stops cleanly before right cap at x=350)
-              std::string disp_name = fit_text_to_width(name, 218);
-              it.print(130, y_mid, id(font_small), txt_c, TextAlign::CENTER_LEFT, disp_name.c_str());
-            }
-          };
-
-          // Standardized Card Pitch = 58px (y = 104, 162, 220, 278, 336, 5 slots)
-          draw_slot_card(104, id(slot_1_name), id(slot_1_id), id(slot_1_type), id(slot_1_active));
-          draw_slot_card(162, id(slot_2_name), id(slot_2_id), id(slot_2_type), id(slot_2_active));
-          draw_slot_card(220, id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active));
-          draw_slot_card(278, id(slot_4_name), id(slot_4_id), id(slot_4_type), id(slot_4_active));
-          draw_slot_card(336, id(slot_5_name), id(slot_5_id), id(slot_5_type), id(slot_5_active));
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162, ▼ Down at y=278)
-          // Always visible in continuous wrap-around carousel mode
-          if (id(music_browse_total_pages) > 1) {
-            draw_right_flank_chevrons(true, true);
-          }
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16)
-          draw_back_button();
-
-          // Pagination Page Indicator nestled at y = 440
-          if (id(music_browse_total_pages) > 1) {
-            char pg_buf[16];
-            snprintf(pg_buf, sizeof(pg_buf), "%d / %d", id(music_browse_page), id(music_browse_total_pages));
-            it.print(cx, 440, id(font_micro), id(col_slate), TextAlign::CENTER, pg_buf);
-          }
-        } else if (id(music_overlay_mode) == 4) {
-          // --------------------------------------------------
-          // LEVEL 4: SPEAKER ACTION SHEET (Contextual Actions for Target Speaker)
-          // --------------------------------------------------
-          std::string spk_title = id(target_speaker_name);
-          if (spk_title.empty()) spk_title = "SPEAKER";
-          draw_menu_header(50, spk_title);
-
-          bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
-          if (is_current) {
-            it.print(cx, 76, id(font_small), id(theme_secondary), TextAlign::CENTER, "CURRENTLY CONTROLLING");
-            bool is_remote = (id(target_speaker_id) != "${local_player_id}");
-            if (is_remote) {
-              draw_menu_card_y(142, "TRANSFER TO LOCAL");
-              draw_menu_card_y(200, "UNJOIN AUDIO");
-              draw_menu_card_y(258, "STOP PLAYBACK");
-            } else {
-              draw_menu_card_y(160, "UNJOIN AUDIO");
-              draw_menu_card_y(230, "STOP PLAYBACK");
-            }
-          } else {
-            it.print(cx, 76, id(font_small), id(col_slate), TextAlign::CENTER, "SPEAKER ACTIONS");
-            draw_menu_card_y(130, "TRANSFER QUEUE");
-            draw_menu_card_y(188, "CONTROL ONLY");
-            draw_menu_card_y(246, "JOIN AUDIO");
-            draw_menu_card_y(304, "UNJOIN / DETACH");
-          }
-
-          // Bottom Back Button (y = 408) -> Returns to Speakers Browser
-          draw_back_button();
+          bool local_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+          bool is_playing = pocket_ui::is_music_playing_effective(
+              is_remote, local_playing, id(ha_target_state).state, now_p2_ms);
+          render_music_now_playing(
+              it, cx, cy, now_p2_ms,
+              id(music_fullscreen_art_mode).current_option().c_str(),
+              id(music_overlay_style).current_option().c_str(),
+              id(music_hud_active), is_remote, is_playing,
+              id(album_art), id(remote_album_art),
+              id(ha_target_art_url).state, id(current_loaded_art_url),
+              id(active_speaker_name), "${friendly_name}",
+              id(music_action_feedback), id(music_feedback_timer),
+              id(active_playback_media_type),
+              id(music_show_speaker_shortcut).state, id(music_show_library_shortcut).state,
+              id(ha_media_duration).state, id(music_pos_base), id(music_pos_sync_time),
+              id(track_title).state, id(track_artist).state, id(track_album).state,
+              id(ha_track_title).state, id(ha_track_artist).state, id(ha_track_album).state,
+              id(font_small), id(font_micro), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_black), id(col_white), id(col_gray), id(col_dark_gray));
+        } else {
+          render_music_menus(
+              it, cx, id(music_overlay_mode),
+              id(active_speaker_entity), id(active_speaker_name), "${local_player_id}",
+              id(selected_category_mode), id(selected_category_title),
+              id(music_category_page), id(music_browse_page), id(music_browse_total_pages),
+              id(menu_scroll_active), id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+              id(slot_1_name), id(slot_1_id), id(slot_1_type), id(slot_1_active),
+              id(slot_2_name), id(slot_2_id), id(slot_2_type), id(slot_2_active),
+              id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active),
+              id(slot_4_name), id(slot_4_id), id(slot_4_type), id(slot_4_active),
+              id(slot_5_name), id(slot_5_id), id(slot_5_type), id(slot_5_active),
+              id(target_speaker_id), id(target_speaker_name),
+              id(font_date), id(font_small), id(font_micro),
+              id(theme_primary), id(theme_secondary), id(col_bg), id(col_black),
+              id(col_white), id(col_slate), id(col_dark_gray));
         }
 
       // ==========================================
@@ -5632,15 +5053,6 @@ touchscreen:
                   return;
                 }
 
-                std::string art_mode = id(music_fullscreen_art_mode).current_option();
-                const int prev_btn_x = 124;
-                const int next_btn_x = 342;
-                const int left_flank_x = 71;
-                const int right_flank_x = 395;
-                const int btn_y_top = 140;
-                const int btn_y_mid = 233;
-                const int btn_y_vol_dn = 326;
-
                 std::string overlay_mode = id(music_overlay_style).current_option();
                 if (overlay_mode.empty()) overlay_mode = "Art Only";
                 bool hud_enabled = (overlay_mode != "Always Visible");
@@ -5680,8 +5092,9 @@ touchscreen:
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_pp_tap = now_pp;
-                    bool is_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                                      (id(ha_target_state).state == "playing");
+                    bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+                    bool local_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+                    bool is_playing = pocket_ui::is_music_playing_effective(is_remote, local_playing, id(ha_target_state).state, now_pp);
                     id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
                     id(music_feedback_timer) = now_pp;
                     id(music_hud_timer) = now_pp;
@@ -5712,7 +5125,7 @@ touchscreen:
                                             id(active_playback_media_type) == "podcast_episode" || 
                                             id(active_playback_media_type) == "audiobook");
                     if (is_speech_media) {
-                      id(music_skip_fwd_30).execute();
+                      id(music_seek_relative).execute(1);
                     } else {
                       id(music_action_feedback) = "Next Track >>";
                       id(music_next_track).execute();
@@ -5733,10 +5146,12 @@ touchscreen:
                     last_vol_up_tap = now_vol_tap;
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
-                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                    id(music_action_feedback) = "Volume: " + to_string(std::min(100, v_cur + v_step)) + "%";
+                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
+                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(v_step)
+                                            : std::min(100, (int)std::round(id(pocket_music_player).volume * 100.0f) + v_step);
+                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
                     id(music_feedback_timer) = now_vol_tap;
-                    ESP_LOGI("touch", "Page 2 Volume Up: x=%d y=%d vol=%d%%", touch.x, touch.y, std::min(100, v_cur + v_step));
+                    ESP_LOGI("touch", "Page 2 Volume Up: x=%d y=%d vol=%d%%", touch.x, touch.y, v_next);
                     id(music_vol_up).execute();
                     id(disp1).update();
                   }
@@ -5751,10 +5166,12 @@ touchscreen:
                     last_vol_dn_tap = now_vol_tap;
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
-                    int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-                    id(music_action_feedback) = "Volume: " + to_string(std::max(0, v_cur - v_step)) + "%";
+                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
+                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(-v_step)
+                                            : std::max(0, (int)std::round(id(pocket_music_player).volume * 100.0f) - v_step);
+                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
                     id(music_feedback_timer) = now_vol_tap;
-                    ESP_LOGI("touch", "Page 2 Volume Down: x=%d y=%d vol=%d%%", touch.x, touch.y, std::max(0, v_cur - v_step));
+                    ESP_LOGI("touch", "Page 2 Volume Down: x=%d y=%d vol=%d%%", touch.x, touch.y, v_next);
                     id(music_vol_down).execute();
                     id(disp1).update();
                   }
@@ -5818,7 +5235,7 @@ touchscreen:
                                             id(active_playback_media_type) == "podcast_episode" || 
                                             id(active_playback_media_type) == "audiobook");
                     if (is_speech_media) {
-                      id(music_skip_back_10).execute();
+                      id(music_seek_relative).execute(-1);
                     } else {
                       id(music_action_feedback) = "<< Prev Track";
                       id(music_prev_track).execute();
@@ -6138,8 +5555,6 @@ touchscreen:
                       id(selected_category_title) = "ARTISTS";
                       id(music_browse_page) = std::max(1, id(drilldown_artist_page));
                       id(fetch_music_browse).execute();
-                    } else if (id(selected_category_mode) == "speakers") {
-                      id(music_overlay_mode) = 1; // Return to Speakers Browser
                     } else {
                       id(drilldown_artist_page) = 1;
                       id(drilldown_album_page) = 1;
@@ -6212,9 +5627,7 @@ touchscreen:
                     } else if (touch.y >= 229 && touch.y <= 295 && touch.x >= 85 && touch.x <= 370) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_sheet_tap = now_sheet;
-                        id(toggle_ha_music).execute();
-                        id(music_overlay_mode) = 0;
-                        id(disp1).update();
+                        id(stop_ha_music).execute();
                       }
                       return;
                     }
@@ -6230,9 +5643,7 @@ touchscreen:
                     } else if (touch.y >= 195 && touch.y <= 275 && touch.x >= 85 && touch.x <= 370) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_sheet_tap = now_sheet;
-                        id(toggle_ha_music).execute();
-                        id(music_overlay_mode) = 0;
-                        id(disp1).update();
+                        id(stop_ha_music).execute();
                       }
                       return;
                     }

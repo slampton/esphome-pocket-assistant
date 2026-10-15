@@ -99,9 +99,7 @@ esphome:
             id(bus_internal).write(0x34, clr_all, 2);
         - media_player.pause: pocket_music_player
         - online_image.release: remote_album_art
-        - lambda: |-
-            id(current_loaded_art_url) = "";
-            id(album_art_loaded) = false;
+        - lambda: 'id(current_loaded_art_url) = "";'
         - audio_dac.set_volume:
             id: es8311_dac
             volume: 90%

@@ -6890,6 +6890,481 @@ inline void render_tool_calculator(DisplayT &it, const std::string &calc_history
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
 }
 
+
+// ============================================================================
+// SECTION 15: MUSIC PLAYER ENGINE — NOW PLAYING, TRANSPORT HUD & LIBRARY MENUS
+// ============================================================================
+
+inline int &remote_vol_pct() {
+  static int pct = 70;
+  return pct;
+}
+
+inline int step_remote_vol_pct(int delta_pct) {
+  int next = std::max(0, std::min(100, remote_vol_pct() + delta_pct));
+  remote_vol_pct() = next;
+  return next;
+}
+
+inline uint32_t &remote_play_override_ms() {
+  static uint32_t ms = 0;
+  return ms;
+}
+
+inline bool &remote_play_override_state() {
+  static bool st = false;
+  return st;
+}
+
+inline void set_remote_play_override(bool playing, uint32_t now_ms) {
+  remote_play_override_state() = playing;
+  remote_play_override_ms() = now_ms;
+}
+
+inline bool is_music_playing_effective(bool is_remote, bool local_playing,
+                                       const std::string &ha_state, uint32_t now_ms) {
+  if (!is_remote) {
+    return local_playing;
+  }
+  if (remote_play_override_ms() > 0 && (now_ms - remote_play_override_ms() < 2500U)) {
+    return remote_play_override_state();
+  }
+  return (ha_state == "playing");
+}
+
+template<typename DisplayT, typename FontDateT>
+inline void render_menu_header(DisplayT &it, int cx, int y_pos, const std::string &title,
+                               FontDateT *font_date, esphome::Color theme_primary) {
+  if (title.empty()) return;
+  int w = 0, x_off = 0, base = 0, text_h = 0;
+  font_date->measure(title.c_str(), &w, &x_off, &base, &text_h);
+  if (w <= 220) {
+    it.print(cx, y_pos, font_date, theme_primary, esphome::display::TextAlign::CENTER, title.c_str());
+  } else {
+    std::string disp_title = fit_text_to_width_font(title, 246, font_date);
+    it.print(110, y_pos, font_date, theme_primary, esphome::display::TextAlign::CENTER_LEFT, disp_title.c_str());
+  }
+}
+
+template<typename DisplayT, typename ImageT, typename FontSmallT, typename FontMicroT>
+inline void render_music_now_playing(
+    DisplayT &it, int cx, int cy, uint32_t now_ms,
+    const char *art_mode_opt, const char *overlay_mode_opt, bool music_hud_active,
+    bool is_remote, bool is_playing,
+    ImageT *local_art, ImageT *remote_art,
+    const std::string &ha_target_art_url, const std::string &current_loaded_art_url,
+    const std::string &active_speaker_name, const char *friendly_name,
+    const std::string &music_action_feedback, uint32_t music_feedback_timer,
+    const std::string &active_playback_media_type,
+    bool show_spk_shortcut, bool show_lib_shortcut,
+    float dur, float music_pos_base, uint32_t music_pos_sync_time,
+    const std::string &local_title, const std::string &local_artist, const std::string &local_album,
+    const std::string &ha_title, const std::string &ha_artist, const std::string &ha_album,
+    FontSmallT *font_small, FontMicroT *font_micro,
+    esphome::Color theme_primary, esphome::Color theme_secondary,
+    esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
+    esphome::Color col_gray, esphome::Color col_dark_gray) {
+  std::string art_mode = (art_mode_opt && art_mode_opt[0]) ? art_mode_opt : "Full Screen";
+  bool is_standard = (art_mode == "Standard");
+  bool is_letterbox = (art_mode == "Letterbox");
+
+  std::string overlay_mode = (overlay_mode_opt && overlay_mode_opt[0]) ? overlay_mode_opt : "Art Only";
+  bool always_visible = (overlay_mode == "Always Visible");
+  bool show_meta_always = always_visible || (overlay_mode == "Art + Metadata");
+  bool show_controls = always_visible || music_hud_active;
+  bool show_metadata = show_meta_always || music_hud_active;
+
+  const int art_center_y = 233;
+  bool has_art = false;
+  ImageT *target_art = nullptr;
+  if (is_remote) {
+    if (!ha_target_art_url.empty() && ha_target_art_url != "none" &&
+        current_loaded_art_url == ha_target_art_url && remote_art && remote_art->get_width() > 0) {
+      target_art = remote_art;
+      has_art = true;
+    }
+  } else {
+    if (local_art && local_art->get_width() > 0) {
+      target_art = local_art;
+      has_art = true;
+    }
+  }
+
+  bool apply_scrim = always_visible || music_hud_active;
+  bool rendered_art = has_art && render_album_art_canvas(
+      it, target_art, cx, is_standard, is_letterbox, apply_scrim, show_metadata);
+
+  if (!rendered_art) {
+    it.filled_circle(cx, art_center_y, 80, col_dark_gray);
+    it.circle(cx, art_center_y, 80, is_remote ? theme_secondary : theme_primary);
+    it.circle(cx, art_center_y, 64, col_bg);
+    it.circle(cx, art_center_y, 48, col_dark_gray);
+    it.circle(cx, art_center_y, 32, col_bg);
+    it.filled_circle(cx, art_center_y, 16, is_remote ? theme_secondary : theme_primary);
+  }
+
+  std::string spk_title = active_speaker_name;
+  if (spk_title.empty() || spk_title == "None") spk_title = friendly_name;
+  bool is_feedback = (now_ms - music_feedback_timer < 1800U && !music_action_feedback.empty());
+  if (is_feedback) {
+    spk_title = music_action_feedback;
+  } else if (now_ms < 4000U) {
+    spk_title = "CONNECTING...";
+  }
+  for (char &c : spk_title) {
+    c = (char)toupper((unsigned char)c);
+  }
+  spk_title = fit_text_to_width_font(spk_title, 280, font_small);
+
+  if (show_controls || music_hud_active) {
+    if (!is_standard) {
+      it.print(cx + 1, 51, font_small, col_black, esphome::display::TextAlign::CENTER, spk_title.c_str());
+    }
+    it.print(cx, 50, font_small, col_white, esphome::display::TextAlign::CENTER, spk_title.c_str());
+  }
+
+  if (show_controls) {
+    const int prev_btn_x = 124;
+    const int next_btn_x = 342;
+    const int left_flank_x = 71;
+    const int right_flank_x = 395;
+
+    bool is_speech_media = (active_playback_media_type == "podcast" ||
+                            active_playback_media_type == "podcast_episode" ||
+                            active_playback_media_type == "audiobook");
+
+    // Zero-trig LUT circular skip glyph (replaces 256 sincosf calls with .rodata DIAL_SIN/DIAL_COS)
+    auto draw_skip_glyph_lut = [&](int bx, int by, int dir_sign, const char *lbl, esphome::Color c) {
+      if (dir_sign < 0) {
+        it.filled_triangle(bx - 10, by - 15, bx - 1, by - 21, bx - 1, by - 9, c);
+      } else {
+        it.filled_triangle(bx + 10, by - 15, bx + 1, by - 21, bx + 1, by - 9, c);
+      }
+      for (int idx = 3; idx < 50; idx += 2) {
+        int next_idx = std::min(50, idx + 2);
+        float s1 = DIAL_SIN[idx] * (float)(-dir_sign);
+        float c1 = DIAL_COS[idx];
+        float s2 = DIAL_SIN[next_idx] * (float)(-dir_sign);
+        float c2 = DIAL_COS[next_idx];
+        it.line(bx + (int)(15.0f * s1), by - (int)(15.0f * c1),
+                bx + (int)(15.0f * s2), by - (int)(15.0f * c2), c);
+        it.line(bx + (int)(16.0f * s1), by - (int)(16.0f * c1),
+                bx + (int)(16.0f * s2), by - (int)(16.0f * c2), c);
+      }
+      it.print(bx, by + 1, font_micro, c, esphome::display::TextAlign::CENTER, lbl);
+      it.print(bx + 1, by + 1, font_micro, c, esphome::display::TextAlign::CENTER, lbl);
+    };
+
+    auto draw_prev_glyph = [&](int ox, int oy, esphome::Color c) {
+      int px = prev_btn_x + ox;
+      int py = art_center_y + oy;
+      it.filled_rectangle(px - 14, py - 10, 3, 21, c);
+      it.filled_triangle(px - 8, py, px + 6, py - 10, px + 6, py + 10, c);
+    };
+
+    auto draw_next_glyph = [&](int ox, int oy, esphome::Color c) {
+      int nx = next_btn_x + ox;
+      int ny = art_center_y + oy;
+      it.filled_triangle(nx + 8, ny, nx - 6, ny - 10, nx - 6, ny + 10, c);
+      it.filled_rectangle(nx + 11, ny - 10, 3, 21, c);
+    };
+
+    if (is_speech_media) {
+      draw_skip_glyph_lut(prev_btn_x + 1, art_center_y + 1, -1, "10", col_black);
+      draw_skip_glyph_lut(prev_btn_x, art_center_y, -1, "10", col_white);
+      draw_skip_glyph_lut(next_btn_x + 1, art_center_y + 1, 1, "30", col_black);
+      draw_skip_glyph_lut(next_btn_x, art_center_y, 1, "30", col_white);
+    } else {
+      draw_prev_glyph(1, 1, col_black);
+      draw_prev_glyph(0, 0, col_white);
+      draw_next_glyph(1, 1, col_black);
+      draw_next_glyph(0, 0, col_white);
+    }
+
+    // Right Flank Volume Up (+) and Volume Down (-)
+    it.filled_rectangle(right_flank_x - 6, 140, 15, 3, col_black);
+    it.filled_rectangle(right_flank_x, 134, 3, 15, col_black);
+    it.filled_rectangle(right_flank_x - 7, 139, 15, 3, col_white);
+    it.filled_rectangle(right_flank_x - 1, 133, 3, 15, col_white);
+
+    it.filled_rectangle(right_flank_x - 6, 326, 15, 3, col_black);
+    it.filled_rectangle(right_flank_x - 7, 325, 15, 3, col_white);
+
+    // Optional Left Flank Shortcuts
+    if (show_spk_shortcut) {
+      auto draw_spk = [&](int ox, int oy, esphome::Color c) {
+        int sx = left_flank_x + ox;
+        int sy = 140 + oy;
+        it.filled_triangle(sx - 2, sy - 3, sx - 2, sy + 3, sx + 3, sy + 7, c);
+        it.filled_triangle(sx - 2, sy - 3, sx + 3, sy + 7, sx + 3, sy - 7, c);
+        it.filled_rectangle(sx - 6, sy - 3, 5, 7, c);
+        it.line(sx + 5, sy - 3, sx + 7, sy - 1, c);
+        it.line(sx + 7, sy - 1, sx + 7, sy + 1, c);
+        it.line(sx + 7, sy + 1, sx + 5, sy + 3, c);
+        it.line(sx + 8, sy - 6, sx + 11, sy - 3, c);
+        it.line(sx + 11, sy - 3, sx + 11, sy + 3, c);
+        it.line(sx + 11, sy + 3, sx + 8, sy + 6, c);
+      };
+      draw_spk(1, 1, col_black);
+      draw_spk(0, 0, col_white);
+    }
+
+    if (show_lib_shortcut) {
+      auto draw_lib = [&](int ox, int oy, esphome::Color c) {
+        int lx = left_flank_x + ox;
+        int ly = 326 + oy;
+        it.filled_rectangle(lx - 8, ly - 7, 4, 15, c);
+        it.filled_rectangle(lx - 2, ly - 7, 4, 15, c);
+        it.line(lx + 4, ly + 7, lx + 8, ly - 7, c);
+        it.line(lx + 5, ly + 7, lx + 9, ly - 7, c);
+        it.line(lx + 7, ly + 7, lx + 11, ly - 6, c);
+        it.line(lx + 8, ly + 7, lx + 12, ly - 6, c);
+      };
+      draw_lib(1, 1, col_black);
+      draw_lib(0, 0, col_white);
+    }
+
+    // Center Hero Play/Pause Capsule (r = 34)
+    it.filled_circle(cx, art_center_y, 34, col_dark_gray);
+    it.circle(cx, art_center_y, 34, col_black);
+    it.circle(cx, art_center_y, 33, col_gray);
+
+    if (!is_playing) {
+      it.filled_triangle(cx - 7, art_center_y - 15, cx - 7, art_center_y + 15, cx + 15, art_center_y, theme_primary);
+    } else {
+      it.filled_rectangle(cx - 9, art_center_y - 13, 6, 26, theme_primary);
+      it.filled_rectangle(cx + 3, art_center_y - 13, 6, 26, theme_primary);
+    }
+  }
+
+  if (show_metadata) {
+    float current_pos = music_pos_base;
+    if (is_playing && music_pos_sync_time > 0) {
+      current_pos += (float)(now_ms - music_pos_sync_time) / 1000.0f;
+    }
+    float prog = 0.0f;
+    if (!std::isnan(dur) && dur > 0.0f) {
+      prog = std::max(0.0f, std::min(1.0f, current_pos / dur));
+    }
+
+    render_progress_arc_r224(it, cx, cy, prog, theme_secondary);
+
+    std::string title = is_remote ? ha_title : ((local_title.empty() || local_title == "None") ? ha_title : local_title);
+    std::string artist = is_remote ? ha_artist : ((local_artist.empty() || local_artist == "None") ? ha_artist : local_artist);
+    std::string album = is_remote ? ha_album : ((local_album.empty() || local_album == "None") ? ha_album : local_album);
+
+    if (title.empty() || title == "None") title = is_playing ? "Playing Audio" : "Idle";
+    title = fit_text_to_width_font(title, 280, font_small);
+
+    bool has_shadow = has_art;
+    if (has_shadow) {
+      it.print(cx + 1, 349, font_small, col_black, esphome::display::TextAlign::CENTER, title.c_str());
+    }
+    it.print(cx, 348, font_small, col_white, esphome::display::TextAlign::CENTER, title.c_str());
+
+    if (!artist.empty() && artist != "None") {
+      artist = fit_text_to_width_font(artist, 260, font_small);
+      if (has_shadow) {
+        it.print(cx + 1, 371, font_small, col_black, esphome::display::TextAlign::CENTER, artist.c_str());
+      }
+      it.print(cx, 370, font_small, col_white, esphome::display::TextAlign::CENTER, artist.c_str());
+    }
+    if (!album.empty() && album != "None") {
+      album = fit_text_to_width_font(album, 240, font_small);
+      if (has_shadow) {
+        it.print(cx + 1, 391, font_small, col_black, esphome::display::TextAlign::CENTER, album.c_str());
+      }
+      it.print(cx, 390, font_small, col_white, esphome::display::TextAlign::CENTER, album.c_str());
+    }
+  }
+}
+
+template<typename DisplayT, typename FontDateT, typename FontSmallT, typename FontMicroT>
+inline void render_music_menus(
+    DisplayT &it, int cx, int music_overlay_mode,
+    const std::string &active_speaker_entity, const std::string &active_speaker_name,
+    const char *local_player_id,
+    const std::string &selected_category_mode, const std::string &selected_category_title,
+    int music_category_page, int music_browse_page, int music_browse_total_pages,
+    bool menu_scroll_active, int menu_scroll_step, int menu_scroll_dir, int menu_scroll_target_page,
+    const std::string &slot_1_name, const std::string &slot_1_id, const std::string &slot_1_type, bool slot_1_active,
+    const std::string &slot_2_name, const std::string &slot_2_id, const std::string &slot_2_type, bool slot_2_active,
+    const std::string &slot_3_name, const std::string &slot_3_id, const std::string &slot_3_type, bool slot_3_active,
+    const std::string &slot_4_name, const std::string &slot_4_id, const std::string &slot_4_type, bool slot_4_active,
+    const std::string &slot_5_name, const std::string &slot_5_id, const std::string &slot_5_type, bool slot_5_active,
+    const std::string &target_speaker_id, const std::string &target_speaker_name,
+    FontDateT *font_date, FontSmallT *font_small, FontMicroT *font_micro,
+    esphome::Color theme_primary, esphome::Color theme_secondary,
+    esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
+    esphome::Color col_slate, esphome::Color col_dark_gray) {
+  auto draw_right_chevrons = [&](bool show_up, bool show_down) {
+    if (!show_up && !show_down) return;
+    it.filled_rectangle(395, 140, 71, 160, col_bg);
+    if (show_up) render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, false);
+    if (show_down) render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, false);
+  };
+
+  if (music_overlay_mode == 5) {
+    // SUBPAGE 5: MUSIC MENU (SPEAKERS, LIBRARY, SETTINGS)
+    it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "MUSIC");
+    std::string spk_sub = fit_text_to_width_font(active_speaker_name, 260, font_small);
+    it.print(cx, 78, font_small, col_white, esphome::display::TextAlign::CENTER, spk_sub.c_str());
+
+    render_pill_button(it, 150, 316, 140, 18, theme_primary, col_dark_gray, "Speakers", col_white, font_small);
+    render_pill_button(it, 150, 316, 200, 18, theme_primary, col_dark_gray, "Library", col_white, font_small);
+    render_pill_button(it, 150, 316, 290, 18, theme_secondary, col_dark_gray, "Settings", col_white, font_small);
+
+  } else if (music_overlay_mode == 1) {
+    // LEVEL 1: SPEAKERS BROWSER (5-Slot Speaker Inventory)
+    render_menu_header(it, cx, 50, "SPEAKERS", font_date, theme_primary);
+
+    auto draw_speaker_card = [&](int y_mid, const std::string &name, const std::string &id_str, bool is_act) {
+      if (name.empty()) return;
+      bool is_current = (is_act || id_str == active_speaker_entity);
+      esphome::Color border_c = is_current ? theme_primary : theme_secondary;
+      esphome::Color txt_c = is_current ? theme_primary : col_white;
+
+      render_pill_button(it, 110, 356, y_mid, 18, border_c, col_dark_gray, "", txt_c, font_small);
+      if (is_current) {
+        it.filled_circle(114, y_mid, 6, theme_primary);
+      } else {
+        it.circle(114, y_mid, 5, col_slate);
+      }
+      std::string disp_name = fit_text_to_width_font(name, 218, font_small);
+      it.print(130, y_mid, font_small, txt_c, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
+    };
+
+    draw_speaker_card(104, slot_1_name, slot_1_id, slot_1_active);
+    draw_speaker_card(162, slot_2_name, slot_2_id, slot_2_active);
+    draw_speaker_card(220, slot_3_name, slot_3_id, slot_3_active);
+    draw_speaker_card(278, slot_4_name, slot_4_id, slot_4_active);
+    draw_speaker_card(336, slot_5_name, slot_5_id, slot_5_active);
+
+    if (music_browse_total_pages > 1) {
+      draw_right_chevrons(true, true);
+    }
+
+  } else if (music_overlay_mode == 2) {
+    // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Continuous 7-Item Eased Scroll)
+    int current_offset = 0;
+    if (menu_scroll_active) {
+      int cur_step = std::max(0, std::min(4, menu_scroll_step));
+      int shift = SHARED_SCROLL_EASE_116[cur_step];
+      current_offset = (menu_scroll_dir == 1) ? shift : (116 - shift);
+    } else {
+      current_offset = (music_category_page == 2) ? 116 : 0;
+    }
+
+    static constexpr const char *CAT_LABELS[7] = {
+        "FAVORITES", "PLAYLISTS", "ARTISTS", "ALBUMS", "PODCASTS", "RADIO", "AUDIOBOOKS"};
+    for (int i = 0; i < 7; i++) {
+      int y = 104 + i * 58 - current_offset;
+      if (y >= 50 && y <= 390) {
+        render_pill_button(it, 150, 316, y, 18, theme_secondary, col_dark_gray,
+                           CAT_LABELS[i], col_white, font_small);
+      }
+    }
+
+    it.filled_rectangle(0, 0, 466, 75, col_bg);
+    it.filled_rectangle(0, 370, 466, 96, col_bg);
+    render_menu_header(it, cx, 50, "LIBRARY", font_date, theme_primary);
+
+    int cur_dot_page = menu_scroll_active ? menu_scroll_target_page : music_category_page;
+    it.filled_circle(226, 440, (cur_dot_page == 1) ? 3 : 2, (cur_dot_page == 1) ? theme_primary : col_slate);
+    it.filled_circle(240, 440, (cur_dot_page == 2) ? 3 : 2, (cur_dot_page == 2) ? theme_primary : col_slate);
+
+    draw_right_chevrons(cur_dot_page == 2, cur_dot_page == 1);
+
+  } else if (music_overlay_mode == 3) {
+    // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards - 5 Slots)
+    bool is_podcast_list = (selected_category_mode == "podcast");
+    bool is_drill = (selected_category_mode == "artist" || selected_category_mode == "album" ||
+                     selected_category_mode == "artist_albums");
+
+    render_menu_header(it, cx, 50, selected_category_title, font_date, theme_primary);
+
+    auto draw_drilldown_icon = [&](int x_pos, int y_mid) {
+      for (int dy : {-4, 0, 4}) it.filled_rectangle(x_pos, y_mid + dy, 13, 2, theme_secondary);
+    };
+
+    auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &mtype, bool is_act) {
+      if (name.empty()) return;
+      if (is_drill) {
+        it.filled_circle(82, y_mid, 18, col_dark_gray);
+        it.circle(82, y_mid, 18, theme_primary);
+        it.filled_triangle(79, y_mid - 6, 79, y_mid + 6, 88, y_mid, theme_primary);
+
+        it.filled_circle(138, y_mid, 18, theme_secondary);
+        it.filled_circle(357, y_mid, 18, theme_secondary);
+        it.filled_rectangle(138, y_mid - 18, 219, 37, theme_secondary);
+
+        it.filled_circle(138, y_mid, 16, col_dark_gray);
+        it.filled_circle(357, y_mid, 16, col_dark_gray);
+        it.filled_rectangle(138, y_mid - 16, 219, 33, col_dark_gray);
+
+        std::string disp_name = fit_text_to_width_font(name, 196, font_small);
+        it.print(144, y_mid, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
+        draw_drilldown_icon(350, y_mid);
+      } else if (is_podcast_list) {
+        render_pill_button(it, 110, 356, y_mid, 18, theme_secondary, col_dark_gray, "", col_white, font_small);
+        std::string disp_name = fit_text_to_width_font(name, 196, font_small);
+        it.print(126, y_mid, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
+        draw_drilldown_icon(336, y_mid);
+      } else {
+        esphome::Color border_c = is_act ? theme_primary : theme_secondary;
+        esphome::Color txt_c = is_act ? theme_primary : col_white;
+        render_pill_button(it, 110, 356, y_mid, 18, border_c, col_dark_gray, "", txt_c, font_small);
+
+        esphome::Color icon_c = (mtype == "radio") ? theme_secondary : theme_primary;
+        it.filled_triangle(108, y_mid - 6, 108, y_mid + 6, 118, y_mid, icon_c);
+
+        std::string disp_name = fit_text_to_width_font(name, 218, font_small);
+        it.print(130, y_mid, font_small, txt_c, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
+      }
+    };
+
+    draw_slot_card(104, slot_1_name, slot_1_type, slot_1_active);
+    draw_slot_card(162, slot_2_name, slot_2_type, slot_2_active);
+    draw_slot_card(220, slot_3_name, slot_3_type, slot_3_active);
+    draw_slot_card(278, slot_4_name, slot_4_type, slot_4_active);
+    draw_slot_card(336, slot_5_name, slot_5_type, slot_5_active);
+
+    if (music_browse_total_pages > 1) {
+      draw_right_chevrons(true, true);
+      char pg_buf[16];
+      snprintf(pg_buf, sizeof(pg_buf), "%d / %d", music_browse_page, music_browse_total_pages);
+      it.print(cx, 440, font_micro, col_slate, esphome::display::TextAlign::CENTER, pg_buf);
+    }
+
+  } else if (music_overlay_mode == 4) {
+    // LEVEL 4: SPEAKER ACTION SHEET
+    std::string spk_title = target_speaker_name.empty() ? "SPEAKER" : target_speaker_name;
+    render_menu_header(it, cx, 50, spk_title, font_date, theme_primary);
+
+    bool is_current = (target_speaker_id == active_speaker_entity);
+    if (is_current) {
+      it.print(cx, 76, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "CURRENTLY CONTROLLING");
+      bool is_remote_target = (target_speaker_id != local_player_id);
+      if (is_remote_target) {
+        render_pill_button(it, 110, 356, 142, 18, theme_secondary, col_dark_gray, "TRANSFER TO LOCAL", col_white, font_small);
+        render_pill_button(it, 110, 356, 200, 18, theme_secondary, col_dark_gray, "UNJOIN AUDIO", col_white, font_small);
+        render_pill_button(it, 110, 356, 258, 18, theme_secondary, col_dark_gray, "STOP PLAYBACK", col_white, font_small);
+      } else {
+        render_pill_button(it, 110, 356, 160, 18, theme_secondary, col_dark_gray, "UNJOIN AUDIO", col_white, font_small);
+        render_pill_button(it, 110, 356, 230, 18, theme_secondary, col_dark_gray, "STOP PLAYBACK", col_white, font_small);
+      }
+    } else {
+      it.print(cx, 76, font_small, col_slate, esphome::display::TextAlign::CENTER, "SPEAKER ACTIONS");
+      render_pill_button(it, 110, 356, 130, 18, theme_secondary, col_dark_gray, "TRANSFER QUEUE", col_white, font_small);
+      render_pill_button(it, 110, 356, 188, 18, theme_secondary, col_dark_gray, "CONTROL ONLY", col_white, font_small);
+      render_pill_button(it, 110, 356, 246, 18, theme_secondary, col_dark_gray, "JOIN AUDIO", col_white, font_small);
+      render_pill_button(it, 110, 356, 304, 18, theme_secondary, col_dark_gray, "UNJOIN / DETACH", col_white, font_small);
+    }
+  }
+
+  render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+}
+
 }  // namespace pocket_ui
 
 using namespace pocket_ui;
