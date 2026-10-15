@@ -5142,6 +5142,681 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   }
 }
 
+
+// ============================================================================
+// SECTION 12: REUSABLE VECTOR STARSHIP, ASTEROID, ALIEN UFO & ASTEROIDS ENGINE
+// ============================================================================
+
+template<typename DisplayT>
+inline void render_asteroids_ship(DisplayT &it, int sx, int sy, float angle_rad,
+                                  float scale, bool thruster_on,
+                                  esphome::Color col_white, esphome::Color col_silver,
+                                  esphome::Color col_cyan, esphome::Color col_orange) {
+  float c_a = fast_cos(angle_rad);
+  float s_a = fast_sin(angle_rad);
+  float c_lw = fast_cos(angle_rad + 2.52f);
+  float s_lw = fast_sin(angle_rad + 2.52f);
+  float c_rw = fast_cos(angle_rad - 2.52f);
+  float s_rw = fast_sin(angle_rad - 2.52f);
+
+  int nx = sx + (int)(c_a * 17.0f * scale);
+  int ny = sy + (int)(s_a * 17.0f * scale);
+  int lwx = sx + (int)(c_lw * 13.0f * scale);
+  int lwy = sy + (int)(s_lw * 13.0f * scale);
+  int rwx = sx + (int)(c_rw * 13.0f * scale);
+  int rwy = sy + (int)(s_rw * 13.0f * scale);
+  int kx = sx - (int)(c_a * 5.0f * scale);
+  int ky = sy - (int)(s_a * 5.0f * scale);
+
+  // Vector delta hull
+  it.line(nx, ny, lwx, lwy, col_white);
+  it.line(nx, ny, rwx, rwy, col_white);
+  it.line(lwx, lwy, kx, ky, col_silver);
+  it.line(rwx, rwy, kx, ky, col_silver);
+
+  //Glowing cockpit canopy
+  int cpx = sx + (int)(c_a * 4.0f * scale);
+  int cpy = sy + (int)(s_a * 4.0f * scale);
+  it.filled_circle(cpx, cpy, std::max(1, (int)(2.0f * scale)), col_cyan);
+
+  if (thruster_on) {
+    int fx = sx - (int)(c_a * 14.0f * scale);
+    int fy = sy - (int)(s_a * 14.0f * scale);
+    it.line(kx, ky, fx, fy, col_orange);
+  }
+}
+
+template<typename DisplayT>
+inline void render_asteroids_rock(DisplayT &it, float rx, float ry, float r_base,
+                                  int shape, float rot_rad,
+                                  esphome::Color rim_col, esphome::Color crater_col) {
+  static constexpr float SHAPE_OFFSETS[3][8] = {
+      {0.86f, 1.14f, 0.90f, 1.18f, 0.82f, 1.10f, 0.94f, 1.06f},
+      {1.10f, 0.85f, 1.15f, 0.82f, 1.18f, 0.90f, 1.05f, 0.86f},
+      {0.94f, 1.18f, 0.85f, 1.10f, 0.90f, 1.15f, 0.82f, 1.06f}};
+  const int sh = ((shape % 3) + 3) % 3;
+  int px_prev = 0, py_prev = 0, px_first = 0, py_first = 0;
+  for (int v = 0; v < 8; v++) {
+    float ang = rot_rad + (float)v * 0.785398f;
+    float r = r_base * SHAPE_OFFSETS[sh][v];
+    int vx = (int)(rx + fast_cos(ang) * r);
+    int vy = (int)(ry + fast_sin(ang) * r);
+    if (v == 0) {
+      px_first = vx;
+      py_first = vy;
+    } else {
+      it.line(px_prev, py_prev, vx, vy, rim_col);
+    }
+    px_prev = vx;
+    py_prev = vy;
+  }
+  it.line(px_prev, py_prev, px_first, py_first, rim_col);
+
+  // Subtle internal facet ridge on Large & Medium asteroids
+  if (r_base >= 15.0f) {
+    int c1x = (int)(rx + fast_cos(rot_rad + 0.5f) * (r_base * 0.38f));
+    int c1y = (int)(ry + fast_sin(rot_rad + 0.5f) * (r_base * 0.38f));
+    int c2x = (int)(rx + fast_cos(rot_rad + 2.4f) * (r_base * 0.32f));
+    int c2y = (int)(ry + fast_sin(rot_rad + 2.4f) * (r_base * 0.32f));
+    it.line((int)rx, (int)ry, c1x, c1y, crater_col);
+    it.line((int)rx, (int)ry, c2x, c2y, crater_col);
+  }
+}
+
+template<typename DisplayT>
+inline void render_asteroids_ufo(DisplayT &it, int ux, int uy, float scale,
+                                 uint32_t now_ms, esphome::Color col_white,
+                                 esphome::Color col_cyan, esphome::Color col_magenta,
+                                 esphome::Color col_green, esphome::Color col_gold) {
+  int hw = (int)(16.0f * scale);
+  int mid_w = (int)(10.0f * scale);
+  int dome_r = std::max(3, (int)(6.0f * scale));
+  int body_h = std::max(3, (int)(5.0f * scale));
+
+  // Upper glass dome canopy
+  it.circle(ux, uy - 2, dome_r, col_cyan);
+  it.horizontal_line(ux - dome_r, uy - 1, dome_r * 2 + 1, esphome::Color(15, 22, 32));
+
+  // Metallic saucer upper & lower hull bevels
+  it.line(ux - mid_w, uy - 2, ux + mid_w, uy - 2, col_white);
+  it.line(ux - mid_w, uy - 2, ux - hw, uy + 2, col_magenta);
+  it.line(ux + mid_w, uy - 2, ux + hw, uy + 2, col_magenta);
+  it.line(ux - hw, uy + 2, ux + hw, uy + 2, col_white);
+  it.line(ux - hw, uy + 2, ux - mid_w, uy + body_h, col_magenta);
+  it.line(ux + hw, uy + 2, ux + mid_w, uy + body_h, col_magenta);
+  it.line(ux - mid_w, uy + body_h, ux + mid_w, uy + body_h, col_cyan);
+
+  // 3 Animated blinking running lights across the saucer rim
+  int blink = (int)((now_ms / 120U) % 3U);
+  it.filled_circle(ux - hw / 2, uy + 2, 1, (blink == 0) ? col_gold : col_green);
+  it.filled_circle(ux, uy + 2, 1, (blink == 1) ? col_gold : col_cyan);
+  it.filled_circle(ux + hw / 2, uy + 2, 1, (blink == 2) ? col_gold : col_green);
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                  bool game_just_entered, float roll_delta, float pitch_delta,
+                                  float &marble_touch_x, bool &game_btn_pressed,
+                                  int &high_score_asteroids,
+                                  FontBigT *font_date, FontSmallT *font_small,
+                                  esphome::Color theme_secondary,
+                                  esphome::Color col_bg, esphome::Color col_white,
+                                  esphome::Color col_silver, esphome::Color col_slate,
+                                  esphome::Color col_dark_gray, esphome::Color col_gold,
+                                  esphome::Color col_cyan, esphome::Color col_green,
+                                  esphome::Color col_magenta, esphome::Color col_orange,
+                                  esphome::Color col_red) {
+  struct AsteroidRock {
+    float x, y, vx, vy;
+    uint8_t tier;   // 3 = Large (r=26), 2 = Medium (r=16), 1 = Small (r=10)
+    uint8_t shape;  // 0, 1, 2
+    float rot, vrot;
+    bool active;
+  };
+  struct SpacePhoton {
+    float x, y, vx, vy;
+    bool active;
+  };
+  struct SpaceDebris {
+    float x, y, vx, vy;
+    float life;
+    esphome::Color col;
+    bool active;
+  };
+
+  static constexpr int MAX_ROCKS = 20;
+  static constexpr int MAX_SHOTS = 6;
+  static constexpr int MAX_SPARKS = 18;
+
+  static AsteroidRock rocks[MAX_ROCKS];
+  static SpacePhoton shots[MAX_SHOTS];
+  static SpaceDebris sparks[MAX_SPARKS];
+
+  static uint32_t last_phys_ms = 0;
+  static int wave_num = 1;
+  static int ast_score = 0;
+  static int ast_lives = 3;
+  static int hit_streak = 0;
+  static bool ast_game_over = false;
+  static bool is_new_high = false;
+  static float ship_angle = -1.570796f;
+  static uint32_t last_shot_ms = 0;
+  static uint32_t invuln_until_ms = 0;
+  static uint32_t shield_flash_ms = 0;
+
+  // Alien UFO Flying Saucer state
+  static bool ufo_active = false;
+  static float ufo_x = 0.0f;
+  static float ufo_y = 110.0f;
+  static float ufo_base_y = 110.0f;
+  static float ufo_vx = 68.0f;
+  static float ufo_phase = 0.0f;
+  static uint32_t next_ufo_ms = 0;
+
+  // Enemy UFO slow plasma orb (can be shot down by player!)
+  static bool ufo_orb_active = false;
+  static float ufo_orb_x = 0.0f;
+  static float ufo_orb_y = 0.0f;
+  static float ufo_orb_vx = 0.0f;
+  static float ufo_orb_vy = 0.0f;
+  static uint32_t ufo_next_fire_ms = 0;
+
+  // Floating popup & wave banner
+  static uint32_t popup_ms = 0;
+  static int popup_x = 233;
+  static int popup_y = 140;
+  static char popup_text[24] = "";
+  static esphome::Color popup_col(255, 215, 0);
+
+  static uint32_t banner_ms = 0;
+  static char banner_text[28] = "";
+
+  auto spawn_wave_rocks = [&](int wv) {
+    for (int i = 0; i < MAX_ROCKS; i++) rocks[i].active = false;
+    int num_large = std::min(6, 2 + wv);  // W1: 3, W2: 4, W3: 5, W4+: 6
+    float base_spd = std::min(58.0f, 32.0f + (wv - 1) * 4.5f);
+    for (int i = 0; i < num_large; i++) {
+      float sp_ang = (float)i * (2.0f * PI_F / (float)num_large) + 0.42f * (float)wv;
+      rocks[i].x = (float)cx + fast_cos(sp_ang) * 204.0f;
+      rocks[i].y = (float)cy + fast_sin(sp_ang) * 204.0f;
+      // Aim slightly offset from center so rocks orbit/cross cleanly
+      float off_ang = sp_ang + PI_F + ((i & 1) ? 0.34f : -0.34f);
+      rocks[i].vx = fast_cos(off_ang) * base_spd;
+      rocks[i].vy = fast_sin(off_ang) * base_spd;
+      rocks[i].tier = 3;
+      rocks[i].shape = (uint8_t)((i + wv) % 3);
+      rocks[i].rot = (float)i * 1.1f;
+      rocks[i].vrot = (i & 1) ? 0.85f : -0.85f;
+      rocks[i].active = true;
+    }
+  };
+
+  auto spawn_debris = [&](float sx, float sy, esphome::Color sc, int count) {
+    int spawned = 0;
+    for (int s = 0; s < MAX_SPARKS && spawned < count; s++) {
+      if (!sparks[s].active) {
+        float sa = (float)(s * 47 + (int)(now_ms & 0xFF)) * 0.085f;
+        float spd = 48.0f + (float)((s % 4) * 22);
+        sparks[s].x = sx;
+        sparks[s].y = sy;
+        sparks[s].vx = fast_cos(sa) * spd;
+        sparks[s].vy = fast_sin(sa) * spd;
+        sparks[s].life = 0.42f;
+        sparks[s].col = sc;
+        sparks[s].active = true;
+        spawned++;
+      }
+    }
+  };
+
+  auto reset_asteroids_game = [&]() {
+    last_phys_ms = now_ms;
+    wave_num = 1;
+    ast_score = 0;
+    ast_lives = 3;
+    hit_streak = 0;
+    ast_game_over = false;
+    is_new_high = false;
+    ship_angle = -1.570796f;
+    last_shot_ms = 0;
+    invuln_until_ms = now_ms + 1800U;
+    shield_flash_ms = 0;
+    ufo_active = false;
+    ufo_orb_active = false;
+    next_ufo_ms = now_ms + 6500U;
+    popup_ms = 0;
+    banner_ms = 0;
+    for (int i = 0; i < MAX_SHOTS; i++) shots[i].active = false;
+    for (int i = 0; i < MAX_SPARKS; i++) sparks[i].active = false;
+    spawn_wave_rocks(1);
+  };
+
+  if (game_just_entered) {
+    reset_asteroids_game();
+  }
+
+  float dt = (now_ms >= last_phys_ms) ? ((now_ms - last_phys_ms) * 0.001f) : 0.05f;
+  last_phys_ms = now_ms;
+  if (dt < 0.012f) dt = 0.012f;
+  if (dt > 0.075f) dt = 0.075f;
+
+  // 1. Option A Controls: Pure Tilt-to-Steer/Aim + Tap Anywhere to Fire
+  // Tilting in any 360-degree direction smoothly rotates the starship nose toward your tilt vector!
+  float tilt_mag = std::sqrt(roll_delta * roll_delta + pitch_delta * pitch_delta);
+  if (!ast_game_over && tilt_mag > 1.15f) {
+    float target_ang = std::atan2(-pitch_delta, roll_delta);
+    float diff = target_ang - ship_angle;
+    while (diff > PI_F) diff -= 2.0f * PI_F;
+    while (diff < -PI_F) diff += 2.0f * PI_F;
+    float slew = std::min(1.0f, dt * 8.5f);
+    ship_angle += diff * slew;
+  }
+
+  // Tap Anywhere on Screen or Press Button -> Fire Photon Torpedo (No tap-position aim override!)
+  if (marble_touch_x >= 0.0f || game_btn_pressed) {
+    marble_touch_x = -1.0f;
+    game_btn_pressed = false;
+
+    if (ast_game_over) {
+      reset_asteroids_game();
+    } else if (now_ms - last_shot_ms >= 135U) {
+      for (int i = 0; i < MAX_SHOTS; i++) {
+        if (!shots[i].active) {
+          float ca = fast_cos(ship_angle);
+          float sa = fast_sin(ship_angle);
+          shots[i].x = (float)cx + ca * 18.0f;
+          shots[i].y = (float)cy + sa * 18.0f;
+          shots[i].vx = ca * 265.0f;
+          shots[i].vy = sa * 265.0f;
+          shots[i].active = true;
+          last_shot_ms = now_ms;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!ast_game_over) {
+    // 2. Alien UFO Saucer Spawner & Flight
+    if (!ufo_active && now_ms >= next_ufo_ms) {
+      ufo_active = true;
+      bool from_left = ((now_ms / 100U) & 1) == 0;
+      ufo_base_y = ((now_ms / 300U) & 1) ? 105.0f : 335.0f;
+      ufo_y = ufo_base_y;
+      ufo_x = from_left ? 48.0f : 418.0f;
+      float u_spd = std::min(95.0f, 56.0f + (wave_num - 1) * 6.0f);
+      ufo_vx = from_left ? u_spd : -u_spd;
+      ufo_phase = 0.0f;
+      ufo_next_fire_ms = now_ms + 1600U;
+    }
+
+    if (ufo_active) {
+      ufo_x += ufo_vx * dt;
+      ufo_phase += dt * 3.8f;
+      ufo_y = ufo_base_y + fast_sin(ufo_phase) * 18.0f;
+
+      // UFO fires a slow glowing plasma orb toward the ship if none is active
+      if (!ufo_orb_active && now_ms >= ufo_next_fire_ms) {
+        float dx = (float)cx - ufo_x;
+        float dy = (float)cy - ufo_y;
+        float d = std::sqrt(dx * dx + dy * dy);
+        if (d > 24.0f) {
+          ufo_orb_active = true;
+          ufo_orb_x = ufo_x;
+          ufo_orb_y = ufo_y;
+          ufo_orb_vx = (dx / d) * 78.0f;
+          ufo_orb_vy = (dy / d) * 78.0f;
+        }
+        ufo_next_fire_ms = now_ms + 3200U;
+      }
+
+      // Despawn UFO if it exits the opposite side of the circular arena
+      if (ufo_x < 36.0f || ufo_x > 430.0f) {
+        ufo_active = false;
+        next_ufo_ms = now_ms + (uint32_t)std::max(4500, 9500 - wave_num * 600);
+      }
+    }
+
+    // Move UFO Plasma Orb
+    if (ufo_orb_active) {
+      ufo_orb_x += ufo_orb_vx * dt;
+      ufo_orb_y += ufo_orb_vy * dt;
+      float odx = ufo_orb_x - (float)cx;
+      float ody = ufo_orb_y - (float)cy;
+      if (odx * odx + ody * ody > 220.0f * 220.0f) {
+        ufo_orb_active = false;
+      }
+    }
+
+    // 3. Move Player Photons
+    for (int i = 0; i < MAX_SHOTS; i++) {
+      if (shots[i].active) {
+        shots[i].x += shots[i].vx * dt;
+        shots[i].y += shots[i].vy * dt;
+        float sdx = shots[i].x - (float)cx;
+        float sdy = shots[i].y - (float)cy;
+        if (sdx * sdx + sdy * sdy > 222.0f * 222.0f) {
+          shots[i].active = false;
+          hit_streak = 0;
+        }
+      }
+    }
+
+    // 4. Move Asteroids
+    for (int i = 0; i < MAX_ROCKS; i++) {
+      if (rocks[i].active) {
+        rocks[i].x += rocks[i].vx * dt;
+        rocks[i].y += rocks[i].vy * dt;
+        rocks[i].rot += rocks[i].vrot * dt;
+        float rdx = rocks[i].x - (float)cx;
+        float rdy = rocks[i].y - (float)cy;
+        float d_sq = rdx * rdx + rdy * rdy;
+        if (d_sq > 218.0f * 218.0f) {
+          // Toroidal circular wrap across the antipodal chord
+          rocks[i].x = (float)cx - rdx * 0.94f;
+          rocks[i].y = (float)cy - rdy * 0.94f;
+        }
+      }
+    }
+
+    // 5. Photons vs. UFO, UFO Plasma Orb & Asteroids
+    for (int s = 0; s < MAX_SHOTS; s++) {
+      if (!shots[s].active) continue;
+
+      // 5A. Photon vs. UFO Plasma Orb (Player can shoot down incoming UFO fire!)
+      if (ufo_orb_active) {
+        float odx = shots[s].x - ufo_orb_x;
+        float ody = shots[s].y - ufo_orb_y;
+        if (odx * odx + ody * ody < 12.0f * 12.0f) {
+          shots[s].active = false;
+          ufo_orb_active = false;
+          ast_score += 50;
+          spawn_debris(ufo_orb_x, ufo_orb_y, col_cyan, 5);
+          continue;
+        }
+      }
+
+      // 5B. Photon vs. Alien UFO Saucer
+      if (ufo_active) {
+        float udx = shots[s].x - ufo_x;
+        float udy = shots[s].y - ufo_y;
+        if (udx * udx + udy * udy < 20.0f * 20.0f) {
+          shots[s].active = false;
+          ufo_active = false;
+          next_ufo_ms = now_ms + (uint32_t)std::max(5000, 10000 - wave_num * 600);
+          hit_streak++;
+          int mult = std::min(4, 1 + hit_streak / 3);
+          int pts = 250 * mult;
+          ast_score += pts;
+          if (ast_score > high_score_asteroids) {
+            high_score_asteroids = ast_score;
+            is_new_high = true;
+          }
+          spawn_debris(ufo_x, ufo_y, col_magenta, 10);
+          popup_x = (int)ufo_x;
+          popup_y = (int)ufo_y;
+          popup_ms = now_ms;
+          if (ast_lives < 3) {
+            ast_lives++;
+            snprintf(popup_text, sizeof(popup_text), "UFO +%d +1 SHIP!", pts);
+          } else {
+            snprintf(popup_text, sizeof(popup_text), "UFO +%d!", pts);
+          }
+          popup_col = col_magenta;
+          continue;
+        }
+      }
+
+      // 5C. Photon vs. Asteroids
+      for (int a = 0; a < MAX_ROCKS; a++) {
+        if (!rocks[a].active) continue;
+        float r_hit = (rocks[a].tier == 3) ? 27.0f : ((rocks[a].tier == 2) ? 17.0f : 11.0f);
+        float adx = shots[s].x - rocks[a].x;
+        float ady = shots[s].y - rocks[a].y;
+        if (adx * adx + ady * ady < r_hit * r_hit) {
+          shots[s].active = false;
+          hit_streak++;
+          int mult = std::min(4, 1 + hit_streak / 3);
+          spawn_debris(rocks[a].x, rocks[a].y, col_gold, 6);
+
+          int base_pts = (rocks[a].tier == 3) ? 20 : ((rocks[a].tier == 2) ? 50 : 100);
+          int pts = base_pts * mult;
+          ast_score += pts;
+          if (ast_score > high_score_asteroids) {
+            high_score_asteroids = ast_score;
+            is_new_high = true;
+          }
+
+          popup_x = (int)rocks[a].x;
+          popup_y = (int)rocks[a].y;
+          popup_ms = now_ms;
+          if (mult > 1) {
+            snprintf(popup_text, sizeof(popup_text), "+%d %dx", pts, mult);
+            popup_col = col_gold;
+          } else {
+            snprintf(popup_text, sizeof(popup_text), "+%d", pts);
+            popup_col = col_white;
+          }
+
+          if (rocks[a].tier > 1) {
+            uint8_t next_tier = rocks[a].tier - 1;
+            float speed_up = (next_tier == 2) ? 1.25f : 1.38f;
+            float old_vx = rocks[a].vx;
+            float old_vy = rocks[a].vy;
+            rocks[a].tier = next_tier;
+            rocks[a].shape = (rocks[a].shape + 1) % 3;
+            rocks[a].vx = -old_vy * speed_up;
+            rocks[a].vy = old_vx * speed_up;
+
+            for (int n = 0; n < MAX_ROCKS; n++) {
+              if (!rocks[n].active) {
+                rocks[n].x = rocks[a].x;
+                rocks[n].y = rocks[a].y;
+                rocks[n].vx = old_vy * speed_up;
+                rocks[n].vy = -old_vx * speed_up;
+                rocks[n].tier = next_tier;
+                rocks[n].shape = (rocks[a].shape + 1) % 3;
+                rocks[n].rot = rocks[a].rot + 0.8f;
+                rocks[n].vrot = -rocks[a].vrot * 1.2f;
+                rocks[n].active = true;
+                break;
+              }
+            }
+          } else {
+            rocks[a].active = false;
+          }
+          break;
+        }
+      }
+    }
+
+    // 6. Check Wave Clear
+    int active_rocks = 0;
+    for (int a = 0; a < MAX_ROCKS; a++) {
+      if (rocks[a].active) active_rocks++;
+    }
+    if (active_rocks == 0) {
+      int wave_bonus = wave_num * 300;
+      ast_score += wave_bonus;
+      if (ast_score > high_score_asteroids) {
+        high_score_asteroids = ast_score;
+        is_new_high = true;
+      }
+      wave_num++;
+      invuln_until_ms = now_ms + 1500U;
+      snprintf(banner_text, sizeof(banner_text), "WAVE %d! +%d", wave_num, wave_bonus);
+      banner_ms = now_ms;
+      spawn_wave_rocks(wave_num);
+    }
+
+    // 7. Ship Collision Check (Asteroids & UFO Plasma Orb)
+    if (now_ms >= invuln_until_ms) {
+      bool ship_hit = false;
+      if (ufo_orb_active) {
+        float odx = ufo_orb_x - (float)cx;
+        float ody = ufo_orb_y - (float)cy;
+        if (odx * odx + ody * ody < 15.0f * 15.0f) {
+          ufo_orb_active = false;
+          ship_hit = true;
+        }
+      }
+      if (!ship_hit) {
+        for (int a = 0; a < MAX_ROCKS; a++) {
+          if (!rocks[a].active) continue;
+          float r_hit = (rocks[a].tier == 3) ? 25.0f : ((rocks[a].tier == 2) ? 15.0f : 9.0f);
+          float adx = rocks[a].x - (float)cx;
+          float ady = rocks[a].y - (float)cy;
+          if (adx * adx + ady * ady < (r_hit + 10.0f) * (r_hit + 10.0f)) {
+            rocks[a].active = false;
+            ship_hit = true;
+            break;
+          }
+        }
+      }
+      if (ship_hit) {
+        ast_lives--;
+        hit_streak = 0;
+        shield_flash_ms = now_ms;
+        invuln_until_ms = now_ms + 2000U;
+        spawn_debris((float)cx, (float)cy, col_red, 10);
+        if (ast_lives <= 0) {
+          ast_game_over = true;
+          if (ast_score > high_score_asteroids) {
+            high_score_asteroids = ast_score;
+            is_new_high = true;
+          }
+        }
+      }
+    }
+  }
+
+  // Update explosion sparks
+  for (int s = 0; s < MAX_SPARKS; s++) {
+    if (sparks[s].active) {
+      sparks[s].x += sparks[s].vx * dt;
+      sparks[s].y += sparks[s].vy * dt;
+      sparks[s].life -= dt;
+      if (sparks[s].life <= 0.0f) sparks[s].active = false;
+    }
+  }
+
+  // ==========================================================================
+  // RENDERING PIPELINE (Clean Deep-Space Vector Arena)
+  // ==========================================================================
+
+  // 1. Deep-Space Starfield & Outer Radar Ring (r = 212)
+  static constexpr int16_t STAR_X[16] = {65, 140, 310, 395, 75, 130, 340, 400, 85, 160, 305, 380, 195, 270, 200, 265};
+  static constexpr int16_t STAR_Y[16] = {80, 115, 75, 110, 195, 240, 205, 265, 315, 360, 330, 375, 95, 115, 375, 360};
+  for (int s = 0; s < 16; s++) {
+    it.draw_pixel_at(STAR_X[s], STAR_Y[s], esphome::Color(125, 142, 168));
+  }
+  it.circle(cx, cy, 212, col_dark_gray);
+
+  // 2. Unified Bottom Scorekeeper at y = 408 (No clipped top-right ship icons!)
+  char hud_sc[56];
+  int mult_now = std::min(4, 1 + hit_streak / 3);
+  if (mult_now > 1) {
+    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Ships:%d  •  %dx  •  %d", wave_num, ast_lives, mult_now, ast_score);
+  } else {
+    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Ships:%d  •  %d", wave_num, ast_lives, ast_score);
+  }
+  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, hud_sc);
+
+  // 3. Explosion Sparks
+  for (int s = 0; s < MAX_SPARKS; s++) {
+    if (sparks[s].active) {
+      it.filled_rectangle((int)sparks[s].x - 1, (int)sparks[s].y - 1, 2, 2, sparks[s].col);
+    }
+  }
+
+  // 4. Player Photon Torpedoes & UFO Plasma Orb
+  for (int i = 0; i < MAX_SHOTS; i++) {
+    if (shots[i].active) {
+      int px = (int)shots[i].x;
+      int py = (int)shots[i].y;
+      it.filled_circle(px, py, 2, col_white);
+      it.line(px, py, px - (int)(shots[i].vx * 0.032f), py - (int)(shots[i].vy * 0.032f), theme_secondary);
+    }
+  }
+  if (ufo_orb_active) {
+    it.filled_circle((int)ufo_orb_x, (int)ufo_orb_y, 4, col_red);
+    it.circle((int)ufo_orb_x, (int)ufo_orb_y, 5, col_gold);
+    it.draw_pixel_at((int)ufo_orb_x - 1, (int)ufo_orb_y - 1, col_white);
+  }
+
+  // 5. Asteroids Vector Polygons
+  for (int a = 0; a < MAX_ROCKS; a++) {
+    if (!rocks[a].active) continue;
+    float r_base = (rocks[a].tier == 3) ? 26.0f : ((rocks[a].tier == 2) ? 16.0f : 10.0f);
+    esphome::Color ast_col = (rocks[a].tier == 3) ? col_white : ((rocks[a].tier == 2) ? col_silver : col_slate);
+    render_asteroids_rock(it, rocks[a].x, rocks[a].y, r_base, rocks[a].shape, rocks[a].rot, ast_col, col_dark_gray);
+  }
+
+  // 6. Alien UFO Flying Saucer
+  if (ufo_active) {
+    render_asteroids_ufo(it, (int)ufo_x, (int)ufo_y, 1.0f, now_ms,
+                         col_white, col_cyan, col_magenta, col_green, col_gold);
+  }
+
+  // 7. Player Starship + Subtle Forward Laser Sight Dots
+  if (!ast_game_over) {
+    float ca = fast_cos(ship_angle);
+    float sa = fast_sin(ship_angle);
+    // Subtle 3-dot forward targeting sight so tilt aiming is effortless
+    for (int d = 32; d <= 68; d += 18) {
+      it.draw_pixel_at(cx + (int)(ca * (float)d), cy + (int)(sa * (float)d), theme_secondary);
+    }
+
+    bool show_ship = true;
+    if (now_ms < invuln_until_ms) {
+      show_ship = ((now_ms / 95U) & 1) == 0;
+      esphome::Color sh_c = (now_ms - shield_flash_ms < 320U) ? col_red : theme_secondary;
+      it.circle(cx, cy, 19, sh_c);
+    }
+    if (show_ship) {
+      render_asteroids_ship(it, cx, cy, ship_angle, 1.0f, (now_ms - last_shot_ms < 120U),
+                            col_white, col_silver, theme_secondary, col_orange);
+    }
+  }
+
+  // 8. Floating Popups & Wave Banner
+  if (popup_ms > 0 && (now_ms - popup_ms < 650U)) {
+    int py_off = (int)((now_ms - popup_ms) * 20U / 650U);
+    it.print(popup_x, popup_y - py_off, font_small, popup_col,
+             esphome::display::TextAlign::CENTER, popup_text);
+  }
+  if (banner_ms > 0 && (now_ms - banner_ms < 1300U)) {
+    it.print(cx, 146, font_date, col_cyan, esphome::display::TextAlign::CENTER, banner_text);
+  }
+
+  // 9. Circular Game Over Summary Modal (Matching Games 1-3)
+  if (ast_game_over) {
+    it.filled_circle(cx, cy, 115, col_bg);
+    it.circle(cx, cy, 115, is_new_high ? col_gold : theme_secondary);
+    it.circle(cx, cy, 113, is_new_high ? col_gold : theme_secondary);
+
+    if (is_new_high) {
+      it.print(cx, 156, font_date, col_gold, esphome::display::TextAlign::CENTER, "NEW HIGH SCORE!");
+    } else if (wave_num == 1) {
+      it.print(cx, 156, font_date, col_red, esphome::display::TextAlign::CENTER, "GAME OVER");
+    } else {
+      char w_end[32];
+      snprintf(w_end, sizeof(w_end), "WAVE %d REACHED", wave_num);
+      it.print(cx, 156, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_end);
+    }
+
+    char score_str[32];
+    snprintf(score_str, sizeof(score_str), "Score: %d", ast_score);
+    it.print(cx, 198, font_date, col_white, esphome::display::TextAlign::CENTER, score_str);
+
+    char best_str[32];
+    snprintf(best_str, sizeof(best_str), "Best: %d", high_score_asteroids);
+    it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
+
+    it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
+  }
+}
+
 }  // namespace pocket_ui
 
 using namespace pocket_ui;
