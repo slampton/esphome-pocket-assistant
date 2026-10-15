@@ -241,11 +241,29 @@ inline void draw_glow_line(DisplayT &it, int x0, int y0, int x1, int y1,
   it.line(x0, y0, x1, y1, core_col);
 }
 
-// Tracks the last timestamp (millis) when an animated screensaver rendered a frame
-// so disp1's 1-second timer never collides with the 10 FPS (100ms) screensaver loop.
-inline uint32_t &last_screensaver_draw_ms() {
+// Universal Audio-Aware Ambient Animation Pacer (20 FPS Idle / ~13.3 FPS Audio-Protected):
+// Shared across all Docked Screensavers, Sky & Weather motion wallpapers, and future Home Page
+// live backgrounds. Unlocks full 20 FPS (50ms interval, 42ms coalesce guard against disp1's 1s timer)
+// whenever local audio/alerts are idle, and automatically paces at 75ms (~13.3 FPS) during active
+// local Sendspin FLAC playback so audio DMA and Octal PSRAM never contend.
+inline uint32_t &last_ambient_anim_ms() {
   static uint32_t ts = 0;
   return ts;
+}
+
+inline uint32_t &last_screensaver_draw_ms() {
+  return last_ambient_anim_ms();
+}
+
+inline void record_ambient_frame_ms(uint32_t now_ms) {
+  last_ambient_anim_ms() = now_ms;
+}
+
+inline bool should_step_ambient_anim(uint32_t now_ms, bool local_audio_busy,
+                                     bool va_busy = false, bool alert_busy = false) {
+  if (va_busy) return false;
+  const uint32_t min_gap = alert_busy ? 120U : (local_audio_busy ? 75U : 42U);
+  return (now_ms - last_ambient_anim_ms() >= min_gap);
 }
 
 // Standardized Dynamic Scroll Easing Constants (5-Step Cubic Eased Curve)
@@ -2329,6 +2347,188 @@ inline void render_forecast_glyph(DisplayT &it, int gx, int gy, const std::strin
     it.filled_circle(gx, gy - 1, 7, esphome::Color(165, 180, 200));
     it.filled_circle(gx - 5, gy + 1, 5, esphome::Color(145, 160, 180));
     it.filled_circle(gx + 5, gy + 1, 5, esphome::Color(145, 160, 180));
+  }
+}
+
+// Returns true when the active or simulated weather condition includes live particle or celestial motion
+// (falling rain/drizzle/pouring, crystalline snow/sleet, thunderstorm lightning, or twinkling night stars).
+// Reusable across Sky & Weather (Page 5), future Home Page live backgrounds, and screensavers.
+inline bool has_weather_motion(const std::string &cond, bool is_night) {
+  if (cond.find("rain") != std::string::npos ||
+      cond.find("pouring") != std::string::npos ||
+      cond.find("drizzle") != std::string::npos ||
+      cond.find("snow") != std::string::npos ||
+      cond.find("sleet") != std::string::npos ||
+      cond.find("hail") != std::string::npos ||
+      cond.find("lightning") != std::string::npos ||
+      cond.find("thunder") != std::string::npos) {
+    return true;
+  }
+  if (is_night && (cond == "clear-night" || cond == "clearnight" ||
+                   cond == "sunny" || cond == "clear" || cond == "clear-day" ||
+                   cond.find("partly") != std::string::npos)) {
+    return true;
+  }
+  return false;
+}
+
+// Modular Full-Screen Atmospheric & Weather Motion Wallpaper Engine:
+// Reusable across Sky & Weather (Page 5) and any future Home Page or Weather Screensaver.
+// - Automatically stamps record_ambient_frame_ms(now_ms) when motion is active for 20 FPS / 13.3 FPS pacing
+// - Uses .rodata LUT fast_sin() for 64-star night twinkle and 36-flake snow drift (0 hardware sinf stalls)
+template<typename DisplayT, typename SpanRangeT>
+inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                            const std::string &cond, bool is_night,
+                                            const SpanRangeT &cloud_spans,
+                                            int cel_cx = 346, int cel_cy = 91,
+                                            bool mask_hero_temp = true) {
+  if (has_weather_motion(cond, is_night)) {
+    record_ambient_frame_ms(now_ms);
+  }
+
+  // LAYER 0: ATMOSPHERIC SKY CANVAS
+  if (!is_night) {
+    esphome::Color day_bg(28, 54, 84); // Clear / Calm daylight sky
+    if (cond.find("cloud") != std::string::npos &&
+        cond.find("partly") == std::string::npos &&
+        cond.find("mostlysunny") == std::string::npos &&
+        cond.find("partlysunny") == std::string::npos) {
+      day_bg = esphome::Color(22, 38, 56); // Overcast slate sky
+    } else if (cond.find("rain") != std::string::npos ||
+               cond.find("lightning") != std::string::npos ||
+               cond.find("thunder") != std::string::npos) {
+      day_bg = esphome::Color(18, 30, 46); // Stormy dark sky
+    }
+    it.filled_circle(cx, cy, 228, day_bg);
+  }
+
+  // LAYER 1A: FULL-SCREEN NIGHT STARFIELD (64 twinkling stars via LUT fast_sin)
+  if (is_night && (cond == "clear-night" || cond == "clearnight" ||
+                   cond == "sunny" || cond == "clear" || cond == "clear-day" ||
+                   cond.find("partly") != std::string::npos)) {
+    float t_star = static_cast<float>(now_ms % 62832U) * 0.003f;
+    for (int k = 0; k < 64; k++) {
+      int sx = WEATHER_STARS_X[k];
+      int sy = WEATHER_STARS_Y[k];
+      if (mask_hero_temp && sx >= 165 && sx <= 302 && sy >= 89 && sy <= 144) continue;
+      if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
+
+      float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.8f);
+      uint8_t br = static_cast<uint8_t>(155 + static_cast<int>(90.0f * twinkle));
+      esphome::Color star_c = (k % 3 == 0)
+          ? esphome::Color(br, static_cast<uint8_t>(br * 0.94f), br)
+          : esphome::Color(static_cast<uint8_t>(br * 0.75f), static_cast<uint8_t>(br * 0.85f), br);
+      it.draw_pixel_at(sx, sy, star_c);
+      if (k % 7 == 0 && br > 215) {
+        esphome::Color gl_c(160, 190, 230);
+        it.draw_pixel_at(sx + 1, sy, gl_c);
+        it.draw_pixel_at(sx - 1, sy, gl_c);
+        it.draw_pixel_at(sx, sy + 1, gl_c);
+        it.draw_pixel_at(sx, sy - 1, gl_c);
+      }
+    }
+  }
+
+  // LAYER 1B: VOLUMETRIC CUMULUS (Partly Cloudy) & RLE OVERCAST CANOPY (Cloudy/Overcast)
+  if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
+    bool is_partly = (cond.find("partly") != std::string::npos ||
+                      cond.find("mostlysunny") != std::string::npos ||
+                      cond.find("partlysunny") != std::string::npos);
+    if (is_partly) {
+      render_cumulus_cloud(it, 95, 95, 0.95f, false, is_night);
+      render_cumulus_cloud(it, 370, 180, 0.85f, false, is_night);
+      render_cumulus_cloud(it, 100, 255, 0.80f, false, is_night);
+    } else {
+      esphome::Color c_shad = is_night ? esphome::Color(12, 16, 22) : esphome::Color(24, 38, 56);
+      esphome::Color c_body = is_night ? esphome::Color(20, 28, 38) : esphome::Color(38, 56, 78);
+      esphome::Color c_mid  = is_night ? esphome::Color(28, 38, 50) : esphome::Color(46, 66, 90);
+      esphome::Color c_high = is_night ? esphome::Color(38, 50, 66) : esphome::Color(56, 78, 104);
+      esphome::Color c_crst = is_night ? esphome::Color(58, 74, 98) : esphome::Color(76, 104, 134);
+      esphome::Color c_brgt = is_night ? esphome::Color(68, 86, 112) : esphome::Color(90, 120, 154);
+      esphome::Color pal[6] = {c_shad, c_body, c_mid, c_high, c_crst, c_brgt};
+
+      for (uint32_t v : cloud_spans) {
+        int sy = static_cast<int>(v & 0x1FFU);
+        int sx = static_cast<int>((v >> 9) & 0x1FFU);
+        int slen = static_cast<int>((v >> 18) & 0x1FFU);
+        int scol = static_cast<int>((v >> 27) & 0x7U);
+        it.horizontal_line(sx, sy, slen, pal[scol]);
+      }
+    }
+  }
+
+  // LAYER 1C: PRE-SCATTERED FALLING RAIN (26 or 40 angled streaks)
+  if (cond.find("rain") != std::string::npos ||
+      cond.find("pouring") != std::string::npos ||
+      cond.find("drizzle") != std::string::npos) {
+    bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
+    int count = is_heavy ? 40 : 26;
+    esphome::Color rain_c1 = is_night ? esphome::Color(120, 160, 215) : esphome::Color(145, 185, 230);
+    esphome::Color rain_c2 = is_night ? esphome::Color(60, 90, 130)   : esphome::Color(90, 130, 175);
+    int extra_len = is_heavy ? 4 : 0;
+    for (int i = 0; i < count; i++) {
+      int ry = (RAIN_Y[i] + static_cast<int>((static_cast<uint64_t>(now_ms) * static_cast<uint32_t>(RAIN_SPD[i])) / 1000ULL)) % 435 + 15;
+      int rx = (RAIN_X[i] - (ry - 15) / 5) % 410 + 28;
+      int len_r = RAIN_LEN[i] + extra_len;
+      it.line(rx, ry, rx - 3, ry + len_r, (i & 1) ? rain_c1 : rain_c2);
+    }
+  }
+
+  // LAYER 1D: CRYSTALLINE SNOWFLAKES (36 multi-tier flakes with LUT fast_sin lateral drift)
+  if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
+    float t_snow = static_cast<float>(now_ms % 62832U) * 0.0022f;
+    esphome::Color c_core(255, 255, 255);
+    esphome::Color c_arm2 = is_night ? esphome::Color(215, 235, 255) : esphome::Color(230, 245, 255);
+    esphome::Color c_tip2 = is_night ? esphome::Color(160, 195, 235) : esphome::Color(180, 215, 245);
+    esphome::Color c_tip1 = is_night ? esphome::Color(180, 215, 245) : esphome::Color(195, 225, 250);
+    esphome::Color c_dot0 = is_night ? esphome::Color(190, 220, 250) : esphome::Color(210, 235, 255);
+    for (int i = 0; i < 36; i++) {
+      int sy = (SNOW_Y[i] + static_cast<int>((static_cast<uint64_t>(now_ms) * static_cast<uint32_t>(SNOW_SPD[i])) / 1000ULL)) % 430 + 15;
+      int sx = SNOW_X[i] + static_cast<int>(fast_sin(t_snow + SNOW_PHASE[i]) * 8.0f);
+      if (sx < 2 || sx > 463 || sy < 2 || sy > 463) continue;
+
+      if (SNOW_TYPE[i] == 2) {
+        it.draw_pixel_at(sx, sy, c_core);
+        it.draw_pixel_at(sx + 1, sy, c_arm2); it.draw_pixel_at(sx + 2, sy, c_tip2);
+        it.draw_pixel_at(sx - 1, sy, c_arm2); it.draw_pixel_at(sx - 2, sy, c_tip2);
+        it.draw_pixel_at(sx, sy + 1, c_arm2); it.draw_pixel_at(sx, sy + 2, c_tip2);
+        it.draw_pixel_at(sx, sy - 1, c_arm2); it.draw_pixel_at(sx, sy - 2, c_tip2);
+        it.draw_pixel_at(sx + 1, sy + 1, c_tip2); it.draw_pixel_at(sx - 1, sy - 1, c_tip2);
+        it.draw_pixel_at(sx + 1, sy - 1, c_tip2); it.draw_pixel_at(sx - 1, sy + 1, c_tip2);
+      } else if (SNOW_TYPE[i] == 1) {
+        it.draw_pixel_at(sx, sy, c_core);
+        it.draw_pixel_at(sx + 1, sy, c_tip1);
+        it.draw_pixel_at(sx - 1, sy, c_tip1);
+        it.draw_pixel_at(sx, sy + 1, c_tip1);
+        it.draw_pixel_at(sx, sy - 1, c_tip1);
+      } else {
+        it.draw_pixel_at(sx, sy, c_dot0);
+        it.draw_pixel_at(sx + 1, sy, c_dot0);
+        it.draw_pixel_at(sx, sy + 1, c_dot0);
+        it.draw_pixel_at(sx + 1, sy + 1, c_dot0);
+      }
+    }
+  }
+
+  // LAYER 1E: THUNDERSTORM BRANCHING LIGHTNING STRIKE
+  if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
+    uint32_t flash_step = (now_ms / 250U) % 18U; // Repeats every 4.5 seconds
+    if (flash_step <= 1U) {
+      if (flash_step == 0U) {
+        it.filled_circle(cx, cy, 228, is_night ? esphome::Color(42, 58, 85) : esphome::Color(72, 98, 135));
+      }
+      esphome::Color bolt_c(255, 255, 255);
+      esphome::Color glow_c(180, 220, 255);
+      it.line(245, 25, 235, 60, bolt_c);
+      it.line(235, 60, 252, 95, bolt_c);
+      it.line(252, 95, 220, 140, bolt_c);
+      it.line(220, 140, 195, 190, bolt_c);
+      it.line(195, 190, 165, 250, bolt_c);
+      it.line(235, 60, 275, 90, glow_c);
+      it.line(275, 90, 290, 125, glow_c);
+      it.line(220, 140, 180, 175, glow_c);
+      it.line(195, 190, 215, 225, glow_c);
+    }
   }
 }
 

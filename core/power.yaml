@@ -432,16 +432,15 @@ interval:
     then:
       - lambda: |-
           // High-refresh animation loop for active screensavers when docked:
-          // - Runs at full 20 FPS (50ms) when local music is idle for silky-smooth animations
-          // - Automatically paces at ~13.3 FPS (75ms) when local Sendspin FLAC audio is playing
-          //   to guarantee uncontested Octal PSRAM bandwidth for zero-dropout music playback
+          // Uses the universal audio-aware pacer (20 FPS when music idle, ~13.3 FPS during local Sendspin playback)
           if (id(display_power_state) == 1 && !id(va_active) && id(va_status_text).empty() && !id(is_hibernating)) {
             auto s_style = id(screensaver_style_select).current_option();
             if (s_style != "Ambient Clock" && s_style != "Screen Off") {
               const bool local_music_playing =
                   (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-              const uint32_t min_ss_gap = local_music_playing ? 75U : 42U;
-              if (millis() - pocket_ui::last_screensaver_draw_ms() >= min_ss_gap) {
+              if (pocket_ui::should_step_ambient_anim(millis(), local_music_playing,
+                                                      id(va_active) || !id(va_status_text).empty(),
+                                                      id(alarm_ringing) || id(timer_ringing))) {
                 id(disp1).update();
               }
             }

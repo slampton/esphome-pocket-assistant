@@ -1394,39 +1394,30 @@ interval:
             }
           }
 
-          // Dynamic Atmospheric Motion Wallpaper with Asymmetric Audio-Protected Cadence
-          // Active particle animation loop: 100ms (10 FPS) for falling precipitation (rain/snow/sleet/lightning) and star twinkle
-          // Static weather conditions (sunny, partly cloudy, cloudy, overcast) run on default 1s display cadence with near-zero CPU load
+          // Dynamic Atmospheric Motion Wallpaper with Universal Audio-Aware Cadence
+          // - Unlocks full 20 FPS (50ms) when local music is idle for rain, snow, lightning, and night starfield
+          // - Paces smoothly at ~13.3 FPS (75ms) when local Sendspin music is playing
+          // - Static daytime weather conditions run on the default 1s display refresh with near-zero CPU load
           if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
-            static uint32_t last_weather_disp_update = 0;
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
 
-            // Re-evaluate condition strings at most once per second (1000ms)
-            if (now_w_ms - last_cond_eval_time >= 1000) {
+            if (now_w_ms - last_cond_eval_time >= 500U) {
               last_cond_eval_time = now_w_ms;
               std::string c_cond = id(ha_weather_condition).state;
               std::string s_sun = id(ha_sun_state).state;
               bool is_night_time = (s_sun == "below_horizon" || c_cond == "clear-night" || c_cond == "clearnight" || (c_cond.find("night") != std::string::npos));
               apply_weather_sim_override(id(weather_sim_condition).current_option(), c_cond, is_night_time);
-              cached_has_motion = (c_cond.find("rain") != std::string::npos ||
-                                   c_cond.find("pouring") != std::string::npos ||
-                                   c_cond.find("drizzle") != std::string::npos ||
-                                   c_cond.find("snow") != std::string::npos ||
-                                   c_cond.find("sleet") != std::string::npos ||
-                                   c_cond.find("lightning") != std::string::npos ||
-                                   c_cond.find("thunder") != std::string::npos ||
-                                   (is_night_time && (c_cond == "clear-night" || c_cond == "clearnight")));
+              cached_has_motion = pocket_ui::has_weather_motion(c_cond, is_night_time);
             }
 
             if (cached_has_motion) {
-              bool audio_busy = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                                id(va_active) || !id(va_status_text).empty() ||
-                                id(alarm_ringing) || id(timer_ringing);
-              uint32_t target_cadence = id(va_tts_received) ? 500 : (audio_busy ? 300 : 100);
-              if (now_w_ms - last_weather_disp_update >= target_cadence) {
-                last_weather_disp_update = now_w_ms;
+              const bool local_music_playing =
+                  (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+              if (pocket_ui::should_step_ambient_anim(now_w_ms, local_music_playing,
+                                                      id(va_active) || !id(va_status_text).empty(),
+                                                      id(alarm_ringing) || id(timer_ringing))) {
                 id(disp1).update();
               }
             }
@@ -6077,153 +6068,11 @@ display:
           const int cel_cy = 91;
 
           // ====================================================================
-          // LAYER 0: ATMOSPHERIC CANVAS
+          // LAYERS 0 & 1: MODULAR ATMOSPHERIC & MOTION WALLPAPER ENGINE (ui_toolkit.h)
+          // Reusable across Sky & Weather (Page 5) and future Home Page / Screensavers
           // ====================================================================
-          if (!is_night) {
-            // Uniform Realistic Dim Daylight Blue background (daytime baseline)
-            Color day_bg = Color(28, 54, 84); // Clear / Calm daylight sky
-            if (cond.find("cloud") != std::string::npos && cond.find("partly") == std::string::npos && cond.find("mostlysunny") == std::string::npos && cond.find("partlysunny") == std::string::npos) {
-              day_bg = Color(22, 38, 56); // Overcast slate sky
-            } else if (cond.find("rain") != std::string::npos || cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
-              day_bg = Color(18, 30, 46); // Stormy dark sky
-            }
-            it.filled_circle(cx, cy, 228, day_bg);
-          }
-
-          // ====================================================================
-          // LAYER 1: FULL-SCREEN WEATHER MOTION WALLPAPER (ORGANIC ENGINE)
-          // ====================================================================
-          // 1. FULL-SCREEN NIGHT STARFIELD: 64 twinkling stars across entire canvas
-          if (is_night && (cond == "clear-night" || cond == "clearnight" || cond == "sunny" || cond == "clear" || cond == "clear-day" || cond.find("partly") != std::string::npos)) {
-            for (int k = 0; k < 64; k++) {
-              int sx = WEATHER_STARS_X[k];
-              int sy = WEATHER_STARS_Y[k];
-              // Temperature & Moon sanctuary bounds
-              if (sx >= 165 && sx <= 302 && sy >= 89 && sy <= 144) continue;
-              if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
-
-              float twinkle = sinf(now_ms * 0.003f + (float)k * 0.8f);
-              uint8_t br = (uint8_t)(155 + (int)(90.0f * twinkle));
-              Color star_c = (k % 3 == 0) ? Color(br, (uint8_t)(br * 0.94f), br) : Color((uint8_t)(br * 0.75f), (uint8_t)(br * 0.85f), br);
-              it.draw_pixel_at(sx, sy, star_c);
-              if (k % 7 == 0 && br > 215) {
-                it.draw_pixel_at(sx + 1, sy, Color(160, 190, 230));
-                it.draw_pixel_at(sx - 1, sy, Color(160, 190, 230));
-                it.draw_pixel_at(sx, sy + 1, Color(160, 190, 230));
-                it.draw_pixel_at(sx, sy - 1, Color(160, 190, 230));
-              }
-            }
-          }
-
-          // 2. FULL-SCREEN VOLUMETRIC CLOUDS: Seamless Organic Cumulus (Partly) & Rolling Cumulus Blanket (Overcast)
-          if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
-            bool is_partly = (cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
-
-            auto draw_cumulus = [&](int bx, int by, float scale, bool overcast_mode) { render_cumulus_cloud(it, bx, by, scale, overcast_mode, is_night); };
-
-            if (is_partly) {
-              // Partly Cloudy: Locked-in 3 beautifully composed static cumulus formations framing central sanctuary
-              draw_cumulus(95, 95, 0.95f, false);   // Upper-Left flank (opposite celestial pocket icon)
-              draw_cumulus(370, 180, 0.85f, false); // Mid-Right flank (beside telemetry cards)
-              draw_cumulus(100, 255, 0.80f, false); // Lower-Left flank (above subpage navigation pills)
-            } else {
-              // Cloudy / Overcast: 4 unique asymmetrical grand canopies with deep multi-tonal volumetric shading
-              // Ultra-fast zero-overdraw RLE span rasterizer (100% bit-for-bit identical to 4-cloud design)
-              // Replaces 74 overlapping circle passes and 667,000 inner pixel draws with 3,219 contiguous horizontal lines.
-              Color c_shad = is_night ? Color(12, 16, 22) : Color(24, 38, 56);
-              Color c_body = is_night ? Color(20, 28, 38) : Color(38, 56, 78);
-              Color c_mid  = is_night ? Color(28, 38, 50) : Color(46, 66, 90);
-              Color c_high = is_night ? Color(38, 50, 66) : Color(56, 78, 104);
-              Color c_crst = is_night ? Color(58, 74, 98) : Color(76, 104, 134);
-              Color c_brgt = is_night ? Color(68, 86, 112) : Color(90, 120, 154);
-              Color pal[6] = {c_shad, c_body, c_mid, c_high, c_crst, c_brgt};
-
-              for (uint32_t v : CLOUD_SPANS_PACKED) {
-                int sy = (int)(v & 0x1FF);
-                int sx = (int)((v >> 9) & 0x1FF);
-                int slen = (int)((v >> 18) & 0x1FF);
-                int scol = (int)((v >> 27) & 0x7);
-                it.horizontal_line(sx, sy, slen, pal[scol]);
-              }
-            }
-          }
-
-          // 3. FULL-SCREEN PRE-SCATTERED RAIN: 40 angled falling streaks (Zero initial diagonal lines)
-          if (cond.find("rain") != std::string::npos || cond.find("pouring") != std::string::npos || cond.find("drizzle") != std::string::npos) {
-            bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
-            int count = is_heavy ? 40 : 26;
-            for (int i = 0; i < count; i++) {
-              int ry = (RAIN_Y[i] + (int)((uint64_t)now_ms * (uint32_t)RAIN_SPD[i] / 1000ULL)) % 435 + 15;
-              int rx = (RAIN_X[i] - (ry - 15) / 5) % 410 + 28;
-              Color rain_c = is_night ? Color(120, 160, 215) : Color(145, 185, 230);
-              if (i % 2 == 0) rain_c = is_night ? Color(60, 90, 130) : Color(90, 130, 175);
-              int len_r = RAIN_LEN[i] + (is_heavy ? 4 : 0);
-              it.line(rx, ry, rx - 3, ry + len_r, rain_c);
-            }
-          }
-
-          // 4. FULL-SCREEN PRE-SCATTERED CRYSTALLINE SNOW: 36 snowflakes (Zero initial diagonal lines)
-          if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
-            for (int i = 0; i < 36; i++) {
-              int sy = (SNOW_Y[i] + (int)((uint64_t)now_ms * (uint32_t)SNOW_SPD[i] / 1000ULL)) % 430 + 15;
-              int sx = SNOW_X[i] + (int)(sinf((float)now_ms * 0.0022f + SNOW_PHASE[i]) * 8.0f);
-              if (sx < 2 || sx > 463 || sy < 2 || sy > 463) continue;
-
-              if (SNOW_TYPE[i] == 2) {
-                // Large 5x5 micro-crystal snowflake
-                Color c_core = Color(255, 255, 255);
-                Color c_arm  = is_night ? Color(215, 235, 255) : Color(230, 245, 255);
-                Color c_tip  = is_night ? Color(160, 195, 235) : Color(180, 215, 245);
-                it.draw_pixel_at(sx, sy, c_core);
-                it.draw_pixel_at(sx + 1, sy, c_arm); it.draw_pixel_at(sx + 2, sy, c_tip);
-                it.draw_pixel_at(sx - 1, sy, c_arm); it.draw_pixel_at(sx - 2, sy, c_tip);
-                it.draw_pixel_at(sx, sy + 1, c_arm); it.draw_pixel_at(sx, sy + 2, c_tip);
-                it.draw_pixel_at(sx, sy - 1, c_arm); it.draw_pixel_at(sx, sy - 2, c_tip);
-                it.draw_pixel_at(sx + 1, sy + 1, c_tip); it.draw_pixel_at(sx - 1, sy - 1, c_tip);
-                it.draw_pixel_at(sx + 1, sy - 1, c_tip); it.draw_pixel_at(sx - 1, sy + 1, c_tip);
-              } else if (SNOW_TYPE[i] == 1) {
-                // Medium 3x3 crystalline plus
-                Color c_mid = Color(255, 255, 255);
-                Color c_tip = is_night ? Color(180, 215, 245) : Color(195, 225, 250);
-                it.draw_pixel_at(sx, sy, c_mid);
-                it.draw_pixel_at(sx + 1, sy, c_tip);
-                it.draw_pixel_at(sx - 1, sy, c_tip);
-                it.draw_pixel_at(sx, sy + 1, c_tip);
-                it.draw_pixel_at(sx, sy - 1, c_tip);
-              } else {
-                // Small distant 2x2 soft flake
-                Color c_dot = is_night ? Color(190, 220, 250) : Color(210, 235, 255);
-                it.draw_pixel_at(sx, sy, c_dot);
-                it.draw_pixel_at(sx + 1, sy, c_dot);
-                it.draw_pixel_at(sx, sy + 1, c_dot);
-                it.draw_pixel_at(sx + 1, sy + 1, c_dot);
-              }
-            }
-          }
-
-          // 5. THUNDERSTORM: Rain combined with dramatic branching lightning bolt strike
-          if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
-            uint32_t flash_step = (now_ms / 250) % 18; // Repeats every 4.5 seconds
-            if (flash_step <= 1) {
-              // Frame 0: Sky flash burst + full branching bolt
-              if (flash_step == 0) {
-                it.filled_circle(cx, cy, 228, is_night ? Color(42, 58, 85) : Color(72, 98, 135));
-              }
-              // Main Jagged Bolt
-              Color bolt_c = Color(255, 255, 255);
-              Color glow_c = Color(180, 220, 255);
-              it.line(245, 25, 235, 60, bolt_c);
-              it.line(235, 60, 252, 95, bolt_c);
-              it.line(252, 95, 220, 140, bolt_c);
-              it.line(220, 140, 195, 190, bolt_c);
-              it.line(195, 190, 165, 250, bolt_c);
-              // Major Branches
-              it.line(235, 60, 275, 90, glow_c);
-              it.line(275, 90, 290, 125, glow_c);
-              it.line(220, 140, 180, 175, glow_c);
-              it.line(195, 190, 215, 225, glow_c);
-            }
-          }
+          render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
+                                          CLOUD_SPANS_PACKED, cel_cx, cel_cy, true);
 
           // ====================================================================
           // LAYER 2: CELESTIAL CORNER POCKET ICON
@@ -8630,13 +8479,14 @@ touchscreen:
                     id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp), 4->5 (Asteroids)
                     ESP_LOGI("touch", "Page 3 Launch Game: x=%d y=%d game=%d", touch.x, touch.y, id(active_game));
                     if (id(active_game) > 0) {
-                      // Pause background music and mute DAC for dedicated game resources
+                      // Pause background music, mute DAC, and power down amp for dedicated 20 FPS game performance
                       if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                         auto call = id(pocket_music_player).make_call();
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
                         id(toggle_ha_music).execute();
                         id(es8311_dac).set_mute_on();
+                        id(speaker_enable).turn_off();
                       }
                     }
                     id(disp1).update();
