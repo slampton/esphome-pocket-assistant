@@ -3965,22 +3965,14 @@ display:
 
               for (int a = 0; a < 4; a++) {
                 float sa = a * 1.570796f;
-                it.line(icon_x + (int)(cosf(sa) * 18.0f), icon_y + (int)(sinf(sa) * 18.0f),
-                        icon_x + (int)(cosf(sa + 0.8f) * 40.0f), icon_y + (int)(sinf(sa + 0.8f) * 40.0f), Color(35, 45, 55));
+                it.line(icon_x + (int)(fast_cos(sa) * 18.0f), icon_y + (int)(fast_sin(sa) * 18.0f),
+                        icon_x + (int)(fast_cos(sa + 0.8f) * 40.0f), icon_y + (int)(fast_sin(sa + 0.8f) * 40.0f), Color(35, 45, 55));
               }
-
-              auto draw_marble_3d = [&](int mx, int my, int r, Color base_c, Color hi_c) {
-                it.filled_circle(mx + 2, my + 3, r, Color(10, 12, 14));
-                it.filled_circle(mx, my, r, base_c);
-                it.circle(mx, my, r, id(col_white));
-                it.circle(mx - 1, my - 1, r - 2, hi_c);
-                it.filled_circle(mx - r / 3, my - r / 3, 2, id(col_white));
-              };
-              draw_marble_3d(icon_x - 24, icon_y - 18, 13, id(col_red), Color(255, 138, 128));
-              draw_marble_3d(icon_x + 22, icon_y - 22, 12, id(col_cyan), Color(180, 255, 255));
-              draw_marble_3d(icon_x - 20, icon_y + 22, 11, id(col_green), Color(185, 246, 202));
-              draw_marble_3d(icon_x + 24, icon_y + 18, 13, id(col_gold), Color(255, 245, 157));
-              draw_marble_3d(icon_x + 2, icon_y - 31, 10, id(col_magenta), Color(248, 187, 208));
+              render_glass_marble(it, icon_x - 24, icon_y - 18, 13, id(col_red), Color(255, 138, 128));
+              render_glass_marble(it, icon_x + 22, icon_y - 22, 12, id(col_cyan), Color(180, 255, 255));
+              render_glass_marble(it, icon_x - 20, icon_y + 22, 11, id(col_green), Color(185, 246, 202));
+              render_glass_marble(it, icon_x + 24, icon_y + 18, 13, id(col_gold), Color(255, 245, 157));
+              render_glass_marble(it, icon_x + 2, icon_y - 31, 10, id(col_magenta), Color(248, 187, 208));
 
             } else if (g_idx == 1) {
               // ------------------------------------------------------------------
@@ -4252,275 +4244,15 @@ display:
           draw_right_flank_chevrons(true, true);
 
         // ----------------------------------------------------
-        // GAME 1: MARBLES (CENTER HOLE CHALLENGE)
+        // GAME 1: MARBLES (ARCADE WAVE & DIAMOND BUMPER CHALLENGE)
         // ----------------------------------------------------
         } else if (id(active_game) == 1) {
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MARBLES");
-
-          struct SimBall {
-            float x, y, vx, vy, r;
-            int col_idx;
-            bool sunk;
-          };
-          static SimBall balls[5] = {
-            {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false},
-            {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false},
-            {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false},
-            {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false},
-            {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false}
-          };
-
-          static uint32_t round_start_ms = 0;
-          static uint32_t last_sink_ms = 0;
-          static int game_score = 0;
-          static bool round_over = false;
-          static bool is_new_high = false;
-          static float shockwave_r = -1.0f;
-          static float shockwave_x = 233.0f;
-          static float shockwave_y = 233.0f;
-
-          // Fresh Game Reset when entering from menu
-          if (game_just_entered) {
-            balls[0] = {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false};
-            balls[1] = {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false};
-            balls[2] = {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false};
-            balls[3] = {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false};
-            balls[4] = {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false};
-            round_start_ms = millis();
-            last_sink_ms = 0;
-            game_score = 0;
-            round_over = false;
-            is_new_high = false;
-            shockwave_r = -1.0f;
-          }
-
-          // 45-Second Round Timer
-          int elapsed_sec = (int)((millis() - round_start_ms) / 1000);
-          int time_remaining = 45 - elapsed_sec;
-          if (time_remaining < 0) time_remaining = 0;
-
-          // Center Hole Target with Swirling Event Horizon
-          it.circle(cx, cy, 34, id(col_dark_gray));
-          it.circle(cx, cy, 30, id(col_slate));
-          it.circle(cx, cy, 29, id(col_white));
-          it.circle(cx, cy, 28, id(col_white));
-          it.filled_circle(cx, cy, 25, id(col_bg));
-
-          // Swirling accretion streaks
-          float swirl = ((millis() / 25) % 360) * (PI_F / 180.0f);
-          for (int s = 0; s < 4; s++) {
-            float sa = swirl + s * (PI_F * 0.5f);
-            float c_sa, s_sa;
-            sincosf(sa, &s_sa, &c_sa);
-            it.line(cx + (int)(c_sa * 26.0f), cy + (int)(s_sa * 26.0f),
-                    cx + (int)(c_sa * 32.0f), cy + (int)(s_sa * 32.0f), id(col_slate));
-          }
-
-          // Touch Scatter Impulse / Button Pop
-          if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
-            float tx = (id(marble_touch_x) >= 0.0f) ? id(marble_touch_x) : cx;
-            float ty = (id(marble_touch_y) >= 0.0f) ? id(marble_touch_y) : cy;
-            id(marble_touch_x) = -1.0f;
-            id(game_btn_pressed) = false;
-
-            if (round_over) {
-              balls[0] = {233.0f - 60.0f, 233.0f - 50.0f, 0.0f, 0.0f, 20.0f, 0, false};
-              balls[1] = {233.0f + 50.0f, 233.0f - 40.0f, 0.0f, 0.0f, 18.0f, 1, false};
-              balls[2] = {233.0f - 45.0f, 233.0f + 60.0f, 0.0f, 0.0f, 16.0f, 2, false};
-              balls[3] = {233.0f + 55.0f, 233.0f + 45.0f, 0.0f, 0.0f, 14.0f, 3, false};
-              balls[4] = {233.0f + 75.0f, 233.0f, 0.0f, 0.0f, 12.0f, 4, false};
-              round_start_ms = millis();
-              last_sink_ms = 0;
-              game_score = 0;
-              round_over = false;
-              is_new_high = false;
-              shockwave_r = -1.0f;
-            } else {
-              shockwave_x = tx; shockwave_y = ty; shockwave_r = 12.0f;
-              for (int i = 0; i < 5; i++) {
-                if (balls[i].sunk) continue;
-                float tdx = balls[i].x - tx;
-                float tdy = balls[i].y - ty;
-                float tdist = sqrtf(tdx * tdx + tdy * tdy);
-                if (tdist < 22.0f) {
-                  float rnd_angle = ((float)(i * 72 + (millis() % 360))) * (PI_F / 180.0f);
-                  float s_rnd, c_rnd;
-                  sincosf(rnd_angle, &s_rnd, &c_rnd);
-                  balls[i].vx += c_rnd * 650.0f;
-                  balls[i].vy += s_rnd * 650.0f;
-                } else {
-                  float blast = 500.0f + (700.0f / (tdist * 0.08f + 1.0f));
-                  if (blast > 800.0f) blast = 800.0f;
-                  balls[i].vx += (tdx / tdist) * blast;
-                  balls[i].vy += (tdy / tdist) * blast;
-                }
-              }
-            }
-          }
-
-          if (shockwave_r >= 0.0f) {
-            it.circle((int)shockwave_x, (int)shockwave_y, (int)shockwave_r, id(col_gold));
-            it.circle((int)shockwave_x, (int)shockwave_y, (int)shockwave_r + 2, id(col_cyan));
-            shockwave_r += 26.0f;
-            if (shockwave_r > 190.0f) shockwave_r = -1.0f;
-          }
-
-          const float dt = 0.05f;
-          const float friction = 0.985f;
-          const float bounce = 0.82f;
-          const float arena_r = 208.0f;
-
-          float ax = roll_delta * 30.0f;
-          float ay = -pitch_delta * 30.0f;
-          if (ax > 650.0f) ax = 650.0f; if (ax < -650.0f) ax = -650.0f;
-          if (ay > 650.0f) ay = 650.0f; if (ay < -650.0f) ay = -650.0f;
-
-          int sunk_count = 0;
-          if (!round_over) {
-            for (int i = 0; i < 5; i++) {
-              if (balls[i].sunk) { sunk_count++; continue; }
-
-              float dx = balls[i].x - cx;
-              float dy = balls[i].y - cy;
-              float dist_hole = sqrtf(dx * dx + dy * dy);
-
-              if (dist_hole < 25.0f) {
-                balls[i].sunk = true;
-                balls[i].x = -999.0f;
-                balls[i].y = -999.0f;
-                balls[i].vx = 0.0f;
-                balls[i].vy = 0.0f;
-                sunk_count++;
-
-                int pts = 200;
-                if (last_sink_ms > 0 && (millis() - last_sink_ms < 3500)) {
-                  pts += 150;
-                }
-                last_sink_ms = millis();
-                game_score += pts;
-                continue;
-              }
-
-              if (dist_hole < 65.0f && dist_hole >= 25.0f) {
-                float vortex = (65.0f - dist_hole) * 10.0f;
-                balls[i].vx -= (dx / dist_hole) * vortex * dt;
-                balls[i].vy -= (dy / dist_hole) * vortex * dt;
-              }
-
-              balls[i].vx = (balls[i].vx + ax * dt) * friction;
-              balls[i].vy = (balls[i].vy + ay * dt) * friction;
-              balls[i].x += balls[i].vx * dt;
-              balls[i].y += balls[i].vy * dt;
-
-              float cur_dx = balls[i].x - cx;
-              float cur_dy = balls[i].y - cy;
-              float cur_dist = sqrtf(cur_dx * cur_dx + cur_dy * cur_dy);
-              float max_dist = arena_r - balls[i].r;
-              if (cur_dist > max_dist && cur_dist > 0.001f) {
-                float nx = cur_dx / cur_dist;
-                float ny = cur_dy / cur_dist;
-                balls[i].x = cx + nx * max_dist;
-                balls[i].y = cy + ny * max_dist;
-                float v_dot_n = balls[i].vx * nx + balls[i].vy * ny;
-                if (v_dot_n > 0.0f) {
-                  balls[i].vx -= (1.0f + bounce) * v_dot_n * nx;
-                  balls[i].vy -= (1.0f + bounce) * v_dot_n * ny;
-                }
-              }
-            }
-
-            for (int i = 0; i < 5; i++) {
-              if (balls[i].sunk) continue;
-              for (int j = i + 1; j < 5; j++) {
-                if (balls[j].sunk) continue;
-                float cdx = balls[j].x - balls[i].x;
-                float cdy = balls[j].y - balls[i].y;
-                float cdist = sqrtf(cdx * cdx + cdy * cdy);
-                float min_dist = balls[i].r + balls[j].r;
-                if (cdist < min_dist && cdist > 0.001f) {
-                  float overlap = min_dist - cdist;
-                  float cnx = cdx / cdist; float cny = cdy / cdist;
-                  balls[i].x -= cnx * overlap * 0.5f; balls[i].y -= cny * overlap * 0.5f;
-                  balls[j].x += cnx * overlap * 0.5f; balls[j].y += cny * overlap * 0.5f;
-                  float kx = balls[i].vx - balls[j].vx;
-                  float ky = balls[i].vy - balls[j].vy;
-                  float p = cnx * kx + cny * ky;
-                  balls[i].vx -= p * cnx * bounce;
-                  balls[i].vy -= p * cny * bounce;
-                  balls[j].vx += p * cnx * bounce;
-                  balls[j].vy += p * cny * bounce;
-                }
-              }
-            }
-
-            if (sunk_count >= 5 || time_remaining <= 0) {
-              round_over = true;
-              if (sunk_count >= 5) {
-                game_score += time_remaining * 35;
-              }
-              if (game_score > id(high_score_marbles)) {
-                id(high_score_marbles) = game_score;
-                is_new_high = true;
-              }
-            }
-          } else {
-            for (int i = 0; i < 5; i++) { if (balls[i].sunk) sunk_count++; }
-          }
-
-          Color cols[5] = {id(col_gold), id(col_cyan), id(col_green), id(col_red), id(col_orange)};
-          for (int i = 0; i < 5; i++) {
-            if (balls[i].sunk) continue;
-            int bx = (int)balls[i].x; int by = (int)balls[i].y; int br = (int)balls[i].r;
-
-            // Glass shader: drop shadow
-            int sh_x = (int)(ax * 0.012f);
-            int sh_y = (int)(ay * 0.012f);
-            it.filled_circle(bx + sh_x, by + sh_y, br, id(col_dark_gray));
-
-            // Sphere body
-            it.filled_circle(bx, by, br, cols[balls[i].col_idx]);
-
-            // Spherical rim
-            it.circle(bx, by, br, id(col_bg));
-            it.circle(bx, by, br - 1, id(col_dark_gray));
-
-            // Specular glint
-            it.filled_circle(bx - (br / 3), by - (br / 3), (br / 3), id(col_white));
-
-            // Ambient bounce crescent
-            it.filled_circle(bx + (br / 4), by + (br / 4), (br / 5), id(col_white));
-          }
-
-          char hud_buf[48];
-          snprintf(hud_buf, sizeof(hud_buf), "Sunk: %d/5  •  %ds  •  %d", sunk_count, time_remaining, game_score);
-          it.print(cx, 84, id(font_small), time_remaining < 10 ? id(col_red) : id(col_gold), TextAlign::CENTER, hud_buf);
-
-          if (round_over) {
-            it.filled_circle(cx, cy, 115, id(col_bg));
-            it.circle(cx, cy, 115, is_new_high ? id(col_gold) : id(theme_secondary));
-            it.circle(cx, cy, 113, is_new_high ? id(col_gold) : id(theme_secondary));
-
-            if (is_new_high) {
-              it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "NEW HIGH SCORE!");
-            } else if (sunk_count >= 5) {
-              it.print(cx, 160, id(font_date), id(col_cyan), TextAlign::CENTER, "ALL SUNK!");
-            } else {
-              it.print(cx, 160, id(font_date), id(col_red), TextAlign::CENTER, "TIME'S UP!");
-            }
-
-            char score_str[32];
-            snprintf(score_str, sizeof(score_str), "Score: %d", game_score);
-            it.print(cx, 202, id(font_date), id(col_white), TextAlign::CENTER, score_str);
-
-            char best_str[32];
-            snprintf(best_str, sizeof(best_str), "Best: %d", id(high_score_marbles));
-            it.print(cx, 235, id(font_small), id(col_gold), TextAlign::CENTER, best_str);
-
-            it.print(cx, 275, id(font_small), id(col_cyan), TextAlign::CENTER, "[ TAP TO REPLAY ]");
-          }
-
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Roll to Center Hole • Tap Pop");
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
+          render_game_marbles(
+              it, cx, cy, millis(), game_just_entered, roll_delta, pitch_delta,
+              id(marble_touch_x), id(marble_touch_y), id(game_btn_pressed), id(high_score_marbles),
+              id(font_date), id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_white), id(col_gold), id(col_cyan), id(col_green),
+              id(col_red), id(col_orange), id(col_magenta), id(col_slate), id(col_gray), id(col_dark_gray));
 
         // ----------------------------------------------------
         // GAME 2: ARCHERY (TILT AIM & TARGET PRACTICE)
@@ -8434,11 +8166,13 @@ touchscreen:
                   return;
                 }
               } else {
-                // Active game touch action (pop marble / fire arrow / pop treat) - UNTHROTTLED 30 Hz STREAMING
+                // Active game touch action (pop marble / fire arrow / pop treat)
                 id(marble_touch_x) = touch.x;
                 id(marble_touch_y) = touch.y;
                 id(game_btn_pressed) = true;
-                id(disp1).update();
+                if (id(active_game) != 1) {
+                  id(disp1).update();
+                }
               }
             // Page 4: System (Telemetry Dashboard vs Settings vs Confirmation vs Update)
             } else if (id(gui_page) == 4) {

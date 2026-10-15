@@ -3290,6 +3290,496 @@ inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
   }
 }
 
+
+// ============================================================================
+// SECTION 8: REUSABLE 3D GLASS MARBLE PRIMITIVE & ARCADE MARBLES ENGINE
+// ============================================================================
+
+template<typename DisplayT>
+inline void render_glass_marble(DisplayT &it, int bx, int by, int br,
+                                esphome::Color base_col, esphome::Color hi_col,
+                                int sh_x = 2, int sh_y = 3) {
+  if (br <= 1) return;
+  // 1. Tilt-reactive drop shadow
+  if (br >= 4) {
+    it.filled_circle(bx + sh_x, by + sh_y, br, esphome::Color(10, 14, 20));
+  }
+  // 2. Translucent glass sphere body
+  it.filled_circle(bx, by, br, base_col);
+  // 3. Outer dark glass rim & inner shaded refraction ring
+  it.circle(bx, by, br, esphome::Color(14, 18, 24));
+  if (br >= 6) {
+    esphome::Color rim_shade(static_cast<uint8_t>((base_col.r * 170) >> 8),
+                             static_cast<uint8_t>((base_col.g * 170) >> 8),
+                             static_cast<uint8_t>((base_col.b * 170) >> 8));
+    it.circle(bx, by, br - 1, rim_shade);
+  }
+  // 4. Inner Cat's-Eye ribbon swirl
+  if (br >= 8) {
+    it.circle(bx - 1, by - 1, br / 2, hi_col);
+    it.line(bx - br / 3, by + br / 4, bx + br / 3, by - br / 4, hi_col);
+  }
+  // 5. Primary upper-left specular window glint & lower-right internal caustic
+  it.filled_circle(bx - (br / 3), by - (br / 3), std::max(1, br / 4), esphome::Color(255, 255, 255));
+  if (br >= 10) {
+    it.filled_circle(bx + (br / 3), by + (br / 3), std::max(1, br / 6), hi_col);
+  }
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                bool game_just_entered, float roll_delta, float pitch_delta,
+                                float &marble_touch_x, float &marble_touch_y,
+                                bool &game_btn_pressed, int &high_score_marbles,
+                                FontBigT *font_date, FontSmallT *font_small,
+                                esphome::Color theme_primary, esphome::Color theme_secondary,
+                                esphome::Color col_bg, esphome::Color col_white,
+                                esphome::Color col_gold, esphome::Color col_cyan,
+                                esphome::Color col_green, esphome::Color col_red,
+                                esphome::Color /*col_orange*/, esphome::Color col_magenta,
+                                esphome::Color col_slate, esphome::Color col_gray,
+                                esphome::Color col_dark_gray) {
+  struct SimBall {
+    float x, y, vx, vy, r;
+    int col_idx;
+    bool sunk;
+    uint32_t sink_start_ms;
+    float sink_x, sink_y;
+  };
+
+  static SimBall balls[5];
+  static uint32_t last_phys_ms = 0;
+  static uint32_t last_sink_ms = 0;
+  static uint32_t wave_clear_ms = 0;
+  static uint32_t popup_ms = 0;
+  static int popup_pts = 0;
+  static int popup_combo = 1;
+  static int combo_streak = 0;
+  static int wave_num = 1;
+  static float time_left_f = 45.0f;
+  static int game_score = 0;
+  static bool round_over = false;
+  static bool is_new_high = false;
+  static float shockwave_r = -1.0f;
+  static float shockwave_x = 233.0f;
+  static float shockwave_y = 233.0f;
+  static uint32_t peg_hit_ms[4] = {0, 0, 0, 0};
+
+  auto spawn_wave_balls = [&](int w_idx) {
+    static constexpr float RADII[5] = {20.0f, 18.0f, 16.0f, 14.0f, 12.0f};
+    // Spawn on an outer ring (dist 108..134px) at golden-angle offsets so balls never overlap the 54px diamond pegs
+    float base_ang = static_cast<float>(w_idx - 1) * 0.65f;
+    for (int i = 0; i < 5; i++) {
+      float ang = base_ang + static_cast<float>(i) * 1.256637f; // 72 deg spacing
+      float s_a = 0.0f, c_a = 1.0f;
+      fast_sincos(ang, s_a, c_a);
+      float dist = 112.0f + static_cast<float>((i & 1) * 16);
+      balls[i] = {static_cast<float>(cx) + c_a * dist,
+                  static_cast<float>(cy) + s_a * dist,
+                  0.0f, 0.0f, RADII[i], i, false, 0U, 0.0f, 0.0f};
+    }
+  };
+
+  auto reset_full_game = [&]() {
+    wave_num = 1;
+    time_left_f = 45.0f;
+    last_phys_ms = now_ms;
+    last_sink_ms = 0;
+    wave_clear_ms = 0;
+    popup_ms = 0;
+    combo_streak = 0;
+    game_score = 0;
+    round_over = false;
+    is_new_high = false;
+    shockwave_r = -1.0f;
+    for (int p = 0; p < 4; p++) peg_hit_ms[p] = 0;
+    spawn_wave_balls(1);
+  };
+
+  if (game_just_entered) {
+    reset_full_game();
+  }
+
+  // Real elapsed dt (clamped to [0.015s .. 0.075s] so touch/timer coalescing never double-steps physics)
+  float dt = (last_phys_ms == 0U) ? 0.05f : static_cast<float>(now_ms - last_phys_ms) * 0.001f;
+  last_phys_ms = now_ms;
+  if (dt < 0.012f) dt = 0.012f;
+  if (dt > 0.075f) dt = 0.075f;
+
+  if (!round_over) {
+    time_left_f -= dt;
+    if (time_left_f <= 0.0f) {
+      time_left_f = 0.0f;
+      round_over = true;
+      if (game_score > high_score_marbles) {
+        high_score_marbles = game_score;
+        is_new_high = true;
+      }
+    }
+  }
+  int time_remaining = static_cast<int>(ceilf(time_left_f));
+
+  // Compute active Diamond Bumpers around the center hole:
+  // Wave 1: 0 pegs (open bowl)
+  // Wave 2: 1 peg  (Top)
+  // Wave 3: 2 pegs (Top, Bottom)
+  // Wave 4: 3 pegs (Top, Bottom, Left)
+  // Wave 5+: 4 pegs (Full Diamond: Top, Bottom, Left, Right; gently orbits on Wave 6+)
+  const int num_pegs = std::min(4, std::max(0, wave_num - 1));
+  const float peg_ring_r = 54.0f;
+  const float peg_r = 6.0f;
+  static constexpr float PEG_BASE_ANG[4] = {
+      -1.5707963f, // Top (12 o'clock)
+       1.5707963f, // Bottom (6 o'clock)
+       3.1415926f, // Left (9 o'clock)
+       0.0f        // Right (3 o'clock)
+  };
+  float peg_x[4] = {0, 0, 0, 0};
+  float peg_y[4] = {0, 0, 0, 0};
+  float orbit_offset = (wave_num >= 6)
+      ? (static_cast<float>(now_ms % 60000U) * 0.001f * 0.30f * static_cast<float>(std::min(4, wave_num - 5)))
+      : 0.0f;
+  for (int p = 0; p < num_pegs; p++) {
+    float s_p = 0.0f, c_p = 1.0f;
+    fast_sincos(PEG_BASE_ANG[p] + orbit_offset, s_p, c_p);
+    peg_x[p] = static_cast<float>(cx) + c_p * peg_ring_r;
+    peg_y[p] = static_cast<float>(cy) + s_p * peg_ring_r;
+  }
+
+  // Touch Scatter Impulse / Button Pop
+  if (marble_touch_x >= 0.0f || game_btn_pressed) {
+    float tx = (marble_touch_x >= 0.0f) ? marble_touch_x : static_cast<float>(cx);
+    float ty = (marble_touch_y >= 0.0f) ? marble_touch_y : static_cast<float>(cy);
+    marble_touch_x = -1.0f;
+    game_btn_pressed = false;
+
+    if (round_over) {
+      reset_full_game();
+    } else {
+      shockwave_x = tx;
+      shockwave_y = ty;
+      shockwave_r = 12.0f;
+      for (int i = 0; i < 5; i++) {
+        if (balls[i].sunk) continue;
+        float tdx = balls[i].x - tx;
+        float tdy = balls[i].y - ty;
+        float tdist = sqrtf(tdx * tdx + tdy * tdy);
+        // Scale impulse slightly by inverse radius so lighter marbles pop livelier
+        float mass_scale = 16.0f / balls[i].r;
+        if (tdist < 22.0f) {
+          float rnd_angle = static_cast<float>(i * 72 + (now_ms % 360U)) * (PI_F / 180.0f);
+          float s_rnd = 0.0f, c_rnd = 1.0f;
+          fast_sincos(rnd_angle, s_rnd, c_rnd);
+          balls[i].vx += c_rnd * 620.0f * mass_scale;
+          balls[i].vy += s_rnd * 620.0f * mass_scale;
+        } else {
+          float blast = (480.0f + (680.0f / (tdist * 0.08f + 1.0f))) * mass_scale;
+          if (blast > 820.0f) blast = 820.0f;
+          balls[i].vx += (tdx / tdist) * blast;
+          balls[i].vy += (tdy / tdist) * blast;
+        }
+      }
+    }
+  }
+
+  // Physics Step
+  const float friction = powf(0.985f, dt / 0.05f);
+  const float bounce = 0.84f;
+  const float arena_r = 208.0f;
+
+  float ax = roll_delta * 30.0f;
+  float ay = -pitch_delta * 30.0f;
+  if (ax > 650.0f) ax = 650.0f; else if (ax < -650.0f) ax = -650.0f;
+  if (ay > 650.0f) ay = 650.0f; else if (ay < -650.0f) ay = -650.0f;
+
+  int sunk_count = 0;
+  if (!round_over) {
+    for (int i = 0; i < 5; i++) {
+      if (balls[i].sunk) {
+        sunk_count++;
+        continue;
+      }
+
+      float dx = balls[i].x - static_cast<float>(cx);
+      float dy = balls[i].y - static_cast<float>(cy);
+      float dist_hole = sqrtf(dx * dx + dy * dy);
+
+      // Center hole capture rim (r = 24px)
+      if (dist_hole < 24.0f) {
+        balls[i].sunk = true;
+        balls[i].sink_start_ms = now_ms;
+        balls[i].sink_x = balls[i].x;
+        balls[i].sink_y = balls[i].y;
+        balls[i].vx = 0.0f;
+        balls[i].vy = 0.0f;
+        sunk_count++;
+
+        if (last_sink_ms > 0U && (now_ms - last_sink_ms < 3500U)) {
+          combo_streak = std::min(4, combo_streak + 1);
+        } else {
+          combo_streak = 1;
+        }
+        last_sink_ms = now_ms;
+        int pts = 200 + (combo_streak - 1) * 150;
+        game_score += pts;
+        popup_pts = pts;
+        popup_combo = combo_streak;
+        popup_ms = now_ms;
+        continue;
+      }
+
+      // Realistic hole bevel slope (only within 44px of center, replacing the old 65px vacuum)
+      if (dist_hole < 44.0f && dist_hole >= 24.0f) {
+        float bevel_pull = (44.0f - dist_hole) * 11.5f;
+        balls[i].vx -= (dx / dist_hole) * bevel_pull * dt;
+        balls[i].vy -= (dy / dist_hole) * bevel_pull * dt;
+      }
+
+      // Slight rolling-inertia differentiation by size (smaller marbles accelerate slightly faster)
+      float inertia_scale = 0.92f + (20.0f - balls[i].r) * 0.02f;
+      balls[i].vx = (balls[i].vx + ax * inertia_scale * dt) * friction;
+      balls[i].vy = (balls[i].vy + ay * inertia_scale * dt) * friction;
+      balls[i].x += balls[i].vx * dt;
+      balls[i].y += balls[i].vy * dt;
+
+      // Collide with active Diamond Bumper dots (r = 6)
+      for (int p = 0; p < num_pegs; p++) {
+        float pdx = balls[i].x - peg_x[p];
+        float pdy = balls[i].y - peg_y[p];
+        float pdist2 = pdx * pdx + pdy * pdy;
+        float min_pdist = balls[i].r + peg_r;
+        if (pdist2 < min_pdist * min_pdist && pdist2 > 0.0001f) {
+          float pdist = sqrtf(pdist2);
+          float pnx = pdx / pdist;
+          float pny = pdy / pdist;
+          balls[i].x = peg_x[p] + pnx * min_pdist;
+          balls[i].y = peg_y[p] + pny * min_pdist;
+          float v_dot_n = balls[i].vx * pnx + balls[i].vy * pny;
+          if (v_dot_n < 0.0f) {
+            balls[i].vx -= (1.0f + 0.88f) * v_dot_n * pnx;
+            balls[i].vy -= (1.0f + 0.88f) * v_dot_n * pny;
+          }
+          // Pinball bumper kick + 200ms visual ring flash
+          balls[i].vx += pnx * 38.0f;
+          balls[i].vy += pny * 38.0f;
+          if (now_ms - peg_hit_ms[p] > 180U) {
+            game_score += 15;
+          }
+          peg_hit_ms[p] = now_ms;
+        }
+      }
+
+      // Outer circular arena boundary reflection (arena_r = 208)
+      float cur_dx = balls[i].x - static_cast<float>(cx);
+      float cur_dy = balls[i].y - static_cast<float>(cy);
+      float cur_dist = sqrtf(cur_dx * cur_dx + cur_dy * cur_dy);
+      float max_dist = arena_r - balls[i].r;
+      if (cur_dist > max_dist && cur_dist > 0.001f) {
+        float nx = cur_dx / cur_dist;
+        float ny = cur_dy / cur_dist;
+        balls[i].x = static_cast<float>(cx) + nx * max_dist;
+        balls[i].y = static_cast<float>(cy) + ny * max_dist;
+        float v_dot_n = balls[i].vx * nx + balls[i].vy * ny;
+        if (v_dot_n > 0.0f) {
+          balls[i].vx -= (1.0f + bounce) * v_dot_n * nx;
+          balls[i].vy -= (1.0f + bounce) * v_dot_n * ny;
+        }
+      }
+    }
+
+    // Mass-weighted 2D elastic ball-to-ball collisions (m ~ r^2) with separating-velocity guard
+    for (int i = 0; i < 5; i++) {
+      if (balls[i].sunk) continue;
+      for (int j = i + 1; j < 5; j++) {
+        if (balls[j].sunk) continue;
+        float cdx = balls[j].x - balls[i].x;
+        float cdy = balls[j].y - balls[i].y;
+        float min_dist = balls[i].r + balls[j].r;
+        float cdist2 = cdx * cdx + cdy * cdy;
+        if (cdist2 < min_dist * min_dist && cdist2 > 0.0001f) {
+          float cdist = sqrtf(cdist2);
+          float overlap = min_dist - cdist;
+          float cnx = cdx / cdist;
+          float cny = cdy / cdist;
+
+          float mi = balls[i].r * balls[i].r;
+          float mj = balls[j].r * balls[j].r;
+          float inv_m_sum = 1.0f / (mi + mj);
+
+          // Separate proportional to inverse mass
+          balls[i].x -= cnx * overlap * (mj * inv_m_sum);
+          balls[i].y -= cny * overlap * (mj * inv_m_sum);
+          balls[j].x += cnx * overlap * (mi * inv_m_sum);
+          balls[j].y += cny * overlap * (mi * inv_m_sum);
+
+          // Relative velocity along collision normal
+          float kx = balls[i].vx - balls[j].vx;
+          float ky = balls[i].vy - balls[j].vy;
+          float v_rel = cnx * kx + cny * ky;
+          if (v_rel > 0.0f) {
+            float imp = (1.0f + bounce) * v_rel * inv_m_sum;
+            balls[i].vx -= imp * mj * cnx;
+            balls[i].vy -= imp * mj * cny;
+            balls[j].vx += imp * mi * cnx;
+            balls[j].vy += imp * mi * cny;
+          }
+        }
+      }
+    }
+
+    // Continuous Wave Progression: when all 5 marbles sink, award Wave Clear bonus + +6s & spawn next wave!
+    if (sunk_count >= 5) {
+      // Wait 240ms for the 5th marble's sink animation to complete before spawning the next wave
+      bool any_animating = false;
+      for (int i = 0; i < 5; i++) {
+        if (now_ms - balls[i].sink_start_ms < 240U) any_animating = true;
+      }
+      if (!any_animating) {
+        game_score += 300 + wave_num * 100;
+        time_left_f = std::min(60.0f, time_left_f + 6.0f);
+        time_remaining = static_cast<int>(ceilf(time_left_f));
+        wave_num++;
+        wave_clear_ms = now_ms;
+        spawn_wave_balls(wave_num);
+        sunk_count = 0;
+        if (game_score > high_score_marbles) {
+          high_score_marbles = game_score;
+          is_new_high = true;
+        }
+      }
+    }
+  } else {
+    for (int i = 0; i < 5; i++) {
+      if (balls[i].sunk) sunk_count++;
+    }
+  }
+
+  // ==========================================================================
+  // RENDERING PIPELINE (Text/HUD & Center Hole drawn first so marbles roll over)
+  // ==========================================================================
+  it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "MARBLES");
+
+  char hud_buf[56];
+  snprintf(hud_buf, sizeof(hud_buf), "W%d  •  %d/5  •  %ds  •  %d", wave_num, sunk_count, time_remaining, game_score);
+  it.print(cx, 84, font_small, time_remaining < 10 ? col_red : col_gold, esphome::display::TextAlign::CENTER, hud_buf);
+
+  it.print(cx, 385, font_small, col_slate, esphome::display::TextAlign::CENTER, "Roll to Center Hole • Tap Pop");
+  it.print(cx, 408, font_small, col_gray, esphome::display::TextAlign::CENTER, "[ Click Top to Exit ]");
+
+  // Center Hole Target with Swirling Event Horizon
+  it.circle(cx, cy, 34, col_dark_gray);
+  it.circle(cx, cy, 30, col_slate);
+  it.circle(cx, cy, 29, col_white);
+  it.circle(cx, cy, 28, col_white);
+  it.filled_circle(cx, cy, 25, col_bg);
+
+  float swirl = static_cast<float>((now_ms / 25U) % 360U) * (PI_F / 180.0f);
+  for (int s = 0; s < 4; s++) {
+    float sa = swirl + static_cast<float>(s) * (PI_F * 0.5f);
+    float s_sa = 0.0f, c_sa = 1.0f;
+    fast_sincos(sa, s_sa, c_sa);
+    it.line(cx + static_cast<int>(c_sa * 26.0f), cy + static_cast<int>(s_sa * 26.0f),
+            cx + static_cast<int>(c_sa * 32.0f), cy + static_cast<int>(s_sa * 32.0f), col_slate);
+  }
+
+  // Render Diamond Bumper Dots (Wave 2..5+)
+  for (int p = 0; p < num_pegs; p++) {
+    int px = static_cast<int>(roundf(peg_x[p]));
+    int py = static_cast<int>(roundf(peg_y[p]));
+    bool peg_flashing = (peg_hit_ms[p] > 0U && (now_ms - peg_hit_ms[p] < 200U));
+    if (peg_flashing) {
+      it.circle(px, py, 10, col_gold);
+      it.circle(px, py, 8, col_cyan);
+    }
+    it.filled_circle(px + 1, py + 2, 6, esphome::Color(10, 14, 20));
+    it.filled_circle(px, py, 6, peg_flashing ? col_gold : col_slate);
+    it.circle(px, py, 6, col_white);
+    it.filled_circle(px - 1, py - 1, 2, peg_flashing ? col_white : col_cyan);
+  }
+
+  // Touch Pop Shockwave Ring
+  if (shockwave_r >= 0.0f) {
+    it.circle(static_cast<int>(shockwave_x), static_cast<int>(shockwave_y), static_cast<int>(shockwave_r), col_gold);
+    it.circle(static_cast<int>(shockwave_x), static_cast<int>(shockwave_y), static_cast<int>(shockwave_r) + 2, col_cyan);
+    shockwave_r += 26.0f;
+    if (shockwave_r > 190.0f) shockwave_r = -1.0f;
+  }
+
+  // Render 3D Cat's-Eye Glass Marbles (including 240ms shrinking spiral-sink animation!)
+  esphome::Color base_cols[5] = {col_gold, col_cyan, col_green, col_red, col_magenta};
+  esphome::Color hi_cols[5] = {
+      esphome::Color(255, 245, 157),
+      esphome::Color(180, 255, 255),
+      esphome::Color(185, 246, 202),
+      esphome::Color(255, 138, 128),
+      esphome::Color(248, 187, 208)
+  };
+  int sh_x = static_cast<int>(ax * 0.012f);
+  int sh_y = static_cast<int>(ay * 0.012f);
+
+  for (int i = 0; i < 5; i++) {
+    if (balls[i].sunk) {
+      uint32_t sink_el = now_ms - balls[i].sink_start_ms;
+      if (sink_el < 240U) {
+        float prog = static_cast<float>(sink_el) * (1.0f / 240.0f);
+        int sx = static_cast<int>(balls[i].sink_x + (static_cast<float>(cx) - balls[i].sink_x) * prog);
+        int sy = static_cast<int>(balls[i].sink_y + (static_cast<float>(cy) - balls[i].sink_y) * prog);
+        int sr = std::max(3, static_cast<int>(balls[i].r * (1.0f - prog * 0.82f)));
+        render_glass_marble(it, sx, sy, sr, base_cols[balls[i].col_idx], hi_cols[balls[i].col_idx], 0, 0);
+      }
+      continue;
+    }
+    render_glass_marble(it, static_cast<int>(balls[i].x), static_cast<int>(balls[i].y),
+                        static_cast<int>(balls[i].r),
+                        base_cols[balls[i].col_idx], hi_cols[balls[i].col_idx], sh_x, sh_y);
+  }
+
+  // Floating Sink Score / Combo Popup (+200, +350 2x!, etc.)
+  if (!round_over && popup_ms > 0U && (now_ms - popup_ms < 650U)) {
+    uint32_t pel = now_ms - popup_ms;
+    int py = cy - 42 - static_cast<int>(pel / 22U);
+    char pop_buf[24];
+    if (popup_combo > 1) {
+      snprintf(pop_buf, sizeof(pop_buf), "+%d %dx!", popup_pts, popup_combo);
+    } else {
+      snprintf(pop_buf, sizeof(pop_buf), "+%d", popup_pts);
+    }
+    it.print(cx, py, font_small, popup_combo > 1 ? col_cyan : col_gold, esphome::display::TextAlign::CENTER, pop_buf);
+  }
+
+  // Brief Wave Clear Banner ("WAVE X! +6s")
+  if (!round_over && wave_clear_ms > 0U && (now_ms - wave_clear_ms < 800U)) {
+    char w_buf[32];
+    snprintf(w_buf, sizeof(w_buf), "WAVE %d! +6s", wave_num);
+    it.print(cx, 126, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_buf);
+  }
+
+  // Round Over Summary Modal
+  if (round_over) {
+    it.filled_circle(cx, cy, 115, col_bg);
+    it.circle(cx, cy, 115, is_new_high ? col_gold : theme_secondary);
+    it.circle(cx, cy, 113, is_new_high ? col_gold : theme_secondary);
+
+    if (is_new_high) {
+      it.print(cx, 156, font_date, col_gold, esphome::display::TextAlign::CENTER, "NEW HIGH SCORE!");
+    } else {
+      char w_end[32];
+      snprintf(w_end, sizeof(w_end), "WAVE %d REACHED", wave_num);
+      it.print(cx, 156, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_end);
+    }
+
+    char score_str[32];
+    snprintf(score_str, sizeof(score_str), "Score: %d", game_score);
+    it.print(cx, 198, font_date, col_white, esphome::display::TextAlign::CENTER, score_str);
+
+    char best_str[32];
+    snprintf(best_str, sizeof(best_str), "Best: %d", high_score_marbles);
+    it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
+
+    it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
+  }
+}
+
 }  // namespace pocket_ui
 
 using namespace pocket_ui;
