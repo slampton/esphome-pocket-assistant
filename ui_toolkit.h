@@ -4682,8 +4682,463 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
     it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
 
     it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
-  } else if (!ball_launched && (banner_ms == 0 || (now_ms - banner_ms >= 1300U))) {
-    it.print(cx, 255, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ Tap Screen to Launch ]");
+  }
+}
+
+
+// ============================================================================
+// SECTION 11: REUSABLE KID TREATS, MUPPET MONSTER & CHOMP GAME ENGINE
+// ============================================================================
+
+template<typename DisplayT>
+inline void render_chomp_treat(DisplayT &it, int tx, int ty, int kind,
+                               esphome::Color col_white, esphome::Color col_red,
+                               esphome::Color col_gold, esphome::Color col_cyan,
+                               esphome::Color col_green, esphome::Color col_magenta,
+                               esphome::Color col_bg) {
+  int k = kind % 5;
+  // Soft drop shadow beneath every treat
+  it.filled_circle(tx, ty + 3, 13, esphome::Color(14, 18, 26));
+
+  if (k == 0) {
+    // 0: CHOCOLATE CHIP COOKIE (Cookie Monster's favorite!)
+    esphome::Color dough(218, 162, 84);
+    esphome::Color crust(168, 114, 46);
+    esphome::Color chip(58, 34, 18);
+    it.filled_circle(tx, ty, 13, dough);
+    it.circle(tx, ty, 13, crust);
+    it.circle(tx, ty, 12, esphome::Color(238, 188, 112));
+    // 6 chocolate chips scattered across the cookie
+    it.filled_circle(tx - 5, ty - 4, 2, chip);
+    it.filled_circle(tx + 4, ty - 5, 2, chip);
+    it.filled_circle(tx, ty + 1, 2, chip);
+    it.filled_circle(tx - 6, ty + 4, 2, chip);
+    it.filled_circle(tx + 5, ty + 4, 2, chip);
+    it.draw_pixel_at(tx - 1, ty - 7, chip);
+    it.draw_pixel_at(tx + 2, ty + 7, chip);
+  } else if (k == 1) {
+    // 1: STRAWBERRY (Bright red berry + green leafy calyx + golden seeds)
+    it.filled_circle(tx, ty + 1, 12, col_red);
+    it.circle(tx, ty + 1, 12, esphome::Color(255, 130, 130));
+    // Green leafy crown at top
+    it.filled_triangle(tx - 8, ty - 8, tx, ty - 3, tx - 2, ty - 12, col_green);
+    it.filled_triangle(tx + 8, ty - 8, tx, ty - 3, tx + 2, ty - 12, col_green);
+    it.filled_triangle(tx - 4, ty - 12, tx + 4, ty - 12, tx, ty - 5, col_green);
+    it.line(tx, ty - 11, tx, ty - 15, col_green);
+    // Golden seeds + shine
+    it.draw_pixel_at(tx - 4, ty - 1, col_gold);
+    it.draw_pixel_at(tx + 4, ty - 1, col_gold);
+    it.draw_pixel_at(tx, ty + 3, col_gold);
+    it.draw_pixel_at(tx - 5, ty + 5, col_gold);
+    it.draw_pixel_at(tx + 5, ty + 5, col_gold);
+    it.draw_pixel_at(tx, ty + 8, col_gold);
+    it.filled_circle(tx - 4, ty - 3, 2, col_white);
+  } else if (k == 2) {
+    // 2: FROSTED SPRINKLE DONUT (Golden ring + pink icing + colorful sprinkles)
+    esphome::Color icing(255, 110, 178);
+    it.filled_circle(tx, ty, 13, esphome::Color(215, 155, 78));
+    it.filled_circle(tx, ty, 11, icing);
+    it.circle(tx, ty, 13, esphome::Color(160, 105, 42));
+    // Center donut hole
+    it.filled_circle(tx, ty, 4, col_bg);
+    it.circle(tx, ty, 4, esphome::Color(180, 70, 125));
+    // Sprinkles
+    it.line(tx - 7, ty - 5, tx - 5, ty - 7, col_cyan);
+    it.line(tx + 5, ty - 7, tx + 7, ty - 5, col_gold);
+    it.line(tx - 8, ty + 3, tx - 6, ty + 5, col_white);
+    it.line(tx + 6, ty + 4, tx + 8, ty + 2, col_green);
+    it.line(tx - 2, ty + 8, tx + 2, ty + 8, col_gold);
+  } else if (k == 3) {
+    // 3: WRAPPED CANDY (Magenta sweet + twisted wrapper bows on left & right)
+    it.filled_triangle(tx - 9, ty, tx - 17, ty - 7, tx - 17, ty + 7, col_magenta);
+    it.filled_triangle(tx + 9, ty, tx + 17, ty - 7, tx + 17, ty + 7, col_magenta);
+    it.line(tx - 16, ty - 5, tx - 10, ty, col_white);
+    it.line(tx + 16, ty - 5, tx + 10, ty, col_white);
+    it.filled_circle(tx, ty, 10, col_magenta);
+    it.circle(tx, ty, 10, col_white);
+    // Candy swirl stripe
+    it.line(tx - 5, ty - 6, tx + 5, ty + 6, col_white);
+    it.line(tx - 4, ty - 6, tx + 6, ty + 6, esphome::Color(255, 190, 230));
+    it.filled_circle(tx - 3, ty - 3, 2, col_white);
+  } else {
+    // 4: GOLDEN STAR BERRY (Juicy cyan-blue berry with golden star sparkle)
+    it.filled_circle(tx, ty, 12, col_cyan);
+    it.circle(tx, ty, 12, col_white);
+    it.filled_circle(tx - 4, ty - 4, 3, col_white);
+    it.line(tx, ty - 6, tx, ty + 6, col_gold);
+    it.line(tx - 6, ty, tx + 6, ty, col_gold);
+    it.filled_circle(tx, ty, 2, col_gold);
+  }
+}
+
+template<typename DisplayT>
+inline void render_chomp_monster(DisplayT &it, int mx, int my, int mr,
+                                 float look_dx, float look_dy,
+                                 bool mouth_open, bool is_chomping,
+                                 bool party_hat, uint32_t now_ms,
+                                 esphome::Color col_white, esphome::Color col_black,
+                                 esphome::Color col_gold, esphome::Color col_red,
+                                 esphome::Color col_magenta, esphome::Color col_dark_gray) {
+  // Sesame Street / Cookie Monster inspired royal-azure furry palette
+  esphome::Color fur_main(28, 148, 248);
+  esphome::Color fur_dark(16, 96, 182);
+  esphome::Color fur_hi(110, 198, 255);
+  esphome::Color ear_inner(255, 158, 188);
+  esphome::Color cheek_pink(255, 128, 166);
+
+  // Happy chew bounce offset
+  int bounce_y = 0;
+  if (is_chomping) {
+    bounce_y = ((now_ms / 70U) & 1) ? -3 : 2;
+  }
+  int cy_m = my + bounce_y;
+
+  // 1. Drop shadow
+  it.filled_circle(mx, cy_m + 4, mr, esphome::Color(12, 16, 24));
+
+  // 2. Cute Rounded Teddy/Muppet Ears on upper left & right (NO horns!)
+  int ear_r = (mr * 34) / 100;
+  int ear_inner_r = (mr * 19) / 100;
+  int ear_dx = (mr * 74) / 100;
+  int ear_dy = (mr * 68) / 100;
+  // Left ear
+  it.filled_circle(mx - ear_dx, cy_m - ear_dy, ear_r, fur_dark);
+  it.filled_circle(mx - ear_dx, cy_m - ear_dy, ear_r - 1, fur_main);
+  it.circle(mx - ear_dx, cy_m - ear_dy, ear_r, fur_hi);
+  it.filled_circle(mx - ear_dx + 1, cy_m - ear_dy + 1, ear_inner_r, ear_inner);
+  // Right ear
+  it.filled_circle(mx + ear_dx, cy_m - ear_dy, ear_r, fur_dark);
+  it.filled_circle(mx + ear_dx, cy_m - ear_dy, ear_r - 1, fur_main);
+  it.circle(mx + ear_dx, cy_m - ear_dy, ear_r, fur_hi);
+  it.filled_circle(mx + ear_dx - 1, cy_m - ear_dy + 1, ear_inner_r, ear_inner);
+
+  // 3. Fluffy Furry Head Silhouette (soft fur tufts around perimeter + main circle)
+  int tuft_r = (mr * 28) / 100;
+  it.filled_circle(mx - mr + 5, cy_m - 4, tuft_r, fur_main);
+  it.filled_circle(mx + mr - 5, cy_m - 4, tuft_r, fur_main);
+  it.filled_circle(mx - mr + 7, cy_m + 10, tuft_r, fur_main);
+  it.filled_circle(mx + mr - 7, cy_m + 10, tuft_r, fur_main);
+  it.filled_circle(mx, cy_m - mr + 3, tuft_r, fur_main);
+
+  it.filled_circle(mx, cy_m, mr, fur_main);
+  it.circle(mx, cy_m, mr, fur_hi);
+  it.circle(mx, cy_m, mr - 1, fur_dark);
+
+  // Optional Festive Party Hat between the ears (unlocked at 5+ treats!)
+  if (party_hat) {
+    int hat_base_y = cy_m - mr + 2;
+    int hat_top_y = hat_base_y - (mr * 52) / 100;
+    int hat_hw = (mr * 28) / 100;
+    it.filled_triangle(mx - hat_hw, hat_base_y, mx + hat_hw, hat_base_y, mx, hat_top_y, col_gold);
+    it.line(mx - hat_hw / 2, (hat_base_y + hat_top_y) / 2, mx + hat_hw / 2, (hat_base_y + hat_top_y) / 2, col_magenta);
+    it.line(mx - hat_hw, hat_base_y, mx, hat_top_y, col_white);
+    it.line(mx + hat_hw, hat_base_y, mx, hat_top_y, col_white);
+    it.filled_circle(mx, hat_top_y - 2, 4, col_red);
+    it.draw_pixel_at(mx - 1, hat_top_y - 3, col_white);
+  }
+
+  // 4. Rosy Pink Muppet Cheeks
+  int cheek_dx = (mr * 62) / 100;
+  int cheek_y = cy_m + (mr * 12) / 100;
+  int cheek_r = std::max(4, (mr * 17) / 100);
+  it.filled_circle(mx - cheek_dx, cheek_y, cheek_r, cheek_pink);
+  it.filled_circle(mx + cheek_dx, cheek_y, cheek_r, cheek_pink);
+
+  // 5. Big Googly Cookie-Monster Eyes perched high on the head
+  int eye_dx = (mr * 30) / 100;
+  int eye_y = cy_m - (mr * 34) / 100;
+  int eye_r = std::max(7, (mr * 27) / 100);
+  int pup_r = std::max(3, (eye_r * 48) / 100);
+
+  it.filled_circle(mx - eye_dx, eye_y, eye_r, col_white);
+  it.circle(mx - eye_dx, eye_y, eye_r, col_dark_gray);
+  it.filled_circle(mx + eye_dx, eye_y, eye_r, col_white);
+  it.circle(mx + eye_dx, eye_y, eye_r, col_dark_gray);
+
+  // Slightly googly independent pupil offsets during chomping, or tracking the nearest treat
+  int pdx_l = (int)(look_dx * (float)(eye_r - pup_r - 1));
+  int pdy_l = (int)(look_dy * (float)(eye_r - pup_r - 1));
+  int pdx_r = pdx_l;
+  int pdy_r = pdy_l;
+  if (is_chomping) {
+    // Classic Cookie Monster googly-eye roll while munching!
+    pdx_l = ((now_ms / 90U) & 1) ? -2 : 2;
+    pdy_l = -2;
+    pdx_r = -pdx_l;
+    pdy_r = 1;
+  }
+  it.filled_circle(mx - eye_dx + pdx_l, eye_y + pdy_l, pup_r, col_black);
+  it.filled_circle(mx + eye_dx + pdx_r, eye_y + pdy_r, pup_r, col_black);
+  // Eye specular glints
+  it.draw_pixel_at(mx - eye_dx + pdx_l - 1, eye_y + pdy_l - 1, col_white);
+  it.draw_pixel_at(mx + eye_dx + pdx_r - 1, eye_y + pdy_r - 1, col_white);
+
+  // 6. Expressive Mouth (Wide-Open Hungry Cavity + Pink Tongue vs. Chomping vs. Big Muppet Smile)
+  int mouth_y = cy_m + (mr * 26) / 100;
+  if (is_chomping) {
+    bool jaw_open = ((now_ms / 85U) & 1) != 0;
+    int mr_open = jaw_open ? ((mr * 36) / 100) : ((mr * 20) / 100);
+    it.filled_circle(mx, mouth_y, mr_open, col_black);
+    it.filled_circle(mx, mouth_y + mr_open / 2, mr_open / 2, ear_inner);
+    // Flying cookie crumbs while munching!
+    esphome::Color crumb(218, 162, 84);
+    int c_off = (int)((now_ms / 60U) % 8U);
+    it.filled_circle(mx - mr / 2 - c_off, mouth_y - 2 + c_off / 2, 2, crumb);
+    it.filled_circle(mx + mr / 2 + c_off, mouth_y - 4 + c_off / 2, 2, crumb);
+    it.filled_circle(mx + 3, mouth_y + mr / 2 + c_off / 2, 2, crumb);
+  } else if (mouth_open) {
+    // Big wide-open dark muppet mouth with a cute pink tongue at bottom
+    int m_rad = (mr * 44) / 100;
+    it.filled_circle(mx, mouth_y + 2, m_rad, col_black);
+    it.circle(mx, mouth_y + 2, m_rad, fur_dark);
+    // Pink tongue
+    int t_rad = (m_rad * 56) / 100;
+    it.filled_circle(mx, mouth_y + 2 + m_rad - t_rad - 1, t_rad, cheek_pink);
+  } else {
+    // Wide, friendly Sesame Street muppet smile
+    int sw = (mr * 48) / 100;
+    it.filled_circle(mx, mouth_y - 2, sw, col_black);
+    it.filled_rectangle(mx - sw, mouth_y - sw - 2, sw * 2 + 1, sw, fur_main);
+    it.horizontal_line(mx - sw, mouth_y - 2, sw * 2 + 1, fur_dark);
+    // Cute pink tongue peeking out at bottom of smile
+    it.filled_circle(mx, mouth_y + sw / 2, sw / 3, cheek_pink);
+  }
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                              bool game_just_entered, float roll_delta, float pitch_delta,
+                              float &marble_touch_x, bool &game_btn_pressed,
+                              int &high_score_chomp,
+                              FontBigT *font_date, FontSmallT *font_small,
+                              esphome::Color col_bg, esphome::Color col_white,
+                              esphome::Color col_black, esphome::Color col_gold,
+                              esphome::Color col_cyan, esphome::Color col_red,
+                              esphome::Color col_green, esphome::Color col_magenta,
+                              esphome::Color col_orange, esphome::Color col_dark_gray) {
+  struct KidTreat {
+    float x, y, vx, vy;
+    int kind;
+  };
+  struct ConfettiSpark {
+    float x, y, vx, vy;
+    esphome::Color col;
+  };
+
+  static constexpr int NUM_TREATS = 3;
+  static KidTreat treats[NUM_TREATS];
+  static uint32_t last_phys_ms = 0;
+  static int treat_score = 0;
+  static int next_kind = 0;
+  static uint32_t chomp_timer = 0;
+  static int chomp_word_idx = 0;
+  static uint32_t party_timer = 0;
+  static ConfettiSpark confetti[14];
+
+  auto spawn_single_treat = [&](int idx, float angle_rad) {
+    float dist = 156.0f + (float)(idx * 8);
+    treats[idx].x = (float)cx + std::sin(angle_rad) * dist;
+    treats[idx].y = (float)cy - std::cos(angle_rad) * dist;
+    treats[idx].vx = 0.0f;
+    treats[idx].vy = 0.0f;
+    treats[idx].kind = next_kind++;
+  };
+
+  if (game_just_entered) {
+    last_phys_ms = now_ms;
+    treat_score = 0;
+    next_kind = 0;
+    chomp_timer = 0;
+    party_timer = 0;
+    spawn_single_treat(0, 0.85f);
+    spawn_single_treat(1, 2.95f);
+    spawn_single_treat(2, 5.05f);
+  }
+
+  float dt = (now_ms >= last_phys_ms) ? ((now_ms - last_phys_ms) * 0.001f) : 0.05f;
+  last_phys_ms = now_ms;
+  if (dt < 0.012f) dt = 0.012f;
+  if (dt > 0.075f) dt = 0.075f;
+
+  // Tap Screen: Cheerful hop TOWARD the monster's mouth so tapping always helps little kids!
+  if (marble_touch_x >= 0.0f || game_btn_pressed) {
+    marble_touch_x = -1.0f;
+    game_btn_pressed = false;
+    for (int i = 0; i < NUM_TREATS; i++) {
+      float dx = (float)cx - treats[i].x;
+      float dy = (float)cy - treats[i].y;
+      float d = std::sqrt(dx * dx + dy * dy);
+      if (d > 1.0f) {
+        treats[i].vx += (dx / d) * 185.0f;
+        treats[i].vy += (dy / d) * 185.0f;
+      }
+    }
+  }
+
+  // Tilt acceleration
+  float ax = std::max(-580.0f, std::min(580.0f, roll_delta * 26.0f));
+  float ay = std::max(-580.0f, std::min(580.0f, -pitch_delta * 26.0f));
+
+  float nearest_dist = 999.0f;
+  float look_dx = 0.0f;
+  float look_dy = 0.0f;
+
+  // Update each of the 3 treats
+  for (int i = 0; i < NUM_TREATS; i++) {
+    float dx_m = (float)cx - treats[i].x;
+    float dy_m = (float)cy - treats[i].y;
+    float dist_m = std::sqrt(dx_m * dx_m + dy_m * dy_m);
+
+    // Gentle "yummy slurp" attraction when treat rolls near the open mouth (dist < 95px)
+    float pull_x = 0.0f, pull_y = 0.0f;
+    if (dist_m < 95.0f && dist_m > 1.0f) {
+      float pull_mag = (1.0f - dist_m / 95.0f) * 210.0f;
+      pull_x = (dx_m / dist_m) * pull_mag;
+      pull_y = (dy_m / dist_m) * pull_mag;
+    }
+
+    treats[i].vx = (treats[i].vx + (ax + pull_x) * dt) * 0.965f;
+    treats[i].vy = (treats[i].vy + (ay + pull_y) * dt) * 0.965f;
+    treats[i].x += treats[i].vx * dt;
+    treats[i].y += treats[i].vy * dt;
+
+    // Circular bowl boundary reflection (r = 194px center limit)
+    float b_dx = treats[i].x - (float)cx;
+    float b_dy = treats[i].y - (float)cy;
+    float b_dist = std::sqrt(b_dx * b_dx + b_dy * b_dy);
+    const float max_r = 192.0f;
+    if (b_dist > max_r && b_dist > 0.001f) {
+      float nx = b_dx / b_dist;
+      float ny = b_dy / b_dist;
+      treats[i].x = (float)cx + nx * max_r;
+      treats[i].y = (float)cy + ny * max_r;
+      float v_dot = treats[i].vx * nx + treats[i].vy * ny;
+      if (v_dot > 0.0f) {
+        treats[i].vx -= 1.75f * v_dot * nx;
+        treats[i].vy -= 1.75f * v_dot * ny;
+      }
+    }
+  }
+
+  // Soft treat-to-treat separation so the 3 treats bounce playfully off each other
+  for (int i = 0; i < NUM_TREATS; i++) {
+    for (int j = i + 1; j < NUM_TREATS; j++) {
+      float dx = treats[j].x - treats[i].x;
+      float dy = treats[j].y - treats[i].y;
+      float dist = std::sqrt(dx * dx + dy * dy);
+      const float min_sep = 28.0f;
+      if (dist < min_sep && dist > 0.01f) {
+        float nx = dx / dist;
+        float ny = dy / dist;
+        float overlap = (min_sep - dist) * 0.5f;
+        treats[i].x -= nx * overlap;
+        treats[i].y -= ny * overlap;
+        treats[j].x += nx * overlap;
+        treats[j].y += ny * overlap;
+        float kx = treats[i].vx - treats[j].vx;
+        float ky = treats[i].vy - treats[j].vy;
+        float v_rel = kx * nx + ky * ny;
+        if (v_rel > 0.0f) {
+          treats[i].vx -= 0.85f * v_rel * nx;
+          treats[i].vy -= 0.85f * v_rel * ny;
+          treats[j].vx += 0.85f * v_rel * nx;
+          treats[j].vy += 0.85f * v_rel * ny;
+        }
+      }
+    }
+  }
+
+  // Check if any treat is eaten + find nearest treat for the monster's eyes to follow
+  for (int i = 0; i < NUM_TREATS; i++) {
+    float dx = treats[i].x - (float)cx;
+    float dy = treats[i].y - (float)cy;
+    float dist = std::sqrt(dx * dx + dy * dy);
+
+    if (dist < 32.0f) {
+      treat_score++;
+      chomp_timer = now_ms;
+      chomp_word_idx = (chomp_word_idx + 1) % 5;
+      if (treat_score > high_score_chomp) {
+        high_score_chomp = treat_score;
+      }
+      // Every 5 treats: Milestone Party Celebration!
+      if (treat_score > 0 && (treat_score % 5 == 0)) {
+        party_timer = now_ms;
+        esphome::Color p_cols[5] = {col_gold, col_cyan, col_magenta, col_green, col_orange};
+        for (int c = 0; c < 14; c++) {
+          float ang = (float)c * (2.0f * PI_F / 14.0f);
+          float spd = 95.0f + (float)((c % 3) * 32);
+          confetti[c].x = (float)cx + std::cos(ang) * 24.0f;
+          confetti[c].y = (float)cy + std::sin(ang) * 24.0f;
+          confetti[c].vx = std::cos(ang) * spd;
+          confetti[c].vy = std::sin(ang) * spd - 35.0f;
+          confetti[c].col = p_cols[c % 5];
+        }
+      }
+      // Respawn this treat along the outer rim away from the other treats
+      float spawn_ang = ((float)((treat_score * 137 + i * 120) % 360)) * (PI_F / 180.0f);
+      spawn_single_treat(i, spawn_ang);
+      dist = 160.0f;
+    }
+
+    if (dist < nearest_dist) {
+      nearest_dist = dist;
+      look_dx = dx / (dist + 1.0f);
+      look_dy = dy / (dist + 1.0f);
+    }
+  }
+
+  // Update milestone confetti
+  bool is_party = (party_timer > 0 && (now_ms - party_timer < 1500U));
+  if (is_party) {
+    for (int c = 0; c < 14; c++) {
+      confetti[c].x += confetti[c].vx * dt;
+      confetti[c].y += confetti[c].vy * dt;
+      confetti[c].vy += 110.0f * dt;
+    }
+  }
+
+  bool is_chomping = (chomp_timer > 0 && (now_ms - chomp_timer < 550U));
+  bool mouth_open = (nearest_dist < 96.0f);
+
+  // ==========================================================================
+  // RENDERING PIPELINE
+  // ==========================================================================
+
+  // 1. Subtle Play Bowl Rim & Bottom Scorekeeper HUD (y = 408)
+  it.circle(cx, cy, 208, col_dark_gray);
+  char t_buf[48];
+  snprintf(t_buf, sizeof(t_buf), "Treats: %d  •  Best: %d", treat_score, high_score_chomp);
+  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, t_buf);
+
+  // 2. Render Center Cookie-Monster-Style Friend (with cute rounded ears & party hat at 5+ treats)
+  render_chomp_monster(it, cx, cy, 38, look_dx, look_dy, mouth_open, is_chomping,
+                       (treat_score >= 5), now_ms,
+                       col_white, col_black, col_gold, col_red, col_magenta, col_dark_gray);
+
+  // 3. Render All 3 Rolling Kid Treats
+  for (int i = 0; i < NUM_TREATS; i++) {
+    render_chomp_treat(it, (int)treats[i].x, (int)treats[i].y, treats[i].kind,
+                       col_white, col_red, col_gold, col_cyan, col_green, col_magenta, col_bg);
+  }
+
+  // 4. Happy Chomp Word Popup & Milestone Party Confetti Burst
+  if (is_party) {
+    for (int c = 0; c < 14; c++) {
+      it.filled_circle((int)confetti[c].x, (int)confetti[c].y, 3, confetti[c].col);
+    }
+    char p_msg[32];
+    snprintf(p_msg, sizeof(p_msg), "%d TREATS! YAY!", treat_score);
+    it.print(cx, 142, font_date, col_gold, esphome::display::TextAlign::CENTER, p_msg);
+  } else if (is_chomping) {
+    static constexpr const char *CHOMP_WORDS[5] = {
+        "NOM NOM!", "YUMMY!", "COOKIE!", "CHOMP!", "DELICIOUS!"};
+    it.print(cx, 148, font_date, col_gold, esphome::display::TextAlign::CENTER,
+             CHOMP_WORDS[chomp_word_idx]);
+    // Sparkle stars around the happy monster
+    it.filled_circle(cx - 48, cy - 18, 3, col_gold);
+    it.filled_circle(cx + 48, cy - 18, 3, col_cyan);
+    it.filled_circle(cx, cy + 50, 3, col_magenta);
   }
 }
 

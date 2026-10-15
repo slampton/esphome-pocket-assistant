@@ -4046,59 +4046,20 @@ display:
 
             } else if (g_idx == 3) {
               // ------------------------------------------------------------------
-              // GAME 3: CHOMP FOR KIDS
+              // GAME 3: CHOMP FOR KIDS — Cute Cookie-Monster Friend & 3 Treats
               // ------------------------------------------------------------------
-              int mx = icon_x - 18, my = icon_y, mr = 42;
-              it.filled_circle(mx, my, mr, id(col_cyan));
-              it.filled_triangle(mx, my, mx + 48, my - 28, mx + 48, my + 28, id(col_bg));
-
-              for (int deg = 35; deg <= 325; deg++) {
-                float rad = deg * 0.0174533f;
-                it.draw_pixel_at(mx + (int)(cosf(rad) * mr), my + (int)(sinf(rad) * mr), id(col_white));
-                it.draw_pixel_at(mx + (int)(cosf(rad) * (mr - 1)), my + (int)(sinf(rad) * (mr - 1)), id(col_white));
-              }
-              int m_top_x = mx + (int)(cosf(35.0f * 0.0174533f) * mr);
-              int m_top_y = my + (int)(sinf(35.0f * 0.0174533f) * mr);
-              int m_bot_x = mx + (int)(cosf(325.0f * 0.0174533f) * mr);
-              int m_bot_y = my + (int)(sinf(325.0f * 0.0174533f) * mr);
-              it.line(mx, my, m_top_x, m_top_y, id(col_white));
-              it.line(mx + 1, my, m_top_x + 1, m_top_y, id(col_white));
-              it.line(mx, my, m_bot_x, m_bot_y, id(col_white));
-              it.line(mx + 1, my, m_bot_x + 1, m_bot_y, id(col_white));
-
-              it.filled_triangle(mx + 8, my - 20, mx + 17, my - 11, mx + 20, my - 22, id(col_white));
-              it.filled_triangle(mx + 8, my + 20, mx + 17, my + 11, mx + 20, my + 22, id(col_white));
-
-              int ex = mx + 2, ey = my - 20;
-              it.filled_circle(ex, ey, 12, id(col_white));
-              it.circle(ex, ey, 12, id(col_dark_gray));
-              it.filled_circle(ex + 4, ey - 1, 6, id(col_black));
-              it.filled_circle(ex + 5, ey - 2, 2, id(col_white));
-
-              it.filled_circle(mx - 8, my + 12, 6, Color(0, 180, 200));
-
-              int t1_x = icon_x + 24, t1_y = my - 2;
-              it.filled_circle(t1_x, t1_y, 8, id(col_red));
-              it.circle(t1_x, t1_y, 8, id(col_white));
-              it.line(t1_x - 4, t1_y - 9, t1_x + 4, t1_y - 9, id(col_green));
-              it.draw_pixel_at(t1_x, t1_y - 11, id(col_green));
-              it.draw_pixel_at(t1_x - 3, t1_y - 1, id(col_gold));
-              it.draw_pixel_at(t1_x + 3, t1_y - 1, id(col_gold));
-              it.draw_pixel_at(t1_x, t1_y + 4, id(col_gold));
-
-              int t2_x = icon_x + 52, t2_y = my - 22;
-              it.filled_circle(t2_x, t2_y, 5, id(col_gold));
-              it.circle(t2_x, t2_y, 5, id(col_white));
-              it.line(t2_x, t2_y - 9, t2_x, t2_y + 9, id(col_gold));
-              it.line(t2_x - 9, t2_y, t2_x + 9, t2_y, id(col_gold));
-
-              int t3_x = icon_x + 50, t3_y = my + 22;
-              it.filled_circle(t3_x, t3_y, 7, id(col_magenta));
-              it.circle(t3_x, t3_y, 7, id(col_white));
-              it.line(t3_x - 12, t3_y - 4, t3_x - 6, t3_y, id(col_magenta));
-              it.line(t3_x - 12, t3_y + 4, t3_x - 6, t3_y, id(col_magenta));
-              it.line(t3_x + 12, t3_y - 4, t3_x + 6, t3_y, id(col_magenta));
-              it.line(t3_x + 12, t3_y + 4, t3_x + 6, t3_y, id(col_magenta));
+              render_chomp_monster(it, icon_x - 16, icon_y + 4, 34, 0.85f, -0.15f,
+                                   true, false, false, 0,
+                                   id(col_white), id(col_black), id(col_gold),
+                                   id(col_red), id(col_magenta), id(col_dark_gray));
+              // Chocolate Chip Cookie right in front of the hungry mouth
+              render_chomp_treat(it, icon_x + 32, icon_y - 16, 0,
+                                 id(col_white), id(col_red), id(col_gold), id(col_cyan),
+                                 id(col_green), id(col_magenta), id(col_bg));
+              // Strawberry below right
+              render_chomp_treat(it, icon_x + 42, icon_y + 20, 1,
+                                 id(col_white), id(col_red), id(col_gold), id(col_cyan),
+                                 id(col_green), id(col_magenta), id(col_bg));
             } else if (g_idx == 4) {
               // ------------------------------------------------------------------
               // GAME 4: ASTEROIDS
@@ -4262,117 +4223,16 @@ display:
               id(col_bg), id(col_white), id(col_gold), id(col_cyan),
               id(col_orange), id(col_green), id(col_red), id(col_slate), id(col_dark_gray));
 
-        // GAME 4: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
+        // ----------------------------------------------------
+        // GAME 4: CHOMP FOR KIDS (MUPPET MONSTER, 3 TREATS & PARTY MILESTONES)
         // ----------------------------------------------------
         } else if (id(active_game) == 4) {
-          static int treat_score = 0;
-          static float treat_x = cx + 60.0f;
-          static float treat_y = cy - 60.0f;
-          static float treat_vx = 0.0f;
-          static float treat_vy = 0.0f;
-          static uint32_t chomp_timer = 0;
-          static int treat_color_idx = 0;
-
-          if (game_just_entered) {
-            treat_score = 0;
-            treat_x = cx + 60.0f;
-            treat_y = cy - 60.0f;
-            treat_vx = 0.0f;
-            treat_vy = 0.0f;
-            chomp_timer = 0;
-          }
-
-          if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
-            id(marble_touch_x) = -1.0f;
-            id(game_btn_pressed) = false;
-            treat_vx += (treat_x > cx ? 160.0f : -160.0f);
-            treat_vy -= 220.0f;
-          }
-
-          const float dt = 0.05f;
-          float ax = roll_delta * 28.0f;
-          float ay = -pitch_delta * 28.0f;
-          if (ax > 650.0f) ax = 650.0f; if (ax < -650.0f) ax = -650.0f;
-          if (ay > 650.0f) ay = 650.0f; if (ay < -650.0f) ay = -650.0f;
-
-          treat_vx = (treat_vx + ax * dt) * 0.98f;
-          treat_vy = (treat_vy + ay * dt) * 0.98f;
-          treat_x += treat_vx * dt;
-          treat_y += treat_vy * dt;
-
-          float t_dx = treat_x - cx;
-          float t_dy = treat_y - cy;
-          float t_dist = sqrtf(t_dx * t_dx + t_dy * t_dy);
-          float max_t_dist = 208.0f - 14.0f;
-          if (t_dist > max_t_dist && t_dist > 0.001f) {
-            float nx = t_dx / t_dist; float ny = t_dy / t_dist;
-            treat_x = cx + nx * max_t_dist;
-            treat_y = cy + ny * max_t_dist;
-            float v_dot_n = treat_vx * nx + treat_vy * ny;
-            if (v_dot_n > 0.0f) {
-              treat_vx -= 1.8f * v_dot_n * nx;
-              treat_vy -= 1.8f * v_dot_n * ny;
-            }
-          }
-
-          float dist_to_mouth = sqrtf((treat_x - cx) * (treat_x - cx) + (treat_y - cy) * (treat_y - cy));
-          bool mouth_open = (dist_to_mouth < 85.0f);
-
-          if (dist_to_mouth < 24.0f) {
-            treat_score++;
-            chomp_timer = millis();
-            if (treat_score > id(high_score_chomp)) {
-              id(high_score_chomp) = treat_score;
-            }
-            treat_color_idx = (treat_color_idx + 1) % 4;
-            float spawn_angle = ((treat_score * 77) % 360) * (PI_F / 180.0f);
-            float s_sp, c_sp;
-            sincosf(spawn_angle, &s_sp, &c_sp);
-            treat_x = cx + s_sp * 160.0f;
-            treat_y = cy - c_sp * 160.0f;
-            treat_vx = 0.0f; treat_vy = 0.0f;
-          }
-
-          bool is_chomping = (millis() - chomp_timer < 500);
-
-          it.filled_circle(cx, cy + 3, 34, id(col_dark_gray));
-          it.filled_circle(cx, cy, 34, id(col_light_blue));
-          it.circle(cx, cy, 34, id(col_white));
-
-          float eye_dx = (treat_x - cx) / (dist_to_mouth + 1.0f) * 4.0f;
-          float eye_dy = (treat_y - cy) / (dist_to_mouth + 1.0f) * 4.0f;
-          it.filled_circle(cx - 11, cy - 10, 8, id(col_white));
-          it.filled_circle(cx + 11, cy - 10, 8, id(col_white));
-          it.filled_circle(cx - 11 + (int)eye_dx, cy - 10 + (int)eye_dy, 4, id(col_dark_gray));
-          it.filled_circle(cx + 11 + (int)eye_dx, cy - 10 + (int)eye_dy, 4, id(col_dark_gray));
-
-          if (is_chomping) {
-            it.line(cx - 16, cy + 12, cx, cy + 19, id(col_white));
-            it.line(cx, cy + 19, cx + 16, cy + 12, id(col_white));
-            it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "CHOMP! *");
-            it.filled_circle(cx - 18, cy + 8, 2, id(col_gold));
-            it.filled_circle(cx + 18, cy + 8, 2, id(col_cyan));
-            it.filled_circle(cx, cy + 26, 2, id(col_orange));
-          } else if (mouth_open) {
-            it.filled_circle(cx, cy + 12, 14, id(col_red));
-            it.circle(cx, cy + 12, 14, id(col_white));
-            it.line(cx - 6, cy + 2, cx - 3, cy + 7, id(col_white));
-            it.line(cx - 3, cy + 7, cx, cy + 2, id(col_white));
-            it.line(cx, cy + 2, cx + 3, cy + 7, id(col_white));
-            it.line(cx + 3, cy + 7, cx + 6, cy + 2, id(col_white));
-          } else {
-            it.line(cx - 12, cy + 12, cx, cy + 17, id(col_dark_gray));
-            it.line(cx, cy + 17, cx + 12, cy + 12, id(col_dark_gray));
-          }
-
-          Color t_cols[4] = {id(col_red), id(col_gold), id(col_cyan), id(col_orange)};
-          it.filled_circle((int)treat_x, (int)treat_y, 14, t_cols[treat_color_idx]);
-          it.circle((int)treat_x, (int)treat_y, 14, id(col_white));
-          it.filled_circle((int)treat_x - 4, (int)treat_y - 4, 4, id(col_white));
-
-          char t_buf[48];
-          snprintf(t_buf, sizeof(t_buf), "Treats: %d  •  Best: %d", treat_score, id(high_score_chomp));
-          it.print(cx, 408, id(font_small), id(col_gold), TextAlign::CENTER, t_buf);
+          render_game_chomp(
+              it, cx, cy, millis(), game_just_entered, roll_delta, pitch_delta,
+              id(marble_touch_x), id(game_btn_pressed), id(high_score_chomp),
+              id(font_date), id(font_small), id(col_bg), id(col_white),
+              id(col_black), id(col_gold), id(col_cyan), id(col_red),
+              id(col_green), id(col_magenta), id(col_orange), id(col_dark_gray));
 
         // ----------------------------------------------------
         // GAME 5: ASTEROIDS (360-DEGREE VECTOR SPACE COMBAT)
@@ -7777,7 +7637,7 @@ touchscreen:
                 id(marble_touch_x) = touch.x;
                 id(marble_touch_y) = touch.y;
                 id(game_btn_pressed) = true;
-                if (id(active_game) > 3) {
+                if (id(active_game) > 4) {
                   id(disp1).update();
                 }
               }
