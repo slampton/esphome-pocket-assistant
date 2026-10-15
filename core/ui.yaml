@@ -1342,23 +1342,15 @@ interval:
             }
           }
 
-          // 10 FPS Precision Mechanical Chronograph Sweep (100ms cadence)
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 3 && id(stopwatch_running) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
-            id(disp1).update();
-          }
-
-          // 10 FPS real-time tilt refresh for Bubble Level (Page 8, Subpage 7)
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && id(stuff_subpage) == 7 && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0) {
-            id(disp1).update();
-          }
-
-
   - interval: 50ms
     then:
       - lambda: |-
-          // 20 FPS high-refresh animation loop for Coin Flip and Dice Roll
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 8 && (id(stuff_subpage) == 8 || id(stuff_subpage) == 4)) {
-            if (id(coin_anim_active) || id(dice_anim_active)) {
+          // 20 FPS high-refresh animation & physics loop for Tools Suite (Stopwatch, Dice Roll, Bubble Level, Coin Flip)
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 8 && !id(va_active) && id(va_status_text).empty()) {
+            if ((id(stuff_subpage) == 3 && id(stopwatch_running)) ||
+                (id(stuff_subpage) == 4 && id(dice_anim_active)) ||
+                (id(stuff_subpage) == 7) ||
+                (id(stuff_subpage) == 8 && id(coin_anim_active))) {
               id(disp1).update();
             }
           }
@@ -1711,13 +1703,11 @@ sensor:
             id(coin_anim_active) = true;
             id(coin_anim_start_ms) = now_m;
             id(coin_side) = (esp_random() % 2);
-            id(disp1).update();
           } else if (id(stuff_subpage) == 4 && !id(dice_anim_active)) {
             id(dice_anim_active) = true;
             id(dice_anim_start_ms) = now_m;
             id(dice_val_d6) = (esp_random() % 6) + 1;
             id(dice_val_d6_2) = (esp_random() % 6) + 1;
-            id(disp1).update();
           }
         }
       }
@@ -2917,6 +2907,8 @@ script:
             id(music_category_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 3 && id(active_game) == 0) {
             id(game_carousel_idx) = id(menu_scroll_target_page);
+          } else if (id(gui_page) == 8 && id(stuff_subpage) == 0) {
+            id(stuff_menu_page) = id(menu_scroll_target_page);
           }
           id(menu_scroll_step) = 0;
           id(disp1).update();
@@ -5339,135 +5331,15 @@ display:
 
         if (id(stuff_subpage) == 0) {
           // --------------------------------------------------
-          // SUBPAGE 0: TOOLS LAUNCHER MENU (2-Page 6+2 Scaled Icon Card Grid)
-          // Standard title at y = 50 with 36px system buffer before Row 0 (y = 128)
-          // Balanced inter-row spacing (24px) across Row 0, 1, 2 (y = 128, 236, 344)
-          // Symmetrical dual-column placement (x = 158, 294) with 22px inter-column buffer
-          // Standard Right-Flank Navigation Chevrons at x = 415 (Up at 162, Down at 278)
+          // SUBPAGE 0: TOOLS LAUNCHER MENU (2-Page Centered Icon Grid with 2-Step Scroll)
           // --------------------------------------------------
-          draw_menu_header(50, "TOOLS");
-
-          // Standardized Right-Flank Navigation Chevrons
-          draw_right_flank_chevrons(id(stuff_menu_page) == 1, id(stuff_menu_page) == 0);
-
-          auto draw_icon_card = [&](int cx_card, int cy_card, int app_id, const char* label) {
-            const int cw = 124;
-            const int ch = 100;
-            const int cr = 16;
-            int x0 = cx_card - cw / 2;
-            int y0 = cy_card - ch / 2;
-
-            it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, Color(22, 27, 36));
-            it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cr, y0 + cr, cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cw - cr, y0 + cr, cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cr, y0 + ch - cr, cr, Color(22, 27, 36));
-            it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, Color(22, 27, 36));
-
-            it.line(x0 + cr, y0, x0 + cw - cr, y0, Color(48, 56, 70));
-            it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, Color(48, 56, 70));
-            it.line(x0, y0 + cr, x0, y0 + ch - cr, Color(48, 56, 70));
-            it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, Color(48, 56, 70));
-
-            int ix = cx_card;
-            int iy = cy_card - 16;
-
-            if (app_id == 1) {
-              // Timer Icon: Hourglass with sand
-              it.line(ix - 10, iy - 12, ix + 10, iy - 12, id(col_white));
-              it.line(ix - 10, iy + 12, ix + 10, iy + 12, id(col_white));
-              it.line(ix - 9, iy - 11, ix - 2, iy, id(col_white));
-              it.line(ix + 9, iy - 11, ix + 2, iy, id(col_white));
-              it.line(ix - 2, iy, ix - 9, iy + 11, id(col_white));
-              it.line(ix + 2, iy, ix + 9, iy + 11, id(col_white));
-              it.filled_triangle(ix - 6, iy + 10, ix + 6, iy + 10, ix, iy + 3, id(col_white));
-              it.line(ix, iy - 2, ix, iy + 2, id(col_white));
-              it.filled_triangle(ix - 5, iy - 6, ix + 5, iy - 6, ix, iy - 1, id(col_white));
-            } else if (app_id == 2) {
-              // Alarms Icon: Classic twin-bell alarm clock
-              it.circle(ix, iy + 1, 12, id(col_white));
-              it.line(ix, iy + 1, ix - 5, iy - 3, id(col_white));
-              it.line(ix, iy + 1, ix + 5, iy + 1, id(col_white));
-              it.circle(ix - 10, iy - 10, 4, id(col_white));
-              it.circle(ix + 10, iy - 10, 4, id(col_white));
-              it.line(ix - 8, iy + 12, ix - 12, iy + 16, id(col_white));
-              it.line(ix + 8, iy + 12, ix + 12, iy + 16, id(col_white));
-            } else if (app_id == 3) {
-              // Stopwatch Icon: Chronometer with top pusher and crown
-              it.circle(ix, iy + 2, 13, id(col_white));
-              it.line(ix, iy - 11, ix, iy - 15, id(col_white));
-              it.line(ix - 5, iy - 16, ix + 5, iy - 16, id(col_white));
-              it.line(ix + 9, iy - 7, ix + 13, iy - 11, id(col_white));
-              it.line(ix, iy + 2, ix + 5, iy - 5, id(col_white));
-              it.filled_circle(ix, iy + 2, 2, id(col_white));
-            } else if (app_id == 4) {
-              // Dice Icon: Scaled die cube outline with 5 pips
-              it.rectangle(ix - 14, iy - 14, 29, 29, id(col_white));
-              it.filled_circle(ix, iy, 2, id(col_white));
-              it.filled_circle(ix - 7, iy - 7, 2, id(col_white));
-              it.filled_circle(ix + 7, iy + 7, 2, id(col_white));
-              it.filled_circle(ix + 7, iy - 7, 2, id(col_white));
-              it.filled_circle(ix - 7, iy + 7, 2, id(col_white));
-            } else if (app_id == 5) {
-              // Flashlight Icon: Scaled torch barrel, reflector head, and light rays
-              it.rectangle(ix - 5, iy - 1, 11, 16, id(col_white));
-              it.line(ix - 9, iy - 9, ix - 5, iy - 1, id(col_white));
-              it.line(ix + 9, iy - 9, ix + 5, iy - 1, id(col_white));
-              it.line(ix - 9, iy - 9, ix + 9, iy - 9, id(col_white));
-              it.line(ix - 7, iy - 12, ix - 10, iy - 16, id(col_white));
-              it.line(ix, iy - 12, ix, iy - 17, id(col_white));
-              it.line(ix + 7, iy - 12, ix + 10, iy - 16, id(col_white));
-            } else if (app_id == 6) {
-              // Calculator Icon: Scaled calculator outline with screen and button grid
-              it.rectangle(ix - 13, iy - 16, 27, 33, id(col_white));
-              it.rectangle(ix - 9, iy - 13, 19, 8, id(col_white));
-              it.line(ix - 7, iy - 1, ix - 2, iy - 1, id(col_white));
-              it.line(ix + 2, iy - 1, ix + 7, iy - 1, id(col_white));
-              it.line(ix - 7, iy + 5, ix - 2, iy + 5, id(col_white));
-              it.line(ix + 2, iy + 5, ix + 7, iy + 5, id(col_white));
-              it.line(ix - 7, iy + 10, ix + 7, iy + 10, id(col_white));
-            } else if (app_id == 7) {
-              // Level Icon: Scaled spirit level circle with crosshair & center bubble
-              it.circle(ix, iy, 16, id(col_white));
-              it.circle(ix, iy, 8, id(col_white));
-              it.filled_circle(ix, iy, 3, id(col_white));
-              it.line(ix - 20, iy, ix - 16, iy, id(col_white));
-              it.line(ix + 16, iy, ix + 20, iy, id(col_white));
-              it.line(ix - 20, iy, ix - 16, iy, id(col_white));
-              it.line(ix + 16, iy, ix + 20, iy, id(col_white));
-            } else if (app_id == 8) {
-              // Coin Icon: Scaled coin rim with Home Assistant house outline
-              it.circle(ix, iy, 17, id(col_white));
-              it.circle(ix, iy, 14, id(col_slate));
-              it.line(ix, iy - 9, ix - 8, iy - 2, id(col_white));
-              it.line(ix, iy - 9, ix + 8, iy - 2, id(col_white));
-              it.line(ix - 6, iy - 2, ix - 6, iy + 5, id(col_white));
-              it.line(ix + 6, iy - 2, ix + 6, iy + 5, id(col_white));
-              it.line(ix - 6, iy + 5, ix + 6, iy + 5, id(col_white));
-            }
-
-            // High-legibility font_small (21pt) label
-            it.print(cx_card, cy_card + 26, id(font_small), id(col_white), TextAlign::CENTER, label);
-          };
-
-          const int col_left_x = 158;
-          const int col_right_x = 294;
-          const int row_0_y = 159;
-          const int row_1_y = 283;
-
-          if (id(stuff_menu_page) == 0) {
-            // PAGE 1: 4 ICONS (Timer, Alarms, Flashlight, Calculator)
-            draw_icon_card(col_left_x, row_0_y, 1, "Timer");
-            draw_icon_card(col_right_x, row_0_y, 2, "Alarms");
-            draw_icon_card(col_left_x, row_1_y, 5, "Flashlight");
-            draw_icon_card(col_right_x, row_1_y, 6, "Calculator");
-          } else {
-            // PAGE 2: 4 ICONS (Stopwatch, Dice Roll, Level, Coin Flip)
-            draw_icon_card(col_left_x, row_0_y, 3, "Stopwatch");
-            draw_icon_card(col_right_x, row_0_y, 4, "Dice Roll");
-            draw_icon_card(col_left_x, row_1_y, 7, "Level");
-            draw_icon_card(col_right_x, row_1_y, 8, "Coin Flip");
-          }
+          render_tools_launcher(
+              it, cx, id(stuff_menu_page), id(menu_scroll_active),
+              id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+              id(font_date), id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_black), id(col_white), id(col_silver),
+              id(col_slate), id(col_gold), id(col_cyan), id(col_green),
+              id(col_orange), id(col_red));
 
         } else if (id(stuff_subpage) == 1) {
           // --------------------------------------------------
@@ -5674,247 +5546,22 @@ display:
 
         } else if (id(stuff_subpage) == 3) {
           // --------------------------------------------------
-          // SUBPAGE 3: STOPWATCH (VINTAGE 1970 HEUER SWISS CHRONOMETER)
+          // SUBPAGE 3: STOPWATCH (20 FPS HIGH-BEAT HEUER CHRONOGRAPH)
           // --------------------------------------------------
-
-          // Clean Dual Perimeter Rings: Crisp White Outer Ring (r=230) with Polished Silver Inner Highlight (r=228)
-          it.circle(cx, cy, 230, id(col_white));
-          it.circle(cx, cy, 228, id(col_silver));
-
-          // Inner Chapter Track Boundaries (Polished steel inner rehaut flange)
-          it.circle(cx, cy, 197, id(col_dark_gray));
-          it.circle(cx, cy, 196, id(col_silver));
-
-          // Precision Perimeter Chapter Ring (Fast LUT Lookups: Zero Transcendental Calls)
-          for (int s = 0; s < 60; s++) {
-            float t_sin = DIAL_SIN[s];
-            float t_cos = DIAL_COS[s];
-            
-            if (s % 5 == 0) {
-              // Major 5-Second Applied Faceted Steel Baton: Silver highlight, Slate shadow, White luminous core
-              float perp_x = -t_cos;
-              float perp_y = t_sin;
-              int x1 = cx + (int)(196.0f * t_sin);
-              int y1 = cy - (int)(196.0f * t_cos);
-              int x2 = cx + (int)(227.0f * t_sin);
-              int y2 = cy - (int)(227.0f * t_cos);
-              it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, id(col_silver));
-              it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, id(col_slate));
-              it.line(x1, y1, x2, y2, id(col_white));
-            } else {
-              // Standard 1-Second Tick: 2px wide from r=210 to r=227 in brushed slate
-              int x1 = cx + (int)(210.0f * t_sin);
-              int y1 = cy - (int)(210.0f * t_cos);
-              int x2 = cx + (int)(227.0f * t_sin);
-              int y2 = cy - (int)(227.0f * t_cos);
-              it.line(x1, y1, x2, y2, id(col_slate));
-              it.line(x1 + 1, y1, x2 + 1, y2, id(col_slate));
-            }
-          }
-
-          // Bold Perimeter Numerals (0..55: Precomputed Coordinates & Static Literals, Zero Runtime Math; 30 omitted to clear bottom < BACK button)
-          static constexpr struct { int16_t x, y; const char *str; } CHRONO_NUMS[11] = {
-            {233,  61,  "0"},
-            {319,  84,  "5"},
-            {382, 147, "10"},
-            {405, 233, "15"},
-            {382, 319, "20"},
-            {319, 382, "25"},
-            {147, 382, "35"},
-            { 84, 319, "40"},
-            { 61, 233, "45"},
-            { 84, 147, "50"},
-            {147,  84, "55"}
-          };
-          for (const auto &n : CHRONO_NUMS) {
-            it.print(n.x, n.y, id(font_small), id(col_white), TextAlign::CENTER, n.str);
-          }
-
-          uint32_t total_ms = id(stopwatch_running) ? (millis() - id(stopwatch_start_time)) : id(stopwatch_elapsed_ms);
-          int mins = (total_ms / 60000) % 60;
-          int secs = (total_ms / 1000) % 60;
-          int tenths = (total_ms / 100) % 10;
-
-          // ----------------------------------------------------
-          // CLASSIC VINTAGE CHRONOMETER INSCRIPTION (HEUER HERITAGE)
-          // ----------------------------------------------------
-          it.print(cx, 132, id(font_small), id(col_silver), TextAlign::CENTER, "CHRONOGRAPH");
-
-          // ----------------------------------------------------
-          // DUAL DIGITAL READOUTS: MAIN LAP (WHITE) & SPLIT (RED)
-          // ----------------------------------------------------
-          char main_buf[32];
-          snprintf(main_buf, sizeof(main_buf), "%02d:%02d.%d", mins, secs, tenths);
-          it.print(cx, 238, id(font_date), id(col_white), TextAlign::CENTER, main_buf);
-
-          if (id(stopwatch_lap_ms) > 0) {
-            int l_mins = (id(stopwatch_lap_ms) / 60000) % 60;
-            int l_secs = (id(stopwatch_lap_ms) / 1000) % 60;
-            int l_tenths = (id(stopwatch_lap_ms) / 100) % 10;
-            char lap_buf[32];
-            snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
-            it.print(cx, 274, id(font_small), id(col_red), TextAlign::CENTER, lap_buf);
-          }
-
-          // ----------------------------------------------------
-          // VINTAGE CHRONOMETER PUSHERS: LAP & RESET (y=332, x=176 & 290)
-          // Authentic machined stainless steel piston pushers with stepped metallic bezels
-          // ----------------------------------------------------
-          const int btn_y = 332;
-          const int btn_lap_x = 176;
-          const int btn_rst_x = 290;
-          const int btn_r = 36;
-
-          // LAP Button (Machined steel piston: polished silver rim, dark core, metallic typography)
-          it.filled_circle(btn_lap_x, btn_y, btn_r - 2, id(col_dark_gray));
-          it.circle(btn_lap_x, btn_y, btn_r, id(col_silver));
-          it.circle(btn_lap_x, btn_y, btn_r - 1, id(col_slate));
-          it.circle(btn_lap_x, btn_y, btn_r - 4, (id(stopwatch_lap_ms) > 0) ? id(col_red) : id(col_slate));
-          it.print(btn_lap_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "LAP");
-
-          // RESET Button (Machined steel piston: polished silver rim, dark core, metallic typography)
-          it.filled_circle(btn_rst_x, btn_y, btn_r - 2, id(col_dark_gray));
-          it.circle(btn_rst_x, btn_y, btn_r, id(col_silver));
-          it.circle(btn_rst_x, btn_y, btn_r - 1, id(col_slate));
-          it.circle(btn_rst_x, btn_y, btn_r - 4, id(col_slate));
-          it.print(btn_rst_x, btn_y, id(font_small), id(col_silver), TextAlign::CENTER, "RESET");
-
-          // ----------------------------------------------------
-          // SPLIT-SECOND (RATTRAPANTE) GHOST HAND (FREEZES AT LAP IN BOLD RACING RED)
-          // Sweeps over top of LAP and RESET buttons; matches red SPLIT digital readout
-          // ----------------------------------------------------
-          if (id(stopwatch_lap_ms) > 0) {
-            float lap_angle = ((id(stopwatch_lap_ms) % 60000) / 60000.0f) * (2.0f * PI_F);
-            float l_sin, l_cos;
-            sincosf(lap_angle, &l_sin, &l_cos);
-            it.line(cx, cy, cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), id(col_red));
-            it.line(cx + 1, cy, cx + (int)(154.0f * l_sin) + 1, cy - (int)(154.0f * l_cos), id(col_red));
-            it.circle(cx + (int)(158.0f * l_sin), cy - (int)(158.0f * l_cos), 4, id(col_red));
-          }
-
-          // ----------------------------------------------------
-          // MAIN CENTRAL ARROW HAND (CLASSIC 1970 HEUER BOLD CHRONOGRAPH)
-          // Faceted stainless steel pointer: Polished silver highlight, steel shadow, white luminous core
-          // ----------------------------------------------------
-          float chrono_angle = ((total_ms % 60000) / 60000.0f) * (2.0f * PI_F);
-          float s_sin, s_cos;
-          sincosf(chrono_angle, &s_sin, &s_cos);
-
-          int tip_x = cx + (int)(178.0f * s_sin);
-          int tip_y = cy - (int)(178.0f * s_cos);
-          int arr_base_x = cx + (int)(152.0f * s_sin);
-          int arr_base_y = cy - (int)(152.0f * s_cos);
-          int tail_x = cx - (int)(36.0f * s_sin);
-          int tail_y = cy + (int)(36.0f * s_cos);
-
-          // True perpendicular vector (Rotated 90 deg clockwise from radial vector)
-          float perp_x = s_cos;
-          float perp_y = s_sin;
-          int left_x = arr_base_x + (int)(8.0f * perp_x);
-          int left_y = arr_base_y + (int)(8.0f * perp_y);
-          int right_x = arr_base_x - (int)(8.0f * perp_x);
-          int right_y = arr_base_y - (int)(8.0f * perp_y);
-
-          // Faceted shaft: Left flank polished silver, right flank steel shadow, center white core
-          it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, id(col_silver));
-          it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, id(col_slate));
-          it.line(tail_x, tail_y, arr_base_x, arr_base_y, id(col_white));
-
-          // Faceted arrowhead: Pure white luminous core with polished steel bevel edges
-          it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, id(col_white));
-          it.line(tip_x, tip_y, left_x, left_y, id(col_silver));
-          it.line(tip_x, tip_y, right_x, right_y, id(col_slate));
-          it.line(left_x, left_y, right_x, right_y, id(col_silver));
-
-          // Teardrop counter-weight tail: Machined steel disc with polished silver bezel & inner jewel
-          it.filled_circle(tail_x, tail_y, 8, id(col_dark_gray));
-          it.circle(tail_x, tail_y, 8, id(col_silver));
-          it.filled_circle(tail_x, tail_y, 3, id(col_silver));
-
-          // Multi-tier Center Pinion Arbor Cap: Polished steel & rhodium arbor
-          it.filled_circle(cx, cy, 9, id(col_silver));
-          it.circle(cx, cy, 9, id(col_slate));
-          it.filled_circle(cx, cy, 6, id(col_dark_gray));
-          it.filled_circle(cx, cy, 2, id(col_white));
-
-          // Dedicated High-Contrast Black & White < BACK Button at y = 408 (Matching Chronograph Aesthetics)
-          it.print(cx, 408, id(font_small), id(col_white), TextAlign::CENTER, "< BACK");
+          render_tool_stopwatch(
+              it, cx, cy, millis(), id(stopwatch_running),
+              id(stopwatch_start_time), id(stopwatch_elapsed_ms), id(stopwatch_lap_ms),
+              id(font_date), id(font_small), id(col_white), id(col_silver),
+              id(col_slate), id(col_dark_gray), id(col_red));
 
         } else if (id(stuff_subpage) == 4) {
           // --------------------------------------------------
-          // SUBPAGE 4: DICE ROLL (ALWAYS DUAL D6)
-          // Dominant, Centered Ivory White Dual D6 Dice (130x130)
-          // Direct Full-Screen Tap or Shake Trigger (No Menu Row)
+          // SUBPAGE 4: DICE ROLL (3D ROUNDED IVORY DICE WITH PARABOLIC HOP & OBSIDIAN PIPS)
           // --------------------------------------------------
-          uint32_t now_d = millis();
-          int cur_val_d6_1 = id(dice_val_d6);
-          int cur_val_d6_2 = id(dice_val_d6_2);
-
-          if (id(dice_anim_active)) {
-            uint32_t elapsed = now_d - id(dice_anim_start_ms);
-            const uint32_t roll_dur = 650; // ms
-            if (elapsed >= roll_dur) {
-              id(dice_anim_active) = false;
-            } else {
-              // Rapid random tumble during roll animation
-              cur_val_d6_1 = ((now_d / 50) % 6) + 1;
-              cur_val_d6_2 = (((now_d + 27) / 45) % 6) + 1;
-            }
-          }
-
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "DICE ROLL");
-
-          const int dice_cy = 180;
-          const int d1_cx = cx - 74; // 159
-          const int d2_cx = cx + 74; // 307
-          const int d_size = 130;
-
-          // Helper to draw a single dominant D6 die
-          auto draw_dominant_d6 = [&](int center_x, int cur_val) {
-            int x0 = center_x - d_size / 2;
-            int y0 = dice_cy - d_size / 2;
-
-            // Soft Drop Shadow
-            it.filled_rectangle(x0 + 5, y0 + 7, d_size, d_size, id(col_dark_gray));
-            // Ivory Die Body
-            it.filled_rectangle(x0, y0, d_size, d_size, Color(248, 246, 240));
-            it.rectangle(x0, y0, d_size, d_size, Color(185, 180, 170));
-
-            // Circular Pips (Obsidian Black, Radius 9)
-            const int pr = 9;
-            const int p_dist = 33;
-            Color pip_c = Color(25, 28, 35);
-            auto draw_pip = [&](int px, int py) {
-              it.filled_circle(px, py, pr, pip_c);
-            };
-
-            bool p_center = (cur_val == 1 || cur_val == 3 || cur_val == 5);
-            bool p_tl_br  = (cur_val >= 2);
-            bool p_tr_bl  = (cur_val >= 4);
-            bool p_mid_lr = (cur_val == 6);
-
-            if (p_center) draw_pip(center_x, dice_cy);
-            if (p_tl_br)  { draw_pip(center_x - p_dist, dice_cy - p_dist); draw_pip(center_x + p_dist, dice_cy + p_dist); }
-            if (p_tr_bl)  { draw_pip(center_x + p_dist, dice_cy - p_dist); draw_pip(center_x - p_dist, dice_cy + p_dist); }
-            if (p_mid_lr) { draw_pip(center_x - p_dist, dice_cy); draw_pip(center_x + p_dist, dice_cy); }
-          };
-
-          draw_dominant_d6(d1_cx, cur_val_d6_1);
-          draw_dominant_d6(d2_cx, cur_val_d6_2);
-
-          // Prominent Large Total Readout below dice
-          if (id(dice_anim_active)) {
-            it.print(cx, 285, id(font_date), id(theme_secondary), TextAlign::CENTER, "ROLLING...");
-          } else {
-            char total_buf[32];
-            snprintf(total_buf, sizeof(total_buf), "TOTAL: %d", cur_val_d6_1 + cur_val_d6_2);
-            it.print(cx, 285, id(font_date), id(col_white), TextAlign::CENTER, total_buf);
-          }
-
-          // Large legible action prompt
-          it.print(cx, 350, id(font_small), id(col_white), TextAlign::CENTER, "Tap or shake to roll");
-
-          draw_back_button();
+          render_tool_dice_roll(
+              it, cx, millis(), id(dice_anim_active), id(dice_anim_start_ms),
+              id(dice_val_d6), id(dice_val_d6_2), id(font_date), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_white), id(col_dark_gray));
 
         } else if (id(stuff_subpage) == 5) {
           // --------------------------------------------------
@@ -6004,278 +5651,22 @@ display:
 
         } else if (id(stuff_subpage) == 7) {
           // --------------------------------------------------
-          // SUBPAGE 7: LEVEL (PRECISION 2D BUBBLE SPIRIT LEVEL)
+          // SUBPAGE 7: LEVEL (20 FPS EMA-SMOOTHED 3D BUBBLE SPIRIT LEVEL)
           // --------------------------------------------------
-          float ax = id(accel_x).state;
-          float ay = id(accel_y).state;
-          float az = id(accel_z).state;
-          if (std::isnan(ax)) ax = 0.0f;
-          if (std::isnan(ay)) ay = 0.0f;
-          if (std::isnan(az)) az = 9.8f;
-
-          // Exact trigonometric pitch and roll angles in degrees
-          float p_rad = atan2f(ay, sqrtf(ax * ax + az * az));
-          float r_rad = atan2f(ax, sqrtf(ay * ay + az * az));
-          float p_deg = p_rad * (180.0f / PI_F);
-          float r_deg = r_rad * (180.0f / PI_F);
-
-          float total_tilt = sqrtf(p_deg * p_deg + r_deg * r_deg);
-          bool is_level = (total_tilt <= 0.5f);
-
-          Color ring_c = is_level ? id(col_green) : id(col_slate);
-
-          // Title at y = 50 standardized as "LEVEL"
-          it.print(cx, 50, id(font_date), is_level ? id(col_green) : id(theme_primary), TextAlign::CENTER, "LEVEL");
-
-          // Reticle center elevated to y = 210 (23px above display equator)
-          const int level_cy = 210;
-
-          // Concentric Reticle Rings:
-          it.circle(cx, level_cy, 130, id(col_dark_gray));
-          it.circle(cx, level_cy, 65, id(col_gray));
-          it.circle(cx, level_cy, 26, ring_c);
-          it.circle(cx, level_cy, 25, ring_c);
-
-          // Crosshairs (leaving center open for target ring)
-          it.line(cx - 140, level_cy, cx - 32, level_cy, ring_c);
-          it.line(cx + 32, level_cy, cx + 140, level_cy, ring_c);
-          it.line(cx, level_cy - 140, cx, level_cy - 32, ring_c);
-          it.line(cx, level_cy + 32, cx, level_cy + 140, ring_c);
-
-          // Center dead-level pip
-          it.filled_circle(cx, level_cy, 2, ring_c);
-
-          // Physical Spirit Level Bubble Physics:
-          int bx = cx - (int)(r_deg * 13.0f);
-          int by = level_cy - (int)(p_deg * 13.0f);
-
-          // Clamp bubble inside outer ring boundary (r = 125)
-          float b_dist = sqrtf((float)((bx - cx) * (bx - cx) + (by - level_cy) * (by - level_cy)));
-          if (b_dist > 125.0f && b_dist > 0.001f) {
-            bx = cx + (int)((float)(bx - cx) * 125.0f / b_dist);
-            by = level_cy + (int)((float)(by - level_cy) * 125.0f / b_dist);
-          }
-
-          // Liquid Bubble Body (Radius 20)
-          Color bub_fill = is_level ? id(col_green) : id(theme_secondary);
-          it.filled_circle(bx, by, 20, bub_fill);
-          it.circle(bx, by, 20, id(col_white));
-          it.filled_circle(bx - 6, by - 6, 3, id(col_white));
-
-          // Numeric Angle Readout at y = 346
-          char deg_buf[16];
-          snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
-          it.print(cx, 346, id(font_date), is_level ? id(col_green) : id(col_white), TextAlign::CENTER, deg_buf);
-
-          // Secondary Status / Pitch-Roll breakdown at y = 372
-          char status_buf[32];
-          if (is_level) {
-            snprintf(status_buf, sizeof(status_buf), "DEAD LEVEL");
-          } else {
-            snprintf(status_buf, sizeof(status_buf), "P: %+.1f°  R: %+.1f°", p_deg, r_deg);
-          }
-          it.print(cx, 372, id(font_micro), is_level ? id(col_green) : id(col_slate), TextAlign::CENTER, status_buf);
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16, height 32, span 150..316)
-          draw_back_button();
+          render_tool_bubble_level(
+              it, cx, id(accel_x).state, id(accel_y).state, id(accel_z).state,
+              id(font_date), id(font_small), id(font_micro),
+              id(theme_primary), id(theme_secondary), id(col_white),
+              id(col_gray), id(col_slate), id(col_dark_gray), id(col_green));
 
         } else if (id(stuff_subpage) == 8) {
           // --------------------------------------------------
-          // SUBPAGE 8: COIN FLIP (HOME ASSISTANT COMMEMORATIVE EDITION)
+          // SUBPAGE 8: COIN FLIP (ZERO-TRIG 3D MILLED-EDGE HOME ASSISTANT MEDALLION)
           // --------------------------------------------------
-          uint32_t now_c = millis();
-          float flip_progress = 1.0f;
-          float scale_y = 1.0f;
-          float y_hop = 0.0f;
-          bool show_heads = (id(coin_side) == 0);
-
-          if (id(coin_anim_active)) {
-            uint32_t elapsed = now_c - id(coin_anim_start_ms);
-            const uint32_t flip_dur = 950; // ms
-            if (elapsed >= flip_dur) {
-              id(coin_anim_active) = false;
-              flip_progress = 1.0f;
-              scale_y = 1.0f;
-              y_hop = 0.0f;
-            } else {
-              flip_progress = (float)elapsed / (float)flip_dur;
-              // Parabolic airborne hop: rises 50px into the air, falls back down
-              y_hop = -50.0f * sinf(flip_progress * PI_F);
-
-              // Multi-flip rotation: 6*pi (3 full flips) for Heads, 7*pi (3.5 flips) for Tails
-              float total_rot = (id(coin_side) == 0) ? (6.0f * PI_F) : (7.0f * PI_F);
-              float eased_t = sinf(flip_progress * (PI_F / 2.0f));
-              float theta = total_rot * (0.35f * flip_progress + 0.65f * eased_t);
-              scale_y = cosf(theta);
-              show_heads = (scale_y >= 0.0f);
-              scale_y = fabsf(scale_y);
-              if (scale_y < 0.08f) scale_y = 0.08f;
-            }
-          }
-
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "COIN FLIP");
-
-          int coin_cy = 205 + (int)y_hop;
-          const int r_outer = 98;
-
-          // Floor Shadow: Smooth horizontal scanline ellipse during airborne hop (zero radial lines)
-          if (y_hop < -6.0f) {
-            float shadow_scale = 1.0f - (-y_hop / 80.0f);
-            if (shadow_scale < 0.4f) shadow_scale = 0.4f;
-            int sh_rx = (int)(80.0f * shadow_scale);
-            int sh_ry = (int)(20.0f * shadow_scale);
-            if (sh_ry > 0) {
-              for (int sdy = -sh_ry; sdy <= sh_ry; sdy++) {
-                int sdx = (int)(sh_rx * sqrtf(fmaxf(0.0f, 1.0f - ((float)(sdy * sdy) / (float)(sh_ry * sh_ry + 1)))));
-                it.horizontal_line(cx - sdx, 265 + sdy, 2 * sdx + 1, Color(12, 14, 18));
-              }
-            }
-          }
-
-          // Solid Silver-Gray Coin Disc (Zero radiating spoke lines)
-          Color col_rim = Color(140, 148, 160);
-          Color col_field = Color(192, 198, 208); // Silver-gray coin face
-          Color col_bevel = Color(225, 232, 242);
-          Color col_groove = Color(160, 168, 180);
-          Color text_col = Color(15, 30, 50);     // High-contrast dark navy for HEADS / TAILS
-          Color ha_blue = Color(24, 188, 242);    // Exact Official Home Assistant Blue (#18BCF2)
-
-          if (scale_y >= 0.98f) {
-            // Flat resting circle: crisp solid disc & concentric rings
-            it.filled_circle(cx, coin_cy, r_outer, col_field);
-            it.circle(cx, coin_cy, r_outer, col_rim);
-            it.circle(cx, coin_cy, r_outer - 1, col_bevel);
-            it.circle(cx, coin_cy, r_outer - 5, col_groove);
-            it.circle(cx, coin_cy, r_outer - 6, col_bevel);
-          } else {
-            // 3D perspective flip: solid horizontal scanline fill (zero radial spoke artifacts)
-            int b_outer = (int)(r_outer * scale_y);
-            if (b_outer > 0) {
-              for (int dy = -b_outer; dy <= b_outer; dy++) {
-                float norm_y = (float)dy / (float)b_outer;
-                float w_ratio = sqrtf(fmaxf(0.0f, 1.0f - norm_y * norm_y));
-                int dx_outer = (int)(r_outer * w_ratio);
-                it.horizontal_line(cx - dx_outer, coin_cy + dy, 2 * dx_outer + 1, col_field);
-              }
-              int b_groove = (int)((r_outer - 5) * scale_y);
-              for (float a = 0.0f; a < 2.0f * PI_F; a += 0.04f) {
-                int px = cx + (int)(r_outer * cosf(a));
-                int py = coin_cy + (int)(b_outer * sinf(a));
-                it.draw_pixel_at(px, py, col_rim);
-                if (b_groove > 0) {
-                  int gx = cx + (int)((r_outer - 5) * cosf(a));
-                  int gy = coin_cy + (int)(b_groove * sinf(a));
-                  it.draw_pixel_at(gx, gy, col_groove);
-                }
-              }
-            }
-          }
-
-          // Center Motif: High-Fidelity Home Assistant Icons (Sample-Matched)
-          if (scale_y > 0.35f) {
-            int hx = cx;
-            int hy = coin_cy - (int)(12.0f * scale_y);
-            int hw = 43;
-
-            int y_top = hy - (int)(40.0f * scale_y);
-            int y_eave = hy - (int)(1.0f * scale_y);
-            int y_bot = hy + (int)(41.0f * scale_y);
-
-            // Monolithic Home Assistant House Base with 45-deg Roof Slope and Rounded Bottom Corners
-            for (int y = y_top; y <= y_bot; y++) {
-              int cur_hw = 0;
-              if (y < y_eave) {
-                if (y_eave > y_top) {
-                  cur_hw = (int)((float)(y - y_top) / (float)(y_eave - y_top) * (float)hw);
-                }
-              } else {
-                int dy_b = y_bot - y;
-                cur_hw = (dy_b < 4 && scale_y > 0.8f) ? (hw - (4 - dy_b)) : hw;
-              }
-              if (cur_hw > 0) {
-                it.horizontal_line(hx - cur_hw, y, 2 * cur_hw + 1, ha_blue);
-              }
-            }
-
-            if (show_heads) {
-              // HEADS: Home Assistant Voice Assistant (Assist/Casita) Smiling Face
-              // 1. Two Solid Circular White Eyes (Zero Pupils)
-              int eye_y = hy + (int)(5.0f * scale_y);
-              int eye_r = std::max(2, (int)(5.0f * scale_y));
-              it.filled_circle(hx - 19, eye_y, eye_r, id(col_white));
-              it.filled_circle(hx + 19, eye_y, eye_r, id(col_white));
-
-              // 2. Continuous U-Shaped White Smile
-              int smile_top_y = hy + (int)(16.0f * scale_y);
-              int smile_mid_y = hy + (int)(20.0f * scale_y);
-              int smile_bot_y = hy + (int)(28.0f * scale_y);
-              int smile_hw = 13;
-
-              // Vertical Arms
-              for (int y = smile_top_y; y <= smile_mid_y; y++) {
-                for (int t = -1; t <= 1; t++) {
-                  it.draw_pixel_at(hx - smile_hw + t, y, id(col_white));
-                  it.draw_pixel_at(hx + smile_hw + t, y, id(col_white));
-                }
-              }
-
-              // Curved Bottom Arc
-              for (float sa = 0.0f; sa <= PI_F; sa += 0.04f) {
-                int sx = hx - (int)(smile_hw * cosf(sa));
-                int sy = smile_mid_y + (int)((smile_bot_y - smile_mid_y) * sinf(sa));
-                for (int t = -1; t <= 1; t++) {
-                  it.draw_pixel_at(sx, sy + t, id(col_white));
-                  it.draw_pixel_at(sx + t, sy, id(col_white));
-                }
-              }
-
-              if (scale_y > 0.65f) {
-                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), text_col, TextAlign::CENTER, "HEADS");
-              }
-            } else {
-              // TAILS: Standard Home Assistant Network Tree Topology
-              int H_total = y_bot - y_top;
-              int top_node_y = y_top + (int)(0.331f * (float)H_total);
-              int right_node_x = hx + 21;
-              int right_node_y = y_top + (int)(0.596f * (float)H_total);
-              int left_node_x = hx - 21;
-              int left_node_y = y_top + (int)(0.742f * (float)H_total);
-
-              int node_r = std::max(3, (int)(7.0f * scale_y));
-              int line_hw = std::max(1, (int)(2.5f * scale_y));
-
-              // 1. Central Vertical Trunk (from Top Node down to Bottom Baseline)
-              for (int w = -line_hw; w <= line_hw; w++) {
-                it.line(hx + w, top_node_y, hx + w, y_bot, id(col_white));
-              }
-
-              // 2. Right 45-degree Branch (from Trunk to Right Node)
-              int right_junct_y = right_node_y + 21;
-              for (int w = -line_hw; w <= line_hw; w++) {
-                it.line(hx + w, right_junct_y, right_node_x + w, right_node_y, id(col_white));
-              }
-
-              // 3. Left 45-degree Branch (from Trunk Bottom to Left Node)
-              int left_junct_y = left_node_y + 21;
-              for (int w = -line_hw; w <= line_hw; w++) {
-                it.line(hx + w, left_junct_y, left_node_x + w, left_node_y, id(col_white));
-              }
-
-              // 4. Three Distinct Network Node Circles
-              it.filled_circle(hx, top_node_y, node_r, id(col_white));
-              it.filled_circle(right_node_x, right_node_y, node_r, id(col_white));
-              it.filled_circle(left_node_x, left_node_y, node_r, id(col_white));
-
-              if (scale_y > 0.65f) {
-                it.print(cx, coin_cy + (int)(55.0f * scale_y), id(font_date), text_col, TextAlign::CENTER, "TAILS");
-              }
-            }
-          }
-
-          // Large legible action prompt below coin
-          it.print(cx, 345, id(font_small), id(col_white), TextAlign::CENTER, "Tap or shake to flip");
-
-          draw_back_button();
+          render_tool_coin_flip(
+              it, cx, millis(), id(coin_anim_active), id(coin_anim_start_ms),
+              id(coin_side), id(font_date), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_white), id(col_dark_gray));
         }
       }
       // UNIVERSAL GLOBAL BOTTOM NAVIGATION BAR (Rendered at Top of Z-Order)
@@ -8198,18 +7589,17 @@ touchscreen:
                 // ----------------------------------------------------
                 // SUBPAGE 0: TOOLS LAUNCHER (2-Page 6+2 Icon Grid Hit Testing)
                 // ----------------------------------------------------
-                // Right Flank Navigation (x >= 370, y in [70..375])
+                // Right Flank Navigation (x >= 370, y in [70..375]) with 2-Step Vertical Scroll Transition
                 if (touch.x >= 370 && touch.y >= 70 && touch.y <= 375) {
                   static uint32_t last_stuff_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_stuff_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
                     last_stuff_scroll_tap = now_s;
-                    if (id(stuff_menu_page) == 0) {
-                      id(stuff_menu_page) = 1;
-                    } else {
-                      id(stuff_menu_page) = 0;
-                    }
-                    id(disp1).update();
+                    id(menu_scroll_dir) = (id(stuff_menu_page) == 0) ? 1 : -1;
+                    id(menu_scroll_target_page) = (id(stuff_menu_page) == 0) ? 1 : 0;
+                    id(menu_scroll_step) = 0;
+                    id(menu_scroll_active) = true;
+                    id(menu_scroll_transition).execute();
                   }
                   return;
                 }
@@ -8217,25 +7607,21 @@ touchscreen:
                 int target_subpage = 0;
                 if (id(stuff_menu_page) == 0) {
                   // PAGE 1: 4 ICONS (Timer, Alarms, Flashlight, Calculator)
-                  // Row 0 (y in 85..221): Left = Timer (1), Right = Alarms (2)
-                  // Row 1 (y in 221..385): Left = Flashlight (5), Right = Calculator (6)
                   if (touch.y >= 85 && touch.y < 221) {
-                    if (touch.x <= 226) target_subpage = 1; // Timer
-                    else if (touch.x > 226 && touch.x < 370) target_subpage = 2; // Alarms
+                    if (touch.x <= 230) target_subpage = 1; // Timer
+                    else if (touch.x > 230 && touch.x < 370) target_subpage = 2; // Alarms
                   } else if (touch.y >= 221 && touch.y <= 385) {
-                    if (touch.x <= 226) target_subpage = 5; // Flashlight
-                    else if (touch.x > 226 && touch.x < 370) target_subpage = 6; // Calculator
+                    if (touch.x <= 230) target_subpage = 5; // Flashlight
+                    else if (touch.x > 230 && touch.x < 370) target_subpage = 6; // Calculator
                   }
                 } else {
                   // PAGE 2: 4 ICONS (Stopwatch, Dice Roll, Level, Coin Flip)
-                  // Row 0 (y in 85..221): Left = Stopwatch (3), Right = Dice Roll (4)
-                  // Row 1 (y in 221..385): Left = Level (7), Right = Coin Flip (8)
                   if (touch.y >= 85 && touch.y < 221) {
-                    if (touch.x <= 226) target_subpage = 3; // Stopwatch
-                    else if (touch.x > 226 && touch.x < 370) target_subpage = 4; // Dice Roll
+                    if (touch.x <= 230) target_subpage = 3; // Stopwatch
+                    else if (touch.x > 230 && touch.x < 370) target_subpage = 4; // Dice Roll
                   } else if (touch.y >= 221 && touch.y <= 385) {
-                    if (touch.x <= 226) target_subpage = 7; // Level
-                    else if (touch.x > 226 && touch.x < 370) target_subpage = 8; // Coin Flip
+                    if (touch.x <= 230) target_subpage = 7; // Level
+                    else if (touch.x > 230 && touch.x < 370) target_subpage = 8; // Coin Flip
                   }
                 }
 
@@ -8539,7 +7925,6 @@ touchscreen:
                     id(dice_anim_start_ms) = millis();
                     id(dice_val_d6) = (esp_random() % 6) + 1;
                     id(dice_val_d6_2) = (esp_random() % 6) + 1;
-                    id(disp1).update();
                   }
                 }
 
@@ -8738,7 +8123,6 @@ touchscreen:
                     id(coin_anim_active) = true;
                     id(coin_anim_start_ms) = millis();
                     id(coin_side) = (esp_random() % 2);
-                    id(disp1).update();
                   }
                 }
               }

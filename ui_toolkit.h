@@ -5817,6 +5817,743 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
   }
 }
 
+
+// ============================================================================
+// SECTION 13: TOOLS SUITE PART 1 — LAUNCHER, STOPWATCH, DICE, LEVEL & COIN FLIP
+// ============================================================================
+
+template<typename DisplayT, typename FontSmallT>
+inline void render_tool_launcher_card(DisplayT &it, int cx_card, int cy_card,
+                                      int app_id, const char *label,
+                                      FontSmallT *font_small,
+                                      esphome::Color theme_secondary,
+                                      esphome::Color col_white, esphome::Color col_silver,
+                                      esphome::Color col_slate, esphome::Color col_gold,
+                                      esphome::Color col_cyan, esphome::Color col_green,
+                                      esphome::Color col_orange, esphome::Color col_red) {
+  const int cw = 124;
+  const int ch = 100;
+  const int cr = 16;
+  int x0 = cx_card - cw / 2;
+  int y0 = cy_card - ch / 2;
+
+  esphome::Color card_bg(22, 27, 36);
+  esphome::Color card_border(48, 56, 70);
+
+  it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, card_bg);
+  it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, card_bg);
+  it.filled_circle(x0 + cr, y0 + cr, cr, card_bg);
+  it.filled_circle(x0 + cw - cr, y0 + cr, cr, card_bg);
+  it.filled_circle(x0 + cr, y0 + ch - cr, cr, card_bg);
+  it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, card_bg);
+
+  it.line(x0 + cr, y0, x0 + cw - cr, y0, card_border);
+  it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, card_border);
+  it.line(x0, y0 + cr, x0, y0 + ch - cr, card_border);
+  it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, card_border);
+
+  int ix = cx_card;
+  int iy = cy_card - 16;
+
+  if (app_id == 1) {
+    // Timer Icon: Hourglass with golden sand
+    it.line(ix - 10, iy - 12, ix + 10, iy - 12, col_silver);
+    it.line(ix - 10, iy + 12, ix + 10, iy + 12, col_silver);
+    it.line(ix - 9, iy - 11, ix - 2, iy, col_white);
+    it.line(ix + 9, iy - 11, ix + 2, iy, col_white);
+    it.line(ix - 2, iy, ix - 9, iy + 11, col_white);
+    it.line(ix + 2, iy, ix + 9, iy + 11, col_white);
+    it.filled_triangle(ix - 5, iy - 6, ix + 5, iy - 6, ix, iy - 1, col_gold);
+    it.line(ix, iy - 1, ix, iy + 3, col_gold);
+    it.filled_triangle(ix - 6, iy + 10, ix + 6, iy + 10, ix, iy + 3, col_gold);
+  } else if (app_id == 2) {
+    // Alarms Icon: Twin-bell alarm clock with crimson bells & gold hands
+    it.circle(ix, iy + 1, 12, col_white);
+    it.line(ix, iy + 1, ix - 5, iy - 3, col_gold);
+    it.line(ix, iy + 1, ix + 5, iy + 1, col_cyan);
+    it.circle(ix - 10, iy - 10, 4, col_red);
+    it.circle(ix + 10, iy - 10, 4, col_red);
+    it.line(ix - 8, iy + 12, ix - 12, iy + 16, col_silver);
+    it.line(ix + 8, iy + 12, ix + 12, iy + 16, col_silver);
+  } else if (app_id == 3) {
+    // Stopwatch Icon: Chronometer with top crown and red split pusher/hand
+    it.circle(ix, iy + 2, 13, col_white);
+    it.circle(ix, iy + 2, 11, col_slate);
+    it.line(ix, iy - 11, ix, iy - 15, col_silver);
+    it.line(ix - 5, iy - 16, ix + 5, iy - 16, col_white);
+    it.line(ix + 9, iy - 7, ix + 13, iy - 11, col_red);
+    it.line(ix, iy + 2, ix + 6, iy - 5, col_red);
+    it.filled_circle(ix, iy + 2, 2, col_white);
+  } else if (app_id == 4) {
+    // Dice Icon: Rounded ivory die with 5 obsidian pips
+    it.filled_rectangle(ix - 13, iy - 13, 27, 27, esphome::Color(242, 240, 232));
+    it.rectangle(ix - 14, iy - 14, 29, 29, col_silver);
+    esphome::Color pip_c(25, 28, 35);
+    it.filled_circle(ix, iy, 2, pip_c);
+    it.filled_circle(ix - 7, iy - 7, 2, pip_c);
+    it.filled_circle(ix + 7, iy + 7, 2, pip_c);
+    it.filled_circle(ix + 7, iy - 7, 2, pip_c);
+    it.filled_circle(ix - 7, iy + 7, 2, pip_c);
+  } else if (app_id == 5) {
+    // Flashlight Icon: Torch barrel, reflector head, and golden light rays
+    it.rectangle(ix - 5, iy - 1, 11, 16, col_silver);
+    it.line(ix - 9, iy - 9, ix - 5, iy - 1, col_white);
+    it.line(ix + 9, iy - 9, ix + 5, iy - 1, col_white);
+    it.line(ix - 9, iy - 9, ix + 9, iy - 9, col_white);
+    it.line(ix - 7, iy - 12, ix - 10, iy - 16, col_gold);
+    it.line(ix, iy - 12, ix, iy - 17, col_gold);
+    it.line(ix + 7, iy - 12, ix + 10, iy - 16, col_gold);
+  } else if (app_id == 6) {
+    // Calculator Icon: Slate frame, cyan display, and amber operator column
+    it.rectangle(ix - 13, iy - 16, 27, 33, col_white);
+    it.rectangle(ix - 9, iy - 13, 19, 8, col_cyan);
+    it.line(ix - 7, iy - 1, ix - 2, iy - 1, col_white);
+    it.line(ix + 2, iy - 1, ix + 7, iy - 1, col_orange);
+    it.line(ix - 7, iy + 5, ix - 2, iy + 5, col_white);
+    it.line(ix + 2, iy + 5, ix + 7, iy + 5, col_orange);
+    it.line(ix - 7, iy + 10, ix + 7, iy + 10, col_orange);
+  } else if (app_id == 7) {
+    // Level Icon: Spirit level reticle with emerald green center bubble
+    it.circle(ix, iy, 16, col_white);
+    it.circle(ix, iy, 8, col_slate);
+    it.filled_circle(ix, iy, 4, col_green);
+    it.draw_pixel_at(ix - 1, iy - 1, col_white);
+    it.line(ix - 20, iy, ix - 16, iy, theme_secondary);
+    it.line(ix + 16, iy, ix + 20, iy, theme_secondary);
+    it.line(ix, iy - 20, ix, iy - 16, theme_secondary);
+    it.line(ix, iy + 16, ix, iy + 20, theme_secondary);
+  } else if (app_id == 8) {
+    // Coin Icon: Silver-gold medallion rim with Home Assistant blue house
+    it.circle(ix, iy, 17, col_white);
+    it.circle(ix, iy, 14, col_gold);
+    esphome::Color ha_blue(24, 188, 242);
+    it.filled_triangle(ix - 8, iy - 1, ix + 8, iy - 1, ix, iy - 9, ha_blue);
+    it.filled_rectangle(ix - 6, iy - 1, 13, 8, ha_blue);
+    it.filled_circle(ix, iy + 2, 2, col_white);
+  }
+
+  it.print(cx_card, cy_card + 26, font_small, col_white,
+           esphome::display::TextAlign::CENTER, label);
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
+                                  bool menu_scroll_active, int menu_scroll_step,
+                                  int menu_scroll_dir, int menu_scroll_target_page,
+                                  FontBigT *font_date, FontSmallT *font_small,
+                                  esphome::Color theme_primary, esphome::Color theme_secondary,
+                                  esphome::Color col_bg, esphome::Color col_black,
+                                  esphome::Color col_white, esphome::Color col_silver,
+                                  esphome::Color col_slate, esphome::Color col_gold,
+                                  esphome::Color col_cyan, esphome::Color col_green,
+                                  esphome::Color col_orange, esphome::Color col_red) {
+  const int col_left_x = 162;
+  const int col_right_x = 298;
+  const int row_0_y = 159;
+  const int row_1_y = 283;
+
+  auto draw_page_cards = [&](int page_idx, int y_shift) {
+    int y0 = row_0_y + y_shift;
+    int y1 = row_1_y + y_shift;
+    if (page_idx == 0) {
+      if (y0 >= 95 && y0 <= 355) {
+        render_tool_launcher_card(it, col_left_x, y0, 1, "Timer", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_right_x, y0, 2, "Alarms", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+      }
+      if (y1 >= 95 && y1 <= 355) {
+        render_tool_launcher_card(it, col_left_x, y1, 5, "Flashlight", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_right_x, y1, 6, "Calculator", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+      }
+    } else {
+      if (y0 >= 95 && y0 <= 355) {
+        render_tool_launcher_card(it, col_left_x, y0, 3, "Stopwatch", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_right_x, y0, 4, "Dice Roll", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+      }
+      if (y1 >= 95 && y1 <= 355) {
+        render_tool_launcher_card(it, col_left_x, y1, 7, "Level", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_right_x, y1, 8, "Coin Flip", font_small,
+                                  theme_secondary, col_white, col_silver, col_slate,
+                                  col_gold, col_cyan, col_green, col_orange, col_red);
+      }
+    }
+  };
+
+  if (menu_scroll_active) {
+    int step = std::min(4, menu_scroll_step);
+    int offset = SHARED_SCROLL_EASE_232[step];
+    draw_page_cards(stuff_menu_page, -menu_scroll_dir * offset);
+    draw_page_cards(menu_scroll_target_page, menu_scroll_dir * (232 - offset));
+  } else {
+    draw_page_cards(stuff_menu_page, 0);
+  }
+
+  // Header & Right-Flank Scroll Chevrons
+  it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "TOOLS");
+  it.filled_rectangle(395, 140, 71, 160, col_bg);
+  if (stuff_menu_page == 1) {
+    render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, false);
+  }
+  if (stuff_menu_page == 0) {
+    render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, false);
+  }
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_tool_stopwatch(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                  bool stopwatch_running, uint32_t stopwatch_start_time,
+                                  uint32_t stopwatch_elapsed_ms, uint32_t stopwatch_lap_ms,
+                                  FontBigT *font_date, FontSmallT *font_small,
+                                  esphome::Color col_white, esphome::Color col_silver,
+                                  esphome::Color col_slate, esphome::Color col_dark_gray,
+                                  esphome::Color col_red) {
+  // Dual Perimeter Rings & Inner Rehaut Flange
+  it.circle(cx, cy, 230, col_white);
+  it.circle(cx, cy, 228, col_silver);
+  it.circle(cx, cy, 197, col_dark_gray);
+  it.circle(cx, cy, 196, col_silver);
+
+  // Precision Perimeter Chapter Ring via .rodata DIAL_SIN / DIAL_COS
+  for (int s = 0; s < 60; s++) {
+    float t_sin = DIAL_SIN[s];
+    float t_cos = DIAL_COS[s];
+    if (s % 5 == 0) {
+      float perp_x = -t_cos;
+      float perp_y = t_sin;
+      int x1 = cx + (int)(196.0f * t_sin);
+      int y1 = cy - (int)(196.0f * t_cos);
+      int x2 = cx + (int)(227.0f * t_sin);
+      int y2 = cy - (int)(227.0f * t_cos);
+      it.line(x1 + (int)perp_x, y1 + (int)perp_y, x2 + (int)perp_x, y2 + (int)perp_y, col_silver);
+      it.line(x1 - (int)perp_x, y1 - (int)perp_y, x2 - (int)perp_x, y2 - (int)perp_y, col_slate);
+      it.line(x1, y1, x2, y2, col_white);
+    } else {
+      int x1 = cx + (int)(210.0f * t_sin);
+      int y1 = cy - (int)(210.0f * t_cos);
+      int x2 = cx + (int)(227.0f * t_sin);
+      int y2 = cy - (int)(227.0f * t_cos);
+      it.line(x1, y1, x2, y2, col_slate);
+      it.line(x1 + 1, y1, x2 + 1, y2, col_slate);
+    }
+  }
+
+  static constexpr struct {
+    int16_t x, y;
+    const char *str;
+  } CHRONO_NUMS[11] = {
+      {233, 61, "0"},   {319, 84, "5"},   {382, 147, "10"}, {405, 233, "15"},
+      {382, 319, "20"}, {319, 382, "25"}, {147, 382, "35"}, {84, 319, "40"},
+      {61, 233, "45"},  {84, 147, "50"},  {147, 84, "55"}};
+  for (const auto &n : CHRONO_NUMS) {
+    it.print(n.x, n.y, font_small, col_white, esphome::display::TextAlign::CENTER, n.str);
+  }
+
+  uint32_t total_ms = stopwatch_running ? (now_ms - stopwatch_start_time) : stopwatch_elapsed_ms;
+  int mins = (total_ms / 60000U) % 60U;
+  int secs = (total_ms / 1000U) % 60U;
+  int tenths = (total_ms / 100U) % 10U;
+
+  it.print(cx, 132, font_small, col_silver, esphome::display::TextAlign::CENTER, "CHRONOGRAPH");
+
+  char main_buf[32];
+  snprintf(main_buf, sizeof(main_buf), "%02d:%02d.%d", mins, secs, tenths);
+  it.print(cx, 238, font_date, col_white, esphome::display::TextAlign::CENTER, main_buf);
+
+  if (stopwatch_lap_ms > 0) {
+    int l_mins = (stopwatch_lap_ms / 60000U) % 60U;
+    int l_secs = (stopwatch_lap_ms / 1000U) % 60U;
+    int l_tenths = (stopwatch_lap_ms / 100U) % 10U;
+    char lap_buf[32];
+    snprintf(lap_buf, sizeof(lap_buf), "SPLIT  %02d:%02d.%d", l_mins, l_secs, l_tenths);
+    it.print(cx, 274, font_small, col_red, esphome::display::TextAlign::CENTER, lap_buf);
+  }
+
+  const int btn_y = 332;
+  const int btn_lap_x = 176;
+  const int btn_rst_x = 290;
+  const int btn_r = 36;
+
+  it.filled_circle(btn_lap_x, btn_y, btn_r - 2, col_dark_gray);
+  it.circle(btn_lap_x, btn_y, btn_r, col_silver);
+  it.circle(btn_lap_x, btn_y, btn_r - 1, col_slate);
+  it.circle(btn_lap_x, btn_y, btn_r - 4, (stopwatch_lap_ms > 0) ? col_red : col_slate);
+  it.print(btn_lap_x, btn_y, font_small, col_silver, esphome::display::TextAlign::CENTER, "LAP");
+
+  it.filled_circle(btn_rst_x, btn_y, btn_r - 2, col_dark_gray);
+  it.circle(btn_rst_x, btn_y, btn_r, col_silver);
+  it.circle(btn_rst_x, btn_y, btn_r - 1, col_slate);
+  it.circle(btn_rst_x, btn_y, btn_r - 4, col_slate);
+  it.print(btn_rst_x, btn_y, font_small, col_silver, esphome::display::TextAlign::CENTER, "RESET");
+
+  // Split-Second (Rattrapante) Ghost Hand via fast_sincos
+  if (stopwatch_lap_ms > 0) {
+    float lap_angle = ((stopwatch_lap_ms % 60000U) / 60000.0f) * (2.0f * PI_F);
+    float l_sin = 0.0f, l_cos = 1.0f;
+    fast_sincos(lap_angle, l_sin, l_cos);
+    it.line(cx, cy, cx + (int)(154.0f * l_sin), cy - (int)(154.0f * l_cos), col_red);
+    it.line(cx + 1, cy, cx + (int)(154.0f * l_sin) + 1, cy - (int)(154.0f * l_cos), col_red);
+    it.circle(cx + (int)(158.0f * l_sin), cy - (int)(158.0f * l_cos), 4, col_red);
+  }
+
+  // Main Central Arrow Hand (20 FPS High-Beat Sweep via fast_sincos)
+  float chrono_angle = ((total_ms % 60000U) / 60000.0f) * (2.0f * PI_F);
+  float s_sin = 0.0f, s_cos = 1.0f;
+  fast_sincos(chrono_angle, s_sin, s_cos);
+
+  int tip_x = cx + (int)(178.0f * s_sin);
+  int tip_y = cy - (int)(178.0f * s_cos);
+  int arr_base_x = cx + (int)(152.0f * s_sin);
+  int arr_base_y = cy - (int)(152.0f * s_cos);
+  int tail_x = cx - (int)(36.0f * s_sin);
+  int tail_y = cy + (int)(36.0f * s_cos);
+
+  float perp_x = s_cos;
+  float perp_y = s_sin;
+  int left_x = arr_base_x + (int)(8.0f * perp_x);
+  int left_y = arr_base_y + (int)(8.0f * perp_y);
+  int right_x = arr_base_x - (int)(8.0f * perp_x);
+  int right_y = arr_base_y - (int)(8.0f * perp_y);
+
+  it.line(tail_x + (int)perp_x, tail_y + (int)perp_y, arr_base_x + (int)perp_x, arr_base_y + (int)perp_y, col_silver);
+  it.line(tail_x - (int)perp_x, tail_y - (int)perp_y, arr_base_x - (int)perp_x, arr_base_y - (int)perp_y, col_slate);
+  it.line(tail_x, tail_y, arr_base_x, arr_base_y, col_white);
+
+  it.filled_triangle(tip_x, tip_y, left_x, left_y, right_x, right_y, col_white);
+  it.line(tip_x, tip_y, left_x, left_y, col_silver);
+  it.line(tip_x, tip_y, right_x, right_y, col_slate);
+  it.line(left_x, left_y, right_x, right_y, col_silver);
+
+  it.filled_circle(tail_x, tail_y, 8, col_dark_gray);
+  it.circle(tail_x, tail_y, 8, col_silver);
+  it.filled_circle(tail_x, tail_y, 3, col_silver);
+
+  it.filled_circle(cx, cy, 9, col_silver);
+  it.circle(cx, cy, 9, col_slate);
+  it.filled_circle(cx, cy, 6, col_dark_gray);
+  it.filled_circle(cx, cy, 2, col_white);
+
+  it.print(cx, 408, font_small, col_white, esphome::display::TextAlign::CENTER, "< BACK");
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
+                                  bool &dice_anim_active, uint32_t dice_anim_start_ms,
+                                  int dice_val_d6, int dice_val_d6_2,
+                                  FontBigT *font_date, FontSmallT *font_small,
+                                  esphome::Color theme_primary, esphome::Color theme_secondary,
+                                  esphome::Color col_white, esphome::Color col_dark_gray) {
+  int cur_val_1 = dice_val_d6;
+  int cur_val_2 = dice_val_d6_2;
+  int hop_y1 = 0, hop_y2 = 0;
+  int jostle_x1 = 0, jostle_x2 = 0;
+  int shadow_extra = 0;
+
+  if (dice_anim_active) {
+    uint32_t elapsed = now_ms - dice_anim_start_ms;
+    const uint32_t roll_dur = 680U;
+    if (elapsed >= roll_dur) {
+      dice_anim_active = false;
+    } else {
+      float p = (float)elapsed / (float)roll_dur;
+      float damp = 1.0f - p;
+      // 2-bounce damped parabolic hop & out-of-phase lateral clatter
+      hop_y1 = -(int)(std::abs(fast_sin(p * PI_F * 2.2f)) * 32.0f * damp);
+      hop_y2 = -(int)(std::abs(fast_sin(p * PI_F * 2.2f + 0.7f)) * 30.0f * damp);
+      jostle_x1 = (int)(fast_sin(p * PI_F * 6.0f) * 8.0f * damp);
+      jostle_x2 = -(int)(fast_cos(p * PI_F * 6.0f) * 8.0f * damp);
+      shadow_extra = (int)(6.0f * damp);
+
+      // Pseudo-random independent face tumbling
+      uint32_t step = elapsed / 55U;
+      cur_val_1 = 1 + ((int)(hash2d_01((int)step, 17) * 60.0f) % 6);
+      cur_val_2 = 1 + ((int)(hash2d_01((int)step + 31, 53) * 60.0f) % 6);
+    }
+  }
+
+  // Clean Canvas: Centered 132x132 3D Rounded Ivory Dice at y = 192
+  const int dice_base_y = 192;
+  const int d1_cx = cx - 75 + jostle_x1;
+  const int d2_cx = cx + 75 + jostle_x2;
+  const int d1_cy = dice_base_y + hop_y1;
+  const int d2_cy = dice_base_y + hop_y2;
+  const int d_size = 132;
+  const int cr = 16;
+
+  auto draw_rounded_d6 = [&](int center_x, int center_y, int val) {
+    int x0 = center_x - d_size / 2;
+    int y0 = center_y - d_size / 2;
+    int sx0 = x0 + 6 + shadow_extra;
+    int sy0 = y0 + 8 + shadow_extra;
+
+    // 1. Rounded Drop Shadow
+    esphome::Color sh_col(16, 20, 28);
+    it.filled_rectangle(sx0 + cr, sy0, d_size - 2 * cr, d_size, sh_col);
+    it.filled_rectangle(sx0, sy0 + cr, d_size, d_size - 2 * cr, sh_col);
+    it.filled_circle(sx0 + cr, sy0 + cr, cr, sh_col);
+    it.filled_circle(sx0 + d_size - cr, sy0 + cr, cr, sh_col);
+    it.filled_circle(sx0 + cr, sy0 + d_size - cr, cr, sh_col);
+    it.filled_circle(sx0 + d_size - cr, sy0 + d_size - cr, cr, sh_col);
+
+    // 2. Rounded Ivory Die Body + 3D Top/Left Specular Bevel
+    esphome::Color body_col(248, 246, 240);
+    esphome::Color border_col(182, 176, 164);
+    it.filled_rectangle(x0 + cr, y0, d_size - 2 * cr, d_size, body_col);
+    it.filled_rectangle(x0, y0 + cr, d_size, d_size - 2 * cr, body_col);
+    it.filled_circle(x0 + cr, y0 + cr, cr, body_col);
+    it.filled_circle(x0 + d_size - cr, y0 + cr, cr, body_col);
+    it.filled_circle(x0 + cr, y0 + d_size - cr, cr, body_col);
+    it.filled_circle(x0 + d_size - cr, y0 + d_size - cr, cr, body_col);
+
+    // Subtle top/left highlight & bottom/right bone bevel
+    it.line(x0 + cr, y0 + 1, x0 + d_size - cr, y0 + 1, col_white);
+    it.line(x0 + 1, y0 + cr, x0 + 1, y0 + d_size - cr, col_white);
+    it.line(x0 + cr, y0 + d_size - 1, x0 + d_size - cr, y0 + d_size - 1, border_col);
+    it.line(x0 + d_size - 1, y0 + cr, x0 + d_size - 1, y0 + d_size - cr, border_col);
+
+    // 3. Recessed Obsidian Black Pips (Radius 9, all obsidian black with 3D rim glint)
+    const int pr = 9;
+    const int p_dist = 34;
+    esphome::Color pip_c(25, 28, 35);
+    esphome::Color pip_rim(85, 92, 105);
+    auto draw_pip = [&](int px, int py) {
+      it.filled_circle(px, py, pr, pip_c);
+      // Recessed bottom-right rim highlight
+      it.draw_pixel_at(px + 4, py + 5, pip_rim);
+      it.draw_pixel_at(px + 5, py + 4, pip_rim);
+      it.draw_pixel_at(px + 3, py + 6, pip_rim);
+    };
+
+    bool p_center = (val == 1 || val == 3 || val == 5);
+    bool p_tl_br  = (val >= 2);
+    bool p_tr_bl  = (val >= 4);
+    bool p_mid_lr = (val == 6);
+
+    if (p_center) draw_pip(center_x, center_y);
+    if (p_tl_br)  { draw_pip(center_x - p_dist, center_y - p_dist); draw_pip(center_x + p_dist, center_y + p_dist); }
+    if (p_tr_bl)  { draw_pip(center_x + p_dist, center_y - p_dist); draw_pip(center_x - p_dist, center_y + p_dist); }
+    if (p_mid_lr) { draw_pip(center_x - p_dist, center_y); draw_pip(center_x + p_dist, center_y); }
+  };
+
+  draw_rounded_d6(d1_cx, d1_cy, cur_val_1);
+  draw_rounded_d6(d2_cx, d2_cy, cur_val_2);
+
+  // Prominent Total Readout at y = 324 (Clean canvas: no top title or instruction clutter)
+  if (dice_anim_active) {
+    it.print(cx, 324, font_date, theme_secondary, esphome::display::TextAlign::CENTER, "ROLLING...");
+  } else {
+    char total_buf[32];
+    snprintf(total_buf, sizeof(total_buf), "TOTAL: %d", cur_val_1 + cur_val_2);
+    it.print(cx, 324, font_date, col_white, esphome::display::TextAlign::CENTER, total_buf);
+  }
+
+  render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT, typename FontMicroT>
+inline void render_tool_bubble_level(DisplayT &it, int cx, float ax, float ay, float az,
+                                     FontBigT *font_date, FontSmallT *font_small,
+                                     FontMicroT *font_micro,
+                                     esphome::Color theme_primary, esphome::Color theme_secondary,
+                                     esphome::Color col_white, esphome::Color col_gray,
+                                     esphome::Color col_slate, esphome::Color col_dark_gray,
+                                     esphome::Color col_green) {
+  if (std::isnan(ax)) ax = 0.0f;
+  if (std::isnan(ay)) ay = 0.0f;
+  if (std::isnan(az)) az = 9.8f;
+
+  float p_rad = std::atan2(ay, std::sqrt(ax * ax + az * az));
+  float r_rad = std::atan2(ax, std::sqrt(ay * ay + az * az));
+  float raw_p_deg = p_rad * (180.0f / PI_F);
+  float raw_r_deg = r_rad * (180.0f / PI_F);
+
+  // 20 FPS EMA Liquid Damping Filter (eliminates 5 Hz accelerometer step-jumping)
+  static float smooth_p_deg = 0.0f;
+  static float smooth_r_deg = 0.0f;
+  static bool init_level = false;
+  if (!init_level) {
+    smooth_p_deg = raw_p_deg;
+    smooth_r_deg = raw_r_deg;
+    init_level = true;
+  } else {
+    smooth_p_deg += (raw_p_deg - smooth_p_deg) * 0.28f;
+    smooth_r_deg += (raw_r_deg - smooth_r_deg) * 0.28f;
+  }
+
+  float total_tilt = std::sqrt(smooth_p_deg * smooth_p_deg + smooth_r_deg * smooth_r_deg);
+  bool is_level = (total_tilt <= 0.5f);
+  esphome::Color ring_c = is_level ? col_green : col_slate;
+
+  // Clean Canvas: Enlarged Bulls-Eye Vial centered at level_cy = 192
+  const int level_cy = 192;
+  const int outer_r = 136;
+
+  // 12-point 30-degree radial bezel ticks via .rodata DIAL_SIN / DIAL_COS
+  for (int i = 0; i < 60; i += 5) {
+    int x1 = cx + (int)(DIAL_SIN[i] * (float)(outer_r - 6));
+    int y1 = level_cy - (int)(DIAL_COS[i] * (float)(outer_r - 6));
+    int x2 = cx + (int)(DIAL_SIN[i] * (float)outer_r);
+    int y2 = level_cy - (int)(DIAL_COS[i] * (float)outer_r);
+    it.line(x1, y1, x2, y2, col_gray);
+  }
+
+  it.circle(cx, level_cy, outer_r, col_slate);
+  it.circle(cx, level_cy, outer_r - 1, col_dark_gray);
+  it.circle(cx, level_cy, 68, col_gray);
+  it.circle(cx, level_cy, 26, ring_c);
+  it.circle(cx, level_cy, 25, ring_c);
+
+  // Cardinal Crosshairs
+  it.line(cx - 144, level_cy, cx - 32, level_cy, ring_c);
+  it.line(cx + 32, level_cy, cx + 144, level_cy, ring_c);
+  it.line(cx, level_cy - 144, cx, level_cy - 32, ring_c);
+  it.line(cx, level_cy + 32, cx, level_cy + 144, ring_c);
+  it.filled_circle(cx, level_cy, 2, ring_c);
+
+  // Spirit Level Bubble Position (clamped inside outer vial r = 114)
+  float fbx = (float)cx - smooth_r_deg * 13.0f;
+  float fby = (float)level_cy - smooth_p_deg * 13.0f;
+  float bdx = fbx - (float)cx;
+  float bdy = fby - (float)level_cy;
+  float b_dist_sq = bdx * bdx + bdy * bdy;
+  if (b_dist_sq > 114.0f * 114.0f) {
+    float b_dist = std::sqrt(b_dist_sq);
+    fbx = (float)cx + (bdx / b_dist) * 114.0f;
+    fby = (float)level_cy + (bdy / b_dist) * 114.0f;
+  }
+  int bx = (int)fbx;
+  int by = (int)fby;
+
+  // 3D Glass Spirit Bubble (Shadow, Meniscus Rim, Dual Specular Highlights)
+  it.filled_circle(bx + 2, by + 3, 20, esphome::Color(12, 16, 22));
+  esphome::Color bub_fill = is_level ? col_green : theme_secondary;
+  it.filled_circle(bx, by, 20, bub_fill);
+  it.circle(bx, by, 20, col_white);
+  it.circle(bx, by, 18, col_white);
+  it.filled_circle(bx - 6, by - 6, 4, col_white);
+  it.filled_circle(bx + 7, by + 7, 2, col_white);
+
+  // Numeric Angle Readouts at y = 348 & y = 376
+  char deg_buf[16];
+  snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
+  it.print(cx, 348, font_date, is_level ? col_green : col_white,
+           esphome::display::TextAlign::CENTER, deg_buf);
+
+  char status_buf[32];
+  if (is_level) {
+    snprintf(status_buf, sizeof(status_buf), "DEAD LEVEL");
+  } else {
+    snprintf(status_buf, sizeof(status_buf), "P: %+.1f°   R: %+.1f°", smooth_p_deg, smooth_r_deg);
+  }
+  it.print(cx, 376, font_micro, is_level ? col_green : col_slate,
+           esphome::display::TextAlign::CENTER, status_buf);
+
+  render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
+                                  bool &coin_anim_active, uint32_t coin_anim_start_ms,
+                                  int coin_side,
+                                  FontBigT *font_date, FontSmallT *font_small,
+                                  esphome::Color theme_primary, esphome::Color theme_secondary,
+                                  esphome::Color col_white, esphome::Color col_dark_gray) {
+  float flip_progress = 1.0f;
+  float scale_y = 1.0f;
+  float y_hop = 0.0f;
+  bool show_heads = (coin_side == 0);
+
+  if (coin_anim_active) {
+    uint32_t elapsed = now_ms - coin_anim_start_ms;
+    const uint32_t flip_dur = 950U;
+    if (elapsed >= flip_dur) {
+      coin_anim_active = false;
+    } else {
+      flip_progress = (float)elapsed / (float)flip_dur;
+      // Parabolic airborne hop (-66px peak in clean canvas)
+      y_hop = -66.0f * fast_sin(flip_progress * PI_F);
+      float total_rot = (coin_side == 0) ? (6.0f * PI_F) : (7.0f * PI_F);
+      float eased_t = fast_sin(flip_progress * (PI_F * 0.5f));
+      float theta = total_rot * (0.35f * flip_progress + 0.65f * eased_t);
+      scale_y = fast_cos(theta);
+      show_heads = (scale_y >= 0.0f);
+      scale_y = std::abs(scale_y);
+      if (scale_y < 0.08f) scale_y = 0.08f;
+    }
+  }
+
+  const int coin_base_y = 194;
+  int coin_cy = coin_base_y + (int)y_hop;
+  const int r_outer = 102;
+
+  // 1. Zero-sqrtf Floor Shadow via .rodata CIRCLE_HW LUT
+  if (y_hop < -4.0f) {
+    float shadow_scale = std::max(0.38f, 1.0f - (-y_hop / 95.0f));
+    int sh_rx = (int)(84.0f * shadow_scale);
+    int sh_ry = std::max(2, (int)(20.0f * shadow_scale));
+    for (int sdy = -sh_ry; sdy <= sh_ry; sdy++) {
+      int lut_idx = 233 + (sdy * 232) / sh_ry;
+      if (lut_idx < 0) lut_idx = 0;
+      if (lut_idx > 465) lut_idx = 465;
+      int sdx = (sh_rx * CIRCLE_HW[lut_idx]) / 233;
+      it.horizontal_line(cx - sdx, 266 + sdy, 2 * sdx + 1, esphome::Color(12, 15, 20));
+    }
+  }
+
+  esphome::Color col_rim(136, 146, 160);
+  esphome::Color col_edge(108, 118, 132);
+  esphome::Color col_field(196, 202, 212);
+  esphome::Color col_bevel(230, 236, 246);
+  esphome::Color col_groove(156, 164, 178);
+  esphome::Color text_col(15, 30, 50);
+  esphome::Color ha_blue(24, 188, 242);
+
+  if (scale_y >= 0.98f) {
+    it.filled_circle(cx, coin_cy, r_outer, col_field);
+    it.circle(cx, coin_cy, r_outer, col_rim);
+    it.circle(cx, coin_cy, r_outer - 1, col_bevel);
+    it.circle(cx, coin_cy, r_outer - 5, col_groove);
+    it.circle(cx, coin_cy, r_outer - 6, col_bevel);
+  } else {
+    // 2. Zero-Trig 3D Foreshortened Coin + Milled Metallic Edge Thickness via CIRCLE_HW
+    int b_outer = std::max(2, (int)(r_outer * scale_y));
+    int edge_h = std::max(2, (int)(8.0f * (1.0f - scale_y)));
+
+    // Lower 3D metallic coin thickness band
+    for (int dy = 0; dy <= b_outer; dy++) {
+      int lut_idx = 233 + (dy * 232) / b_outer;
+      if (lut_idx < 0) lut_idx = 0;
+      if (lut_idx > 465) lut_idx = 465;
+      int dx_outer = (r_outer * CIRCLE_HW[lut_idx]) / 233;
+      for (int eh = 1; eh <= edge_h; eh++) {
+        it.horizontal_line(cx - dx_outer, coin_cy + dy + eh, 2 * dx_outer + 1,
+                           (eh == edge_h) ? col_rim : col_edge);
+      }
+    }
+
+    // Coin face scanlines + rim & groove bevels (zero cosf/sinf!)
+    for (int dy = -b_outer; dy <= b_outer; dy++) {
+      int lut_idx = 233 + (dy * 232) / b_outer;
+      if (lut_idx < 0) lut_idx = 0;
+      if (lut_idx > 465) lut_idx = 465;
+      int dx_outer = (r_outer * CIRCLE_HW[lut_idx]) / 233;
+      it.horizontal_line(cx - dx_outer, coin_cy + dy, 2 * dx_outer + 1, col_field);
+      // Rim pixels at left/right scanline ends
+      it.draw_pixel_at(cx - dx_outer, coin_cy + dy, col_rim);
+      it.draw_pixel_at(cx + dx_outer, coin_cy + dy, col_rim);
+      it.draw_pixel_at(cx - dx_outer + 1, coin_cy + dy, col_bevel);
+      it.draw_pixel_at(cx + dx_outer - 1, coin_cy + dy, col_bevel);
+      if (dx_outer > 6) {
+        it.draw_pixel_at(cx - dx_outer + 5, coin_cy + dy, col_groove);
+        it.draw_pixel_at(cx + dx_outer - 5, coin_cy + dy, col_groove);
+      }
+    }
+  }
+
+  // 3. Home Assistant Medallion Motif (Heads: Assist Smiling Face, Tails: Network Tree)
+  if (scale_y > 0.32f) {
+    int hx = cx;
+    int hy = coin_cy - (int)(12.0f * scale_y);
+    int hw = 44;
+    int y_top = hy - (int)(41.0f * scale_y);
+    int y_eave = hy - (int)(1.0f * scale_y);
+    int y_bot = hy + (int)(42.0f * scale_y);
+
+    for (int y = y_top; y <= y_bot; y++) {
+      int cur_hw = 0;
+      if (y < y_eave) {
+        if (y_eave > y_top) {
+          cur_hw = (int)((float)(y - y_top) / (float)(y_eave - y_top) * (float)hw);
+        }
+      } else {
+        int dy_b = y_bot - y;
+        cur_hw = (dy_b < 4 && scale_y > 0.8f) ? (hw - (4 - dy_b)) : hw;
+      }
+      if (cur_hw > 0) {
+        it.horizontal_line(hx - cur_hw, y, 2 * cur_hw + 1, ha_blue);
+      }
+    }
+
+    if (show_heads) {
+      int eye_y = hy + (int)(5.0f * scale_y);
+      int eye_r = std::max(2, (int)(5.0f * scale_y));
+      it.filled_circle(hx - 19, eye_y, eye_r, col_white);
+      it.filled_circle(hx + 19, eye_y, eye_r, col_white);
+
+      int smile_top_y = hy + (int)(16.0f * scale_y);
+      int smile_mid_y = hy + (int)(20.0f * scale_y);
+      int smile_bot_y = hy + (int)(28.0f * scale_y);
+      int smile_hw = 13;
+
+      for (int y = smile_top_y; y <= smile_mid_y; y++) {
+        for (int t = -1; t <= 1; t++) {
+          it.draw_pixel_at(hx - smile_hw + t, y, col_white);
+          it.draw_pixel_at(hx + smile_hw + t, y, col_white);
+        }
+      }
+      for (int i = 0; i <= 30; i++) {
+        float sa = (float)i * (PI_F / 30.0f);
+        int sx = hx - (int)(smile_hw * fast_cos(sa));
+        int sy = smile_mid_y + (int)((smile_bot_y - smile_mid_y) * fast_sin(sa));
+        for (int t = -1; t <= 1; t++) {
+          it.draw_pixel_at(sx, sy + t, col_white);
+          it.draw_pixel_at(sx + t, sy, col_white);
+        }
+      }
+      if (scale_y > 0.65f) {
+        it.print(cx, coin_cy + (int)(56.0f * scale_y), font_date, text_col,
+                 esphome::display::TextAlign::CENTER, "HEADS");
+      }
+    } else {
+      int H_total = y_bot - y_top;
+      int top_node_y = y_top + (int)(0.331f * (float)H_total);
+      int right_node_x = hx + 21;
+      int right_node_y = y_top + (int)(0.596f * (float)H_total);
+      int left_node_x = hx - 21;
+      int left_node_y = y_top + (int)(0.742f * (float)H_total);
+
+      int node_r = std::max(3, (int)(7.0f * scale_y));
+      int line_hw = std::max(1, (int)(2.5f * scale_y));
+
+      for (int w = -line_hw; w <= line_hw; w++) {
+        it.line(hx + w, top_node_y, hx + w, y_bot, col_white);
+        it.line(hx + w, right_node_y + 21, right_node_x + w, right_node_y, col_white);
+        it.line(hx + w, left_node_y + 21, left_node_x + w, left_node_y, col_white);
+      }
+      it.filled_circle(hx, top_node_y, node_r, col_white);
+      it.filled_circle(right_node_x, right_node_y, node_r, col_white);
+      it.filled_circle(left_node_x, left_node_y, node_r, col_white);
+
+      if (scale_y > 0.65f) {
+        it.print(cx, coin_cy + (int)(56.0f * scale_y), font_date, text_col,
+                 esphome::display::TextAlign::CENTER, "TAILS");
+      }
+    }
+  }
+
+  // Prominent Result Readout at y = 338 (Clean canvas: no top title or instruction clutter)
+  if (coin_anim_active) {
+    it.print(cx, 338, font_date, theme_secondary, esphome::display::TextAlign::CENTER, "FLIPPING...");
+  } else {
+    it.print(cx, 338, font_date, col_white, esphome::display::TextAlign::CENTER,
+             (coin_side == 0) ? "RESULT: HEADS" : "RESULT: TAILS");
+  }
+
+  render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+}
+
 }  // namespace pocket_ui
 
 using namespace pocket_ui;
