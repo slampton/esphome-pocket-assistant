@@ -6946,12 +6946,13 @@ inline void render_menu_header(DisplayT &it, int cx, int y_pos, const std::strin
   }
 }
 
-template<typename DisplayT, typename ImageT, typename FontSmallT, typename FontMicroT>
+template<typename DisplayT, typename LocalImageT, typename RemoteImageT,
+         typename FontSmallT, typename FontMicroT>
 inline void render_music_now_playing(
     DisplayT &it, int cx, int cy, uint32_t now_ms,
     const char *art_mode_opt, const char *overlay_mode_opt, bool music_hud_active,
     bool is_remote, bool is_playing,
-    ImageT *local_art, ImageT *remote_art,
+    LocalImageT *local_art, RemoteImageT *remote_art,
     const std::string &ha_target_art_url, const std::string &current_loaded_art_url,
     const std::string &active_speaker_name, const char *friendly_name,
     const std::string &music_action_feedback, uint32_t music_feedback_timer,
@@ -6975,24 +6976,23 @@ inline void render_music_now_playing(
   bool show_metadata = show_meta_always || music_hud_active;
 
   const int art_center_y = 233;
+  bool apply_scrim = always_visible || music_hud_active;
   bool has_art = false;
-  ImageT *target_art = nullptr;
+  bool rendered_art = false;
   if (is_remote) {
     if (!ha_target_art_url.empty() && ha_target_art_url != "none" &&
         current_loaded_art_url == ha_target_art_url && remote_art && remote_art->get_width() > 0) {
-      target_art = remote_art;
       has_art = true;
+      rendered_art = render_album_art_canvas(
+          it, remote_art, cx, is_standard, is_letterbox, apply_scrim, show_metadata);
     }
   } else {
     if (local_art && local_art->get_width() > 0) {
-      target_art = local_art;
       has_art = true;
+      rendered_art = render_album_art_canvas(
+          it, local_art, cx, is_standard, is_letterbox, apply_scrim, show_metadata);
     }
   }
-
-  bool apply_scrim = always_visible || music_hud_active;
-  bool rendered_art = has_art && render_album_art_canvas(
-      it, target_art, cx, is_standard, is_letterbox, apply_scrim, show_metadata);
 
   if (!rendered_art) {
     it.filled_circle(cx, art_center_y, 80, col_dark_gray);
