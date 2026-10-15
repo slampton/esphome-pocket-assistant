@@ -777,6 +777,8 @@ select:
       - "Windy"
     set_action:
       - lambda: |-
+          pocket_ui::clear_day_epoch_initialized() = false;
+          pocket_ui::night_meteor_epoch_initialized() = false;
           id(disp1).update();
   - platform: template
     name: "Power: Screensaver Style"
@@ -6362,69 +6364,7 @@ display:
         // ==============================================================================
         draw_right_flank_chevrons(true, true, id(theme_secondary), id(sky_weather_subpage) != 0);
 
-        int icon_xs[4] = {121, 196, 270, 345};
-        int icon_y = 357;
-        int icon_r = 24;
-
-        for (int i = 0; i < 4; i++) {
-          int bx = icon_xs[i];
-          int by = icon_y;
-          bool is_act = (id(sky_weather_subpage) == i);
-
-          if (is_act) {
-            it.filled_circle(bx, by, icon_r, id(theme_primary));
-            it.circle(bx, by, icon_r, id(theme_primary));
-          } else {
-            it.filled_circle(bx, by, icon_r, Color(22, 27, 36));
-            it.circle(bx, by, icon_r, Color(55, 65, 80));
-          }
-
-          Color icon_c = is_act ? id(col_black) : id(col_white);
-
-          if (i == 0) {
-            // Current Weather: Scaled Thermometer (stem bx-2..bx+2, bulb r=5, ticks bx+3..bx+6, mercury column)
-            it.line(bx - 2, by - 12, bx + 2, by - 12, icon_c);
-            it.line(bx - 2, by - 12, bx - 2, by + 4, icon_c);
-            it.line(bx + 2, by - 12, bx + 2, by + 4, icon_c);
-            it.circle(bx, by + 7, 5, icon_c);
-            it.line(bx + 3, by - 7, bx + 6, by - 7, icon_c);
-            it.line(bx + 3, by - 2, bx + 6, by - 2, icon_c);
-            it.line(bx + 3, by + 3, bx + 6, by + 3, icon_c);
-            it.filled_circle(bx, by + 7, 3, icon_c);
-            it.line(bx, by - 4, bx, by + 7, icon_c);
-          } else if (i == 1) {
-            // Forecast: Scaled Predictive 3-day ascending bar chart + rising trend arrow
-            it.line(bx - 11, by + 9, bx + 11, by + 9, icon_c);
-            it.filled_rectangle(bx - 10, by + 4, 4, 5, icon_c);
-            it.filled_rectangle(bx - 2, by - 1, 4, 10, icon_c);
-            it.filled_rectangle(bx + 5, by - 5, 4, 14, icon_c);
-            it.line(bx - 11, by + 2, bx + 10, by - 11, icon_c);
-            it.line(bx - 11, by + 3, bx + 10, by - 10, icon_c);
-            it.line(bx + 10, by - 11, bx + 5, by - 11, icon_c);
-            it.line(bx + 10, by - 11, bx + 10, by - 6, icon_c);
-          } else if (i == 2) {
-            // Sun: Scaled Classic center circle with 8 radiating dashes
-            it.circle(bx, by, 7, icon_c);
-            it.line(bx, by - 10, bx, by - 14, icon_c);
-            it.line(bx, by + 10, bx, by + 14, icon_c);
-            it.line(bx - 10, by, bx - 14, by, icon_c);
-            it.line(bx + 10, by, bx + 14, by, icon_c);
-            it.line(bx - 7, by - 7, bx - 10, by - 10, icon_c);
-            it.line(bx + 7, by - 7, bx + 10, by - 10, icon_c);
-            it.line(bx - 7, by + 7, bx - 10, by + 10, icon_c);
-            it.line(bx + 7, by + 7, bx + 10, by + 10, icon_c);
-          } else if (i == 3) {
-            // Moon: Scaled Classic waxing crescent moon outline
-            for (int a = 100; a <= 260; a += 4) {
-              float rad = (float)a * 0.0174532925f;
-              it.draw_pixel_at(bx + 1 + (int)roundf(11.0f * cosf(rad)), by + (int)roundf(11.0f * sinf(rad)), icon_c);
-            }
-            for (int a = 120; a <= 240; a += 4) {
-              float rad = (float)a * 0.0174532925f;
-              it.draw_pixel_at(bx + 5 + (int)roundf(9.5f * cosf(rad)), by + (int)roundf(10.5f * sinf(rad)), icon_c);
-            }
-          }
-        }
+        render_weather_subpage_icons(it, id(sky_weather_subpage), id(col_white), id(col_white));
       } else if (id(gui_page) == 7) {
         // ==============================================================================
         // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)

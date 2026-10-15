@@ -2372,7 +2372,7 @@ inline void render_forecast_glyph(DisplayT &it, int gx, int gy, const std::strin
 }
 
 // Tracks the epoch offset for the Clear Day Origami bird flock so that switching to
-// Clear Day immediately glides a flock across within ~0.5s, then waits calmly between passes!
+// Clear Day immediately glides a flock across from the edge, then waits calmly between passes!
 inline uint32_t &clear_day_flock_epoch_ms() {
   static uint32_t ep = 0;
   return ep;
@@ -2383,17 +2383,31 @@ inline uint32_t &clear_day_last_seen_ms() {
   return ls;
 }
 
+inline bool &clear_day_epoch_initialized() {
+  static bool init = false;
+  return init;
+}
+
 // Origami-Inspired High-Altitude V-Flock of Migrating Birds:
-// Glides across at a calm, unhurried pace for 9.2 seconds out of every 20.0-second cycle
-// (leaving 10.8 seconds of calm clear sky between flocks).
-inline bool is_clear_day_flock_active(uint32_t now_ms) {
-  if (now_ms - clear_day_last_seen_ms() > 2500U) {
-    // First entry into Clear Day / Partly Cloudy Day: align epoch so a flock enters within 0.4s!
-    clear_day_flock_epoch_ms() = now_ms + 19600U;
+// Glides across at a calm, unhurried pace for 9.5 seconds out of every 19.5-second cycle
+// (leaving 10.0 seconds of calm clear sky between flocks).
+// Note: `touch_seen = true` is only passed by the actual renderer so background 250ms motion polls
+// never prevent re-anchoring when switching into Clear Day!
+inline bool is_clear_day_flock_active(uint32_t now_ms, bool touch_seen = false) {
+  if (!clear_day_epoch_initialized() || (now_ms - clear_day_last_seen_ms() > 2500U)) {
+    if (touch_seen) {
+      // Anchor directly to now_ms (zero unsigned underflow!) so rel_ms starts at 0ms immediately
+      clear_day_flock_epoch_ms() = now_ms;
+      clear_day_epoch_initialized() = true;
+    } else {
+      return true; // Tell has_weather_motion to trigger the first frame so the renderer anchors epoch!
+    }
   }
-  clear_day_last_seen_ms() = now_ms;
+  if (touch_seen) {
+    clear_day_last_seen_ms() = now_ms;
+  }
   uint32_t rel_ms = now_ms - clear_day_flock_epoch_ms();
-  return (rel_ms % 20000U) < 9200U;
+  return (rel_ms % 19500U) < 9500U;
 }
 
 // Tracks the epoch offset for the Night Shooting Star so entering Clear Night / Partly Cloudy Night
@@ -2408,6 +2422,11 @@ inline uint32_t &night_meteor_last_seen_ms() {
   return ls;
 }
 
+inline bool &night_meteor_epoch_initialized() {
+  static bool init = false;
+  return init;
+}
+
 // Occasional Night Shooting Star (Clear Night & Partly Cloudy Night):
 // Streaks across over the Moon, underneath clouds, and underneath all foreground data.
 template<typename DisplayT>
@@ -2415,9 +2434,9 @@ inline void render_night_shooting_star(DisplayT &it, uint32_t now_ms, int cy) {
   static constexpr uint32_t METEOR_WINDOW_MS = 11500U;
   static constexpr uint32_t METEOR_DUR_MS    = 780U;
 
-  if (now_ms - night_meteor_last_seen_ms() > 2500U) {
-    // Align epoch on entry so the first shooting star appears ~1.2s after opening Clear/Partly Cloudy Night
-    night_meteor_epoch_ms() = now_ms - 10300U;
+  if (!night_meteor_epoch_initialized() || (now_ms - night_meteor_last_seen_ms() > 2500U)) {
+    night_meteor_epoch_ms() = now_ms;
+    night_meteor_epoch_initialized() = true;
   }
   night_meteor_last_seen_ms() = now_ms;
 
@@ -2426,7 +2445,7 @@ inline void render_night_shooting_star(DisplayT &it, uint32_t now_ms, int cy) {
   uint32_t slot_ms  = rel_ms % METEOR_WINDOW_MS;
 
   int seed = static_cast<int>(slot_idx * 59U + 17U);
-  // Slot 0 fires at 11500 - 10300 = 1200ms; subsequent slots randomize launch time across 800..7400ms
+  // Slot 0 fires at 1200ms after entry; subsequent slots randomize launch time across 800..7400ms
   uint32_t launch_ms = (slot_idx == 0U)
       ? 1200U
       : (800U + static_cast<uint32_t>(hash2d_01(seed, 7) * 6600.0f));
@@ -2444,8 +2463,8 @@ inline void render_night_shooting_star(DisplayT &it, uint32_t now_ms, int cy) {
   float rlen = hash2d_01(seed, 61);
   float rdir = hash2d_01(seed, 79);
 
-  int dir_x = (rdir < 0.52f) ? -1 : 1; // Slightly favor R->L or L->R randomly
-  float ang = 0.30f + rang * 0.40f;    // ~17..40 deg downward entry angle
+  int dir_x = (rdir < 0.52f) ? -1 : 1;
+  float ang = 0.30f + rang * 0.40f; // ~17..40 deg downward entry angle
   float sa = 0.0f, ca = 1.0f;
   fast_sincos(ang, sa, ca);
   float vx = static_cast<float>(dir_x) * ca;
@@ -2470,7 +2489,6 @@ inline void render_night_shooting_star(DisplayT &it, uint32_t now_ms, int cy) {
   int tx  = static_cast<int>(x0 + vx * d_tail);
   int ty  = static_cast<int>(y0 + vy * d_tail);
 
-  // Fade envelope: crisp ignition, full brilliance through mid-flight, clean burn-out
   float fade = (u < 0.15f) ? (u * (1.0f / 0.15f)) : ((u > 0.72f) ? ((1.0f - u) * (1.0f / 0.28f)) : 1.0f);
   if (fade <= 0.02f) return;
 
@@ -2520,46 +2538,50 @@ inline bool has_weather_motion(const std::string &cond, bool is_night, uint32_t 
                    cond == "sunny" || cond == "clear" || cond == "clear-day")) {
     return true;
   }
-  // Daytime Clear / Sunny: only spin up 20 FPS during the 9.2s window when the V-flock of birds is flying across!
+  // Daytime Clear / Sunny: spin up 20 FPS during the 9.5s window when the V-flock of birds is flying across!
   if (!is_night && (cond == "sunny" || cond == "clear-day" || cond == "clear" || cond == "clearday")) {
-    return (now_ms == 0) ? true : is_clear_day_flock_active(now_ms);
+    return (now_ms == 0) ? true : is_clear_day_flock_active(now_ms, false);
   }
   return false;
 }
 
-// Draws a single articulated high-altitude black-silhouette bird in the Origami V-echelon formation
+// Draws a single articulated high-altitude black-silhouette bird in the Origami V-echelon formation:
+// Clips each individual wing segment to the circular bezel (`inset = 2`) so birds roll smoothly on and off
+// the left and right edges of the circular display without popping out early!
 template<typename DisplayT>
 inline void draw_migrating_bird(DisplayT &it, int bx, int by, int dir, float flap_phase, float scale, int cy) {
-  if (!is_inside_bezel(bx, by, cy, 10)) return;
+  if (by < 12 || by > 454) return;
   // Smooth articulated wingbeat (inner elbow leads outer wingtip by 0.55 rad)
   float s1 = fast_sin(flap_phase);
   float s2 = fast_sin(flap_phase - 0.55f);
-  int w_in  = static_cast<int>(4.5f * scale);
-  int w_out = static_cast<int>(8.5f * scale);
-  int dy_in  = static_cast<int>(-3.2f * scale * s1) - 1;
-  int dy_out = dy_in + static_cast<int>(-3.6f * scale * s2);
+  int w_in  = static_cast<int>(5.0f * scale);
+  int w_out = static_cast<int>(9.5f * scale);
+  int dy_in  = static_cast<int>(-3.4f * scale * s1) - 1;
+  int dy_out = dy_in + static_cast<int>(-3.8f * scale * s2);
 
-  // Subtle dark silhouette palette (crisp charcoal-black wing spine + feathered dark-slate edge)
-  esphome::Color col_core(6, 10, 16);
-  esphome::Color col_edge(18, 32, 48);
+  // Crisp pure-black 2px silhouette with a subtle 1px sky-blue rim highlight (56, 94, 136)
+  // so the pitch-black wings stand out clearly against the dark navy sky (28, 54, 84)
+  // while still reading as a pure black silhouette against the sky and golden Sun!
+  esphome::Color col_black(0, 0, 0);
+  esphome::Color col_rim(56, 94, 136);
 
-  // Left & Right 2-segment arched wings (tilted slightly into flight direction `dir`)
   int lx_m = bx - w_in,  ly_m = by + dy_in - (dir > 0 ? 1 : 0);
   int lx_t = bx - w_out, ly_t = by + dy_out - (dir > 0 ? 2 : 0);
   int rx_m = bx + w_in,  ry_m = by + dy_in - (dir < 0 ? 1 : 0);
   int rx_t = bx + w_out, ry_t = by + dy_out - (dir < 0 ? 2 : 0);
 
-  // Soft 1px feathered silhouette edge pass
-  it.line(bx, by + 1, lx_m, ly_m + 1, col_edge);
-  it.line(lx_m, ly_m + 1, lx_t, ly_t + 1, col_edge);
-  it.line(bx, by + 1, rx_m, ry_m + 1, col_edge);
-  it.line(rx_m, ry_m + 1, rx_t, ry_t + 1, col_edge);
+  auto draw_clipped_seg = [&](int x0, int y0, int x1, int y1) {
+    if (is_inside_bezel(x0, y0, cy, 2) && is_inside_bezel(x1, y1, cy, 2)) {
+      it.line(x0, y0 - 1, x1, y1 - 1, col_rim);
+      it.line(x0, y0,     x1, y1,     col_black);
+      it.line(x0, y0 + 1, x1, y1 + 1, col_black);
+    }
+  };
 
-  // Crisp black silhouette upper wing arch + body center
-  it.line(bx, by, lx_m, ly_m, col_core);
-  it.line(lx_m, ly_m, lx_t, ly_t, col_core);
-  it.line(bx, by, rx_m, ry_m, col_core);
-  it.line(rx_m, ry_m, rx_t, ry_t, col_core);
+  draw_clipped_seg(bx,   by,   lx_m, ly_m);
+  draw_clipped_seg(lx_m, ly_m, lx_t, ly_t);
+  draw_clipped_seg(bx,   by,   rx_m, ry_m);
+  draw_clipped_seg(rx_m, ry_m, rx_t, ry_t);
 }
 
 // Draws a single tumbling, fluttering windblown leaf with pointed blade, midrib vein, and petiole stem
@@ -2578,7 +2600,6 @@ inline void draw_tumbling_leaf(DisplayT &it, int lx, int ly, float ang, float fl
   int bx = lx - static_cast<int>(len * ca);
   int by = ly - static_cast<int>(len * sa);
 
-  // Asymmetric leaf belly (slightly wider toward base)
   int mx = lx - static_cast<int>(1.2f * scale * ca);
   int my = ly - static_cast<int>(1.2f * scale * sa);
   int ux = mx - static_cast<int>(wid * sa);
@@ -2586,13 +2607,11 @@ inline void draw_tumbling_leaf(DisplayT &it, int lx, int ly, float ang, float fl
   int dx = mx + static_cast<int>(wid * sa);
   int dy = my - static_cast<int>(wid * ca);
 
-  // Leaf blade outline + inner chord fill
   it.line(bx, by, ux, uy, col_main);
   it.line(ux, uy, tx, ty, col_main);
   it.line(bx, by, dx, dy, col_main);
   it.line(dx, dy, tx, ty, col_main);
   it.line(ux, uy, dx, dy, col_main);
-  // Central midrib vein + short petiole stem at base
   it.line(bx, by, tx, ty, col_vein);
   int sx = bx - static_cast<int>(3.0f * scale * ca);
   int sy = by - static_cast<int>(3.0f * scale * sa);
@@ -2601,12 +2620,6 @@ inline void draw_tumbling_leaf(DisplayT &it, int lx, int ly, float ang, float fl
 
 // Modular Full-Screen Atmospheric & Weather Motion Wallpaper Engine:
 // Reusable across Sky & Weather (Page 5) and any future Home Page or Weather Screensaver.
-// Exact Z-Order Pipeline (Back to Front):
-//   0. Sky Canvas -> 1A. 64 Twinkling Night Stars -> 1B. Celestial Sun/Moon Icon ->
-//   1C. Night Shooting Star (over Moon, under clouds & data) ->
-//   1D. High-Altitude Black Silhouette Birds (over Sun, through hero temp zone, under clouds & data) ->
-//   1E. Volumetric Clouds / Calm Fog & Mist / Windy Leaves / Rain / Snow / Lightning ->
-//   (Foreground Hero Temperature & Telemetry rendered on top by caller)
 template<typename DisplayT, typename SpanRangeT>
 inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                             const std::string &cond, bool is_night,
@@ -2649,7 +2662,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     it.filled_circle(cx, cy, 228, esphome::Color(10, 15, 22));
   }
 
-  // LAYER 1A: FULL-SCREEN NIGHT STARFIELD (64 twinkling stars via LUT fast_sin)
+  // LAYER 1A: FULL-SCREEN NIGHT STARFIELD (3-Tier Magnitude Distribution, Same 245 Peak Ceiling)
   if (is_clear_or_partly_night) {
     float t_star = static_cast<float>(now_ms % 62832U) * 0.003f;
     for (int k = 0; k < 64; k++) {
@@ -2659,25 +2672,34 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
       float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.8f);
-      uint8_t br = static_cast<uint8_t>(155 + static_cast<int>(90.0f * twinkle));
+      // Raised dimmest floor from 65 -> 131 while keeping exact same 245 peak ceiling (188 + 57 = 245)
+      uint8_t br = static_cast<uint8_t>(188 + static_cast<int>(57.0f * twinkle));
       esphome::Color star_c = (k % 3 == 0)
-          ? esphome::Color(br, static_cast<uint8_t>(br * 0.94f), br)
-          : esphome::Color(static_cast<uint8_t>(br * 0.75f), static_cast<uint8_t>(br * 0.85f), br);
+          ? esphome::Color(br, static_cast<uint8_t>(br * 0.95f), br)
+          : esphome::Color(static_cast<uint8_t>(br * 0.82f), static_cast<uint8_t>(br * 0.90f), br);
       it.draw_pixel_at(sx, sy, star_c);
+
       if (k % 7 == 0 && br > 215) {
+        // Tier 1 (9 stars): Bright blinking 5px cross stars (unchanged peak)
         esphome::Color gl_c(160, 190, 230);
         it.draw_pixel_at(sx + 1, sy, gl_c);
         it.draw_pixel_at(sx - 1, sy, gl_c);
         it.draw_pixel_at(sx, sy + 1, gl_c);
         it.draw_pixel_at(sx, sy - 1, gl_c);
+      } else if ((k % 3) == 1) {
+        // Tier 2 (~18 stars): Medium "in-between" magnitude stars with a soft 2px/3px companion glow
+        uint8_t mid_b = static_cast<uint8_t>(br * 0.68f);
+        esphome::Color mid_c(static_cast<uint8_t>(mid_b * 0.80f), static_cast<uint8_t>(mid_b * 0.88f), mid_b);
+        it.draw_pixel_at(sx + 1, sy, mid_c);
+        if (br > 192) {
+          uint8_t sub_b = static_cast<uint8_t>(br * 0.48f);
+          it.draw_pixel_at(sx, sy + 1, esphome::Color(static_cast<uint8_t>(sub_b * 0.78f), static_cast<uint8_t>(sub_b * 0.86f), sub_b));
+        }
       }
     }
   }
 
   // LAYER 1B: CELESTIAL CORNER POCKET ICON (SUN / MOON)
-  // Drawn BEFORE Shooting Stars, Clear-Day Birds, and Clouds/Fog so:
-  // - Shooting stars streak OVER the Moon (and UNDER clouds & data)
-  // - Black-silhouette birds fly IN FRONT of the Sun (and UNDER clouds & data)
   if (cel_cx > 0 && cel_cy > 0) {
     if (is_night) {
       render_lunar_disc(it, cel_cx, cel_cy, 22, moon_cycle, false);
@@ -2701,33 +2723,38 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
   }
 
   // LAYER 1C: OCCASIONAL NIGHT SHOOTING STAR (Clear Night & Partly Cloudy Night)
-  // Streaks over the Moon & stars, underneath Partly Cloudy clouds, and underneath all foreground data!
   if (is_clear_or_partly_night) {
     render_night_shooting_star(it, now_ms, cy);
   }
 
   // LAYER 1D: CLEAR DAY (AND PARTLY CLOUDY DAY) HIGH-ALTITUDE BLACK-SILHOUETTE V-FLOCK OF BIRDS
-  // Flies at high altitude through the hero temperature & sun zone (y = 74..140), in front of the Sun,
-  // and underneath all foreground data!
+  // - Zero unsigned underflow on entry (`touch_seen = true` anchors epoch to `now_ms`)
+  // - Travels from `x_left_edge - 14` to `x_right_edge + 64` (or vice versa) so all 5 birds in the V
+  //   roll smoothly onto and off of the circular bezel bird-by-bird without vanishing early!
   if (is_clear_day || (!is_night && is_partly)) {
-    if (is_clear_day_flock_active(now_ms)) {
+    if (is_clear_day_flock_active(now_ms, true)) {
       uint32_t rel_ms = now_ms - clear_day_flock_epoch_ms();
-      uint32_t cycle_idx = rel_ms / 20000U;
-      uint32_t flight_ms = rel_ms % 20000U;
-      float prog = static_cast<float>(flight_ms) * (1.0f / 9200.0f); // Calm 9.2s transit across sky
+      uint32_t cycle_idx = rel_ms / 19500U;
+      uint32_t flight_ms = rel_ms % 19500U;
+      float prog = static_cast<float>(flight_ms) * (1.0f / 9500.0f); // Calm 9.5s full roll-on to roll-off transit
 
-      // Deterministic per-pass direction (Left->Right vs Right->Left) and high-altitude corridor
       int dir = ((cycle_idx & 1U) == 0U) ? 1 : -1;
       float r_alt = hash2d_01(static_cast<int>(cycle_idx * 31U + 7U), 19);
-      // High-altitude band (y = 74..138): flies through the hero temperature & sun region, never down below!
-      int base_y = 74 + static_cast<int>(r_alt * 64.0f);
+      // High-altitude corridor (y = 76..136): flies through the hero temperature & sun region
+      int base_y = 76 + static_cast<int>(r_alt * 60.0f);
 
-      int start_x = (dir > 0) ? 20 : 446;
-      int end_x   = (dir > 0) ? 456 : 10;
+      // Compute exact circular bezel edges at `base_y` and extend exit by +64px (trailing V length 46px + wingspan)
+      // so the trailing birds continue flying all the way off the screen after the lead bird exits!
+      int chord_hw = circle_half_span(base_y, 2);
+      int x_left_edge  = cx - chord_hw;
+      int x_right_edge = cx + chord_hw;
+      int start_x = (dir > 0) ? (x_left_edge - 14)  : (x_right_edge + 14);
+      int end_x   = (dir > 0) ? (x_right_edge + 64) : (x_left_edge - 64);
+
       int lead_x  = start_x + static_cast<int>((end_x - start_x) * prog);
       int lead_y  = base_y + static_cast<int>(fast_sin(prog * PI_F) * -6.0f);
 
-      float t_flap = now_ms * 0.0052f; // Subtle, unhurried wingbeat cadence
+      float t_flap = now_ms * 0.0052f;
       static constexpr int8_t V_OFF[5][2] = {
         {  0,   0}, // Lead bird at apex
         {-20, -10}, // Upper echelon #1
@@ -2964,6 +2991,74 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       it.line(220, 140, 180, 175, glow_c);
       it.line(195, 190, 215, 225, glow_c);
     }
+  }
+}
+
+// Renders the 4 bottom Weather Subpage navigation icons (Current, Forecast, Sun, Moon)
+// with a 100% transparent button background and a 1px dark drop-shadow (matching the flank/deck chevrons)
+// so the white icons float cleanly over any daytime, nighttime, cloudy, or stormy sky.
+template<typename DisplayT>
+inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
+                                         esphome::Color col_active, esphome::Color col_inactive) {
+  static constexpr int ICON_XS[4] = {121, 196, 270, 345};
+  static constexpr int ICON_Y = 357;
+
+  auto draw_icon_glyph = [&](int idx, int bx, int by, esphome::Color c) {
+    if (idx == 0) {
+      // Current Weather: Thermometer
+      it.line(bx - 2, by - 12, bx + 2, by - 12, c);
+      it.line(bx - 2, by - 12, bx - 2, by + 4, c);
+      it.line(bx + 2, by - 12, bx + 2, by + 4, c);
+      it.circle(bx, by + 7, 5, c);
+      it.line(bx + 3, by - 7, bx + 6, by - 7, c);
+      it.line(bx + 3, by - 2, bx + 6, by - 2, c);
+      it.line(bx + 3, by + 3, bx + 6, by + 3, c);
+      it.filled_circle(bx, by + 7, 3, c);
+      it.line(bx, by - 4, bx, by + 7, c);
+    } else if (idx == 1) {
+      // Forecast: 3-day ascending bar chart + rising trend arrow
+      it.line(bx - 11, by + 9, bx + 11, by + 9, c);
+      it.filled_rectangle(bx - 10, by + 4, 4, 5, c);
+      it.filled_rectangle(bx - 2, by - 1, 4, 10, c);
+      it.filled_rectangle(bx + 5, by - 5, 4, 14, c);
+      it.line(bx - 11, by + 2, bx + 10, by - 11, c);
+      it.line(bx - 11, by + 3, bx + 10, by - 10, c);
+      it.line(bx + 10, by - 11, bx + 5, by - 11, c);
+      it.line(bx + 10, by - 11, bx + 10, by - 6, c);
+    } else if (idx == 2) {
+      // Sun: Center circle with 8 radiating dashes
+      it.circle(bx, by, 7, c);
+      it.line(bx, by - 10, bx, by - 14, c);
+      it.line(bx, by + 10, bx, by + 14, c);
+      it.line(bx - 10, by, bx - 14, by, c);
+      it.line(bx + 10, by, bx + 14, by, c);
+      it.line(bx - 7, by - 7, bx - 10, by - 10, c);
+      it.line(bx + 7, by - 7, bx + 10, by - 10, c);
+      it.line(bx - 7, by + 7, bx - 10, by + 10, c);
+      it.line(bx + 7, by + 7, bx + 10, by + 10, c);
+    } else {
+      // Moon: Waxing crescent moon outline (LUT fast_cos/fast_sin)
+      for (int a = 100; a <= 260; a += 4) {
+        float rad = static_cast<float>(a) * 0.0174532925f;
+        it.draw_pixel_at(bx + 1 + static_cast<int>(roundf(11.0f * fast_cos(rad))),
+                         by + static_cast<int>(roundf(11.0f * fast_sin(rad))), c);
+      }
+      for (int a = 120; a <= 240; a += 4) {
+        float rad = static_cast<float>(a) * 0.0174532925f;
+        it.draw_pixel_at(bx + 5 + static_cast<int>(roundf(9.5f * fast_cos(rad))),
+                         by + static_cast<int>(roundf(10.5f * fast_sin(rad))), c);
+      }
+    }
+  };
+
+  esphome::Color shadow_c(0, 0, 0);
+  for (int i = 0; i < 4; i++) {
+    int bx = ICON_XS[i];
+    int by = ICON_Y;
+    esphome::Color fg_c = (i == active_subpage) ? col_active : col_inactive;
+    // 1px dark drop-shadow pass for crisp legibility over any weather canvas, then foreground icon
+    draw_icon_glyph(i, bx + 1, by + 1, shadow_c);
+    draw_icon_glyph(i, bx, by, fg_c);
   }
 }
 
