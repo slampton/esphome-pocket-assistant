@@ -789,7 +789,7 @@ select:
       - "Aurora Borealis"
       - "Starfield"
       - "Matrix Rain"
-      - "Solar Flare"
+      - "Fireworks"
       - "Screen Off"
     set_action:
       - lambda: |-
@@ -5569,8 +5569,7 @@ display:
             snprintf(sleep_labels[2], sizeof(sleep_labels[2]), "Screensaver: %s", id(docked_screensaver_switch).state ? "On" : "Off");
             std::string s_style = id(screensaver_style_select).current_option();
             const char* short_s = (s_style == "Aurora Borealis") ? "Aurora" :
-                                  ((s_style == "Matrix Rain") ? "Matrix" :
-                                  ((s_style == "Solar Flare") ? "Solar" : s_style.c_str()));
+                                  ((s_style == "Matrix Rain") ? "Matrix" : s_style.c_str());
             snprintf(sleep_labels[3], sizeof(sleep_labels[3]), "Style: %s", short_s);
             snprintf(sleep_labels[4], sizeof(sleep_labels[4]), "Dock Inact: %s", id(screensaver_docked_timeout).current_option().c_str());
             snprintf(sleep_labels[5], sizeof(sleep_labels[5]), "Screen Off: %s", id(display_off_timeout).current_option().c_str());
@@ -8821,7 +8820,7 @@ touchscreen:
                     // Slot 4 (Page 1): Screensaver Style Cycler
                     std::string cur = id(screensaver_style_select).current_option();
                     auto call = id(screensaver_style_select).make_call();
-                    call.set_option(cycle_option(cur, {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Solar Flare", "Screen Off"}));
+                    call.set_option(cycle_option(cur, {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Fireworks", "Screen Off"}));
                     call.perform();
                     id(disp1).update();
                   } else if (idx == 4) {
