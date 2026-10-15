@@ -18,11 +18,6 @@ globals:
     restore_value: no
     initial_value: '0'
 
-  - id: screensaver_start_time
-    type: uint32_t
-    restore_value: no
-    initial_value: '0'
-
   - id: is_hibernating
     type: bool
     restore_value: no
@@ -258,7 +253,11 @@ switch:
     turn_on_action:
       - lambda: 'id(docked_screensaver_switch).publish_state(true);'
     turn_off_action:
-      - lambda: 'id(docked_screensaver_switch).publish_state(false);'
+      - lambda: |-
+          id(docked_screensaver_switch).publish_state(false);
+          if (id(display_power_state) == 1) {
+            id(turn_screen_off).execute();
+          }
 
   - platform: template
     name: "Power: Prevent Hibernate"
@@ -373,8 +372,12 @@ interval:
               vbus = (stat0 & 0x20) != 0;
               if (!id(usb_connected).has_state() || id(usb_connected).state != vbus) {
                 id(usb_connected).publish_state(vbus);
-                // If screen is currently off, sync QMI8658 IMU power state & Wi-Fi PS with new USB state
-                if (id(display_power_state) == 2) {
+                // If unplugged while Docked Screensaver is running, transition immediately to Screen Off
+                // so the 10 FPS screensaver never stays awake draining the battery.
+                if (!vbus && id(display_power_state) == 1) {
+                  id(turn_screen_off).execute();
+                } else if (id(display_power_state) == 2) {
+                  // If screen is currently off, sync QMI8658 IMU power state with new USB state
                   auto pw_mode = id(pickup_wake_mode).current_option();
                   bool pw_active = (pw_mode == "Always On") || (pw_mode == "Docked Only" && vbus);
                   uint8_t qmi_ctrl7[2] = {0x08, static_cast<uint8_t>(pw_active ? 0x01 : 0x00)};
@@ -432,10 +435,12 @@ interval:
           static uint8_t anim_div = 0;
           if (++anim_div >= 2) {
             anim_div = 0;
-            if (id(display_power_state) == 1) {
+            if (id(display_power_state) == 1 && !id(va_active) && id(va_status_text).empty() && !id(is_hibernating)) {
               auto s_style = id(screensaver_style_select).current_option();
-              if (s_style != "Ambient Clock") {
-                id(disp1).update();
+              if (s_style != "Ambient Clock" && s_style != "Screen Off") {
+                if (millis() - pocket_ui::last_screensaver_draw_ms() >= 85U) {
+                  id(disp1).update();
+                }
               }
             }
           }
@@ -610,8 +615,12 @@ script:
     mode: restart
     then:
       - lambda: |-
+          auto s_style = id(screensaver_style_select).current_option();
+          if (s_style == "Screen Off") {
+            id(turn_screen_off).execute();
+            return;
+          }
           id(display_power_state) = 1; // SCREENSAVER
-          id(screensaver_start_time) = millis();
           id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
           id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
           id(disp1).update();
@@ -621,7 +630,6 @@ script:
     then:
       - lambda: |-
           id(display_power_state) = 2; // SCREEN_OFF
-          id(screensaver_start_time) = 0;
           id(sleep_start_time) = millis();
           id(display_brightness).turn_off().perform();
           const bool local_audio_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
@@ -653,7 +661,6 @@ script:
                                      (s_style != "Screen Off");
           if (screensaver_allowed) {
             id(display_power_state) = 1; // SCREENSAVER
-            id(screensaver_start_time) = millis();
             id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
             id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
             if (s_style == "Ambient Clock") {
@@ -672,7 +679,6 @@ script:
           esp_wifi_set_ps(0); // 0: WIFI_PS_NONE
 
           id(sleep_start_time) = 0;
-          id(screensaver_start_time) = 0;
           id(display_power_state) = 0; // ACTIVE
           if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING && !id(speaker_enable).state) {
             id(speaker_enable).turn_on();

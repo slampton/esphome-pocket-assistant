@@ -211,6 +211,10 @@ voice_assistant:
             id(return_page) = id(gui_page);
             id(va_active) = true;
           }
+          if (id(display_power_state) != 0 && id(va_wake_screen_switch).state) {
+            id(display_power_state) = 0;
+            id(sync_display_brightness).execute();
+          }
           id(va_was_cancelled) = false;
           id(va_vad_active) = false;
           id(va_tts_received) = false;

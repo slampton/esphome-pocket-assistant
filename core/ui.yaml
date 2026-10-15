@@ -793,7 +793,11 @@ select:
       - "Screen Off"
     set_action:
       - lambda: |-
-          id(disp1).update();
+          if (id(display_power_state) == 1 && id(screensaver_style_select).current_option() == "Screen Off") {
+            id(turn_screen_off).execute();
+          } else {
+            id(disp1).update();
+          }
 
   - platform: template
     name: "Audio: Album Art Style"
@@ -3137,51 +3141,6 @@ display:
       }
 
       // ==========================================
-      // GLOBAL OVERLAY: DOCKED SCREENSAVER (Mode 1)
-      // ==========================================
-      if (id(display_power_state) == 1) {
-        it.fill(id(col_bg));
-
-        std::string ss_style = id(screensaver_style_select).current_option();
-        if (ss_style.empty()) ss_style = "Aurora Borealis";
-
-        uint32_t now_ms = millis();
-        auto now = id(ha_time).now();
-
-        // --------------------------------------------------
-        // STYLE 1: AMBIENT MINIMALIST CLOCK (Anti-Burn-In Drift)
-        // --------------------------------------------------
-        if (ss_style == "Ambient Clock") {
-          int sec = now.is_valid() ? now.second : 0;
-          int drift_x = (sec % 10) * 4 - 20;
-          int drift_y = ((sec / 10) % 6) * 4 - 10;
-
-          char amb_time[16];
-          if (now.is_valid()) {
-            format_time_hhmm(now.hour, now.minute, id(is_24h_format), amb_time, sizeof(amb_time));
-            it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, amb_time);
-            it.strftime(cx + drift_x, cy + 45 + drift_y, id(font_small), id(col_dark_gray), TextAlign::CENTER, "%a, %b %d", now);
-          } else {
-            it.print(cx + drift_x, cy - 20 + drift_y, id(font_time), id(col_slate), TextAlign::CENTER, "--:--");
-          }
-          return;
-
-        } else if (ss_style == "Aurora Borealis") {
-          render_screensaver_aurora(it, cx, cy, now_ms);
-          return;
-        } else if (ss_style == "Starfield") {
-          render_screensaver_starfield(it, cx, cy);
-          return;
-        } else if (ss_style == "Matrix Rain") {
-          render_screensaver_matrix(it, cx, cy, now_ms);
-          return;
-        } else if (ss_style == "Solar Flare") {
-          render_screensaver_solar_flare(it, cx, cy, now_ms);
-          return;
-        }
-      }
-
-      // ==========================================
       // GLOBAL OVERLAY: HIBERNATION SHUTDOWN (Zero Outer Rings, Minimalist Dark Canvas)
       // Top priority: Always render countdown & confirmation even if screen was previously asleep
       // ==========================================
@@ -3206,11 +3165,9 @@ display:
         return;
       }
 
-      auto now = id(ha_time).now();
-      float batt = id(batt_level).state;
-
       // ==========================================
       // GLOBAL OVERLAY: VOICE ASSISTANT TAKEOVER
+      // Rendered above Docked Screensaver so VA sessions always display over standby animations
       // ==========================================
       if (id(va_active) || !id(va_status_text).empty()) {
         uint32_t now_ms = millis();
@@ -3223,6 +3180,22 @@ display:
              id(col_purple), id(col_magenta), C_SOLARIS_GOLD);
         return;
       }
+
+      auto now = id(ha_time).now();
+
+      // ==========================================
+      // GLOBAL OVERLAY: DOCKED SCREENSAVER (Mode 1)
+      // ==========================================
+      if (id(display_power_state) == 1) {
+        it.fill(id(col_bg));
+        render_docked_screensaver(
+            it, cx, cy, millis(), now, id(is_24h_format),
+            id(screensaver_style_select).current_option(),
+            id(font_time), id(font_small), id(col_slate), id(col_dark_gray));
+        return;
+      }
+
+      float batt = id(batt_level).state;
 
 
 

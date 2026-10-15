@@ -91,6 +91,163 @@ static constexpr int16_t CIRCLE_HW[466] = {
    67,  64,  60,  56,  52,  48,  42,  37,  30,  21
 };
 
+// ------------------------------------------------------------------------------
+// 1B. Universal Fast-Math, Circular Clipping, 3D Projection & Shader Primitives
+// ------------------------------------------------------------------------------
+
+// O(1) Circular AMOLED Bezel Half-Span Lookup (returns half-chord width/height at row/col `c`)
+inline int circle_half_span(int c, int inset = 5) {
+  if (c < 0 || c >= 466) return 0;
+  int span = static_cast<int>(CIRCLE_HW[c]) - inset;
+  return (span > 0) ? span : 0;
+}
+
+inline bool is_inside_bezel(int x, int y, int cy = 233, int inset = 5) {
+  int h = circle_half_span(x, inset);
+  return (h > 0) && (y >= cy - h) && (y <= cy + h);
+}
+
+// Fast interpolated sine/cosine backed by .rodata DIAL_SIN[60] (0 hardware FPU trig stalls)
+inline float fast_sin(float rad) {
+  float idx_f = rad * (60.0f / (2.0f * PI_F));
+  int idx_i = static_cast<int>(idx_f);
+  if (idx_f < 0.0f && static_cast<float>(idx_i) != idx_f) idx_i--;
+  float frac = idx_f - static_cast<float>(idx_i);
+  int i0 = idx_i % 60;
+  if (i0 < 0) i0 += 60;
+  int i1 = (i0 + 1 == 60) ? 0 : (i0 + 1);
+  return DIAL_SIN[i0] + (DIAL_SIN[i1] - DIAL_SIN[i0]) * frac;
+}
+
+inline float fast_cos(float rad) {
+  return fast_sin(rad + (PI_F * 0.5f));
+}
+
+inline void fast_sincos(float rad, float &out_s, float &out_c) {
+  out_s = fast_sin(rad);
+  out_c = fast_cos(rad);
+}
+
+// Lightweight 3D Vector, Euler Rotation & Perspective Projection Primitives
+struct Vec3 {
+  float x, y, z;
+};
+
+struct ProjectedPoint {
+  int x, y;
+  float scale;
+  bool visible;
+};
+
+inline Vec3 rotate_3d_xyz(Vec3 v, float rx, float ry, float rz) {
+  float sx, cx_r, sy, cy_r, sz, cz_r;
+  fast_sincos(rx, sx, cx_r);
+  fast_sincos(ry, sy, cy_r);
+  fast_sincos(rz, sz, cz_r);
+
+  // Rotate around X
+  float y1 = v.y * cx_r - v.z * sx;
+  float z1 = v.y * sx + v.z * cx_r;
+  // Rotate around Y
+  float x2 = v.x * cy_r + z1 * sy;
+  float z2 = -v.x * sy + z1 * cy_r;
+  // Rotate around Z
+  float x3 = x2 * cz_r - y1 * sz;
+  float y3 = x2 * sz + y1 * cz_r;
+  return {x3, y3, z2};
+}
+
+inline ProjectedPoint project_3d(Vec3 v, int cx, int cy, float fov = 240.0f, float viewer_dist = 320.0f) {
+  float depth = v.z + viewer_dist;
+  if (depth <= 15.0f) return {cx, cy, 0.0f, false};
+  float k = fov / depth;
+  int sx = cx + static_cast<int>(v.x * k);
+  int sy = cy + static_cast<int>(v.y * k);
+  return {sx, sy, k, is_inside_bezel(sx, sy, cy, 4)};
+}
+
+// Deterministic Zero-RAM 2D Hash & Smooth Value Noise (0.0f .. 1.0f) for procedural shaders
+inline float hash2d_01(int x, int y) {
+  uint32_t n = static_cast<uint32_t>(x) * 374761393U + static_cast<uint32_t>(y) * 668265263U;
+  n = (n ^ (n >> 13)) * 1274126177U;
+  return static_cast<float>((n ^ (n >> 16)) & 0xFFFFU) * (1.0f / 65535.0f);
+}
+
+inline float value_noise_2d(float x, float y) {
+  int xi = static_cast<int>(x);
+  if (x < 0.0f && static_cast<float>(xi) != x) xi--;
+  int yi = static_cast<int>(y);
+  if (y < 0.0f && static_cast<float>(yi) != y) yi--;
+  float xf = x - static_cast<float>(xi);
+  float yf = y - static_cast<float>(yi);
+  float u = xf * xf * (3.0f - 2.0f * xf);
+  float v = yf * yf * (3.0f - 2.0f * yf);
+  float a = hash2d_01(xi, yi);
+  float b = hash2d_01(xi + 1, yi);
+  float c = hash2d_01(xi, yi + 1);
+  float d = hash2d_01(xi + 1, yi + 1);
+  return (a + (b - a) * u) + ((c - a) + (a - b - c + d) * u) * v;
+}
+
+// Fast HSV-to-RGB (h in [0..1], s in [0..1], v in [0..1]) & Saturating Additive Blend
+inline esphome::Color hsv_to_rgb(float h, float s, float v) {
+  h = h - static_cast<float>(static_cast<int>(h));
+  if (h < 0.0f) h += 1.0f;
+  float r = v, g = v, b = v;
+  if (s > 0.0f) {
+    float h6 = h * 6.0f;
+    int sector = static_cast<int>(h6);
+    float f = h6 - static_cast<float>(sector);
+    float p = v * (1.0f - s);
+    float q = v * (1.0f - s * f);
+    float t = v * (1.0f - s * (1.0f - f));
+    switch (sector % 6) {
+      case 0: r = v; g = t; b = p; break;
+      case 1: r = q; g = v; b = p; break;
+      case 2: r = p; g = v; b = t; break;
+      case 3: r = p; g = q; b = v; break;
+      case 4: r = t; g = p; b = v; break;
+      default: r = v; g = p; b = q; break;
+    }
+  }
+  return esphome::Color(
+      static_cast<uint8_t>(r * 255.0f),
+      static_cast<uint8_t>(g * 255.0f),
+      static_cast<uint8_t>(b * 255.0f));
+}
+
+inline esphome::Color blend_additive(esphome::Color a, esphome::Color b) {
+  int r = static_cast<int>(a.r) + static_cast<int>(b.r);
+  int g = static_cast<int>(a.g) + static_cast<int>(b.g);
+  int bl = static_cast<int>(a.b) + static_cast<int>(b.b);
+  return esphome::Color(
+      static_cast<uint8_t>(r > 255 ? 255 : r),
+      static_cast<uint8_t>(g > 255 ? 255 : g),
+      static_cast<uint8_t>(bl > 255 ? 255 : bl));
+}
+
+template<typename DisplayT>
+inline void draw_glow_line(DisplayT &it, int x0, int y0, int x1, int y1,
+                           esphome::Color core_col, esphome::Color halo_col) {
+  int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
+  int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
+  if (dx >= dy) {
+    it.line(x0, y0 - 1, x1, y1 - 1, halo_col);
+    it.line(x0, y0 + 1, x1, y1 + 1, halo_col);
+  } else {
+    it.line(x0 - 1, y0, x1 - 1, y1, halo_col);
+    it.line(x0 + 1, y0, x1 + 1, y1, halo_col);
+  }
+  it.line(x0, y0, x1, y1, core_col);
+}
+
+// Tracks the last timestamp (millis) when an animated screensaver rendered a frame
+// so disp1's 1-second timer never collides with the 10 FPS (100ms) screensaver loop.
+inline uint32_t &last_screensaver_draw_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
 // Standardized Dynamic Scroll Easing Constants (5-Step Cubic Eased Curve)
 static constexpr int16_t SHARED_SCROLL_EASE_116[5] = {0, 25, 63, 99, 116}; // 2-Pill 116px shift
 static constexpr int16_t SHARED_SCROLL_EASE_174[5] = {0, 38, 95, 148, 174}; // 3-Pill 174px shift
@@ -772,80 +929,110 @@ inline const char *cycle_option(const CurT &cur, std::initializer_list<const cha
 // ------------------------------------------------------------------------------
 template<typename DisplayT>
 inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now_ms) {
+  (void)cx;
   float t = now_ms * 0.0010f;
+
+  // Draws a 4-band vertical gradient curtain ray clipped to [y_min, y_max] using fast vertical it.line() spans
+  auto draw_curtain_ray = [&](int x, int y_base, int len, int y_min, int y_max,
+                              esphome::Color c0, esphome::Color c1,
+                              esphome::Color c2, esphome::Color c3) {
+    int q = len >> 2;
+    if (q < 2) q = 2;
+    const int segs[5] = {y_base, y_base - q, y_base - (q * 2), y_base - (q * 3), y_base - len};
+    const esphome::Color cols[4] = {c0, c1, c2, c3};
+    for (int b = 0; b < 4; b++) {
+      int yb = segs[b];
+      int yt = segs[b + 1];
+      if (yb < y_min || yt > y_max) continue;
+      if (yb > y_max) yb = y_max;
+      if (yt < y_min) yt = y_min;
+      if (yb >= yt) {
+        it.line(x, yt, x, yb, cols[b]);
+      }
+    }
+  };
+
   for (int x = 8; x <= 458; x += 2) {
-    int dx = x - cx;
-    int dx2 = dx * dx;
-    if (dx2 >= 51984) continue;
-    int h_half = (int)sqrtf(51984.0f - (float)dx2);
+    int h_half = circle_half_span(x, 5);
+    if (h_half <= 0) continue;
     int y_min = cy - h_half;
     int y_max = cy + h_half;
+    float xf = static_cast<float>(x);
 
-    int y1 = cy - 35 + (int)(sinf(x * 0.011f + t * 0.6f) * 55.0f + cosf(x * 0.006f - t * 0.35f) * 25.0f);
-    int len1 = 55 + (int)(sinf(x * 0.024f + t * 1.2f) * 25.0f);
-    for (int py = y1; py >= y1 - len1; py -= 2) {
-      if (py >= y_min && py <= y_max) {
-        float k = (float)(y1 - py) / (float)len1;
-        it.draw_pixel_at(x, py, esphome::Color((uint8_t)(180.0f - 80.0f * k), (uint8_t)(30.0f - 15.0f * k), (uint8_t)(190.0f - 60.0f * k)));
-      }
-    }
+    // Curtain 1: Upper Violet-Magenta Ribbon
+    int y1 = cy - 35 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 55.0f + fast_cos(xf * 0.006f - t * 0.35f) * 25.0f);
+    int len1 = 55 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 25.0f);
+    draw_curtain_ray(x, y1, len1, y_min, y_max,
+                     esphome::Color(175, 29, 185), esphome::Color(150, 24, 165),
+                     esphome::Color(125, 19, 145), esphome::Color(102, 15, 130));
 
-    int y2 = cy + 15 + (int)(sinf(x * 0.014f - t * 0.8f + 1.6f) * 60.0f + sinf(x * 0.008f + t * 0.5f) * 30.0f);
-    int len2 = 65 + (int)(cosf(x * 0.028f - t * 1.5f) * 30.0f);
-    for (int py = y2; py >= y2 - len2; py -= 2) {
-      if (py >= y_min && py <= y_max) {
-        float k = (float)(y2 - py) / (float)len2;
-        it.draw_pixel_at(x, py, esphome::Color((uint8_t)(15.0f * (1.0f - k)), (uint8_t)(230.0f - 110.0f * k), (uint8_t)(240.0f - 70.0f * k)));
-      }
-    }
+    // Curtain 2: Mid Cyan-Teal Ribbon
+    int y2 = cy + 15 + static_cast<int>(fast_sin(xf * 0.014f - t * 0.8f + 1.6f) * 60.0f + fast_sin(xf * 0.008f + t * 0.5f) * 30.0f);
+    int len2 = 65 + static_cast<int>(fast_cos(xf * 0.028f - t * 1.5f) * 30.0f);
+    draw_curtain_ray(x, y2, len2, y_min, y_max,
+                     esphome::Color(14, 222, 235), esphome::Color(10, 190, 212),
+                     esphome::Color(6, 155, 190), esphome::Color(2, 122, 170));
 
-    int y3 = cy + 65 + (int)(sinf(x * 0.017f + t * 1.0f + 3.1f) * 65.0f + cosf(x * 0.010f - t * 0.7f) * 35.0f);
-    int len3 = 80 + (int)(sinf(x * 0.032f + t * 1.8f) * 35.0f);
-    for (int py = y3; py >= y3 - len3; py -= 2) {
-      if (py >= y_min && py <= y_max) {
-        float k = (float)(y3 - py) / (float)len3;
-        it.draw_pixel_at(x, py, esphome::Color((uint8_t)(25.0f * (1.0f - k)), (uint8_t)(235.0f - 120.0f * k), (uint8_t)(85.0f - 40.0f * k)));
-      }
-    }
+    // Curtain 3: Lower Boreal Emerald Ribbon
+    int y3 = cy + 65 + static_cast<int>(fast_sin(xf * 0.017f + t * 1.0f + 3.1f) * 65.0f + fast_cos(xf * 0.010f - t * 0.7f) * 35.0f);
+    int len3 = 80 + static_cast<int>(fast_sin(xf * 0.032f + t * 1.8f) * 35.0f);
+    draw_curtain_ray(x, y3, len3, y_min, y_max,
+                     esphome::Color(23, 226, 82), esphome::Color(17, 190, 69),
+                     esphome::Color(11, 152, 56), esphome::Color(4, 115, 45));
   }
 }
 
 template<typename DisplayT>
-inline void render_screensaver_starfield(DisplayT &it, int cx, int cy) {
+inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t now_ms = 0) {
   struct Star3D { float x, y, z; };
   static Star3D stars[90];
   static bool stars_init = false;
   static uint32_t star_seed = 123456789;
+  static uint32_t last_star_ms = 0;
 
   auto star_rand = [&]() -> float {
     star_seed = star_seed * 1664525u + 1013904223u;
-    return (float)(star_seed & 0xFFFF) / 65535.0f;
+    return static_cast<float>(star_seed & 0xFFFFU) * (1.0f / 65535.0f);
   };
   auto respawn_star = [&](int i, bool init_z) {
-    float ang = star_rand() * 2.0f * PI_F;
+    float ang = star_rand() * (2.0f * PI_F);
     float dist = 40.0f + star_rand() * 650.0f;
-    stars[i].x = cosf(ang) * dist;
-    stars[i].y = sinf(ang) * dist;
+    stars[i].x = fast_cos(ang) * dist;
+    stars[i].y = fast_sin(ang) * dist;
     stars[i].z = init_z ? (30.0f + star_rand() * 950.0f) : (850.0f + star_rand() * 150.0f);
   };
   if (!stars_init) {
     for (int i = 0; i < 90; i++) respawn_star(i, true);
     stars_init = true;
+    last_star_ms = now_ms;
   }
+
+  // Time-delta driven progression (250 units/sec = 25 units per 100ms frame)
   float speed = 25.0f;
+  if (now_ms > 0) {
+    uint32_t dt = now_ms - last_star_ms;
+    last_star_ms = now_ms;
+    if (dt >= 20U && dt <= 300U) {
+      speed = static_cast<float>(dt) * 0.25f;
+    }
+  }
+
   for (int i = 0; i < 90; i++) {
     stars[i].z -= speed;
+    if (stars[i].z <= 25.0f) {
+      respawn_star(i, false);
+      continue;
+    }
     float k = 230.0f / stars[i].z;
-    int sx = cx + (int)(stars[i].x * k);
-    int sy = cy + (int)(stars[i].y * k);
-    int dx = sx - cx, dy = sy - cy;
-    if (stars[i].z <= 25.0f || (dx * dx + dy * dy) >= 51529) {
+    int sx = cx + static_cast<int>(stars[i].x * k);
+    int sy = cy + static_cast<int>(stars[i].y * k);
+    if (!is_inside_bezel(sx, sy, cy, 6)) {
       respawn_star(i, false);
       continue;
     }
     float prev_k = 230.0f / (stars[i].z + speed * 1.5f);
-    int px = cx + (int)(stars[i].x * prev_k);
-    int py = cy + (int)(stars[i].y * prev_k);
+    int px = cx + static_cast<int>(stars[i].x * prev_k);
+    int py = cy + static_cast<int>(stars[i].y * prev_k);
     if (stars[i].z > 650.0f) {
       it.draw_pixel_at(sx, sy, esphome::Color(80, 100, 130));
     } else if (stars[i].z > 350.0f) {
@@ -860,19 +1047,26 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy) {
 
 template<typename DisplayT>
 inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now_ms) {
+  (void)cx;
   for (int i = 0; i < 31; i++) {
-    int lead_y = (MATRIX_Y[i] + (int)((uint64_t)now_ms * (uint32_t)MATRIX_SPD[i] / 1000ULL)) % 820 - 120;
     int sx = MATRIX_X[i];
+    int h_half = circle_half_span(sx, 6);
+    if (h_half <= 0) continue;
+    int y_min = cy - h_half;
+    if (y_min < 10) y_min = 10;
+    int y_max = cy + h_half;
+    if (y_max > 456) y_max = 456;
+
+    int lead_y = (MATRIX_Y[i] + static_cast<int>((static_cast<uint64_t>(now_ms) * static_cast<uint32_t>(MATRIX_SPD[i])) / 1000ULL)) % 820 - 120;
     int slen = MATRIX_LEN[i];
     for (int j = 0; j < slen; j++) {
       int gy = lead_y - j * 16;
-      int dx = sx - cx, dy = gy - cy;
-      if (dx * dx + dy * dy < 51529 && gy > 10 && gy < 456) {
+      if (gy >= y_min && gy <= y_max) {
         if (j == 0) {
-          it.filled_rectangle(sx - 3, gy - 5, 7, 11, esphome::Color(140, 255, 140));
+          it.rectangle(sx - 3, gy - 5, 7, 11, esphome::Color(140, 255, 140));
           it.filled_rectangle(sx - 2, gy - 4, 5, 9, esphome::Color(255, 255, 255));
         } else if (j <= 2) {
-          it.filled_rectangle(sx - 3, gy - 5, 6, 10, esphome::Color(40, 255, 80));
+          it.rectangle(sx - 3, gy - 5, 6, 10, esphome::Color(40, 255, 80));
           it.filled_rectangle(sx - 2, gy - 4, 4, 8, esphome::Color(160, 255, 180));
         } else if (j <= 5) {
           it.filled_rectangle(sx - 2, gy - 4, 5, 8, esphome::Color(20, 200, 50));
@@ -889,29 +1083,36 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
 template<typename DisplayT>
 inline void render_screensaver_solar_flare(DisplayT &it, int cx, int cy, uint32_t now_ms) {
   float t = now_ms * 0.0015f;
-  int scx = cx + (int)(sinf(t * 0.20f) * 6.0f);
-  int scy = cy + (int)(cosf(t * 0.16f) * 6.0f);
-  float r0 = 62.0f + 6.0f * sinf(t * 1.5f);
+  int scx = cx + static_cast<int>(fast_sin(t * 0.20f) * 6.0f);
+  int scy = cy + static_cast<int>(fast_cos(t * 0.16f) * 6.0f);
+  float r0 = 62.0f + 6.0f * fast_sin(t * 1.5f);
 
   for (int w = 0; w < 3; w++) {
-    float phase = fmodf((float)now_ms + (float)w * 950.0f, 2850.0f) / 2850.0f;
-    int cme_r = (int)((r0 + 10.0f) + phase * (220.0f - (r0 + 10.0f)));
+    uint32_t phase_ms = (now_ms + static_cast<uint32_t>(w) * 950U) % 2850U;
+    float phase = static_cast<float>(phase_ms) * (1.0f / 2850.0f);
+    int cme_r = static_cast<int>((r0 + 10.0f) + phase * (220.0f - (r0 + 10.0f)));
     float fade = 1.0f - phase;
-    uint8_t c_red = (uint8_t)(220.0f * fade);
-    uint8_t c_grn = (uint8_t)(90.0f * fade * fade);
-    if (cme_r > (int)r0 + 10) {
+    uint8_t c_red = static_cast<uint8_t>(220.0f * fade);
+    uint8_t c_grn = static_cast<uint8_t>(90.0f * fade * fade);
+    if (cme_r > static_cast<int>(r0) + 10) {
       it.circle(scx, scy, cme_r, esphome::Color(c_red < 20 ? 20 : c_red, c_grn < 5 ? 5 : c_grn, 5));
-      it.circle(scx, scy, cme_r - 2, esphome::Color((uint8_t)(c_red * 0.7f), (uint8_t)(c_grn * 0.7f), 2));
+      it.circle(scx, scy, cme_r - 2, esphome::Color(static_cast<uint8_t>(c_red * 0.7f), static_cast<uint8_t>(c_grn * 0.7f), 2));
     }
   }
 
   for (int i = 0; i < 36; i++) {
-    float theta = i * (2.0f * PI_F / 36.0f);
-    float sa = sinf(theta), ca = cosf(theta);
-    float L = 35.0f + 25.0f * sinf(theta * 4.0f + t * 2.4f) + 18.0f * cosf(theta * 7.0f - t * 1.8f) + 12.0f * sinf(theta * 11.0f + t * 3.2f);
-    int in_x = scx + (int)((r0 + 4.0f) * ca), in_y = scy + (int)((r0 + 4.0f) * sa);
-    int mid_x = scx + (int)((r0 + 4.0f + L * 0.6f) * ca), mid_y = scy + (int)((r0 + 4.0f + L * 0.6f) * sa);
-    int out_x = scx + (int)((r0 + 4.0f + L) * ca), out_y = scy + (int)((r0 + 4.0f + L) * sa);
+    float theta = static_cast<float>(i) * (2.0f * PI_F / 36.0f);
+    float sa, ca;
+    fast_sincos(theta, sa, ca);
+    float L = 35.0f + 25.0f * fast_sin(theta * 4.0f + t * 2.4f)
+                    + 18.0f * fast_cos(theta * 7.0f - t * 1.8f)
+                    + 12.0f * fast_sin(theta * 11.0f + t * 3.2f);
+    int in_x = scx + static_cast<int>((r0 + 4.0f) * ca);
+    int in_y = scy + static_cast<int>((r0 + 4.0f) * sa);
+    int mid_x = scx + static_cast<int>((r0 + 4.0f + L * 0.6f) * ca);
+    int mid_y = scy + static_cast<int>((r0 + 4.0f + L * 0.6f) * sa);
+    int out_x = scx + static_cast<int>((r0 + 4.0f + L) * ca);
+    int out_y = scy + static_cast<int>((r0 + 4.0f + L) * sa);
     it.line(in_x, in_y, mid_x, mid_y, esphome::Color(225, 75, 10));
     it.line(mid_x, mid_y, out_x, out_y, esphome::Color(255, 185, 25));
     if (L > 65.0f) {
@@ -921,46 +1122,87 @@ inline void render_screensaver_solar_flare(DisplayT &it, int cx, int cy, uint32_
   }
 
   auto draw_prominence_loop = [&](float center_ang, float peak_r, float arc_span) {
-    float prev_lx = 0, prev_ly = 0;
+    int prev_lx = 0, prev_ly = 0;
     for (int step = 0; step <= 8; step++) {
-      float prog = (float)step / 8.0f;
+      float prog = static_cast<float>(step) * 0.125f;
       float cur_ang = center_ang - arc_span * 0.5f + arc_span * prog;
       float h_factor = 4.0f * prog * (1.0f - prog);
       float cur_r = (r0 + 6.0f) + (peak_r - (r0 + 6.0f)) * h_factor;
-      float lx = scx + cur_r * cosf(cur_ang), ly = scy + cur_r * sinf(cur_ang);
+      int lx = scx + static_cast<int>(cur_r * fast_cos(cur_ang));
+      int ly = scy + static_cast<int>(cur_r * fast_sin(cur_ang));
       if (step > 0) {
-        it.line((int)prev_lx, (int)prev_ly, (int)lx, (int)ly, esphome::Color(255, 175, 25));
-        it.line((int)prev_lx, (int)prev_ly + 1, (int)lx, (int)ly + 1, esphome::Color(220, 60, 5));
+        it.line(prev_lx, prev_ly, lx, ly, esphome::Color(255, 175, 25));
+        it.line(prev_lx, prev_ly + 1, lx, ly + 1, esphome::Color(220, 60, 5));
       }
-      prev_lx = lx; prev_ly = ly;
+      prev_lx = lx;
+      prev_ly = ly;
     }
   };
-  draw_prominence_loop(t * 0.5f, 155.0f + 20.0f * sinf(t * 1.4f), 0.55f);
-  draw_prominence_loop(t * 0.5f + 2.2f, 175.0f + 25.0f * cosf(t * 1.1f), 0.70f);
-  draw_prominence_loop(t * 0.5f + 4.3f, 145.0f + 18.0f * sinf(t * 1.9f), 0.50f);
+  draw_prominence_loop(t * 0.5f, 155.0f + 20.0f * fast_sin(t * 1.4f), 0.55f);
+  draw_prominence_loop(t * 0.5f + 2.2f, 175.0f + 25.0f * fast_cos(t * 1.1f), 0.70f);
+  draw_prominence_loop(t * 0.5f + 4.3f, 145.0f + 18.0f * fast_sin(t * 1.9f), 0.50f);
 
-  it.filled_circle(scx, scy, (int)(r0 + 14.0f), esphome::Color(160, 25, 10));
-  it.filled_circle(scx, scy, (int)(r0 + 4.0f),  esphome::Color(235, 80, 10));
-  it.filled_circle(scx, scy, (int)(r0 - 6.0f),  esphome::Color(255, 155, 20));
+  it.filled_circle(scx, scy, static_cast<int>(r0 + 14.0f), esphome::Color(160, 25, 10));
+  it.filled_circle(scx, scy, static_cast<int>(r0 + 4.0f),  esphome::Color(235, 80, 10));
+  it.filled_circle(scx, scy, static_cast<int>(r0 - 6.0f),  esphome::Color(255, 155, 20));
 
   for (int cp = 0; cp < 2; cp++) {
-    float cp_phase = fmodf(t * 0.9f + (float)cp * 0.5f, 1.0f);
-    int cp_r = (int)(4.0f + cp_phase * (r0 - 12.0f));
-    uint8_t cr = (uint8_t)(255.0f - 30.0f * cp_phase);
-    uint8_t cg = (uint8_t)(210.0f * (1.0f - 0.55f * cp_phase));
-    uint8_t cb = (uint8_t)(35.0f * (1.0f - cp_phase));
-    it.filled_circle(scx, scy, cp_r, esphome::Color(cr, cg, cb));
+    float raw_cp = t * 0.9f + static_cast<float>(cp) * 0.5f;
+    float cp_phase = raw_cp - static_cast<float>(static_cast<int>(raw_cp));
+    int cp_r = static_cast<int>(4.0f + cp_phase * (r0 - 12.0f));
+    uint8_t cr = static_cast<uint8_t>(255.0f - 30.0f * cp_phase);
+    uint8_t cg = static_cast<uint8_t>(210.0f * (1.0f - 0.55f * cp_phase));
+    uint8_t cb = static_cast<uint8_t>(35.0f * (1.0f - cp_phase));
+    esphome::Color ring_col(cr, cg, cb);
+    it.circle(scx, scy, cp_r, ring_col);
+    if (cp_r > 2) it.circle(scx, scy, cp_r - 1, ring_col);
   }
   for (int k = 0; k < 4; k++) {
-    float c_ang = t * 0.8f + k * (PI_F / 2.0f);
-    float c_rad = 18.0f + 8.0f * sinf(t * 1.8f + (float)k);
-    int vx = scx + (int)(cosf(c_ang) * c_rad), vy = scy + (int)(sinf(c_ang) * c_rad);
-    uint8_t gran_g = (uint8_t)(160.0f + 50.0f * sinf(t * 2.0f + (float)k));
+    float c_ang = t * 0.8f + static_cast<float>(k) * (PI_F * 0.5f);
+    float c_rad = 18.0f + 8.0f * fast_sin(t * 1.8f + static_cast<float>(k));
+    int vx = scx + static_cast<int>(fast_cos(c_ang) * c_rad);
+    int vy = scy + static_cast<int>(fast_sin(c_ang) * c_rad);
+    uint8_t gran_g = static_cast<uint8_t>(160.0f + 50.0f * fast_sin(t * 2.0f + static_cast<float>(k)));
     it.filled_circle(vx, vy, 8, esphome::Color(255, gran_g, 20));
   }
-  int eye_r = (int)(7.0f + 3.0f * sinf(t * 2.6f));
-  uint8_t eye_g = (uint8_t)(120.0f + 70.0f * sinf(t * 2.2f));
+  int eye_r = static_cast<int>(7.0f + 3.0f * fast_sin(t * 2.6f));
+  uint8_t eye_g = static_cast<uint8_t>(120.0f + 70.0f * fast_sin(t * 2.2f));
   it.filled_circle(scx, scy, eye_r, esphome::Color(255, eye_g, 15));
+}
+
+// Unified Docked Screensaver Dispatcher (Ambient Clock + 4 Procedural Engines)
+template<typename DisplayT, typename TimeT, typename StrT, typename FontT>
+inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                      const TimeT &now, bool is_24h, const StrT &ss_style,
+                                      FontT *font_time, FontT *font_small,
+                                      esphome::Color col_slate, esphome::Color col_dark_gray) {
+  if (ss_style == "Ambient Clock") {
+    // Calm 1-minute OLED burn-in drift (shifts gently once per minute instead of twitching every second)
+    int min_val = now.is_valid() ? now.minute : 0;
+    int drift_x = (min_val % 10) * 4 - 18;
+    int drift_y = ((min_val / 10) % 6) * 4 - 10;
+
+    char amb_time[16];
+    if (now.is_valid()) {
+      format_time_hhmm(now.hour, now.minute, is_24h, amb_time, sizeof(amb_time));
+      it.print(cx + drift_x, cy - 20 + drift_y, font_time, col_slate, esphome::display::TextAlign::CENTER, amb_time);
+      it.strftime(cx + drift_x, cy + 45 + drift_y, font_small, col_dark_gray, esphome::display::TextAlign::CENTER, "%a, %b %d", now);
+    } else {
+      it.print(cx + drift_x, cy - 20 + drift_y, font_time, col_slate, esphome::display::TextAlign::CENTER, "--:--");
+    }
+    return;
+  }
+
+  last_screensaver_draw_ms() = now_ms;
+  if (ss_style == "Starfield") {
+    render_screensaver_starfield(it, cx, cy, now_ms);
+  } else if (ss_style == "Matrix Rain") {
+    render_screensaver_matrix(it, cx, cy, now_ms);
+  } else if (ss_style == "Solar Flare") {
+    render_screensaver_solar_flare(it, cx, cy, now_ms);
+  } else {
+    render_screensaver_aurora(it, cx, cy, now_ms);
+  }
 }
 
 // Linear RGB color interpolation helper (k in [0.0f .. 1.0f])
