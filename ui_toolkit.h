@@ -932,25 +932,19 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
   (void)cx;
   float t = now_ms * 0.0010f;
 
-  // Draws a 4-band vertical gradient curtain ray clipped to [y_min, y_max] using fast vertical it.line() spans
-  auto draw_curtain_ray = [&](int x, int y_base, int len, int y_min, int y_max,
-                              esphome::Color c0, esphome::Color c1,
-                              esphome::Color c2, esphome::Color c3) {
-    int q = len >> 2;
-    if (q < 2) q = 2;
-    const int segs[5] = {y_base, y_base - q, y_base - (q * 2), y_base - (q * 3), y_base - len};
-    const esphome::Color cols[4] = {c0, c1, c2, c3};
-    for (int b = 0; b < 4; b++) {
-      int yb = segs[b];
-      int yt = segs[b + 1];
-      if (yb < y_min || yt > y_max) continue;
-      if (yb > y_max) yb = y_max;
-      if (yt < y_min) yt = y_min;
-      if (yb >= yt) {
-        it.line(x, yt, x, yb, cols[b]);
-      }
-    }
+  // Soft vertical plume envelope: feathers the bottom leading edge (k in [0..0.15])
+  // and dissolves the upper tail (k -> 1.0) smoothly into the dark sky.
+  auto plume_env = [](float k) -> float {
+    if (k <= 0.0f || k >= 1.0f) return 0.0f;
+    float head = (k < 0.16f) ? (0.30f + 0.70f * (k * 6.25f)) : 1.0f;
+    float tail = (1.0f - k) * (1.0f - 0.55f * k);
+    return head * tail;
   };
+
+  // Slow organic breathing pulse per veil
+  float pulse1 = 0.88f + 0.12f * fast_sin(t * 0.9f);
+  float pulse2 = 0.88f + 0.12f * fast_cos(t * 1.1f + 1.2f);
+  float pulse3 = 0.88f + 0.12f * fast_sin(t * 0.8f + 2.5f);
 
   for (int x = 8; x <= 458; x += 2) {
     int h_half = circle_half_span(x, 5);
@@ -959,26 +953,64 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     int y_max = cy + h_half;
     float xf = static_cast<float>(x);
 
-    // Curtain 1: Upper Violet-Magenta Ribbon
-    int y1 = cy - 35 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 55.0f + fast_cos(xf * 0.006f - t * 0.35f) * 25.0f);
-    int len1 = 55 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 25.0f);
-    draw_curtain_ray(x, y1, len1, y_min, y_max,
-                     esphome::Color(175, 29, 185), esphome::Color(150, 24, 165),
-                     esphome::Color(125, 19, 145), esphome::Color(102, 15, 130));
+    // Original wave trajectories + slightly taller veils so the 3 curtains overlap and intermix
+    int y1 = cy - 30 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 55.0f + fast_cos(xf * 0.006f - t * 0.35f) * 25.0f);
+    int len1 = 75 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 28.0f);
+    int top1 = y1 - len1;
+    float inv_len1 = (1.0f / static_cast<float>(len1 > 1 ? len1 : 1)) * pulse1;
 
-    // Curtain 2: Mid Cyan-Teal Ribbon
-    int y2 = cy + 15 + static_cast<int>(fast_sin(xf * 0.014f - t * 0.8f + 1.6f) * 60.0f + fast_sin(xf * 0.008f + t * 0.5f) * 30.0f);
-    int len2 = 65 + static_cast<int>(fast_cos(xf * 0.028f - t * 1.5f) * 30.0f);
-    draw_curtain_ray(x, y2, len2, y_min, y_max,
-                     esphome::Color(14, 222, 235), esphome::Color(10, 190, 212),
-                     esphome::Color(6, 155, 190), esphome::Color(2, 122, 170));
+    int y2 = cy + 12 + static_cast<int>(fast_sin(xf * 0.014f - t * 0.8f + 1.6f) * 60.0f + fast_sin(xf * 0.008f + t * 0.5f) * 30.0f);
+    int len2 = 85 + static_cast<int>(fast_cos(xf * 0.028f - t * 1.5f) * 32.0f);
+    int top2 = y2 - len2;
+    float inv_len2 = (1.0f / static_cast<float>(len2 > 1 ? len2 : 1)) * pulse2;
 
-    // Curtain 3: Lower Boreal Emerald Ribbon
-    int y3 = cy + 65 + static_cast<int>(fast_sin(xf * 0.017f + t * 1.0f + 3.1f) * 65.0f + fast_cos(xf * 0.010f - t * 0.7f) * 35.0f);
-    int len3 = 80 + static_cast<int>(fast_sin(xf * 0.032f + t * 1.8f) * 35.0f);
-    draw_curtain_ray(x, y3, len3, y_min, y_max,
-                     esphome::Color(23, 226, 82), esphome::Color(17, 190, 69),
-                     esphome::Color(11, 152, 56), esphome::Color(4, 115, 45));
+    int y3 = cy + 58 + static_cast<int>(fast_sin(xf * 0.017f + t * 1.0f + 3.1f) * 65.0f + fast_cos(xf * 0.010f - t * 0.7f) * 35.0f);
+    int len3 = 95 + static_cast<int>(fast_sin(xf * 0.032f + t * 1.8f) * 36.0f);
+    int top3 = y3 - len3;
+    float inv_len3 = (1.0f / static_cast<float>(len3 > 1 ? len3 : 1)) * pulse3;
+
+    // Bounding vertical window for this column (aligned to even/odd checker offset for airy shimmer)
+    int col_top = top1;
+    if (top2 < col_top) col_top = top2;
+    if (top3 < col_top) col_top = top3;
+    if (col_top < y_min) col_top = y_min;
+
+    int col_bot = y1;
+    if (y2 > col_bot) col_bot = y2;
+    if (y3 > col_bot) col_bot = y3;
+    if (col_bot > y_max) col_bot = y_max;
+
+    // Preserve the airy 2px vertical dot texture of the original while additively blending
+    // all overlapping curtains into a single luminous pixel per (x, py) coordinate
+    for (int py = col_bot; py >= col_top; py -= 2) {
+      int r = 0, g = 0, b = 0;
+
+      if (py <= y1 && py >= top1) {
+        float e1 = plume_env(static_cast<float>(y1 - py) * inv_len1);
+        r += static_cast<int>(185.0f * e1);
+        g += static_cast<int>(32.0f * e1);
+        b += static_cast<int>(195.0f * e1);
+      }
+      if (py <= y2 && py >= top2) {
+        float e2 = plume_env(static_cast<float>(y2 - py) * inv_len2);
+        r += static_cast<int>(18.0f * e2);
+        g += static_cast<int>(230.0f * e2);
+        b += static_cast<int>(242.0f * e2);
+      }
+      if (py <= y3 && py >= top3) {
+        float e3 = plume_env(static_cast<float>(y3 - py) * inv_len3);
+        r += static_cast<int>(28.0f * e3);
+        g += static_cast<int>(238.0f * e3);
+        b += static_cast<int>(90.0f * e3);
+      }
+
+      if ((r | g | b) > 4) {
+        it.draw_pixel_at(x, py, esphome::Color(
+            static_cast<uint8_t>(r > 255 ? 255 : r),
+            static_cast<uint8_t>(g > 255 ? 255 : g),
+            static_cast<uint8_t>(b > 255 ? 255 : b)));
+      }
+    }
   }
 }
 
