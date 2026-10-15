@@ -777,6 +777,7 @@ select:
       - "Windy"
     set_action:
       - lambda: |-
+          id(weather_sim_condition).publish_state(x);
           pocket_ui::clear_day_epoch_initialized() = false;
           pocket_ui::night_meteor_epoch_initialized() = false;
           id(disp1).update();
@@ -6364,7 +6365,7 @@ display:
         // ==============================================================================
         draw_right_flank_chevrons(true, true, id(theme_secondary), id(sky_weather_subpage) != 0);
 
-        render_weather_subpage_icons(it, id(sky_weather_subpage), id(col_white), id(col_white));
+        render_weather_subpage_icons(it, id(sky_weather_subpage), id(theme_primary), id(col_white));
       } else if (id(gui_page) == 7) {
         // ==============================================================================
         // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)
@@ -9242,8 +9243,8 @@ touchscreen:
                 return;
               }
 
-              // Zone 2: Single Row of 4 Enlarged Circular Vector Icon Buttons (y: 320..390, x < 370)
-              if (touch.y >= 320 && touch.y <= 390 && touch.x < 370) {
+              // Zone 2: Single Row of 4 Transparent Vector Icon Buttons (y: 310..380, centered on y = 347, x < 370)
+              if (touch.y >= 310 && touch.y <= 380 && touch.x < 370) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   int target = 0;
