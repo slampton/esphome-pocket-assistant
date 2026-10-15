@@ -780,7 +780,7 @@ select:
           id(weather_sim_condition).publish_state(x);
           pocket_ui::clear_day_epoch_initialized() = false;
           pocket_ui::night_meteor_epoch_initialized() = false;
-          id(disp1).update();
+          pocket_ui::record_ambient_frame_ms(0);
   - platform: template
     name: "Power: Screensaver Style"
     id: screensaver_style_select
@@ -1403,12 +1403,13 @@ interval:
           // - Unlocks full 20 FPS (50ms) when local music is idle for rain, snow, lightning, and night starfield
           // - Paces smoothly at ~13.3 FPS (75ms) when local Sendspin music is playing
           // - Static daytime weather conditions run on the default 1s display refresh with near-zero CPU load
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && id(sky_weather_subpage) == 0 && !id(va_active) && id(va_status_text).empty()) {
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
+            const bool sim_just_changed = (pocket_ui::last_ambient_anim_ms() == 0U);
 
-            if (now_w_ms - last_cond_eval_time >= 250U) {
+            if (sim_just_changed || (now_w_ms - last_cond_eval_time >= 250U)) {
               last_cond_eval_time = now_w_ms;
               std::string c_cond = id(ha_weather_condition).state;
               std::string s_sun = id(ha_sun_state).state;
@@ -1417,13 +1418,15 @@ interval:
               cached_has_motion = pocket_ui::has_weather_motion(c_cond, is_night_time, now_w_ms);
             }
 
-            if (cached_has_motion) {
+            if (sim_just_changed || (id(sky_weather_subpage) == 0 && cached_has_motion)) {
               const bool local_music_playing =
                   (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-              if (pocket_ui::should_step_ambient_anim(now_w_ms, local_music_playing,
+              if (sim_just_changed || pocket_ui::should_step_ambient_anim(now_w_ms, local_music_playing,
                                                       id(va_active) || !id(va_status_text).empty(),
                                                       id(alarm_ringing) || id(timer_ringing))) {
+                pocket_ui::record_ambient_frame_ms(now_w_ms);
                 id(disp1).update();
+                pocket_ui::record_ambient_frame_ms(millis());
               }
             }
           }
@@ -6366,6 +6369,12 @@ display:
         draw_right_flank_chevrons(true, true, id(theme_secondary), id(sky_weather_subpage) != 0);
 
         render_weather_subpage_icons(it, id(sky_weather_subpage), id(theme_primary), id(col_white));
+        if (id(sky_weather_subpage) == 0) {
+          record_ambient_frame_ms(millis());
+        }
+        if (id(sky_weather_subpage) == 0) {
+          pocket_ui::record_ambient_frame_ms(millis());
+        }
       } else if (id(gui_page) == 7) {
         // ==============================================================================
         // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)

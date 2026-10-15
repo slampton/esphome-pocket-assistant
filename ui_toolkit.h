@@ -1542,7 +1542,6 @@ inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now
     return;
   }
 
-  last_screensaver_draw_ms() = now_ms;
   if (ss_style == "Starfield") {
     render_screensaver_starfield(it, cx, cy, now_ms);
   } else if (ss_style == "Matrix Rain") {
@@ -1552,6 +1551,7 @@ inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now
   } else {
     render_screensaver_aurora(it, cx, cy, now_ms);
   }
+  record_ambient_frame_ms(now_ms);
 }
 
 // Linear RGB color interpolation helper (k in [0.0f .. 1.0f])
@@ -2634,9 +2634,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
                                             double moon_cycle = 0.5,
                                             int cel_cx = 346, int cel_cy = 91,
                                             bool mask_hero_temp = true) {
-  if (has_weather_motion(cond, is_night, now_ms)) {
-    record_ambient_frame_ms(now_ms);
-  }
+  const bool active_motion = has_weather_motion(cond, is_night, now_ms);
 
   const bool is_fog_mist = (cond.find("fog") != std::string::npos ||
                             cond.find("mist") != std::string::npos ||
@@ -3001,6 +2999,9 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       it.line(195, 190, 215, 225, glow_c);
     }
   }
+  if (active_motion) {
+    record_ambient_frame_ms(now_ms);
+  }
 }
 
 // Renders the 4 bottom Weather Subpage navigation icons (Current, Forecast, Sun, Moon)
@@ -3009,33 +3010,36 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
 template<typename DisplayT>
 inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
                                          esphome::Color col_active, esphome::Color col_inactive) {
-  static constexpr int ICON_XS[4] = {121, 196, 270, 345};
+  // Exact 74px uniform center-to-center spacing symmetrical around cx = 233 (-111, -37, +37, +111)
+  static constexpr int ICON_XS[4] = {122, 196, 270, 344};
   static constexpr int ICON_Y = 347; // Shifted up 10px into the gap below y = 310 divider
 
   auto draw_icon_glyph = [&](int idx, int bx, int by, esphome::Color c) {
     if (idx == 0) {
-      // Current Weather: Thermometer
-      it.line(bx - 2, by - 12, bx + 2, by - 12, c);
-      it.line(bx - 2, by - 12, bx - 2, by + 4, c);
-      it.line(bx + 2, by - 12, bx + 2, by + 4, c);
-      it.circle(bx, by + 7, 5, c);
-      it.line(bx + 3, by - 7, bx + 6, by - 7, c);
-      it.line(bx + 3, by - 2, bx + 6, by - 2, c);
-      it.line(bx + 3, by + 3, bx + 6, by + 3, c);
-      it.filled_circle(bx, by + 7, 3, c);
-      it.line(bx, by - 4, bx, by + 7, c);
+      // Current Weather: Thermometer (shifted 1px left so bulb + stem + right ticks [bx-6..bx+5] center on bx)
+      int tx = bx - 1;
+      it.line(tx - 2, by - 12, tx + 2, by - 12, c);
+      it.line(tx - 2, by - 12, tx - 2, by + 4, c);
+      it.line(tx + 2, by - 12, tx + 2, by + 4, c);
+      it.circle(tx, by + 7, 5, c);
+      it.line(tx + 3, by - 7, tx + 6, by - 7, c);
+      it.line(tx + 3, by - 2, tx + 6, by - 2, c);
+      it.line(tx + 3, by + 3, tx + 6, by + 3, c);
+      it.filled_circle(tx, by + 7, 3, c);
+      it.line(tx, by - 4, tx, by + 7, c);
     } else if (idx == 1) {
-      // Forecast: 3-day ascending bar chart + rising trend arrow
-      it.line(bx - 11, by + 9, bx + 11, by + 9, c);
-      it.filled_rectangle(bx - 10, by + 4, 4, 5, c);
-      it.filled_rectangle(bx - 2, by - 1, 4, 10, c);
-      it.filled_rectangle(bx + 5, by - 5, 4, 14, c);
-      it.line(bx - 11, by + 2, bx + 10, by - 11, c);
-      it.line(bx - 11, by + 3, bx + 10, by - 10, c);
-      it.line(bx + 10, by - 11, bx + 5, by - 11, c);
-      it.line(bx + 10, by - 11, bx + 10, by - 6, c);
+      // Forecast: 3-day ascending bar chart + rising trend arrow (centered horizontally [bx-11..bx+11] & vertically [by-10..by+10])
+      int fy = by + 1;
+      it.line(bx - 11, fy + 9, bx + 11, fy + 9, c);
+      it.filled_rectangle(bx - 9, fy + 4, 4, 5, c);
+      it.filled_rectangle(bx - 2, fy - 1, 4, 10, c);
+      it.filled_rectangle(bx + 5, fy - 5, 4, 14, c);
+      it.line(bx - 11, fy + 2, bx + 10, fy - 11, c);
+      it.line(bx - 11, fy + 3, bx + 10, fy - 10, c);
+      it.line(bx + 10, fy - 11, bx + 5, fy - 11, c);
+      it.line(bx + 10, fy - 11, bx + 10, fy - 6, c);
     } else if (idx == 2) {
-      // Sun: Center circle with 8 radiating dashes
+      // Sun: Center circle with 8 radiating dashes (symmetrical [bx-14..bx+14], [by-14..by+14])
       it.circle(bx, by, 7, c);
       it.line(bx, by - 10, bx, by - 14, c);
       it.line(bx, by + 10, bx, by + 14, c);
@@ -3046,15 +3050,16 @@ inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
       it.line(bx - 7, by + 7, bx - 10, by + 10, c);
       it.line(bx + 7, by + 7, bx + 10, by + 10, c);
     } else {
-      // Moon: Waxing crescent moon outline (LUT fast_cos/fast_sin)
-      for (int a = 100; a <= 260; a += 4) {
+      // Moon: Crescent outline centered on the crescent body itself ([bx-5..bx+5], [by-11..by+11])
+      // rather than the invisible full lunar circle (shifted +5px right from bx+1/bx+5 to bx+6/bx+10)
+      for (int a = 95; a <= 265; a += 4) {
         float rad = static_cast<float>(a) * 0.0174532925f;
-        it.draw_pixel_at(bx + 1 + static_cast<int>(roundf(11.0f * fast_cos(rad))),
+        it.draw_pixel_at(bx + 6 + static_cast<int>(roundf(11.0f * fast_cos(rad))),
                          by + static_cast<int>(roundf(11.0f * fast_sin(rad))), c);
       }
-      for (int a = 120; a <= 240; a += 4) {
+      for (int a = 112; a <= 248; a += 4) {
         float rad = static_cast<float>(a) * 0.0174532925f;
-        it.draw_pixel_at(bx + 5 + static_cast<int>(roundf(9.5f * fast_cos(rad))),
+        it.draw_pixel_at(bx + 10 + static_cast<int>(roundf(9.5f * fast_cos(rad))),
                          by + static_cast<int>(roundf(10.5f * fast_sin(rad))), c);
       }
     }
