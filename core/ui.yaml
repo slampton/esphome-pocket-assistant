@@ -1436,8 +1436,6 @@ interval:
               id(timer_paused) = false;
               id(timer_remaining_sec) = 0;
               id(timer_ringing) = true;
-              id(gui_page) = 8;
-              id(stuff_subpage) = 1;
               id(wake_to_active_state).execute();
               id(play_alarm_sound).execute();
               id(disp1).update();
@@ -1477,8 +1475,6 @@ interval:
             if (id(alarm_snooze_until) > 0 && now_epoch >= id(alarm_snooze_until)) {
               id(alarm_snooze_until) = 0;
               id(alarm_ringing) = true;
-              id(gui_page) = 8;
-              id(stuff_subpage) = 2;
               id(wake_to_active_state).execute();
               id(play_alarm_sound).execute();
               id(disp1).update();
@@ -1517,8 +1513,6 @@ interval:
                 id(alarm_last_fired_min) = now.minute;
                 id(alarm_ringing) = true;
                 id(alarm_ringing_idx) = trig_idx;
-                id(gui_page) = 8;
-                id(stuff_subpage) = 2;
                 id(wake_to_active_state).execute();
                 id(play_alarm_sound).execute();
                 id(disp1).update();
@@ -3173,6 +3167,20 @@ display:
       }
 
       auto now = id(ha_time).now();
+
+      // ==========================================
+      // GLOBAL OVERLAY: ALARM / TIMER RINGING TAKEOVER
+      // Rendered above Docked Screensaver & all pages without hijacking gui_page
+      // ==========================================
+      if (id(alarm_ringing) || id(timer_ringing)) {
+        render_alert_ringing_overlay(
+            it, cx, cy, millis(), id(alarm_ringing), id(alarm_ringing_idx),
+            id(alarm1_recurrence), id(alarm2_recurrence), now, id(is_24h_format),
+            id(font_time), id(font_date), id(font_small), id(font_micro),
+            id(theme_primary), id(theme_secondary), id(col_bg), id(col_black),
+            id(col_white), id(col_gray), id(col_red));
+        return;
+      }
 
       // ==========================================
       // GLOBAL OVERLAY: DOCKED SCREENSAVER (Mode 1)
@@ -5276,59 +5284,6 @@ display:
         // ==============================================================================
         // PAGE 8: TOOLS SUITE (LAUNCHER, TIMER, ALARMS, STOPWATCH, DICE, FLASHLIGHT, CALC, LEVEL, COIN)
         // ==============================================================================
-        // ----------------------------------------------------------------------
-        // ALERT / RINGING OVERLAY: FULL-SCREEN TAKEOVER
-        // ----------------------------------------------------------------------
-        if (id(alarm_ringing) || id(timer_ringing)) {
-          // Dynamic pulsing perimeter alert ring (r = 223..226)
-          uint8_t pulse = (millis() / 250) % 2;
-          Color alert_color = id(alarm_ringing) ? id(col_red) : id(theme_secondary);
-          Color ring_c = pulse ? alert_color : Color(20, 20, 20);
-          it.circle(cx, cy, 223, ring_c);
-          it.circle(cx, cy, 224, ring_c);
-          it.circle(cx, cy, 225, ring_c);
-          it.circle(cx, cy, 226, ring_c);
-
-          if (id(alarm_ringing)) {
-            // Header
-            it.print(cx, 75, id(font_small), pulse ? id(col_red) : id(col_white), TextAlign::CENTER, "ALARM RINGING");
-
-            // Large Current Time
-            auto now = id(ha_time).now();
-            char cur_t_buf[16] = "--:--";
-            char ampm_buf[8] = "";
-            if (now.is_valid()) {
-              format_time_hhmm(now.hour, now.minute, id(is_24h_format), cur_t_buf, sizeof(cur_t_buf), ampm_buf);
-            }
-            it.print(cx, 160, id(font_time), id(col_white), TextAlign::CENTER, cur_t_buf);
-            if (!id(is_24h_format) && ampm_buf[0] != 0) {
-              it.print(cx + 120, 175, id(font_date), id(theme_secondary), TextAlign::LEFT, ampm_buf);
-            }
-
-            // Recurrence info
-            int r_idx = (id(alarm_ringing_idx) == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
-            const char* rec_names[4] = {"DAILY", "WEEKDAYS", "WEEKENDS", "ONCE"};
-            it.print(cx, 225, id(font_small), id(theme_primary), TextAlign::CENTER, rec_names[r_idx % 4]);
-
-            // SNOOZE (+5m) Button: y = 295, r = 20, 200px wide
-            draw_pill_button(133, 333, 295, 20, id(theme_secondary), id(theme_secondary), "SNOOZE (+5m)", id(col_black), false);
-            it.print(cx, 326, id(font_micro), id(col_gray), TextAlign::CENTER, "(or press Top Crown button)");
-
-            // DISMISS Button: y = 370, r = 18, 180px wide
-            draw_pill_button(143, 323, 370, 18, id(col_red), id(col_red), "DISMISS", id(col_white), false);
-          } else {
-            // Timer expired
-            it.print(cx, 75, id(font_small), pulse ? id(theme_secondary) : id(col_white), TextAlign::CENTER, "TIMER EXPIRED");
-            it.print(cx, 170, id(font_time), id(col_white), TextAlign::CENTER, "00:00");
-            it.print(cx, 230, id(font_small), id(theme_secondary), TextAlign::CENTER, "TIME IS UP!");
-
-            // DISMISS Button: y = 330, r = 22, 200px wide
-            draw_pill_button(133, 333, 330, 22, id(theme_primary), id(theme_primary), "DISMISS", id(col_white), false);
-            it.print(cx, 372, id(font_micro), id(col_gray), TextAlign::CENTER, "(or press Top Crown button)");
-          }
-          return;
-        }
-
         if (id(stuff_subpage) == 0) {
           // --------------------------------------------------
           // SUBPAGE 0: TOOLS LAUNCHER MENU (2-Page Centered Icon Grid with 2-Step Scroll)
@@ -5345,204 +5300,25 @@ display:
           // --------------------------------------------------
           // SUBPAGE 1: TIMER (COUNTDOWN TIMER)
           // --------------------------------------------------
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "TIMER");
-
-          // 1. Time Readout above Hero Button (y = 148, font_time, centered between y=50 title and y=408 back)
-          int disp_sec = (id(timer_running) || id(timer_paused)) ? id(timer_remaining_sec) : id(timer_duration_sec);
-          int m_part = disp_sec / 60;
-          int s_part = disp_sec % 60;
-          char t_str[16];
-          snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
-          it.print(cx, 148, id(font_time), id(col_white), TextAlign::CENTER, t_str);
-
-          // Subtitle status (y = 196)
-          if (id(timer_running)) {
-            it.print(cx, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "Countdown");
-          } else if (id(timer_paused)) {
-            it.print(cx, 196, id(font_small), id(theme_primary), TextAlign::CENTER, "Paused");
-          } else {
-            it.print(cx, 196, id(font_small), id(col_white), TextAlign::CENTER, "Ready");
-          }
-
-          // 2. Centered Hero Action Button (y = 256, r = 22, 180px wide, black text on theme_secondary)
-          const int hero_y = 256;
-          if (!id(timer_running) && !id(timer_paused)) {
-            draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "START", id(col_black));
-          } else if (id(timer_running)) {
-            draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "PAUSE", id(col_black));
-          } else if (id(timer_paused)) {
-            draw_hero_button(143, 323, hero_y, 22, id(theme_secondary), id(theme_secondary), "RESUME", id(col_black));
-          }
-
-          // 3. Quick Steppers with Natural Gap or Reset (y = 320, r = 14, leaving generous 40px buffer above back button)
-          if (!id(timer_running) && !id(timer_paused)) {
-            // -5m: span 48..126
-            draw_pill_button(62, 112, 320, 14, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
-            // -1m: moved inward to span 140..204 (14px natural gap from -5m)
-            draw_pill_button(154, 190, 320, 14, id(theme_primary), id(col_dark_gray), "-1m", id(col_white), false);
-            // +1m: moved inward to span 262..326 (14px natural gap to +5m)
-            draw_pill_button(276, 312, 320, 14, id(theme_primary), id(col_dark_gray), "+1m", id(col_white), false);
-            // +5m: span 340..418
-            draw_pill_button(354, 404, 320, 14, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
-          } else {
-            draw_pill_button(170, 296, 320, 16, id(col_red), id(col_dark_gray), "RESET", id(col_red), false);
-          }
-
-          // 4. Standardized Perimeter Progress Ticks (r = 219..228, Zero Outer Ring)
-          // Rendered exclusively when timer is active (running or paused); clean perimeter in ready state
-          if (id(timer_running) || id(timer_paused)) {
-            // 1. Full 360-degree background track ticks (all 60 positions)
-            for (int s = 0; s < 60; s++) {
-              float sn = DIAL_SIN[s];
-              float cs = DIAL_COS[s];
-              int r1 = (s % 5 == 0) ? 219 : 222;
-              int r2 = (s % 5 == 0) ? 228 : 227;
-              Color tc = (s % 5 == 0) ? id(col_slate) : id(col_dark_gray);
-              it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
-                      cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
-            }
-
-            // 2. Active remaining ticks
-            float frac = (id(timer_duration_sec) > 0) ? ((float)id(timer_remaining_sec) / (float)id(timer_duration_sec)) : 0.0f;
-            int sweep_ticks = (int)(frac * 60.0f);
-            if (sweep_ticks > 60) sweep_ticks = 60;
-            Color arc_c = id(timer_paused) ? id(theme_secondary) : id(theme_primary);
-            for (int t = 0; t <= sweep_ticks; t++) {
-              int idx = t % 60;
-              float sn = DIAL_SIN[idx];
-              float cs = DIAL_COS[idx];
-              int r1 = (idx % 5 == 0) ? 219 : 221;
-              it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
-                      cx + (int)(228.0f * sn), cy - (int)(228.0f * cs), arc_c);
-              if (idx % 5 == 0) {
-                float px = -cs;
-                float py = -sn;
-                it.line(cx + (int)(r1 * sn + px), cy - (int)(r1 * cs - py),
-                          cx + (int)(228.0f * sn + px), cy - (int)(228.0f * cs - py), arc_c);
-              }
-            }
-          }
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16)
-          draw_back_button();
+          render_tool_timer(
+              it, cx, cy, id(timer_running), id(timer_paused),
+              id(timer_remaining_sec), id(timer_duration_sec),
+              id(font_time), id(font_date), id(font_btn_bold), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_black),
+              id(col_white), id(col_slate), id(col_dark_gray), id(col_red));
 
         } else if (id(stuff_subpage) == 2) {
           // --------------------------------------------------
           // SUBPAGE 2: ALARMS (MULTI-ALARM MANAGER)
           // --------------------------------------------------
-          if (id(alarm_edit_idx) == 0) {
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ALARMS");
-
-            // ----------------------------------------------------------------
-            // ALARM LIST VIEW: 2 RECURRING ALARM CARDS
-            // ----------------------------------------------------------------
-            const char* rec_labels[4] = {"Daily", "Weekdays", "Weekends", "Once"};
-
-            auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
-              bool is_snoozed = (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == idx || id(alarm_ringing_idx) == 0));
-
-              // Card Background (Clean 2px Stadium Pill - r = 42, 84px tall for snugger top padding above time)
-              Color card_bg = en ? Color(24, 30, 38) : Color(16, 18, 22);
-              Color border_c = en ? id(theme_secondary) : Color(45, 52, 60);
-
-              // Outer border pill (r = 42, 84px tall)
-              it.filled_circle(90, y_mid, 42, border_c);
-              it.filled_circle(376, y_mid, 42, border_c);
-              it.filled_rectangle(90, y_mid - 42, 286, 85, border_c);
-
-              // Inner card pill (r = 40, 2px border inset)
-              it.filled_circle(90, y_mid, 40, card_bg);
-              it.filled_circle(376, y_mid, 40, card_bg);
-              it.filled_rectangle(90, y_mid - 40, 286, 81, card_bg);
-
-              if (is_snoozed) {
-                // Active Snooze Dismiss Overlay across configuration pill
-                draw_pill_button(110, 356, y_mid, 22, id(theme_secondary), id(theme_secondary), "DISMISS SNOOZE", id(col_black), false);
-                return;
-              }
-
-              // Alarm Time String
-              char t_buf[16];
-              char ap_buf[8] = "";
-              format_time_hhmm(h, m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf, true);
-              Color time_col = en ? id(col_white) : id(col_gray);
-              // Time & AM baselines
-              it.print(92, y_mid + 2, id(font_chrono_time), time_col, TextAlign::BASELINE_LEFT, t_buf);
-              if (!id(is_24h_format) && ap_buf[0] != 0) {
-                it.print(194, y_mid + 2, id(font_small), en ? id(theme_secondary) : id(col_gray), TextAlign::BASELINE_LEFT, ap_buf);
-              }
-
-              // Recurrence Tag: positioned below time at y_mid + 14
-              char tag_buf[32];
-              snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, rec_labels[rec % 4]);
-              it.print(92, y_mid + 14, id(font_small), en ? id(theme_primary) : id(col_gray), TextAlign::LEFT, tag_buf);
-
-              // Toggle Switch Pill: center y_mid - 6, width 44, height 24
-              Color sw_bg = en ? id(theme_primary) : Color(45, 52, 60);
-              it.filled_circle(330, y_mid - 6, 12, sw_bg);
-              it.filled_circle(354, y_mid - 6, 12, sw_bg);
-              it.filled_rectangle(330, y_mid - 18, 24, 25, sw_bg);
-              // Toggle Knob
-              int knob_x = en ? 354 : 330;
-              it.filled_circle(knob_x, y_mid - 6, 9, id(col_white));
-            };
-
-            // Alarm 1: Weekdays default (y = 156, r = 42, card span [114..198], halfway split)
-            draw_alarm_card(156, id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence), 1);
-
-            // Alarm 2: Weekends default (y = 262, r = 42, card span [220..304], halfway split)
-            draw_alarm_card(262, id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence), 2);
-
-            // Snooze Status (y = 336, comfortably positioned below Card 2)
-            if (id(alarm_snooze_until) > 0) {
-              auto now = id(ha_time).now();
-              int rem_s = (now.is_valid() && id(alarm_snooze_until) > now.timestamp) ? (id(alarm_snooze_until) - now.timestamp) : 0;
-              int snz_idx = (id(alarm_ringing_idx) > 0) ? id(alarm_ringing_idx) : 1;
-              char snz_buf[48];
-              snprintf(snz_buf, sizeof(snz_buf), "Alarm %d Snoozed (%dm %ds)", snz_idx, rem_s / 60, rem_s % 60);
-              it.print(cx, 336, id(font_small), id(col_gold), TextAlign::CENTER, snz_buf);
-            }
-          } else {
-            // ----------------------------------------------------------------
-            // ALARM EDITOR VIEW (alarm_edit_idx == 1 or 2)
-            // ----------------------------------------------------------------
-            char hdr_buf[32];
-            snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", id(alarm_edit_idx));
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, hdr_buf);
-
-            int edit_idx = id(alarm_edit_idx);
-            int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
-            int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
-            int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
-
-            // Large Time Display: perfectly centered on cx=233 without AM/PM skewing, standardized at y=120 to match timer buffer
-            char t_buf[16];
-            char ap_buf[8] = "";
-            format_time_hhmm(cur_h, cur_m, id(is_24h_format), t_buf, sizeof(t_buf), ap_buf);
-            it.print(cx, 120, id(font_time), id(col_white), TextAlign::CENTER, t_buf);
-            if (!id(is_24h_format)) {
-              int h12 = cur_h % 12;
-              if (h12 == 0) h12 = 12;
-              int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
-              it.print(ap_x, 129, id(font_small), id(theme_secondary), TextAlign::LEFT, ap_buf);
-            }
-
-            // Stepper Controls (Headers upgraded to font_small at y = 196, Buttons centered on device horizontal centerline y = 233)
-            it.print(145, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "HOUR");
-            draw_pill_button(105, 123, 233, 15, id(theme_primary), id(col_dark_gray), "-1h", id(col_white), false);
-            draw_pill_button(167, 185, 233, 15, id(theme_primary), id(col_dark_gray), "+1h", id(col_white), false);
-
-            it.print(321, 196, id(font_small), id(theme_secondary), TextAlign::CENTER, "MINUTE");
-            draw_pill_button(281, 299, 233, 15, id(theme_primary), id(col_dark_gray), "-5m", id(col_white), false);
-            draw_pill_button(343, 361, 233, 15, id(theme_primary), id(col_dark_gray), "+5m", id(col_white), false);
-
-            // Recurrence Pill: y = 296 (r = 18, moved down +21px with group)
-            const char* rec_names[4] = {"Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
-            draw_pill_button(120, 346, 296, 18, id(theme_secondary), id(col_dark_gray), rec_names[cur_rec % 4], id(theme_secondary), false);
-          }
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16)
-          draw_back_button();
+          render_tool_alarms(
+              it, cx, now, id(is_24h_format), id(alarm_edit_idx),
+              id(alarm_snooze_until), id(alarm_ringing_idx),
+              id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence),
+              id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence),
+              id(font_time), id(font_chrono_time), id(font_date), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_black),
+              id(col_white), id(col_gray), id(col_dark_gray), id(col_gold));
 
         } else if (id(stuff_subpage) == 3) {
           // --------------------------------------------------
@@ -5572,82 +5348,12 @@ display:
 
         } else if (id(stuff_subpage) == 6) {
           // --------------------------------------------------
-          // SUBPAGE 6: CALCULATOR WITH PERCENT SUPPORT
+          // SUBPAGE 6: CALCULATOR WITH PERCENT SUPPORT & OPERATOR HIGHLIGHT
           // --------------------------------------------------
-          // 4x5 Keypad Matrix on 466x466 AMOLED: 68x44px Touch Targets
-          // Arithmetic Engine with Instant Tip / Discount Percent Logic
-          // --------------------------------------------------
-          // Top Display Panel: Expression history and active entry (Title omitted for clean layout)
-          if (!id(calc_history).empty()) {
-            it.print(370, 52, id(font_small), id(col_slate), TextAlign::RIGHT, id(calc_history).c_str());
-          }
-          it.print(370, 84, id(font_date), id(col_white), TextAlign::RIGHT, id(calc_entry).c_str());
-
-          // Subtle Divider Line
-          it.line(80, 112, 386, 112, Color(50, 58, 72));
-
-          // Keypad Matrix: 4 Columns x 5 Rows
-          const int rows_y[5] = {138, 192, 246, 300, 354};
-          const int cols_x[4] = {119, 195, 271, 347};
-
-          const char* key_labels[5][4] = {
-            {"C", "±", "%", "/"},
-            {"7", "8", "9", "x"},
-            {"4", "5", "6", "-"},
-            {"1", "2", "3", "+"},
-            {"0", ".", "DEL", "="}
-          };
-
-          auto draw_calc_key = [&](int kx, int ky, const char* label, Color bg_c, Color text_c, Color border_c) {
-            const int kw = 68;
-            const int kh = 44;
-            const int kr = 8;
-            int x0 = kx - kw / 2;
-            int y0 = ky - kh / 2;
-            it.filled_rectangle(x0 + kr, y0, kw - 2 * kr, kh, bg_c);
-            it.filled_rectangle(x0, y0 + kr, kw, kh - 2 * kr, bg_c);
-            it.filled_circle(x0 + kr, y0 + kr, kr, bg_c);
-            it.filled_circle(x0 + kw - kr, y0 + kr, kr, bg_c);
-            it.filled_circle(x0 + kr, y0 + kh - kr, kr, bg_c);
-            it.filled_circle(x0 + kw - kr, y0 + kh - kr, kr, bg_c);
-
-            it.line(x0 + kr, y0, x0 + kw - kr, y0, border_c);
-            it.line(x0 + kr, y0 + kh - 1, x0 + kw - kr, y0 + kh - 1, border_c);
-            it.line(x0, y0 + kr, x0, y0 + kh - kr, border_c);
-            it.line(x0 + kw - 1, y0 + kr, x0 + kw - 1, y0 + kh - kr, border_c);
-
-            it.print(kx, ky, id(font_btn_bold), text_c, TextAlign::CENTER, label);
-          };
-
-          for (int r = 0; r < 5; r++) {
-            for (int c = 0; c < 4; c++) {
-              Color bg_c;
-              Color text_c = id(col_white);
-              Color border_c;
-
-              if (c == 3) {
-                // Operator Column (Vivid Amber-Orange)
-                bg_c = Color(230, 115, 0);
-                border_c = Color(255, 145, 30);
-              } else if (r == 0) {
-                // Top Function Row (Muted Slate Navy)
-                bg_c = Color(65, 75, 90);
-                border_c = Color(90, 105, 125);
-              } else if (r == 4 && c == 2) {
-                // DEL key (Muted Dark Ruby/Slate)
-                bg_c = Color(60, 50, 60);
-                border_c = Color(85, 70, 85);
-              } else {
-                // Number Pad (Deep Matte Charcoal)
-                bg_c = Color(35, 40, 52);
-                border_c = Color(55, 62, 78);
-              }
-
-              draw_calc_key(cols_x[c], rows_y[r], key_labels[r][c], bg_c, text_c, border_c);
-            }
-          }
-
-          draw_back_button();
+          render_tool_calculator(
+              it, id(calc_history), id(calc_entry), id(calc_op), id(calc_new_entry),
+              id(font_date), id(font_btn_bold), id(font_small),
+              id(theme_primary), id(col_white), id(col_slate), id(col_dark_gray));
 
         } else if (id(stuff_subpage) == 7) {
           // --------------------------------------------------
@@ -7783,6 +7489,7 @@ touchscreen:
                       last_stuff_tap = now_stuff;
                       if (touch.x >= 310) {
                         id(alarm1_enabled) = !id(alarm1_enabled);
+                        if (!id(alarm1_enabled) && id(alarm_ringing_idx) <= 1) id(alarm_snooze_until) = 0;
                       } else {
                         id(alarm_edit_idx) = 1;
                       }
@@ -7797,6 +7504,7 @@ touchscreen:
                       last_stuff_tap = now_stuff;
                       if (touch.x >= 310) {
                         id(alarm2_enabled) = !id(alarm2_enabled);
+                        if (!id(alarm2_enabled) && id(alarm_ringing_idx) == 2) id(alarm_snooze_until) = 0;
                       } else {
                         id(alarm_edit_idx) = 2;
                       }
@@ -8054,7 +7762,7 @@ touchscreen:
                         id(calc_op) = new_op;
                         id(calc_new_entry) = true;
                         id(calc_history) = format_calc_num(id(calc_prev_val)) + " " + op_to_str(id(calc_op));
-                        id(calc_entry) = ""; // Clear active input line so second operand starts fresh
+                        id(calc_entry) = format_calc_num(id(calc_prev_val)); // Keep operand visible while operator key highlights
                       }
                     } else if (r == 4 && c == 1) { // .
                       if (id(calc_new_entry) || id(calc_entry).empty()) {

@@ -6368,7 +6368,7 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
                                   bool &coin_anim_active, uint32_t coin_anim_start_ms,
                                   int coin_side,
                                   FontBigT *font_date, FontSmallT *font_small,
-                                  esphome::Color theme_primary, esphome::Color theme_secondary,
+                                  esphome::Color theme_primary, esphome::Color /*theme_secondary*/,
                                   esphome::Color col_white, esphome::Color col_dark_gray) {
   float flip_progress = 1.0f;
   float scale_y = 1.0f;
@@ -6382,7 +6382,7 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
       coin_anim_active = false;
     } else {
       flip_progress = (float)elapsed / (float)flip_dur;
-      // Parabolic airborne hop (-66px peak in clean canvas)
+      // Parabolic airborne hop (-66px peak; top of r=116 coin reaches y=34)
       y_hop = -66.0f * fast_sin(flip_progress * PI_F);
       float total_rot = (coin_side == 0) ? (6.0f * PI_F) : (7.0f * PI_F);
       float eased_t = fast_sin(flip_progress * (PI_F * 0.5f));
@@ -6394,21 +6394,22 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
     }
   }
 
-  const int coin_base_y = 194;
+  // Enlarged r = 116 (232px diameter) centered at y = 216 (no bottom result/flipping text)
+  const int coin_base_y = 216;
   int coin_cy = coin_base_y + (int)y_hop;
-  const int r_outer = 102;
+  const int r_outer = 116;
 
   // 1. Zero-sqrtf Floor Shadow via .rodata CIRCLE_HW LUT
   if (y_hop < -4.0f) {
     float shadow_scale = std::max(0.38f, 1.0f - (-y_hop / 95.0f));
-    int sh_rx = (int)(84.0f * shadow_scale);
-    int sh_ry = std::max(2, (int)(20.0f * shadow_scale));
+    int sh_rx = (int)(96.0f * shadow_scale);
+    int sh_ry = std::max(2, (int)(22.0f * shadow_scale));
     for (int sdy = -sh_ry; sdy <= sh_ry; sdy++) {
       int lut_idx = 233 + (sdy * 232) / sh_ry;
       if (lut_idx < 0) lut_idx = 0;
       if (lut_idx > 465) lut_idx = 465;
       int sdx = (sh_rx * CIRCLE_HW[lut_idx]) / 233;
-      it.horizontal_line(cx - sdx, 266 + sdy, 2 * sdx + 1, esphome::Color(12, 15, 20));
+      it.horizontal_line(cx - sdx, 304 + sdy, 2 * sdx + 1, esphome::Color(12, 15, 20));
     }
   }
 
@@ -6424,12 +6425,12 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
     it.filled_circle(cx, coin_cy, r_outer, col_field);
     it.circle(cx, coin_cy, r_outer, col_rim);
     it.circle(cx, coin_cy, r_outer - 1, col_bevel);
-    it.circle(cx, coin_cy, r_outer - 5, col_groove);
-    it.circle(cx, coin_cy, r_outer - 6, col_bevel);
+    it.circle(cx, coin_cy, r_outer - 6, col_groove);
+    it.circle(cx, coin_cy, r_outer - 7, col_bevel);
   } else {
     // 2. Zero-Trig 3D Foreshortened Coin + Milled Metallic Edge Thickness via CIRCLE_HW
     int b_outer = std::max(2, (int)(r_outer * scale_y));
-    int edge_h = std::max(2, (int)(8.0f * (1.0f - scale_y)));
+    int edge_h = std::max(2, (int)(9.0f * (1.0f - scale_y)));
 
     // Lower 3D metallic coin thickness band
     for (int dy = 0; dy <= b_outer; dy++) {
@@ -6450,26 +6451,25 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
       if (lut_idx > 465) lut_idx = 465;
       int dx_outer = (r_outer * CIRCLE_HW[lut_idx]) / 233;
       it.horizontal_line(cx - dx_outer, coin_cy + dy, 2 * dx_outer + 1, col_field);
-      // Rim pixels at left/right scanline ends
       it.draw_pixel_at(cx - dx_outer, coin_cy + dy, col_rim);
       it.draw_pixel_at(cx + dx_outer, coin_cy + dy, col_rim);
       it.draw_pixel_at(cx - dx_outer + 1, coin_cy + dy, col_bevel);
       it.draw_pixel_at(cx + dx_outer - 1, coin_cy + dy, col_bevel);
-      if (dx_outer > 6) {
-        it.draw_pixel_at(cx - dx_outer + 5, coin_cy + dy, col_groove);
-        it.draw_pixel_at(cx + dx_outer - 5, coin_cy + dy, col_groove);
+      if (dx_outer > 7) {
+        it.draw_pixel_at(cx - dx_outer + 6, coin_cy + dy, col_groove);
+        it.draw_pixel_at(cx + dx_outer - 6, coin_cy + dy, col_groove);
       }
     }
   }
 
-  // 3. Home Assistant Medallion Motif (Heads: Assist Smiling Face, Tails: Network Tree)
+  // 3. Home Assistant Medallion Motif (Scaled +14% for r_outer = 116)
   if (scale_y > 0.32f) {
     int hx = cx;
-    int hy = coin_cy - (int)(12.0f * scale_y);
-    int hw = 44;
-    int y_top = hy - (int)(41.0f * scale_y);
+    int hy = coin_cy - (int)(14.0f * scale_y);
+    int hw = 49;
+    int y_top = hy - (int)(46.0f * scale_y);
     int y_eave = hy - (int)(1.0f * scale_y);
-    int y_bot = hy + (int)(42.0f * scale_y);
+    int y_bot = hy + (int)(47.0f * scale_y);
 
     for (int y = y_top; y <= y_bot; y++) {
       int cur_hw = 0;
@@ -6487,15 +6487,15 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
     }
 
     if (show_heads) {
-      int eye_y = hy + (int)(5.0f * scale_y);
-      int eye_r = std::max(2, (int)(5.0f * scale_y));
-      it.filled_circle(hx - 19, eye_y, eye_r, col_white);
-      it.filled_circle(hx + 19, eye_y, eye_r, col_white);
+      int eye_y = hy + (int)(6.0f * scale_y);
+      int eye_r = std::max(2, (int)(6.0f * scale_y));
+      it.filled_circle(hx - 21, eye_y, eye_r, col_white);
+      it.filled_circle(hx + 21, eye_y, eye_r, col_white);
 
-      int smile_top_y = hy + (int)(16.0f * scale_y);
-      int smile_mid_y = hy + (int)(20.0f * scale_y);
-      int smile_bot_y = hy + (int)(28.0f * scale_y);
-      int smile_hw = 13;
+      int smile_top_y = hy + (int)(18.0f * scale_y);
+      int smile_mid_y = hy + (int)(23.0f * scale_y);
+      int smile_bot_y = hy + (int)(32.0f * scale_y);
+      int smile_hw = 15;
 
       for (int y = smile_top_y; y <= smile_mid_y; y++) {
         for (int t = -1; t <= 1; t++) {
@@ -6513,42 +6513,378 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
         }
       }
       if (scale_y > 0.65f) {
-        it.print(cx, coin_cy + (int)(56.0f * scale_y), font_date, text_col,
+        it.print(cx, coin_cy + (int)(63.0f * scale_y), font_date, text_col,
                  esphome::display::TextAlign::CENTER, "HEADS");
       }
     } else {
       int H_total = y_bot - y_top;
       int top_node_y = y_top + (int)(0.331f * (float)H_total);
-      int right_node_x = hx + 21;
+      int right_node_x = hx + 24;
       int right_node_y = y_top + (int)(0.596f * (float)H_total);
-      int left_node_x = hx - 21;
+      int left_node_x = hx - 24;
       int left_node_y = y_top + (int)(0.742f * (float)H_total);
 
-      int node_r = std::max(3, (int)(7.0f * scale_y));
+      int node_r = std::max(3, (int)(8.0f * scale_y));
       int line_hw = std::max(1, (int)(2.5f * scale_y));
 
       for (int w = -line_hw; w <= line_hw; w++) {
         it.line(hx + w, top_node_y, hx + w, y_bot, col_white);
-        it.line(hx + w, right_node_y + 21, right_node_x + w, right_node_y, col_white);
-        it.line(hx + w, left_node_y + 21, left_node_x + w, left_node_y, col_white);
+        it.line(hx + w, right_node_y + 24, right_node_x + w, right_node_y, col_white);
+        it.line(hx + w, left_node_y + 24, left_node_x + w, left_node_y, col_white);
       }
       it.filled_circle(hx, top_node_y, node_r, col_white);
       it.filled_circle(right_node_x, right_node_y, node_r, col_white);
       it.filled_circle(left_node_x, left_node_y, node_r, col_white);
 
       if (scale_y > 0.65f) {
-        it.print(cx, coin_cy + (int)(56.0f * scale_y), font_date, text_col,
+        it.print(cx, coin_cy + (int)(63.0f * scale_y), font_date, text_col,
                  esphome::display::TextAlign::CENTER, "TAILS");
       }
     }
   }
 
-  // Prominent Result Readout at y = 338 (Clean canvas: no top title or instruction clutter)
-  if (coin_anim_active) {
-    it.print(cx, 338, font_date, theme_secondary, esphome::display::TextAlign::CENTER, "FLIPPING...");
+  render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+}
+
+// ============================================================================
+// SECTION 14: TOOLS SUITE PART 2 — GLOBAL ALERT OVERLAY, TIMER, ALARMS & CALC
+// ============================================================================
+
+template<typename DisplayT, typename TimeT, typename FontTimeT, typename FontDateT,
+         typename FontSmallT, typename FontMicroT>
+inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                         bool alarm_ringing, int alarm_ringing_idx,
+                                         int alarm1_recurrence, int alarm2_recurrence,
+                                         const TimeT &now, bool is_24h_format,
+                                         FontTimeT *font_time, FontDateT *font_date,
+                                         FontSmallT *font_small, FontMicroT *font_micro,
+                                         esphome::Color theme_primary,
+                                         esphome::Color theme_secondary,
+                                         esphome::Color col_bg, esphome::Color col_black,
+                                         esphome::Color col_white, esphome::Color col_gray,
+                                         esphome::Color col_red) {
+  it.fill(col_bg);
+  uint8_t pulse = (now_ms / 250U) % 2U;
+  esphome::Color alert_color = alarm_ringing ? col_red : theme_secondary;
+  esphome::Color ring_c = pulse ? alert_color : esphome::Color(20, 20, 20);
+  it.circle(cx, cy, 223, ring_c);
+  it.circle(cx, cy, 224, ring_c);
+  it.circle(cx, cy, 225, ring_c);
+  it.circle(cx, cy, 226, ring_c);
+
+  if (alarm_ringing) {
+    it.print(cx, 75, font_small, pulse ? col_red : col_white,
+             esphome::display::TextAlign::CENTER, "ALARM RINGING");
+
+    char cur_t_buf[16] = "--:--";
+    char ampm_buf[8] = "";
+    if (now.is_valid()) {
+      format_time_hhmm(now.hour, now.minute, is_24h_format, cur_t_buf, sizeof(cur_t_buf), ampm_buf);
+    }
+    it.print(cx, 160, font_time, col_white, esphome::display::TextAlign::CENTER, cur_t_buf);
+    if (!is_24h_format && ampm_buf[0] != 0) {
+      it.print(cx + 120, 175, font_date, theme_secondary,
+               esphome::display::TextAlign::LEFT, ampm_buf);
+    }
+
+    int r_idx = (alarm_ringing_idx == 2) ? alarm2_recurrence : alarm1_recurrence;
+    static constexpr const char *REC_NAMES[4] = {"DAILY", "WEEKDAYS", "WEEKENDS", "ONCE"};
+    it.print(cx, 225, font_small, theme_primary,
+             esphome::display::TextAlign::CENTER, REC_NAMES[r_idx & 3]);
+
+    render_pill_button(it, 133, 333, 295, 20, theme_secondary, theme_secondary,
+                       "SNOOZE (+5m)", col_black, font_small);
+    it.print(cx, 326, font_micro, col_gray,
+             esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
+
+    render_pill_button(it, 143, 323, 370, 18, col_red, col_red,
+                       "DISMISS", col_white, font_small);
   } else {
-    it.print(cx, 338, font_date, col_white, esphome::display::TextAlign::CENTER,
-             (coin_side == 0) ? "RESULT: HEADS" : "RESULT: TAILS");
+    it.print(cx, 75, font_small, pulse ? theme_secondary : col_white,
+             esphome::display::TextAlign::CENTER, "TIMER EXPIRED");
+    it.print(cx, 170, font_time, col_white, esphome::display::TextAlign::CENTER, "00:00");
+    it.print(cx, 230, font_small, theme_secondary,
+             esphome::display::TextAlign::CENTER, "TIME IS UP!");
+
+    render_pill_button(it, 133, 333, 330, 22, theme_primary, theme_primary,
+                       "DISMISS", col_white, font_small);
+    it.print(cx, 372, font_micro, col_gray,
+             esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
+  }
+}
+
+template<typename DisplayT, typename FontTimeT, typename FontDateT,
+         typename FontBoldT, typename FontSmallT>
+inline void render_tool_timer(DisplayT &it, int cx, int cy,
+                              bool timer_running, bool timer_paused,
+                              int timer_remaining_sec, int timer_duration_sec,
+                              FontTimeT *font_time, FontDateT *font_date,
+                              FontBoldT *font_btn_bold, FontSmallT *font_small,
+                              esphome::Color theme_primary, esphome::Color theme_secondary,
+                              esphome::Color col_black, esphome::Color col_white,
+                              esphome::Color col_slate, esphome::Color col_dark_gray,
+                              esphome::Color col_red) {
+  // Keep "TIMER" title at y = 50
+  it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "TIMER");
+
+  int disp_sec = (timer_running || timer_paused) ? timer_remaining_sec : timer_duration_sec;
+  int m_part = disp_sec / 60;
+  int s_part = disp_sec % 60;
+  char t_str[16];
+  snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
+  it.print(cx, 148, font_time, col_white, esphome::display::TextAlign::CENTER, t_str);
+
+  if (timer_running) {
+    it.print(cx, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "Countdown");
+  } else if (timer_paused) {
+    it.print(cx, 196, font_small, theme_primary, esphome::display::TextAlign::CENTER, "Paused");
+  } else {
+    it.print(cx, 196, font_small, col_white, esphome::display::TextAlign::CENTER, "Ready");
+  }
+
+  const int hero_y = 256;
+  const char *hero_lbl = (!timer_running && !timer_paused) ? "START" : (timer_running ? "PAUSE" : "RESUME");
+  render_pill_button(it, 143, 323, hero_y, 22, theme_secondary, theme_secondary,
+                     hero_lbl, col_black, font_btn_bold);
+
+  if (!timer_running && !timer_paused) {
+    render_pill_button(it, 62, 112, 320, 14, theme_primary, col_dark_gray, "-5m", col_white, font_small);
+    render_pill_button(it, 154, 190, 320, 14, theme_primary, col_dark_gray, "-1m", col_white, font_small);
+    render_pill_button(it, 276, 312, 320, 14, theme_primary, col_dark_gray, "+1m", col_white, font_small);
+    render_pill_button(it, 354, 404, 320, 14, theme_primary, col_dark_gray, "+5m", col_white, font_small);
+  } else {
+    render_pill_button(it, 170, 296, 320, 16, col_red, col_dark_gray, "RESET", col_red, font_small);
+  }
+
+  // 60-tick perimeter track (always subtly visible to frame the circular dial; illuminated when running/paused)
+  for (int s = 0; s < 60; s++) {
+    float sn = DIAL_SIN[s];
+    float cs = DIAL_COS[s];
+    int r1 = (s % 5 == 0) ? 219 : 222;
+    int r2 = (s % 5 == 0) ? 228 : 227;
+    esphome::Color tc = (s % 5 == 0) ? col_slate : col_dark_gray;
+    it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
+            cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
+  }
+
+  if (timer_running || timer_paused) {
+    float frac = (timer_duration_sec > 0) ? ((float)timer_remaining_sec / (float)timer_duration_sec) : 0.0f;
+    int sweep_ticks = std::min(60, (int)(frac * 60.0f));
+    esphome::Color arc_c = timer_paused ? theme_secondary : theme_primary;
+    for (int t = 0; t <= sweep_ticks; t++) {
+      int idx = t % 60;
+      float sn = DIAL_SIN[idx];
+      float cs = DIAL_COS[idx];
+      int r1 = (idx % 5 == 0) ? 219 : 221;
+      it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
+              cx + (int)(228.0f * sn), cy - (int)(228.0f * cs), arc_c);
+      if (idx % 5 == 0) {
+        it.line(cx + (int)(r1 * sn - cs), cy - (int)(r1 * cs + sn),
+                cx + (int)(228.0f * sn - cs), cy - (int)(228.0f * cs + sn), arc_c);
+      }
+    }
+  }
+
+  render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+}
+
+template<typename DisplayT, typename TimeT, typename FontTimeT, typename FontChronoT,
+         typename FontDateT, typename FontSmallT>
+inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_24h_format,
+                               int alarm_edit_idx, uint32_t alarm_snooze_until,
+                               int alarm_ringing_idx,
+                               int alarm1_hour, int alarm1_minute, bool alarm1_enabled, int alarm1_recurrence,
+                               int alarm2_hour, int alarm2_minute, bool alarm2_enabled, int alarm2_recurrence,
+                               FontTimeT *font_time, FontChronoT *font_chrono_time,
+                               FontDateT *font_date, FontSmallT *font_small,
+                               esphome::Color theme_primary, esphome::Color theme_secondary,
+                               esphome::Color col_black, esphome::Color col_white,
+                               esphome::Color col_gray, esphome::Color col_dark_gray,
+                               esphome::Color col_gold) {
+  if (alarm_edit_idx == 0) {
+    // Keep "ALARMS" title at y = 50
+    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "ALARMS");
+
+    static constexpr const char *REC_LABELS[4] = {"Daily", "Weekdays", "Weekends", "Once"};
+
+    auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
+      bool is_snoozed = (alarm_snooze_until > 0 && (alarm_ringing_idx == idx || alarm_ringing_idx == 0));
+
+      esphome::Color card_bg = en ? esphome::Color(24, 30, 38) : esphome::Color(16, 18, 22);
+      esphome::Color border_c = en ? theme_secondary : esphome::Color(45, 52, 60);
+
+      it.filled_circle(90, y_mid, 42, border_c);
+      it.filled_circle(376, y_mid, 42, border_c);
+      it.filled_rectangle(90, y_mid - 42, 286, 85, border_c);
+
+      it.filled_circle(90, y_mid, 40, card_bg);
+      it.filled_circle(376, y_mid, 40, card_bg);
+      it.filled_rectangle(90, y_mid - 40, 286, 81, card_bg);
+
+      if (is_snoozed) {
+        render_pill_button(it, 110, 356, y_mid, 22, theme_secondary, theme_secondary,
+                           "DISMISS SNOOZE", col_black, font_small);
+        return;
+      }
+
+      char t_buf[16];
+      char ap_buf[8] = "";
+      format_time_hhmm(h, m, is_24h_format, t_buf, sizeof(t_buf), ap_buf, true);
+      esphome::Color time_col = en ? col_white : col_gray;
+      it.print(92, y_mid + 2, font_chrono_time, time_col,
+               esphome::display::TextAlign::BASELINE_LEFT, t_buf);
+      if (!is_24h_format && ap_buf[0] != 0) {
+        // Dynamic AM/PM x-offset so 2-digit hours (10:xx, 11:xx, 12:xx) never overlap AM/PM!
+        int h12 = h % 12;
+        if (h12 == 0) h12 = 12;
+        int ap_x = (h12 >= 10) ? 208 : 182;
+        it.print(ap_x, y_mid + 2, font_small, en ? theme_secondary : col_gray,
+                 esphome::display::TextAlign::BASELINE_LEFT, ap_buf);
+      }
+
+      char tag_buf[32];
+      snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, REC_LABELS[rec & 3]);
+      it.print(92, y_mid + 14, font_small, en ? theme_primary : col_gray,
+               esphome::display::TextAlign::LEFT, tag_buf);
+
+      esphome::Color sw_bg = en ? theme_primary : esphome::Color(45, 52, 60);
+      it.filled_circle(330, y_mid - 6, 12, sw_bg);
+      it.filled_circle(354, y_mid - 6, 12, sw_bg);
+      it.filled_rectangle(330, y_mid - 18, 24, 25, sw_bg);
+      int knob_x = en ? 354 : 330;
+      it.filled_circle(knob_x, y_mid - 6, 9, col_white);
+    };
+
+    draw_alarm_card(156, alarm1_hour, alarm1_minute, alarm1_enabled, alarm1_recurrence, 1);
+    draw_alarm_card(262, alarm2_hour, alarm2_minute, alarm2_enabled, alarm2_recurrence, 2);
+
+    if (alarm_snooze_until > 0) {
+      int rem_s = (now.is_valid() && alarm_snooze_until > (uint32_t)now.timestamp)
+                      ? (int)(alarm_snooze_until - (uint32_t)now.timestamp)
+                      : 0;
+      int snz_idx = (alarm_ringing_idx > 0) ? alarm_ringing_idx : 1;
+      char snz_buf[48];
+      snprintf(snz_buf, sizeof(snz_buf), "Alarm %d Snoozed (%dm %ds)", snz_idx, rem_s / 60, rem_s % 60);
+      it.print(cx, 336, font_small, col_gold, esphome::display::TextAlign::CENTER, snz_buf);
+    }
+  } else {
+    char hdr_buf[32];
+    snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", alarm_edit_idx);
+    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, hdr_buf);
+
+    int cur_h = (alarm_edit_idx == 2) ? alarm2_hour : alarm1_hour;
+    int cur_m = (alarm_edit_idx == 2) ? alarm2_minute : alarm1_minute;
+    int cur_rec = (alarm_edit_idx == 2) ? alarm2_recurrence : alarm1_recurrence;
+
+    char t_buf[16];
+    char ap_buf[8] = "";
+    format_time_hhmm(cur_h, cur_m, is_24h_format, t_buf, sizeof(t_buf), ap_buf);
+    it.print(cx, 120, font_time, col_white, esphome::display::TextAlign::CENTER, t_buf);
+    if (!is_24h_format) {
+      int h12 = cur_h % 12;
+      if (h12 == 0) h12 = 12;
+      int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
+      it.print(ap_x, 129, font_small, theme_secondary, esphome::display::TextAlign::LEFT, ap_buf);
+    }
+
+    it.print(145, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "HOUR");
+    render_pill_button(it, 105, 123, 233, 15, theme_primary, col_dark_gray, "-1h", col_white, font_small);
+    render_pill_button(it, 167, 185, 233, 15, theme_primary, col_dark_gray, "+1h", col_white, font_small);
+
+    it.print(321, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "MINUTE");
+    render_pill_button(it, 281, 299, 233, 15, theme_primary, col_dark_gray, "-5m", col_white, font_small);
+    render_pill_button(it, 343, 361, 233, 15, theme_primary, col_dark_gray, "+5m", col_white, font_small);
+
+    static constexpr const char *REC_NAMES[4] = {
+        "Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
+    render_pill_button(it, 120, 346, 296, 18, theme_secondary, col_dark_gray,
+                       REC_NAMES[cur_rec & 3], theme_secondary, font_small);
+  }
+
+  render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+}
+
+template<typename DisplayT, typename FontDateT, typename FontBoldT, typename FontSmallT>
+inline void render_tool_calculator(DisplayT &it, const std::string &calc_history,
+                                   const std::string &calc_entry, int calc_op,
+                                   bool calc_new_entry,
+                                   FontDateT *font_date, FontBoldT *font_btn_bold,
+                                   FontSmallT *font_small,
+                                   esphome::Color theme_primary, esphome::Color col_white,
+                                   esphome::Color col_slate, esphome::Color col_dark_gray) {
+  // Bezel-safe right margins (x = 348 at y = 54, x = 364 at y = 86) so text never clips on the round screen
+  if (!calc_history.empty()) {
+    it.print(348, 54, font_small, col_slate, esphome::display::TextAlign::RIGHT, calc_history.c_str());
+  }
+  if (!calc_entry.empty()) {
+    it.print(364, 86, font_date, col_white, esphome::display::TextAlign::RIGHT, calc_entry.c_str());
+  }
+
+  it.line(80, 112, 386, 112, esphome::Color(50, 58, 72));
+
+  static constexpr int ROWS_Y[5] = {138, 192, 246, 300, 354};
+  static constexpr int COLS_X[4] = {119, 195, 271, 347};
+  static constexpr const char *KEY_LABELS[5][4] = {
+      {"C", "±", "%", "/"},
+      {"7", "8", "9", "x"},
+      {"4", "5", "6", "-"},
+      {"1", "2", "3", "+"},
+      {"0", ".", "DEL", "="}};
+
+  auto draw_calc_key = [&](int kx, int ky, const char *label,
+                           esphome::Color bg_c, esphome::Color text_c, esphome::Color border_c) {
+    const int kw = 68;
+    const int kh = 44;
+    const int kr = 8;
+    int x0 = kx - kw / 2;
+    int y0 = ky - kh / 2;
+    it.filled_rectangle(x0 + kr, y0, kw - 2 * kr, kh, bg_c);
+    it.filled_rectangle(x0, y0 + kr, kw, kh - 2 * kr, bg_c);
+    it.filled_circle(x0 + kr, y0 + kr, kr, bg_c);
+    it.filled_circle(x0 + kw - kr, y0 + kr, kr, bg_c);
+    it.filled_circle(x0 + kr, y0 + kh - kr, kr, bg_c);
+    it.filled_circle(x0 + kw - kr, y0 + kh - kr, kr, bg_c);
+
+    it.line(x0 + kr, y0, x0 + kw - kr, y0, border_c);
+    it.line(x0 + kr, y0 + kh - 1, x0 + kw - kr, y0 + kh - 1, border_c);
+    it.line(x0, y0 + kr, x0, y0 + kh - kr, border_c);
+    it.line(x0 + kw - 1, y0 + kr, x0 + kw - 1, y0 + kh - kr, border_c);
+
+    it.print(kx, ky, font_btn_bold, text_c, esphome::display::TextAlign::CENTER, label);
+  };
+
+  for (int r = 0; r < 5; r++) {
+    for (int c = 0; c < 4; c++) {
+      esphome::Color bg_c;
+      esphome::Color text_c = col_white;
+      esphome::Color border_c;
+
+      if (c == 3) {
+        // Highlight active pending operator (+, -, x, /) with inverted white pill & amber text
+        bool op_selected = calc_new_entry &&
+                           ((r == 0 && calc_op == 4) || (r == 1 && calc_op == 3) ||
+                            (r == 2 && calc_op == 2) || (r == 3 && calc_op == 1));
+        if (op_selected) {
+          bg_c = col_white;
+          border_c = esphome::Color(255, 180, 80);
+          text_c = esphome::Color(230, 115, 0);
+        } else {
+          bg_c = esphome::Color(230, 115, 0);
+          border_c = esphome::Color(255, 145, 30);
+        }
+      } else if (r == 0) {
+        bg_c = esphome::Color(65, 75, 90);
+        border_c = esphome::Color(90, 105, 125);
+      } else if (r == 4 && c == 2) {
+        bg_c = esphome::Color(60, 50, 60);
+        border_c = esphome::Color(85, 70, 85);
+      } else {
+        bg_c = esphome::Color(35, 40, 52);
+        border_c = esphome::Color(55, 62, 78);
+      }
+
+      draw_calc_key(COLS_X[c], ROWS_Y[r], KEY_LABELS[r][c], bg_c, text_c, border_c);
+    }
   }
 
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
