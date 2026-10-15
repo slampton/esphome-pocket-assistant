@@ -4004,50 +4004,45 @@ display:
 
             } else if (g_idx == 2) {
               // ------------------------------------------------------------------
-              // GAME 2: BREAKOUT
+              // GAME 2: BREAKOUT — 3D Beveled Bricks, Shattering Hit & Compact Paddle
               // ------------------------------------------------------------------
               int b_w = 26, b_h = 11, gap_x = 4, gap_y = 5;
-              int start_bx = icon_x - (int)(2.0f * b_w + 1.5f * gap_x);
-              int start_by = icon_y - 46;
+              int start_bx = icon_x - (int)(2.0f * b_w + 1.5f * gap_x) + b_w / 2;
+              int start_by = icon_y - 36;
               Color row_c[3] = {id(col_gold), id(col_cyan), id(col_orange)};
-              Color row_hi[3] = {Color(255, 245, 157), Color(180, 255, 255), Color(255, 183, 77)};
+              Color row_hi[3] = {Color(255, 245, 165), Color(185, 255, 255), Color(255, 195, 100)};
               for (int r = 0; r < 3; r++) {
                 for (int c = 0; c < 4; c++) {
-                  if (r == 1 && c == 2) {
-                    int bx = start_bx + c * (b_w + gap_x) + b_w / 2;
-                    int by = start_by + r * (b_h + gap_y) + b_h / 2;
-                    it.filled_rectangle(bx - 10, by - 6, 6, 4, row_c[r]);
-                    it.filled_rectangle(bx + 4, by - 8, 5, 5, row_hi[r]);
-                    it.filled_rectangle(bx - 6, by + 4, 5, 5, row_c[r]);
-                    it.filled_rectangle(bx + 5, by + 3, 6, 4, row_hi[r]);
+                  int bx = start_bx + c * (b_w + gap_x);
+                  int by = start_by + r * (b_h + gap_y);
+                  if (r == 2 && c == 2) {
+                    // Shattering brick shrapnel burst
+                    it.filled_rectangle(bx - 10, by - 5, 5, 4, row_c[r]);
+                    it.filled_rectangle(bx + 4, by - 7, 5, 4, row_hi[r]);
+                    it.filled_rectangle(bx - 6, by + 3, 4, 4, row_c[r]);
+                    it.filled_rectangle(bx + 5, by + 2, 5, 4, row_hi[r]);
                     it.filled_circle(bx, by, 2, id(col_white));
                     continue;
                   }
-                  int bx = start_bx + c * (b_w + gap_x);
-                  int by = start_by + r * (b_h + gap_y);
-                  it.filled_rectangle(bx, by, b_w, b_h, row_c[r]);
-                  it.rectangle(bx, by, b_w, b_h, Color(20, 20, 20));
-                  it.line(bx + 1, by + 1, bx + b_w - 2, by + 1, row_hi[r]);
-                  it.line(bx + 1, by + 1, bx + 1, by + b_h - 2, row_hi[r]);
+                  int hp = (r == 0 && (c == 1 || c == 2)) ? 2 : 1;
+                  Color bc = (hp == 2) ? Color(145, 162, 182) : row_c[r];
+                  Color hc = (hp == 2) ? Color(230, 240, 252) : row_hi[r];
+                  render_breakout_brick(it, bx, by, b_w, b_h, bc, hc, hp, hp, id(col_white));
                 }
               }
 
-              int ball_x = icon_x + 8, ball_y = icon_y + 5;
-              it.filled_circle(ball_x - 10, ball_y + 16, 3, Color(60, 50, 20));
-              it.filled_circle(ball_x - 4, ball_y + 9, 4, Color(140, 110, 30));
-              it.filled_circle(ball_x, ball_y, 6, id(col_gold));
-              it.circle(ball_x, ball_y, 6, id(col_white));
-              it.filled_circle(ball_x - 2, ball_y - 2, 2, id(col_white));
+              // Sleek, narrower paddle positioned higher up so it is clearly engaged with the ball
+              int pad_x = icon_x - 4, pad_y = icon_y + 26, pad_w = 42, pad_h = 8;
+              render_breakout_paddle(it, pad_x, pad_y, pad_w, pad_h, id(theme_primary), id(col_white));
 
-              int pad_y = icon_y + 42, pad_w = 64;
-              it.filled_circle(icon_x - pad_w / 2 + 6, pad_y + 6, 6, id(theme_primary));
-              it.filled_circle(icon_x + pad_w / 2 - 6, pad_y + 6, 6, id(theme_primary));
-              it.filled_rectangle(icon_x - pad_w / 2 + 6, pad_y, pad_w - 12, 13, id(theme_primary));
-              it.circle(icon_x - pad_w / 2 + 6, pad_y + 6, 6, id(col_white));
-              it.circle(icon_x + pad_w / 2 - 6, pad_y + 6, 6, id(col_white));
-              it.line(icon_x - pad_w / 2 + 6, pad_y, icon_x + pad_w / 2 - 6, pad_y, id(col_white));
-              it.line(icon_x - pad_w / 2 + 6, pad_y + 12, icon_x + pad_w / 2 - 6, pad_y + 12, id(col_white));
-              it.filled_rectangle(icon_x - pad_w / 2 + 16, pad_y + 4, pad_w - 32, 5, id(col_white));
+              // Ball rebounding upward off the paddle toward the shattering brick
+              int ball_x = icon_x + 9, ball_y = icon_y + 5;
+              it.filled_circle(pad_x + 2, pad_y - 6, 2, Color(65, 52, 18));
+              it.filled_circle(pad_x + 6, pad_y - 11, 3, Color(120, 95, 25));
+              it.filled_circle(ball_x - 3, ball_y + 5, 4, Color(185, 145, 35));
+              it.filled_circle(ball_x, ball_y, 5, id(col_gold));
+              it.circle(ball_x, ball_y, 5, id(col_white));
+              it.filled_circle(ball_x - 2, ball_y - 2, 1, id(col_white));
 
             } else if (g_idx == 3) {
               // ------------------------------------------------------------------
@@ -4257,220 +4252,15 @@ display:
               id(col_cyan), id(col_red), id(col_slate), id(col_dark_gray));
 
         // ----------------------------------------------------
-        // GAME 3: BREAKOUT (CIRCULAR ARC PADDLE & BRICK BREAKER)
+        // GAME 3: BREAKOUT (ARCADE WAVES, ARMORED BRICKS & COMBO MULTIPLIER)
         // ----------------------------------------------------
         } else if (id(active_game) == 3) {
-          struct BreakoutBrick {
-            int x, y, w, h;
-            int row;
-            bool alive;
-          };
-          static BreakoutBrick bricks[12] = {
-            // Row 0: Gold (150 pts)
-            {140, 125, 38, 14, 0, true}, {190, 125, 38, 14, 0, true}, {240, 125, 38, 14, 0, true}, {290, 125, 38, 14, 0, true},
-            // Row 1: Cyan (100 pts)
-            {140, 150, 38, 14, 1, true}, {190, 150, 38, 14, 1, true}, {240, 150, 38, 14, 1, true}, {290, 150, 38, 14, 1, true},
-            // Row 2: Orange (50 pts)
-            {140, 175, 38, 14, 2, true}, {190, 175, 38, 14, 2, true}, {240, 175, 38, 14, 2, true}, {290, 175, 38, 14, 2, true}
-          };
-
-          static float ball_x = cx;
-          static float ball_y = 345.0f;
-          static float ball_vx = 0.0f;
-          static float ball_vy = 0.0f;
-          static bool ball_launched = false;
-          static int lives_left = 3;
-          static int bo_score = 0;
-          static bool round_over = false;
-          static bool is_new_high = false;
-          static uint32_t bo_spark_timer = 0;
-          static int bo_spark_x = -1;
-          static int bo_spark_y = -1;
-
-          static float smooth_paddle_x = 233.0f;
-
-          if (game_just_entered) {
-            for (int b = 0; b < 12; b++) bricks[b].alive = true;
-            ball_x = cx; ball_y = 345.0f;
-            ball_vx = 0.0f; ball_vy = 0.0f;
-            ball_launched = false;
-            lives_left = 3;
-            bo_score = 0;
-            round_over = false;
-            is_new_high = false;
-            bo_spark_x = -1;
-            smooth_paddle_x = cx;
-          }
-
-          // Paddle Physics: Exponential Moving Average (EMA) smoothing eliminates raw IMU jitter and jerking
-          float raw_target_x = cx + roll_delta * 8.2f;
-          if (raw_target_x < 65.0f) raw_target_x = 65.0f;
-          if (raw_target_x > 401.0f) raw_target_x = 401.0f;
-
-          // 32% lerp per 50ms frame produces butter-smooth glide with zero lag
-          smooth_paddle_x += (raw_target_x - smooth_paddle_x) * 0.32f;
-          float paddle_x = smooth_paddle_x;
-          int paddle_y = 356;
-          int paddle_w = 58;
-          int paddle_h = 10;
-
-          // Touch Trigger: Launch Ball or Replay
-          if (id(marble_touch_x) >= 0.0f || id(game_btn_pressed)) {
-            id(marble_touch_x) = -1.0f;
-            id(game_btn_pressed) = false;
-
-            if (round_over) {
-              for (int b = 0; b < 12; b++) bricks[b].alive = true;
-              ball_x = cx; ball_y = 345.0f;
-              ball_vx = 0.0f; ball_vy = 0.0f;
-              ball_launched = false;
-              lives_left = 3;
-              bo_score = 0;
-              round_over = false;
-              is_new_high = false;
-            } else if (!ball_launched) {
-              // Launch ball upward angled by tilt
-              ball_vx = roll_delta * 5.0f;
-              if (fabsf(ball_vx) < 30.0f) ball_vx = 45.0f;
-              ball_vy = -175.0f;
-              ball_launched = true;
-            }
-          }
-
-          const float dt_bo = 0.05f;
-          int bricks_remaining = 0;
-          for (int b = 0; b < 12; b++) { if (bricks[b].alive) bricks_remaining++; }
-
-          if (!round_over) {
-            if (!ball_launched) {
-              // Ball rests on paddle
-              ball_x = paddle_x;
-              ball_y = paddle_y - 10.0f;
-            } else {
-              ball_x += ball_vx * dt_bo;
-              ball_y += ball_vy * dt_bo;
-
-              // Circular Arena Boundary Reflection (r = 208px)
-              float b_dx = ball_x - cx;
-              float b_dy = ball_y - cy;
-              float b_dist = sqrtf(b_dx * b_dx + b_dy * b_dy);
-              if (b_dist > 203.0f && ball_y < 355.0f) {
-                float bnx = b_dx / b_dist;
-                float bny = b_dy / b_dist;
-                float v_dot = ball_vx * bnx + ball_vy * bny;
-                if (v_dot > 0.0f) {
-                  ball_vx -= 2.0f * v_dot * bnx;
-                  ball_vy -= 2.0f * v_dot * bny;
-                }
-              }
-
-              // Paddle Reflection
-              if (ball_y >= (float)(paddle_y - 8) && ball_y <= (float)(paddle_y + 6) && ball_vy > 0.0f) {
-                if (fabsf(ball_x - paddle_x) <= (paddle_w * 0.55f)) {
-                  float offset = (ball_x - paddle_x) / (paddle_w * 0.5f);
-                  ball_vx = offset * 210.0f;
-                  ball_vy = -180.0f;
-                  bo_spark_x = (int)ball_x; bo_spark_y = (int)ball_y; bo_spark_timer = millis();
-                }
-              }
-
-              // Brick Collisions
-              for (int b = 0; b < 12; b++) {
-                if (!bricks[b].alive) continue;
-                if (fabsf(ball_x - (float)bricks[b].x) < (float)(bricks[b].w / 2 + 5) &&
-                    fabsf(ball_y - (float)bricks[b].y) < (float)(bricks[b].h / 2 + 5)) {
-                  bricks[b].alive = false;
-                  ball_vy = -ball_vy;
-                  int pts = (bricks[b].row == 0 ? 150 : (bricks[b].row == 1 ? 100 : 50));
-                  bo_score += pts;
-                  bo_spark_x = bricks[b].x; bo_spark_y = bricks[b].y; bo_spark_timer = millis();
-                  break;
-                }
-              }
-
-              // Ball Lost Below Paddle Gate
-              if (ball_y > 390.0f) {
-                lives_left--;
-                ball_launched = false;
-                if (lives_left <= 0) {
-                  round_over = true;
-                  if (bo_score > id(high_score_breakout)) {
-                    id(high_score_breakout) = bo_score;
-                    is_new_high = true;
-                  }
-                }
-              }
-
-              // Win Condition: All Bricks Cleared
-              if (bricks_remaining == 0) {
-                round_over = true;
-                bo_score += lives_left * 250; // Lives bonus
-                if (bo_score > id(high_score_breakout)) {
-                  id(high_score_breakout) = bo_score;
-                  is_new_high = true;
-                }
-              }
-            }
-          }
-
-          // Draw Bricks
-          Color row_cols[3] = {id(col_gold), id(col_cyan), id(col_orange)};
-          for (int b = 0; b < 12; b++) {
-            if (!bricks[b].alive) continue;
-            int rx = bricks[b].x - (bricks[b].w / 2);
-            int ry = bricks[b].y - (bricks[b].h / 2);
-            it.filled_rectangle(rx, ry, bricks[b].w, bricks[b].h, row_cols[bricks[b].row]);
-            it.rectangle(rx, ry, bricks[b].w, bricks[b].h, id(col_white));
-          }
-
-          // Draw Paddle (Rounded Capsule in Theme Primary with White Core)
-          it.filled_circle((int)(paddle_x - (paddle_w / 2) + 5), paddle_y, 5, id(theme_primary));
-          it.filled_circle((int)(paddle_x + (paddle_w / 2) - 5), paddle_y, 5, id(theme_primary));
-          it.filled_rectangle((int)(paddle_x - (paddle_w / 2) + 5), paddle_y - 5, paddle_w - 10, 10, id(theme_primary));
-          it.rectangle((int)(paddle_x - (paddle_w / 2) + 5), paddle_y - 5, paddle_w - 10, 10, id(col_white));
-
-          // Draw Ball
-          it.filled_circle((int)ball_x, (int)ball_y, 6, id(col_gold));
-          it.filled_circle((int)ball_x, (int)ball_y, 3, id(col_white));
-
-          // Brick Impact Sparkle
-          if (bo_spark_x >= 0 && (millis() - bo_spark_timer < 300)) {
-            it.circle(bo_spark_x, bo_spark_y, 8, id(col_white));
-            it.circle(bo_spark_x, bo_spark_y, 14, id(col_gold));
-          }
-
-          // Bottom Scorekeeper HUD (y = 408)
-          char bo_hud[48];
-          snprintf(bo_hud, sizeof(bo_hud), "Balls: %d/3  •  Bricks: %d  •  %d", lives_left, bricks_remaining, bo_score);
-          it.print(cx, 408, id(font_small), id(col_gold), TextAlign::CENTER, bo_hud);
-
-          // Game Over Scoreboard Overlay
-          if (round_over) {
-            it.filled_circle(cx, cy, 115, id(col_bg));
-            it.circle(cx, cy, 115, is_new_high ? id(col_gold) : id(theme_secondary));
-            it.circle(cx, cy, 113, is_new_high ? id(col_gold) : id(theme_secondary));
-
-            if (is_new_high) {
-              it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "NEW HIGH SCORE!");
-            } else if (bricks_remaining == 0) {
-              it.print(cx, 160, id(font_date), id(col_cyan), TextAlign::CENTER, "ALL CLEARED!");
-            } else {
-              it.print(cx, 160, id(font_date), id(col_red), TextAlign::CENTER, "GAME OVER");
-            }
-
-            char score_str[32];
-            snprintf(score_str, sizeof(score_str), "Score: %d", bo_score);
-            it.print(cx, 202, id(font_date), id(col_white), TextAlign::CENTER, score_str);
-
-            char best_str[32];
-            snprintf(best_str, sizeof(best_str), "Best: %d", id(high_score_breakout));
-            it.print(cx, 235, id(font_small), id(col_gold), TextAlign::CENTER, best_str);
-
-            it.print(cx, 275, id(font_small), id(col_cyan), TextAlign::CENTER, "[ TAP TO REPLAY ]");
-          } else if (!ball_launched) {
-            it.print(cx, 260, id(font_small), id(col_cyan), TextAlign::CENTER, "[ Tap Screen to Launch ]");
-          }
-
+          render_game_breakout(
+              it, cx, cy, millis(), game_just_entered, roll_delta,
+              id(marble_touch_x), id(game_btn_pressed), id(high_score_breakout),
+              id(font_date), id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_white), id(col_gold), id(col_cyan),
+              id(col_orange), id(col_green), id(col_red), id(col_slate), id(col_dark_gray));
 
         // GAME 4: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
@@ -7987,7 +7777,7 @@ touchscreen:
                 id(marble_touch_x) = touch.x;
                 id(marble_touch_y) = touch.y;
                 id(game_btn_pressed) = true;
-                if (id(active_game) > 2) {
+                if (id(active_game) > 3) {
                   id(disp1).update();
                 }
               }

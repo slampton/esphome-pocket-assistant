@@ -3759,9 +3759,13 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
     if (is_new_high) {
       it.print(cx, 156, font_date, col_gold, esphome::display::TextAlign::CENTER, "NEW HIGH SCORE!");
     } else {
-      char w_end[32];
-      snprintf(w_end, sizeof(w_end), "WAVE %d REACHED", wave_num);
-      it.print(cx, 156, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_end);
+      if (wave_num == 1) {
+        it.print(cx, 156, font_date, col_red, esphome::display::TextAlign::CENTER, "GAME OVER");
+      } else {
+        char w_end[32];
+        snprintf(w_end, sizeof(w_end), "WAVE %d REACHED", wave_num);
+        it.print(cx, 156, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_end);
+      }
     }
 
     char score_str[32];
@@ -4169,6 +4173,517 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
     it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
 
     it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
+  }
+}
+
+
+// ============================================================================
+// SECTION 10: REUSABLE 3D BEVELED BRICK, CAPSULE PADDLE & BREAKOUT ENGINE
+// ============================================================================
+
+template<typename DisplayT>
+inline void render_breakout_brick(DisplayT &it, int cx_b, int cy_b, int w, int h,
+                                  esphome::Color body_col, esphome::Color hi_col,
+                                  int hp, int max_hp, esphome::Color col_white) {
+  int rx = cx_b - w / 2;
+  int ry = cy_b - h / 2;
+  // Subtle drop shadow beneath brick
+  it.horizontal_line(rx + 1, ry + h, w - 1, esphome::Color(12, 16, 24));
+  // Main brick body + dark outer frame
+  it.filled_rectangle(rx, ry, w, h, body_col);
+  it.rectangle(rx, ry, w, h, esphome::Color(18, 22, 30));
+  // Top and left 3D specular highlight bevel
+  it.horizontal_line(rx + 1, ry + 1, w - 2, hi_col);
+  it.line(rx + 1, ry + 1, rx + 1, ry + h - 2, hi_col);
+  // Bottom inner shadow line
+  esphome::Color sh_col = body_col * 0.58f;
+  it.horizontal_line(rx + 2, ry + h - 2, w - 3, sh_col);
+
+  if (max_hp >= 2) {
+    if (hp >= 2) {
+      // Metallic corner rivets for armored 2-hit / 3-hit bricks
+      it.draw_pixel_at(rx + 3, ry + 3, col_white);
+      it.draw_pixel_at(rx + w - 4, ry + 3, col_white);
+      it.draw_pixel_at(rx + 3, ry + h - 4, col_white);
+      it.draw_pixel_at(rx + w - 4, ry + h - 4, col_white);
+      if (hp >= 3) {
+        // Reinforced fortress core bar for 3-hit bricks
+        it.filled_rectangle(cx_b - 5, cy_b - 2, 10, 4, col_white);
+      } else if (max_hp == 3) {
+        // First fracture line on a 3-hit brick at hp == 2
+        it.line(cx_b - 4, ry + 2, cx_b + 3, ry + h - 3, esphome::Color(20, 24, 32));
+      }
+    } else if (hp == 1) {
+      // Cracked armor fracture lines across the brick face when 1 hit remains
+      it.line(cx_b - 6, ry + 1, cx_b, cy_b, esphome::Color(16, 20, 28));
+      it.line(cx_b, cy_b, cx_b + 6, ry + h - 2, esphome::Color(16, 20, 28));
+      it.line(cx_b - 5, ry + 1, cx_b + 1, cy_b, hi_col);
+    }
+  }
+}
+
+template<typename DisplayT>
+inline void render_breakout_paddle(DisplayT &it, int px, int py, int pw, int ph,
+                                   esphome::Color pad_col, esphome::Color col_white) {
+  int r = ph / 2;
+  int x_l = px - pw / 2 + r;
+  int x_r = px + pw / 2 - r;
+  int body_w = x_r - x_l;
+  if (body_w < 2) body_w = 2;
+
+  // Drop shadow
+  it.horizontal_line(x_l, py + r + 1, body_w, esphome::Color(12, 16, 24));
+  // Seamless rounded capsule body (no internal rectangle seams)
+  it.filled_circle(x_l, py, r, pad_col);
+  it.filled_circle(x_r, py, r, pad_col);
+  it.filled_rectangle(x_l, py - r, body_w, ph + 1, pad_col);
+  // Crisp white top specular edge and dark bottom bevel
+  it.horizontal_line(x_l, py - r, body_w, col_white);
+  it.horizontal_line(x_l, py + r, body_w, pad_col * 0.55f);
+  // Luminous inner energy core
+  int core_w = (pw * 42) / 100;
+  it.filled_rectangle(px - core_w / 2, py - 1, core_w, 3, col_white);
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                 bool game_just_entered, float roll_delta,
+                                 float &marble_touch_x, bool &game_btn_pressed,
+                                 int &high_score_breakout,
+                                 FontBigT *font_date, FontSmallT *font_small,
+                                 esphome::Color theme_primary, esphome::Color theme_secondary,
+                                 esphome::Color col_bg, esphome::Color col_white,
+                                 esphome::Color col_gold, esphome::Color col_cyan,
+                                 esphome::Color col_orange, esphome::Color col_green,
+                                 esphome::Color col_red, esphome::Color col_slate,
+                                 esphome::Color col_dark_gray) {
+  struct BreakoutBrick {
+    int16_t x, y, w, h;
+    uint8_t row;
+    uint8_t hp;
+    uint8_t max_hp;
+  };
+  struct ShrapnelPiece {
+    float x, y, vx, vy;
+    esphome::Color col;
+  };
+
+  static constexpr int NUM_BRICKS = 18;
+  static BreakoutBrick bricks[NUM_BRICKS];
+  static uint32_t last_phys_ms = 0;
+  static int wave_num = 1;
+  static int lives_left = 3;
+  static int bo_score = 0;
+  static int rally_combo = 0;
+  static bool hit_brick_since_paddle = false;
+  static bool ball_launched = false;
+  static bool round_over = false;
+  static bool is_new_high = false;
+
+  static float ball_x = 233.0f;
+  static float ball_y = 344.0f;
+  static float ball_vx = 0.0f;
+  static float ball_vy = 0.0f;
+  static float trail_x[4] = {233.0f, 233.0f, 233.0f, 233.0f};
+  static float trail_y[4] = {344.0f, 344.0f, 344.0f, 344.0f};
+  static float smooth_paddle_x = 233.0f;
+
+  // Shattering brick shrapnel + floating combo popup
+  static ShrapnelPiece shrapnel[6];
+  static uint32_t shrapnel_ms = 0;
+  static int popup_x = 233;
+  static int popup_y = 140;
+  static uint32_t popup_ms = 0;
+  static char popup_text[24] = "";
+  static esphome::Color popup_col(255, 215, 0);
+
+  static uint32_t banner_ms = 0;
+  static char banner_text[28] = "";
+
+  // Helper to populate the symmetric 4-5-5-4 dome brick rack centered at cx = 233
+  auto init_brick_wave = [&](int wv) {
+    static constexpr int ROW_COUNTS[4] = {4, 5, 5, 4};
+    static constexpr int ROW_YS[4] = {82, 104, 126, 148};
+    int idx = 0;
+    for (int r = 0; r < 4; r++) {
+      int cnt = ROW_COUNTS[r];
+      int start_x = cx - ((cnt - 1) * 46) / 2;
+      for (int c = 0; c < cnt; c++) {
+        uint8_t hp = 1;
+        if (wv == 2 && r == 0) {
+          hp = 2;
+        } else if (wv == 3 && (r == 0 || (r == 1 && c >= 1 && c <= 3))) {
+          hp = 2;
+        } else if (wv == 4) {
+          if (r == 0) hp = 3;
+          else if (r == 1) hp = 2;
+        } else if (wv >= 5) {
+          if (r == 0) hp = 3;
+          else if (r == 1) hp = 2;
+          else if (r == 2 && (c == 0 || c == 2 || c == 4)) hp = 2;
+        }
+        bricks[idx].x = (int16_t)(start_x + c * 46);
+        bricks[idx].y = (int16_t)ROW_YS[r];
+        bricks[idx].w = 40;
+        bricks[idx].h = 14;
+        bricks[idx].row = (uint8_t)r;
+        bricks[idx].hp = hp;
+        bricks[idx].max_hp = hp;
+        idx++;
+      }
+    }
+  };
+
+  auto reset_ball_on_paddle = [&]() {
+    ball_launched = false;
+    ball_x = smooth_paddle_x;
+    ball_y = 344.0f;
+    ball_vx = 0.0f;
+    ball_vy = 0.0f;
+    for (int t = 0; t < 4; t++) {
+      trail_x[t] = ball_x;
+      trail_y[t] = ball_y;
+    }
+  };
+
+  if (game_just_entered) {
+    last_phys_ms = now_ms;
+    wave_num = 1;
+    lives_left = 3;
+    bo_score = 0;
+    rally_combo = 0;
+    hit_brick_since_paddle = false;
+    round_over = false;
+    is_new_high = false;
+    smooth_paddle_x = (float)cx;
+    shrapnel_ms = 0;
+    popup_ms = 0;
+    banner_ms = 0;
+    init_brick_wave(1);
+    reset_ball_on_paddle();
+  }
+
+  float dt = (now_ms >= last_phys_ms) ? ((now_ms - last_phys_ms) * 0.001f) : 0.05f;
+  last_phys_ms = now_ms;
+  if (dt < 0.012f) dt = 0.012f;
+  if (dt > 0.075f) dt = 0.075f;
+
+  // Paddle geometry & circular chord clamping at y = 356
+  const int paddle_y = 356;
+  const int paddle_w = 58;
+  const int paddle_h = 10;
+  // At y = 356 (dy = 123 from cy = 233), r = 208 arena chord half-width is 167px.
+  // Clamping paddle center within cx +/- 136 keeps the entire 58px capsule inside the dome.
+  float raw_target_x = (float)cx + roll_delta * 8.4f;
+  if (raw_target_x < (float)(cx - 136)) raw_target_x = (float)(cx - 136);
+  if (raw_target_x > (float)(cx + 136)) raw_target_x = (float)(cx + 136);
+  smooth_paddle_x += (raw_target_x - smooth_paddle_x) * 0.34f;
+  float paddle_x = smooth_paddle_x;
+
+  float target_speed = std::min(285.0f, 215.0f + (wave_num - 1) * 14.0f);
+
+  // Touch Trigger: Launch Ball or Replay
+  if (marble_touch_x >= 0.0f || game_btn_pressed) {
+    marble_touch_x = -1.0f;
+    game_btn_pressed = false;
+
+    if (round_over) {
+      wave_num = 1;
+      lives_left = 3;
+      bo_score = 0;
+      rally_combo = 0;
+      hit_brick_since_paddle = false;
+      round_over = false;
+      is_new_high = false;
+      shrapnel_ms = 0;
+      popup_ms = 0;
+      banner_ms = 0;
+      init_brick_wave(1);
+      reset_ball_on_paddle();
+    } else if (!ball_launched) {
+      float launch_ang = std::max(-0.52f, std::min(0.52f, roll_delta * 0.025f));
+      if (std::fabs(launch_ang) < 0.14f) {
+        launch_ang = (now_ms & 1) ? 0.22f : -0.22f;
+      }
+      ball_vx = target_speed * std::sin(launch_ang);
+      ball_vy = -target_speed * std::cos(launch_ang);
+      ball_launched = true;
+      hit_brick_since_paddle = true;
+    }
+  }
+
+  // Row palettes (Gold, Cyan, Orange, Emerald, plus Silver/Armor for hp >= 2)
+  esphome::Color row_cols[4] = {col_gold, col_cyan, col_orange, col_green};
+  esphome::Color row_his[4] = {
+      esphome::Color(255, 245, 165),
+      esphome::Color(185, 255, 255),
+      esphome::Color(255, 195, 100),
+      esphome::Color(185, 250, 205)};
+
+  if (!round_over) {
+    if (!ball_launched) {
+      ball_x = paddle_x;
+      ball_y = (float)(paddle_y - 11);
+      for (int t = 0; t < 4; t++) {
+        trail_x[t] = ball_x;
+        trail_y[t] = ball_y;
+      }
+    } else {
+      // Shift comet trail
+      for (int t = 3; t > 0; t--) {
+        trail_x[t] = trail_x[t - 1];
+        trail_y[t] = trail_y[t - 1];
+      }
+      trail_x[0] = ball_x;
+      trail_y[0] = ball_y;
+
+      ball_x += ball_vx * dt;
+      ball_y += ball_vy * dt;
+
+      // 1. Circular Dome Arena Reflection (r = 202px ball center limit inside r = 208 wall)
+      float b_dx = ball_x - (float)cx;
+      float b_dy = ball_y - (float)cy;
+      float b_dist = std::sqrt(b_dx * b_dx + b_dy * b_dy);
+      if (b_dist > 202.0f && ball_y < (float)(paddle_y - 2)) {
+        float bnx = b_dx / b_dist;
+        float bny = b_dy / b_dist;
+        // Clamp ball position back inside dome so it never sticks in the wall
+        ball_x = (float)cx + bnx * 201.5f;
+        ball_y = (float)cy + bny * 201.5f;
+        float v_dot = ball_vx * bnx + ball_vy * bny;
+        if (v_dot > 0.0f) {
+          ball_vx -= 2.0f * v_dot * bnx;
+          ball_vy -= 2.0f * v_dot * bny;
+          // Enforce minimum vertical speed floor to prevent shallow horizontal loops
+          if (std::fabs(ball_vy) < 70.0f) {
+            ball_vy = (ball_vy >= 0.0f) ? 75.0f : -75.0f;
+          }
+          // Re-normalize speed to target_speed
+          float spd = std::sqrt(ball_vx * ball_vx + ball_vy * ball_vy);
+          if (spd > 1.0f) {
+            ball_vx = (ball_vx / spd) * target_speed;
+            ball_vy = (ball_vy / spd) * target_speed;
+          }
+        }
+      }
+
+      // 2. Constant-Speed Angle-Steered Paddle Reflection
+      if (ball_vy > 0.0f && ball_y >= (float)(paddle_y - 10) && ball_y <= (float)(paddle_y + 8)) {
+        float half_reach = paddle_w * 0.5f + 6.0f;
+        if (std::fabs(ball_x - paddle_x) <= half_reach) {
+          if (!hit_brick_since_paddle) {
+            // Reset streak if the ball returned to the paddle without hitting any brick
+            rally_combo = 0;
+          }
+          hit_brick_since_paddle = false;
+          float offset = std::max(-1.0f, std::min(1.0f, (ball_x - paddle_x) / (paddle_w * 0.5f)));
+          // Steer bounce angle up to +/- 60 degrees (1.047 rad) while maintaining constant speed
+          float bounce_ang = offset * 1.047f;
+          ball_vx = target_speed * std::sin(bounce_ang);
+          ball_vy = -target_speed * std::cos(bounce_ang);
+          ball_y = (float)(paddle_y - 11);
+        }
+      }
+
+      // 3. Brick Collisions with True X vs. Y Overlap Separation & Multi-Hit Armor
+      const float ball_r = 6.0f;
+      for (int b = 0; b < NUM_BRICKS; b++) {
+        if (bricks[b].hp == 0) continue;
+        float dx = ball_x - (float)bricks[b].x;
+        float dy = ball_y - (float)bricks[b].y;
+        float lim_x = bricks[b].w * 0.5f + ball_r;
+        float lim_y = bricks[b].h * 0.5f + ball_r;
+        if (std::fabs(dx) < lim_x && std::fabs(dy) < lim_y) {
+          float overlap_x = lim_x - std::fabs(dx);
+          float overlap_y = lim_y - std::fabs(dy);
+          if (overlap_x < overlap_y) {
+            ball_vx = -ball_vx;
+            ball_x += (dx >= 0.0f) ? overlap_x : -overlap_x;
+          } else {
+            ball_vy = -ball_vy;
+            ball_y += (dy >= 0.0f) ? overlap_y : -overlap_y;
+          }
+
+          bricks[b].hp--;
+          rally_combo++;
+          hit_brick_since_paddle = true;
+          int mult = std::min(4, rally_combo);
+
+          static constexpr int BASE_ROW_PTS[4] = {150, 120, 90, 60};
+          int base_pts = (bricks[b].hp == 0) ? BASE_ROW_PTS[bricks[b].row] : 50;
+          int pts = base_pts * mult;
+          bo_score += pts;
+          if (bo_score > high_score_breakout) {
+            high_score_breakout = bo_score;
+            is_new_high = true;
+          }
+
+          // Floating combo score popup
+          popup_x = bricks[b].x;
+          popup_y = bricks[b].y;
+          popup_ms = now_ms;
+          if (mult > 1) {
+            snprintf(popup_text, sizeof(popup_text), "+%d %dx!", pts, mult);
+            popup_col = col_gold;
+          } else {
+            snprintf(popup_text, sizeof(popup_text), "+%d", pts);
+            popup_col = col_white;
+          }
+
+          // Spawn 6 shattering shrapnel fragments
+          esphome::Color frag_c = (bricks[b].hp > 0) ? esphome::Color(200, 210, 225) : row_cols[bricks[b].row];
+          for (int s = 0; s < 6; s++) {
+            float ang = (float)s * 1.047f + 0.35f;
+            float f_spd = (bricks[b].hp == 0) ? 95.0f : 55.0f;
+            shrapnel[s].x = (float)bricks[b].x + std::cos(ang) * 6.0f;
+            shrapnel[s].y = (float)bricks[b].y + std::sin(ang) * 4.0f;
+            shrapnel[s].vx = std::cos(ang) * f_spd;
+            shrapnel[s].vy = std::sin(ang) * f_spd - 25.0f;
+            shrapnel[s].col = (s & 1) ? row_his[bricks[b].row] : frag_c;
+          }
+          shrapnel_ms = now_ms;
+          break;
+        }
+      }
+
+      // 4. Check Wave Clear vs. Ball Lost Below Gate
+      int rem_check = 0;
+      for (int b = 0; b < NUM_BRICKS; b++) {
+        if (bricks[b].hp > 0) rem_check++;
+      }
+      if (rem_check == 0) {
+        int wave_bonus = wave_num * 300;
+        bo_score += wave_bonus;
+        if (bo_score > high_score_breakout) {
+          high_score_breakout = bo_score;
+          is_new_high = true;
+        }
+        wave_num++;
+        if (lives_left < 3) lives_left++;
+        snprintf(banner_text, sizeof(banner_text), "WAVE %d! +%d", wave_num, wave_bonus);
+        banner_ms = now_ms;
+        init_brick_wave(wave_num);
+        reset_ball_on_paddle();
+      } else if (ball_y > 390.0f) {
+        lives_left--;
+        rally_combo = 0;
+        hit_brick_since_paddle = false;
+        reset_ball_on_paddle();
+        if (lives_left <= 0) {
+          round_over = true;
+          if (bo_score > high_score_breakout) {
+            high_score_breakout = bo_score;
+            is_new_high = true;
+          }
+        }
+      }
+    }
+  }
+
+  // Update shrapnel physics
+  if (shrapnel_ms > 0 && (now_ms - shrapnel_ms < 360U)) {
+    for (int s = 0; s < 6; s++) {
+      shrapnel[s].x += shrapnel[s].vx * dt;
+      shrapnel[s].y += shrapnel[s].vy * dt;
+      shrapnel[s].vy += 180.0f * dt;
+    }
+  }
+
+  // ==========================================================================
+  // RENDERING PIPELINE (Clean Full-Screen Circular Dome Arena)
+  // ==========================================================================
+
+  // 1. Subtle Upper Circular Dome Wall (r = 208 & 207)
+  it.circle(cx, cy, 208, col_dark_gray);
+  it.circle(cx, cy, 207, col_slate * 0.35f);
+
+  // 2. Bottom Scorekeeper HUD at y = 408
+  int bricks_remaining = 0;
+  for (int b = 0; b < NUM_BRICKS; b++) {
+    if (bricks[b].hp > 0) bricks_remaining++;
+  }
+  char bo_hud[56];
+  if (rally_combo >= 2) {
+    int mult = std::min(4, rally_combo);
+    snprintf(bo_hud, sizeof(bo_hud), "W%d  •  %d/3  •  %dx  •  %d", wave_num, lives_left, mult, bo_score);
+  } else {
+    snprintf(bo_hud, sizeof(bo_hud), "W%d  •  Balls:%d  •  Brk:%d  •  %d", wave_num, lives_left, bricks_remaining, bo_score);
+  }
+  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, bo_hud);
+
+  // 3. Draw 18-Brick Dome Formation (with Multi-Hit Armor & Crack States)
+  for (int b = 0; b < NUM_BRICKS; b++) {
+    if (bricks[b].hp == 0) continue;
+    esphome::Color b_col = row_cols[bricks[b].row];
+    esphome::Color h_col = row_his[bricks[b].row];
+    if (bricks[b].hp >= 3) {
+      b_col = esphome::Color(225, 55, 75);
+      h_col = esphome::Color(255, 175, 185);
+    } else if (bricks[b].hp == 2) {
+      b_col = esphome::Color(145, 162, 182);
+      h_col = esphome::Color(230, 240, 252);
+    }
+    render_breakout_brick(it, bricks[b].x, bricks[b].y, bricks[b].w, bricks[b].h,
+                          b_col, h_col, bricks[b].hp, bricks[b].max_hp, col_white);
+  }
+
+  // 4. Draw Shattering Shrapnel Fragments & Floating Combo Popup
+  if (shrapnel_ms > 0 && (now_ms - shrapnel_ms < 360U)) {
+    for (int s = 0; s < 6; s++) {
+      it.filled_rectangle((int)shrapnel[s].x - 2, (int)shrapnel[s].y - 2, 4, 4, shrapnel[s].col);
+    }
+  }
+  if (popup_ms > 0 && (now_ms - popup_ms < 650U)) {
+    int py_off = (int)((now_ms - popup_ms) * 22U / 650U);
+    it.print(popup_x, popup_y - py_off, font_small, popup_col,
+             esphome::display::TextAlign::CENTER, popup_text);
+  }
+  if (banner_ms > 0 && (now_ms - banner_ms < 1300U)) {
+    it.print(cx, 212, font_date, col_cyan, esphome::display::TextAlign::CENTER, banner_text);
+  }
+
+  // 5. Draw Capsule Paddle at y = 356
+  render_breakout_paddle(it, (int)paddle_x, paddle_y, paddle_w, paddle_h, theme_primary, col_white);
+
+  // 6. Draw Fading Ball Comet Trail & 3D Specular Energy Ball
+  if (ball_launched) {
+    it.filled_circle((int)trail_x[3], (int)trail_y[3], 2, esphome::Color(65, 52, 18));
+    it.filled_circle((int)trail_x[2], (int)trail_y[2], 3, esphome::Color(120, 95, 25));
+    it.filled_circle((int)trail_x[0], (int)trail_y[0], 4, esphome::Color(185, 145, 35));
+  }
+  it.filled_circle((int)ball_x, (int)ball_y, 6, col_gold);
+  it.circle((int)ball_x, (int)ball_y, 6, col_white);
+  it.filled_circle((int)ball_x - 2, (int)ball_y - 2, 2, col_white);
+
+  // 7. Launch Prompt or Game Over Scoreboard Overlay
+  if (round_over) {
+    it.filled_circle(cx, cy, 115, col_bg);
+    it.circle(cx, cy, 115, is_new_high ? col_gold : theme_secondary);
+    it.circle(cx, cy, 113, is_new_high ? col_gold : theme_secondary);
+
+    if (is_new_high) {
+      it.print(cx, 156, font_date, col_gold, esphome::display::TextAlign::CENTER, "NEW HIGH SCORE!");
+    } else {
+      if (wave_num == 1) {
+        it.print(cx, 156, font_date, col_red, esphome::display::TextAlign::CENTER, "GAME OVER");
+      } else {
+        char w_end[32];
+        snprintf(w_end, sizeof(w_end), "WAVE %d REACHED", wave_num);
+        it.print(cx, 156, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_end);
+      }
+    }
+
+    char score_str[32];
+    snprintf(score_str, sizeof(score_str), "Score: %d", bo_score);
+    it.print(cx, 198, font_date, col_white, esphome::display::TextAlign::CENTER, score_str);
+
+    char best_str[32];
+    snprintf(best_str, sizeof(best_str), "Best: %d", high_score_breakout);
+    it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
+
+    it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
+  } else if (!ball_launched && (banner_ms == 0 || (now_ms - banner_ms >= 1300U))) {
+    it.print(cx, 255, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ Tap Screen to Launch ]");
   }
 }
 
