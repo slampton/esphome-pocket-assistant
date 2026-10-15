@@ -928,18 +928,20 @@ inline const char *cycle_option(const CurT &cur, std::initializer_list<const cha
 // 5. Docked Screensaver & Voice Assistant Spectral Engines
 // ------------------------------------------------------------------------------
 // 64-entry vertical plume intensity LUT in .rodata Flash (0..256 fixed-point scale):
-// - Indices 0..7   (bottom 12%): soft lower bloom (115 -> 256)
-// - Indices 8..39  (core 50%):   full-bodied luminous ribbon plateau (256 -> 196) for 3x thicker visual body
-// - Indices 40..63 (upper 38%):  hazy atmospheric tail fade into night sky (190 -> 8)
+// Balanced midway between Chunk 71 and Chunk 72:
+// - Indices 0..6   (bottom 10%): soft lower crest bloom (92 -> 244)
+// - Indices 7..24  (core 28%):   luminous ribbon body (252 -> 168) — ~2x thicker than Chunk 71
+// - Indices 25..63 (upper 62%):  gradual translucent veil fade (160 -> 4) so overlapping tails
+//                                blend into rich intermediate colors rather than blowing out to white
 static constexpr uint16_t AURORA_PLUME_LUT[64] = {
-  115, 138, 162, 186, 208, 228, 244, 254,
-  256, 256, 256, 255, 254, 252, 250, 248,
-  246, 243, 240, 237, 234, 231, 228, 225,
-  222, 219, 216, 213, 210, 207, 204, 202,
-  200, 198, 196, 194, 192, 190, 186, 182,
-  176, 170, 162, 154, 145, 136, 126, 116,
-  106,  96,  86,  76,  66,  57,  48,  40,
-   33,  26,  20,  15,  11,   8,   6,   4
+   92, 122, 152, 182, 208, 230, 244, 252,
+  252, 248, 243, 237, 230, 223, 216, 208,
+  200, 192, 184, 176, 168, 160, 152, 144,
+  136, 128, 120, 112, 105,  98,  91,  84,
+   78,  72,  66,  60,  55,  50,  45,  41,
+   37,  33,  29,  26,  23,  20,  17,  15,
+   13,  11,  10,   9,   8,   7,   6,   5,
+    5,   4,   4,   3,   3,   2,   2,   1
 };
 
 template<typename DisplayT>
@@ -947,18 +949,21 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
   (void)cx;
   float t = now_ms * 0.0010f;
 
-  // Slow organic breathing pulse per veil (0.92 .. 1.08)
-  int p1_r = static_cast<int>(210.0f * (0.94f + 0.10f * fast_sin(t * 0.9f)));
-  int p1_g = static_cast<int>(38.0f  * (0.94f + 0.10f * fast_sin(t * 0.9f)));
-  int p1_b = static_cast<int>(222.0f * (0.94f + 0.10f * fast_sin(t * 0.9f)));
+  // Slow organic breathing pulse per veil (0.90 .. 1.04) with deep, saturated base hues
+  float b1 = 0.92f + 0.10f * fast_sin(t * 0.9f);
+  int p1_r = static_cast<int>(192.0f * b1);
+  int p1_g = static_cast<int>(24.0f  * b1);
+  int p1_b = static_cast<int>(205.0f * b1);
 
-  int p2_r = static_cast<int>(22.0f  * (0.94f + 0.10f * fast_cos(t * 1.1f + 1.2f)));
-  int p2_g = static_cast<int>(245.0f * (0.94f + 0.10f * fast_cos(t * 1.1f + 1.2f)));
-  int p2_b = static_cast<int>(255.0f * (0.94f + 0.10f * fast_cos(t * 1.1f + 1.2f)));
+  float b2 = 0.92f + 0.10f * fast_cos(t * 1.1f + 1.2f);
+  int p2_r = static_cast<int>(12.0f  * b2);
+  int p2_g = static_cast<int>(228.0f * b2);
+  int p2_b = static_cast<int>(242.0f * b2);
 
-  int p3_r = static_cast<int>(34.0f  * (0.94f + 0.10f * fast_sin(t * 0.8f + 2.5f)));
-  int p3_g = static_cast<int>(250.0f * (0.94f + 0.10f * fast_sin(t * 0.8f + 2.5f)));
-  int p3_b = static_cast<int>(102.0f * (0.94f + 0.10f * fast_sin(t * 0.8f + 2.5f)));
+  float b3 = 0.92f + 0.10f * fast_sin(t * 0.8f + 2.5f);
+  int p3_r = static_cast<int>(20.0f  * b3);
+  int p3_g = static_cast<int>(235.0f * b3);
+  int p3_b = static_cast<int>(82.0f  * b3);
 
   for (int x = 8; x <= 458; x += 2) {
     int h_half = circle_half_span(x, 5);
@@ -967,19 +972,20 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     int y_max = cy + h_half;
     float xf = static_cast<float>(x);
 
-    // 3x fuller vertical veil heights (115..165px) with wide overlapping trajectories
-    int y1 = cy - 10 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 58.0f + fast_cos(xf * 0.006f - t * 0.35f) * 28.0f);
-    int len1 = 120 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 35.0f);
+    // Midway veil lengths (95..118px) and wider vertical separation (cy-28, cy+16, cy+64)
+    // so curtains undulate across each other cleanly without piling all 3 cores onto one spot
+    int y1 = cy - 28 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 55.0f + fast_cos(xf * 0.006f - t * 0.35f) * 25.0f);
+    int len1 = 96 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 30.0f);
     int top1 = y1 - len1;
     int step1_fp = (63 << 10) / (len1 > 1 ? len1 : 1);
 
-    int y2 = cy + 32 + static_cast<int>(fast_sin(xf * 0.014f - t * 0.8f + 1.6f) * 62.0f + fast_sin(xf * 0.008f + t * 0.5f) * 32.0f);
-    int len2 = 135 + static_cast<int>(fast_cos(xf * 0.028f - t * 1.5f) * 40.0f);
+    int y2 = cy + 16 + static_cast<int>(fast_sin(xf * 0.014f - t * 0.8f + 1.6f) * 60.0f + fast_sin(xf * 0.008f + t * 0.5f) * 30.0f);
+    int len2 = 106 + static_cast<int>(fast_cos(xf * 0.028f - t * 1.5f) * 34.0f);
     int top2 = y2 - len2;
     int step2_fp = (63 << 10) / (len2 > 1 ? len2 : 1);
 
-    int y3 = cy + 78 + static_cast<int>(fast_sin(xf * 0.017f + t * 1.0f + 3.1f) * 66.0f + fast_cos(xf * 0.010f - t * 0.7f) * 36.0f);
-    int len3 = 150 + static_cast<int>(fast_sin(xf * 0.032f + t * 1.8f) * 44.0f);
+    int y3 = cy + 64 + static_cast<int>(fast_sin(xf * 0.017f + t * 1.0f + 3.1f) * 65.0f + fast_cos(xf * 0.010f - t * 0.7f) * 35.0f);
+    int len3 = 118 + static_cast<int>(fast_sin(xf * 0.032f + t * 1.8f) * 38.0f);
     int top3 = y3 - len3;
     int step3_fp = (63 << 10) / (len3 > 1 ? len3 : 1);
 
@@ -993,10 +999,14 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     if (y3 > col_bot) col_bot = y3;
     if (col_bot > y_max) col_bot = y_max;
 
-    // 100% integer inner loop: evaluates all 3 curtains via AURORA_PLUME_LUT and draws
-    // a 2px vertical micro-dash (primary pixel + 70% companion pixel) for brighter, silkier body
+    // Hue-Preserving Soft-Add Blending:
+    // When two or three curtains overlap, we weight their RGB mix by (w_max + 28% of secondary weights) / w_sum
+    // so intersections glow slightly brighter while blending into deep indigo, royal blue, and seafoam
+    // instead of saturating all three RGB channels into white!
     for (int py = col_bot; py >= col_top; py -= 2) {
       int r = 0, g = 0, b = 0;
+      uint32_t w_sum = 0;
+      uint32_t w_max = 0;
 
       if (py <= y1 && py >= top1) {
         int idx1 = ((y1 - py) * step1_fp) >> 10;
@@ -1004,6 +1014,8 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
         r += (p1_r * static_cast<int>(w1)) >> 8;
         g += (p1_g * static_cast<int>(w1)) >> 8;
         b += (p1_b * static_cast<int>(w1)) >> 8;
+        w_sum += w1;
+        w_max = w1;
       }
       if (py <= y2 && py >= top2) {
         int idx2 = ((y2 - py) * step2_fp) >> 10;
@@ -1011,6 +1023,8 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
         r += (p2_r * static_cast<int>(w2)) >> 8;
         g += (p2_g * static_cast<int>(w2)) >> 8;
         b += (p2_b * static_cast<int>(w2)) >> 8;
+        w_sum += w2;
+        if (w2 > w_max) w_max = w2;
       }
       if (py <= y3 && py >= top3) {
         int idx3 = ((y3 - py) * step3_fp) >> 10;
@@ -1018,18 +1032,30 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
         r += (p3_r * static_cast<int>(w3)) >> 8;
         g += (p3_g * static_cast<int>(w3)) >> 8;
         b += (p3_b * static_cast<int>(w3)) >> 8;
+        w_sum += w3;
+        if (w3 > w_max) w_max = w3;
       }
 
-      if ((r | g | b) > 6) {
+      if (w_sum > w_max && w_sum > 0) {
+        // Normalize overlapping curtains so hue mixes cleanly with a +25% intersection glow
+        // rather than summing R+G+B to 255 (white)
+        uint32_t w_target = w_max + ((w_sum - w_max) >> 2);
+        r = static_cast<int>((static_cast<uint32_t>(r) * w_target) / w_sum);
+        g = static_cast<int>((static_cast<uint32_t>(g) * w_target) / w_sum);
+        b = static_cast<int>((static_cast<uint32_t>(b) * w_target) / w_sum);
+      }
+
+      if ((r | g | b) > 5) {
         uint8_t cr = static_cast<uint8_t>(r > 255 ? 255 : r);
         uint8_t cg = static_cast<uint8_t>(g > 255 ? 255 : g);
         uint8_t cb = static_cast<uint8_t>(b > 255 ? 255 : b);
         it.draw_pixel_at(x, py, esphome::Color(cr, cg, cb));
+        // Subtle 38% companion pixel at py - 1: splits the brightness difference between Chunk 71 and Chunk 72
         if (py - 1 >= y_min) {
           it.draw_pixel_at(x, py - 1, esphome::Color(
-              static_cast<uint8_t>((cr * 180U) >> 8),
-              static_cast<uint8_t>((cg * 180U) >> 8),
-              static_cast<uint8_t>((cb * 180U) >> 8)));
+              static_cast<uint8_t>((cr * 96U) >> 8),
+              static_cast<uint8_t>((cg * 96U) >> 8),
+              static_cast<uint8_t>((cb * 96U) >> 8)));
         }
       }
     }
