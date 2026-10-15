@@ -2254,6 +2254,8 @@ inline void apply_weather_sim_override(const CurT &sim_opt, std::string &cond, b
   else if (sim_opt == "Partly Cloudy (Night)") { cond = "partlycloudy"; is_night = true; }
   else if (sim_opt == "Cloudy / Overcast (Day)") { cond = "cloudy"; is_night = false; }
   else if (sim_opt == "Cloudy / Overcast (Night)") { cond = "cloudy"; is_night = true; }
+  else if (sim_opt == "Fog / Mist (Day)") { cond = "fog"; is_night = false; }
+  else if (sim_opt == "Fog / Mist (Night)") { cond = "fog"; is_night = true; }
   else if (sim_opt == "Rainy (Day)") { cond = "rainy"; is_night = false; }
   else if (sim_opt == "Rainy (Night)") { cond = "rainy"; is_night = true; }
   else if (sim_opt == "Pouring / Heavy Rain") { cond = "pouring"; is_night = false; }
@@ -2272,6 +2274,8 @@ inline std::string format_weather_title(const std::string &c_in) {
   if (c_in == "partlysunny" || c_in == "partly-sunny") return "PARTLY SUNNY";
   if (c_in == "clear-night" || c_in == "clearnight") return "CLEAR NIGHT";
   if (c_in == "clear-day" || c_in == "clearday" || c_in == "sunny") return "SUNNY";
+  if (c_in == "fog" || c_in == "foggy") return "FOG & MIST";
+  if (c_in == "mist" || c_in == "misty" || c_in == "haze") return "MIST & HAZE";
   if (c_in == "lightning-rainy" || c_in == "thunderstorm") return "THUNDERSTORM";
   if (c_in == "lightning") return "LIGHTNING";
   if (c_in == "snowy-rainy" || c_in == "sleet") return "SLEET / MIX";
@@ -2293,13 +2297,14 @@ inline std::string format_forecast_short_name(const std::string &c) {
   if (c == "partlysunny" || c == "partly-sunny") return "P.Sunny";
   if (c == "clear-night" || c == "clearnight") return "Clear";
   if (c == "sunny" || c == "clear-day" || c == "clearday" || c == "clear") return "Sunny";
-  if (c == "rainy" || c == "pouring" || c == "heavy-rain") return "Rain";
-  if (c == "cloudy") return "Cloudy";
+  if (c == "rainy" || c == "pouring" || c == "heavy-rain" || c == "drizzle") return "Rain";
+  if (c == "cloudy" || c == "overcast") return "Cloudy";
   if (c == "snowy") return "Snow";
   if (c == "lightning" || c == "lightning-rainy" || c == "thunderstorm") return "Storm";
   if (c == "snowy-rainy" || c == "sleet") return "Sleet";
   if (c == "windy" || c == "windy-variant" || c == "breezy") return "Windy";
-  if (c == "fog") return "Fog";
+  if (c == "fog" || c == "foggy") return "Fog";
+  if (c == "mist" || c == "misty" || c == "haze") return "Mist";
   if (c == "hail") return "Hail";
   if (c.empty()) return "Fair";
   std::string s = c;
@@ -2312,37 +2317,53 @@ inline std::string format_forecast_short_name(const std::string &c) {
 
 template<typename DisplayT>
 inline void render_forecast_glyph(DisplayT &it, int gx, int gy, const std::string &c_name) {
-  if (c_name == "sunny" || c_name == "clear-day" || c_name == "clear") {
-    it.filled_circle(gx, gy, 8, esphome::Color(250, 185, 30));
-    it.circle(gx, gy, 11, esphome::Color(255, 215, 80));
-  } else if (c_name == "clear-night") {
+  if (c_name == "sunny" || c_name == "clear-day" || c_name == "clear" || c_name == "clearday") {
+    it.filled_circle(gx, gy, 7, esphome::Color(250, 185, 30));
+    it.circle(gx, gy, 10, esphome::Color(255, 215, 80));
+    // 4 cardinal + 4 diagonal micro sun rays
+    esphome::Color ray_c(255, 225, 100);
+    it.line(gx, gy - 12, gx, gy - 10, ray_c);
+    it.line(gx, gy + 10, gx, gy + 12, ray_c);
+    it.line(gx - 12, gy, gx - 10, gy, ray_c);
+    it.line(gx + 10, gy, gx + 12, gy, ray_c);
+  } else if (c_name == "clear-night" || c_name == "clearnight") {
     it.filled_circle(gx + 2, gy, 8, esphome::Color(225, 235, 250));
-    it.filled_circle(gx, gy, 7, esphome::Color(0, 0, 0));
+    it.filled_circle(gx - 1, gy - 1, 7, esphome::Color(0, 0, 0));
   } else if (c_name == "partlycloudy" || c_name == "partly-cloudy" || c_name == "mostlycloudy" || c_name == "mostlysunny" || c_name == "partlysunny") {
     it.filled_circle(gx - 4, gy - 4, 6, esphome::Color(245, 175, 30));
     it.filled_circle(gx + 2, gy + 1, 6, esphome::Color(175, 190, 210));
     it.filled_circle(gx - 3, gy + 2, 5, esphome::Color(155, 170, 190));
     it.filled_circle(gx + 7, gy + 3, 4, esphome::Color(145, 160, 180));
-  } else if (c_name == "rainy" || c_name == "pouring") {
+  } else if (c_name == "rainy" || c_name == "pouring" || c_name == "drizzle" || c_name == "heavy-rain") {
     it.filled_circle(gx, gy - 2, 6, esphome::Color(130, 145, 170));
     it.filled_circle(gx - 5, gy - 1, 5, esphome::Color(115, 130, 155));
     it.filled_circle(gx + 5, gy, 4, esphome::Color(115, 130, 155));
     it.line(gx - 4, gy + 6, gx - 6, gy + 10, esphome::Color(70, 170, 245));
     it.line(gx + 2, gy + 6, gx, gy + 10, esphome::Color(70, 170, 245));
-  } else if (c_name == "snowy" || c_name == "snowy-rainy") {
+  } else if (c_name == "snowy" || c_name == "snowy-rainy" || c_name == "sleet" || c_name == "hail") {
     it.filled_circle(gx, gy - 2, 6, esphome::Color(160, 175, 195));
     it.draw_pixel_at(gx - 3, gy + 7, esphome::Color(255, 255, 255));
     it.draw_pixel_at(gx + 3, gy + 7, esphome::Color(255, 255, 255));
     it.draw_pixel_at(gx, gy + 9, esphome::Color(255, 255, 255));
-  } else if (c_name == "lightning" || c_name == "lightning-rainy") {
+  } else if (c_name == "lightning" || c_name == "lightning-rainy" || c_name == "thunderstorm") {
     it.filled_circle(gx, gy - 3, 6, esphome::Color(110, 120, 140));
     it.line(gx - 1, gy + 3, gx - 3, gy + 7, esphome::Color(255, 220, 40));
     it.line(gx - 3, gy + 7, gx + 1, gy + 7, esphome::Color(255, 220, 40));
     it.line(gx + 1, gy + 7, gx - 1, gy + 11, esphome::Color(255, 220, 40));
-  } else if (c_name == "windy" || c_name == "windy-variant") {
-    it.line(gx - 8, gy - 2, gx + 6, gy - 2, esphome::Color(160, 185, 210));
-    it.line(gx - 6, gy + 2, gx + 8, gy + 2, esphome::Color(160, 185, 210));
-    it.line(gx - 4, gy + 6, gx + 4, gy + 6, esphome::Color(140, 165, 190));
+  } else if (c_name == "windy" || c_name == "windy-variant" || c_name == "breezy") {
+    it.line(gx - 9, gy - 3, gx + 5, gy - 3, esphome::Color(160, 190, 220));
+    it.line(gx - 6, gy + 1, gx + 8, gy + 1, esphome::Color(180, 210, 235));
+    it.line(gx - 4, gy + 5, gx + 4, gy + 5, esphome::Color(140, 170, 200));
+    // Tiny windblown leaf accent
+    it.line(gx + 6, gy - 5, gx + 9, gy - 3, esphome::Color(125, 195, 95));
+    it.line(gx + 6, gy - 4, gx + 9, gy - 3, esphome::Color(230, 185, 55));
+  } else if (c_name == "fog" || c_name == "foggy" || c_name == "mist" || c_name == "misty" || c_name == "haze") {
+    // Layered horizontal mist veils with soft diffused sun/moon glow above
+    it.filled_circle(gx, gy - 4, 5, esphome::Color(135, 155, 175));
+    it.line(gx - 9, gy - 1, gx + 9, gy - 1, esphome::Color(185, 205, 225));
+    it.line(gx - 7, gy + 2, gx + 10, gy + 2, esphome::Color(155, 178, 200));
+    it.line(gx - 10, gy + 5, gx + 6, gy + 5, esphome::Color(130, 152, 175));
+    it.line(gx - 5, gy + 8, gx + 8, gy + 8, esphome::Color(105, 125, 148));
   } else {
     it.filled_circle(gx, gy - 1, 7, esphome::Color(165, 180, 200));
     it.filled_circle(gx - 5, gy + 1, 5, esphome::Color(145, 160, 180));
@@ -2350,10 +2371,33 @@ inline void render_forecast_glyph(DisplayT &it, int gx, int gy, const std::strin
   }
 }
 
-// Returns true when the active or simulated weather condition includes live particle or celestial motion
-// (falling rain/drizzle/pouring, crystalline snow/sleet, thunderstorm lightning, or twinkling night stars).
+// Tracks the epoch offset for the Clear Day Origami bird flock so that switching to
+// Clear Day immediately glides a flock across within ~0.5s, then waits calmly between passes!
+inline uint32_t &clear_day_flock_epoch_ms() {
+  static uint32_t ep = 0;
+  return ep;
+}
+
+inline uint32_t &clear_day_last_seen_ms() {
+  static uint32_t ls = 0;
+  return ls;
+}
+
+// Origami-Inspired High-Altitude V-Flock of Migrating Birds:
+// Flies across for 6.8 seconds out of every 16.5-second cycle (calm clear sky for the other 9.7 seconds).
+inline bool is_clear_day_flock_active(uint32_t now_ms) {
+  if (now_ms - clear_day_last_seen_ms() > 2500U) {
+    // First entry into Clear Day / Partly Cloudy Day: align epoch so a flock enters within 0.4s!
+    clear_day_flock_epoch_ms() = now_ms + 16100U;
+  }
+  clear_day_last_seen_ms() = now_ms;
+  uint32_t rel_ms = now_ms - clear_day_flock_epoch_ms();
+  return (rel_ms % 16500U) < 6800U;
+}
+
+// Returns true when the active or simulated weather condition includes live particle or celestial motion.
 // Reusable across Sky & Weather (Page 5), future Home Page live backgrounds, and screensavers.
-inline bool has_weather_motion(const std::string &cond, bool is_night) {
+inline bool has_weather_motion(const std::string &cond, bool is_night, uint32_t now_ms = 0) {
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
       cond.find("drizzle") != std::string::npos ||
@@ -2361,38 +2405,128 @@ inline bool has_weather_motion(const std::string &cond, bool is_night) {
       cond.find("sleet") != std::string::npos ||
       cond.find("hail") != std::string::npos ||
       cond.find("lightning") != std::string::npos ||
-      cond.find("thunder") != std::string::npos) {
+      cond.find("thunder") != std::string::npos ||
+      cond.find("wind") != std::string::npos ||
+      cond.find("breez") != std::string::npos ||
+      cond.find("fog") != std::string::npos ||
+      cond.find("mist") != std::string::npos ||
+      cond.find("haze") != std::string::npos ||
+      cond.find("partly") != std::string::npos ||
+      cond.find("mostlysunny") != std::string::npos ||
+      cond.find("partlysunny") != std::string::npos) {
     return true;
   }
   if (is_night && (cond == "clear-night" || cond == "clearnight" ||
-                   cond == "sunny" || cond == "clear" || cond == "clear-day" ||
-                   cond.find("partly") != std::string::npos)) {
+                   cond == "sunny" || cond == "clear" || cond == "clear-day")) {
     return true;
+  }
+  // Daytime Clear / Sunny: only spin up 20 FPS during the 6.8s window when the V-flock of birds is flying across!
+  if (!is_night && (cond == "sunny" || cond == "clear-day" || cond == "clear" || cond == "clearday")) {
+    return (now_ms == 0) ? true : is_clear_day_flock_active(now_ms);
   }
   return false;
 }
 
+// Draws a single articulated high-altitude bird in the Origami V-echelon formation
+template<typename DisplayT>
+inline void draw_migrating_bird(DisplayT &it, int bx, int by, int dir, float flap_phase, float scale, int cy) {
+  if (!is_inside_bezel(bx, by, cy, 10)) return;
+  // Smooth articulated wingbeat (inner elbow leads outer wingtip by 0.55 rad)
+  float s1 = fast_sin(flap_phase);
+  float s2 = fast_sin(flap_phase - 0.55f);
+  int w_in  = static_cast<int>(4.5f * scale);
+  int w_out = static_cast<int>(8.5f * scale);
+  int dy_in  = static_cast<int>(-3.2f * scale * s1) - 1;
+  int dy_out = dy_in + static_cast<int>(-3.6f * scale * s2);
+
+  esphome::Color col_upper(238, 245, 255); // Sunlit ivory-white upper wing
+  esphome::Color col_under(135, 168, 205); // Soft atmospheric slate underwing shadow
+
+  // Left & Right 2-segment arched wings (tilted slightly into flight direction `dir`)
+  int lx_m = bx - w_in,          ly_m = by + dy_in - (dir > 0 ? 1 : 0);
+  int lx_t = bx - w_out,         ly_t = by + dy_out - (dir > 0 ? 2 : 0);
+  int rx_m = bx + w_in,          ry_m = by + dy_in - (dir < 0 ? 1 : 0);
+  int rx_t = bx + w_out,         ry_t = by + dy_out - (dir < 0 ? 2 : 0);
+
+  // Soft 1px underwing shadow pass
+  it.line(bx, by + 1, lx_m, ly_m + 1, col_under);
+  it.line(lx_m, ly_m + 1, lx_t, ly_t + 1, col_under);
+  it.line(bx, by + 1, rx_m, ry_m + 1, col_under);
+  it.line(rx_m, ry_m + 1, rx_t, ry_t + 1, col_under);
+
+  // Crisp sunlit upper wing arch + body center
+  it.line(bx, by, lx_m, ly_m, col_upper);
+  it.line(lx_m, ly_m, lx_t, ly_t, col_upper);
+  it.line(bx, by, rx_m, ry_m, col_upper);
+  it.line(rx_m, ry_m, rx_t, ry_t, col_upper);
+}
+
+// Draws a single tumbling, fluttering windblown leaf with pointed blade, midrib vein, and petiole stem
+template<typename DisplayT>
+inline void draw_tumbling_leaf(DisplayT &it, int lx, int ly, float ang, float flutter,
+                               float scale, esphome::Color col_main, esphome::Color col_vein, int cy) {
+  if (!is_inside_bezel(lx, ly, cy, 8)) return;
+  float sa = 0.0f, ca = 1.0f;
+  fast_sincos(ang, sa, ca);
+
+  float len = 7.0f * scale;
+  float wid = (3.8f * scale) * (0.32f + 0.68f * flutter);
+
+  int tx = lx + static_cast<int>(len * ca);
+  int ty = ly + static_cast<int>(len * sa);
+  int bx = lx - static_cast<int>(len * ca);
+  int by = ly - static_cast<int>(len * sa);
+
+  // Asymmetric leaf belly (slightly wider toward base)
+  int mx = lx - static_cast<int>(1.2f * scale * ca);
+  int my = ly - static_cast<int>(1.2f * scale * sa);
+  int ux = mx - static_cast<int>(wid * sa);
+  int uy = my + static_cast<int>(wid * ca);
+  int dx = mx + static_cast<int>(wid * sa);
+  int dy = my - static_cast<int>(wid * ca);
+
+  // Leaf blade outline + inner chord fill
+  it.line(bx, by, ux, uy, col_main);
+  it.line(ux, uy, tx, ty, col_main);
+  it.line(bx, by, dx, dy, col_main);
+  it.line(dx, dy, tx, ty, col_main);
+  it.line(ux, uy, dx, dy, col_main);
+  // Central midrib vein + short petiole stem at base
+  it.line(bx, by, tx, ty, col_vein);
+  int sx = bx - static_cast<int>(3.0f * scale * ca);
+  int sy = by - static_cast<int>(3.0f * scale * sa);
+  it.line(bx, by, sx, sy, col_vein);
+}
+
 // Modular Full-Screen Atmospheric & Weather Motion Wallpaper Engine:
 // Reusable across Sky & Weather (Page 5) and any future Home Page or Weather Screensaver.
-// - Automatically stamps record_ambient_frame_ms(now_ms) when motion is active for 20 FPS / 13.3 FPS pacing
-// - Uses .rodata LUT fast_sin() for 64-star night twinkle and 36-flake snow drift (0 hardware sinf stalls)
 template<typename DisplayT, typename SpanRangeT>
 inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                             const std::string &cond, bool is_night,
                                             const SpanRangeT &cloud_spans,
                                             int cel_cx = 346, int cel_cy = 91,
                                             bool mask_hero_temp = true) {
-  if (has_weather_motion(cond, is_night)) {
+  if (has_weather_motion(cond, is_night, now_ms)) {
     record_ambient_frame_ms(now_ms);
   }
+
+  const bool is_fog_mist = (cond.find("fog") != std::string::npos ||
+                            cond.find("mist") != std::string::npos ||
+                            cond.find("haze") != std::string::npos);
+  const bool is_windy = (cond.find("wind") != std::string::npos ||
+                         cond.find("breez") != std::string::npos);
+  const bool is_clear_day = (!is_night && (cond == "sunny" || cond == "clear-day" ||
+                                           cond == "clear" || cond == "clearday"));
+  const bool is_partly = (cond.find("partly") != std::string::npos ||
+                          cond.find("mostlysunny") != std::string::npos ||
+                          cond.find("partlysunny") != std::string::npos);
 
   // LAYER 0: ATMOSPHERIC SKY CANVAS
   if (!is_night) {
     esphome::Color day_bg(28, 54, 84); // Clear / Calm daylight sky
-    if (cond.find("cloud") != std::string::npos &&
-        cond.find("partly") == std::string::npos &&
-        cond.find("mostlysunny") == std::string::npos &&
-        cond.find("partlysunny") == std::string::npos) {
+    if (is_fog_mist) {
+      day_bg = esphome::Color(32, 46, 60); // Cool coastal silver-slate fog sky
+    } else if (cond.find("cloud") != std::string::npos && !is_partly) {
       day_bg = esphome::Color(22, 38, 56); // Overcast slate sky
     } else if (cond.find("rain") != std::string::npos ||
                cond.find("lightning") != std::string::npos ||
@@ -2400,12 +2534,14 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       day_bg = esphome::Color(18, 30, 46); // Stormy dark sky
     }
     it.filled_circle(cx, cy, 228, day_bg);
+  } else if (is_fog_mist) {
+    // Subtle deep misty night slate canvas so dark fog layers have atmospheric depth
+    it.filled_circle(cx, cy, 228, esphome::Color(10, 15, 22));
   }
 
   // LAYER 1A: FULL-SCREEN NIGHT STARFIELD (64 twinkling stars via LUT fast_sin)
   if (is_night && (cond == "clear-night" || cond == "clearnight" ||
-                   cond == "sunny" || cond == "clear" || cond == "clear-day" ||
-                   cond.find("partly") != std::string::npos)) {
+                   cond == "sunny" || cond == "clear" || cond == "clear-day" || is_partly)) {
     float t_star = static_cast<float>(now_ms % 62832U) * 0.003f;
     for (int k = 0; k < 64; k++) {
       int sx = WEATHER_STARS_X[k];
@@ -2429,15 +2565,21 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1B: VOLUMETRIC CUMULUS (Partly Cloudy) & RLE OVERCAST CANOPY (Cloudy/Overcast)
+  // LAYER 1B: VOLUMETRIC CUMULUS (Partly Cloudy with Gentle Buoyant Drift) & RLE OVERCAST CANOPY
   if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
-    bool is_partly = (cond.find("partly") != std::string::npos ||
-                      cond.find("mostlysunny") != std::string::npos ||
-                      cond.find("partlysunny") != std::string::npos);
     if (is_partly) {
-      render_cumulus_cloud(it, 95, 95, 0.95f, false, is_night);
-      render_cumulus_cloud(it, 370, 180, 0.85f, false, is_night);
-      render_cumulus_cloud(it, 100, 255, 0.80f, false, is_night);
+      // Preserves the 3-cloud sanctuary framing while adding a gentle, out-of-phase buoyant breeze float (±6px X, ±2px Y)
+      float t_cld = now_ms * 0.0008f;
+      int dx0 = static_cast<int>(fast_sin(t_cld) * 6.5f);
+      int dy0 = static_cast<int>(fast_cos(t_cld * 1.3f) * 2.0f);
+      int dx1 = static_cast<int>(fast_cos(t_cld * 0.9f + 1.8f) * 6.5f);
+      int dy1 = static_cast<int>(fast_sin(t_cld * 1.2f + 1.1f) * 2.0f);
+      int dx2 = static_cast<int>(fast_sin(t_cld * 1.1f + 3.6f) * 6.5f);
+      int dy2 = static_cast<int>(fast_cos(t_cld * 1.4f + 2.4f) * 2.0f);
+
+      render_cumulus_cloud(it,  95 + dx0,  95 + dy0, 0.95f, false, is_night);
+      render_cumulus_cloud(it, 370 + dx1, 180 + dy1, 0.85f, false, is_night);
+      render_cumulus_cloud(it, 100 + dx2, 255 + dy2, 0.80f, false, is_night);
     } else {
       esphome::Color c_shad = is_night ? esphome::Color(12, 16, 22) : esphome::Color(24, 38, 56);
       esphome::Color c_body = is_night ? esphome::Color(20, 28, 38) : esphome::Color(38, 56, 78);
@@ -2457,7 +2599,163 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1C: PRE-SCATTERED FALLING RAIN (26 or 40 angled streaks)
+  // LAYER 1C: CLEAR DAY (AND PARTLY CLOUDY DAY) ORIGAMI HIGH-ALTITUDE V-FLOCK OF BIRDS
+  if (is_clear_day || (!is_night && is_partly)) {
+    if (is_clear_day_flock_active(now_ms)) {
+      uint32_t rel_ms = now_ms - clear_day_flock_epoch_ms();
+      uint32_t cycle_idx = rel_ms / 16500U;
+      uint32_t flight_ms = rel_ms % 16500U;
+      float prog = static_cast<float>(flight_ms) * (1.0f / 6800.0f); // 0.0 -> 1.0 over 6.8s
+
+      // Deterministic per-pass direction (Left->Right vs Right->Left) and altitude corridor
+      int dir = ((cycle_idx & 1U) == 0U) ? 1 : -1;
+      float r_alt = hash2d_01(static_cast<int>(cycle_idx * 31U + 7U), 19);
+      // Upper corridor (y = 58..72) or mid-lower corridor (y = 218..232) so birds never cross the hero temperature
+      int base_y = (r_alt < 0.62f)
+          ? (58 + static_cast<int>(r_alt * 22.0f))
+          : (218 + static_cast<int>((r_alt - 0.62f) * 36.0f));
+
+      int start_x = (dir > 0) ? 20 : 446;
+      int end_x   = (dir > 0) ? 456 : 10;
+      int lead_x  = start_x + static_cast<int>((end_x - start_x) * prog);
+      int lead_y  = base_y + static_cast<int>(fast_sin(prog * PI_F) * -7.0f);
+
+      float t_flap = now_ms * 0.0068f;
+      // 5-bird asymmetrical V-echelon offsets (dx in flight direction, dy vertical)
+      static constexpr int8_t V_OFF[5][2] = {
+        {  0,   0}, // Lead bird at apex
+        {-20, -10}, // Upper echelon #1
+        {-23,  11}, // Lower echelon #1
+        {-41, -19}, // Upper echelon #2
+        {-46,  21}  // Lower echelon #2 (asymmetrical trailing goose)
+      };
+      static constexpr float V_SCALE[5] = {1.05f, 0.96f, 0.96f, 0.88f, 0.86f};
+
+      for (int b = 0; b < 5; b++) {
+        int bx = lead_x + dir * V_OFF[b][0];
+        int by = lead_y + V_OFF[b][1];
+        draw_migrating_bird(it, bx, by, dir, t_flap - static_cast<float>(b) * 0.75f, V_SCALE[b], cy);
+      }
+    }
+  }
+
+  // LAYER 1D: FOG & MIST — 6 UNDULATING MULTI-DEPTH BAY FOG BANKS + SHIMMERING MIST MOTES
+  if (is_fog_mist) {
+    float t_fog = now_ms * 0.00055f;
+    static constexpr int16_t FOG_Y[6]  = { 66, 108, 154, 210, 252, 294};
+    static constexpr int16_t FOG_W[6]  = {230, 275, 255, 290, 260, 220};
+    static constexpr int8_t  FOG_H[6]  = { 12,  14,  13,  15,  13,  11};
+    static constexpr int16_t FOG_X0[6] = {195, 245, 215, 235, 220, 245};
+
+    for (int b = 0; b < 6; b++) {
+      float dir_s = (b & 1) ? -1.0f : 1.0f;
+      int drift_x = static_cast<int>(fast_sin(t_fog * (0.8f + b * 0.15f) + b * 1.4f) * 38.0f * dir_s);
+      int bank_cx = FOG_X0[b] + drift_x;
+      int bank_cy = FOG_Y[b] + static_cast<int>(fast_cos(t_fog * 0.9f + b * 2.1f) * 3.0f);
+      int half_h  = FOG_H[b];
+      int base_hw = FOG_W[b] >> 1;
+
+      for (int dy = -half_h; dy <= half_h; dy += 2) {
+        int py = bank_cy + dy;
+        int max_hw = circle_half_span(py, 6);
+        if (max_hw <= 10) continue;
+
+        // Vertical bell-curve profile (1.0 at center of bank -> 0.2 at feathered top/bottom edges)
+        float norm_y = static_cast<float>(dy < 0 ? -dy : dy) / static_cast<float>(half_h + 1);
+        float env = 1.0f - norm_y * norm_y;
+
+        // Undulating horizontal span width and wave shift per scanline
+        int wave_shift = static_cast<int>(fast_sin(py * 0.09f + t_fog * 2.2f + b) * 14.0f);
+        int row_hw = static_cast<int>(static_cast<float>(base_hw) * (0.55f + 0.45f * env));
+        int x0 = bank_cx + wave_shift - row_hw;
+        int x1 = bank_cx + wave_shift + row_hw;
+        if (x0 < cx - max_hw) x0 = cx - max_hw;
+        if (x1 > cx + max_hw) x1 = cx + max_hw;
+        if (x1 <= x0 + 4) continue;
+
+        uint8_t r_c = static_cast<uint8_t>((is_night ? 22.0f : 46.0f) + (is_night ? 32.0f : 56.0f) * env);
+        uint8_t g_c = static_cast<uint8_t>((is_night ? 30.0f : 62.0f) + (is_night ? 40.0f : 64.0f) * env);
+        uint8_t b_c = static_cast<uint8_t>((is_night ? 42.0f : 78.0f) + (is_night ? 48.0f : 68.0f) * env);
+        it.horizontal_line(x0, py, x1 - x0, esphome::Color(r_c, g_c, b_c));
+      }
+    }
+
+    // 18 Suspended Shimmering Mist Droplets drifting lazily across the fog
+    for (int m = 0; m < 18; m++) {
+      int mx = (WEATHER_STARS_X[m * 3] + static_cast<int>((now_ms / 55U) + m * 23U)) % 380 + 43;
+      int my = WEATHER_STARS_Y[m * 3] + static_cast<int>(fast_sin(t_fog * 2.5f + m) * 6.0f);
+      if (!is_inside_bezel(mx, my, cy, 10)) continue;
+      float shimmer = 0.5f + 0.5f * fast_sin(now_ms * 0.0025f + m * 1.1f);
+      uint8_t mb = static_cast<uint8_t>((is_night ? 75.0f : 125.0f) + 55.0f * shimmer);
+      esphome::Color m_col(static_cast<uint8_t>(mb * 0.82f), static_cast<uint8_t>(mb * 0.92f), mb);
+      it.draw_pixel_at(mx, my, m_col);
+      it.draw_pixel_at(mx + 1, my, m_col);
+    }
+  }
+
+  // LAYER 1E: WINDY — SWEEPING AIR-CURRENT RIBBONS & 10 TUMBLING AUTUMN/FOREST LEAVES
+  if (is_windy) {
+    float t_sec = now_ms * 0.001f;
+
+    // 1. 3 Translucent S-Curved Wind-Gust Streamlines sweeping across the sky
+    static constexpr int16_t GUST_Y[3] = { 82, 168, 236};
+    esphome::Color gust_hi  = is_night ? esphome::Color(70, 98, 130)  : esphome::Color(115, 155, 195);
+    esphome::Color gust_dim = is_night ? esphome::Color(38, 56,  78)  : esphome::Color( 62,  92, 128);
+    for (int g = 0; g < 3; g++) {
+      int gx_head = ((static_cast<int>(now_ms / 5U) + g * 185) % 560) - 50;
+      int gy_base = GUST_Y[g];
+      int prev_x = 0, prev_y = 0;
+      for (int s = 0; s <= 6; s++) {
+        int sx = gx_head - s * 18;
+        int sy = gy_base + static_cast<int>(fast_sin(sx * 0.025f + g * 1.7f) * 7.0f);
+        if (s > 0 && is_inside_bezel(sx, sy, cy, 8) && is_inside_bezel(prev_x, prev_y, cy, 8)) {
+          esphome::Color seg_c = (s >= 2 && s <= 4) ? gust_hi : gust_dim;
+          it.line(sx, sy, prev_x, prev_y, seg_c);
+        }
+        prev_x = sx;
+        prev_y = sy;
+      }
+    }
+
+    // 2. 10 Tumbling, Swooping Windblown Leaves with 3D Flutter & Midrib Veins
+    static constexpr uint8_t LEAF_SPD[10] = {155, 195, 140, 215, 175, 160, 205, 148, 185, 225};
+    static constexpr int16_t LEAF_Y0[10]  = { 64,  96, 128, 162, 194, 224, 252, 282, 112, 238};
+    for (int i = 0; i < 10; i++) {
+      int lx = ((RAIN_X[i * 3] + static_cast<int>((static_cast<uint64_t>(now_ms) * LEAF_SPD[i]) / 1000ULL)) % 490) - 12;
+      float gust_wave = fast_sin(t_sec * 2.6f + static_cast<float>(i) * 0.9f) * 16.0f +
+                        fast_cos(lx * 0.018f + static_cast<float>(i)) * 8.0f;
+      int ly = LEAF_Y0[i] + static_cast<int>(gust_wave);
+
+      float spin_ang = t_sec * (2.8f + (i % 4) * 0.65f) + static_cast<float>(i) * 1.2f;
+      float flutter  = fabsf(fast_cos(t_sec * (4.2f + (i % 3) * 0.8f) + static_cast<float>(i)));
+      float l_scale  = (i % 3 == 0) ? 0.78f : 1.02f;
+
+      esphome::Color c_leaf, c_vein;
+      float night_scale = is_night ? 0.72f : 1.0f;
+      int pal_id = i & 3;
+      if (pal_id == 0) {
+        // Sage / Forest Leaf Green
+        c_leaf = scale_color(esphome::Color(110, 182, 82), night_scale);
+        c_vein = scale_color(esphome::Color(165, 225, 130), night_scale);
+      } else if (pal_id == 1) {
+        // Golden Birch Yellow-Gold
+        c_leaf = scale_color(esphome::Color(235, 188, 48), night_scale);
+        c_vein = scale_color(esphome::Color(255, 230, 120), night_scale);
+      } else if (pal_id == 2) {
+        // Warm Autumn Amber-Maple
+        c_leaf = scale_color(esphome::Color(228, 118, 42), night_scale);
+        c_vein = scale_color(esphome::Color(255, 175, 95), night_scale);
+      } else {
+        // Deep Olive / Eucalyptus Green
+        c_leaf = scale_color(esphome::Color(82, 152, 92), night_scale);
+        c_vein = scale_color(esphome::Color(135, 205, 145), night_scale);
+      }
+
+      draw_tumbling_leaf(it, lx, ly, spin_ang, flutter, l_scale, c_leaf, c_vein, cy);
+    }
+  }
+
+  // LAYER 1F: PRE-SCATTERED FALLING RAIN (26 or 40 angled streaks)
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
       cond.find("drizzle") != std::string::npos) {
@@ -2474,7 +2772,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1D: CRYSTALLINE SNOWFLAKES (36 multi-tier flakes with LUT fast_sin lateral drift)
+  // LAYER 1G: CRYSTALLINE SNOWFLAKES (36 multi-tier flakes with LUT fast_sin lateral drift)
   if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
     float t_snow = static_cast<float>(now_ms % 62832U) * 0.0022f;
     esphome::Color c_core(255, 255, 255);
@@ -2510,7 +2808,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1E: THUNDERSTORM BRANCHING LIGHTNING STRIKE
+  // LAYER 1H: THUNDERSTORM BRANCHING LIGHTNING STRIKE
   if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
     uint32_t flash_step = (now_ms / 250U) % 18U; // Repeats every 4.5 seconds
     if (flash_step <= 1U) {

@@ -765,6 +765,8 @@ select:
       - "Partly Cloudy (Night)"
       - "Cloudy / Overcast (Day)"
       - "Cloudy / Overcast (Night)"
+      - "Fog / Mist (Day)"
+      - "Fog / Mist (Night)"
       - "Rainy (Day)"
       - "Rainy (Night)"
       - "Pouring / Heavy Rain"
@@ -1403,13 +1405,13 @@ interval:
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
 
-            if (now_w_ms - last_cond_eval_time >= 500U) {
+            if (now_w_ms - last_cond_eval_time >= 250U) {
               last_cond_eval_time = now_w_ms;
               std::string c_cond = id(ha_weather_condition).state;
               std::string s_sun = id(ha_sun_state).state;
               bool is_night_time = (s_sun == "below_horizon" || c_cond == "clear-night" || c_cond == "clearnight" || (c_cond.find("night") != std::string::npos));
               apply_weather_sim_override(id(weather_sim_condition).current_option(), c_cond, is_night_time);
-              cached_has_motion = pocket_ui::has_weather_motion(c_cond, is_night_time);
+              cached_has_motion = pocket_ui::has_weather_motion(c_cond, is_night_time, now_w_ms);
             }
 
             if (cached_has_motion) {
@@ -6077,20 +6079,34 @@ display:
           // ====================================================================
           // LAYER 2: CELESTIAL CORNER POCKET ICON
           // ====================================================================
+          const bool is_foggy_sky = (cond.find("fog") != std::string::npos ||
+                                     cond.find("mist") != std::string::npos ||
+                                     cond.find("haze") != std::string::npos);
           if (is_night) {
-            // Interactive Corner Moon with Astronomical Phase Accuracy (r = 22, cel_cx = 346, cel_cy = 82)
+            // Interactive Corner Moon with Astronomical Phase Accuracy (r = 22, cel_cx = 346, cel_cy = 91)
             int om_r = 22;
             double cycle = 0.5;
             calculate_moon_phase(cycle);
             draw_lunar_disc(cel_cx, cel_cy, om_r, cycle, false);
+            if (is_foggy_sky) {
+              it.circle(cel_cx, cel_cy, 25, Color(55, 70, 88));
+              it.circle(cel_cx, cel_cy, 29, Color(38, 50, 65));
+            }
           } else {
-            // Interactive Corner Sun: Only rendered on sunny/clear or partly cloudy daytime skies
+            // Interactive Corner Sun: Full brilliance on clear/partly/windy skies; softly diffused halo in fog/mist
             bool show_sun = (cond == "sunny" || cond == "clear-day" || cond == "clear" || cond == "clearday" ||
-                             cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos || cond.find("partlysunny") != std::string::npos);
+                             cond.find("partly") != std::string::npos || cond.find("mostlysunny") != std::string::npos ||
+                             cond.find("partlysunny") != std::string::npos || cond.find("wind") != std::string::npos ||
+                             cond.find("breez") != std::string::npos);
             if (show_sun) {
               it.filled_circle(cel_cx, cel_cy, 20, Color(245, 165, 25));
               it.filled_circle(cel_cx, cel_cy, 12, Color(255, 225, 90));
               it.circle(cel_cx, cel_cy, 26, Color(140, 85, 15));
+            } else if (is_foggy_sky) {
+              it.filled_circle(cel_cx, cel_cy, 19, Color(135, 125, 92));
+              it.filled_circle(cel_cx, cel_cy, 11, Color(188, 178, 135));
+              it.circle(cel_cx, cel_cy, 24, Color(92, 106, 122));
+              it.circle(cel_cx, cel_cy, 28, Color(68, 84, 102));
             }
           }
 
@@ -6221,6 +6237,10 @@ display:
             }
           }
 
+          if (!fc_days.empty()) {
+            bool dummy_night = false;
+            apply_weather_sim_override(id(weather_sim_condition).current_option(), fc_days[0].cond, dummy_night);
+          }
           auto draw_fc_glyph = [&](int gx, int gy, const std::string& c_name) { render_forecast_glyph(it, gx, gy, c_name); };
 
           // 5 Spaced Rows with 46px pitch (y = 100, 146, 192, 238, 284) - preserved exact column placement with balanced row padding
@@ -6280,11 +6300,11 @@ display:
           it.print(98, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
           it.print(368, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
 
-          // Day Arc (Above Horizon y <= 208, top apex at y = 90)
+          // Day Arc (Above Horizon y <= 208, top apex at y = 90 — LUT-accelerated via fast_cos/fast_sin)
           for (int a = 0; a <= 180; a += 2) {
-            float rad = (float)a * 3.14159265f / 180.0f;
-            int ax = cx - (int)((float)arc_r * cosf(rad));
-            int ay = arc_cy - (int)((float)arc_r * sinf(rad));
+            float rad = static_cast<float>(a) * (PI_F / 180.0f);
+            int ax = cx - static_cast<int>(static_cast<float>(arc_r) * fast_cos(rad));
+            int ay = arc_cy - static_cast<int>(static_cast<float>(arc_r) * fast_sin(rad));
             it.draw_pixel_at(ax, ay, Color(180, 140, 40));
             it.draw_pixel_at(ax, ay + 1, Color(100, 75, 20));
           }
