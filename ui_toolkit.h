@@ -3012,21 +3012,21 @@ inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
                                          esphome::Color col_active, esphome::Color col_inactive) {
   // Exact 74px uniform center-to-center spacing symmetrical around cx = 233 (-111, -37, +37, +111)
   static constexpr int ICON_XS[4] = {122, 196, 270, 344};
-  static constexpr int ICON_Y = 347; // Shifted up 10px into the gap below y = 310 divider
+  static constexpr int ICON_Y = 352; // Split the difference: 5px higher than original 357, 5px lower than 347
 
   auto draw_icon_glyph = [&](int idx, int bx, int by, esphome::Color c) {
     if (idx == 0) {
-      // Current Weather: Thermometer (shifted 1px left so bulb + stem + right ticks [bx-6..bx+5] center on bx)
-      int tx = bx - 1;
-      it.line(tx - 2, by - 12, tx + 2, by - 12, c);
-      it.line(tx - 2, by - 12, tx - 2, by + 4, c);
-      it.line(tx + 2, by - 12, tx + 2, by + 4, c);
-      it.circle(tx, by + 7, 5, c);
-      it.line(tx + 3, by - 7, tx + 6, by - 7, c);
-      it.line(tx + 3, by - 2, tx + 6, by - 2, c);
-      it.line(tx + 3, by + 3, tx + 6, by + 3, c);
-      it.filled_circle(tx, by + 7, 3, c);
-      it.line(tx, by - 4, tx, by + 7, c);
+      // Current Weather: Thermometer with stem & bulb centered at bx and ticks trimmed 1px to bx+5
+      // so the overall bounding box is [bx-5..bx+5] (splitting the 1px difference by 0.5px!)
+      it.line(bx - 2, by - 12, bx + 2, by - 12, c);
+      it.line(bx - 2, by - 12, bx - 2, by + 4, c);
+      it.line(bx + 2, by - 12, bx + 2, by + 4, c);
+      it.circle(bx, by + 7, 5, c);
+      it.line(bx + 3, by - 7, bx + 5, by - 7, c);
+      it.line(bx + 3, by - 2, bx + 5, by - 2, c);
+      it.line(bx + 3, by + 3, bx + 5, by + 3, c);
+      it.filled_circle(bx, by + 7, 3, c);
+      it.line(bx, by - 4, bx, by + 7, c);
     } else if (idx == 1) {
       // Forecast: 3-day ascending bar chart + rising trend arrow (centered horizontally [bx-11..bx+11] & vertically [by-10..by+10])
       int fy = by + 1;
