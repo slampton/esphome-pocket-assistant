@@ -3976,40 +3976,31 @@ display:
 
             } else if (g_idx == 1) {
               // ------------------------------------------------------------------
-              // GAME 1: ARCHERY
+              // GAME 1: ARCHERY — Centered 5-ring target + bold arrow in bullseye
               // ------------------------------------------------------------------
-              it.line(icon_x - 52, icon_y - 50, icon_x - 52, icon_y + 50, id(col_silver));
-              for (int i = -50; i <= 50; i++) {
-                int curve = (int)(17.0f * (1.0f - ((float)i / 50.0f) * ((float)i / 50.0f)));
-                int bx = icon_x - 52 + curve;
-                int by = icon_y + i;
-                it.draw_pixel_at(bx, by, id(col_warm_gold));
-                it.draw_pixel_at(bx + 1, by, id(col_gold));
-                it.draw_pixel_at(bx + 2, by, id(col_warm_gold));
+              render_archery_target(it, icon_x, icon_y, 46, id(col_white), id(col_black),
+                                    id(col_cyan), id(col_red), id(col_gold), id(col_slate), id(col_dark_gray));
+              // Drop shadow cast by the arrow shaft across the target face
+              int tip_x = icon_x + 2, tip_y = icon_y + 2;
+              int tail_x = icon_x + 56, tail_y = icon_y - 36;
+              it.line(tip_x, tip_y + 5, tail_x - 8, tail_y + 10, Color(15, 18, 24));
+              it.line(tip_x, tip_y + 6, tail_x - 8, tail_y + 11, Color(15, 18, 24));
+              // Embedded broadhead steel tip + golden impact ring in the bullseye
+              it.circle(tip_x, tip_y, 5, Color(180, 110, 0));
+              it.filled_triangle(tip_x - 3, tip_y + 2, tip_x + 9, tip_y - 9, tip_x + 12, tip_y - 2, id(col_white));
+              // Thick 3px wooden arrow shaft sticking out at a crisp 35-degree angle
+              it.line(tip_x, tip_y, tail_x, tail_y, Color(238, 206, 148));
+              it.line(tip_x, tip_y - 1, tail_x, tail_y - 1, Color(250, 228, 178));
+              it.line(tip_x, tip_y + 1, tail_x, tail_y + 1, Color(182, 138, 76));
+              // Bright crimson & gold-crested fletching feathers at the tail
+              for (int f = 0; f < 9; f++) {
+                int fx = tail_x - 3 - f;
+                int fy = tail_y + 2 + (f * 2) / 3;
+                it.line(fx, fy - 1, fx + 3, fy - 11, Color(255, 52, 52));
+                it.line(fx, fy + 1, fx + 10, fy + 4, Color(220, 32, 32));
               }
-              it.filled_rectangle(icon_x - 36, icon_y - 8, 5, 17, id(col_slate));
-
-              int tx = icon_x + 8, ty = icon_y;
-              it.filled_circle(tx, ty, 45, id(col_white));
-              it.circle(tx, ty, 45, id(col_gray));
-              it.filled_circle(tx, ty, 36, Color(20, 20, 20));
-              it.circle(tx, ty, 36, id(col_slate));
-              it.filled_circle(tx, ty, 27, id(col_cyan));
-              it.circle(tx, ty, 27, Color(0, 180, 210));
-              it.filled_circle(tx, ty, 18, id(col_red));
-              it.circle(tx, ty, 18, Color(180, 20, 20));
-              it.filled_circle(tx, ty, 10, id(col_gold));
-              it.circle(tx, ty, 10, id(col_warm_gold));
-              it.filled_circle(tx, ty, 4, id(col_red));
-              it.draw_pixel_at(tx, ty, id(col_white));
-
-              it.line(icon_x - 42, icon_y + 39, tx, ty, id(col_white));
-              it.line(icon_x - 41, icon_y + 40, tx + 1, ty + 1, id(col_slate));
-              it.line(icon_x - 48, icon_y + 35, icon_x - 40, icon_y + 43, id(col_red));
-              it.line(icon_x - 46, icon_y + 45, icon_x - 38, icon_y + 37, id(col_gold));
-              it.line(tx + 4, ty - 8, tx + 8, ty - 12, id(col_gold));
-              it.line(tx + 8, ty + 4, tx + 14, ty + 6, id(col_gold));
-              it.line(tx - 6, ty - 8, tx - 10, ty - 12, id(col_gold));
+              // Silver nock at the very end of the shaft
+              it.filled_circle(tail_x + 1, tail_y - 1, 2, id(col_white));
 
             } else if (g_idx == 2) {
               // ------------------------------------------------------------------
@@ -4255,184 +4246,20 @@ display:
               id(col_red), id(col_orange), id(col_magenta), id(col_slate), id(col_gray), id(col_dark_gray));
 
         // ----------------------------------------------------
-        // GAME 2: ARCHERY (TILT AIM & TARGET PRACTICE)
+        // GAME 2: ARCHERY (ARCADE ROUNDS, RECURVE BOW & PINNED ARROWS)
         // ----------------------------------------------------
         } else if (id(active_game) == 2) {
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ARCHERY");
+          render_game_archery(
+              it, cx, cy, millis(), game_just_entered, roll_delta, pitch_delta,
+              id(marble_touch_x), id(game_btn_pressed), id(high_score_archery),
+              id(font_date), id(font_small), id(theme_secondary),
+              id(col_bg), id(col_white), id(col_black), id(col_gold),
+              id(col_cyan), id(col_red), id(col_slate), id(col_dark_gray));
 
-          static int arch_score = 0;
-          static int arrows_left = 10;
-          static float target_x = 233.0f;
-          static float target_y = 165.0f;
-          static float target_step = 0.0f;
-          static float arrow_x = -1.0f;
-          static float arrow_y = -1.0f;
-          static float arrow_vx = 0.0f;
-          static float arrow_vy = 0.0f;
-          static float wind_speed = 0.0f;
-          static std::string hit_feedback = "";
-          static uint32_t feedback_timer = 0;
-          static bool round_over = false;
-          static bool is_new_high = false;
-
-          if (game_just_entered) {
-            arch_score = 0;
-            arrows_left = 10;
-            arrow_y = -1.0f;
-            wind_speed = 0.0f;
-            hit_feedback = "";
-            round_over = false;
-            is_new_high = false;
-          }
-
-          // Dynamic 2D Swaying Target (Horizontal sweep ±95px, vertical bobbing ±26px)
-          target_step += 0.04f;
-          target_x = cx + sinf(target_step) * 95.0f;
-          target_y = 165.0f + cosf(target_step * 1.4f) * 26.0f;
-
-          // 3D Shaded Target Rings with Drop Shadow (Balanced tournament radii: 34, 25, 18, 11, 5.5)
-          it.filled_circle((int)target_x, (int)target_y + 3, 34, id(col_dark_gray));
-          it.filled_circle((int)target_x, (int)target_y, 34, id(col_white));
-          it.circle((int)target_x, (int)target_y, 34, id(col_dark_gray));
-          it.filled_circle((int)target_x, (int)target_y, 25, id(col_black));
-          it.circle((int)target_x, (int)target_y, 25, id(col_slate));
-          it.filled_circle((int)target_x, (int)target_y, 18, id(col_cyan));
-          it.filled_circle((int)target_x, (int)target_y, 11, id(col_red));
-          it.filled_circle((int)target_x, (int)target_y, 5, id(col_gold));
-
-          // Player Aim Reticle
-          float ax = cx + roll_delta * 6.5f;
-          float ay = 165.0f - pitch_delta * 6.5f;
-          if (ax < 65.0f) ax = 65.0f; if (ax > 401.0f) ax = 401.0f;
-          if (ay < 65.0f) ay = 65.0f; if (ay > 370.0f) ay = 370.0f;
-
-          // Gentle Crosswind: Drifts smoothly between -5.5 and +5.5 mph (fair & skill-based)
-          wind_speed = sinf((float)millis() * 0.0006f) * 5.5f;
-
-          // Shoot Trigger (Button or Tap)
-          if (id(game_btn_pressed) || id(marble_touch_x) >= 0.0f) {
-            id(game_btn_pressed) = false;
-            id(marble_touch_x) = -1.0f;
-
-            if (round_over) {
-              arch_score = 0;
-              arrows_left = 10;
-              arrow_y = -1.0f;
-              hit_feedback = "";
-              round_over = false;
-              is_new_high = false;
-            } else if (arrow_y < 0.0f && arrows_left > 0) {
-              arrow_x = cx;
-              arrow_y = 370.0f;
-              // Aim vector towards player reticle + initial trajectory
-              float launch_dx = ax - cx;
-              float launch_dy = ay - 370.0f;
-              float launch_len = sqrtf(launch_dx * launch_dx + launch_dy * launch_dy);
-              float speed = 380.0f; // Flight speed in px/s
-              arrow_vx = (launch_dx / launch_len) * speed;
-              arrow_vy = (launch_dy / launch_len) * speed;
-              arrows_left--;
-            }
-          }
-
-          // In-Flight Arrow Physics with Balanced Wind Drift & Faux-3D Scaling
-          if (arrow_y >= 0.0f) {
-            const float dt_arrow = 0.05f;
-            // Crosswind deflects the arrow with calibrated gentle force (7.5x instead of 16x)
-            arrow_vx += wind_speed * 7.5f * dt_arrow;
-            arrow_x += arrow_vx * dt_arrow;
-            arrow_y += arrow_vy * dt_arrow;
-
-            float progress = (370.0f - arrow_y) / 205.0f;
-            if (progress < 0.0f) progress = 0.0f; if (progress > 1.0f) progress = 1.0f;
-            int arrow_len = (int)(22.0f - progress * 11.0f);
-
-            it.line((int)arrow_x, (int)arrow_y, (int)arrow_x, (int)(arrow_y + arrow_len), id(col_gold));
-            it.filled_circle((int)arrow_x, (int)arrow_y, progress > 0.6f ? 2 : 3, id(col_white));
-
-            // Check if arrow has reached the target plane y
-            if (arrow_y <= target_y + 6.0f) {
-              float dist_hit = sqrtf((arrow_x - target_x) * (arrow_x - target_x) +
-                                     (arrow_y - target_y) * (arrow_y - target_y));
-              if (dist_hit <= 5.5f) {
-                hit_feedback = "BULLSEYE! +10"; arch_score += 10;
-              } else if (dist_hit <= 11.0f) {
-                hit_feedback = "RED RING! +7"; arch_score += 7;
-              } else if (dist_hit <= 18.0f) {
-                hit_feedback = "BLUE RING! +5"; arch_score += 5;
-              } else if (dist_hit <= 25.0f) {
-                hit_feedback = "BLACK RING! +3"; arch_score += 3;
-              } else if (dist_hit <= 34.0f) {
-                hit_feedback = "WHITE! +1"; arch_score += 1;
-              } else {
-                hit_feedback = "MISS!";
-              }
-              feedback_timer = millis();
-              arrow_y = -1.0f;
-
-              if (arrows_left <= 0) {
-                round_over = true;
-                if (arch_score > id(high_score_archery)) {
-                  id(high_score_archery) = arch_score;
-                  is_new_high = true;
-                }
-              }
-            }
-          }
-
-          it.circle((int)ax, (int)ay, 14, id(col_cyan));
-          it.line((int)ax - 18, (int)ay, (int)ax + 18, (int)ay, id(col_cyan));
-          it.line((int)ax, (int)ay - 18, (int)ax, (int)ay + 18, id(col_cyan));
-
-          char wind_buf[32];
-          if (fabsf(wind_speed) < 1.2f) {
-            snprintf(wind_buf, sizeof(wind_buf), "WIND: CALM");
-          } else if (wind_speed > 0) {
-            snprintf(wind_buf, sizeof(wind_buf), "WIND: %.0f >", wind_speed);
-          } else {
-            snprintf(wind_buf, sizeof(wind_buf), "< WIND: %.0f", -wind_speed);
-          }
-
-          char hud_buf[48];
-          snprintf(hud_buf, sizeof(hud_buf), "Arrows: %d/10  •  %s  •  %d", arrows_left, wind_buf, arch_score);
-          it.print(cx, 84, id(font_small), id(col_gold), TextAlign::CENTER, hud_buf);
-
-          if (!hit_feedback.empty() && (millis() - feedback_timer < 1400) && !round_over) {
-            it.print(cx, 260, id(font_date), id(col_gold), TextAlign::CENTER, hit_feedback.c_str());
-          }
-
-          if (round_over) {
-            it.filled_circle(cx, cy, 115, id(col_bg));
-            it.circle(cx, cy, 115, is_new_high ? id(col_gold) : id(theme_secondary));
-            it.circle(cx, cy, 113, is_new_high ? id(col_gold) : id(theme_secondary));
-
-            if (is_new_high) {
-              it.print(cx, 160, id(font_date), id(col_gold), TextAlign::CENTER, "NEW HIGH SCORE!");
-            } else {
-              it.print(cx, 160, id(font_date), id(col_cyan), TextAlign::CENTER, "MATCH COMPLETE");
-            }
-
-            char score_str[32];
-            snprintf(score_str, sizeof(score_str), "Score: %d / 100", arch_score);
-            it.print(cx, 202, id(font_date), id(col_white), TextAlign::CENTER, score_str);
-
-            char best_str[32];
-            snprintf(best_str, sizeof(best_str), "Best: %d", id(high_score_archery));
-            it.print(cx, 235, id(font_small), id(col_gold), TextAlign::CENTER, best_str);
-
-            it.print(cx, 275, id(font_small), id(col_cyan), TextAlign::CENTER, "[ TAP TO REPLAY ]");
-          }
-
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt Aim • Tap Screen to Fire");
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
-
-        // ----------------------------------------------------
         // ----------------------------------------------------
         // GAME 3: BREAKOUT (CIRCULAR ARC PADDLE & BRICK BREAKER)
         // ----------------------------------------------------
         } else if (id(active_game) == 3) {
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "BREAKOUT");
-
           struct BreakoutBrick {
             int x, y, w, h;
             int row;
@@ -4612,10 +4439,10 @@ display:
             it.circle(bo_spark_x, bo_spark_y, 14, id(col_gold));
           }
 
-          // Top HUD: Balls Left • Bricks Left • Score
+          // Bottom Scorekeeper HUD (y = 408)
           char bo_hud[48];
           snprintf(bo_hud, sizeof(bo_hud), "Balls: %d/3  •  Bricks: %d  •  %d", lives_left, bricks_remaining, bo_score);
-          it.print(cx, 84, id(font_small), id(col_gold), TextAlign::CENTER, bo_hud);
+          it.print(cx, 408, id(font_small), id(col_gold), TextAlign::CENTER, bo_hud);
 
           // Game Over Scoreboard Overlay
           if (round_over) {
@@ -4644,14 +4471,10 @@ display:
             it.print(cx, 260, id(font_small), id(col_cyan), TextAlign::CENTER, "[ Tap Screen to Launch ]");
           }
 
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt to Steer Paddle • Bounce Ball");
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
 
         // GAME 4: CHOMP (Kids) (FEED THE HUNGRY MONSTER)
         // ----------------------------------------------------
         } else if (id(active_game) == 4) {
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "CHOMP FOR KIDS");
-
           static int treat_score = 0;
           static float treat_x = cx + 60.0f;
           static float treat_y = cy - 60.0f;
@@ -4759,17 +4582,12 @@ display:
 
           char t_buf[48];
           snprintf(t_buf, sizeof(t_buf), "Treats: %d  •  Best: %d", treat_score, id(high_score_chomp));
-          it.print(cx, 84, id(font_small), id(col_gold), TextAlign::CENTER, t_buf);
-
-          it.print(cx, 385, id(font_small), id(col_slate), TextAlign::CENTER, "Tilt to Roll Treat into Mouth");
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
+          it.print(cx, 408, id(font_small), id(col_gold), TextAlign::CENTER, t_buf);
 
         // ----------------------------------------------------
         // GAME 5: ASTEROIDS (360-DEGREE VECTOR SPACE COMBAT)
         // ----------------------------------------------------
         } else if (id(active_game) == 5) {
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "ASTEROIDS");
-
           struct AsteroidRock {
             float x, y, vx, vy;
             int tier; // 3 = Large (r=26), 2 = Medium (r=16), 1 = Small (r=10)
@@ -5158,10 +4976,10 @@ display:
             }
           }
 
-          // HUD Score & Best:
+          // Bottom Scorekeeper HUD (y = 408):
           char hud_sc[48];
           snprintf(hud_sc, sizeof(hud_sc), "SCORE: %d   BEST: %d", ast_score, id(high_score_asteroids));
-          it.print(cx, 82, id(font_small), id(col_gold), TextAlign::CENTER, hud_sc);
+          it.print(cx, 408, id(font_small), id(col_gold), TextAlign::CENTER, hud_sc);
 
           // Lives Silhouettes at top right:
           for (int l = 0; l < ast_lives; l++) {
@@ -5182,7 +5000,6 @@ display:
             it.print(cx, 260, id(font_small), id(col_gold), TextAlign::CENTER, "Tap to Play Again");
           }
 
-          it.print(cx, 408, id(font_small), id(col_gray), TextAlign::CENTER, "[ Click Top to Exit ]");
         }
       // ==========================================
       // PAGE 4: SYSTEM (STATUS & CONTROLS - RUST HIGHLIGHT)
@@ -8170,7 +7987,7 @@ touchscreen:
                 id(marble_touch_x) = touch.x;
                 id(marble_touch_y) = touch.y;
                 id(game_btn_pressed) = true;
-                if (id(active_game) != 1) {
+                if (id(active_game) > 2) {
                   id(disp1).update();
                 }
               }

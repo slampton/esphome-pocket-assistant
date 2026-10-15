@@ -3655,16 +3655,12 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
   }
 
   // ==========================================================================
-  // RENDERING PIPELINE (Text/HUD & Center Hole drawn first so marbles roll over)
+  // RENDERING PIPELINE (Bottom Scorekeeper & Center Hole drawn first so marbles roll over)
   // ==========================================================================
-  it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "MARBLES");
-
+  (void)theme_primary; (void)col_gray;
   char hud_buf[56];
   snprintf(hud_buf, sizeof(hud_buf), "W%d  •  %d/5  •  %ds  •  %d", wave_num, sunk_count, time_remaining, game_score);
-  it.print(cx, 84, font_small, time_remaining < 10 ? col_red : col_gold, esphome::display::TextAlign::CENTER, hud_buf);
-
-  it.print(cx, 385, font_small, col_slate, esphome::display::TextAlign::CENTER, "Roll to Center Hole • Tap Pop");
-  it.print(cx, 408, font_small, col_gray, esphome::display::TextAlign::CENTER, "[ Click Top to Exit ]");
+  it.print(cx, 408, font_small, time_remaining < 10 ? col_red : col_gold, esphome::display::TextAlign::CENTER, hud_buf);
 
   // Center Hole Target with Swirling Event Horizon
   it.circle(cx, cy, 34, col_dark_gray);
@@ -3774,6 +3770,402 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
     char best_str[32];
     snprintf(best_str, sizeof(best_str), "Best: %d", high_score_marbles);
+    it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
+
+    it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
+  }
+}
+
+
+// ============================================================================
+// SECTION 9: REUSABLE 5-RING ARCHERY TARGET & ARCADE ARCHERY ENGINE
+// ============================================================================
+
+template<typename DisplayT>
+inline void render_archery_target(DisplayT &it, int tx, int ty, int r_outer,
+                                  esphome::Color col_white, esphome::Color col_black,
+                                  esphome::Color col_cyan, esphome::Color col_red,
+                                  esphome::Color col_gold, esphome::Color col_slate,
+                                  esphome::Color col_dark_gray) {
+  if (r_outer <= 4) return;
+  int r_black = (r_outer * 76) / 100;
+  int r_cyan  = (r_outer * 54) / 100;
+  int r_red   = (r_outer * 34) / 100;
+  int r_gold  = std::max(3, (r_outer * 16) / 100);
+
+  // Drop shadow
+  it.filled_circle(tx, ty + 3, r_outer, col_dark_gray);
+  // 1. White outer ring
+  it.filled_circle(tx, ty, r_outer, col_white);
+  it.circle(tx, ty, r_outer, col_dark_gray);
+  // 2. Black ring
+  it.filled_circle(tx, ty, r_black, col_black);
+  it.circle(tx, ty, r_black, col_slate);
+  // 3. Cyan/Blue ring
+  it.filled_circle(tx, ty, r_cyan, col_cyan);
+  it.circle(tx, ty, r_cyan, esphome::Color(0, 175, 205));
+  // 4. Red ring
+  it.filled_circle(tx, ty, r_red, col_red);
+  it.circle(tx, ty, r_red, esphome::Color(180, 20, 20));
+  // 5. Gold bullseye + center pin
+  it.filled_circle(tx, ty, r_gold, col_gold);
+  it.draw_pixel_at(tx, ty, col_red);
+}
+
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
+inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
+                                bool game_just_entered, float roll_delta, float pitch_delta,
+                                float &marble_touch_x, bool &game_btn_pressed,
+                                int &high_score_archery,
+                                FontBigT *font_date, FontSmallT *font_small,
+                                esphome::Color theme_secondary,
+                                esphome::Color col_bg, esphome::Color col_white,
+                                esphome::Color col_black, esphome::Color col_gold,
+                                esphome::Color col_cyan, esphome::Color col_red,
+                                esphome::Color col_slate, esphome::Color col_dark_gray) {
+  struct PinnedArrow {
+    float dx, dy;
+    bool active;
+  };
+
+  static uint32_t last_phys_ms = 0;
+  static int round_num = 1;
+  static int arrows_left = 6;
+  static int round_pts = 0;
+  static int arch_score = 0;
+  static int streak_mult = 1;
+  static float target_phase = 0.0f;
+  static float smooth_ax = 233.0f;
+  static float smooth_ay = 112.0f;
+  static bool arrow_in_flight = false;
+  static float flight_z = 0.0f;
+  static float launch_aim_x = 233.0f;
+  static float launch_aim_y = 112.0f;
+  static float launch_wind = 0.0f;
+  static float wind_speed = 0.0f;
+  static char hit_feedback[28] = "";
+  static esphome::Color feedback_col(255, 215, 0);
+  static uint32_t feedback_timer = 0;
+  static uint32_t round_banner_ms = 0;
+  static bool round_over = false;
+  static bool is_new_high = false;
+  static PinnedArrow pinned[10];
+  static int pinned_count = 0;
+
+  auto clear_pinned = [&]() {
+    pinned_count = 0;
+    for (int i = 0; i < 10; i++) pinned[i].active = false;
+  };
+
+  auto reset_full_game = [&]() {
+    last_phys_ms = now_ms;
+    round_num = 1;
+    arrows_left = 6;
+    round_pts = 0;
+    arch_score = 0;
+    streak_mult = 1;
+    target_phase = 0.0f;
+    smooth_ax = static_cast<float>(cx);
+    smooth_ay = 112.0f;
+    arrow_in_flight = false;
+    flight_z = 0.0f;
+    hit_feedback[0] = '\0';
+    feedback_timer = 0;
+    round_banner_ms = 0;
+    round_over = false;
+    is_new_high = false;
+    clear_pinned();
+  };
+
+  if (game_just_entered) {
+    reset_full_game();
+  }
+
+  float dt = (last_phys_ms == 0U) ? 0.05f : static_cast<float>(now_ms - last_phys_ms) * 0.001f;
+  last_phys_ms = now_ms;
+  if (dt < 0.012f) dt = 0.012f;
+  if (dt > 0.075f) dt = 0.075f;
+
+  // Target size & sway scale with round_num (simulating 30m -> 50m -> 70m -> 90m range!)
+  const int target_r = std::max(26, 36 - (round_num - 1) * 2);
+  const float sway_spd = 0.78f + static_cast<float>(std::min(6, round_num - 1)) * 0.16f;
+  target_phase += sway_spd * dt;
+
+  const float target_base_y = 112.0f;
+  const float bow_y = 356.0f;
+  float target_x = static_cast<float>(cx) + fast_sin(target_phase) * 102.0f;
+  float target_y = target_base_y + fast_cos(target_phase * 1.4f) * 24.0f;
+
+  // Crosswind scales smoothly with round_num (gentle in Round 1, brisk in Round 3+)
+  float max_wind = std::min(8.0f, 2.5f + static_cast<float>(round_num - 1) * 1.3f);
+  wind_speed = fast_sin(static_cast<float>(now_ms % 62832U) * 0.00065f) * max_wind;
+
+  // EMA-smoothed Player Aim Reticle (centered around target_base_y = 112 so neutral posture aims at target level)
+  float raw_ax = static_cast<float>(cx) + roll_delta * 6.8f;
+  float raw_ay = target_base_y - pitch_delta * 6.8f;
+  if (raw_ax < 60.0f) raw_ax = 60.0f; else if (raw_ax > 406.0f) raw_ax = 406.0f;
+  if (raw_ay < 48.0f) raw_ay = 48.0f; else if (raw_ay > 280.0f) raw_ay = 280.0f;
+  smooth_ax += (raw_ax - smooth_ax) * 0.45f;
+  smooth_ay += (raw_ay - smooth_ay) * 0.45f;
+
+  const int round_goal = 20 + std::min(5, round_num - 1) * 4;
+
+  // Shoot Trigger (Button or Tap)
+  if (game_btn_pressed || marble_touch_x >= 0.0f) {
+    game_btn_pressed = false;
+    marble_touch_x = -1.0f;
+
+    if (round_over) {
+      reset_full_game();
+    } else if (!arrow_in_flight && arrows_left > 0) {
+      arrow_in_flight = true;
+      flight_z = 0.0f;
+      launch_aim_x = smooth_ax;
+      launch_aim_y = smooth_ay;
+      launch_wind = wind_speed;
+      arrows_left--;
+    }
+  }
+
+  // True 3D Depth-Plane Ballistic Arrow Flight (z = 0.0 at bow -> 1.0 at target plane over 0.42s)
+  float cur_arrow_x = static_cast<float>(cx);
+  float cur_arrow_y = bow_y;
+  float arrow_dx = 0.0f;
+  float arrow_dy = -1.0f;
+
+  if (arrow_in_flight) {
+    flight_z += dt * (1.0f / 0.40f);
+    float z = std::min(1.0f, flight_z);
+    float wind_drift = launch_wind * 5.2f * z * z;
+    float arc_lift = -26.0f * z * (1.0f - z);
+
+    cur_arrow_x = static_cast<float>(cx) + (launch_aim_x - static_cast<float>(cx)) * z + wind_drift;
+    cur_arrow_y = bow_y + (launch_aim_y - bow_y) * z + arc_lift;
+
+    // Instantaneous tangent vector for angled arrow rendering
+    float vx = (launch_aim_x - static_cast<float>(cx)) + launch_wind * 10.4f * z;
+    float vy = (launch_aim_y - bow_y) - 26.0f * (1.0f - 2.0f * z);
+    float vlen = sqrtf(vx * vx + vy * vy);
+    if (vlen > 0.001f) {
+      arrow_dx = vx / vlen;
+      arrow_dy = vy / vlen;
+    }
+
+    if (flight_z >= 1.0f) {
+      arrow_in_flight = false;
+      float hit_dx = cur_arrow_x - target_x;
+      float hit_dy = cur_arrow_y - target_y;
+      float dist_hit = sqrtf(hit_dx * hit_dx + hit_dy * hit_dy);
+
+      float r_out = static_cast<float>(target_r);
+      int base_pts = 0;
+      bool bullseye = false;
+      if (dist_hit <= r_out * 0.18f) {
+        base_pts = 10;
+        bullseye = true;
+      } else if (dist_hit <= r_out * 0.36f) {
+        base_pts = 7;
+      } else if (dist_hit <= r_out * 0.56f) {
+        base_pts = 5;
+      } else if (dist_hit <= r_out * 0.78f) {
+        base_pts = 3;
+      } else if (dist_hit <= r_out + 1.5f) {
+        base_pts = 1;
+      }
+
+      if (base_pts > 0) {
+        int earned = base_pts * streak_mult;
+        arch_score += earned;
+        round_pts += earned;
+
+        // Pin arrow into the target board so it sways with the target!
+        if (pinned_count < 10) {
+          pinned[pinned_count++] = {hit_dx, hit_dy, true};
+        }
+
+        if (bullseye) {
+          arrows_left = std::min(9, arrows_left + 1);
+          snprintf(hit_feedback, sizeof(hit_feedback), "BULLSEYE! +%d (+1 ARR)", earned);
+          feedback_col = col_gold;
+        } else if (streak_mult > 1) {
+          snprintf(hit_feedback, sizeof(hit_feedback), "HIT +%d (%dx!)", earned, streak_mult);
+          feedback_col = col_cyan;
+        } else {
+          snprintf(hit_feedback, sizeof(hit_feedback), "HIT +%d", earned);
+          feedback_col = col_gold;
+        }
+        streak_mult = std::min(3, streak_mult + 1);
+      } else {
+        streak_mult = 1;
+        snprintf(hit_feedback, sizeof(hit_feedback), "MISS!");
+        feedback_col = col_red;
+      }
+      feedback_timer = now_ms;
+
+      if (arch_score > high_score_archery) {
+        high_score_archery = arch_score;
+        is_new_high = true;
+      }
+
+      // Check Round Advancement or Match Over when quiver empties
+      if (arrows_left <= 0) {
+        if (round_pts >= round_goal) {
+          // Advance to Next Round!
+          arch_score += round_num * 25;
+          if (arch_score > high_score_archery) {
+            high_score_archery = arch_score;
+            is_new_high = true;
+          }
+          round_num++;
+          arrows_left = 6;
+          round_pts = 0;
+          clear_pinned();
+          round_banner_ms = now_ms;
+        } else {
+          round_over = true;
+        }
+      }
+    }
+  }
+
+  // ==========================================================================
+  // RENDERING PIPELINE
+  // ==========================================================================
+  // 1. 5-Ring Swaying Target
+  int tx_i = static_cast<int>(roundf(target_x));
+  int ty_i = static_cast<int>(roundf(target_y));
+  render_archery_target(it, tx_i, ty_i, target_r,
+                        col_white, col_black, col_cyan, col_red, col_gold, col_slate, col_dark_gray);
+
+  // 2. Pinned Arrows sticking out of the swaying target board
+  for (int i = 0; i < pinned_count; i++) {
+    if (!pinned[i].active) continue;
+    int px = tx_i + static_cast<int>(roundf(pinned[i].dx));
+    int py = ty_i + static_cast<int>(roundf(pinned[i].dy));
+    it.filled_circle(px, py, 2, col_black);
+    it.line(px, py, px - 5, py + 11, col_gold);
+    it.line(px - 5, py + 11, px - 8, py + 10, col_red);
+    it.line(px - 5, py + 11, px - 3, py + 13, col_red);
+  }
+
+  // 3. Player Aim Reticle
+  int rx_i = static_cast<int>(roundf(smooth_ax));
+  int ry_i = static_cast<int>(roundf(smooth_ay));
+  it.circle(rx_i, ry_i, 13, col_cyan);
+  it.line(rx_i - 17, ry_i, rx_i - 5, ry_i, col_cyan);
+  it.line(rx_i + 5, ry_i, rx_i + 17, ry_i, col_cyan);
+  it.line(rx_i, ry_i - 17, rx_i, ry_i - 5, col_cyan);
+  it.line(rx_i, ry_i + 5, rx_i, ry_i + 17, col_cyan);
+  it.draw_pixel_at(rx_i, ry_i, col_gold);
+
+  // 4. Recurve Bow at bottom of range (y = 356) angled toward crosshair
+  float aim_dx = smooth_ax - static_cast<float>(cx);
+  float aim_dy = smooth_ay - bow_y;
+  float aim_len = sqrtf(aim_dx * aim_dx + aim_dy * aim_dy);
+  float ux = (aim_len > 1.0f) ? (aim_dx / aim_len) : 0.0f;
+  float uy = (aim_len > 1.0f) ? (aim_dy / aim_len) : -1.0f;
+  // Perpendicular vector (px_v, py_v) for bow limbs
+  float px_v = -uy;
+  float py_v = ux;
+
+  int bow_cx = cx;
+  int bow_cy = static_cast<int>(bow_y);
+  int left_tip_x  = bow_cx - static_cast<int>(px_v * 38.0f + ux * 10.0f);
+  int left_tip_y  = bow_cy - static_cast<int>(py_v * 38.0f + uy * 10.0f);
+  int right_tip_x = bow_cx + static_cast<int>(px_v * 38.0f - ux * 10.0f);
+  int right_tip_y = bow_cy + static_cast<int>(py_v * 38.0f - uy * 10.0f);
+  int left_mid_x  = bow_cx - static_cast<int>(px_v * 20.0f - ux * 4.0f);
+  int left_mid_y  = bow_cy - static_cast<int>(py_v * 20.0f - uy * 4.0f);
+  int right_mid_x = bow_cx + static_cast<int>(px_v * 20.0f + ux * 4.0f);
+  int right_mid_y = bow_cy + static_cast<int>(py_v * 20.0f + uy * 4.0f);
+
+  // Bow limbs (gold + slate double-stroke arch)
+  it.line(bow_cx, bow_cy, left_mid_x, left_mid_y, col_gold);
+  it.line(left_mid_x, left_mid_y, left_tip_x, left_tip_y, col_gold);
+  it.line(bow_cx, bow_cy, right_mid_x, right_mid_y, col_gold);
+  it.line(right_mid_x, right_mid_y, right_tip_x, right_tip_y, col_gold);
+  it.line(bow_cx, bow_cy + 1, left_mid_x, left_mid_y + 1, col_slate);
+  it.line(bow_cx, bow_cy + 1, right_mid_x, right_mid_y + 1, col_slate);
+  it.filled_circle(bow_cx, bow_cy, 3, col_red); // Riser grip
+
+  if (!arrow_in_flight && arrows_left > 0 && !round_over) {
+    // Drawn bowstring + nocked arrow ready to fire
+    int nock_x = bow_cx - static_cast<int>(ux * 14.0f);
+    int nock_y = bow_cy - static_cast<int>(uy * 14.0f);
+    int tip_x  = bow_cx + static_cast<int>(ux * 18.0f);
+    int tip_y  = bow_cy + static_cast<int>(uy * 18.0f);
+    it.line(left_tip_x, left_tip_y, nock_x, nock_y, col_slate);
+    it.line(right_tip_x, right_tip_y, nock_x, nock_y, col_slate);
+    it.line(nock_x, nock_y, tip_x, tip_y, col_white);
+    it.filled_circle(tip_x, tip_y, 2, col_gold);
+  } else {
+    // Released taut bowstring
+    it.line(left_tip_x, left_tip_y, right_tip_x, right_tip_y, col_slate);
+  }
+
+  // 5. In-Flight Perspective Arrow (angled along velocity vector with fletching)
+  if (arrow_in_flight) {
+    float z = std::min(1.0f, flight_z);
+    float a_len = 32.0f - z * 16.0f;
+    int head_x = static_cast<int>(roundf(cur_arrow_x));
+    int head_y = static_cast<int>(roundf(cur_arrow_y));
+    int tail_x = static_cast<int>(roundf(cur_arrow_x - arrow_dx * a_len));
+    int tail_y = static_cast<int>(roundf(cur_arrow_y - arrow_dy * a_len));
+
+    it.line(tail_x, tail_y, head_x, head_y, col_gold);
+    it.line(tail_x + 1, tail_y, head_x + 1, head_y, col_white);
+    it.filled_circle(head_x, head_y, z > 0.65f ? 2 : 3, col_white);
+    // Crimson fletching feathers at tail
+    int f_px = static_cast<int>(-arrow_dy * 4.0f);
+    int f_py = static_cast<int>(arrow_dx * 4.0f);
+    it.line(tail_x, tail_y, tail_x + f_px - static_cast<int>(arrow_dx * 4.0f),
+            tail_y + f_py - static_cast<int>(arrow_dy * 4.0f), col_red);
+    it.line(tail_x, tail_y, tail_x - f_px - static_cast<int>(arrow_dx * 4.0f),
+            tail_y - f_py - static_cast<int>(arrow_dy * 4.0f), col_red);
+  }
+
+  // 6. Hit Feedback & Round Clear Banner
+  if (!round_over && round_banner_ms > 0U && (now_ms - round_banner_ms < 900U)) {
+    char rb[32];
+    snprintf(rb, sizeof(rb), "ROUND %d! GOAL %d", round_num, round_goal);
+    it.print(cx, 225, font_date, col_cyan, esphome::display::TextAlign::CENTER, rb);
+  } else if (!round_over && hit_feedback[0] != '\0' && (now_ms - feedback_timer < 1100U)) {
+    it.print(cx, 225, font_date, feedback_col, esphome::display::TextAlign::CENTER, hit_feedback);
+  }
+
+  // 7. Single Bottom Scorekeeper Line at y = 408 (Universal Clean Game Canvas Standard)
+  char wind_buf[20];
+  if (fabsf(wind_speed) < 1.0f) {
+    snprintf(wind_buf, sizeof(wind_buf), "CALM");
+  } else if (wind_speed > 0.0f) {
+    snprintf(wind_buf, sizeof(wind_buf), "%.0f mph >", wind_speed);
+  } else {
+    snprintf(wind_buf, sizeof(wind_buf), "< %.0f mph", -wind_speed);
+  }
+  char hud_buf[56];
+  snprintf(hud_buf, sizeof(hud_buf), "R%d  •  %d Arr  •  %s  •  %d", round_num, arrows_left, wind_buf, arch_score);
+  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, hud_buf);
+
+  // 8. Round Over Summary Modal
+  if (round_over) {
+    it.filled_circle(cx, cy, 115, col_bg);
+    it.circle(cx, cy, 115, is_new_high ? col_gold : theme_secondary);
+    it.circle(cx, cy, 113, is_new_high ? col_gold : theme_secondary);
+
+    if (is_new_high) {
+      it.print(cx, 156, font_date, col_gold, esphome::display::TextAlign::CENTER, "NEW HIGH SCORE!");
+    } else {
+      char r_end[32];
+      snprintf(r_end, sizeof(r_end), "ROUND %d REACHED", round_num);
+      it.print(cx, 156, font_date, col_cyan, esphome::display::TextAlign::CENTER, r_end);
+    }
+
+    char score_str[32];
+    snprintf(score_str, sizeof(score_str), "Score: %d", arch_score);
+    it.print(cx, 198, font_date, col_white, esphome::display::TextAlign::CENTER, score_str);
+
+    char best_str[32];
+    snprintf(best_str, sizeof(best_str), "Best: %d", high_score_archery);
     it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
 
     it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
