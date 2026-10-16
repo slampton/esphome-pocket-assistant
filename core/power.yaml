@@ -702,6 +702,7 @@ script:
           extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
           esp_wifi_set_ps(0); // 0: WIFI_PS_NONE
 
+          pocket_ui::last_screen_wake_ms() = millis();
           id(sleep_start_time) = 0;
           id(display_power_state) = 0; // ACTIVE
           if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING && !id(speaker_enable).state) {

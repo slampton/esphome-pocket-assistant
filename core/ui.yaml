@@ -1344,22 +1344,6 @@ interval:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGD("rtc_cal", "Periodic RTC slow clock calibration: %lu", (unsigned long)cal_val);
 
-  - interval: 100ms
-    then:
-      - lambda: |-
-          // Active Update Check animation refresh
-          if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            id(disp1).update();
-          }
-
-          // Music Overlay HUD Auto-Dismissal (5.0s timeout in Full Screen / Letterbox)
-          if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_hud_active)) {
-            if (millis() - id(music_hud_timer) >= 5000) {
-              id(music_hud_active) = false;
-              id(disp1).update();
-            }
-          }
-
   - interval: 50ms
     then:
       - lambda: |-
@@ -1474,6 +1458,22 @@ interval:
           // Periodic display refresh during active alarm or timer ringing
           if ((id(alarm_ringing) || id(timer_ringing)) && id(display_power_state) == 0) {
             if (!id(va_active) && id(va_status_text).empty()) {
+              id(disp1).update();
+            }
+          }
+
+          // Active Update Check state transition refresh (Page 4, Mode 5)
+          if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
+            uint32_t dt_upd = millis() - id(update_check_timer);
+            if ((id(update_check_state) == 1 && dt_upd > 1500U) || (id(update_check_state) == 2 && dt_upd > 3500U)) {
+              id(disp1).update();
+            }
+          }
+
+          // Music Overlay HUD Auto-Dismissal (5.0s timeout in Full Screen / Letterbox)
+          if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_hud_active)) {
+            if (millis() - id(music_hud_timer) >= 5000U) {
+              id(music_hud_active) = false;
               id(disp1).update();
             }
           }
@@ -4095,13 +4095,8 @@ touchscreen:
               }
               return;
             }
-            // Rate-limit sleep timer reset to avoid restarting script 60x/sec during drags
-            static uint32_t last_touch_activity = 0;
             uint32_t now_touch = millis();
-            if (now_touch - last_touch_activity > 1000) {
-              last_touch_activity = now_touch;
-              id(screen_sleep_timer).execute(); // Activity watchdog reset on valid touch
-            }
+
             // Standby Wake Handling: Guarded by tap_wake_mode (Always On, Docked Only, Disabled)
             if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
               auto tw_mode = id(tap_wake_mode).current_option();
@@ -4112,9 +4107,23 @@ touchscreen:
               return;
             }
 
+            // Global Post-Wake Touch Settling Guard (TOUCH_DEBOUNCE_WAKE = 180ms):
+            // Prevents lingering finger contact from a tap/motion/Crown wake from leaking into page buttons
+            if (now_touch - pocket_ui::last_screen_wake_ms() < TOUCH_DEBOUNCE_WAKE) {
+              return;
+            }
+
+            // Rate-limit sleep timer reset to avoid restarting script 30x/sec during active touches
+            static uint32_t last_touch_activity = 0;
+            if (now_touch - last_touch_activity > 1000U) {
+              last_touch_activity = now_touch;
+              id(screen_sleep_timer).execute();
+            }
+
             // Voice Assistant Modal Takeover Interception & Tap to Cancel
             // Completely blocks touch events from leaking through to underlying page (e.g. media play/pause)
             if (id(va_active) || !id(va_status_text).empty()) {
+              pocket_ui::last_screen_wake_ms() = now_touch;
               id(cancel_voice_assistant).execute();
               return;
             }
@@ -4122,30 +4131,33 @@ touchscreen:
             // Alarm / Timer Ringing Takeover Interception: Dismiss / Snooze
             if (id(alarm_ringing) || id(timer_ringing)) {
               if (id(alarm_ringing)) {
-                // SNOOZE button: y in [270..320], x in [110..356]
-                if (touch.y >= 270 && touch.y <= 320 && touch.x >= 110 && touch.x <= 356) {
+                // SNOOZE button: y in [268..324], x in [100..366]
+                if (touch.y >= 268 && touch.y <= 324 && touch.x >= 100 && touch.x <= 366) {
                   auto now = id(ha_time).now();
                   if (now.is_valid()) {
                     id(alarm_snooze_until) = now.timestamp + 300;
                   } else {
-                    id(alarm_snooze_until) = (millis() / 1000) + 300;
+                    id(alarm_snooze_until) = (now_touch / 1000) + 300;
                   }
                   id(alarm_ringing) = false;
+                  pocket_ui::last_screen_wake_ms() = now_touch;
                   id(stop_alarm_sound).execute();
                   id(disp1).update();
                   return;
                 }
-                // DISMISS button: y in [345..395], x in [120..346]
-                if (touch.y >= 345 && touch.y <= 395 && touch.x >= 120 && touch.x <= 346) {
+                // DISMISS button: y in [342..398], x in [110..356]
+                if (touch.y >= 342 && touch.y <= 398 && touch.x >= 110 && touch.x <= 356) {
                   id(alarm_ringing) = false;
+                  pocket_ui::last_screen_wake_ms() = now_touch;
                   id(stop_alarm_sound).execute();
                   id(disp1).update();
                   return;
                 }
               } else if (id(timer_ringing)) {
-                // DISMISS button: y in [305..355], x in [110..356]
-                if (touch.y >= 305 && touch.y <= 355 && touch.x >= 110 && touch.x <= 356) {
+                // DISMISS button: y in [302..358], x in [100..366]
+                if (touch.y >= 302 && touch.y <= 358 && touch.x >= 100 && touch.x <= 366) {
                   id(timer_ringing) = false;
+                  pocket_ui::last_screen_wake_ms() = now_touch;
                   id(stop_alarm_sound).execute();
                   id(disp1).update();
                   return;
@@ -4219,10 +4231,10 @@ touchscreen:
             }
 
             // Edge tap support for one-handed navigation in Browse Library, Speakers & Item Browser (Right-Flank Chevrons)
-            if (id(gui_page) == 2 && id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3 && touch.y >= 70 && touch.y <= 374) {
+            if (id(gui_page) == 2 && id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3 && touch.y >= 70 && touch.y <= 375) {
               if (touch.x < 75) {
                 return; // Left flank has no chevrons in vertical navigation
-              } else if (touch.x >= 375) {
+              } else if (is_right_chevron_zone(touch)) {
                 if (id(music_overlay_mode) == 2) {
                   if (id(menu_scroll_active)) return;
                   static uint32_t last_cat_scroll = 0;
@@ -4523,8 +4535,8 @@ touchscreen:
                   return;
                 }
 
-                // Pill 1: Speakers (y in [118..162], x in [130..336], center y = 140)
-                if (touch.y >= 118 && touch.y <= 162 && touch.x >= 130 && touch.x <= 336) {
+                // Pill 1: Speakers (y in [112..170], x in [100..366], center y = 140)
+                if (touch.y >= 112 && touch.y <= 170 && touch.x >= 100 && touch.x <= 366) {
                   static uint32_t last_hub_spk = 0;
                   if (now_hub - last_hub_spk > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_spk = now_hub;
@@ -4540,8 +4552,8 @@ touchscreen:
                   return;
                 }
 
-                // Pill 2: Library (y in [178..222], x in [130..336], center y = 200)
-                if (touch.y >= 178 && touch.y <= 222 && touch.x >= 130 && touch.x <= 336) {
+                // Pill 2: Library (y in [171..232], x in [100..366], center y = 200)
+                if (touch.y >= 171 && touch.y <= 232 && touch.x >= 100 && touch.x <= 366) {
                   static uint32_t last_hub_lib = 0;
                   if (now_hub - last_hub_lib > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_lib = now_hub;
@@ -4556,8 +4568,8 @@ touchscreen:
                   return;
                 }
 
-                // Pill 3: Settings (y in [268..312], x in [130..336], center y = 290)
-                if (touch.y >= 268 && touch.y <= 312 && touch.x >= 130 && touch.x <= 336) {
+                // Pill 3: Settings (y in [260..320], x in [100..366], center y = 290)
+                if (touch.y >= 260 && touch.y <= 320 && touch.x >= 100 && touch.x <= 366) {
                   static uint32_t last_hub_set = 0;
                   if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_set = now_hub;
@@ -4579,7 +4591,7 @@ touchscreen:
                 // Central Speaker Slots 1..5 Tap -> Opens Contextual Action Sheet (mode 4)
                 static uint32_t last_spk_slot_tap = 0;
                 uint32_t now_spk = millis();
-                int slot_idx = get_5slot_index(touch, 85, 370);
+                int slot_idx = get_5slot_index(touch, 88, 371);
                 if (slot_idx >= 0) {
                   if (now_spk - last_spk_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_spk_slot_tap = now_spk;
@@ -4678,7 +4690,7 @@ touchscreen:
                 // Central Button Hit-Testing (x: 85..370 across Slots 1-5, narrowed pills)
                 static uint32_t last_cat_slot_tap = 0;
                 uint32_t now_cat = millis();
-                int slot_idx = get_5slot_index(touch, 85, 370);
+                int slot_idx = get_5slot_index(touch, 88, 371);
                 if (slot_idx >= 0) {
                   if (now_cat - last_cat_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_cat_slot_tap = now_cat;
@@ -4720,7 +4732,7 @@ touchscreen:
                 uint32_t now_item = millis();
 
                 // Central 5 Slots Hit-Testing via Universal get_5slot_index (x: 45..370)
-                int slot_idx = get_5slot_index(touch, 45, 370);
+                int slot_idx = get_5slot_index(touch, 55, 371);
                 if (slot_idx >= 0) {
                   if (now_item - last_item_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_item_slot_tap = now_item;
@@ -4899,7 +4911,7 @@ touchscreen:
                 }
 
                 // 1. Right-Flank Navigation Chevrons: Edge tap for Carousel (x >= 375, y: 70..365)
-                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 365) {
+                if (is_right_chevron_zone(touch)) {
                   static uint32_t last_game_scroll = 0;
                   uint32_t now_gs = millis();
                   if (now_gs - last_game_scroll > TOUCH_DEBOUNCE_SCROLL) {
@@ -4958,7 +4970,7 @@ touchscreen:
                 if (id(menu_scroll_active)) return;
 
                 // Right Flank Navigation (▲ Up on Page 2, ▼ Down on Page 1)
-                if (touch.x >= 370 && touch.y >= 70 && touch.y <= 365) {
+                if (is_right_chevron_zone(touch)) {
                   static uint32_t last_dash_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_dash_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
@@ -4984,7 +4996,7 @@ touchscreen:
                   }
 
                   // Central 4 Category Slots (y = 132, 190, 248, 306)
-                  if (touch.x >= 130 && touch.x <= 336) {
+                  if (touch.x >= 100 && touch.x <= 366) {
                     int slot = -1;
                     if (touch.y >= 105 && touch.y < 161) slot = 0;
                     else if (touch.y >= 161 && touch.y < 219) slot = 1;
@@ -5024,7 +5036,7 @@ touchscreen:
               } else if (id(system_menu_mode) == 1) {
                 // Mode 1: Sleep & Wake Submenu (9 Items across 2 Pages, slot_idx + 4 on Page 2)
                 if (id(menu_scroll_active)) return;
-                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
+                if (is_right_chevron_zone(touch)) {
                   static uint32_t last_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
@@ -5039,7 +5051,7 @@ touchscreen:
                 }
                 if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
-                int slot_idx = get_5slot_index(touch, 95, 371);
+                int slot_idx = get_5slot_index(touch, 88, 371);
                 if (slot_idx >= 0) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
@@ -5093,7 +5105,7 @@ touchscreen:
               } else if (id(system_menu_mode) == 2) {
                 // Mode 2: Display Submenu (9 Items across 2 Pages, slot_idx + 4 on Page 2)
                 if (id(menu_scroll_active)) return;
-                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
+                if (is_right_chevron_zone(touch)) {
                   static uint32_t last_disp_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_disp_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
@@ -5108,7 +5120,7 @@ touchscreen:
                 }
                 if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
-                int slot_idx = get_5slot_index(touch, 95, 371);
+                int slot_idx = get_5slot_index(touch, 88, 371);
                 if (slot_idx >= 0) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
@@ -5195,7 +5207,7 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 3) {
                 // Mode 3: Actions Submenu (5 Items on 1 Page)
-                int slot = get_5slot_index(touch, 90, 376);
+                int slot = get_5slot_index(touch, 88, 371);
                 if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
@@ -5286,7 +5298,7 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 7) {
                 // Mode 7: Sound Submenu (3 Items on 1 Page: Speaker Vol, Alert Vol, Vol Step)
-                int slot_idx = get_5slot_index(touch, 95, 371);
+                int slot_idx = get_5slot_index(touch, 88, 371);
                 if (slot_idx >= 0 && slot_idx <= 2) {
                   if (slot_idx == 0) {
                     static uint32_t last_audio_vol_tap = 0;
@@ -5342,7 +5354,7 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 9) {
                 // Mode 9: Music Settings Submenu (5 Items on 1 Page: Art, Overlay, Album Sort, Artist Discog, Podcast Sort)
-                int slot_idx = get_5slot_index(touch, 95, 371);
+                int slot_idx = get_5slot_index(touch, 88, 371);
                 if (slot_idx >= 0 && slot_idx <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot_idx == 0) {
@@ -5387,7 +5399,7 @@ touchscreen:
               } else if (id(system_menu_mode) == 10) {
                 // Mode 10: App Deck Submenu (8 Items across 2 Pages, Fixed slot_idx + 3 on Page 2)
                 if (id(menu_scroll_active)) return;
-                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
+                if (is_right_chevron_zone(touch)) {
                   static uint32_t last_deck_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_deck_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
@@ -5402,7 +5414,7 @@ touchscreen:
                 }
                 if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
-                int slot_idx = get_5slot_index(touch, 95, 371);
+                int slot_idx = get_5slot_index(touch, 88, 371);
                 if (slot_idx >= 0) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
@@ -5447,7 +5459,7 @@ touchscreen:
                 }
               } else if (id(system_menu_mode) == 11) {
                 // Mode 11: Voice Assistant Submenu (2 Slots)
-                int slot = get_5slot_index(touch, 90, 376);
+                int slot = get_5slot_index(touch, 88, 371);
                 if (slot >= 0 && slot <= 1 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
@@ -5477,7 +5489,7 @@ touchscreen:
               uint32_t now_w_touch = millis();
 
               // Zone 1: Right-Flank Navigation Chevrons (x >= 370, y: 70..365)
-              if (touch.x >= 370 && touch.y >= 70 && touch.y <= 365) {
+              if (is_right_chevron_zone(touch)) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_SCROLL) {
                   last_weather_touch = now_w_touch;
                   int dir = (touch.y < 220) ? -1 : 1;
@@ -5616,47 +5628,8 @@ touchscreen:
                 return;
               }
 
-              // 1. HOME: Top-Left Quadrant (x <= 115, y: 90..190)
-              if (touch.x <= 115 && touch.y >= 90 && touch.y <= 190) {
-                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(6, act_slot);
-                  id(disp1).update();
-                }
-                return;
-              }
-
-              // 2. VOL UP: Top-Right Quadrant (x >= 351, y: 90..190)
-              if (touch.x >= 351 && touch.y >= 90 && touch.y <= 190) {
-                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
-                  last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(7, act_slot);
-                  id(disp1).update();
-                }
-                return;
-              }
-
-              // 3. BACK: Bottom-Left Quadrant (x <= 115, y: 276..376)
-              if (touch.x <= 115 && touch.y >= 276 && touch.y <= 376) {
-                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(5, act_slot);
-                  id(disp1).update();
-                }
-                return;
-              }
-
-              // 4. VOL DOWN: Bottom-Right Quadrant (x >= 351, y: 276..376)
-              if (touch.x >= 351 && touch.y >= 276 && touch.y <= 376) {
-                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
-                  last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(8, act_slot);
-                  id(disp1).update();
-                }
-                return;
-              }
-
-              // 5. CONCENTRIC D-PAD (Center at cx=233, cy=233)
+              // 1. CONCENTRIC D-PAD (Center at cx=233, cy=233, visual r_out=132, radial boundary r=146 -> r^2=21316)
+              // Evaluated before corner buttons so LEFT/RIGHT D-Pad sectors (x=101..115 and 351..365) never collide with corners!
               int dx = touch.x - 233;
               int dy = touch.y - 233;
               int dist_sq = dx * dx + dy * dy;
@@ -5671,12 +5644,53 @@ touchscreen:
                 return;
               }
 
-              // Directional Ring (52 px < r <= 148 px, 2704 < r^2 <= 21904)
-              if (dist_sq > 2704 && dist_sq <= 21904) {
+              // Directional Ring (52 px < r <= 146 px, 2704 < r^2 <= 21316)
+              if (dist_sq > 2704 && dist_sq <= 21316) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   int k_dir = (abs(dy) >= abs(dx)) ? ((dy < 0) ? 0 : 1) : ((dx < 0) ? 2 : 3);
                   id(remote_send_key).execute(k_dir, act_slot);
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // 2. FOUR CORNER FLANK BUTTONS (Outside r > 146 px, centered at (71,140), (395,140), (71,326), (395,326))
+              // HOME: Top-Left Quadrant (x <= 135, y: 80..195)
+              if (touch.x <= 135 && touch.y >= 80 && touch.y <= 195) {
+                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_remote_btn_tap = now_rem;
+                  id(remote_send_key).execute(6, act_slot);
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // VOL UP: Top-Right Quadrant (x >= 331, y: 80..195)
+              if (touch.x >= 331 && touch.y >= 80 && touch.y <= 195) {
+                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
+                  last_remote_btn_tap = now_rem;
+                  id(remote_send_key).execute(7, act_slot);
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // BACK: Bottom-Left Quadrant (x <= 135, y: 271..386)
+              if (touch.x <= 135 && touch.y >= 271 && touch.y <= 386) {
+                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_remote_btn_tap = now_rem;
+                  id(remote_send_key).execute(5, act_slot);
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // VOL DOWN: Bottom-Right Quadrant (x >= 331, y: 271..386)
+              if (touch.x >= 331 && touch.y >= 271 && touch.y <= 386) {
+                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
+                  last_remote_btn_tap = now_rem;
+                  id(remote_send_key).execute(8, act_slot);
                   id(disp1).update();
                 }
                 return;
@@ -5688,10 +5702,12 @@ touchscreen:
 
               if (id(stuff_subpage) == 0) {
                 // ----------------------------------------------------
-                // SUBPAGE 0: TOOLS LAUNCHER (2-Page 6+2 Icon Grid Hit Testing)
+                // SUBPAGE 0: TOOLS LAUNCHER (2-Page 4+4 Icon Grid Hit Testing)
                 // ----------------------------------------------------
-                // Right Flank Navigation (x >= 370, y in [70..375]) with 2-Step Vertical Scroll Transition
-                if (touch.x >= 370 && touch.y >= 70 && touch.y <= 375) {
+                if (id(menu_scroll_active)) return;
+
+                // Right Flank Navigation (x >= 372, y in [70..375]) with 2-Step Vertical Scroll Transition
+                if (is_right_chevron_zone(touch)) {
                   static uint32_t last_stuff_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_stuff_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
@@ -5704,6 +5720,7 @@ touchscreen:
                   }
                   return;
                 }
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
                 int target_subpage = 0;
                 if (id(stuff_menu_page) == 0) {
@@ -5785,27 +5802,27 @@ touchscreen:
                   return;
                 }
 
-                // Quick Stepper Row: y in [295..345]
-                if (touch.y >= 295 && touch.y <= 345) {
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                // Quick Stepper Row: y in [295..348] (Rapid 100ms debounce + contiguous horizontal partitions)
+                if (touch.y >= 295 && touch.y <= 348) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_stuff_tap = now_stuff;
                     if (!id(timer_running) && !id(timer_paused)) {
-                      if (touch.x >= 45 && touch.x <= 130) {
+                      if (touch.x >= 40 && touch.x <= 132) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) - 300, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 135 && touch.x <= 215) {
+                      } else if (touch.x >= 133 && touch.x <= 225) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) - 60, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 250 && touch.x <= 330) {
+                      } else if (touch.x >= 241 && touch.x <= 333) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) + 60, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 335 && touch.x <= 420) {
+                      } else if (touch.x >= 334 && touch.x <= 426) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) + 300, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
@@ -5914,23 +5931,23 @@ touchscreen:
                   int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
                   int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-                  // Hour / Minute Steppers: y in [210..260]
-                  if (touch.y >= 210 && touch.y <= 260) {
-                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  // Hour / Minute Steppers: y in [205..265] (Rapid 100ms debounce)
+                  if (touch.y >= 205 && touch.y <= 265) {
+                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_stuff_tap = now_stuff;
-                      if (touch.x >= 90 && touch.x <= 135) {
+                      if (touch.x >= 80 && touch.x <= 145) {
                         cur_h = (cur_h - 1 + 24) % 24;
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 155 && touch.x <= 200) {
+                      } else if (touch.x >= 146 && touch.x <= 212) {
                         cur_h = (cur_h + 1) % 24;
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 265 && touch.x <= 310) {
+                      } else if (touch.x >= 254 && touch.x <= 318) {
                         cur_m = (cur_m - 5 + 60) % 60;
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 330 && touch.x <= 375) {
+                      } else if (touch.x >= 319 && touch.x <= 386) {
                         cur_m = (cur_m + 5) % 60;
                         id(disp1).update();
                         return;
@@ -5991,7 +6008,7 @@ touchscreen:
                     }
                     return;
                   }
-                } else if (touch.y < 280) {
+                } else if (touch.y >= 45 && touch.y < 280 && touch.x >= 65 && touch.x <= 401) {
                   // Upper Dial: START / STOP Toggle
                   if (now_chrono_tap - last_dial_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_dial_tap = now_chrono_tap;
@@ -6062,12 +6079,12 @@ touchscreen:
                   }
                   return;
                 }
-                // Keypad grid hit-testing (Seamless Partitioning & Pixel-Exact Alignment with Render)
+                // Keypad grid hit-testing (Seamless Partitioning & Rapid 100ms Debounce for Fast Entry)
                 if (touch.x >= 78 && touch.x <= 388 && touch.y >= 112 && touch.y <= 384) {
                   int c = (touch.x < 157) ? 0 : ((touch.x < 233) ? 1 : ((touch.x < 309) ? 2 : 3));
                   int r = (touch.y < 165) ? 0 : ((touch.y < 219) ? 1 : ((touch.y < 273) ? 2 : ((touch.y < 327) ? 3 : 4)));
 
-                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_stuff_tap = now_stuff;
 
                     auto compute_op = [](double a, double b, int op) -> double {
@@ -6230,8 +6247,6 @@ touchscreen:
                 }
               }
             }
-
-        - script.execute: screen_sleep_timer
 
     on_release:
       then:

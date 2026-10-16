@@ -1066,9 +1066,19 @@ static constexpr uint32_t TOUCH_DEBOUNCE_DISMISS = 200; // ms: Overlay/HUD dismi
 static constexpr uint32_t TOUCH_DEBOUNCE_SCROLL  = 250; // ms: Page transitions & chevrons
 static constexpr uint32_t TOUCH_GUARD_DISMISS    = 250; // ms: Minimum post-wake delay
 
+inline uint32_t &last_screen_wake_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
 template<typename TouchT>
 inline bool is_back_button(const TouchT &t) {
   return (t.y >= 385 && t.y <= 465 && t.x >= 50 && t.x <= 416);
+}
+
+template<typename TouchT>
+inline bool is_right_chevron_zone(const TouchT &t) {
+  return (t.x >= 372 && t.y >= 70 && t.y <= 375);
 }
 
 template<typename TouchT>
