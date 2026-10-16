@@ -2956,16 +2956,10 @@ script:
           std::string ent;
           std::string dev_name;
           if (target_slot == -1) {
-            // Master Power Target (Always controls tv_remote_power_entity, e.g. Shield TV)
-            ent = "${tv_remote_power_entity}";
-            if (!pocket_ui::is_configured_remote_slot(ent)) ent = ents[0];
-            dev_name = pocket_ui::format_remote_entity_fallback(ent);
-            for (int i = 0; i < 4; i++) {
-              if (ents[i] == ent && !names[i].empty()) {
-                dev_name = names[i];
-                break;
-              }
-            }
+            // Master Power Target: Always controls the 1st configured device (Slot 0 / tv_remote_entity)
+            int master_slot = pocket_ui::resolve_active_remote_slot(0, ents);
+            ent = ents[master_slot];
+            dev_name = names[master_slot].empty() ? pocket_ui::format_remote_entity_fallback(ent) : names[master_slot];
             id(remote_action_feedback) = "Power: " + dev_name;
           } else {
             int s = pocket_ui::resolve_active_remote_slot(target_slot, ents);
@@ -6502,8 +6496,9 @@ touchscreen:
                   int y_mid = 162 + row * 58;
                   if (touch.y >= y_mid - 24 && touch.y <= y_mid + 24) {
                     int s_idx = valid_slots[row];
-                    // 2A. Device Selection Pill (x: 100..312) -> Select device & return to D-Pad
-                    if (touch.x >= 100 && touch.x <= 312) {
+                    int pill_x_max = (row == 0) ? 366 : 312;
+                    // 2A. Device Selection Pill (Full width 100..366 on Primary row 0; 100..312 on Secondary rows)
+                    if (touch.x >= 100 && touch.x <= pill_x_max) {
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(active_remote_slot) = s_idx;
@@ -6519,8 +6514,8 @@ touchscreen:
                       }
                       return;
                     }
-                    // 2B. Per-Device Override Power Button (x: 314..368) -> Toggle power on this device
-                    if (touch.x >= 314 && touch.x <= 368) {
+                    // 2B. Per-Device Override Power Button on Secondary Devices (row > 0, x: 314..368)
+                    if (row > 0 && touch.x >= 314 && touch.x <= 368) {
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(remote_send_key).execute(9, s_idx);

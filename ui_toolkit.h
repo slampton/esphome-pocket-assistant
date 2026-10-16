@@ -7677,25 +7677,31 @@ inline void render_tv_remote_page(
       std::string d_name = names[s_idx];
       if (d_name.empty()) d_name = format_remote_entity_fallback(ents[s_idx]);
       std::string pill_lbl = is_sel ? ("• " + d_name) : d_name;
-      std::string fit_lbl = fit_text_to_width_font(pill_lbl, 174, font_small);
 
       esphome::Color border_c = is_sel ? theme_primary : theme_secondary;
       esphome::Color text_c = is_sel ? theme_primary : col_white;
-      render_pill_button(it, 110, 308, y_mid, 18, border_c, col_dark_gray, fit_lbl.c_str(), text_c, font_small);
 
-      // Per-Device Override Power Button (cx = 338, y = y_mid, r = 18)
-      const int p_cx = 338;
-      it.filled_circle(p_cx, y_mid, 18, col_dark_gray);
-      it.circle(p_cx, y_mid, 18, col_red);
-      // Vector Power Symbol (broken circle arc r = 7 + top vertical bar)
-      for (int i = 6; i < 54; i += 2) {
-        int x1 = p_cx + static_cast<int>(7.0f * DIAL_SIN[i]);
-        int y1 = y_mid - static_cast<int>(7.0f * DIAL_COS[i]);
-        int x2 = p_cx + static_cast<int>(7.0f * DIAL_SIN[i + 2]);
-        int y2 = y_mid - static_cast<int>(7.0f * DIAL_COS[i + 2]);
-        it.line(x1, y1, x2, y2, col_white);
+      if (row == 0) {
+        // Primary Device (Slot 1): Full-width pill (since top Toggle Power button controls Slot 1)
+        std::string fit_lbl = fit_text_to_width_font(pill_lbl, 222, font_small);
+        render_pill_button(it, 110, 356, y_mid, 18, border_c, col_dark_gray, fit_lbl.c_str(), text_c, font_small);
+      } else {
+        // Secondary Devices (Slots 2..4): Device Pill (110..308) + Individual Override Power Button (cx = 338)
+        std::string fit_lbl = fit_text_to_width_font(pill_lbl, 174, font_small);
+        render_pill_button(it, 110, 308, y_mid, 18, border_c, col_dark_gray, fit_lbl.c_str(), text_c, font_small);
+
+        const int p_cx = 338;
+        it.filled_circle(p_cx, y_mid, 18, col_dark_gray);
+        it.circle(p_cx, y_mid, 18, col_red);
+        for (int i = 6; i < 54; i += 2) {
+          int x1 = p_cx + static_cast<int>(7.0f * DIAL_SIN[i]);
+          int y1 = y_mid - static_cast<int>(7.0f * DIAL_COS[i]);
+          int x2 = p_cx + static_cast<int>(7.0f * DIAL_SIN[i + 2]);
+          int y2 = y_mid - static_cast<int>(7.0f * DIAL_COS[i + 2]);
+          it.line(x1, y1, x2, y2, col_white);
+        }
+        it.filled_rectangle(p_cx - 1, y_mid - 9, 3, 8, col_red);
       }
-      it.filled_rectangle(p_cx - 1, y_mid - 9, 3, 8, col_red);
     }
 
     // Standardized Centered < BACK Button at y = 410
