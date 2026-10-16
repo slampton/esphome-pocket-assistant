@@ -4534,7 +4534,7 @@ display:
             rem_ents, rem_names, id(remote_action_feedback), id(remote_feedback_timer),
             id(font_date), id(font_small),
             id(theme_primary), id(theme_secondary),
-            id(col_white), id(col_gray), id(col_dark_gray), id(col_red));
+            id(col_white), id(col_slate), id(col_gray), id(col_dark_gray), id(col_red));
       } else if (id(gui_page) == 8) {
         // ==============================================================================
         // PAGE 8: TOOLS SUITE (LAUNCHER, TIMER, ALARMS, STOPWATCH, DICE, FLASHLIGHT, CALC, LEVEL, COIN)
@@ -6435,9 +6435,8 @@ touchscreen:
                   int y_mid = 162 + row * 58;
                   if (touch.y >= y_mid - 24 && touch.y <= y_mid + 24) {
                     int s_idx = valid_slots[row];
-                    int pill_x_max = (row == 0) ? 366 : 312;
-                    // 2A. Device Selection Pill (Full width 100..366 on Primary row 0; 100..312 on Secondary rows)
-                    if (touch.x >= 100 && touch.x <= pill_x_max) {
+                    // 2A. Device Selection Pill (Uniform width: outer edges 92..324 across all rows)
+                    if (touch.x >= 90 && touch.x <= 328) {
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(active_remote_slot) = s_idx;
@@ -6453,8 +6452,8 @@ touchscreen:
                       }
                       return;
                     }
-                    // 2B. Per-Device Override Power Button on Secondary Devices (row > 0, x: 314..368)
-                    if (row > 0 && touch.x >= 314 && touch.x <= 368) {
+                    // 2B. Per-Device Override Power Button on Secondary Devices (row > 0, centered at 356, outer edges 338..374)
+                    if (row > 0 && touch.x >= 332 && touch.x <= 384) {
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(remote_send_key).execute(9, s_idx);

@@ -7737,8 +7737,9 @@ inline void render_tv_remote_page(
     const std::string &remote_action_feedback, uint32_t remote_feedback_timer,
     FontT *font_date, FontT *font_small,
     const esphome::Color &theme_primary, const esphome::Color &theme_secondary,
-    const esphome::Color &col_white, const esphome::Color &col_gray,
-    const esphome::Color &col_dark_gray, const esphome::Color &col_red) {
+    const esphome::Color &col_white, const esphome::Color &col_slate,
+    const esphome::Color &col_gray, const esphome::Color &col_dark_gray,
+    const esphome::Color &col_red) {
   int slot = resolve_active_remote_slot(active_remote_slot, ents);
   active_remote_slot = slot;
 
@@ -7776,21 +7777,26 @@ inline void render_tv_remote_page(
 
       std::string d_name = names[s_idx];
       if (d_name.empty()) d_name = format_remote_entity_fallback(ents[s_idx]);
-      std::string pill_lbl = is_sel ? ("• " + d_name) : d_name;
 
       esphome::Color border_c = is_sel ? theme_primary : theme_secondary;
       esphome::Color text_c = is_sel ? theme_primary : col_white;
 
-      if (row == 0) {
-        // Primary Device (Slot 1): Full-width pill (since top Toggle Power button controls Slot 1)
-        std::string fit_lbl = fit_text_to_width_font(pill_lbl, 222, font_small);
-        render_pill_button(it, 110, 356, y_mid, 18, border_c, col_dark_gray, fit_lbl.c_str(), text_c, font_small);
+      // Uniform pill width across all 4 slots (x1 = 110, x2 = 306 -> outer edges 92..324)
+      // Styled identically to Speakers menu: left indicator dot at x = 114, left-aligned label at x = 130
+      render_pill_button(it, 110, 306, y_mid, 18, border_c, col_dark_gray, "", text_c, font_small);
+      if (is_sel) {
+        it.filled_circle(114, y_mid, 6, theme_primary);
       } else {
-        // Secondary Devices (Slots 2..4): Device Pill (110..308) + Individual Override Power Button (cx = 338)
-        std::string fit_lbl = fit_text_to_width_font(pill_lbl, 174, font_small);
-        render_pill_button(it, 110, 308, y_mid, 18, border_c, col_dark_gray, fit_lbl.c_str(), text_c, font_small);
+        it.circle(114, y_mid, 5, col_slate);
+      }
+      std::string fit_lbl = fit_text_to_width_font(d_name, 182, font_small);
+      it.print(130, y_mid, font_small, text_c, esphome::display::TextAlign::CENTER_LEFT, fit_lbl.c_str());
 
-        const int p_cx = 338;
+      if (row > 0) {
+        // Secondary Devices (Slots 2..4): Individual Override Power Button right-aligned with Toggle Power
+        // Top Toggle Power has x2 = 356 (right outer edge = 374); p_cx = 356 aligns right outer edge at 374
+        // and leaves a clean 14px gap (324..338) between the device pill and the power button.
+        const int p_cx = 356;
         it.filled_circle(p_cx, y_mid, 18, col_dark_gray);
         it.circle(p_cx, y_mid, 18, col_red);
         for (int i = 6; i < 54; i += 2) {
@@ -7800,7 +7806,7 @@ inline void render_tv_remote_page(
           int y2 = y_mid - static_cast<int>(7.0f * DIAL_COS[i + 2]);
           it.line(x1, y1, x2, y2, col_white);
         }
-        it.filled_rectangle(p_cx - 1, y_mid - 9, 3, 8, col_red);
+        it.filled_rectangle(p_cx - 1, y_mid - 9, 3, 8, col_white);
       }
     }
 
