@@ -20,6 +20,7 @@ namespace pocket_ui {
 // 1. Mathematical, Trigonometric & Circular Clipping Lookup Tables (.rodata Flash)
 // ------------------------------------------------------------------------------
 static constexpr float PI_F = 3.14159265358979323846f;
+static constexpr float HALF_PI_F = 1.57079632679489661923f;
 
 // Universal Precomputed 60-Tick Sine/Cosine LUTs (Clock, Stopwatch, Dial Gauges)
 static constexpr float DIAL_SIN[60] = {
