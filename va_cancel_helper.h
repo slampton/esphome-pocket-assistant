@@ -15,7 +15,8 @@
 //   3. prewarm_va_tts_mixer(va, mixer_in)
 //   4. abort_voice_assistant(va)
 //   5. ensure_wake_words_restored(va) & poll_and_persist_wake_words(va)
-//   6. Linker --wrap hooks for max_active_wake_words = 2 & API client binding
+//   6. Linker --wrap hooks for max_active_wake_words = 2 & seamless outgoing_connection
+//      API client handoff
 // ==============================================================================
 
 template<typename Tag, typename Tag::type M>
@@ -284,10 +285,33 @@ inline void poll_and_persist_wake_words(VoiceAssistant *va) {
 
 // ==============================================================================
 // Linker --wrap Hooks for Dual Wake Word Support (max_active_wake_words = 2)
+// & Seamless Outgoing/Incoming API Client Handoff
 // Implemented directly without calling __real_* so linking succeeds under any
 // toolchain configuration.
 // ==============================================================================
 extern "C" {
+
+__attribute__((used))
+void __wrap__ZN7esphome15voice_assistant14VoiceAssistant19client_subscriptionEPNS_3api13APIConnectionEb(
+    esphome::voice_assistant::VoiceAssistant *self,
+    esphome::api::APIConnection *client,
+    bool subscribe) {
+  if (self == nullptr) return;
+  if (!subscribe) {
+    if (self->get_api_connection() == client) {
+      self->*get(VA_ApiClient_Tag()) = nullptr;
+      self->get_client_disconnected_trigger()->trigger();
+    }
+    return;
+  }
+  // Always adopt the latest subscribing Home Assistant connection (so an outgoing_connection
+  // dial-out and an inbound reconnect never block each other).
+  const bool was_connected = (self->get_api_connection() != nullptr);
+  self->*get(VA_ApiClient_Tag()) = client;
+  if (!was_connected) {
+    self->get_client_connected_trigger()->trigger();
+  }
+}
 
 __attribute__((used))
 bool __wrap__ZNK7esphome3api13APIConnection37check_voice_assistant_api_connection_Ev(

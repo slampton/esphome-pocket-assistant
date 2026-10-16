@@ -67,6 +67,7 @@ esphome:
     - ui_toolkit.h
   platformio_options:
     build_flags:
+      - -Wl,--wrap=_ZN7esphome15voice_assistant14VoiceAssistant19client_subscriptionEPNS_3api13APIConnectionEb
       - -Wl,--wrap=_ZNK7esphome3api13APIConnection37check_voice_assistant_api_connection_Ev
       - -Wl,--wrap=_ZN7esphome15voice_assistant14VoiceAssistant17get_configurationEv
       - -Wl,--wrap=_ZN7esphome15voice_assistant14VoiceAssistant20on_set_configurationERKSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS7_EE
@@ -166,8 +167,11 @@ logger:
   level: INFO
 
 api:
-  # Native API Noise Encryption
+  # Native API Noise Encryption & Outgoing Connection (ESPHome 2026.10+)
+  # Enables client-initiated dial-out to Home Assistant upon waking from sleep or roaming APs,
+  # eliminating reconnection timeouts and mDNS discovery latency.
   encryption:
+  outgoing_connection:
   actions:
     - action: set_browse_slots
       variables:
