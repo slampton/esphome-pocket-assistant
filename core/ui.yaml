@@ -58,10 +58,6 @@ globals:
     type: int
     restore_value: no
     initial_value: '1' # 1 to 2
-  - id: audio_menu_page
-    type: int
-    restore_value: no
-    initial_value: '1' # 1 to 2
   - id: deck_menu_page
     type: int
     restore_value: no
@@ -2917,8 +2913,7 @@ script:
             id(sleep_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 4 && id(system_menu_mode) == 2) {
             id(display_menu_page) = id(menu_scroll_target_page);
-          } else if (id(gui_page) == 4 && id(system_menu_mode) == 7) {
-            id(audio_menu_page) = id(menu_scroll_target_page);
+
           } else if (id(gui_page) == 4 && id(system_menu_mode) == 10) {
             id(deck_menu_page) = id(menu_scroll_target_page);
           } else if (id(gui_page) == 4 && id(system_menu_mode) == 0) {
@@ -3059,23 +3054,8 @@ display:
       const Color C_ACCENT_CYAN = id(col_accent_cyan);
 
       // Thin Display Context Bindings -> Delegating to ui_toolkit.h
-      auto draw_pill_button = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, Color text_c, bool /*has_bullet*/) {
-        render_pill_button(it, x1, x2, y_mid, r, border_c, bg_c, label, text_c, id(font_small));
-      };
       auto draw_hero_button = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, Color text_c) {
         render_pill_button(it, x1, x2, y_mid, r, border_c, bg_c, label, text_c, id(font_btn_bold));
-      };
-      auto draw_menu_card_y = [&](int y_mid, const char* label = "", Color border_c = id(theme_secondary), Color text_c = id(col_white), Color bg_c = id(col_dark_gray)) {
-        render_pill_button(it, 110, 356, y_mid, 18, border_c, bg_c, label, text_c, id(font_small));
-      };
-      auto draw_menu_slot_card = [&](int slot_idx, const char* label, Color border_c = id(theme_secondary), Color text_c = id(col_white), Color bg_c = id(col_dark_gray)) {
-        render_pill_button(it, 110, 356, 104 + slot_idx * 58, 18, border_c, bg_c, label, text_c, id(font_small));
-      };
-      auto draw_back_button = [&]() {
-        render_pill_button(it, 195, 271, 410, 14, C_PRIMARY, C_DARK_GRAY, "< BACK", C_PRIMARY, id(font_small));
-      };
-      auto draw_scroll_chevron = [&](int x, int y, bool is_up, Color c, bool shadow = false) {
-        render_scroll_chevron(it, x, y, is_up, c, id(col_black), shadow);
       };
       auto draw_right_flank_chevrons = [&](bool show_up, bool show_down, Color c = id(theme_secondary), bool with_bg = true) {
         if (!show_up && !show_down) return;
@@ -3086,31 +3066,8 @@ display:
       auto draw_deck_chevrons = [&](Color chevron_col, bool with_shadow = true) {
         render_deck_chevrons(it, chevron_col, id(col_black), with_shadow);
       };
-      auto draw_pagination_dots = [&](int cur_page, int total_pages = 2, int y_pos = 440) {
-        if (total_pages <= 1) return;
-        it.filled_circle(226, y_pos, (cur_page == 1) ? 3 : 2, (cur_page == 1) ? id(theme_primary) : id(col_slate));
-        it.filled_circle(240, y_pos, (cur_page == 2) ? 3 : 2, (cur_page == 2) ? id(theme_primary) : id(col_slate));
-      };
-      auto draw_drilldown_icon = [&](int x_pos, int y_mid, Color c = id(theme_secondary)) {
-        for (int dy : {-4, 0, 4}) it.filled_rectangle(x_pos, y_mid + dy, 13, 2, c);
-      };
-      auto draw_confirmation_buttons = [&](int y_mid, const char* cancel_label, const char* confirm_label, Color confirm_color) {
-        render_pill_button(it, 125, 195, y_mid, 20, id(col_slate), id(col_dark_gray), cancel_label, id(col_white), id(font_small));
-        render_pill_button(it, 271, 341, y_mid, 20, confirm_color, id(col_dark_gray), confirm_label, id(col_white), id(font_small));
-      };
       auto fit_text_to_width = [&](const std::string &str, int max_w) -> std::string {
         return fit_text_to_width_font(str, max_w, id(font_small));
-      };
-      auto draw_menu_header = [&](int y_pos, const std::string &title) {
-        if (title.empty()) return;
-        int w = 0, x_off = 0, base = 0, text_h = 0;
-        id(font_date)->measure(title.c_str(), &w, &x_off, &base, &text_h);
-        if (w <= 220) {
-          it.print(cx, y_pos, id(font_date), id(theme_primary), TextAlign::CENTER, title.c_str());
-        } else {
-          std::string disp_title = fit_text_to_width_font(title, 246, id(font_date));
-          it.print(110, y_pos, id(font_date), id(theme_primary), TextAlign::CENTER_LEFT, disp_title.c_str());
-        }
       };
       auto calculate_moon_phase = [&](double &out_cycle, int *out_illum = nullptr, std::string *out_label = nullptr) {
         auto now_m = id(ha_time).now();
@@ -3595,607 +3552,48 @@ display:
               id(col_magenta), id(col_orange), id(col_red));
         }
       // ==========================================
-      // PAGE 4: SYSTEM (STATUS & CONTROLS - RUST HIGHLIGHT)
+      // PAGE 4: SYSTEM SETTINGS & DIAGNOSTICS (SECTION 18 OF ui_toolkit.h)
       // ==========================================
       } else if (id(gui_page) == 4) {
-        char buf[64];
-
-        if (id(system_menu_mode) == 0) {
-          // --------------------------------------------------
-          // VIEW 0: MAIN SYSTEM DASHBOARD (2-Page Vertical Scroll Architecture, 4 Pills per Page)
-          // Page 1: Display, Clock, Sleep & Wake, Audio
-          // Page 2: App Deck, Voice, Info, Actions
-          // Model A: 4-Step Eased 232px (4-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
-          // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-          // --------------------------------------------------
-          int current_offset = 0;
-          if (id(menu_scroll_active)) {
-            int cur_step = id(menu_scroll_step);
-            if (cur_step < 0) cur_step = 0;
-            if (cur_step > 4) cur_step = 4;
-            int shift = SHARED_SCROLL_EASE_232[cur_step];
-            if (id(menu_scroll_dir) == 1) {
-              current_offset = shift;
-            } else {
-              current_offset = 232 - shift;
-            }
-          } else {
-            current_offset = (id(system_dashboard_page) == 2) ? 232 : 0;
-          }
-
-          static const char* const sys_labels[8] = {
-            "Display",
-            "Clock",
-            "Sleep & Wake",
-            "Audio",
-            "App Deck",
-            "Voice",
-            "Info",
-            "Actions"
-          };
-
-          for (int i = 0; i < 8; i++) {
-            int y = 132 + i * 58 - current_offset;
-            if (y >= 40 && y <= 390) {
-              draw_pill_button(150, 316, y, 18, id(theme_secondary), id(col_dark_gray), sys_labels[i], id(col_white), false);
-            }
-          }
-
-          // Clean Viewport Masks: clip scrolling pills outside y in [106, 332]
-          it.filled_rectangle(0, 0, 466, 106, id(col_bg));
-          it.filled_rectangle(0, 332, 466, 134, id(col_bg));
-
-          // Top Header: Pure iconic "SYSTEM" title (Theme Primary, standardized at y=46)
-          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "SYSTEM");
-
-          // Upper Zone: Pocket Assistant Version / Update badge (y=78)
-          bool has_update = id(ha_firmware_update_status).state == "ON";
-          std::string lat_v = id(ha_firmware_latest_version).state;
-          if (has_update) {
-            snprintf(buf, sizeof(buf), "Update Ready: v%s >", lat_v.empty() ? "1.2" : lat_v.c_str());
-            it.print(cx, 78, id(font_small), id(col_gold), TextAlign::CENTER, buf);
-          } else {
-            it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, "Pocket Assistant v${version}");
-          }
-
-          // Lower Zone: Centered Battery Status at y = 370
-          char b_main[32];
-          snprintf(b_main, sizeof(b_main), "Battery: %.0f%%", batt);
-          if (id(batt_charging).state) {
-            const char *chg_str = " • Charging";
-            int w_main = 0, w_chg = 0, x_off = 0, base = 0, text_h = 0;
-            id(font_small)->measure(b_main, &w_main, &x_off, &base, &text_h);
-            id(font_small)->measure(chg_str, &w_chg, &x_off, &base, &text_h);
-            int total_w = w_main + w_chg;
-            int start_x = cx - total_w / 2;
-            it.print(start_x, 370, id(font_small), id(theme_primary), TextAlign::CENTER_LEFT, b_main);
-            it.print(start_x + w_main, 370, id(font_small), id(theme_secondary), TextAlign::CENTER_LEFT, chg_str);
-          } else {
-            it.print(cx, 370, id(font_small), id(theme_primary), TextAlign::CENTER, b_main);
-          }
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
-          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(system_dashboard_page);
-          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
-
-        } else if (id(system_menu_mode) == 1) {
-          // --------------------------------------------------
-          // VIEW 1: SLEEP & WAKE SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
-          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
-          // Model A: 4-Step Eased 174px (3-Pill) High-Cadence Snap-Slide Animation (~125ms) with Clean Viewport Masking
-          // Option 1: Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-          // --------------------------------------------------
-          int current_offset = 0;
-          if (id(menu_scroll_active)) {
-            int cur_step = id(menu_scroll_step);
-            if (cur_step < 0) cur_step = 0;
-            if (cur_step > 4) cur_step = 4;
-            int shift = SHARED_SCROLL_EASE_174[cur_step];
-            if (id(menu_scroll_dir) == 1) {
-              // Scrolling Down: offset moves from 0 to 174
-              current_offset = shift;
-            } else {
-              // Scrolling Up: offset moves from 174 down to 0
-              current_offset = 174 - shift;
-            }
-          } else {
-            current_offset = (id(sleep_menu_page) == 2) ? 174 : 0;
-          }
-
-          static char sleep_labels[8][32];
-          static uint32_t last_sleep_label_time = 0;
-          if (!id(menu_scroll_active) || millis() - last_sleep_label_time > 1000) {
-            snprintf(sleep_labels[0], sizeof(sleep_labels[0]), "Motion: %s", id(pickup_wake_mode).current_option().c_str());
-            snprintf(sleep_labels[1], sizeof(sleep_labels[1]), "Tap: %s", id(tap_wake_mode).current_option().c_str());
-            snprintf(sleep_labels[2], sizeof(sleep_labels[2]), "Screensaver: %s", id(docked_screensaver_switch).state ? "On" : "Off");
-            std::string s_style = id(screensaver_style_select).current_option();
-            const char* short_s = (s_style == "Aurora Borealis") ? "Aurora" :
-                                  ((s_style == "Matrix Rain") ? "Matrix" : s_style.c_str());
-            snprintf(sleep_labels[3], sizeof(sleep_labels[3]), "Style: %s", short_s);
-            snprintf(sleep_labels[4], sizeof(sleep_labels[4]), "Dock Inact: %s", id(screensaver_docked_timeout).current_option().c_str());
-            snprintf(sleep_labels[5], sizeof(sleep_labels[5]), "Screen Off: %s", id(display_off_timeout).current_option().c_str());
-            snprintf(sleep_labels[6], sizeof(sleep_labels[6]), "Stay Awake: %s", id(prevent_deep_sleep_switch).state ? "On" : "Off");
-            snprintf(sleep_labels[7], sizeof(sleep_labels[7]), "Auto-Hibernate: %s", id(hibernate_timeout_mode).current_option().c_str());
-            last_sleep_label_time = millis();
-          }
-
-          auto draw_sleep_item = [&](int idx, int y) {
-            draw_menu_card_y(y, sleep_labels[idx]);
-          };
-
-          for (int i = 0; i < 8; i++) {
-            int y = 104 + i * 58 - current_offset;
-            if (y >= 50 && y <= 390) {
-              draw_sleep_item(i, y);
-            }
-          }
-
-          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
-          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
-          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
-
-          // Stationary Title at y = 50
-          draw_menu_header(50, "SLEEP & WAKE");
-
-          // Stationary Submenu < BACK Button nestled lower at y = 408 (r = 16) with generous 34px buffer below Slot 5
-          draw_back_button();
-
-          // Stationary Pagination Dots nestled at bottom curve y = 440
-          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(sleep_menu_page);
-          draw_pagination_dots(current_dot_page, 2, 440);
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(sleep_menu_page);
-          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
-
-        } else if (id(system_menu_mode) == 2) {
-          // --------------------------------------------------
-          // VIEW 2: DISPLAY SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
-          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
-          // Model A: 4-Step Eased 174px (3-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
-          // --------------------------------------------------
-          int current_offset = 0;
-          if (id(menu_scroll_active)) {
-            int cur_step = id(menu_scroll_step);
-            if (cur_step < 0) cur_step = 0;
-            if (cur_step > 4) cur_step = 4;
-            int shift = SHARED_SCROLL_EASE_174[cur_step];
-            if (id(menu_scroll_dir) == 1) {
-              current_offset = shift;
-            } else {
-              current_offset = 174 - shift;
-            }
-          } else {
-            current_offset = (id(display_menu_page) == 2) ? 174 : 0;
-          }
-
-          static char disp_labels[8][32];
-          static uint32_t last_disp_label_time = 0;
-          if (!id(menu_scroll_active) || millis() - last_disp_label_time > 1000) {
-            std::string ab_mode = id(auto_brightness_mode).current_option();
-            snprintf(disp_labels[0], sizeof(disp_labels[0]), "Auto Bright: %s", ab_mode == "Sun Synchronized" ? "Sun" : (ab_mode == "Time Schedule" ? "Sched" : "Off"));
-            std::string bri_p = id(display_brightness_preset).current_option();
-            if (bri_p.empty()) bri_p = "90%";
-            snprintf(disp_labels[1], sizeof(disp_labels[1]), "Brightness: %s", bri_p.c_str());
-            int dh = (int)id(day_start_hour).state;
-            int nh = (int)id(night_start_hour).state;
-            int nh12 = (nh > 12) ? (nh - 12) : nh;
-            snprintf(disp_labels[2], sizeof(disp_labels[2]), "Schedule: %dAM-%dPM", dh, nh12);
-            std::string day_b = id(day_brightness_preset).current_option();
-            snprintf(disp_labels[3], sizeof(disp_labels[3]), "Day Bri: %s", day_b.c_str());
-            std::string nite_b = id(night_brightness_preset).current_option();
-            snprintf(disp_labels[4], sizeof(disp_labels[4]), "Night Bri: %s", nite_b.c_str());
-            std::string th_p = id(theme_palette_select).current_option();
-            if (th_p == "Default Classic") th_p = "Blue & Gold";
-            snprintf(disp_labels[5], sizeof(disp_labels[5]), "Palette: %s", th_p.c_str());
-            std::string so_p = id(display_off_timeout).current_option();
-            snprintf(disp_labels[6], sizeof(disp_labels[6]), "Screen Off: %s", so_p.c_str());
-            std::string pc_p = id(page_counter_mode).current_option();
-            snprintf(disp_labels[7], sizeof(disp_labels[7]), "Page Counter: %s", pc_p.c_str());
-            last_disp_label_time = millis();
-          }
-
-          auto draw_disp_item = [&](int idx, int y) {
-            // Gray out manual brightness on slot 1 if Auto Brightness is active
-            if (idx == 1 && id(auto_brightness_mode).current_option() != "Disabled") {
-              draw_menu_card_y(y, disp_labels[idx], id(col_dark_gray), id(col_slate), id(col_bg));
-            } else {
-              draw_menu_card_y(y, disp_labels[idx]);
-            }
-          };
-
-          for (int i = 0; i < 8; i++) {
-            int y = 104 + i * 58 - current_offset;
-            if (y >= 50 && y <= 390) {
-              draw_disp_item(i, y);
-            }
-          }
-
-          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
-          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
-          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
-
-          // Stationary Title at y = 50
-          draw_menu_header(50, "DISPLAY");
-
-          // Stationary Submenu < BACK Button at y = 408 (r = 16)
-          draw_back_button();
-
-          // Stationary Pagination Dots nestled at bottom curve y = 440
-          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(display_menu_page);
-          draw_pagination_dots(current_dot_page, 2, 440);
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
-          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(display_menu_page);
-          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
-
-        } else if (id(system_menu_mode) == 3) {
-          // --------------------------------------------------
-          // VIEW 3: ACTIONS SUBMENU (Canonical 58px Pitch)
-          // --------------------------------------------------
-          draw_menu_header(50, "ACTIONS");
-
-          // Slot 0: Hibernate Now
-          draw_menu_slot_card(0, "Hibernate Now");
-
-          // Slot 1: Auto-Hibernate Timeout Cycler
-          char s_buf[32];
-          std::string cur_s = id(hibernate_timeout_mode).current_option();
-          snprintf(s_buf, sizeof(s_buf), "Auto-Hibernate: %s", cur_s.c_str());
-          draw_menu_slot_card(1, s_buf);
-
-          // Slot 2: Restart Device
-          draw_menu_slot_card(2, "Restart Device", id(col_red));
-
-          // Slot 3: Software Update
-          draw_menu_slot_card(3, "Software Update >");
-
-          // Slot 4: Crown Long-Press Hibernate
-          char h_buf[32];
-          bool inst_h = id(instant_crown_hibernate_switch).state;
-          snprintf(h_buf, sizeof(h_buf), "Hold Crown: %s", inst_h ? "Instant" : "5s Delay");
-          draw_menu_slot_card(4, h_buf);
-
-          // Bottom Button: Standardized < BACK (y = 408, r = 16)
-          draw_back_button();
-
-                } else if (id(system_menu_mode) == 4) {
-          // --------------------------------------------------
-          // VIEW 4: RESTART CONFIRMATION DIALOG
-          // --------------------------------------------------
-          it.print(cx, 130, id(font_date), id(theme_primary), TextAlign::CENTER, "RESTART?");
-
-          // Dual-Action Confirmation Buttons (y = 230, r = 20)
-          draw_confirmation_buttons(230, "Cancel", "Restart", id(col_red));
-
-        } else if (id(system_menu_mode) == 5) {
-          // --------------------------------------------------
-          // VIEW 5: SOFTWARE UPDATE SCREEN
-          // --------------------------------------------------
-          draw_menu_header(50, "UPDATE");
-
-          // Version Information
-          char cur_buf[32];
-          snprintf(cur_buf, sizeof(cur_buf), "Installed: v%s", "${version}");
-          it.print(cx, 95, id(font_small), id(col_slate), TextAlign::CENTER, cur_buf);
-
-          std::string lat_v = id(ha_firmware_latest_version).state;
-          bool has_update = is_newer_semver(lat_v, "${version}");
-
-          // Manage checking state timer transitions
-          if (id(update_check_state) == 1) {
-            // After 1500ms of checking, transition to Checked
-            if (millis() - id(update_check_timer) > 1500) {
-              id(update_check_state) = has_update ? 0 : 2;
-              id(update_check_timer) = millis();
-            }
-          } else if (id(update_check_state) == 2) {
-            // After 3500ms of showing "No updates available", revert to Idle
-            if (millis() - id(update_check_timer) > 3500) {
-              id(update_check_state) = 0;
-            }
-          }
-
-          if (has_update) {
-            char lat_buf[32];
-            snprintf(lat_buf, sizeof(lat_buf), "Available: v%s", lat_v.empty() ? "1.0.x" : lat_v.c_str());
-            it.print(cx, 125, id(font_small), id(theme_secondary), TextAlign::CENTER, lat_buf);
-
-            // Summary / Changelog highlight
-            std::string summ = id(ha_firmware_release_summary).state;
-            if (summ.empty() || summ == "unavailable" || summ == "unknown") {
-              summ = "Firmware update ready.";
-            }
-            summ = fit_text_to_width_font(summ, 280, id(font_small));
-            it.print(cx, 160, id(font_small), id(col_white), TextAlign::CENTER, summ.c_str());
-
-            // Action Button: Update Now (y_mid = 215, r = 20)
-            draw_pill_button(110, 356, 215, 20, id(theme_primary), id(col_dark_gray), "Update Now", id(theme_secondary), true);
-          } else {
-            char lat_buf[32];
-            snprintf(lat_buf, sizeof(lat_buf), "Latest: v%s", "${version}");
-            it.print(cx, 125, id(font_small), id(theme_secondary), TextAlign::CENTER, lat_buf);
-
-            if (id(update_check_state) == 1) {
-              it.print(cx, 160, id(font_small), id(theme_secondary), TextAlign::CENTER, "Checking Home Assistant...");
-              draw_pill_button(110, 356, 215, 20, id(theme_primary), id(col_dark_gray), "Checking...", id(theme_secondary), true);
-            } else if (id(update_check_state) == 2) {
-              it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, "No updates available");
-              draw_pill_button(110, 356, 215, 20, id(theme_secondary), id(col_dark_gray), "Up to date", id(col_white), false);
-            } else {
-              it.print(cx, 160, id(font_small), id(col_slate), TextAlign::CENTER, "Firmware is up to date");
-              draw_pill_button(110, 356, 215, 20, id(theme_primary), id(col_dark_gray), "Check for Updates", id(col_white), true);
-            }
-          }
-
-          // Back Button: Standardized < BACK (y = 375, r = 18)
-          draw_back_button();
-
-        } else if (id(system_menu_mode) == 6) {
-          // --------------------------------------------------
-          // VIEW 6: UPDATE CONFIRMATION DIALOG
-          // --------------------------------------------------
-          it.print(cx, 100, id(font_date), id(theme_primary), TextAlign::CENTER, "INSTALL UPDATE?");
-
-          it.print(cx, 145, id(font_small), id(col_white), TextAlign::CENTER, "Download & flash firmware");
-          it.print(cx, 175, id(font_small), id(theme_secondary), TextAlign::CENTER, "Keep device powered on");
-
-          // Dual-Action Confirmation Buttons (y = 240, r = 20)
-          draw_confirmation_buttons(240, "Cancel", "Install", id(theme_primary));
-
-        } else if (id(system_menu_mode) == 7) {
-          // --------------------------------------------------
-          // VIEW 7: AUDIO SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
-          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
-          // Model A: 4-Step Eased 174px (3-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
-          // --------------------------------------------------
-          int current_offset = 0;
-          if (id(menu_scroll_active)) {
-            int cur_step = id(menu_scroll_step);
-            if (cur_step < 0) cur_step = 0;
-            if (cur_step > 4) cur_step = 4;
-            int shift = SHARED_SCROLL_EASE_174[cur_step];
-            if (id(menu_scroll_dir) == 1) {
-              current_offset = shift;
-            } else {
-              current_offset = 174 - shift;
-            }
-          } else {
-            current_offset = (id(audio_menu_page) == 2) ? 174 : 0;
-          }
-
-          static char audio_labels[8][32];
-          static uint32_t last_audio_label_time = 0;
-          if (!id(menu_scroll_active) || millis() - last_audio_label_time > 1000) {
-            // Item 0: Hardware Speaker Volume
-            int v_cur = (int)std::round(id(pocket_music_player).volume * 100.0f);
-            snprintf(audio_labels[0], sizeof(audio_labels[0]), "Speaker Vol: %d%%", v_cur);
-
-            // Item 1: Independent Alert Volume
-            float a_st = id(alert_volume).state;
-            int a_cur = (std::isnan(a_st) || a_st < 20.0f) ? 70 : (int)std::round(a_st);
-            snprintf(audio_labels[1], sizeof(audio_labels[1]), "Alert Vol: %d%%", a_cur);
-
-            // Item 2: Volume Step Size Cycler (2%, 5%, 10%)
-            int step_val = (int)std::round(id(volume_step_size).state);
-            if (step_val < 1 || step_val > 10) step_val = 5;
-            snprintf(audio_labels[2], sizeof(audio_labels[2]), "Vol Step: %d%%", step_val);
-
-            // Item 3: Album Art Style Cycler
-            std::string cur_mode = id(music_fullscreen_art_mode).current_option();
-            snprintf(audio_labels[3], sizeof(audio_labels[3]), "Art: %s", cur_mode.c_str());
-
-            // Item 4: Music Overlay Style Cycler
-            std::string cur_ov = id(music_overlay_style).current_option();
-            snprintf(audio_labels[4], sizeof(audio_labels[4]), "Overlay: %s", cur_ov.c_str());
-
-            // Item 5: Album Sort Order Cycler
-            std::string cur_alb = id(music_album_sort_order).current_option();
-            snprintf(audio_labels[5], sizeof(audio_labels[5]), "Album Sort: %s", cur_alb.c_str());
-
-            // Item 6: Artist Album / Discography Sort Order Cycler
-            std::string cur_art = id(music_artist_album_sort_order).current_option();
-            snprintf(audio_labels[6], sizeof(audio_labels[6]), "Artist Discog: %s", cur_art.c_str());
-
-            // Item 7: Podcast Episode Sort Order Cycler
-            std::string cur_pod = id(music_podcast_sort_order).current_option();
-            snprintf(audio_labels[7], sizeof(audio_labels[7]), "Podcast Sort: %s", cur_pod.c_str());
-
-            last_audio_label_time = millis();
-          }
-
-          auto draw_audio_item = [&](int idx, int y) {
-            draw_menu_card_y(y, audio_labels[idx]);
-          };
-
-          for (int i = 0; i < 8; i++) {
-            int y = 104 + i * 58 - current_offset;
-            if (y >= 50 && y <= 390) {
-              draw_audio_item(i, y);
-            }
-          }
-
-          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
-          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
-          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
-
-          // Stationary Title at y = 50
-          draw_menu_header(50, "AUDIO");
-
-          // Stationary Submenu < BACK Button at y = 408 (r = 16)
-          draw_back_button();
-
-          // Stationary Pagination Dots nestled at bottom curve y = 440
-          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(audio_menu_page);
-          draw_pagination_dots(current_dot_page, 2, 440);
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
-          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(audio_menu_page);
-          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
-        } else if (id(system_menu_mode) == 8) {
-          // --------------------------------------------------
-          // VIEW 8: SYSTEM INFO & TELEMETRY SUBMENU (Monochromatic Telemetry, 8 Clean Lines)
-          // Line 1: Pocket Assistant v1.2, Line 2: IP, Line 3: Wi-Fi, Lines 4-8: Sensors & System
-          // --------------------------------------------------
-          draw_menu_header(50, "SYSTEM INFO");
-
-          float sig = id(pocket_wifi_signal).state;
-          std::string ip_str = id(pocket_ip_address).state;
-          if (ip_str.empty()) ip_str = "Connecting...";
-
-          float temp_c = id(imu_temp).state;
-          float temp_f = temp_c * 1.8f + 32.0f;
-          float r_val = id(imu_roll).state;
-          float p_val = id(imu_pitch).state;
-          float v_batt = id(batt_voltage).state;
-          unsigned int free_heap = (unsigned int)(esp_get_free_heap_size() / 1024);
-
-          // Center the telemetry list horizontally based on title width
-          int text_w = 0, x_off = 0, base = 0, text_h = 0;
-          id(font_small)->measure("Pocket Assistant v1.2", &text_w, &x_off, &base, &text_h);
-          const int info_x = (text_w > 0 && text_w < 440) ? (cx - text_w / 2) : 96;
-
-          // Line 1 (y = 86): IP Address
-          snprintf(buf, sizeof(buf), "IP: %s", ip_str.c_str());
-          it.print(info_x, 86, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 2 (y = 122): Wi-Fi Signal
-          snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm", sig);
-          it.print(info_x, 122, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 3 (y = 158): Temperature (Dual C & F)
-          snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-          it.print(info_x, 158, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 4 (y = 194): 6-Axis Orientation: Gyroscope Roll & Pitch
-          snprintf(buf, sizeof(buf), "Gyro: Roll:%.0f  Pitch:%.0f", r_val, p_val);
-          it.print(info_x, 194, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 5 (y = 230): 3-Axis Acceleration (G-force)
-          snprintf(buf, sizeof(buf), "Accel: %.2f | %.2f | %.2f", id(accel_x).state, id(accel_y).state, id(accel_z).state);
-          it.print(info_x, 230, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 6 (y = 266): Battery Fuel Gauge & Power
-          snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s", batt, v_batt, id(batt_charging).state ? " • Chg" : "");
-          it.print(info_x, 266, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 7 (y = 302): Hardware Platform & Memory
-          snprintf(buf, sizeof(buf), "ESP32-S3 | %uKB Free", free_heap);
-          it.print(info_x, 302, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Line 8 (y = 338): Pocket Assistant Version
-          snprintf(buf, sizeof(buf), "Pocket Assistant v${version}");
-          it.print(info_x, 338, id(font_small), id(col_white), TextAlign::LEFT, buf);
-
-          // Bottom Button: Standardized < BACK (y = 408, r = 16)
-          draw_back_button();
-
-        } else if (id(system_menu_mode) == 9) {
-          // --------------------------------------------------
-          // VIEW 9: CLOCK & TIME SUBMENU (Canonical 58px Pitch)
-          // --------------------------------------------------
-          draw_menu_header(50, "CLOCK & TIME");
-
-          // Slot 0: Clock Face Style Cycler
-          std::string cf_label = id(clock_face_digital) ? "Clock Face: Digital" : "Clock Face: Analog";
-          draw_menu_slot_card(0, cf_label.c_str());
-
-          // Slot 1: Time Format Cycler
-          std::string tf_label = id(is_24h_format) ? "Format: 24-Hour" : "Format: 12-Hour";
-          draw_menu_slot_card(1, tf_label.c_str());
-
-          // Slot 2: Time Sync Status
-          draw_menu_slot_card(2, "Sync: Home Assistant");
-
-          // Bottom Button: Standardized < BACK (y = 408, r = 16)
-          draw_back_button();
-
-        } else if (id(system_menu_mode) == 10) {
-          // --------------------------------------------------
-          // VIEW 10: APP DECK SUBMENU (Continuous 8-Item Vertical Scroll Architecture)
-          // Standard title at y = 50, Slots 1-5 at y = 104, 162, 220, 278, 336, < BACK at y = 408, Dots at y = 440
-          // Model A: 4-Step Eased 174px (3-Pill) Snap-Slide Animation (~125ms) with Clean Viewport Masking
-          // --------------------------------------------------
-          int current_offset = 0;
-          if (id(menu_scroll_active)) {
-            int cur_step = id(menu_scroll_step);
-            if (cur_step < 0) cur_step = 0;
-            if (cur_step > 4) cur_step = 4;
-            int shift = SHARED_SCROLL_EASE_232[cur_step];
-            if (id(menu_scroll_dir) == 1) {
-              current_offset = shift;
-            } else {
-              current_offset = 232 - shift;
-            }
-          } else {
-            current_offset = (id(deck_menu_page) == 2) ? 232 : 0;
-          }
-
-          static char deck_labels[8][32];
-          static uint32_t last_deck_label_time = 0;
-          if (!id(menu_scroll_active) || millis() - last_deck_label_time > 1000) {
-            std::string def_app = id(default_start_app).current_option();
-            snprintf(deck_labels[0], sizeof(deck_labels[0]), "Default: %s", def_app.empty() ? "Clock" : def_app.c_str());
-            snprintf(deck_labels[1], sizeof(deck_labels[1]), "Clock: %s", id(show_clock_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[2], sizeof(deck_labels[2]), "Music: %s", id(show_music_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[3], sizeof(deck_labels[3]), "Remote: %s", id(show_remote_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[4], sizeof(deck_labels[4]), "Weather: %s", id(show_weather_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[5], sizeof(deck_labels[5]), "Games: %s", id(show_games_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[6], sizeof(deck_labels[6]), "Tools: %s", id(show_stuff_switch).state ? "Visible" : "Hidden");
-            snprintf(deck_labels[7], sizeof(deck_labels[7]), "System: %s", id(show_system_switch).state ? "Visible" : "Hidden");
-            last_deck_label_time = millis();
-          }
-
-          auto draw_deck_item = [&](int idx, int y) {
-            draw_menu_card_y(y, deck_labels[idx]);
-          };
-
-          for (int i = 0; i < 8; i++) {
-            int y = 104 + i * 58 - current_offset;
-            if (y >= 50 && y <= 390) {
-              draw_deck_item(i, y);
-            }
-          }
-
-          // Clean Viewport Masks: clip scrolling pills outside y in [75, 370]
-          it.filled_rectangle(0, 0, 466, 75, id(col_bg));
-          it.filled_rectangle(0, 370, 466, 96, id(col_bg));
-
-          // Stationary Title at y = 50
-          draw_menu_header(50, "APP DECK");
-
-          // Stationary Submenu < BACK Button at y = 408 (r = 16)
-          draw_back_button();
-
-          // Stationary Pagination Dots nestled at bottom curve y = 440
-          int current_dot_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(deck_menu_page);
-          draw_pagination_dots(current_dot_page, 2, 440);
-
-          // Standardized Right-Flank Vertical Chevrons (▲ Up on Page 2, ▼ Down on Page 1)
-          int active_chevron_page = id(menu_scroll_active) ? id(menu_scroll_target_page) : id(deck_menu_page);
-          draw_right_flank_chevrons(active_chevron_page == 2, active_chevron_page == 1);
-
-        } else if (id(system_menu_mode) == 11) {
-          // --------------------------------------------------
-          // VIEW 11: VOICE ASSISTANT SUBMENU (Canonical 58px Pitch, 2 Slots)
-          // --------------------------------------------------
-          draw_menu_header(50, "VOICE");
-
-          // Slot 0: Visual Profile Cycler (Nebula, Solaris, Classic Nebula, Classic Solaris)
-          auto va_prof = id(va_visual_profile).current_option();
-          char prof_buf[36];
-          snprintf(prof_buf, sizeof(prof_buf), "Profile: %s", va_prof.c_str());
-          draw_menu_slot_card(0, prof_buf);
-
-          // Slot 1: Wake Screen on Assist Toggle
-          bool va_scr = id(va_wake_screen_switch).state;
-          char va_scr_buf[32];
-          snprintf(va_scr_buf, sizeof(va_scr_buf), "Wake Screen: %s", va_scr ? "ON" : "OFF");
-          draw_menu_slot_card(1, va_scr_buf);
-
-          // Standardized Centered < BACK Button at y = 408 (r = 16)
-          draw_back_button();
-        }
+        int spk_vol_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
+        float a_st = id(alert_volume).state;
+        int alert_vol_pct = (std::isnan(a_st) || a_st < 20.0f) ? 70 : (int)std::round(a_st);
+        int vol_step_pct = (int)std::round(id(volume_step_size).state);
+        if (vol_step_pct < 1 || vol_step_pct > 10) vol_step_pct = 5;
+        uint32_t free_heap_kb = (uint32_t)(esp_get_free_heap_size() / 1024U);
+
+        render_system_page(
+            it, cx, millis(), "${version}",
+            id(system_menu_mode), id(system_dashboard_page),
+            id(sleep_menu_page), id(display_menu_page), id(deck_menu_page),
+            id(menu_scroll_active), id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+            id(update_check_state), id(update_check_timer),
+            id(ha_firmware_latest_version).state, id(ha_firmware_release_summary).state,
+            batt, id(batt_charging).state, id(batt_voltage).state,
+            id(pocket_wifi_signal).state, id(pocket_ip_address).state, id(imu_temp).state,
+            free_heap_kb, now.is_valid(), id(ble_ctrl).is_active(),
+            id(pickup_wake_mode).current_option(), id(tap_wake_mode).current_option(),
+            id(display_off_timeout).current_option(), id(docked_screensaver_switch).state,
+            id(screensaver_style_select).current_option(), id(screensaver_docked_timeout).current_option(),
+            id(hibernate_timeout_mode).current_option(), id(instant_crown_hibernate_switch).state,
+            id(prevent_deep_sleep_switch).state,
+            id(clock_face_digital), id(is_24h_format),
+            id(theme_palette_select).current_option(), id(page_counter_mode).current_option(),
+            id(auto_brightness_mode).current_option(), id(display_brightness_preset).current_option(),
+            (int)id(day_start_hour).state, (int)id(night_start_hour).state,
+            id(day_brightness_preset).current_option(), id(night_brightness_preset).current_option(),
+            spk_vol_pct, alert_vol_pct, vol_step_pct,
+            id(music_fullscreen_art_mode).current_option(), id(music_overlay_style).current_option(),
+            id(music_album_sort_order).current_option(), id(music_artist_album_sort_order).current_option(),
+            id(music_podcast_sort_order).current_option(),
+            id(default_start_app).current_option(),
+            id(show_clock_switch).state, id(show_music_switch).state, id(show_remote_switch).state,
+            id(show_weather_switch).state, id(show_games_switch).state, id(show_stuff_switch).state,
+            id(va_visual_profile).current_option(), id(va_wake_screen_switch).state,
+            id(font_date), id(font_small),
+            id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate),
+            id(col_dark_gray), id(col_gold), id(col_red));
       } else if (id(gui_page) == 5) {
         // ==============================================================================
         // PAGE 5: SKY & WEATHER SUITE (v1.1 REFINEMENTS)
@@ -4810,7 +4208,7 @@ touchscreen:
                     }
                     ESP_LOGI("touch", "Deck Navigation: x=%d y=%d new_page=%d", touch.x, touch.y, id(gui_page));
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0; id(music_direct_nav) = false;
-                    id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(audio_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
+                    id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
                     id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
                     id(sky_weather_subpage) = 0;
                     id(disp1).update();
@@ -5164,9 +4562,8 @@ touchscreen:
                   if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_set = now_hub;
                     id(gui_page) = 4;
-                    id(system_menu_mode) = 7;
+                    id(system_menu_mode) = 9;
                     id(audio_menu_parent_page) = 2;
-                    id(audio_menu_page) = 1;
                     id(menu_scroll_active) = false;
                     ESP_LOGI("touch", "Music Menu -> Settings: x=%d y=%d", touch.x, touch.y);
                     id(disp1).update();
@@ -5552,70 +4949,41 @@ touchscreen:
                 id(marble_touch_y) = touch.y;
                 id(game_btn_pressed) = true;
               }
-            // Page 4: System (Telemetry Dashboard vs Settings vs Confirmation vs Update)
+            // Page 4: System Settings & Diagnostics
             } else if (id(gui_page) == 4) {
-              auto is_newer_semver = [](const std::string& lat_str, const std::string& cur_str) -> bool {
-                if (lat_str.empty() || lat_str == "unavailable" || lat_str == "unknown") return false;
-                std::string l = lat_str;
-                if (!l.empty() && (l[0] == 'v' || l[0] == 'V')) l = l.substr(1);
-                std::string c = cur_str;
-                if (!c.empty() && (c[0] == 'v' || c[0] == 'V')) c = c.substr(1);
-                if (l.rfind("202", 0) == 0) return false; // Reject ESPHome CalVer (2026.x)
-                if (l == c) return false;
-                int l_maj = 0, l_min = 0, l_pat = 0;
-                int c_maj = 0, c_min = 0, c_pat = 0;
-                sscanf(l.c_str(), "%d.%d.%d", &l_maj, &l_min, &l_pat);
-                sscanf(c.c_str(), "%d.%d.%d", &c_maj, &c_min, &c_pat);
-                if (l_maj != c_maj) return l_maj > c_maj;
-                if (l_min != c_min) return l_min > c_min;
-                return l_pat > c_pat;
-              };
-
               static uint32_t last_sys_action_tap = 0;
               uint32_t now_sys = millis();
 
               if (id(system_menu_mode) == 0) {
                 if (id(menu_scroll_active)) return;
 
-                // Right Flank Navigation (▲ Up at y=162 on Page 2, ▼ Down at y=278 on Page 1)
-                // Generous vertical right flank hit zone (x >= 370, y: 70..365)
+                // Right Flank Navigation (▲ Up on Page 2, ▼ Down on Page 1)
                 if (touch.x >= 370 && touch.y >= 70 && touch.y <= 365) {
                   static uint32_t last_dash_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_dash_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
                     last_dash_scroll_tap = now_s;
-                    if (id(system_dashboard_page) == 1) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = 1;
-                      id(menu_scroll_target_page) = 2;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    } else if (id(system_dashboard_page) == 2) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = -1;
-                      id(menu_scroll_target_page) = 1;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    }
+                    id(menu_scroll_active) = true;
+                    id(menu_scroll_dir) = (id(system_dashboard_page) == 1) ? 1 : -1;
+                    id(menu_scroll_target_page) = (id(system_dashboard_page) == 1) ? 2 : 1;
+                    id(menu_scroll_step) = 0;
+                    id(menu_scroll_transition).execute();
                   }
                   return;
                 }
-
-                // Left Flank (x < 75): Discard to prevent misfires
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 365) {
-                  return;
-                }
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 365) return;
 
                 if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  // Main Telemetry View: tap Version line to open Software Update directly if update ready (y: 65..94)
-                  if (touch.y >= 65 && touch.y <= 94 && touch.x >= 100 && touch.x <= 366 && id(ha_firmware_update_status).state == "ON") {
+                  // Tap Update Ready badge at y: 65..94 -> open Software Update screen
+                  if (touch.y >= 65 && touch.y <= 94 && touch.x >= 100 && touch.x <= 366 &&
+                      pocket_ui::is_newer_semver(id(ha_firmware_latest_version).state, "${version}")) {
                     last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 5; // Open Software Update Screen
+                    id(system_menu_mode) = 5;
                     id(disp1).update();
                     return;
                   }
 
-                  // Central 4 Button Slots (x: 130..336 across 4 slots: slot 0..3 at y=132, 190, 248, 306)
+                  // Central 4 Category Slots (y = 132, 190, 248, 306)
                   if (touch.x >= 130 && touch.x <= 336) {
                     int slot = -1;
                     if (touch.y >= 105 && touch.y < 161) slot = 0;
@@ -5626,149 +4994,95 @@ touchscreen:
                     if (slot >= 0) {
                       last_sys_action_tap = now_sys;
                       int item_idx = (id(system_dashboard_page) == 1) ? slot : (slot + 4);
+                      id(menu_scroll_active) = false;
                       if (item_idx == 0) {
-                        id(system_menu_mode) = 2; // Open Display Submenu
+                        id(system_menu_mode) = 2; // Display
                         id(display_menu_page) = 1;
-                        id(menu_scroll_active) = false;
-                        id(disp1).update();
                       } else if (item_idx == 1) {
-                        id(system_menu_mode) = 9; // Open Clock & Time Submenu
-                        id(disp1).update();
-                      } else if (item_idx == 2) {
-                        id(system_menu_mode) = 1; // Open Sleep & Wake Submenu
+                        id(system_menu_mode) = 1; // Sleep & Wake
                         id(sleep_menu_page) = 1;
-                        id(menu_scroll_active) = false;
-                        id(disp1).update();
+                      } else if (item_idx == 2) {
+                        id(system_menu_mode) = 7; // Sound
                       } else if (item_idx == 3) {
-                        id(system_menu_mode) = 7; // Open Audio & Media Submenu
-                        id(audio_menu_page) = 1;
-                        id(menu_scroll_active) = false;
-                        id(disp1).update();
+                        id(system_menu_mode) = 11; // Voice
                       } else if (item_idx == 4) {
-                        id(system_menu_mode) = 10; // Open App Deck Submenu
-                        id(deck_menu_page) = 1;
-                        id(menu_scroll_active) = false;
-                        id(disp1).update();
+                        id(system_menu_mode) = 9; // Music
+                        id(audio_menu_parent_page) = 4;
                       } else if (item_idx == 5) {
-                        id(system_menu_mode) = 11; // Open Voice Assistant Submenu
-                        id(disp1).update();
+                        id(system_menu_mode) = 10; // App Deck
+                        id(deck_menu_page) = 1;
                       } else if (item_idx == 6) {
-                        id(system_menu_mode) = 8; // Open System Info Submenu
-                        id(disp1).update();
+                        id(system_menu_mode) = 8; // Info
                       } else if (item_idx == 7) {
-                        id(system_menu_mode) = 3; // Open System Actions Submenu
-                        id(disp1).update();
+                        id(system_menu_mode) = 3; // Actions
                       }
+                      id(disp1).update();
                       return;
                     }
                   }
                 }
               } else if (id(system_menu_mode) == 1) {
-                // Mode 1: Sleep & Wake Submenu (Continuous 8-Item Vertical Scroll Architecture)
+                // Mode 1: Sleep & Wake Submenu (9 Items across 2 Pages, slot_idx + 4 on Page 2)
                 if (id(menu_scroll_active)) return;
-
-                // Right Flank Navigation (Option 1: Up at y=162 on Page 2, Down at y=278 on Page 1)
-                // Generous vertical right flank hit zone (x >= 375, y: 70..375)
                 if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
                   static uint32_t last_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
                     last_scroll_tap = now_s;
-                    if (id(sleep_menu_page) == 1) {
-                      // Page 1: Scroll Down by 3 items (174px) to reveal bottom of list (Page 2)
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = 1;
-                      id(menu_scroll_target_page) = 2;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    } else if (id(sleep_menu_page) == 2) {
-                      // Page 2: Scroll Up by 3 items (174px) to reveal top of list (Page 1)
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = -1;
-                      id(menu_scroll_target_page) = 1;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    }
+                    id(menu_scroll_active) = true;
+                    id(menu_scroll_dir) = (id(sleep_menu_page) == 1) ? 1 : -1;
+                    id(menu_scroll_target_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
+                    id(menu_scroll_step) = 0;
+                    id(menu_scroll_transition).execute();
                   }
                   return;
                 }
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
-                // Left Flank (x < 75): Discard to prevent misfires
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) {
-                  return;
-                }
-
-                // Reusable Item Action Dispatcher for all 8 items
-                auto trigger_sleep_item = [&](int idx) {
-                  if (idx == 0) {
-                    // Slot 1 (Page 1): Motion Wake Cycler
-                    std::string cur = id(pickup_wake_mode).current_option();
-                    auto call = id(pickup_wake_mode).make_call();
-                    call.set_option(cycle_option(cur, {"Always On", "Docked Only", "Disabled"}));
-                    call.perform();
-                    id(disp1).update();
-                  } else if (idx == 1) {
-                    // Slot 2 (Page 1): Tap Wake Cycler
-                    std::string cur = id(tap_wake_mode).current_option();
-                    auto call = id(tap_wake_mode).make_call();
-                    call.set_option(cycle_option(cur, {"Always On", "Docked Only", "Disabled"}));
-                    call.perform();
-                    id(disp1).update();
-                  } else if (idx == 2) {
-                    // Slot 3 (Page 1): Screensaver Toggle
-                    id(docked_screensaver_switch).toggle();
-                    id(disp1).update();
-                  } else if (idx == 3) {
-                    // Slot 4 (Page 1): Screensaver Style Cycler
-                    std::string cur = id(screensaver_style_select).current_option();
-                    auto call = id(screensaver_style_select).make_call();
-                    call.set_option(cycle_option(cur, {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Fireworks", "Screen Off"}));
-                    call.perform();
-                    id(disp1).update();
-                  } else if (idx == 4) {
-                    // Slot 5 (Page 1): Dock Inactivity Timeout Cycler
-                    std::string cur = id(screensaver_docked_timeout).current_option();
-                    auto call = id(screensaver_docked_timeout).make_call();
-                    call.set_option(cycle_option(cur, {"10s", "15s", "30s", "1 min", "5 min", "Never"}));
-                    call.perform();
-                    id(disp1).update();
-                  } else if (idx == 5) {
-                    // Slot 6 (Page 2): Screen Off Dimming Timeout Cycler
-                    std::string cur = id(display_off_timeout).current_option();
-                    auto call = id(display_off_timeout).make_call();
-                    call.set_option(cycle_option(cur, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
-                    call.perform();
-                    id(disp1).update();
-                  } else if (idx == 6) {
-                    // Slot 7 (Page 2): Stay Awake (Prevent Deep Sleep) Toggle
-                    id(prevent_deep_sleep_switch).toggle();
-                    id(disp1).update();
-                  } else if (idx == 7) {
-                    // Slot 8 (Page 2): Auto-Hibernate Timeout Cycler
-                    std::string cur = id(hibernate_timeout_mode).current_option();
-                    auto call = id(hibernate_timeout_mode).make_call();
-                    call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
-                    call.perform();
-                    id(disp1).update();
-                  }
-                };
-
-                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
                 int slot_idx = get_5slot_index(touch, 95, 371);
                 if (slot_idx >= 0) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
-                    int item_idx = (id(sleep_menu_page) == 1) ? slot_idx : (slot_idx + 3);
-                    trigger_sleep_item(item_idx);
+                    int idx = (id(sleep_menu_page) == 1) ? slot_idx : (slot_idx + 4);
+                    if (idx == 0) {
+                      auto call = id(pickup_wake_mode).make_call();
+                      call.set_option(cycle_option(id(pickup_wake_mode).current_option(), {"Always On", "Docked Only", "Disabled"}));
+                      call.perform();
+                    } else if (idx == 1) {
+                      auto call = id(tap_wake_mode).make_call();
+                      call.set_option(cycle_option(id(tap_wake_mode).current_option(), {"Always On", "Docked Only", "Disabled"}));
+                      call.perform();
+                    } else if (idx == 2) {
+                      auto call = id(display_off_timeout).make_call();
+                      call.set_option(cycle_option(id(display_off_timeout).current_option(), {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
+                      call.perform();
+                    } else if (idx == 3) {
+                      id(docked_screensaver_switch).toggle();
+                    } else if (idx == 4) {
+                      auto call = id(screensaver_style_select).make_call();
+                      call.set_option(cycle_option(id(screensaver_style_select).current_option(), {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Fireworks", "Screen Off"}));
+                      call.perform();
+                    } else if (idx == 5) {
+                      auto call = id(screensaver_docked_timeout).make_call();
+                      call.set_option(cycle_option(id(screensaver_docked_timeout).current_option(), {"10s", "15s", "30s", "1 min", "5 min", "Never"}));
+                      call.perform();
+                    } else if (idx == 6) {
+                      auto call = id(hibernate_timeout_mode).make_call();
+                      call.set_option(cycle_option(id(hibernate_timeout_mode).current_option(), {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
+                      call.perform();
+                    } else if (idx == 7) {
+                      id(instant_crown_hibernate_switch).toggle();
+                    } else if (idx == 8) {
+                      id(prevent_deep_sleep_switch).toggle();
+                    }
+                    id(disp1).update();
                   }
                   return;
                 }
-
-                // Standardized Centered < BACK Button
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(system_menu_mode) = 0;
                     id(sleep_menu_page) = 1;
                     id(menu_scroll_active) = false;
                     id(menu_scroll_step) = 0;
@@ -5777,139 +5091,102 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 2) {
-                // Mode 2: Display Submenu (Continuous 8-Item Vertical Scroll Architecture)
+                // Mode 2: Display Submenu (9 Items across 2 Pages, slot_idx + 4 on Page 2)
                 if (id(menu_scroll_active)) return;
-
-                // Right Flank Navigation (Option 1: Up at y=162 on Page 2, Down at y=278 on Page 1)
-                // Generous vertical right flank hit zone (x >= 375, y: 70..375)
                 if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
                   static uint32_t last_disp_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_disp_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
                     last_disp_scroll_tap = now_s;
-                    if (id(display_menu_page) == 1) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = 1;
-                      id(menu_scroll_target_page) = 2;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    } else if (id(display_menu_page) == 2) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = -1;
-                      id(menu_scroll_target_page) = 1;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    }
+                    id(menu_scroll_active) = true;
+                    id(menu_scroll_dir) = (id(display_menu_page) == 1) ? 1 : -1;
+                    id(menu_scroll_target_page) = (id(display_menu_page) == 1) ? 2 : 1;
+                    id(menu_scroll_step) = 0;
+                    id(menu_scroll_transition).execute();
                   }
                   return;
                 }
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
-                // Left Flank (x < 75): Discard to prevent misfires
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) {
-                  return;
-                }
-
-                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
                 int slot_idx = get_5slot_index(touch, 95, 371);
                 if (slot_idx >= 0) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
-                    int item_idx = (id(display_menu_page) == 1) ? slot_idx : (slot_idx + 3);
+                    int item_idx = (id(display_menu_page) == 1) ? slot_idx : (slot_idx + 4);
+                    std::string ab = id(auto_brightness_mode).current_option();
                     if (item_idx == 0) {
-                      // Item 0: Auto-Brightness Mode Cycler (Off -> Sun Synchronized -> Time Schedule)
-                      std::string cur = id(auto_brightness_mode).current_option();
-                      std::string next_m = cycle_option(cur, {"Disabled", "Sun Synchronized", "Time Schedule"});
+                      id(clock_face_digital) = !id(clock_face_digital);
+                      auto call = id(clock_face_style).make_call();
+                      call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
+                      call.perform();
+                    } else if (item_idx == 1) {
+                      id(is_24h_format) = !id(is_24h_format);
+                      auto call = id(time_format_select).make_call();
+                      call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
+                      call.perform();
+                    } else if (item_idx == 2) {
+                      auto call = id(theme_palette_select).make_call();
+                      call.set_option(cycle_option(id(theme_palette_select).current_option(), {"Steel & Silver", "Pink & Gray", "Blue & Gold", "Green & Gold"}));
+                      call.perform();
+                    } else if (item_idx == 3) {
+                      auto call = id(page_counter_mode).make_call();
+                      call.set_option(cycle_option(id(page_counter_mode).current_option(), {"Always", "Never"}));
+                      call.perform();
+                    } else if (item_idx == 4) {
+                      std::string next_m = cycle_option(ab, {"Disabled", "Sun Synchronized", "Time Schedule"});
                       auto call = id(auto_brightness_mode).make_call();
                       call.set_option(next_m);
                       call.perform();
                       id(auto_brightness_mode).publish_state(next_m);
                       id(sync_display_brightness).execute();
-                      id(disp1).update();
-                      return;
-                    } else if (item_idx == 1) {
-                      // Item 1: Manual Brightness Preset Cycler (active only when Auto Bright is Disabled)
-                      std::string ab = id(auto_brightness_mode).current_option();
+                    } else if (item_idx == 5) {
                       if (ab == "Disabled") {
-                        std::string cur = id(display_brightness_preset).current_option();
-                        std::string next_b = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
+                        std::string next_b = cycle_option(id(display_brightness_preset).current_option(), {"60%", "70%", "80%", "90%", "100%"});
                         auto call = id(display_brightness_preset).make_call();
                         call.set_option(next_b);
                         call.perform();
                         id(display_brightness_preset).publish_state(next_b);
                         id(sync_display_brightness).execute();
-                        id(disp1).update();
                       }
-                      return;
-                    } else if (item_idx == 2) {
-                      // Item 2: Schedule Hours Cycler (7AM-10PM, 6AM-11PM, 8AM-10PM, 7AM-9PM)
-                      int dh = (int)id(day_start_hour).state;
-                      int nh = (int)id(night_start_hour).state;
-                      int nxt_dh = 7, nxt_nh = 22;
-                      if (dh == 7 && nh == 22) { nxt_dh = 6; nxt_nh = 23; }
-                      else if (dh == 6 && nh == 23) { nxt_dh = 8; nxt_nh = 22; }
-                      else if (dh == 8 && nh == 22) { nxt_dh = 7; nxt_nh = 21; }
-                      else { nxt_dh = 7; nxt_nh = 22; }
-                      id(day_start_hour).make_call().set_value((float)nxt_dh).perform();
-                      id(night_start_hour).make_call().set_value((float)nxt_nh).perform();
-                      id(sync_display_brightness).execute();
-                      id(disp1).update();
-                      return;
-                    } else if (item_idx == 3) {
-                      // Item 3: Day Brightness Preset Cycler
-                      std::string cur = id(day_brightness_preset).current_option();
-                      std::string next_db = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
-                      auto call = id(day_brightness_preset).make_call();
-                      call.set_option(next_db);
-                      call.perform();
-                      id(day_brightness_preset).publish_state(next_db);
-                      id(sync_display_brightness).execute();
-                      id(disp1).update();
-                      return;
-                    } else if (item_idx == 4) {
-                      // Item 4: Night Brightness Preset Cycler
-                      std::string cur = id(night_brightness_preset).current_option();
-                      std::string next_nb = cycle_option(cur, {"60%", "70%", "80%", "90%", "100%"});
-                      auto call = id(night_brightness_preset).make_call();
-                      call.set_option(next_nb);
-                      call.perform();
-                      id(night_brightness_preset).publish_state(next_nb);
-                      id(sync_display_brightness).execute();
-                      id(disp1).update();
-                      return;
-                    } else if (item_idx == 5) {
-                      // Item 5: Color Palette Cycler
-                      std::string cur = id(theme_palette_select).current_option();
-                      auto call = id(theme_palette_select).make_call();
-                      call.set_option(cycle_option(cur, {"Steel & Silver", "Pink & Gray", "Blue & Gold", "Green & Gold"}));
-                      call.perform();
-                      id(disp1).update();
-                      return;
                     } else if (item_idx == 6) {
-                      // Item 6: Screen Off Inactivity Timeout Cycler
-                      std::string cur_so = id(display_off_timeout).current_option();
-                      auto call = id(display_off_timeout).make_call();
-                      call.set_option(cycle_option(cur_so, {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
-                      call.perform();
-                      id(disp1).update();
-                      return;
+                      if (ab == "Time Schedule") {
+                        int dh = (int)id(day_start_hour).state;
+                        int nh = (int)id(night_start_hour).state;
+                        int nxt_dh = 7, nxt_nh = 22;
+                        if (dh == 7 && nh == 22) { nxt_dh = 6; nxt_nh = 23; }
+                        else if (dh == 6 && nh == 23) { nxt_dh = 8; nxt_nh = 22; }
+                        else if (dh == 8 && nh == 22) { nxt_dh = 7; nxt_nh = 21; }
+                        id(day_start_hour).make_call().set_value((float)nxt_dh).perform();
+                        id(night_start_hour).make_call().set_value((float)nxt_nh).perform();
+                        id(sync_display_brightness).execute();
+                      }
                     } else if (item_idx == 7) {
-                      // Item 7: Page Counter Mode Cycler
-                      std::string cur_pc = id(page_counter_mode).current_option();
-                      auto call = id(page_counter_mode).make_call();
-                      call.set_option(cycle_option(cur_pc, {"Always", "Never"}));
-                      call.perform();
-                      id(disp1).update();
-                      return;
+                      if (ab != "Disabled") {
+                        std::string next_db = cycle_option(id(day_brightness_preset).current_option(), {"60%", "70%", "80%", "90%", "100%"});
+                        auto call = id(day_brightness_preset).make_call();
+                        call.set_option(next_db);
+                        call.perform();
+                        id(day_brightness_preset).publish_state(next_db);
+                        id(sync_display_brightness).execute();
+                      }
+                    } else if (item_idx == 8) {
+                      if (ab != "Disabled") {
+                        std::string next_nb = cycle_option(id(night_brightness_preset).current_option(), {"60%", "70%", "80%", "90%", "100%"});
+                        auto call = id(night_brightness_preset).make_call();
+                        call.set_option(next_nb);
+                        call.perform();
+                        id(night_brightness_preset).publish_state(next_nb);
+                        id(sync_display_brightness).execute();
+                      }
                     }
+                    id(disp1).update();
                   }
                   return;
                 }
-
-                // Standardized Centered < BACK Button
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(system_menu_mode) = 0;
                     id(display_menu_page) = 1;
                     id(menu_scroll_active) = false;
                     id(disp1).update();
@@ -5917,79 +5194,66 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 3) {
-                // Mode 3: Actions Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
+                // Mode 3: Actions Submenu (5 Items on 1 Page)
                 int slot = get_5slot_index(touch, 90, 376);
                 if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
-                    // Card 1: Hibernate Now (Slot 0, y = 104)
-                    id(start_hibernation_countdown).execute();
+                    id(trigger_screensaver_now).execute();
                     return;
                   } else if (slot == 1) {
-                    // Card 2: Auto-Hibernate Timeout Cycler (Slot 1, y = 162)
-                    std::string cur = id(hibernate_timeout_mode).current_option();
-                    auto call = id(hibernate_timeout_mode).make_call();
-                    call.set_option(cycle_option(cur, {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
-                    call.perform();
-                    id(disp1).update();
+                    id(start_hibernation_countdown).execute();
                     return;
                   } else if (slot == 2) {
-                    // Card 3: Restart Device (Slot 2, y = 220)
-                    id(system_menu_mode) = 4; // Open Confirmation Dialog
+                    id(system_menu_mode) = 5;
                     id(disp1).update();
                     return;
                   } else if (slot == 3) {
-                    // Card 4: Software Update (Slot 3, y = 278)
-                    id(system_menu_mode) = 5; // Open Software Update Screen
+                    if (id(ble_ctrl).is_active()) {
+                      id(ble_ctrl).disable();
+                    } else {
+                      id(ble_ctrl).enable();
+                    }
                     id(disp1).update();
                     return;
                   } else if (slot == 4) {
-                    // Card 5: Crown Long-Press Hibernate Behavior Toggle (Slot 4, y = 336)
-                    id(instant_crown_hibernate_switch).toggle();
+                    id(system_menu_mode) = 4;
                     id(disp1).update();
                     return;
                   }
                 }
-                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(system_menu_mode) = 0;
                     id(disp1).update();
                   }
                   return;
                 }
               } else if (id(system_menu_mode) == 4) {
                 // Mode 4: Restart Confirmation Dialog
-                if (touch.y >= 195 && touch.y <= 265) {
-                  if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    if (touch.x >= 90 && touch.x <= 225) {
-                      last_sys_action_tap = now_sys;
-                      // Cancel -> return to Power Options
-                      id(system_menu_mode) = 3;
-                      id(disp1).update();
-                      return;
-                    } else if (touch.x >= 240 && touch.x <= 375) {
-                      last_sys_action_tap = now_sys;
-                      // Confirm Restart
-                      id(restart_button).press();
-                      return;
-                    }
+                if (touch.y >= 195 && touch.y <= 265 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  if (touch.x >= 90 && touch.x <= 225) {
+                    last_sys_action_tap = now_sys;
+                    id(system_menu_mode) = 3;
+                    id(disp1).update();
+                    return;
+                  } else if (touch.x >= 240 && touch.x <= 375) {
+                    last_sys_action_tap = now_sys;
+                    id(restart_button).press();
+                    return;
                   }
                 }
               } else if (id(system_menu_mode) == 5) {
                 // Mode 5: Software Update Screen
-                // Action Button: Update Now or Check for Updates (y: 190..240, x: 100..366)
                 if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
-                    std::string lat_v = id(ha_firmware_latest_version).state;
-                    bool has_update = is_newer_semver(lat_v, "${version}");
+                    bool has_update = pocket_ui::is_newer_semver(id(ha_firmware_latest_version).state, "${version}");
                     if (has_update) {
-                      id(system_menu_mode) = 6; // Open Update Confirmation Dialog
+                      id(system_menu_mode) = 6;
                       id(disp1).update();
                     } else if (id(update_check_state) == 0) {
-                      // Start interactive checking sequence
                       id(update_check_state) = 1;
                       id(update_check_timer) = millis();
                       id(check_firmware_update).execute();
@@ -5997,319 +5261,184 @@ touchscreen:
                     }
                   }
                   return;
-                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
                 } else if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(update_check_state) = 0; // Reset checking state
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(update_check_state) = 0;
+                    id(system_menu_mode) = 0;
                     id(disp1).update();
                   }
                   return;
                 }
               } else if (id(system_menu_mode) == 6) {
                 // Mode 6: Update Confirmation Dialog
-                if (touch.y >= 210 && touch.y <= 270) {
-                  if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    if (touch.x >= 90 && touch.x <= 225) {
-                      last_sys_action_tap = now_sys;
-                      // Cancel -> return to Software Update Screen
-                      id(system_menu_mode) = 5;
-                      id(disp1).update();
-                      return;
-                    } else if (touch.x >= 240 && touch.x <= 375) {
-                      last_sys_action_tap = now_sys;
-                      // Confirm Install -> trigger update and arm OTA overlay
-                      id(trigger_firmware_update).execute();
-                      return;
-                    }
+                if (touch.y >= 210 && touch.y <= 270 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  if (touch.x >= 90 && touch.x <= 225) {
+                    last_sys_action_tap = now_sys;
+                    id(system_menu_mode) = 5;
+                    id(disp1).update();
+                    return;
+                  } else if (touch.x >= 240 && touch.x <= 375) {
+                    last_sys_action_tap = now_sys;
+                    id(trigger_firmware_update).execute();
+                    return;
                   }
                 }
               } else if (id(system_menu_mode) == 7) {
-                // Mode 7: Audio Submenu (Continuous 8-Item Vertical Scroll Architecture)
-                if (id(menu_scroll_active)) return;
-
-                // Right Flank Navigation (Option 1: Up at y=162 on Page 2, Down at y=278 on Page 1)
-                // Generous vertical right flank hit zone (x >= 375, y: 70..375)
-                if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
-                  static uint32_t last_audio_scroll_tap = 0;
-                  uint32_t now_s = millis();
-                  if (now_s - last_audio_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
-                    last_audio_scroll_tap = now_s;
-                    if (id(audio_menu_page) == 1) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = 1;
-                      id(menu_scroll_target_page) = 2;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    } else if (id(audio_menu_page) == 2) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = -1;
-                      id(menu_scroll_target_page) = 1;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    }
-                  }
-                  return;
-                }
-
-                // Left Flank (x < 75): Discard to prevent misfires
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) {
-                  return;
-                }
-
-                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
+                // Mode 7: Sound Submenu (3 Items on 1 Page: Speaker Vol, Alert Vol, Vol Step)
                 int slot_idx = get_5slot_index(touch, 95, 371);
-                if (slot_idx >= 0) {
-                  int item_idx = (id(audio_menu_page) == 1) ? slot_idx : (slot_idx + 3);
-                  if (item_idx == 0) {
-                    // Item 0: Hardware Speaker Volume Step (10%..90%)
+                if (slot_idx >= 0 && slot_idx <= 2) {
+                  if (slot_idx == 0) {
                     static uint32_t last_audio_vol_tap = 0;
                     if (now_sys - last_audio_vol_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_audio_vol_tap = now_sys;
-                      float cur_vol = id(pocket_music_player).volume;
-                      float new_vol = step_wrap_range(cur_vol, 0.10f, 0.10f, 0.90f);
+                      float new_vol = step_wrap_range(id(pocket_music_player).volume, 0.10f, 0.10f, 0.90f);
                       id(pocket_music_player).volume = new_vol;
                       id(pocket_music_player).make_call().set_volume(new_vol).perform();
                       id(disp1).update();
                     }
                     return;
-                  } else if (item_idx == 1) {
-                    // Item 1: Independent Alert Volume Step (50%..100%)
+                  } else if (slot_idx == 1) {
                     static uint32_t last_alert_vol_tap = 0;
                     if (now_sys - last_alert_vol_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_alert_vol_tap = now_sys;
                       float cur_a_f = id(alert_volume).state;
                       int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 70 : (int)std::round(cur_a_f);
                       int nxt_a = (int)step_wrap_range((float)cur_a, 10.0f, 50.0f, 100.0f);
-                      auto call = id(alert_volume).make_call();
-                      call.set_value((float)nxt_a);
-                      call.perform();
+                      id(alert_volume).make_call().set_value((float)nxt_a).perform();
                       id(disp1).update();
                     }
                     return;
-                  } else if (item_idx == 2) {
-                    // Item 2: Volume Step Size Cycler (2%, 5%, 10%)
+                  } else if (slot_idx == 2) {
                     if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_sys_action_tap = now_sys;
                       int cur_sz = (int)std::round(id(volume_step_size).state);
                       int nxt_sz = (cur_sz < 5) ? 5 : ((cur_sz < 10) ? 10 : 2);
-                      auto call = id(volume_step_size).make_call();
-                      call.set_value((float)nxt_sz);
-                      call.perform();
-                      id(disp1).update();
-                    }
-                    return;
-                  } else if (item_idx == 3) {
-                    // Item 3: Album Art Style Cycler (Full Screen -> Letterbox -> Compact)
-                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_sys_action_tap = now_sys;
-                      std::string cur_mode = id(music_fullscreen_art_mode).current_option();
-                      auto call = id(music_fullscreen_art_mode).make_call();
-                      call.set_option(cycle_option(cur_mode, {"Full Screen", "Letterbox", "Standard"}));
-                      call.perform();
-                      id(disp1).update();
-                    }
-                    return;
-                  } else if (item_idx == 4) {
-                    // Item 4: Music Overlay Style Cycler (Art Only -> Art + Metadata -> Always Visible)
-                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_sys_action_tap = now_sys;
-                      std::string cur_ov = id(music_overlay_style).current_option();
-                      auto call = id(music_overlay_style).make_call();
-                      call.set_option(cycle_option(cur_ov, {"Art Only", "Art + Metadata", "Always Visible"}));
-                      call.perform();
-                      id(disp1).update();
-                    }
-                    return;
-                  } else if (item_idx == 5) {
-                    // Item 5: Album Sort Order Cycler (Alphabetical -> Newest on Top -> Oldest on Top)
-                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_sys_action_tap = now_sys;
-                      std::string cur_alb = id(music_album_sort_order).current_option();
-                      auto call = id(music_album_sort_order).make_call();
-                      call.set_option(cycle_option(cur_alb, {"Alphabetical", "Newest on Top", "Oldest on Top"}));
-                      call.perform();
-                      id(disp1).update();
-                    }
-                    return;
-                  } else if (item_idx == 6) {
-                    // Item 6: Artist Album Sort Order Cycler (Oldest on Top -> Newest on Top -> Alphabetical)
-                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_sys_action_tap = now_sys;
-                      std::string cur_art = id(music_artist_album_sort_order).current_option();
-                      auto call = id(music_artist_album_sort_order).make_call();
-                      call.set_option(cycle_option(cur_art, {"Oldest on Top", "Newest on Top", "Alphabetical"}));
-                      call.perform();
-                      id(disp1).update();
-                    }
-                    return;
-                  } else if (item_idx == 7) {
-                    // Item 7: Podcast Episode Sort Order Cycler (Newest on Top -> Oldest on Top)
-                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_sys_action_tap = now_sys;
-                      std::string cur_pod = id(music_podcast_sort_order).current_option();
-                      auto call = id(music_podcast_sort_order).make_call();
-                      call.set_option(cycle_option(cur_pod, {"Newest on Top", "Oldest on Top"}));
-                      call.perform();
+                      id(volume_step_size).make_call().set_value((float)nxt_sz).perform();
                       id(disp1).update();
                     }
                     return;
                   }
-                  return;
                 }
-
-                // Standardized Centered < BACK Button at y = 408 (r = 16)
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    if (id(audio_menu_parent_page) == 2) {
-                      id(gui_page) = 2;
-                      id(music_overlay_mode) = 5; // Return to Music Hub
-                      id(audio_menu_parent_page) = 4;
-                      id(system_menu_mode) = 0;
-                    } else {
-                      id(system_menu_mode) = 0; // Return to Main System Dashboard
-                    }
-                    id(audio_menu_page) = 1;
-                    id(menu_scroll_active) = false;
+                    id(system_menu_mode) = 0;
                     id(disp1).update();
                   }
                   return;
                 }
               } else if (id(system_menu_mode) == 8) {
-                // Mode 8: System Info Submenu
-                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
+                // Mode 8: System Info & Diagnostics Submenu
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(system_menu_mode) = 0;
                     id(disp1).update();
                   }
                   return;
                 } else {
-                  id(disp1).update(); // Tap anywhere else to refresh telemetry
+                  id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 9) {
-                // Mode 9: Clock & Time Submenu (Canonical 58px Pitch, Universal 5-Slot Hit Testing)
-                int slot = get_5slot_index(touch, 90, 376);
-                if (slot >= 0 && slot <= 2 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                // Mode 9: Music Settings Submenu (5 Items on 1 Page: Art, Overlay, Album Sort, Artist Discog, Podcast Sort)
+                int slot_idx = get_5slot_index(touch, 95, 371);
+                if (slot_idx >= 0 && slot_idx <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
-                  if (slot == 0) {
-                    // Card 1: Clock Face Style Cycler (Slot 0, y = 104)
-                    id(clock_face_digital) = !id(clock_face_digital);
-                    auto call = id(clock_face_style).make_call();
-                    call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
+                  if (slot_idx == 0) {
+                    auto call = id(music_fullscreen_art_mode).make_call();
+                    call.set_option(cycle_option(id(music_fullscreen_art_mode).current_option(), {"Full Screen", "Letterbox", "Standard"}));
                     call.perform();
-                    id(disp1).update();
-                    return;
-                  } else if (slot == 1) {
-                    // Card 2: Time Format Cycler (Slot 1, y = 162)
-                    id(is_24h_format) = !id(is_24h_format);
-                    auto call = id(time_format_select).make_call();
-                    call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
+                  } else if (slot_idx == 1) {
+                    auto call = id(music_overlay_style).make_call();
+                    call.set_option(cycle_option(id(music_overlay_style).current_option(), {"Art Only", "Art + Metadata", "Always Visible"}));
                     call.perform();
-                    id(disp1).update();
-                    return;
-                  } else if (slot == 2) {
-                    // Card 3: Time Sync Status (Slot 2, y = 220)
-                    id(disp1).update();
-                    return;
+                  } else if (slot_idx == 2) {
+                    auto call = id(music_album_sort_order).make_call();
+                    call.set_option(cycle_option(id(music_album_sort_order).current_option(), {"Alphabetical", "Newest on Top", "Oldest on Top"}));
+                    call.perform();
+                  } else if (slot_idx == 3) {
+                    auto call = id(music_artist_album_sort_order).make_call();
+                    call.set_option(cycle_option(id(music_artist_album_sort_order).current_option(), {"Oldest on Top", "Newest on Top", "Alphabetical"}));
+                    call.perform();
+                  } else if (slot_idx == 4) {
+                    auto call = id(music_podcast_sort_order).make_call();
+                    call.set_option(cycle_option(id(music_podcast_sort_order).current_option(), {"Newest on Top", "Oldest on Top"}));
+                    call.perform();
                   }
+                  id(disp1).update();
+                  return;
                 }
-                // Standardized Centered < BACK Button at y = 408 (y >= 385 && y <= 445, x: 80..386)
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    if (id(audio_menu_parent_page) == 2) {
+                      id(gui_page) = 2;
+                      id(music_overlay_mode) = 5;
+                      id(audio_menu_parent_page) = 4;
+                      id(system_menu_mode) = 0;
+                    } else {
+                      id(system_menu_mode) = 0;
+                    }
                     id(disp1).update();
                   }
                   return;
                 }
               } else if (id(system_menu_mode) == 10) {
-                // Mode 10: App Deck Submenu (Continuous 8-Item Vertical Scroll Architecture)
+                // Mode 10: App Deck Submenu (8 Items across 2 Pages, Fixed slot_idx + 3 on Page 2)
                 if (id(menu_scroll_active)) return;
-
-                // Right Flank Navigation (Option 1: Up at y=162 on Page 2, Down at y=278 on Page 1)
-                // Generous vertical right flank hit zone (x >= 375, y: 70..375)
                 if (touch.x >= 375 && touch.y >= 70 && touch.y <= 375) {
                   static uint32_t last_deck_scroll_tap = 0;
                   uint32_t now_s = millis();
                   if (now_s - last_deck_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
                     last_deck_scroll_tap = now_s;
-                    if (id(deck_menu_page) == 1) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = 1;
-                      id(menu_scroll_target_page) = 2;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    } else if (id(deck_menu_page) == 2) {
-                      id(menu_scroll_active) = true;
-                      id(menu_scroll_dir) = -1;
-                      id(menu_scroll_target_page) = 1;
-                      id(menu_scroll_step) = 0;
-                      id(menu_scroll_transition).execute();
-                    }
+                    id(menu_scroll_active) = true;
+                    id(menu_scroll_dir) = (id(deck_menu_page) == 1) ? 1 : -1;
+                    id(menu_scroll_target_page) = (id(deck_menu_page) == 1) ? 2 : 1;
+                    id(menu_scroll_step) = 0;
+                    id(menu_scroll_transition).execute();
                   }
                   return;
                 }
+                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
-                // Left Flank (x < 75): Discard to prevent misfires
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) {
-                  return;
-                }
-
-                // Central Button Hit-Testing (x: 95..371 across Slots 1-5)
                 int slot_idx = get_5slot_index(touch, 95, 371);
                 if (slot_idx >= 0) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
-                    int item_idx = (id(deck_menu_page) == 1) ? slot_idx : (slot_idx + 4);
+                    int item_idx = (id(deck_menu_page) == 1) ? slot_idx : (slot_idx + 3);
                     if (item_idx == 0) {
-                      // Default Start App Cycler
-                      std::string cur = id(default_start_app).current_option();
                       auto call = id(default_start_app).make_call();
-                      call.set_option(cycle_option(cur, {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Tools", "System"}));
+                      call.set_option(cycle_option(id(default_start_app).current_option(), {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Tools", "System"}));
                       call.perform();
-                      id(disp1).update();
                     } else if (item_idx == 1) {
                       id(show_clock_switch).toggle();
                       id(rebuild_active_deck).execute();
-                      id(disp1).update();
                     } else if (item_idx == 2) {
                       id(show_music_switch).toggle();
                       id(rebuild_active_deck).execute();
-                      id(disp1).update();
                     } else if (item_idx == 3) {
                       id(show_remote_switch).toggle();
                       id(rebuild_active_deck).execute();
-                      id(disp1).update();
                     } else if (item_idx == 4) {
                       id(show_weather_switch).toggle();
                       id(rebuild_active_deck).execute();
-                      id(disp1).update();
                     } else if (item_idx == 5) {
                       id(show_games_switch).toggle();
                       id(rebuild_active_deck).execute();
-                      id(disp1).update();
                     } else if (item_idx == 6) {
                       id(show_stuff_switch).toggle();
                       id(rebuild_active_deck).execute();
-                      id(disp1).update();
-                    } else if (item_idx == 7) {
-                      id(show_system_switch).toggle();
-                      id(rebuild_active_deck).execute();
-                      id(disp1).update();
                     }
+                    // item_idx == 7 (System) is locked to Always Visible to prevent on-device self-lockout
+                    id(disp1).update();
                   }
                   return;
                 }
-
-                // Standardized Centered < BACK Button
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(system_menu_mode) = 0;
                     id(deck_menu_page) = 1;
                     id(menu_scroll_active) = false;
                     id(disp1).update();
@@ -6317,31 +5446,26 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 11) {
-                // Mode 11: Voice Assistant Submenu (Canonical 58px Pitch, 2 Slots)
+                // Mode 11: Voice Assistant Submenu (2 Slots)
                 int slot = get_5slot_index(touch, 90, 376);
                 if (slot >= 0 && slot <= 1 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
-                    // Card 1: Visual Profile Cycler (Slot 0, y = 104)
-                    auto cur = id(va_visual_profile).current_option();
                     auto call = id(va_visual_profile).make_call();
-                    call.set_option(cycle_option(cur, {"Nebula", "Solaris", "Classic Nebula", "Classic Solaris"}));
+                    call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Classic Nebula", "Classic Solaris"}));
                     call.perform();
                     id(disp1).update();
                     return;
                   } else if (slot == 1) {
-                    // Card 2: Wake Screen on Assist Toggle (Slot 1, y = 162)
                     id(va_wake_screen_switch).toggle();
                     id(disp1).update();
                     return;
                   }
                 }
-
-                // Standardized Centered < BACK Button
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
-                    id(system_menu_mode) = 0; // Return to Main System Dashboard
+                    id(system_menu_mode) = 0;
                     id(disp1).update();
                   }
                   return;
