@@ -182,9 +182,33 @@ media_player:
       then:
         - script.execute: mp_idle_debounce
 
+micro_wake_word:
+  id: mww
+  microphone:
+    microphone: pocket_mic
+    channels: 0
+    gain_factor: 2
+  task_stack_in_psram: true
+  stop_after_detection: true
+  vad:
+  models:
+    - model: okay_nabu
+      id: model_okay_nabu
+    - model: hey_jarvis
+      id: model_hey_jarvis
+    - model: hey_mycroft
+      id: model_hey_mycroft
+  on_wake_word_detected:
+    then:
+      - lambda: |-
+          id(last_detected_wake_word) = wake_word;
+          ESP_LOGI("mww", "On-board wake word detected: %s", wake_word.c_str());
+      - script.execute: trigger_va_from_wake_word
+
 voice_assistant:
   id: va
   microphone: pocket_mic
+  micro_wake_word: mww
   speaker: announcement_mixing_input
   noise_suppression_level: 2
   auto_gain: 31dBFS
@@ -207,6 +231,8 @@ voice_assistant:
           decibel_reduction: 0
           duration: 0.1s
       - lambda: |-
+          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+          esp_wifi_set_ps(0); // Ensure full-performance Wi-Fi during voice streaming
           if (!id(va_active)) {
             id(return_page) = id(gui_page);
             id(va_active) = true;
@@ -402,6 +428,12 @@ script:
   - id: route_i2s_to_spk
     mode: restart
     then:
+      - if:
+          condition:
+            micro_wake_word.is_running:
+          then:
+            - micro_wake_word.stop:
+            - delay: 20ms
       - lambda: |-
           esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
           esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
@@ -417,6 +449,86 @@ script:
           esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
           esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
       - switch.turn_off: speaker_enable
+
+  - id: sync_wake_word_model
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(va_wake_word_phrase).current_option() == "Hey Jarvis";'
+          then:
+            - micro_wake_word.disable_model: model_okay_nabu
+            - micro_wake_word.enable_model: model_hey_jarvis
+            - micro_wake_word.disable_model: model_hey_mycroft
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(va_wake_word_phrase).current_option() == "Hey Mycroft";'
+                then:
+                  - micro_wake_word.disable_model: model_okay_nabu
+                  - micro_wake_word.disable_model: model_hey_jarvis
+                  - micro_wake_word.enable_model: model_hey_mycroft
+                else:
+                  - micro_wake_word.enable_model: model_okay_nabu
+                  - micro_wake_word.disable_model: model_hey_jarvis
+                  - micro_wake_word.disable_model: model_hey_mycroft
+      - script.execute: sync_wake_word_state
+
+  - id: sync_wake_word_state
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              auto ww_mode = id(va_wake_word_mode).current_option();
+              const bool mode_allowed = (ww_mode == "Always On") ||
+                                        (ww_mode == "Docked Only" && id(usb_connected).state);
+              const bool busy = id(va_active) || id(va).is_running() || !id(va_status_text).empty() ||
+                                id(va_tts_received) || id(announcement_mixing_input).is_running() ||
+                                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                id(alarm_ringing) || id(timer_ringing) || id(find_my_active) ||
+                                (id(active_game) > 0) || id(is_hibernating) || id(ota_in_progress) ||
+                                !id(wifi_ctrl).is_connected() || (millis() < 6000U);
+              return mode_allowed && !busy;
+          then:
+            - if:
+                condition:
+                  not:
+                    micro_wake_word.is_running:
+                then:
+                  - script.execute: route_i2s_to_mic
+                  - delay: 25ms
+                  - micro_wake_word.start:
+          else:
+            - if:
+                condition:
+                  micro_wake_word.is_running:
+                then:
+                  - micro_wake_word.stop:
+
+  - id: trigger_va_from_wake_word
+    mode: restart
+    then:
+      - lambda: |-
+          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+          esp_wifi_set_ps(0);
+          if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
+            if (id(va_wake_screen_switch).state) {
+              id(wake_to_active_state).execute();
+            }
+          } else {
+            id(screen_sleep_timer).execute();
+          }
+      - script.execute: pause_all_music
+      - if:
+          condition:
+            lambda: 'return id(va_resume_music_after);'
+          then:
+            - delay: 150ms
+      - script.execute: route_i2s_to_mic
+      - lambda: 'id(va_tts_received) = false;'
+      - voice_assistant.start:
+          wake_word: !lambda 'return id(last_detected_wake_word);'
 
   - id: play_alarm_sound
     mode: restart

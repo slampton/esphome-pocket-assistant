@@ -393,6 +393,29 @@ interval:
             }
           }
 
+          // On-Board Wake Word (micro_wake_word) Power & Bus Supervisor:
+          // Automatically arms/disarms micro_wake_word based on USB dock status, user mode
+          // (Docked Only / Always On / Disabled), and shared I2S bus activity.
+          static bool ww_model_initialized = false;
+          if (!ww_model_initialized && millis() > 6000U && id(wifi_ctrl).is_connected()) {
+            ww_model_initialized = true;
+            id(sync_wake_word_model).execute();
+          } else if (millis() > 6500U && !id(va_active) && !id(va_tts_received)) {
+            auto ww_mode = id(va_wake_word_mode).current_option();
+            const bool ww_allowed = (ww_mode == "Always On") ||
+                                    (ww_mode == "Docked Only" && id(usb_connected).state);
+            const bool ww_busy = id(va).is_running() || !id(va_status_text).empty() ||
+                                 id(announcement_mixing_input).is_running() ||
+                                 (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                 id(alarm_ringing) || id(timer_ringing) || id(find_my_active) ||
+                                 (id(active_game) > 0) || id(is_hibernating) || id(ota_in_progress) ||
+                                 !id(wifi_ctrl).is_connected();
+            const bool should_ww_run = ww_allowed && !ww_busy;
+            if (should_ww_run != id(mww).is_running()) {
+              id(sync_wake_word_state).execute();
+            }
+          }
+
           // Smart On-Demand BLE Fallback:
           // If the device is awake and configured Wi-Fi is unreachable after 15 seconds,
           // automatically enable BLE so Improv BLE can provision a new Wi-Fi SSID/AP.
@@ -721,6 +744,7 @@ script:
           id(is_hibernating) = true;
           id(active_game) = 0;
           id(display_power_state) = 0; // Force ACTIVE so confirmation displays when screen was sleeping
+      - micro_wake_word.stop:
       - voice_assistant.stop:
       - media_player.pause: pocket_music_player
       - audio_dac.mute_on: es8311_dac
@@ -740,6 +764,7 @@ script:
           id(is_hibernating) = true;
           id(active_game) = 0;
           id(display_power_state) = 0; // Force ACTIVE so countdown displays when screen was sleeping
+      - micro_wake_word.stop:
       - voice_assistant.stop:
       - media_player.pause: pocket_music_player
       - audio_dac.mute_on: es8311_dac
@@ -779,6 +804,7 @@ script:
           id(active_game) = 0;
           id(is_hibernating) = true;
           id(display_power_state) = 0; // Force ACTIVE so confirmation displays when screen was sleeping
+      - micro_wake_word.stop:
       - voice_assistant.stop:
       - media_player.pause: pocket_music_player
       - audio_dac.mute_on: es8311_dac

@@ -471,6 +471,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: last_detected_wake_word
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: find_my_active
     type: bool
     restore_value: no
@@ -754,6 +758,42 @@ select:
           id(remote_profile_user_set) = true;
           id(tv_remote_profile).publish_state(x);
           if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+
+  - platform: template
+    name: "Voice: Wake Word Mode"
+    id: va_wake_word_mode
+    icon: "mdi:AccountTieVoice"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Docked Only"
+    options:
+      - "Docked Only"
+      - "Always On"
+      - "Disabled"
+    set_action:
+      - lambda: |-
+          id(va_wake_word_mode).publish_state(x);
+          id(disp1).update();
+      - script.execute: sync_wake_word_state
+
+  - platform: template
+    name: "Voice: Wake Word Phrase"
+    id: va_wake_word_phrase
+    icon: "mdi:bullhorn-outline"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Okay Nabu"
+    options:
+      - "Okay Nabu"
+      - "Hey Jarvis"
+      - "Hey Mycroft"
+    set_action:
+      - lambda: |-
+          id(va_wake_word_phrase).publish_state(x);
+          id(disp1).update();
+      - script.execute: sync_wake_word_model
 
   - platform: template
     name: "Voice: Visual Profile"
@@ -2885,6 +2925,12 @@ script:
                   lambda: 'return id(va_resume_music_after);'
                 then:
                   - delay: 150ms
+            - if:
+                condition:
+                  micro_wake_word.is_running:
+                then:
+                  - micro_wake_word.stop:
+                  - delay: 20ms
             - script.execute: route_i2s_to_mic
             - lambda: 'id(va_tts_received) = false;'
             - voice_assistant.start:
@@ -3393,6 +3439,7 @@ display:
             id(default_start_app).current_option(),
             id(show_clock_switch).state, id(show_music_switch).state, id(show_remote_switch).state,
             id(show_weather_switch).state, id(show_games_switch).state, id(show_stuff_switch).state,
+            id(va_wake_word_mode).current_option(), id(va_wake_word_phrase).current_option(),
             id(va_visual_profile).current_option(), id(va_wake_screen_switch).state,
             id(font_date), id(font_small),
             id(theme_primary), id(theme_secondary),
@@ -4970,15 +5017,29 @@ touchscreen:
               } else if (id(system_menu_mode) == 11) {
                 // Mode 11: Voice Assistant Submenu (2 Slots)
                 int slot = get_5slot_index(touch, 88, 371);
-                if (slot >= 0 && slot <= 1 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                if (slot >= 0 && slot <= 3 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
+                    auto call = id(va_wake_word_mode).make_call();
+                    call.set_option(cycle_option(id(va_wake_word_mode).current_option(), {"Docked Only", "Always On", "Disabled"}));
+                    call.perform();
+                    id(disp1).update();
+                    return;
+                  } else if (slot == 1) {
+                    if (id(va_wake_word_mode).current_option() != "Disabled") {
+                      auto call = id(va_wake_word_phrase).make_call();
+                      call.set_option(cycle_option(id(va_wake_word_phrase).current_option(), {"Okay Nabu", "Hey Jarvis", "Hey Mycroft"}));
+                      call.perform();
+                      id(disp1).update();
+                    }
+                    return;
+                  } else if (slot == 2) {
                     auto call = id(va_visual_profile).make_call();
                     call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Classic Nebula", "Classic Solaris"}));
                     call.perform();
                     id(disp1).update();
                     return;
-                  } else if (slot == 1) {
+                  } else if (slot == 3) {
                     id(va_wake_screen_switch).toggle();
                     id(disp1).update();
                     return;
