@@ -7991,8 +7991,11 @@ inline void render_system_page(
     const std::string &default_app_opt,
     bool show_clock, bool show_music, bool show_remote,
     bool show_weather, bool show_games, bool show_tools,
-    // Voice values
-    const std::string &va_ww_mode_opt, const std::string &va_ww_phrase_opt,
+    // Voice & Per-Model Wake Word Sensitivity values
+    const std::string &va_ww_mode_opt,
+    const std::string &sens_nabu_opt, const std::string &sens_luna_opt,
+    const std::string &sens_jarvis_opt, const std::string &sens_mycroft_opt,
+    const std::string &sens_alexa_opt,
     const std::string &va_profile_opt, bool va_wake_scr,
     // Fonts & Colors
     FontDateT *font_date, FontSmallT *font_small,
@@ -8371,12 +8374,34 @@ inline void render_system_page(
     snprintf(buf, sizeof(buf), "Wake Word: %s", va_ww_mode_opt.c_str());
     draw_slot_card(0, buf, theme_secondary, col_white, col_dark_gray);
     const bool ww_en = (va_ww_mode_opt != "Disabled");
-    snprintf(buf, sizeof(buf), "Phrase: %s", va_ww_phrase_opt.c_str());
-    draw_slot_card(1, buf, ww_en ? theme_secondary : col_slate, ww_en ? col_white : col_slate, col_dark_gray);
+    draw_slot_card(1, "Sensitivity (Per Model) >", ww_en ? theme_secondary : col_slate,
+                   ww_en ? col_white : col_slate, col_dark_gray);
     snprintf(buf, sizeof(buf), "Profile: %s", va_profile_opt.c_str());
     draw_slot_card(2, buf, theme_secondary, col_white, col_dark_gray);
     snprintf(buf, sizeof(buf), "Wake Screen: %s", va_wake_scr ? "ON" : "OFF");
     draw_slot_card(3, buf, theme_secondary, col_white, col_dark_gray);
+    draw_back();
+
+  } else if (system_menu_mode == 12) {
+    // -------------------------------------------------------------------------
+    // VIEW 12: PER-MODEL WAKE WORD SENSITIVITY SUBMENU (5 Models on 1 Page)
+    // -------------------------------------------------------------------------
+    render_menu_header(it, cx, 50, "SENSITIVITY", font_date, theme_primary);
+    auto short_sens = [](const std::string &s) -> const char * {
+      if (s == "Slightly sensitive") return "Low";
+      if (s == "Very sensitive") return "High";
+      return "Medium";
+    };
+    snprintf(buf, sizeof(buf), "Okay Nabu: %s", short_sens(sens_nabu_opt));
+    draw_slot_card(0, buf, theme_secondary, col_white, col_dark_gray);
+    snprintf(buf, sizeof(buf), "Hey Luna: %s", short_sens(sens_luna_opt));
+    draw_slot_card(1, buf, theme_secondary, col_white, col_dark_gray);
+    snprintf(buf, sizeof(buf), "Hey Jarvis: %s", short_sens(sens_jarvis_opt));
+    draw_slot_card(2, buf, theme_secondary, col_white, col_dark_gray);
+    snprintf(buf, sizeof(buf), "Hey Mycroft: %s", short_sens(sens_mycroft_opt));
+    draw_slot_card(3, buf, theme_secondary, col_white, col_dark_gray);
+    snprintf(buf, sizeof(buf), "Alexa: %s", short_sens(sens_alexa_opt));
+    draw_slot_card(4, buf, theme_secondary, col_white, col_dark_gray);
     draw_back();
   }
 }

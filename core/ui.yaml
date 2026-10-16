@@ -778,22 +778,94 @@ select:
       - script.execute: sync_wake_word_state
 
   - platform: template
-    name: "Voice: Wake Word Phrase"
-    id: va_wake_word_phrase
-    icon: "mdi:bullhorn-outline"
+    name: "Voice: Sensitivity (Okay Nabu)"
+    id: ww_sens_okay_nabu
+    icon: "mdi:microphone-settings"
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Okay Nabu"
+    initial_option: "Moderately sensitive"
     options:
-      - "Okay Nabu"
-      - "Hey Jarvis"
-      - "Hey Mycroft"
+      - "Slightly sensitive"
+      - "Moderately sensitive"
+      - "Very sensitive"
     set_action:
       - lambda: |-
-          id(va_wake_word_phrase).publish_state(x);
+          id(ww_sens_okay_nabu).publish_state(x);
           id(disp1).update();
-      - script.execute: sync_wake_word_model
+      - script.execute: apply_wake_word_sensitivities
+
+  - platform: template
+    name: "Voice: Sensitivity (Hey Luna)"
+    id: ww_sens_hey_luna
+    icon: "mdi:microphone-settings"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Moderately sensitive"
+    options:
+      - "Slightly sensitive"
+      - "Moderately sensitive"
+      - "Very sensitive"
+    set_action:
+      - lambda: |-
+          id(ww_sens_hey_luna).publish_state(x);
+          id(disp1).update();
+      - script.execute: apply_wake_word_sensitivities
+
+  - platform: template
+    name: "Voice: Sensitivity (Hey Jarvis)"
+    id: ww_sens_hey_jarvis
+    icon: "mdi:microphone-settings"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Moderately sensitive"
+    options:
+      - "Slightly sensitive"
+      - "Moderately sensitive"
+      - "Very sensitive"
+    set_action:
+      - lambda: |-
+          id(ww_sens_hey_jarvis).publish_state(x);
+          id(disp1).update();
+      - script.execute: apply_wake_word_sensitivities
+
+  - platform: template
+    name: "Voice: Sensitivity (Hey Mycroft)"
+    id: ww_sens_hey_mycroft
+    icon: "mdi:microphone-settings"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Moderately sensitive"
+    options:
+      - "Slightly sensitive"
+      - "Moderately sensitive"
+      - "Very sensitive"
+    set_action:
+      - lambda: |-
+          id(ww_sens_hey_mycroft).publish_state(x);
+          id(disp1).update();
+      - script.execute: apply_wake_word_sensitivities
+
+  - platform: template
+    name: "Voice: Sensitivity (Alexa)"
+    id: ww_sens_alexa
+    icon: "mdi:microphone-settings"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Moderately sensitive"
+    options:
+      - "Slightly sensitive"
+      - "Moderately sensitive"
+      - "Very sensitive"
+    set_action:
+      - lambda: |-
+          id(ww_sens_alexa).publish_state(x);
+          id(disp1).update();
+      - script.execute: apply_wake_word_sensitivities
 
   - platform: template
     name: "Voice: Visual Profile"
@@ -3439,7 +3511,10 @@ display:
             id(default_start_app).current_option(),
             id(show_clock_switch).state, id(show_music_switch).state, id(show_remote_switch).state,
             id(show_weather_switch).state, id(show_games_switch).state, id(show_stuff_switch).state,
-            id(va_wake_word_mode).current_option(), id(va_wake_word_phrase).current_option(),
+            id(va_wake_word_mode).current_option(),
+            id(ww_sens_okay_nabu).current_option(), id(ww_sens_hey_luna).current_option(),
+            id(ww_sens_hey_jarvis).current_option(), id(ww_sens_hey_mycroft).current_option(),
+            id(ww_sens_alexa).current_option(),
             id(va_visual_profile).current_option(), id(va_wake_screen_switch).state,
             id(font_date), id(font_small),
             id(theme_primary), id(theme_secondary),
@@ -5027,9 +5102,7 @@ touchscreen:
                     return;
                   } else if (slot == 1) {
                     if (id(va_wake_word_mode).current_option() != "Disabled") {
-                      auto call = id(va_wake_word_phrase).make_call();
-                      call.set_option(cycle_option(id(va_wake_word_phrase).current_option(), {"Okay Nabu", "Hey Jarvis", "Hey Mycroft"}));
-                      call.perform();
+                      id(system_menu_mode) = 12;
                       id(disp1).update();
                     }
                     return;
@@ -5049,6 +5122,46 @@ touchscreen:
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+              } else if (id(system_menu_mode) == 12) {
+                int slot = get_5slot_index(touch, 88, 371);
+                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_sys_action_tap = now_sys;
+                  static const std::vector<std::string> SENS_OPTS = {
+                    "Slightly sensitive", "Moderately sensitive", "Very sensitive"
+                  };
+                  if (slot == 0) {
+                    auto call = id(ww_sens_okay_nabu).make_call();
+                    call.set_option(cycle_option(id(ww_sens_okay_nabu).current_option(), SENS_OPTS));
+                    call.perform();
+                  } else if (slot == 1) {
+                    auto call = id(ww_sens_hey_luna).make_call();
+                    call.set_option(cycle_option(id(ww_sens_hey_luna).current_option(), SENS_OPTS));
+                    call.perform();
+                  } else if (slot == 2) {
+                    auto call = id(ww_sens_hey_jarvis).make_call();
+                    call.set_option(cycle_option(id(ww_sens_hey_jarvis).current_option(), SENS_OPTS));
+                    call.perform();
+                  } else if (slot == 3) {
+                    auto call = id(ww_sens_hey_mycroft).make_call();
+                    call.set_option(cycle_option(id(ww_sens_hey_mycroft).current_option(), SENS_OPTS));
+                    call.perform();
+                  } else if (slot == 4) {
+                    auto call = id(ww_sens_alexa).make_call();
+                    call.set_option(cycle_option(id(ww_sens_alexa).current_option(), SENS_OPTS));
+                    call.perform();
+                  }
+                  id(disp1).update();
+                  return;
+                }
+                if (is_back_button(touch)) {
+                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_back_tap = now_sys;
+                    id(system_menu_mode) = 11;
                     id(disp1).update();
                   }
                   return;

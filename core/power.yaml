@@ -399,7 +399,8 @@ interval:
           static bool ww_model_initialized = false;
           if (!ww_model_initialized && millis() > 6000U && id(wifi_ctrl).is_connected()) {
             ww_model_initialized = true;
-            id(sync_wake_word_model).execute();
+            id(apply_wake_word_sensitivities).execute();
+            id(sync_wake_word_state).execute();
           } else if (millis() > 6500U && !id(va_active) && !id(va_tts_received)) {
             auto ww_mode = id(va_wake_word_mode).current_option();
             const bool ww_allowed = (ww_mode == "Always On") ||
@@ -599,8 +600,12 @@ script:
                 id(disp1).update();
                 return;
               } else if (id(gui_page) == 4 && id(system_menu_mode) > 0) {
-                // In System Submenu -> back out to main System Dashboard or Music Hub
-                if (id(audio_menu_parent_page) == 2 && id(system_menu_mode) == 9) {
+                // In System Submenu -> back out 1 level (or to Music Hub when opened from Page 2)
+                if (id(system_menu_mode) == 12) {
+                  id(system_menu_mode) = 11;
+                } else if (id(system_menu_mode) == 5) {
+                  id(system_menu_mode) = 3;
+                } else if (id(audio_menu_parent_page) == 2 && id(system_menu_mode) == 9) {
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 5;
                   id(audio_menu_parent_page) = 4;

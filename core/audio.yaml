@@ -194,10 +194,14 @@ micro_wake_word:
   models:
     - model: okay_nabu
       id: model_okay_nabu
+    - model: https://raw.githubusercontent.com/dreimer1986/micro-wake-word-models/refs/heads/main/models/v2/hey_luna.json
+      id: model_hey_luna
     - model: hey_jarvis
       id: model_hey_jarvis
     - model: hey_mycroft
       id: model_hey_mycroft
+    - model: alexa
+      id: model_alexa
   on_wake_word_detected:
     then:
       - lambda: |-
@@ -450,29 +454,25 @@ script:
           esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
       - switch.turn_off: speaker_enable
 
-  - id: sync_wake_word_model
+  - id: apply_wake_word_sensitivities
     mode: restart
     then:
-      - if:
-          condition:
-            lambda: 'return id(va_wake_word_phrase).current_option() == "Hey Jarvis";'
-          then:
-            - micro_wake_word.disable_model: model_okay_nabu
-            - micro_wake_word.enable_model: model_hey_jarvis
-            - micro_wake_word.disable_model: model_hey_mycroft
-          else:
-            - if:
-                condition:
-                  lambda: 'return id(va_wake_word_phrase).current_option() == "Hey Mycroft";'
-                then:
-                  - micro_wake_word.disable_model: model_okay_nabu
-                  - micro_wake_word.disable_model: model_hey_jarvis
-                  - micro_wake_word.enable_model: model_hey_mycroft
-                else:
-                  - micro_wake_word.enable_model: model_okay_nabu
-                  - micro_wake_word.disable_model: model_hey_jarvis
-                  - micro_wake_word.disable_model: model_hey_mycroft
-      - script.execute: sync_wake_word_state
+      - lambda: |-
+          auto apply_cutoffs = [](const std::string &opt, uint8_t low_c, uint8_t med_c, uint8_t high_c) -> uint8_t {
+            if (opt == "Slightly sensitive") return low_c;
+            if (opt == "Very sensitive") return high_c;
+            return med_c;
+          };
+          id(model_okay_nabu).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_okay_nabu).current_option(), 217, 176, 143));
+          id(model_hey_luna).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_hey_luna).current_option(), 253, 242, 230));
+          id(model_hey_jarvis).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_hey_jarvis).current_option(), 247, 235, 212));
+          id(model_hey_mycroft).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_hey_mycroft).current_option(), 253, 242, 237));
+          id(model_alexa).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_alexa).current_option(), 247, 235, 212));
 
   - id: sync_wake_word_state
     mode: restart
