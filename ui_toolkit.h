@@ -6585,17 +6585,40 @@ inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t 
                                          esphome::Color theme_secondary,
                                          esphome::Color col_bg, esphome::Color col_black,
                                          esphome::Color col_white, esphome::Color col_gray,
-                                         esphome::Color col_red) {
+                                         esphome::Color col_red,
+                                         bool find_my_active = false,
+                                         const std::string &va_timer_name = "") {
   it.fill(col_bg);
   uint8_t pulse = (now_ms / 250U) % 2U;
-  esphome::Color alert_color = alarm_ringing ? col_red : theme_secondary;
-  esphome::Color ring_c = pulse ? alert_color : esphome::Color(20, 20, 20);
+  esphome::Color alert_color = find_my_active ? col_white : (alarm_ringing ? col_red : theme_secondary);
+  esphome::Color ring_c = pulse ? alert_color : (find_my_active ? theme_secondary : esphome::Color(20, 20, 20));
   it.circle(cx, cy, 223, ring_c);
   it.circle(cx, cy, 224, ring_c);
   it.circle(cx, cy, 225, ring_c);
   it.circle(cx, cy, 226, ring_c);
 
-  if (alarm_ringing) {
+  if (find_my_active) {
+    // High-visibility expanding radar rings for Find My Pocket Assistant
+    int radar_r = 60 + static_cast<int>((now_ms / 8U) % 145U);
+    it.circle(cx, cy, radar_r, theme_primary);
+    it.circle(cx, cy, radar_r + 1, pulse ? col_white : theme_secondary);
+    int radar_r2 = 60 + static_cast<int>(((now_ms / 8U) + 72U) % 145U);
+    it.circle(cx, cy, radar_r2, theme_secondary);
+
+    it.print(cx, 75, font_small, pulse ? col_white : theme_secondary,
+             esphome::display::TextAlign::CENTER, "LOCATING DEVICE");
+    it.print(cx, 156, font_date, col_white,
+             esphome::display::TextAlign::CENTER, "POCKET");
+    it.print(cx, 196, font_date, theme_primary,
+             esphome::display::TextAlign::CENTER, "ASSISTANT");
+    it.print(cx, 244, font_small, theme_secondary,
+             esphome::display::TextAlign::CENTER, "Acoustic Beacon Active");
+
+    render_pill_button(it, 123, 343, 330, 22, theme_primary, theme_primary,
+                       "TAP TO DISMISS", col_white, font_small);
+    it.print(cx, 372, font_micro, col_gray,
+             esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
+  } else if (alarm_ringing) {
     it.print(cx, 75, font_small, pulse ? col_red : col_white,
              esphome::display::TextAlign::CENTER, "ALARM RINGING");
 
@@ -6626,8 +6649,9 @@ inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t 
     it.print(cx, 75, font_small, pulse ? theme_secondary : col_white,
              esphome::display::TextAlign::CENTER, "TIMER EXPIRED");
     it.print(cx, 170, font_time, col_white, esphome::display::TextAlign::CENTER, "00:00");
+    std::string t_lbl = va_timer_name.empty() ? "TIME IS UP!" : fit_text_to_width_font(va_timer_name, 260, font_small);
     it.print(cx, 230, font_small, theme_secondary,
-             esphome::display::TextAlign::CENTER, "TIME IS UP!");
+             esphome::display::TextAlign::CENTER, t_lbl.c_str());
 
     render_pill_button(it, 133, 333, 330, 22, theme_primary, theme_primary,
                        "DISMISS", col_white, font_small);
@@ -6646,7 +6670,8 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
                               esphome::Color theme_primary, esphome::Color theme_secondary,
                               esphome::Color col_black, esphome::Color col_white,
                               esphome::Color col_slate, esphome::Color col_dark_gray,
-                              esphome::Color col_red) {
+                              esphome::Color col_red,
+                              const std::string &va_timer_name = "") {
   // Keep "TIMER" title at y = 50
   it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "TIMER");
 
@@ -6658,7 +6683,8 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
   it.print(cx, 148, font_time, col_white, esphome::display::TextAlign::CENTER, t_str);
 
   if (timer_running) {
-    it.print(cx, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "Countdown");
+    std::string sub_lbl = va_timer_name.empty() ? "Countdown" : fit_text_to_width_font(va_timer_name, 240, font_small);
+    it.print(cx, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, sub_lbl.c_str());
   } else if (timer_paused) {
     it.print(cx, 196, font_small, theme_primary, esphome::display::TextAlign::CENTER, "Paused");
   } else {

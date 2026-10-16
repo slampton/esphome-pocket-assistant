@@ -299,6 +299,7 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer started via Assist: %s (%lu sec)", timer.name.c_str(), (unsigned long)timer.total_seconds);
+          id(va_timer_name) = timer.name;
           id(timer_duration_sec) = timer.total_seconds;
           id(timer_remaining_sec) = timer.seconds_left;
           id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
@@ -314,6 +315,7 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer updated via Assist: %s (left: %lu sec, active: %d)", timer.name.c_str(), (unsigned long)timer.seconds_left, timer.is_active);
+          if (!timer.name.empty()) id(va_timer_name) = timer.name;
           id(timer_remaining_sec) = timer.seconds_left;
           id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
           id(timer_running) = timer.is_active;
@@ -327,6 +329,7 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer cancelled via Assist: %s", timer.name.c_str());
+          id(va_timer_name) = "";
           id(timer_running) = false;
           id(timer_paused) = false;
           id(timer_ringing) = false;
@@ -424,6 +427,7 @@ script:
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
+            if (id(find_my_active)) return 0.0f; // Find My Device always plays at 100% volume
             float v = id(alert_volume).state;
             if (std::isnan(v) || v <= 0.0f) v = 80.0f;
             if (v > 100.0f) v = 100.0f;
@@ -440,11 +444,15 @@ script:
                 duration: 0.1s
       - while:
           condition:
-            lambda: "return id(alarm_ringing) || id(timer_ringing);"
+            lambda: "return id(alarm_ringing) || id(timer_ringing) || id(find_my_active);"
           then:
             - rtttl.play:
                 id: alarm_rtttl
-                rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
+                rtttl: !lambda |-
+                  if (id(find_my_active)) {
+                    return std::string("findmy:d=16,o=6,b=180:e,a,e7,a7,p,e,a,e7,a7,p,e,a,e7,a7");
+                  }
+                  return std::string("alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7");
             - wait_until:
                 condition:
                   not:

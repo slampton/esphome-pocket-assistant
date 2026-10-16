@@ -435,6 +435,7 @@ interval:
               !id(timer_running) &&
               !id(timer_ringing) &&
               !id(alarm_ringing) &&
+              !id(find_my_active) &&
               !id(va).is_running() &&
               !id(va_tts_received) &&
               !id(announcement_mixing_input).is_running() &&
@@ -457,7 +458,7 @@ interval:
                   (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
               if (pocket_ui::should_step_ambient_anim(millis(), local_music_playing,
                                                       id(va_active) || !id(va_status_text).empty(),
-                                                      id(alarm_ringing) || id(timer_ringing))) {
+                                                      id(alarm_ringing) || id(timer_ringing) || id(find_my_active))) {
                 id(disp1).update();
                 pocket_ui::record_ambient_frame_ms(millis());
               }
@@ -532,10 +533,12 @@ script:
                 id(screen_sleep_timer).execute();
                 return;
               }
-              if (id(timer_ringing)) {
-                // Crown short click Dismisses timer alarm
+              if (id(timer_ringing) || id(find_my_active)) {
+                // Crown short click Dismisses timer alarm or Find My Device beacon
                 id(timer_ringing) = false;
+                id(find_my_active) = false;
                 id(stop_alarm_sound).execute();
+                id(sync_display_brightness).execute();
                 id(disp1).update();
                 id(screen_sleep_timer).execute();
                 return;
@@ -918,6 +921,7 @@ script:
                      !id(stopwatch_running) &&
                      !id(timer_ringing) &&
                      !id(alarm_ringing) &&
+                     !id(find_my_active) &&
                      !id(pickup_detected).state &&
                      !active_tool_awake &&
                      (id(active_game) == 0);
@@ -935,6 +939,7 @@ script:
                            !id(stopwatch_running) &&
                            !id(timer_ringing) &&
                            !id(alarm_ringing) &&
+                           !id(find_my_active) &&
                            !active_tool_awake &&
                            (id(active_game) == 0);
                 then:

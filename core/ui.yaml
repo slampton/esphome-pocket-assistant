@@ -467,6 +467,18 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: va_timer_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: find_my_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: find_my_start_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: alarm1_hour
     type: int
     restore_value: yes
@@ -1060,6 +1072,26 @@ button:
     on_press:
       - script.execute: toggle_voice_assistant
 
+  - platform: template
+    name: "Find My Pocket Assistant"
+    id: find_my_button
+    icon: "mdi:radar"
+    on_press:
+      - lambda: |-
+          if (!id(find_my_active)) {
+            id(find_my_active) = true;
+            id(find_my_start_ms) = millis();
+            id(wake_to_active_state).execute();
+            id(play_alarm_sound).execute();
+            id(disp1).update();
+          } else {
+            id(find_my_active) = false;
+            id(stop_alarm_sound).execute();
+            id(sync_display_brightness).execute();
+            id(disp1).update();
+            id(screen_sleep_timer).execute();
+          }
+
 
 switch:
   - platform: gpio
@@ -1455,8 +1487,17 @@ interval:
             }
           }
 
-          // Periodic display refresh during active alarm or timer ringing
-          if ((id(alarm_ringing) || id(timer_ringing)) && id(display_power_state) == 0) {
+          // 60-second safety auto-stop for Find My Pocket Assistant beacon
+          if (id(find_my_active) && (millis() - id(find_my_start_ms) >= 60000U)) {
+            id(find_my_active) = false;
+            id(stop_alarm_sound).execute();
+            id(sync_display_brightness).execute();
+            id(disp1).update();
+            id(screen_sleep_timer).execute();
+          }
+
+          // Periodic display refresh during active alarm, timer, or Find My Device ringing
+          if ((id(alarm_ringing) || id(timer_ringing) || id(find_my_active)) && id(display_power_state) == 0) {
             if (!id(va_active) && id(va_status_text).empty()) {
               id(disp1).update();
             }
@@ -1760,11 +1801,24 @@ binary_sensor:
             last_btn_press = now;
         - if:
             condition:
-              lambda: 'return id(active_game) > 0;'
+              lambda: 'return id(find_my_active) || id(timer_ringing) || id(alarm_ringing);'
             then:
-              - lambda: 'id(game_btn_pressed) = true;'
+              - lambda: |-
+                  id(find_my_active) = false;
+                  id(timer_ringing) = false;
+                  id(alarm_ringing) = false;
+                  id(stop_alarm_sound).execute();
+                  id(sync_display_brightness).execute();
+                  id(disp1).update();
+                  id(screen_sleep_timer).execute();
             else:
-              - script.execute: toggle_voice_assistant
+              - if:
+                  condition:
+                    lambda: 'return id(active_game) > 0;'
+                  then:
+                    - lambda: 'id(game_btn_pressed) = true;'
+                  else:
+                    - script.execute: toggle_voice_assistant
 
 text_sensor:
   # --------------------------------------------------------------------------
@@ -1783,24 +1837,6 @@ text_sensor:
     internal: true
 
   - platform: homeassistant
-    id: ha_sun_next_noon
-    entity_id: ${sun_entity}
-    attribute: next_noon
-    internal: true
-
-  - platform: homeassistant
-    id: ha_sun_next_dawn
-    entity_id: ${sun_entity}
-    attribute: next_dawn
-    internal: true
-
-  - platform: homeassistant
-    id: ha_sun_next_dusk
-    entity_id: ${sun_entity}
-    attribute: next_dusk
-    internal: true
-
-  - platform: homeassistant
     id: ha_moon_phase
     entity_id: ${moon_entity}
     internal: true
@@ -1808,12 +1844,6 @@ text_sensor:
   - platform: homeassistant
     id: ha_weather_condition
     entity_id: ${weather_entity}
-    internal: true
-
-  - platform: homeassistant
-    id: ha_weather_temp_unit
-    entity_id: ${weather_entity}
-    attribute: temperature_unit
     internal: true
 
   - platform: homeassistant
@@ -2359,8 +2389,8 @@ script:
             b_target = parse_bri(opt);
           }
 
-          // Flashlight Torch (Page 8, Subpage 5) always locks active brightness at 100%
-          if (id(gui_page) == 8 && id(stuff_subpage) == 5) {
+          // Flashlight Torch (Page 8, Subpage 5) & Find My Device always lock active brightness at 100%
+          if ((id(gui_page) == 8 && id(stuff_subpage) == 5) || id(find_my_active)) {
             b_target = 1.00f;
           }
 
@@ -3142,13 +3172,14 @@ display:
       // GLOBAL OVERLAY: ALARM / TIMER RINGING TAKEOVER
       // Rendered above Docked Screensaver & all pages without hijacking gui_page
       // ==========================================
-      if (id(alarm_ringing) || id(timer_ringing)) {
+      if (id(alarm_ringing) || id(timer_ringing) || id(find_my_active)) {
         render_alert_ringing_overlay(
             it, cx, cy, millis(), id(alarm_ringing), id(alarm_ringing_idx),
             id(alarm1_recurrence), id(alarm2_recurrence), now, id(is_24h_format),
             id(font_time), id(font_date), id(font_small), id(font_micro),
             id(theme_primary), id(theme_secondary), id(col_bg), id(col_black),
-            id(col_white), id(col_gray), id(col_red));
+            id(col_white), id(col_gray), id(col_red),
+            id(find_my_active), id(va_timer_name));
         return;
       }
 
@@ -3427,7 +3458,8 @@ display:
               id(timer_remaining_sec), id(timer_duration_sec),
               id(font_time), id(font_date), id(font_btn_bold), id(font_small),
               id(theme_primary), id(theme_secondary), id(col_black),
-              id(col_white), id(col_slate), id(col_dark_gray), id(col_red));
+              id(col_white), id(col_slate), id(col_dark_gray), id(col_red),
+              id(va_timer_name));
 
         } else if (id(stuff_subpage) == 2) {
           // --------------------------------------------------
@@ -3600,8 +3632,16 @@ touchscreen:
               return;
             }
 
-            // Alarm / Timer Ringing Takeover Interception: Dismiss / Snooze
-            if (id(alarm_ringing) || id(timer_ringing)) {
+            // Alarm / Timer / Find My Device Ringing Takeover Interception: Dismiss / Snooze
+            if (id(alarm_ringing) || id(timer_ringing) || id(find_my_active)) {
+              if (id(find_my_active)) {
+                id(find_my_active) = false;
+                pocket_ui::last_screen_wake_ms() = now_touch;
+                id(stop_alarm_sound).execute();
+                id(sync_display_brightness).execute();
+                id(disp1).update();
+                return;
+              }
               if (id(alarm_ringing)) {
                 // SNOOZE button: y in [268..324], x in [100..366]
                 if (touch.y >= 268 && touch.y <= 324 && touch.x >= 100 && touch.x <= 366) {
@@ -5252,6 +5292,7 @@ touchscreen:
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     if (!id(timer_running) && !id(timer_paused)) {
+                      id(va_timer_name) = "";
                       id(timer_running) = true;
                       id(timer_paused) = false;
                       id(timer_remaining_sec) = id(timer_duration_sec);
@@ -5301,6 +5342,7 @@ touchscreen:
                     } else {
                       // Reset Button (x in 150..316)
                       if (touch.x >= 150 && touch.x <= 316) {
+                        id(va_timer_name) = "";
                         id(timer_running) = false;
                         id(timer_paused) = false;
                         id(timer_remaining_sec) = id(timer_duration_sec);
