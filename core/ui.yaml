@@ -5131,28 +5131,25 @@ touchscreen:
                 int slot = get_5slot_index(touch, 88, 371);
                 if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
-                  static const std::vector<std::string> SENS_OPTS = {
-                    "Slightly sensitive", "Moderately sensitive", "Very sensitive"
-                  };
                   if (slot == 0) {
                     auto call = id(ww_sens_okay_nabu).make_call();
-                    call.set_option(cycle_option(id(ww_sens_okay_nabu).current_option(), SENS_OPTS));
+                    call.set_option(cycle_option(id(ww_sens_okay_nabu).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
                     call.perform();
                   } else if (slot == 1) {
                     auto call = id(ww_sens_hey_luna).make_call();
-                    call.set_option(cycle_option(id(ww_sens_hey_luna).current_option(), SENS_OPTS));
+                    call.set_option(cycle_option(id(ww_sens_hey_luna).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
                     call.perform();
                   } else if (slot == 2) {
                     auto call = id(ww_sens_hey_jarvis).make_call();
-                    call.set_option(cycle_option(id(ww_sens_hey_jarvis).current_option(), SENS_OPTS));
+                    call.set_option(cycle_option(id(ww_sens_hey_jarvis).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
                     call.perform();
                   } else if (slot == 3) {
                     auto call = id(ww_sens_hey_mycroft).make_call();
-                    call.set_option(cycle_option(id(ww_sens_hey_mycroft).current_option(), SENS_OPTS));
+                    call.set_option(cycle_option(id(ww_sens_hey_mycroft).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
                     call.perform();
                   } else if (slot == 4) {
                     auto call = id(ww_sens_alexa).make_call();
-                    call.set_option(cycle_option(id(ww_sens_alexa).current_option(), SENS_OPTS));
+                    call.set_option(cycle_option(id(ww_sens_alexa).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
                     call.perform();
                   }
                   id(disp1).update();
