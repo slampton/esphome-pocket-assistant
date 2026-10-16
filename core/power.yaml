@@ -398,6 +398,28 @@ interval:
             }
           }
 
+          // Smart On-Demand BLE Fallback:
+          // If the device is awake and configured Wi-Fi is unreachable after 15 seconds,
+          // automatically enable BLE so Improv BLE can provision a new Wi-Fi SSID/AP.
+          uint32_t now_1s_ms = millis();
+          if (id(display_power_state) == 0 && !id(wifi_ctrl).is_connected() &&
+              !id(ble_ctrl).is_active() && now_1s_ms > 15000U) {
+            ESP_LOGI("ble", "Wi-Fi not connected after 15s: enabling BLE for Improv provisioning");
+            id(ble_ctrl).enable();
+          }
+
+          // Delayed Background Firmware Update Check:
+          // Never block boot or Hibernate wake at t=0. Check quietly after 90 seconds of uptime
+          // (and every 6 hours thereafter) only when Wi-Fi is connected and audio/VA are idle.
+          static uint32_t last_fw_check_ms = 0;
+          if (now_1s_ms > 90000U && id(wifi_ctrl).is_connected() &&
+              !id(va_active) && !id(va_tts_received) && !id(ota_in_progress) &&
+              (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
+              (last_fw_check_ms == 0 || (now_1s_ms - last_fw_check_ms >= 21600000U))) {
+            last_fw_check_ms = now_1s_ms;
+            id(check_firmware_update).execute();
+          }
+
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
           uint32_t hibernate_timeout_ms = 600000; // default 10 min
           auto st_opt = id(hibernate_timeout_mode).current_option();

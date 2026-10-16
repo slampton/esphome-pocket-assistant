@@ -112,6 +112,24 @@ esphome:
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
+            // Seed AXP2101 USB/charging status immediately at boot so Frame 1 shows live battery telemetry
+            uint8_t reg0 = 0x00, stat0 = 0, reg1 = 0x01, stat1 = 0;
+            bool vbus = false;
+            if (id(bus_internal).write_readv(0x34, &reg0, 1, &stat0, 1) == esphome::i2c::ERROR_OK) {
+              vbus = (stat0 & 0x20) != 0;
+              id(usb_connected).publish_state(vbus);
+            }
+            if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
+              bool is_chg = vbus && (((stat1 >> 5) & 0x03) == 1) && ((stat1 & 0x07) < 4);
+              id(batt_charging).publish_state(is_chg);
+            }
+        - component.update: batt_level
+        - if:
+            condition:
+              lambda: 'return !id(wifi_ctrl).has_sta();'
+            then:
+              - logger.log: "No Wi-Fi credentials configured: enabling BLE for first-time Improv setup"
+              - ble.enable:
         - script.execute: sync_display_brightness
         - script.execute: screen_sleep_timer
 
@@ -248,16 +266,30 @@ update:
     name: "Project Firmware"
     icon: "mdi:cellphone-arrow-down"
     source: "https://slampton.github.io/esphome-pocket-assistant/manifest.json"
-    update_interval: 6h
+    update_interval: never
 
 wifi:
+  id: wifi_ctrl
   fast_connect: true
   power_save_mode: NONE
+  on_connect:
+    then:
+      - delay: 5s
+      - if:
+          condition: ble.enabled
+          then:
+            - logger.log: "Wi-Fi connected: disabling BLE radio to free 2.4GHz antenna and RAM"
+            - ble.disable:
 
 esp32_ble:
+  id: ble_ctrl
+  enable_on_boot: false
+  use_psram: true
+  max_connections: 1
 
 improv_ble:
   authorizer: none
+  wifi_timeout: 5s
 
 safe_mode:
   boot_is_good_after: 5s
@@ -265,6 +297,12 @@ safe_mode:
 time:
   - platform: homeassistant
     id: ha_time
+    on_time_sync:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && !id(is_hibernating)) {
+              id(disp1).update();
+            }
 
 # ==============================================================================
 # 🧩 MODULAR PACKAGES
