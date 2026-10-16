@@ -193,15 +193,15 @@ micro_wake_word:
   vad:
   models:
     - model: okay_nabu
-      id: model_okay_nabu
+      id: okay_nabu
     - model: https://raw.githubusercontent.com/dreimer1986/micro-wake-word-models/refs/heads/main/models/v2/hey_luna.json
-      id: model_hey_luna
+      id: hey_luna
     - model: hey_jarvis
-      id: model_hey_jarvis
+      id: hey_jarvis
     - model: hey_mycroft
-      id: model_hey_mycroft
+      id: hey_mycroft
     - model: alexa
-      id: model_alexa
+      id: alexa
   on_wake_word_detected:
     then:
       - lambda: |-
@@ -213,9 +213,15 @@ voice_assistant:
   id: va
   microphone: pocket_mic
   micro_wake_word: mww
+  use_wake_word: false
   speaker: announcement_mixing_input
   noise_suppression_level: 2
   auto_gain: 31dBFS
+  on_client_connected:
+    then:
+      - lambda: 'esphome::voice_assistant::ensure_wake_words_restored(id(va));'
+      - script.execute: apply_wake_word_sensitivities
+      - script.execute: sync_wake_word_state
   on_listening:
     then:
       - if:
@@ -463,15 +469,15 @@ script:
             if (opt == "Very sensitive") return high_c;
             return med_c;
           };
-          id(model_okay_nabu).set_probability_cutoff(
+          id(okay_nabu).set_probability_cutoff(
               apply_cutoffs(id(ww_sens_okay_nabu).current_option(), 217, 176, 143));
-          id(model_hey_luna).set_probability_cutoff(
+          id(hey_luna).set_probability_cutoff(
               apply_cutoffs(id(ww_sens_hey_luna).current_option(), 253, 242, 230));
-          id(model_hey_jarvis).set_probability_cutoff(
+          id(hey_jarvis).set_probability_cutoff(
               apply_cutoffs(id(ww_sens_hey_jarvis).current_option(), 247, 235, 212));
-          id(model_hey_mycroft).set_probability_cutoff(
+          id(hey_mycroft).set_probability_cutoff(
               apply_cutoffs(id(ww_sens_hey_mycroft).current_option(), 253, 242, 237));
-          id(model_alexa).set_probability_cutoff(
+          id(alexa).set_probability_cutoff(
               apply_cutoffs(id(ww_sens_alexa).current_option(), 247, 235, 212));
 
   - id: sync_wake_word_state

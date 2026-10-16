@@ -4,9 +4,6 @@
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C (AXP2101 PMIC @ 0x34)
 # ==============================================================================
 
-deep_sleep:
-  id: deep_sleep_ctrl
-
 globals:
   - id: sleep_start_time
     type: uint32_t
@@ -262,10 +259,8 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
     turn_on_action:
-      - deep_sleep.prevent: deep_sleep_ctrl
       - lambda: 'id(prevent_deep_sleep_switch).publish_state(true);'
     turn_off_action:
-      - deep_sleep.allow: deep_sleep_ctrl
       - lambda: 'id(prevent_deep_sleep_switch).publish_state(false);'
 
 select:
@@ -395,7 +390,9 @@ interval:
 
           // On-Board Wake Word (micro_wake_word) Power & Bus Supervisor:
           // Automatically arms/disarms micro_wake_word based on USB dock status, user mode
-          // (Docked Only / Always On / Disabled), and shared I2S bus activity.
+          // (Docked Only / Always On / Disabled), and shared I2S bus activity, while persisting
+          // any Home Assistant wake word selection changes to NVS flash.
+          esphome::voice_assistant::poll_and_persist_wake_words(id(va));
           static bool ww_model_initialized = false;
           if (!ww_model_initialized && millis() > 6000U && id(wifi_ctrl).is_connected()) {
             ww_model_initialized = true;
@@ -905,7 +902,7 @@ script:
 
           // Fallback delay & deep sleep entry in case PMU shutdown takes a few ms or power remains via USB
           delay(100);
-      - deep_sleep.enter: deep_sleep_ctrl
+          esp_deep_sleep_start();
 
   - id: screen_sleep_timer
     mode: restart

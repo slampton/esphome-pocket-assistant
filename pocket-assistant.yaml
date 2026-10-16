@@ -65,6 +65,11 @@ esphome:
     - va_cancel_helper.h
     - cloud_spans.h
     - ui_toolkit.h
+  platformio_options:
+    build_flags:
+      - -Wl,--wrap=_ZNK7esphome3api13APIConnection37check_voice_assistant_api_connection_Ev
+      - -Wl,--wrap=_ZN7esphome15voice_assistant14VoiceAssistant17get_configurationEv
+      - -Wl,--wrap=_ZN7esphome15voice_assistant14VoiceAssistant20on_set_configurationERKSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS7_EE
   on_boot:
     - priority: 800
       then:
@@ -152,6 +157,8 @@ esphome:
             then:
               - logger.log: "No Wi-Fi credentials configured: enabling BLE for first-time Improv setup"
               - ble.enable:
+        - lambda: 'esphome::voice_assistant::ensure_wake_words_restored(id(va));'
+        - script.execute: apply_wake_word_sensitivities
         - script.execute: sync_display_brightness
         - script.execute: screen_sleep_timer
 
@@ -159,11 +166,8 @@ logger:
   level: INFO
 
 api:
-  # Native API Noise Encryption & Outgoing Connection (ESPHome 2026.10+)
-  # Enables client-initiated dial-out to Home Assistant upon waking from sleep or roaming APs,
-  # eliminating reconnection timeouts and mDNS discovery latency.
+  # Native API Noise Encryption
   encryption:
-  outgoing_connection:
   actions:
     - action: set_browse_slots
       variables:
