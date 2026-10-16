@@ -439,6 +439,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: remote_target_cmd
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: remote_profile_user_set
     type: bool
     restore_value: yes
@@ -2940,10 +2944,6 @@ script:
     then:
       - delay: 0ms
       - lambda: |-
-          static constexpr const char *kFeedback[10] = {
-            "Up", "Down", "Left", "Right", "Select",
-            "Back", "Home", "Vol +", "Vol -", "Toggle Power"
-          };
           const std::string ents[4] = {
             "${tv_remote_entity}", "${tv_remote_entity_2}",
             "${tv_remote_entity_3}", "${tv_remote_entity_4}"
@@ -2952,30 +2952,17 @@ script:
             id(remote_slot_0_name), id(remote_slot_1_name),
             id(remote_slot_2_name), id(remote_slot_3_name)
           };
-          int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
-          std::string ent;
-          std::string dev_name;
-          if (target_slot == -1) {
-            // Master Power Target: Always controls the 1st configured device (Slot 0 / tv_remote_entity)
-            int master_slot = pocket_ui::resolve_active_remote_slot(0, ents);
-            ent = ents[master_slot];
-            dev_name = names[master_slot].empty() ? pocket_ui::format_remote_entity_fallback(ent) : names[master_slot];
-            id(remote_action_feedback) = "Power: " + dev_name;
-          } else {
-            int s = pocket_ui::resolve_active_remote_slot(target_slot, ents);
-            ent = ents[s];
-            dev_name = names[s].empty() ? pocket_ui::format_remote_entity_fallback(ent) : names[s];
-            if (idx == 9) {
-              id(remote_action_feedback) = "Power: " + dev_name;
-            } else {
-              id(remote_action_feedback) = kFeedback[idx];
-            }
-          }
-          id(remote_target_ent) = ent;
-          id(remote_target_prof) = pocket_ui::detect_remote_profile(ent, dev_name, "${tv_remote_profile}");
-          if (target_slot >= 0 && target_slot == id(active_remote_slot) && id(remote_profile_user_set)) {
-            id(remote_target_prof) = id(tv_remote_profile).current_option();
-          }
+          const pocket_ui::RemoteCustomCmds custom_cmds = {
+            "${remote_cmd_up}", "${remote_cmd_down}", "${remote_cmd_left}", "${remote_cmd_right}",
+            "${remote_cmd_select}", "${remote_cmd_back}", "${remote_cmd_home}",
+            "${remote_cmd_vol_up}", "${remote_cmd_vol_down}", "${remote_cmd_power}"
+          };
+          pocket_ui::resolve_remote_dispatch(
+              key_idx, target_slot, id(active_remote_slot), id(remote_profile_user_set),
+              id(tv_remote_profile).current_option(), "${tv_remote_profile}",
+              ents, names, custom_cmds,
+              id(remote_target_ent), id(remote_target_prof),
+              id(remote_target_cmd), id(remote_action_feedback));
           id(remote_feedback_timer) = millis();
       - if:
           condition:
@@ -3016,24 +3003,7 @@ script:
                       action: denonavr.get_command
                       data:
                         entity_id: !lambda 'return id(remote_target_ent);'
-                        command: !lambda |-
-                          static constexpr const char *kAvrCmds[7] = {
-                            "/goform/formiPhoneAppDirect.xml?MNCUP",
-                            "/goform/formiPhoneAppDirect.xml?MNCDN",
-                            "/goform/formiPhoneAppDirect.xml?MNCLT",
-                            "/goform/formiPhoneAppDirect.xml?MNCRT",
-                            "/goform/formiPhoneAppDirect.xml?MNENT",
-                            "/goform/formiPhoneAppDirect.xml?MNRTN",
-                            "/goform/formiPhoneAppDirect.xml?MNMEN%20ON"
-                          };
-                          int idx = (key_idx >= 0 && key_idx < 7) ? key_idx : 0;
-                          if (idx == 6) {
-                            bool &open = pocket_ui::avr_setup_menu_open();
-                            open = !open;
-                            return open ? "/goform/formiPhoneAppDirect.xml?MNMEN%20ON"
-                                        : "/goform/formiPhoneAppDirect.xml?MNMEN%20OFF";
-                          }
-                          return kAvrCmds[idx];
+                        command: !lambda 'return id(remote_target_cmd);'
                 else:
                   - if:
                       condition:
@@ -3043,44 +3013,13 @@ script:
                             action: webostv.button
                             data:
                               entity_id: !lambda 'return id(remote_target_ent);'
-                              button: !lambda |-
-                                static constexpr const char *kWebosBtns[10] = {
-                                  "UP", "DOWN", "LEFT", "RIGHT", "ENTER",
-                                  "BACK", "HOME", "VOLUMEUP", "VOLUMEDOWN", "POWER"
-                                };
-                                return kWebosBtns[(key_idx >= 0 && key_idx < 10) ? key_idx : 0];
+                              button: !lambda 'return id(remote_target_cmd);'
                       else:
                         - homeassistant.action:
                             action: remote.send_command
                             data:
                               entity_id: !lambda 'return id(remote_target_ent);'
-                              command: !lambda |-
-                                struct RemoteCmdRow {
-                                  const char *apple_cmd;
-                                  const char *roku_cmd;
-                                  const char *samsung_cmd;
-                                  const char *custom_cmd;
-                                  const char *android_cmd;
-                                };
-                                static constexpr RemoteCmdRow kCmds[10] = {
-                                  {"up",          "up",          "KEY_UP",      "${remote_cmd_up}",       "DPAD_UP"},
-                                  {"down",        "down",        "KEY_DOWN",    "${remote_cmd_down}",     "DPAD_DOWN"},
-                                  {"left",        "left",        "KEY_LEFT",    "${remote_cmd_left}",     "DPAD_LEFT"},
-                                  {"right",       "right",       "KEY_RIGHT",   "${remote_cmd_right}",    "DPAD_RIGHT"},
-                                  {"select",      "select",      "KEY_ENTER",   "${remote_cmd_select}",   "DPAD_CENTER"},
-                                  {"menu",        "back",        "KEY_RETURN",  "${remote_cmd_back}",     "BACK"},
-                                  {"top_menu",    "home",        "KEY_HOME",    "${remote_cmd_home}",     "HOME"},
-                                  {"volume_up",   "volume_up",   "KEY_VOLUP",   "${remote_cmd_vol_up}",   "VOLUME_UP"},
-                                  {"volume_down", "volume_down", "KEY_VOLDOWN", "${remote_cmd_vol_down}", "VOLUME_DOWN"},
-                                  {"wakeup",      "power",       "KEY_POWER",   "${remote_cmd_power}",    "POWER"}
-                                };
-                                int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
-                                const std::string &p = id(remote_target_prof);
-                                if (p == "Apple TV") return kCmds[idx].apple_cmd;
-                                if (p == "Roku") return kCmds[idx].roku_cmd;
-                                if (p == "Samsung TV") return kCmds[idx].samsung_cmd;
-                                if (p == "Custom") return kCmds[idx].custom_cmd;
-                                return kCmds[idx].android_cmd;
+                              command: !lambda 'return id(remote_target_cmd);'
 
 display:
   - platform: mipi_spi

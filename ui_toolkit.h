@@ -7629,6 +7629,106 @@ inline bool &avr_setup_menu_open() {
   return open;
 }
 
+struct RemoteCustomCmds {
+  const char *up;
+  const char *down;
+  const char *left;
+  const char *right;
+  const char *select;
+  const char *back;
+  const char *home;
+  const char *vol_up;
+  const char *vol_down;
+  const char *power;
+};
+
+inline void resolve_remote_dispatch(
+    int key_idx, int target_slot, int active_remote_slot, bool profile_user_set,
+    const std::string &user_profile, const char *default_profile,
+    const std::string ents[4], const std::string names[4],
+    const RemoteCustomCmds &custom_cmds,
+    std::string &out_ent, std::string &out_prof,
+    std::string &out_cmd, std::string &out_feedback) {
+  static constexpr const char *kFeedback[10] = {
+    "Up", "Down", "Left", "Right", "Select",
+    "Back", "Home", "Vol +", "Vol -", "Toggle Power"
+  };
+  int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
+  std::string dev_name;
+  if (target_slot == -1) {
+    int master_slot = resolve_active_remote_slot(0, ents);
+    out_ent = ents[master_slot];
+    dev_name = names[master_slot].empty() ? format_remote_entity_fallback(out_ent) : names[master_slot];
+    out_feedback = "Power: " + dev_name;
+  } else {
+    int s = resolve_active_remote_slot(target_slot, ents);
+    out_ent = ents[s];
+    dev_name = names[s].empty() ? format_remote_entity_fallback(out_ent) : names[s];
+    out_feedback = (idx == 9) ? ("Power: " + dev_name) : kFeedback[idx];
+  }
+
+  out_prof = detect_remote_profile(out_ent, dev_name, default_profile);
+  if (target_slot >= 0 && target_slot == active_remote_slot && profile_user_set) {
+    out_prof = user_profile;
+  }
+
+  if (out_prof == "Denon / Marantz AVR") {
+    static constexpr const char *kAvrCmds[10] = {
+      "/goform/formiPhoneAppDirect.xml?MNCUP",
+      "/goform/formiPhoneAppDirect.xml?MNCDN",
+      "/goform/formiPhoneAppDirect.xml?MNCLT",
+      "/goform/formiPhoneAppDirect.xml?MNCRT",
+      "/goform/formiPhoneAppDirect.xml?MNENT",
+      "/goform/formiPhoneAppDirect.xml?MNRTN",
+      "/goform/formiPhoneAppDirect.xml?MNMEN%20ON",
+      "VOLUME_UP", "VOLUME_DOWN", "POWER"
+    };
+    if (idx == 6) {
+      bool &open = avr_setup_menu_open();
+      open = !open;
+      out_cmd = open ? "/goform/formiPhoneAppDirect.xml?MNMEN%20ON"
+                     : "/goform/formiPhoneAppDirect.xml?MNMEN%20OFF";
+    } else {
+      out_cmd = kAvrCmds[idx];
+    }
+    return;
+  }
+
+  if (out_prof == "LG webOS") {
+    static constexpr const char *kWebosBtns[10] = {
+      "UP", "DOWN", "LEFT", "RIGHT", "ENTER",
+      "BACK", "HOME", "VOLUMEUP", "VOLUMEDOWN", "POWER"
+    };
+    out_cmd = kWebosBtns[idx];
+    return;
+  }
+
+  struct RemoteCmdRow {
+    const char *apple_cmd;
+    const char *roku_cmd;
+    const char *samsung_cmd;
+    const char *custom_cmd;
+    const char *android_cmd;
+  };
+  const RemoteCmdRow kCmds[10] = {
+    {"up",          "up",          "KEY_UP",      custom_cmds.up,       "DPAD_UP"},
+    {"down",        "down",        "KEY_DOWN",    custom_cmds.down,     "DPAD_DOWN"},
+    {"left",        "left",        "KEY_LEFT",    custom_cmds.left,     "DPAD_LEFT"},
+    {"right",       "right",       "KEY_RIGHT",   custom_cmds.right,    "DPAD_RIGHT"},
+    {"select",      "select",      "KEY_ENTER",   custom_cmds.select,   "DPAD_CENTER"},
+    {"menu",        "back",        "KEY_RETURN",  custom_cmds.back,     "BACK"},
+    {"top_menu",    "home",        "KEY_HOME",    custom_cmds.home,     "HOME"},
+    {"volume_up",   "volume_up",   "KEY_VOLUP",   custom_cmds.vol_up,   "VOLUME_UP"},
+    {"volume_down", "volume_down", "KEY_VOLDOWN", custom_cmds.vol_down, "VOLUME_DOWN"},
+    {"wakeup",      "power",       "KEY_POWER",   custom_cmds.power,    "POWER"}
+  };
+  if (out_prof == "Apple TV") out_cmd = kCmds[idx].apple_cmd;
+  else if (out_prof == "Roku") out_cmd = kCmds[idx].roku_cmd;
+  else if (out_prof == "Samsung TV") out_cmd = kCmds[idx].samsung_cmd;
+  else if (out_prof == "Custom") out_cmd = kCmds[idx].custom_cmd;
+  else out_cmd = kCmds[idx].android_cmd;
+}
+
 template <typename DisplayT, typename FontT>
 inline void render_tv_remote_page(
     DisplayT &it, int cx, int cy, uint32_t now_ms,
