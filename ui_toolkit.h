@@ -4451,22 +4451,45 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
       ball_y += ball_vy * dt;
 
       // 1. Circular Dome Arena Reflection (r = 202px ball center limit inside r = 208 wall)
+      //    - Upper Dome (ball_y <= cy + 12): True circular arch reflection
+      //    - Lower Flanks (ball_y > cy + 12, e.g. 4:00 & 8:00 positions): Vertical side-cushion
+      //      reflection so the inward-curving lower bezel never kicks a falling ball back up into
+      //      a 10:00 <-> 4:00 or 2:00 <-> 8:00 diameter loop!
+      static int wall_bounces = 0;
       float b_dx = ball_x - (float)cx;
       float b_dy = ball_y - (float)cy;
       float b_dist = std::sqrt(b_dx * b_dx + b_dy * b_dy);
-      if (b_dist > 202.0f && ball_y < (float)(paddle_y - 2)) {
+      if (b_dist > 202.0f && ball_y < (float)(paddle_y - 4)) {
         float bnx = b_dx / b_dist;
         float bny = b_dy / b_dist;
         // Clamp ball position back inside dome so it never sticks in the wall
-        ball_x = (float)cx + bnx * 201.5f;
-        ball_y = (float)cy + bny * 201.5f;
-        float v_dot = ball_vx * bnx + ball_vy * bny;
+        ball_x = (float)cx + bnx * 201.0f;
+        ball_y = (float)cy + bny * 201.0f;
+
+        // Below the equator (4:00 / 8:00), use a horizontal side-wall normal (rny = 0)
+        // so the lower curve banks the ball inward toward the paddle instead of upward!
+        float rnx = bnx;
+        float rny = (ball_y > (float)(cy + 12)) ? 0.0f : bny;
+        float r_len = std::sqrt(rnx * rnx + rny * rny);
+        if (r_len > 0.001f) {
+          rnx /= r_len;
+          rny /= r_len;
+        }
+
+        float v_dot = ball_vx * rnx + ball_vy * rny;
         if (v_dot > 0.0f) {
-          ball_vx -= 2.0f * v_dot * bnx;
-          ball_vy -= 2.0f * v_dot * bny;
-          // Enforce minimum vertical speed floor to prevent shallow horizontal loops
-          if (std::fabs(ball_vy) < 70.0f) {
-            ball_vy = (ball_vy >= 0.0f) ? 75.0f : -75.0f;
+          ball_vx -= 2.0f * v_dot * rnx;
+          ball_vy -= 2.0f * v_dot * rny;
+          wall_bounces++;
+
+          // If the ball bounces off the wall 2+ times without touching a brick or paddle,
+          // add a downward gravity deflection to break any chord/diameter oscillation.
+          if (wall_bounces >= 2) {
+            ball_vy += (ball_vy >= 0.0f) ? 55.0f : 70.0f;
+          }
+          // Enforce a healthy vertical speed floor (95 px/s) so chords never stall horizontally
+          if (std::fabs(ball_vy) < 95.0f) {
+            ball_vy = (ball_vy >= 0.0f) ? 98.0f : -98.0f;
           }
           // Re-normalize speed to target_speed
           float spd = std::sqrt(ball_vx * ball_vx + ball_vy * ball_vy);
@@ -4486,6 +4509,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
             rally_combo = 0;
           }
           hit_brick_since_paddle = false;
+          wall_bounces = 0;
           float offset = std::max(-1.0f, std::min(1.0f, (ball_x - paddle_x) / (paddle_w * 0.5f)));
           // Steer bounce angle up to +/- 60 degrees (1.047 rad) while maintaining constant speed
           float bounce_ang = offset * 1.047f;
@@ -4516,6 +4540,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
           bricks[b].hp--;
           rally_combo++;
+          wall_bounces = 0;
           hit_brick_since_paddle = true;
           int mult = std::min(4, rally_combo);
 
@@ -6272,10 +6297,9 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
 }
 
-template<typename DisplayT, typename FontBigT, typename FontSmallT, typename FontMicroT>
+template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_tool_bubble_level(DisplayT &it, int cx, float ax, float ay, float az,
                                      FontBigT *font_date, FontSmallT *font_small,
-                                     FontMicroT *font_micro,
                                      esphome::Color theme_primary, esphome::Color theme_secondary,
                                      esphome::Color col_white, esphome::Color col_gray,
                                      esphome::Color col_slate, esphome::Color col_dark_gray,
@@ -6306,14 +6330,22 @@ inline void render_tool_bubble_level(DisplayT &it, int cx, float ax, float ay, f
   bool is_level = (total_tilt <= 0.5f);
   esphome::Color ring_c = is_level ? col_green : col_slate;
 
-  // Clean Canvas: Enlarged Bulls-Eye Vial centered at level_cy = 192
-  const int level_cy = 192;
-  const int outer_r = 136;
+  // 1. Top Total-Tilt Degree Readout at y = 44 (replaces bottom 2-line readout)
+  char deg_buf[16];
+  snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
+  it.print(cx, 44, font_date, is_level ? col_green : col_white,
+           esphome::display::TextAlign::CENTER, deg_buf);
+
+  // 2. Maximized 300px-Diameter Bulls-Eye Spirit Vial (outer_r = 150 at level_cy = 226)
+  //    Spans y = 76..376 with a clean 20px buffer below top degree text (y = 56)
+  //    and a 20px buffer above the bottom < BACK button (y = 396..424).
+  const int level_cy = 226;
+  const int outer_r = 150;
 
   // 12-point 30-degree radial bezel ticks via .rodata DIAL_SIN / DIAL_COS
   for (int i = 0; i < 60; i += 5) {
-    int x1 = cx + (int)(DIAL_SIN[i] * (float)(outer_r - 6));
-    int y1 = level_cy - (int)(DIAL_COS[i] * (float)(outer_r - 6));
+    int x1 = cx + (int)(DIAL_SIN[i] * (float)(outer_r - 7));
+    int y1 = level_cy - (int)(DIAL_COS[i] * (float)(outer_r - 7));
     int x2 = cx + (int)(DIAL_SIN[i] * (float)outer_r);
     int y2 = level_cy - (int)(DIAL_COS[i] * (float)outer_r);
     it.line(x1, y1, x2, y2, col_gray);
@@ -6321,54 +6353,39 @@ inline void render_tool_bubble_level(DisplayT &it, int cx, float ax, float ay, f
 
   it.circle(cx, level_cy, outer_r, col_slate);
   it.circle(cx, level_cy, outer_r - 1, col_dark_gray);
-  it.circle(cx, level_cy, 68, col_gray);
-  it.circle(cx, level_cy, 26, ring_c);
-  it.circle(cx, level_cy, 25, ring_c);
+  it.circle(cx, level_cy, 76, col_gray);
+  it.circle(cx, level_cy, 29, ring_c);
+  it.circle(cx, level_cy, 28, ring_c);
 
   // Cardinal Crosshairs
-  it.line(cx - 144, level_cy, cx - 32, level_cy, ring_c);
-  it.line(cx + 32, level_cy, cx + 144, level_cy, ring_c);
-  it.line(cx, level_cy - 144, cx, level_cy - 32, ring_c);
-  it.line(cx, level_cy + 32, cx, level_cy + 144, ring_c);
+  it.line(cx - 156, level_cy, cx - 35, level_cy, ring_c);
+  it.line(cx + 35, level_cy, cx + 156, level_cy, ring_c);
+  it.line(cx, level_cy - 156, cx, level_cy - 35, ring_c);
+  it.line(cx, level_cy + 35, cx, level_cy + 156, ring_c);
   it.filled_circle(cx, level_cy, 2, ring_c);
 
-  // Spirit Level Bubble Position (clamped inside outer vial r = 114)
-  float fbx = (float)cx - smooth_r_deg * 13.0f;
-  float fby = (float)level_cy - smooth_p_deg * 13.0f;
+  // Spirit Level Bubble Position (clamped inside outer vial r = 126)
+  float fbx = (float)cx - smooth_r_deg * 14.0f;
+  float fby = (float)level_cy - smooth_p_deg * 14.0f;
   float bdx = fbx - (float)cx;
   float bdy = fby - (float)level_cy;
   float b_dist_sq = bdx * bdx + bdy * bdy;
-  if (b_dist_sq > 114.0f * 114.0f) {
+  if (b_dist_sq > 126.0f * 126.0f) {
     float b_dist = std::sqrt(b_dist_sq);
-    fbx = (float)cx + (bdx / b_dist) * 114.0f;
-    fby = (float)level_cy + (bdy / b_dist) * 114.0f;
+    fbx = (float)cx + (bdx / b_dist) * 126.0f;
+    fby = (float)level_cy + (bdy / b_dist) * 126.0f;
   }
   int bx = (int)fbx;
   int by = (int)fby;
 
-  // 3D Glass Spirit Bubble (Shadow, Meniscus Rim, Dual Specular Highlights)
-  it.filled_circle(bx + 2, by + 3, 20, esphome::Color(12, 16, 22));
+  // 3D Glass Spirit Bubble (r = 22: Shadow, Meniscus Rim, Dual Specular Highlights)
+  it.filled_circle(bx + 2, by + 3, 22, esphome::Color(12, 16, 22));
   esphome::Color bub_fill = is_level ? col_green : theme_secondary;
-  it.filled_circle(bx, by, 20, bub_fill);
+  it.filled_circle(bx, by, 22, bub_fill);
+  it.circle(bx, by, 22, col_white);
   it.circle(bx, by, 20, col_white);
-  it.circle(bx, by, 18, col_white);
-  it.filled_circle(bx - 6, by - 6, 4, col_white);
-  it.filled_circle(bx + 7, by + 7, 2, col_white);
-
-  // Numeric Angle Readouts at y = 348 & y = 376
-  char deg_buf[16];
-  snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
-  it.print(cx, 348, font_date, is_level ? col_green : col_white,
-           esphome::display::TextAlign::CENTER, deg_buf);
-
-  char status_buf[32];
-  if (is_level) {
-    snprintf(status_buf, sizeof(status_buf), "DEAD LEVEL");
-  } else {
-    snprintf(status_buf, sizeof(status_buf), "P: %+.1f°   R: %+.1f°", smooth_p_deg, smooth_r_deg);
-  }
-  it.print(cx, 376, font_micro, is_level ? col_green : col_slate,
-           esphome::display::TextAlign::CENTER, status_buf);
+  it.filled_circle(bx - 7, by - 7, 4, col_white);
+  it.filled_circle(bx + 8, by + 8, 2, col_white);
 
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
 }
