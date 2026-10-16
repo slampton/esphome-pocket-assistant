@@ -7530,6 +7530,253 @@ inline void render_clock_page(
   }
 }
 
+// =============================================================================
+// SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (MULTI-DEVICE & MULTI-PROTOCOL)
+// =============================================================================
+
+inline bool is_configured_remote_slot(const std::string &ent) {
+  if (ent.empty()) return false;
+  return ent != "none" && ent != "remote.none" && ent != "media_player.none";
+}
+
+inline std::string format_remote_entity_fallback(const std::string &ent) {
+  if (!is_configured_remote_slot(ent)) return "";
+  std::string s = ent;
+  size_t dot = s.find('.');
+  if (dot != std::string::npos) s = s.substr(dot + 1);
+  bool cap = true;
+  for (size_t i = 0; i < s.length(); i++) {
+    if (s[i] == '_') {
+      s[i] = ' ';
+      cap = true;
+    } else if (cap) {
+      s[i] = static_cast<char>(::toupper(static_cast<unsigned char>(s[i])));
+      cap = false;
+    }
+  }
+  // Uppercase common AV acronyms (TV, LG, AVR)
+  auto replace_word = [&](const std::string &from, const std::string &to) {
+    size_t pos = 0;
+    while ((pos = s.find(from, pos)) != std::string::npos) {
+      bool left_ok = (pos == 0 || s[pos - 1] == ' ');
+      bool right_ok = (pos + from.length() == s.length() || s[pos + from.length()] == ' ');
+      if (left_ok && right_ok) {
+        s.replace(pos, from.length(), to);
+      }
+      pos += to.length();
+    }
+  };
+  replace_word("Tv", "TV");
+  replace_word("Lg", "LG");
+  replace_word("Avr", "AVR");
+  return s;
+}
+
+inline const char *detect_remote_profile(const std::string &ent, const std::string &name,
+                                         const char *default_profile = "Android TV / Fire TV / Bravia") {
+  std::string s = ent + " " + name;
+  for (char &c : s) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+  if (s.find("marantz") != std::string::npos || s.find("denon") != std::string::npos ||
+      s.find("cinema") != std::string::npos || s.find("avr") != std::string::npos) {
+    return "Denon / Marantz AVR";
+  }
+  if (s.find("webos") != std::string::npos || s.find("lg_tv") != std::string::npos ||
+      s.find("lg tv") != std::string::npos || s.find("lgtv") != std::string::npos) {
+    return "LG webOS";
+  }
+  if (s.find("apple") != std::string::npos) {
+    return "Apple TV";
+  }
+  if (s.find("roku") != std::string::npos) {
+    return "Roku";
+  }
+  if (s.find("samsung") != std::string::npos || s.find("tizen") != std::string::npos) {
+    return "Samsung TV";
+  }
+  if (s.find("shield") != std::string::npos || s.find("android") != std::string::npos ||
+      s.find("fire") != std::string::npos || s.find("bravia") != std::string::npos ||
+      s.find("chromecast") != std::string::npos || s.find("google") != std::string::npos) {
+    return "Android TV / Fire TV / Bravia";
+  }
+  if (ent.rfind("media_player.", 0) == 0) {
+    return "Denon / Marantz AVR";
+  }
+  return default_profile;
+}
+
+inline int collect_configured_remote_slots(const std::string ents[4], int out_slots[4]) {
+  int count = 0;
+  for (int i = 0; i < 4; i++) {
+    if (is_configured_remote_slot(ents[i])) {
+      out_slots[count++] = i;
+    }
+  }
+  return count;
+}
+
+inline int resolve_active_remote_slot(int active_slot, const std::string ents[4]) {
+  if (active_slot >= 0 && active_slot < 4 && is_configured_remote_slot(ents[active_slot])) {
+    return active_slot;
+  }
+  for (int i = 0; i < 4; i++) {
+    if (is_configured_remote_slot(ents[i])) return i;
+  }
+  return 0;
+}
+
+inline bool &avr_setup_menu_open() {
+  static bool open = false;
+  return open;
+}
+
+template <typename DisplayT, typename FontT>
+inline void render_tv_remote_page(
+    DisplayT &it, int cx, int cy, uint32_t now_ms,
+    int remote_subpage, int &active_remote_slot,
+    const std::string ents[4], const std::string names[4],
+    const std::string &remote_action_feedback, uint32_t remote_feedback_timer,
+    FontT *font_date, FontT *font_small,
+    const esphome::Color &theme_primary, const esphome::Color &theme_secondary,
+    const esphome::Color &col_white, const esphome::Color &col_gray,
+    const esphome::Color &col_dark_gray, const esphome::Color &col_red) {
+  int slot = resolve_active_remote_slot(active_remote_slot, ents);
+  active_remote_slot = slot;
+
+  std::string rem_name = names[slot];
+  if (rem_name.empty()) {
+    rem_name = format_remote_entity_fallback(ents[slot]);
+    if (rem_name.empty()) rem_name = "TV Remote";
+  }
+
+  bool is_fb = (now_ms - remote_feedback_timer < 1500U && !remote_action_feedback.empty());
+
+  if (remote_subpage == 1) {
+    // -------------------------------------------------------------------------
+    // SUBPAGE 1: SETTINGS (SYSTEM POWER + UP TO 4 PRECONFIGURED DEVICES)
+    // -------------------------------------------------------------------------
+    if (is_fb) {
+      std::string fb_str = remote_action_feedback;
+      for (char &c : fb_str) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
+      std::string fit_fb = fit_text_to_width_font(fb_str, 246, font_date);
+      it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
+    } else {
+      it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "SETTINGS");
+    }
+
+    // Slot 0 (y = 104): Master System Power Button (Always targets tv_remote_power_entity)
+    render_pill_button(it, 110, 356, 104, 18, col_red, col_dark_gray, "Toggle Power", col_white, font_small);
+
+    // Slots 1..4 (y = 162, 220, 278, 336): Preconfigured Devices + Per-Device Power Override Circle
+    int valid_slots[4] = {0, 0, 0, 0};
+    int valid_count = collect_configured_remote_slots(ents, valid_slots);
+    for (int row = 0; row < valid_count; row++) {
+      int s_idx = valid_slots[row];
+      int y_mid = 162 + row * 58;
+      bool is_sel = (s_idx == slot);
+
+      std::string d_name = names[s_idx];
+      if (d_name.empty()) d_name = format_remote_entity_fallback(ents[s_idx]);
+      std::string pill_lbl = is_sel ? ("• " + d_name) : d_name;
+      std::string fit_lbl = fit_text_to_width_font(pill_lbl, 174, font_small);
+
+      esphome::Color border_c = is_sel ? theme_primary : theme_secondary;
+      esphome::Color text_c = is_sel ? theme_primary : col_white;
+      render_pill_button(it, 110, 308, y_mid, 18, border_c, col_dark_gray, fit_lbl.c_str(), text_c, font_small);
+
+      // Per-Device Override Power Button (cx = 338, y = y_mid, r = 18)
+      const int p_cx = 338;
+      it.filled_circle(p_cx, y_mid, 18, col_dark_gray);
+      it.circle(p_cx, y_mid, 18, col_red);
+      // Vector Power Symbol (broken circle arc r = 7 + top vertical bar)
+      for (int i = 6; i < 54; i += 2) {
+        int x1 = p_cx + static_cast<int>(7.0f * DIAL_SIN[i]);
+        int y1 = y_mid - static_cast<int>(7.0f * DIAL_COS[i]);
+        int x2 = p_cx + static_cast<int>(7.0f * DIAL_SIN[i + 2]);
+        int y2 = y_mid - static_cast<int>(7.0f * DIAL_COS[i + 2]);
+        it.line(x1, y1, x2, y2, col_white);
+      }
+      it.filled_rectangle(p_cx - 1, y_mid - 9, 3, 8, col_red);
+    }
+
+    // Standardized Centered < BACK Button at y = 410
+    render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+    return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // SUBPAGE 0: MAIN REMOTE CONTROL INTERFACE
+  // ---------------------------------------------------------------------------
+  if (is_fb) {
+    std::string fb_str = remote_action_feedback;
+    for (char &c : fb_str) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
+    std::string fit_fb = fit_text_to_width_font(fb_str, 246, font_date);
+    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
+  } else {
+    std::string upper_name = rem_name;
+    for (char &c : upper_name) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
+    std::string disp_title = fit_text_to_width_font(upper_name, 246, font_date);
+    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, disp_title.c_str());
+  }
+
+  // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
+  const int left_fx = 71;
+  const int right_fx = 395;
+  const int top_fy = 140;
+  const int btm_fy = 326;
+  const int f_r = 18;
+
+  // 1. HOME: Top-Left (71, 140)
+  it.filled_circle(left_fx, top_fy, f_r, col_dark_gray);
+  it.circle(left_fx, top_fy, f_r, col_gray);
+  it.filled_triangle(left_fx, top_fy - 8, left_fx - 9, top_fy - 1, left_fx + 9, top_fy - 1, col_white);
+  it.filled_rectangle(left_fx - 6, top_fy - 1, 13, 8, col_white);
+  it.filled_rectangle(left_fx - 2, top_fy + 2, 5, 5, col_dark_gray);
+
+  // 2. VOL UP: Top-Right (395, 140)
+  it.filled_circle(right_fx, top_fy, f_r, col_dark_gray);
+  it.circle(right_fx, top_fy, f_r, col_gray);
+  it.filled_rectangle(right_fx - 7, top_fy - 1, 15, 3, col_white);
+  it.filled_rectangle(right_fx - 1, top_fy - 7, 3, 15, col_white);
+
+  // 3. BACK: Bottom-Left (71, 326)
+  it.filled_circle(left_fx, btm_fy, f_r, col_dark_gray);
+  it.circle(left_fx, btm_fy, f_r, col_gray);
+  it.line(left_fx + 3, btm_fy - 7, left_fx - 4, btm_fy, col_white);
+  it.line(left_fx + 4, btm_fy - 7, left_fx - 3, btm_fy, col_white);
+  it.line(left_fx - 4, btm_fy, left_fx + 3, btm_fy + 7, col_white);
+  it.line(left_fx - 3, btm_fy, left_fx + 4, btm_fy + 7, col_white);
+
+  // 4. VOL DOWN: Bottom-Right (395, 326)
+  it.filled_circle(right_fx, btm_fy, f_r, col_dark_gray);
+  it.circle(right_fx, btm_fy, f_r, col_gray);
+  it.filled_rectangle(right_fx - 7, btm_fy - 1, 15, 3, col_white);
+
+  // Concentric D-Pad with Expanded Outer Radius (r_out = 132)
+  const int dpad_r_in = 48;
+  const int dpad_r_out = 132;
+  it.circle(cx, cy, dpad_r_out, col_gray);
+  it.circle(cx, cy, dpad_r_in, col_gray);
+
+  // 45-degree sector dividers
+  const int d_in = 34;
+  const int d_out = 93;
+  it.line(cx + d_in, cy + d_in, cx + d_out, cy + d_out, col_gray);
+  it.line(cx - d_in, cy + d_in, cx - d_out, cy + d_out, col_gray);
+  it.line(cx + d_in, cy - d_in, cx + d_out, cy - d_out, col_gray);
+  it.line(cx - d_in, cy - d_in, cx - d_out, cy - d_out, col_gray);
+
+  // Directional Arrows
+  it.filled_triangle(cx, cy - 97, cx - 10, cy - 82, cx + 10, cy - 82, col_white);
+  it.filled_triangle(cx, cy + 97, cx - 10, cy + 82, cx + 10, cy + 82, col_white);
+  it.filled_triangle(cx - 97, cy, cx - 82, cy - 10, cx - 82, cy + 10, col_white);
+  it.filled_triangle(cx + 97, cy, cx + 82, cy - 10, cx + 82, cy + 10, col_white);
+
+  // Center OK Button (Radius 40)
+  it.filled_circle(cx, cy, 40, col_dark_gray);
+  it.circle(cx, cy, 40, theme_primary);
+  it.print(cx, cy, font_date, col_white, esphome::display::TextAlign::CENTER, "OK");
+}
+
 }  // namespace pocket_ui
 
 using namespace pocket_ui;

@@ -411,7 +411,31 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
-  - id: remote_target_name
+  - id: active_remote_slot
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: remote_slot_0_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: remote_slot_1_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: remote_slot_2_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: remote_slot_3_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: remote_target_ent
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: remote_target_prof
     type: std::string
     restore_value: no
     initial_value: '""'
@@ -713,10 +737,11 @@ select:
     initial_option: ${tv_remote_profile}
     options:
       - "Android TV / Fire TV / Bravia"
+      - "Denon / Marantz AVR"
+      - "LG webOS"
       - "Apple TV"
       - "Roku"
       - "Samsung TV"
-      - "LG webOS"
       - "Custom"
     set_action:
       - lambda: |-
@@ -1836,7 +1861,7 @@ text_sensor:
     on_value:
       then:
         - component.update: disp1
-  # 📺 Universal Remote Control Target Entity Name
+  # 📺 Universal Remote Control Target Friendly Names (Slots 1..4)
   - platform: homeassistant
     id: ha_remote_friendly_name
     entity_id: "${tv_remote_entity}"
@@ -1846,25 +1871,60 @@ text_sensor:
       then:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
-              id(remote_target_name) = x;
-              if (!id(remote_profile_user_set)) {
-                std::string s_name = x;
-                for (auto &c : s_name) c = ::tolower(c);
-                std::string s_ent = "${tv_remote_entity}";
-                for (auto &c : s_ent) c = ::tolower(c);
-                if (s_name.find("apple") != std::string::npos || s_ent.find("apple") != std::string::npos) {
-                  id(tv_remote_profile).publish_state("Apple TV");
-                } else if (s_name.find("roku") != std::string::npos || s_ent.find("roku") != std::string::npos) {
-                  id(tv_remote_profile).publish_state("Roku");
-                } else if (s_name.find("samsung") != std::string::npos || s_name.find("tizen") != std::string::npos || s_ent.find("samsung") != std::string::npos) {
-                  id(tv_remote_profile).publish_state("Samsung TV");
-                } else if (s_name.find("webos") != std::string::npos || s_name.find("lg") != std::string::npos || s_ent.find("webos") != std::string::npos) {
-                  id(tv_remote_profile).publish_state("LG webOS");
-                } else {
-                  id(tv_remote_profile).publish_state("Android TV / Fire TV / Bravia");
-                }
+              id(remote_slot_0_name) = x;
+              if (id(active_remote_slot) == 0 && !id(remote_profile_user_set)) {
+                id(tv_remote_profile).publish_state(
+                    pocket_ui::detect_remote_profile("${tv_remote_entity}", x, "${tv_remote_profile}"));
               }
-              if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
+            }
+  - platform: homeassistant
+    id: ha_remote_friendly_name_2
+    entity_id: "${tv_remote_entity_2}"
+    attribute: friendly_name
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(remote_slot_1_name) = x;
+              if (id(active_remote_slot) == 1 && !id(remote_profile_user_set)) {
+                id(tv_remote_profile).publish_state(
+                    pocket_ui::detect_remote_profile("${tv_remote_entity_2}", x, "${tv_remote_profile}"));
+              }
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
+            }
+  - platform: homeassistant
+    id: ha_remote_friendly_name_3
+    entity_id: "${tv_remote_entity_3}"
+    attribute: friendly_name
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(remote_slot_2_name) = x;
+              if (id(active_remote_slot) == 2 && !id(remote_profile_user_set)) {
+                id(tv_remote_profile).publish_state(
+                    pocket_ui::detect_remote_profile("${tv_remote_entity_3}", x, "${tv_remote_profile}"));
+              }
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
+            }
+  - platform: homeassistant
+    id: ha_remote_friendly_name_4
+    entity_id: "${tv_remote_entity_4}"
+    attribute: friendly_name
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(remote_slot_3_name) = x;
+              if (id(active_remote_slot) == 3 && !id(remote_profile_user_set)) {
+                id(tv_remote_profile).publish_state(
+                    pocket_ui::detect_remote_profile("${tv_remote_entity_4}", x, "${tv_remote_profile}"));
+              }
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
             }
 
   - platform: homeassistant
@@ -2870,12 +2930,13 @@ script:
           id(disp1).update();
 
   # ==============================================================================
-  # 📺 UNIVERSAL TV & MEDIA REMOTE COMMAND SCRIPTS
+  # 📺 UNIVERSAL TV & MEDIA REMOTE COMMAND SCRIPTS (MULTI-DEVICE & MULTI-PROTOCOL)
   # ==============================================================================
   - id: remote_send_key
     mode: restart
     parameters:
       key_idx: int
+      target_slot: int
     then:
       - delay: 0ms
       - lambda: |-
@@ -2883,55 +2944,149 @@ script:
             "Up", "Down", "Left", "Right", "Select",
             "Back", "Home", "Vol +", "Vol -", "Toggle Power"
           };
+          const std::string ents[4] = {
+            "${tv_remote_entity}", "${tv_remote_entity_2}",
+            "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+          };
+          const std::string names[4] = {
+            id(remote_slot_0_name), id(remote_slot_1_name),
+            id(remote_slot_2_name), id(remote_slot_3_name)
+          };
           int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
-          id(remote_action_feedback) = kFeedback[idx];
+          std::string ent;
+          std::string dev_name;
+          if (target_slot == -1) {
+            // Master Power Target (Always controls tv_remote_power_entity, e.g. Shield TV)
+            ent = "${tv_remote_power_entity}";
+            if (!pocket_ui::is_configured_remote_slot(ent)) ent = ents[0];
+            dev_name = pocket_ui::format_remote_entity_fallback(ent);
+            for (int i = 0; i < 4; i++) {
+              if (ents[i] == ent && !names[i].empty()) {
+                dev_name = names[i];
+                break;
+              }
+            }
+            id(remote_action_feedback) = "Power: " + dev_name;
+          } else {
+            int s = pocket_ui::resolve_active_remote_slot(target_slot, ents);
+            ent = ents[s];
+            dev_name = names[s].empty() ? pocket_ui::format_remote_entity_fallback(ent) : names[s];
+            if (idx == 9) {
+              id(remote_action_feedback) = "Power: " + dev_name;
+            } else {
+              id(remote_action_feedback) = kFeedback[idx];
+            }
+          }
+          id(remote_target_ent) = ent;
+          id(remote_target_prof) = pocket_ui::detect_remote_profile(ent, dev_name, "${tv_remote_profile}");
+          if (target_slot >= 0 && target_slot == id(active_remote_slot) && id(remote_profile_user_set)) {
+            id(remote_target_prof) = id(tv_remote_profile).current_option();
+          }
           id(remote_feedback_timer) = millis();
       - if:
           condition:
-            lambda: 'return id(tv_remote_profile).current_option() == "LG webOS";'
+            lambda: |-
+              bool is_mp = (id(remote_target_ent).rfind("media_player.", 0) == 0) ||
+                           (id(remote_target_prof) == "Denon / Marantz AVR") ||
+                           (id(remote_target_prof) == "LG webOS");
+              return is_mp && (key_idx >= 7 && key_idx <= 9);
           then:
-            - homeassistant.action:
-                action: webostv.button
-                data:
-                  entity_id: ${tv_remote_entity}
-                  button: !lambda |-
-                    static constexpr const char *kWebosBtns[10] = {
-                      "UP", "DOWN", "LEFT", "RIGHT", "ENTER",
-                      "BACK", "HOME", "VOLUMEUP", "VOLUMEDOWN", "POWER"
-                    };
-                    return kWebosBtns[(key_idx >= 0 && key_idx < 10) ? key_idx : 0];
+            - if:
+                condition:
+                  lambda: 'return key_idx == 7;'
+                then:
+                  - homeassistant.action:
+                      action: media_player.volume_up
+                      data:
+                        entity_id: !lambda 'return id(remote_target_ent);'
+                else:
+                  - if:
+                      condition:
+                        lambda: 'return key_idx == 8;'
+                      then:
+                        - homeassistant.action:
+                            action: media_player.volume_down
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                      else:
+                        - homeassistant.action:
+                            action: media_player.toggle
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
           else:
-            - homeassistant.action:
-                action: remote.send_command
-                data:
-                  entity_id: ${tv_remote_entity}
-                  command: !lambda |-
-                    struct RemoteCmdRow {
-                      const char *apple_cmd;
-                      const char *roku_cmd;
-                      const char *samsung_cmd;
-                      const char *custom_cmd;
-                      const char *android_cmd;
-                    };
-                    static constexpr RemoteCmdRow kCmds[10] = {
-                      {"up",          "up",          "KEY_UP",      "${remote_cmd_up}",       "DPAD_UP"},
-                      {"down",        "down",        "KEY_DOWN",    "${remote_cmd_down}",     "DPAD_DOWN"},
-                      {"left",        "left",        "KEY_LEFT",    "${remote_cmd_left}",     "DPAD_LEFT"},
-                      {"right",       "right",       "KEY_RIGHT",   "${remote_cmd_right}",    "DPAD_RIGHT"},
-                      {"select",      "select",      "KEY_ENTER",   "${remote_cmd_select}",   "DPAD_CENTER"},
-                      {"menu",        "back",        "KEY_RETURN",  "${remote_cmd_back}",     "BACK"},
-                      {"top_menu",    "home",        "KEY_HOME",    "${remote_cmd_home}",     "HOME"},
-                      {"volume_up",   "volume_up",   "KEY_VOLUP",   "${remote_cmd_vol_up}",   "VOLUME_UP"},
-                      {"volume_down", "volume_down", "KEY_VOLDOWN", "${remote_cmd_vol_down}", "VOLUME_DOWN"},
-                      {"wakeup",      "power",       "KEY_POWER",   "${remote_cmd_power}",    "POWER"}
-                    };
-                    int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
-                    auto p = id(tv_remote_profile).current_option();
-                    if (p == "Apple TV") return kCmds[idx].apple_cmd;
-                    if (p == "Roku") return kCmds[idx].roku_cmd;
-                    if (p == "Samsung TV") return kCmds[idx].samsung_cmd;
-                    if (p == "Custom") return kCmds[idx].custom_cmd;
-                    return kCmds[idx].android_cmd;
+            - if:
+                condition:
+                  lambda: 'return id(remote_target_prof) == "Denon / Marantz AVR";'
+                then:
+                  - homeassistant.action:
+                      action: denonavr.get_command
+                      data:
+                        entity_id: !lambda 'return id(remote_target_ent);'
+                        command: !lambda |-
+                          static constexpr const char *kAvrCmds[7] = {
+                            "/goform/formiPhoneAppDirect.xml?MNCUP",
+                            "/goform/formiPhoneAppDirect.xml?MNCDN",
+                            "/goform/formiPhoneAppDirect.xml?MNCLT",
+                            "/goform/formiPhoneAppDirect.xml?MNCRT",
+                            "/goform/formiPhoneAppDirect.xml?MNENT",
+                            "/goform/formiPhoneAppDirect.xml?MNRTN",
+                            "/goform/formiPhoneAppDirect.xml?MNMEN%20ON"
+                          };
+                          int idx = (key_idx >= 0 && key_idx < 7) ? key_idx : 0;
+                          if (idx == 6) {
+                            bool &open = pocket_ui::avr_setup_menu_open();
+                            open = !open;
+                            return open ? "/goform/formiPhoneAppDirect.xml?MNMEN%20ON"
+                                        : "/goform/formiPhoneAppDirect.xml?MNMEN%20OFF";
+                          }
+                          return kAvrCmds[idx];
+                else:
+                  - if:
+                      condition:
+                        lambda: 'return id(remote_target_prof) == "LG webOS";'
+                      then:
+                        - homeassistant.action:
+                            action: webostv.button
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                              button: !lambda |-
+                                static constexpr const char *kWebosBtns[10] = {
+                                  "UP", "DOWN", "LEFT", "RIGHT", "ENTER",
+                                  "BACK", "HOME", "VOLUMEUP", "VOLUMEDOWN", "POWER"
+                                };
+                                return kWebosBtns[(key_idx >= 0 && key_idx < 10) ? key_idx : 0];
+                      else:
+                        - homeassistant.action:
+                            action: remote.send_command
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                              command: !lambda |-
+                                struct RemoteCmdRow {
+                                  const char *apple_cmd;
+                                  const char *roku_cmd;
+                                  const char *samsung_cmd;
+                                  const char *custom_cmd;
+                                  const char *android_cmd;
+                                };
+                                static constexpr RemoteCmdRow kCmds[10] = {
+                                  {"up",          "up",          "KEY_UP",      "${remote_cmd_up}",       "DPAD_UP"},
+                                  {"down",        "down",        "KEY_DOWN",    "${remote_cmd_down}",     "DPAD_DOWN"},
+                                  {"left",        "left",        "KEY_LEFT",    "${remote_cmd_left}",     "DPAD_LEFT"},
+                                  {"right",       "right",       "KEY_RIGHT",   "${remote_cmd_right}",    "DPAD_RIGHT"},
+                                  {"select",      "select",      "KEY_ENTER",   "${remote_cmd_select}",   "DPAD_CENTER"},
+                                  {"menu",        "back",        "KEY_RETURN",  "${remote_cmd_back}",     "BACK"},
+                                  {"top_menu",    "home",        "KEY_HOME",    "${remote_cmd_home}",     "HOME"},
+                                  {"volume_up",   "volume_up",   "KEY_VOLUP",   "${remote_cmd_vol_up}",   "VOLUME_UP"},
+                                  {"volume_down", "volume_down", "KEY_VOLDOWN", "${remote_cmd_vol_down}", "VOLUME_DOWN"},
+                                  {"wakeup",      "power",       "KEY_POWER",   "${remote_cmd_power}",    "POWER"}
+                                };
+                                int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
+                                const std::string &p = id(remote_target_prof);
+                                if (p == "Apple TV") return kCmds[idx].apple_cmd;
+                                if (p == "Roku") return kCmds[idx].roku_cmd;
+                                if (p == "Samsung TV") return kCmds[idx].samsung_cmd;
+                                if (p == "Custom") return kCmds[idx].custom_cmd;
+                                return kCmds[idx].android_cmd;
 
 display:
   - platform: mipi_spi
@@ -4431,137 +4586,22 @@ display:
         }
       } else if (id(gui_page) == 7) {
         // ==============================================================================
-        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (DEVICE TITLE & SETTINGS SUBPAGE)
+        // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (SECTION 17 OF ui_toolkit.h)
         // ==============================================================================
-        std::string rem_name = id(remote_target_name);
-        if (rem_name.empty()) {
-          if (id(ha_remote_friendly_name).has_state() && !id(ha_remote_friendly_name).state.empty() &&
-              id(ha_remote_friendly_name).state != "unknown" && id(ha_remote_friendly_name).state != "unavailable") {
-            rem_name = id(ha_remote_friendly_name).state;
-            id(remote_target_name) = rem_name;
-          } else {
-            std::string s = "${tv_remote_entity}";
-            size_t dot = s.find('.');
-            if (dot != std::string::npos) s = s.substr(dot + 1);
-            bool cap = true;
-            for (size_t i = 0; i < s.length(); i++) {
-              if (s[i] == '_') { s[i] = ' '; cap = true; }
-              else if (cap) { s[i] = toupper(s[i]); cap = false; }
-            }
-            if (s == "Tv") s = "TV";
-            else if (s.length() >= 2 && s.substr(s.length() - 2) == "Tv") {
-              s.replace(s.length() - 2, 2, "TV");
-            }
-            rem_name = s;
-          }
-        }
-
-        if (id(remote_subpage) == 1) {
-          // --------------------------------------------------
-          // SUBPAGE 1: REMOTE & DEVICE SETTINGS (DIRECT POWER TOGGLE)
-          // Modeled after System Dashboard (y=46 Title, y=78 Subtitle buffer of 32px)
-          // --------------------------------------------------
-          it.print(cx, 46, id(font_date), id(theme_primary), TextAlign::CENTER, "DEVICE SETTINGS");
-
-          // Active target device name (y = 78, font_small, col_white, matching System page buffer of 32px)
-          std::string upper_sub = rem_name;
-          for (char &c : upper_sub) c = (char)toupper((unsigned char)c);
-          std::string rem_sub = fit_text_to_width(upper_sub, 260);
-          it.print(cx, 78, id(font_small), id(col_white), TextAlign::CENTER, rem_sub.c_str());
-
-          // Active remote profile badge (y = 114, font_micro, theme_secondary)
-          std::string prof_label = "Profile: " + id(tv_remote_profile).current_option();
-          it.print(cx, 114, id(font_micro), id(theme_secondary), TextAlign::CENTER, prof_label.c_str());
-
-          // Clean Pill Button: Toggle Power at y = 200 (h = 44, r = 22, span: 120..346)
-          // Rendered using standard draw_pill_button for clean continuous geometry with zero internal artifacts
-          draw_pill_button(120, 346, 200, 22, id(col_red), id(col_dark_gray), "Toggle Power", id(col_white), false);
-
-          // Standardized Centered < BACK Button at y = 408 (Matching OS Subpage Standard)
-          draw_back_button();
-        } else {
-          // --------------------------------------------------
-          // MAIN REMOTE CONTROL INTERFACE (SUBPAGE 0)
-          // Unified Title: Active Entity Name displayed as Title at y = 50
-          // Tapping Title opens Remote Settings Subpage
-          // --------------------------------------------------
-          bool is_fb = (millis() - id(remote_feedback_timer) < 1500 && !id(remote_action_feedback).empty());
-          if (is_fb) {
-            std::string fb_str = id(remote_action_feedback);
-            for (char &c : fb_str) c = (char)toupper((unsigned char)c);
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, fb_str.c_str());
-          } else {
-            std::string upper_name = rem_name;
-            for (char &c : upper_name) c = (char)toupper((unsigned char)c);
-            std::string disp_title = fit_text_to_width_font(upper_name, 246, id(font_date));
-            it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, disp_title.c_str());
-          }
-
-          // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
-          // Upper Pair: y = 140. Lower Pair: y = 326. Left: x = 71. Right: x = 395.
-          const int left_fx = 71;
-          const int right_fx = 395;
-          const int top_fy = 140;
-          const int btm_fy = 326;
-          const int f_r = 18;
-
-          // 1. HOME: Top-Left (71, 140)
-          it.filled_circle(left_fx, top_fy, f_r, id(col_dark_gray));
-          it.circle(left_fx, top_fy, f_r, id(col_gray));
-          it.filled_triangle(left_fx, top_fy - 8, left_fx - 9, top_fy - 1, left_fx + 9, top_fy - 1, id(col_white));
-          it.filled_rectangle(left_fx - 6, top_fy - 1, 13, 8, id(col_white));
-          it.filled_rectangle(left_fx - 2, top_fy + 2, 5, 5, id(col_dark_gray));
-
-          // 2. VOL UP: Top-Right (395, 140)
-          it.filled_circle(right_fx, top_fy, f_r, id(col_dark_gray));
-          it.circle(right_fx, top_fy, f_r, id(col_gray));
-          it.filled_rectangle(right_fx - 7, top_fy - 1, 15, 3, id(col_white));
-          it.filled_rectangle(right_fx - 1, top_fy - 7, 3, 15, id(col_white));
-
-          // 3. BACK: Bottom-Left (71, 326) - LOWERED FOR RADIAL SYMMETRY
-          it.filled_circle(left_fx, btm_fy, f_r, id(col_dark_gray));
-          it.circle(left_fx, btm_fy, f_r, id(col_gray));
-          it.line(left_fx + 3, btm_fy - 7, left_fx - 4, btm_fy, id(col_white));
-          it.line(left_fx + 4, btm_fy - 7, left_fx - 3, btm_fy, id(col_white));
-          it.line(left_fx - 4, btm_fy, left_fx + 3, btm_fy + 7, id(col_white));
-          it.line(left_fx - 3, btm_fy, left_fx + 4, btm_fy + 7, id(col_white));
-
-          // 4. VOL DOWN: Bottom-Right (395, 326) - LOWERED FOR RADIAL SYMMETRY
-          it.filled_circle(right_fx, btm_fy, f_r, id(col_dark_gray));
-          it.circle(right_fx, btm_fy, f_r, id(col_gray));
-          it.filled_rectangle(right_fx - 7, btm_fy - 1, 15, 3, id(col_white));
-
-          // Concentric D-Pad with Expanded Outer Radius (r_out = 132 for generous Left/Right reach)
-          const int dpad_r_in = 48;
-          const int dpad_r_out = 132;
-
-          // Outer directional ring
-          it.circle(cx, cy, dpad_r_out, id(col_gray));
-          it.circle(cx, cy, dpad_r_in, id(col_gray));
-
-          // 45-degree sector dividers (cos 45 = sin 45 = 0.7071)
-          const int d_in = 34;   // 48 * 0.7071
-          const int d_out = 93;  // 132 * 0.7071
-          it.line(cx + d_in, cy + d_in, cx + d_out, cy + d_out, id(col_gray));
-          it.line(cx - d_in, cy + d_in, cx - d_out, cy + d_out, id(col_gray));
-          it.line(cx + d_in, cy - d_in, cx + d_out, cy - d_out, id(col_gray));
-          it.line(cx - d_in, cy - d_in, cx - d_out, cy - d_out, id(col_gray));
-
-          // Directional Arrows centered at radius ~90px
-          // UP Arrow
-          it.filled_triangle(cx, cy - 97, cx - 10, cy - 82, cx + 10, cy - 82, id(col_white));
-          // DOWN Arrow
-          it.filled_triangle(cx, cy + 97, cx - 10, cy + 82, cx + 10, cy + 82, id(col_white));
-          // LEFT Arrow
-          it.filled_triangle(cx - 97, cy, cx - 82, cy - 10, cx - 82, cy + 10, id(col_white));
-          // RIGHT Arrow
-          it.filled_triangle(cx + 97, cy, cx + 82, cy - 10, cx + 82, cy + 10, id(col_white));
-
-          // Center OK Button (Radius 40)
-          it.filled_circle(cx, cy, 40, id(col_dark_gray));
-          it.circle(cx, cy, 40, id(theme_primary));
-          it.print(cx, cy, id(font_date), id(col_white), TextAlign::CENTER, "OK");
-        }
+        const std::string rem_ents[4] = {
+          "${tv_remote_entity}", "${tv_remote_entity_2}",
+          "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+        };
+        const std::string rem_names[4] = {
+          id(remote_slot_0_name), id(remote_slot_1_name),
+          id(remote_slot_2_name), id(remote_slot_3_name)
+        };
+        render_tv_remote_page(
+            it, cx, cy, millis(), id(remote_subpage), id(active_remote_slot),
+            rem_ents, rem_names, id(remote_action_feedback), id(remote_feedback_timer),
+            id(font_date), id(font_small),
+            id(theme_primary), id(theme_secondary),
+            id(col_white), id(col_gray), id(col_dark_gray), id(col_red));
       } else if (id(gui_page) == 8) {
         // ==============================================================================
         // PAGE 8: TOOLS SUITE (LAUNCHER, TIMER, ALARMS, STOPWATCH, DICE, FLASHLIGHT, CALC, LEVEL, COIN)
@@ -6430,50 +6470,89 @@ touchscreen:
               }
             } else if (id(gui_page) == 7) {
               // ==============================================================================
-              // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (SETTINGS SUBPAGE & ENLARGED OK)
+              // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (MULTI-DEVICE SETTINGS & D-PAD)
               // ==============================================================================
               static uint32_t last_remote_btn_tap = 0;
               uint32_t now_rem = millis();
+              const std::string rem_ents[4] = {
+                "${tv_remote_entity}", "${tv_remote_entity_2}",
+                "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+              };
+              const std::string rem_names[4] = {
+                id(remote_slot_0_name), id(remote_slot_1_name),
+                id(remote_slot_2_name), id(remote_slot_3_name)
+              };
 
               if (id(remote_subpage) == 1) {
-                // Subpage 1: Remote & Device Settings Touch Handling
-                // 1. Direct Power Toggle Card (x: 100..366, y: 125..175)
-                if (touch.x >= 100 && touch.x <= 366 && touch.y >= 170 && touch.y <= 230) {
+                // Subpage 1: SETTINGS (Master Toggle Power + Up to 4 Preconfigured Devices)
+                // 1. Master Toggle Power Pill at y = 104 (Always controls tv_remote_power_entity)
+                if (touch.x >= 100 && touch.x <= 366 && touch.y >= 80 && touch.y <= 130) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
-                    id(remote_send_key).execute(9);
+                    id(remote_send_key).execute(9, -1);
                     id(disp1).update();
                   }
                   return;
                 }
 
-                // 2. Standardized Centered < BACK Button at y = 408 (handled via is_back_button)
-                if (is_back_button(touch)) {
-                  if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_remote_btn_tap = now_rem;
-                    id(remote_subpage) = 0;
-                    id(disp1).update();
+                // 2. Configured Device Rows (y = 162, 220, 278, 336)
+                int valid_slots[4] = {0, 0, 0, 0};
+                int valid_count = pocket_ui::collect_configured_remote_slots(rem_ents, valid_slots);
+                for (int row = 0; row < valid_count; row++) {
+                  int y_mid = 162 + row * 58;
+                  if (touch.y >= y_mid - 24 && touch.y <= y_mid + 24) {
+                    int s_idx = valid_slots[row];
+                    // 2A. Device Selection Pill (x: 100..312) -> Select device & return to D-Pad
+                    if (touch.x >= 100 && touch.x <= 312) {
+                      if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
+                        last_remote_btn_tap = now_rem;
+                        id(active_remote_slot) = s_idx;
+                        id(remote_profile_user_set) = false;
+                        std::string d_name = rem_names[s_idx].empty()
+                                                 ? pocket_ui::format_remote_entity_fallback(rem_ents[s_idx])
+                                                 : rem_names[s_idx];
+                        id(tv_remote_profile).publish_state(
+                            pocket_ui::detect_remote_profile(rem_ents[s_idx], d_name, "${tv_remote_profile}"));
+                        id(remote_action_feedback) = "";
+                        id(remote_subpage) = 0;
+                        id(disp1).update();
+                      }
+                      return;
+                    }
+                    // 2B. Per-Device Override Power Button (x: 314..368) -> Toggle power on this device
+                    if (touch.x >= 314 && touch.x <= 368) {
+                      if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
+                        last_remote_btn_tap = now_rem;
+                        id(remote_send_key).execute(9, s_idx);
+                        id(disp1).update();
+                      }
+                      return;
+                    }
                   }
-                  return;
                 }
 
-                // 3. Top Header / Edge Tap (y <= 90) -> Returns to Main Remote
-                if (touch.y <= 90) {
+                // 3. Standardized Centered < BACK Button at y = 410 (or Top Header Tap y <= 72)
+                if (is_back_button(touch) || touch.y <= 72) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
+                    id(remote_action_feedback) = "";
                     id(remote_subpage) = 0;
                     id(disp1).update();
                   }
                   return;
                 }
-                return; // Suppress other touches on Subpage 1
+                return;
               }
 
               // Subpage 0: Main Remote Interface
-              // Interactive Header: Tap Title (y: 25..80, x: 110..356) to open Device Settings Subpage
+              int act_slot = pocket_ui::resolve_active_remote_slot(id(active_remote_slot), rem_ents);
+              id(active_remote_slot) = act_slot;
+
+              // Interactive Header: Tap Title (y: 25..80, x: 110..356) to open SETTINGS Subpage
               if (touch.x >= 110 && touch.x <= 356 && touch.y >= 25 && touch.y <= 80) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
+                  id(remote_action_feedback) = "";
                   id(remote_subpage) = 1;
                   id(disp1).update();
                 }
@@ -6484,7 +6563,7 @@ touchscreen:
               if (touch.x <= 115 && touch.y >= 90 && touch.y <= 190) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(6);
+                  id(remote_send_key).execute(6, act_slot);
                   id(disp1).update();
                 }
                 return;
@@ -6494,65 +6573,53 @@ touchscreen:
               if (touch.x >= 351 && touch.y >= 90 && touch.y <= 190) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(7);
+                  id(remote_send_key).execute(7, act_slot);
                   id(disp1).update();
                 }
                 return;
               }
 
-              // 3. BACK: Bottom-Left Quadrant (x <= 115, y: 276..376) - LOWERED SYMMETRY
+              // 3. BACK: Bottom-Left Quadrant (x <= 115, y: 276..376)
               if (touch.x <= 115 && touch.y >= 276 && touch.y <= 376) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(5);
+                  id(remote_send_key).execute(5, act_slot);
                   id(disp1).update();
                 }
                 return;
               }
 
-              // 4. VOL DOWN: Bottom-Right Quadrant (x >= 351, y: 276..376) - LOWERED SYMMETRY
+              // 4. VOL DOWN: Bottom-Right Quadrant (x >= 351, y: 276..376)
               if (touch.x >= 351 && touch.y >= 276 && touch.y <= 376) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(8);
+                  id(remote_send_key).execute(8, act_slot);
                   id(disp1).update();
                 }
                 return;
               }
 
               // 5. CONCENTRIC D-PAD (Center at cx=233, cy=233)
-              // Generous equatorial buffer (y: 191..275) guarantees zero false volume presses!
               int dx = touch.x - 233;
               int dy = touch.y - 233;
               int dist_sq = dx * dx + dy * dy;
 
-              // Center OK Button (Expanded touch radius: r <= 52 px, r^2 <= 2704, +40% area)
+              // Center OK Button (r <= 52 px, r^2 <= 2704)
               if (dist_sq <= 2704) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
-                  id(remote_send_key).execute(4);
+                  id(remote_send_key).execute(4, act_slot);
                   id(disp1).update();
                 }
                 return;
               }
 
-              // Directional Ring (Radius > 52 px and <= 148 px, 2704 < r^2 <= 21904)
+              // Directional Ring (52 px < r <= 148 px, 2704 < r^2 <= 21904)
               if (dist_sq > 2704 && dist_sq <= 21904) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
-                  if (abs(dy) >= abs(dx)) {
-                    if (dy < 0) {
-                      id(remote_send_key).execute(0);
-                    } else {
-                      id(remote_send_key).execute(1);
-                    }
-                  } else {
-                    if (dx < 0) {
-                      id(remote_send_key).execute(2);
-                    } else {
-                      id(remote_send_key).execute(3);
-                    }
-                  }
+                  int k_dir = (abs(dy) >= abs(dx)) ? ((dy < 0) ? 0 : 1) : ((dx < 0) ? 2 : 3);
+                  id(remote_send_key).execute(k_dir, act_slot);
                   id(disp1).update();
                 }
                 return;

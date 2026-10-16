@@ -31,8 +31,12 @@ substitutions:
   weather_entity: "weather.home"
   sun_entity: "sun.sun"
   moon_entity: "sensor.moon_phase"
-  # Universal Media / TV Remote Entity & Standard Command Set
-  tv_remote_entity: "remote.tv"
+  # Universal Media / TV Remote Entities (Up to 4 Preconfigured Devices; set unused slots to "remote.none")
+  tv_remote_entity: "remote.shield_tv"                  # Slot 1 (Default & Primary Device)
+  tv_remote_entity_2: "media_player.marantz_cinema_40"  # Slot 2
+  tv_remote_entity_3: "media_player.lg_tv"              # Slot 3
+  tv_remote_entity_4: "remote.none"                     # Slot 4 (Optional 4th device)
+  tv_remote_power_entity: "remote.shield_tv"            # Master Power Target (Top "Toggle Power" button)
   tv_remote_profile: "Android TV / Fire TV / Bravia"
   remote_cmd_up: "DPAD_UP"
   remote_cmd_down: "DPAD_DOWN"
@@ -112,6 +116,25 @@ esphome:
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
+            // Seed preconfigured remote device names & active profile immediately on boot
+            const std::string rem_ents[4] = {
+              "${tv_remote_entity}", "${tv_remote_entity_2}",
+              "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+            };
+            if (id(remote_slot_0_name).empty()) id(remote_slot_0_name) = pocket_ui::format_remote_entity_fallback(rem_ents[0]);
+            if (id(remote_slot_1_name).empty()) id(remote_slot_1_name) = pocket_ui::format_remote_entity_fallback(rem_ents[1]);
+            if (id(remote_slot_2_name).empty()) id(remote_slot_2_name) = pocket_ui::format_remote_entity_fallback(rem_ents[2]);
+            if (id(remote_slot_3_name).empty()) id(remote_slot_3_name) = pocket_ui::format_remote_entity_fallback(rem_ents[3]);
+            int act_slot = pocket_ui::resolve_active_remote_slot(id(active_remote_slot), rem_ents);
+            id(active_remote_slot) = act_slot;
+            if (!id(remote_profile_user_set)) {
+              const std::string rem_names[4] = {
+                id(remote_slot_0_name), id(remote_slot_1_name),
+                id(remote_slot_2_name), id(remote_slot_3_name)
+              };
+              id(tv_remote_profile).publish_state(
+                  pocket_ui::detect_remote_profile(rem_ents[act_slot], rem_names[act_slot], "${tv_remote_profile}"));
+            }
             // Seed AXP2101 USB/charging status immediately at boot so Frame 1 shows live battery telemetry
             uint8_t reg0 = 0x00, stat0 = 0, reg1 = 0x01, stat1 = 0;
             bool vbus = false;
