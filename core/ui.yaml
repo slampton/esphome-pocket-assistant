@@ -18,10 +18,6 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
-  - id: drilldown_album_name
-    type: std::string
-    restore_value: no
-    initial_value: '""'
   - id: drilldown_parent_mode
     type: std::string
     restore_value: no
@@ -636,8 +632,6 @@ color:
     hex: "000000"
   - id: col_black
     hex: "000000"
-  - id: col_rust
-    hex: "9E453B"  # Rich antique brick rust (warm, unmistakably red, calibrated antique tone)
   - id: col_gold
     hex: "C59B27"  # Muted vintage chronograph mustard gold
   - id: col_warm_gold
@@ -1348,18 +1342,25 @@ interval:
     then:
       - lambda: |-
           // 20 FPS high-refresh animation & physics loop for Tools Suite (Stopwatch, Dice Roll, Bubble Level, Coin Flip)
+          // Coalesced against disp1's 1s background refresh via last_ambient_anim_ms() (>= 42ms gap)
           if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 8 && !id(va_active) && id(va_status_text).empty()) {
             if ((id(stuff_subpage) == 3 && id(stopwatch_running)) ||
                 (id(stuff_subpage) == 4 && id(dice_anim_active)) ||
                 (id(stuff_subpage) == 7) ||
                 (id(stuff_subpage) == 8 && id(coin_anim_active))) {
-              id(disp1).update();
+              if (millis() - pocket_ui::last_ambient_anim_ms() >= 42U) {
+                id(disp1).update();
+                pocket_ui::record_ambient_frame_ms(millis());
+              }
             }
           }
 
-          // 20 FPS high-refresh physics loop exclusively for active games
-          if (id(display_brightness).current_values.is_on() && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
-            id(disp1).update();
+          // 20 FPS high-refresh physics loop exclusively for active games (coalesced against 1s timer)
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
+            if (millis() - pocket_ui::last_ambient_anim_ms() >= 42U) {
+              id(disp1).update();
+              pocket_ui::record_ambient_frame_ms(millis());
+            }
           }
 
           // High-refresh fluid Voice Assistant loop
@@ -1418,7 +1419,6 @@ interval:
               if (sim_just_changed || pocket_ui::should_step_ambient_anim(now_w_ms, local_music_playing,
                                                       id(va_active) || !id(va_status_text).empty(),
                                                       id(alarm_ringing) || id(timer_ringing))) {
-                pocket_ui::record_ambient_frame_ms(now_w_ms);
                 id(disp1).update();
                 pocket_ui::record_ambient_frame_ms(millis());
               }
@@ -2359,6 +2359,11 @@ script:
             b_target = parse_bri(opt);
           }
 
+          // Flashlight Torch (Page 8, Subpage 5) always locks active brightness at 100%
+          if (id(gui_page) == 8 && id(stuff_subpage) == 5) {
+            b_target = 1.00f;
+          }
+
           // CENTRAL POWER ARBITRATION INVARIANT:
           if (id(display_power_state) == 0) { // ACTIVE
             id(display_brightness).turn_on().set_brightness(b_target).perform();
@@ -3053,45 +3058,22 @@ display:
       const Color C_SOLARIS_GOLD = id(col_solaris_gold);
       const Color C_ACCENT_CYAN = id(col_accent_cyan);
 
-      // Thin Display Context Bindings -> Delegating to ui_toolkit.h
-      auto draw_hero_button = [&](int x1, int x2, int y_mid, int r, Color border_c, Color bg_c, const char* label, Color text_c) {
-        render_pill_button(it, x1, x2, y_mid, r, border_c, bg_c, label, text_c, id(font_btn_bold));
-      };
-      auto draw_right_flank_chevrons = [&](bool show_up, bool show_down, Color c = id(theme_secondary), bool with_bg = true) {
-        if (!show_up && !show_down) return;
-        if (with_bg) it.filled_rectangle(395, 140, 71, 160, id(col_bg));
-        if (show_up) render_scroll_chevron(it, 415, 162, true, c, id(col_black), !with_bg);
-        if (show_down) render_scroll_chevron(it, 415, 278, false, c, id(col_black), !with_bg);
-      };
-      auto draw_deck_chevrons = [&](Color chevron_col, bool with_shadow = true) {
-        render_deck_chevrons(it, chevron_col, id(col_black), with_shadow);
-      };
-      auto fit_text_to_width = [&](const std::string &str, int max_w) -> std::string {
-        return fit_text_to_width_font(str, max_w, id(font_small));
-      };
-      auto calculate_moon_phase = [&](double &out_cycle, int *out_illum = nullptr, std::string *out_label = nullptr) {
-        auto now_m = id(ha_time).now();
-        compute_synodic_moon_phase(now_m.is_valid(), now_m.is_valid() ? (int64_t)now_m.timestamp : 0LL, id(ha_moon_phase).state, out_cycle, out_illum, out_label);
-      };
-      auto draw_lunar_disc = [&](int moon_cx, int moon_cy, int moon_r, double cycle, bool with_tycho = true) {
-        render_lunar_disc(it, moon_cx, moon_cy, moon_r, cycle, with_tycho);
-      };
-
       // ==========================================
       // GLOBAL OVERLAY: OTA FIRMWARE UPDATE IN PROGRESS (Always renders even if screen was off)
       // ==========================================
       if (id(ota_in_progress)) {
         it.fill(id(col_bg));
 
-        // Perimeter Progress Indicator Only (r = 220..228, Zero Outer Ring, Zero Static Dial Markers)
+        // Perimeter Progress Indicator Only (r = 220..228, LUT-accelerated via fast_sincos)
         int pct = id(ota_progress_pct);
         if (pct < 0) pct = 0;
         if (pct > 100) pct = 100;
         for (int i = 0; i <= pct; i++) {
-          float rad = ((float)i / 100.0f) * 2.0f * 3.14159265f - 1.5707963f; // 12 o'clock top is -pi/2
-          float c = cosf(rad);
-          float s = sinf(rad);
-          it.line(cx + (int)(220.0f * c), cy + (int)(220.0f * s), cx + (int)(228.0f * c), cy + (int)(228.0f * s), id(theme_secondary));
+          float rad = (static_cast<float>(i) / 100.0f) * 2.0f * PI_F - HALF_PI_F;
+          float s = 0.0f, c = 1.0f;
+          fast_sincos(rad, s, c);
+          it.line(cx + static_cast<int>(220.0f * c), cy + static_cast<int>(220.0f * s),
+                  cx + static_cast<int>(228.0f * c), cy + static_cast<int>(228.0f * s), id(theme_secondary));
         }
 
         it.print(cx, cy - 60, id(font_date), id(theme_primary), TextAlign::CENTER, "FIRMWARE UPDATE");
@@ -3271,229 +3253,20 @@ display:
         float roll_delta = roll - zero_roll;
 
         // ----------------------------------------------------
-        // STATE 0: GAMES MENU LAUNCHER (Vertical Slot Machine Carousel)
+        // STATE 0: GAMES MENU LAUNCHER (SECTION 19 OF ui_toolkit.h)
         // ----------------------------------------------------
         if (id(active_game) == 0) {
-
-          // Individual Game Icon Renderer (Position-Independent)
-          auto draw_game_icon = [&](int g_idx, int icon_x, int icon_y) {
-            if (g_idx == 0) {
-              // ------------------------------------------------------------------
-              // GAME 0: MARBLES
-              // ------------------------------------------------------------------
-              it.filled_circle(icon_x, icon_y, 52, Color(18, 24, 28));
-              it.circle(icon_x, icon_y, 52, id(col_slate));
-              it.circle(icon_x, icon_y, 51, id(col_slate));
-              it.circle(icon_x, icon_y, 46, Color(30, 40, 48));
-
-              it.filled_circle(icon_x, icon_y, 15, id(col_black));
-              it.circle(icon_x, icon_y, 15, Color(45, 55, 65));
-              it.circle(icon_x, icon_y, 14, Color(45, 55, 65));
-
-              for (int a = 0; a < 4; a++) {
-                float sa = a * 1.570796f;
-                it.line(icon_x + (int)(fast_cos(sa) * 18.0f), icon_y + (int)(fast_sin(sa) * 18.0f),
-                        icon_x + (int)(fast_cos(sa + 0.8f) * 40.0f), icon_y + (int)(fast_sin(sa + 0.8f) * 40.0f), Color(35, 45, 55));
-              }
-              render_glass_marble(it, icon_x - 24, icon_y - 18, 13, id(col_red), Color(255, 138, 128));
-              render_glass_marble(it, icon_x + 22, icon_y - 22, 12, id(col_cyan), Color(180, 255, 255));
-              render_glass_marble(it, icon_x - 20, icon_y + 22, 11, id(col_green), Color(185, 246, 202));
-              render_glass_marble(it, icon_x + 24, icon_y + 18, 13, id(col_gold), Color(255, 245, 157));
-              render_glass_marble(it, icon_x + 2, icon_y - 31, 10, id(col_magenta), Color(248, 187, 208));
-
-            } else if (g_idx == 1) {
-              // ------------------------------------------------------------------
-              // GAME 1: ARCHERY — Centered 5-ring target + bold arrow in bullseye
-              // ------------------------------------------------------------------
-              render_archery_target(it, icon_x, icon_y, 46, id(col_white), id(col_black),
-                                    id(col_cyan), id(col_red), id(col_gold), id(col_slate), id(col_dark_gray));
-              // Drop shadow cast by the arrow shaft across the target face
-              int tip_x = icon_x + 2, tip_y = icon_y + 2;
-              int tail_x = icon_x + 56, tail_y = icon_y - 36;
-              it.line(tip_x, tip_y + 5, tail_x - 8, tail_y + 10, Color(15, 18, 24));
-              it.line(tip_x, tip_y + 6, tail_x - 8, tail_y + 11, Color(15, 18, 24));
-              // Embedded broadhead steel tip + golden impact ring in the bullseye
-              it.circle(tip_x, tip_y, 5, Color(180, 110, 0));
-              it.filled_triangle(tip_x - 3, tip_y + 2, tip_x + 9, tip_y - 9, tip_x + 12, tip_y - 2, id(col_white));
-              // Thick 3px wooden arrow shaft sticking out at a crisp 35-degree angle
-              it.line(tip_x, tip_y, tail_x, tail_y, Color(238, 206, 148));
-              it.line(tip_x, tip_y - 1, tail_x, tail_y - 1, Color(250, 228, 178));
-              it.line(tip_x, tip_y + 1, tail_x, tail_y + 1, Color(182, 138, 76));
-              // Bright crimson & gold-crested fletching feathers at the tail
-              for (int f = 0; f < 9; f++) {
-                int fx = tail_x - 3 - f;
-                int fy = tail_y + 2 + (f * 2) / 3;
-                it.line(fx, fy - 1, fx + 3, fy - 11, Color(255, 52, 52));
-                it.line(fx, fy + 1, fx + 10, fy + 4, Color(220, 32, 32));
-              }
-              // Silver nock at the very end of the shaft
-              it.filled_circle(tail_x + 1, tail_y - 1, 2, id(col_white));
-
-            } else if (g_idx == 2) {
-              // ------------------------------------------------------------------
-              // GAME 2: BREAKOUT — 3D Beveled Bricks, Shattering Hit & Compact Paddle
-              // ------------------------------------------------------------------
-              int b_w = 26, b_h = 11, gap_x = 4, gap_y = 5;
-              int start_bx = icon_x - (int)(2.0f * b_w + 1.5f * gap_x) + b_w / 2;
-              int start_by = icon_y - 36;
-              Color row_c[3] = {id(col_gold), id(col_cyan), id(col_orange)};
-              Color row_hi[3] = {Color(255, 245, 165), Color(185, 255, 255), Color(255, 195, 100)};
-              for (int r = 0; r < 3; r++) {
-                for (int c = 0; c < 4; c++) {
-                  int bx = start_bx + c * (b_w + gap_x);
-                  int by = start_by + r * (b_h + gap_y);
-                  if (r == 2 && c == 2) {
-                    // Shattering brick shrapnel burst
-                    it.filled_rectangle(bx - 10, by - 5, 5, 4, row_c[r]);
-                    it.filled_rectangle(bx + 4, by - 7, 5, 4, row_hi[r]);
-                    it.filled_rectangle(bx - 6, by + 3, 4, 4, row_c[r]);
-                    it.filled_rectangle(bx + 5, by + 2, 5, 4, row_hi[r]);
-                    it.filled_circle(bx, by, 2, id(col_white));
-                    continue;
-                  }
-                  int hp = (r == 0 && (c == 1 || c == 2)) ? 2 : 1;
-                  Color bc = (hp == 2) ? Color(145, 162, 182) : row_c[r];
-                  Color hc = (hp == 2) ? Color(230, 240, 252) : row_hi[r];
-                  render_breakout_brick(it, bx, by, b_w, b_h, bc, hc, hp, hp, id(col_white));
-                }
-              }
-
-              // Sleek, narrower paddle positioned higher up so it is clearly engaged with the ball
-              int pad_x = icon_x - 4, pad_y = icon_y + 26, pad_w = 42, pad_h = 8;
-              render_breakout_paddle(it, pad_x, pad_y, pad_w, pad_h, id(theme_primary), id(col_white));
-
-              // Ball rebounding upward off the paddle toward the shattering brick
-              int ball_x = icon_x + 9, ball_y = icon_y + 5;
-              it.filled_circle(pad_x + 2, pad_y - 6, 2, Color(65, 52, 18));
-              it.filled_circle(pad_x + 6, pad_y - 11, 3, Color(120, 95, 25));
-              it.filled_circle(ball_x - 3, ball_y + 5, 4, Color(185, 145, 35));
-              it.filled_circle(ball_x, ball_y, 5, id(col_gold));
-              it.circle(ball_x, ball_y, 5, id(col_white));
-              it.filled_circle(ball_x - 2, ball_y - 2, 1, id(col_white));
-
-            } else if (g_idx == 3) {
-              // ------------------------------------------------------------------
-              // GAME 3: CHOMP FOR KIDS — Cute Cookie-Monster Friend & 3 Treats
-              // ------------------------------------------------------------------
-              render_chomp_monster(it, icon_x - 16, icon_y + 4, 34, 0.85f, -0.15f,
-                                   true, false, false, 0,
-                                   id(col_white), id(col_black), id(col_gold),
-                                   id(col_red), id(col_magenta), id(col_dark_gray));
-              // Chocolate Chip Cookie right in front of the hungry mouth
-              render_chomp_treat(it, icon_x + 32, icon_y - 16, 0,
-                                 id(col_white), id(col_red), id(col_gold), id(col_cyan),
-                                 id(col_green), id(col_magenta), id(col_bg));
-              // Strawberry below right
-              render_chomp_treat(it, icon_x + 42, icon_y + 20, 1,
-                                 id(col_white), id(col_red), id(col_gold), id(col_cyan),
-                                 id(col_green), id(col_magenta), id(col_bg));
-            } else if (g_idx == 4) {
-              // ------------------------------------------------------------------
-              // GAME 4: ASTEROIDS — Vector Starship, Space Rocks & Alien UFO
-              // ------------------------------------------------------------------
-              it.filled_circle(icon_x, icon_y, 52, Color(12, 16, 24));
-              it.circle(icon_x, icon_y, 52, id(col_slate));
-              it.circle(icon_x, icon_y, 51, id(col_slate));
-
-              // Stardust background dots
-              it.draw_pixel_at(icon_x + 35, icon_y - 30, id(col_silver));
-              it.draw_pixel_at(icon_x - 35, icon_y + 30, id(col_silver));
-              it.draw_pixel_at(icon_x + 30, icon_y + 35, id(col_white));
-
-              // Large & Small vector asteroids via shared primitive
-              render_asteroids_rock(it, icon_x + 17.0f, icon_y - 12.0f, 19.0f, 0, 0.3f, id(col_white), id(col_dark_gray));
-              render_asteroids_rock(it, icon_x + 26.0f, icon_y + 22.0f, 9.0f, 1, 1.1f, id(col_silver), id(col_dark_gray));
-
-              // Mini Alien UFO Flying Saucer in upper-left sector
-              render_asteroids_ufo(it, icon_x - 20, icon_y - 22, 0.78f, 0,
-                                   id(col_white), id(col_cyan), id(col_magenta), id(col_green), id(col_gold));
-
-              // Vector Player Starship aiming at -45 deg + Photon Torpedo Blast
-              int sx = icon_x - 16, sy = icon_y + 18;
-              render_asteroids_ship(it, sx, sy, -0.785398f, 0.95f, true,
-                                    id(col_white), id(col_silver), id(theme_secondary), id(col_orange));
-              it.filled_circle(sx + 16, sy - 16, 2, id(col_white));
-              it.line(sx + 16, sy - 16, sx + 11, sy - 11, id(theme_secondary));
-            }
-          };
-
-          // Full Game Card Composite (Icon + Title + High Score)
-          auto draw_game_card = [&](int g_idx, int icon_x, int icon_y, int text_center_x, int title_y, int score_y) {
-            const char* title = "MARBLES";
-            int score = id(high_score_marbles);
-            if (g_idx == 0) {
-              title = "MARBLES";
-              score = id(high_score_marbles);
-            } else if (g_idx == 1) {
-              title = "ARCHERY";
-              score = id(high_score_archery);
-            } else if (g_idx == 2) {
-              title = "BREAKOUT";
-              score = id(high_score_breakout);
-            } else if (g_idx == 3) {
-              title = "CHOMP FOR KIDS";
-              score = id(high_score_chomp);
-            } else {
-              title = "ASTEROIDS";
-              score = id(high_score_asteroids);
-            }
-
-            // 1. Game Icon at (icon_x, icon_y)
-            if (icon_y >= 40 && icon_y <= 380) {
-              draw_game_icon(g_idx, icon_x, icon_y);
-            }
-
-            // 2. Game Title at (text_center_x, title_y)
-            if (title_y >= 140 && title_y <= 295) {
-              it.print(text_center_x, title_y, id(font_btn_bold), id(col_white), TextAlign::CENTER, title);
-            }
-
-            // 3. High Score at (text_center_x, score_y)
-            if (score_y >= 140 && score_y <= 295) {
-              char sc_buf[32];
-              if (score > 0) snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: %d", score);
-              else snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: --");
-              it.print(text_center_x, score_y, id(font_small), id(col_gold), TextAlign::CENTER, sc_buf);
-            }
-          };
-
-          int icon_cx = 110;
-          int card_cy = 220;
-          int text_cx = 285;
-          int base_title_y = 200;
-          int base_score_y = 240;
-
-          if (id(menu_scroll_active)) {
-            int step = id(menu_scroll_step);
-            if (step > 4) step = 4;
-            int offset = SHARED_SCROLL_EASE_174[step];
-            int dir = id(menu_scroll_dir);
-
-            int out_shift = -dir * offset;
-            int in_shift = dir * (174 - offset);
-
-            int out_idx = id(game_carousel_idx);
-            int in_idx = id(menu_scroll_target_page);
-
-            draw_game_card(out_idx, icon_cx, card_cy + out_shift, text_cx, base_title_y + out_shift, base_score_y + out_shift);
-            draw_game_card(in_idx, icon_cx, card_cy + in_shift, text_cx, base_title_y + in_shift, base_score_y + in_shift);
-          } else {
-            draw_game_card(id(game_carousel_idx), icon_cx, card_cy, text_cx, base_title_y, base_score_y);
-          }
-
-          // Top Viewport Mask (lines up with apex of upper chevron at y = 158)
-          it.filled_rectangle(0, 0, 466, 158, id(col_bg));
-          it.print(cx, 96, id(font_games_title), id(theme_primary), TextAlign::CENTER, "GAMES");
-
-          // Bottom Viewport Mask (lines up with apex of lower chevron at y = 282)
-          it.filled_rectangle(0, 282, 466, 184, id(col_bg));
-
-          // Taller Action Button: "PLAY" moved up 3px to y = 349 (r = 22, height = 44px, font_btn_bold)
-          draw_hero_button(cx - 55, cx + 55, 349, 22, id(theme_primary), id(col_dark_gray), "PLAY", id(col_white));
-
-          // Standardized Right-Flank Vertical Chevrons (x = 415, Up at 162, Down at 278)
-          // Always visible in true continuous carousel mode
-          draw_right_flank_chevrons(true, true);
+          render_games_launcher(
+              it, cx, id(game_carousel_idx), id(menu_scroll_active),
+              id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+              id(high_score_marbles), id(high_score_archery), id(high_score_breakout),
+              id(high_score_chomp), id(high_score_asteroids),
+              id(font_games_title), id(font_btn_bold), id(font_small),
+              id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_black), id(col_white), id(col_silver),
+              id(col_slate), id(col_dark_gray),
+              id(col_gold), id(col_cyan), id(col_green),
+              id(col_orange), id(col_red), id(col_magenta));
 
         // ----------------------------------------------------
         // GAME 1: MARBLES (ARCADE WAVE & DIAMOND BUMPER CHALLENGE)
@@ -3596,325 +3369,21 @@ display:
             id(col_dark_gray), id(col_gold), id(col_red));
       } else if (id(gui_page) == 5) {
         // ==============================================================================
-        // PAGE 5: SKY & WEATHER SUITE (v1.1 REFINEMENTS)
-        // 4-View Horological Instrument:
-        //   Subpage 0: Current Conditions (Hero temp at y=74 with buffer, consistent fonts)
-        //   Subpage 1: Forecast (Standardized title at y=56, tight 4-day forecast, centered alignment)
-        //   Subpage 2: Sun (Title "SUN" at y=56, Below/Above Horizon, lowered arc, daytime-only sun)
-        //   Subpage 3: Moon (Title "MOON" at y=56, normal & full-screen modes, soft feathered terminator)
-        // Navigation: 2x2 System-Sized Pill Grid at bottom [ Current | Forecast ] / [ Sun | Moon ]
+        // PAGE 5: SKY & WEATHER SUITE (SECTION 20 OF ui_toolkit.h)
         // ==============================================================================
-        if (id(sky_weather_subpage) == 0) {
-          float temp = id(ha_weather_temperature).state;
-          std::string cond = id(ha_weather_condition).state;
-          std::string s_state = id(ha_sun_state).state;
-          bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
-          apply_weather_sim_override(id(weather_sim_condition).current_option(), cond, is_night);
-
-          uint32_t now_ms = millis();
-          const int cel_cx = 346;
-          const int cel_cy = 91;
-
-          // ====================================================================
-          // LAYERS 0, 1 & 2: MODULAR ATMOSPHERIC, CELESTIAL & MOTION ENGINE (ui_toolkit.h)
-          // Exact Z-order: Sky -> Stars -> Sun/Moon -> Shooting Star / Birds -> Clouds/Fog/Leaves
-          // ====================================================================
-          double moon_cycle = 0.5;
-          if (is_night) {
-            calculate_moon_phase(moon_cycle);
-          }
-          render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                          CLOUD_SPANS_PACKED, moon_cycle, cel_cx, cel_cy, true);
-
-          // ====================================================================
-          // LAYER 3: FOREGROUND TELEMETRY & TYPOGRAPHY (FLOATING CLEANLY)
-          // ====================================================================
-          // Hero Temperature moved down to y = 134 (+34px downward unit shift)
-          char temp_buf[16];
-          if (!isnan(temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", temp);
-          else snprintf(temp_buf, sizeof(temp_buf), "--°");
-          it.print(cx, 134, id(font_time), id(col_white), TextAlign::CENTER, temp_buf);
-
-          std::string cond_title = format_weather_title(cond);
-          Color cond_color = is_night ? id(theme_primary) : Color(255, 225, 110);
-          it.print(cx, 197, id(font_date), cond_color, TextAlign::CENTER, cond_title.c_str());
-
-          // ----------------------------------------------------
-          // PRIMARY METRICS: HUMIDITY & WIND (Harmonized 26px buffer above enlarged buttons)
-          // Generous natural breathing space (56px gap) below feels-like line
-          // ----------------------------------------------------
-          float hum = id(ha_weather_humidity).state;
-          float wspd = id(ha_weather_wind_speed).state;
-          float wbear = id(ha_weather_wind_bearing).state;
-
-          Color label_c = is_night ? id(col_slate) : Color(165, 190, 215);
-
-          // Column 1: HUMIDITY (Left x = 156, titles at y = 258, data at y = 288)
-          it.print(156, 258, id(font_small), label_c, TextAlign::CENTER, "HUMIDITY");
-          char hum_str[16];
-          if (!isnan(hum)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", hum);
-          else snprintf(hum_str, sizeof(hum_str), "--");
-          it.print(156, 288, id(font_small), id(col_white), TextAlign::CENTER, hum_str);
-
-          // Subtle vertical divider between Humidity and Wind
-          it.line(cx, 252, cx, 302, id(col_dark_gray));
-
-          // Column 2: WIND (Right x = 310, titles at y = 258, data at y = 288)
-          it.print(310, 258, id(font_small), label_c, TextAlign::CENTER, "WIND");
-          char wind_str[32];
-          if (!isnan(wspd)) {
-            snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", roundf(wspd), get_cardinal(wbear));
-          } else {
-            snprintf(wind_str, sizeof(wind_str), "--");
-          }
-          it.print(310, 288, id(font_small), id(col_white), TextAlign::CENTER, wind_str);
-
-          // Standard baseline divider at y = 310 defining 26px buffer above enlarged bottom buttons
-          it.line(80, 310, 386, 310, id(col_dark_gray));
-        }
-        // ----------------------------------------------------------------------
-        // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
-        // ----------------------------------------------------------------------
-        else if (id(sky_weather_subpage) == 1) {
-          // Standardized Title at y = 50
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "FORECAST");
-          it.line(80, 62, 386, 62, id(col_dark_gray));
-
-          struct DayForecast {
-            std::string day;
-            std::string high;
-            std::string low;
-            std::string cond;
-          };
-          std::vector<DayForecast> fc_days;
-
-          std::string raw_fc = id(ha_weather_forecast_5d).state;
-          if (!raw_fc.empty() && raw_fc != "unknown" && raw_fc != "unavailable" && raw_fc.find(':') != std::string::npos) {
-            size_t start = 0;
-            while (start < raw_fc.length() && fc_days.size() < 5) {
-              size_t end = raw_fc.find(';', start);
-              if (end == std::string::npos) end = raw_fc.length();
-              std::string token = raw_fc.substr(start, end - start);
-              start = end + 1;
-              if (token.empty()) continue;
-
-              size_t c1 = token.find(':');
-              if (c1 != std::string::npos) {
-                size_t c2 = token.find(':', c1 + 1);
-                if (c2 != std::string::npos) {
-                  size_t c3 = token.find(':', c2 + 1);
-                  DayForecast df;
-                  df.day = token.substr(0, c1);
-                  df.high = token.substr(c1 + 1, c2 - c1 - 1);
-                  if (c3 != std::string::npos) {
-                    df.low = token.substr(c2 + 1, c3 - c2 - 1);
-                    df.cond = token.substr(c3 + 1);
-                  } else {
-                    df.low = token.substr(c2 + 1);
-                    df.cond = "sunny";
-                  }
-                  fc_days.push_back(df);
-                }
-              }
-            }
-          }
-
-          // Fallback if forecast data from companion package is pending sync
-          if (fc_days.empty()) {
-            float cur_t = id(ha_weather_temperature).state;
-            float cur_hi = id(ha_weather_high).state;
-            float cur_lo = id(ha_weather_low).state;
-            std::string cur_c = id(ha_weather_condition).state;
-            if (cur_c.empty() || cur_c == "unknown" || cur_c == "unavailable") cur_c = "partlycloudy";
-
-            float base_hi = !isnan(cur_hi) ? cur_hi : (!isnan(cur_t) ? cur_t + 4.0f : 82.0f);
-            float base_lo = !isnan(cur_lo) ? cur_lo : (!isnan(cur_t) ? cur_t - 15.0f : 58.0f);
-
-            auto now = id(ha_time).now();
-            const char* d_names[7] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
-            int d_off[5][2] = {{0, 0}, {3, 2}, {5, 3}, {4, 2}, {2, 1}};
-
-            for (int i = 0; i < 5; i++) {
-              DayForecast df;
-              if (now.is_valid()) {
-                int d_idx = (now.day_of_week - 1 + i) % 7;
-                if (d_idx < 0) d_idx += 7;
-                df.day = (i == 0) ? "TODAY" : d_names[d_idx];
-              } else {
-                df.day = (i == 0) ? "TODAY" : d_names[(i + 5) % 7];
-              }
-              char h_buf[16], l_buf[16];
-              snprintf(h_buf, sizeof(h_buf), "%.0f", base_hi + d_off[i][0]);
-              snprintf(l_buf, sizeof(l_buf), "%.0f", base_lo + d_off[i][1]);
-              df.high = h_buf;
-              df.low = l_buf;
-              df.cond = cur_c;
-              fc_days.push_back(df);
-            }
-          }
-
-          if (!fc_days.empty()) {
-            bool dummy_night = false;
-            apply_weather_sim_override(id(weather_sim_condition).current_option(), fc_days[0].cond, dummy_night);
-          }
-          auto draw_fc_glyph = [&](int gx, int gy, const std::string& c_name) { render_forecast_glyph(it, gx, gy, c_name); };
-
-          // 5 Spaced Rows with 46px pitch (y = 100, 146, 192, 238, 284) - preserved exact column placement with balanced row padding
-          int row_ys[5] = {100, 146, 192, 238, 284};
-          for (size_t i = 0; i < fc_days.size() && i < 5; i++) {
-            int ry = row_ys[i];
-            const auto& d = fc_days[i];
-
-            // 1. Day of week shifted left to x = 102
-            it.print(102, ry, id(font_small), (i == 0) ? id(theme_primary) : id(col_white), TextAlign::CENTER, d.day.c_str());
-
-            // Optical baseline alignment: glyph, condition, and high/low brought down by 2px to match days of week
-            int ry_data = ry + 2;
-
-            // 2. Weather vector glyph centered at x = 164
-            draw_fc_glyph(164, ry_data, d.cond);
-
-            // 3. Condition short text vertically aligned at x = 187
-            std::string c_txt = format_forecast_short_name(d.cond);
-            it.print(187, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, c_txt.c_str());
-
-            // 4. High / Low temperatures shifted left to x = 315..335 (leaving wide buffer for right-flank chevrons)
-            std::string hi_str = d.high + "°";
-            std::string lo_str = d.low + "°";
-            it.print(315, ry_data, id(font_small), id(col_white), TextAlign::CENTER_RIGHT, hi_str.c_str());
-            it.print(325, ry_data, id(font_micro), id(col_dark_gray), TextAlign::CENTER, "/");
-            it.print(335, ry_data, id(font_small), id(col_slate), TextAlign::CENTER_LEFT, lo_str.c_str());
-
-            // Horizontal row divider
-            if (i < 4) {
-              it.line(70, ry + 22, 365, ry + 22, id(col_dark_gray));
-            }
-          }
-          // Standard baseline divider at y = 308 defining 28px buffer above enlarged bottom buttons
-          it.line(70, 308, 365, 308, id(col_dark_gray));
-        }
-        // ----------------------------------------------------------------------
-        // SUBPAGE 2: SUN (ENLARGED SOLAR ARC, MIDPOINT HORIZON y=218, BUFFERED TELEMETRY)
-        // ----------------------------------------------------------------------
-        else if (id(sky_weather_subpage) == 2) {
-          // Standardized Title at y = 50
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "SUN");
-
-          float elev = id(ha_sun_elevation).state;
-          float azim = id(ha_sun_azimuth).state;
-
-          // Solar Arc block shifted up by 10px (reducing title-to-apex gap by 25% from 40px to 30px, apex at y = 90)
-          // Horizon line at y = 208, arc radius 118px
-          int arc_cy = 208;
-          int arc_r = 118;
-
-          // Horizon Line at y = 208 between arc endpoints
-          for (int hx = 112; hx <= 354; hx += 8) {
-            it.line(hx, arc_cy, hx + 4, arc_cy, id(col_gray));
-          }
-          // E and W brought inward directly adjacent to arc endpoints
-          it.print(98, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "E");
-          it.print(368, arc_cy, id(font_micro), id(col_slate), TextAlign::CENTER, "W");
-
-          // Day Arc (Above Horizon y <= 208, top apex at y = 90 — LUT-accelerated via fast_cos/fast_sin)
-          for (int a = 0; a <= 180; a += 2) {
-            float rad = static_cast<float>(a) * (PI_F / 180.0f);
-            int ax = cx - static_cast<int>(static_cast<float>(arc_r) * fast_cos(rad));
-            int ay = arc_cy - static_cast<int>(static_cast<float>(arc_r) * fast_sin(rad));
-            it.draw_pixel_at(ax, ay, Color(180, 140, 40));
-            it.draw_pixel_at(ax, ay + 1, Color(100, 75, 20));
-          }
-
-          // Status Text placed UNDERNEATH the horizon line at y = 224 in font_micro
-          if (!isnan(elev)) {
-            const char* sol_st = (elev > 0.0f) ? "Above Horizon" : "Below Horizon";
-            it.print(cx, 224, id(font_micro), elev > 0.0f ? id(col_warm_gold) : id(col_slate), TextAlign::CENTER, sol_st);
-          }
-
-          // Current Sun Position: ONLY displayed if above horizon (elev >= 0)
-          if (!isnan(elev) && elev >= 0.0f) {
-            float day_prog = 0.5f;
-            if (!isnan(azim)) {
-              if (azim >= 60.0f && azim <= 300.0f) day_prog = (azim - 60.0f) / 240.0f;
-              else if (azim < 60.0f) day_prog = 0.05f;
-              else day_prog = 0.95f;
-            }
-            float theta = day_prog * 3.14159265f;
-            int sx = cx - (int)((float)arc_r * cosf(theta));
-            int sy = arc_cy - (int)((float)arc_r * sinf(theta));
-
-            it.filled_circle(sx, sy, 9, Color(245, 175, 30));
-            it.filled_circle(sx, sy, 5, Color(255, 235, 140));
-            it.filled_circle(sx, sy, 2, Color(255, 255, 255));
-            it.line(sx - 13, sy, sx + 13, sy, Color(255, 200, 50));
-            it.line(sx, sy - 13, sx, sy + 13, Color(255, 200, 50));
-          }
-
-          // Horizontal divider at y = 238
-          it.line(80, 238, 386, 238, id(col_dark_gray));
-
-          // Telemetry Row: Sunrise and Sunset (Titles at y = 264, Times at y = 290)
-          std::string s_rise = format_iso_time(id(ha_sun_next_rising).state, id(is_24h_format));
-          std::string s_set = format_iso_time(id(ha_sun_next_setting).state, id(is_24h_format));
-
-          it.print(156, 264, id(font_small), id(col_slate), TextAlign::CENTER, "SUNRISE");
-          it.print(156, 290, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_rise.c_str());
-
-          it.line(cx, 258, cx, 304, id(col_dark_gray));
-
-          it.print(310, 264, id(font_small), id(col_slate), TextAlign::CENTER, "SUNSET");
-          it.print(310, 290, id(font_small), id(col_warm_gold), TextAlign::CENTER, s_set.c_str());
-
-          // Standard baseline divider at y = 310 defining 26px buffer above enlarged bottom buttons
-          it.line(80, 310, 386, 310, id(col_dark_gray));
-        }
-        // ----------------------------------------------------------------------
-        // SUBPAGE 3: MOON (MAXIMIZED LUNAR DISC r=72 & BUFFERED CENTERED TELEMETRY)
-        // ----------------------------------------------------------------------
-        else if (id(sky_weather_subpage) == 3) {
-          double cycle = 0.5;
-          int illum_pct = 50;
-          std::string mp_label = "Moon";
-          calculate_moon_phase(cycle, &illum_pct, &mp_label);
-
-          it.print(cx, 50, id(font_date), id(theme_primary), TextAlign::CENTER, "MOON");
-
-          // Standard Title-to-Object Gap (top apex at y = 84, matching 34px menu buffer)
-          // Scaled Lunar Disc (Radius 69, diameter 138px, cy = 153, apex y = 84, bottom y = 222)
-          int moon_cx = cx;
-          int moon_cy = 153;
-          int moon_r = 69;
-
-          draw_lunar_disc(moon_cx, moon_cy, moon_r, cycle, true);
-
-          // Divider below lunar disc at y = 234
-          it.line(110, 234, 356, 234, id(col_dark_gray));
-
-          // Centered Phase Name (y = 258) in col_slate and Illumination (y = 290) in col_white
-          it.print(cx, 258, id(font_btn_bold), id(col_slate), TextAlign::CENTER, mp_label.c_str());
-
-          char illum_buf[32];
-          snprintf(illum_buf, sizeof(illum_buf), "%d%% Illumination", illum_pct);
-          it.print(cx, 290, id(font_small), id(col_white), TextAlign::CENTER, illum_buf);
-
-          // Standard baseline divider at y = 310 defining 26px buffer above enlarged bottom buttons
-          it.line(80, 310, 386, 310, id(col_dark_gray));
-        }
-        // ==============================================================================
-        // SUBPAGE NAVIGATION: SINGLE ROW OF 4 ENLARGED CIRCULAR ICON BUTTONS (y = 360, r = 24)
-        // Scaled to match Tools Page icon dimensions (r = 24, pitch = 72px, x = {125, 197, 269, 341})
-        // Standard Right-Flank Navigation Chevrons at x = 415 (Up at 162, Down at 278)
-        // Seamless background integration: with_bg=false on Subpage 0 eliminates black box over sky wallpaper
-        // ==============================================================================
-        draw_right_flank_chevrons(true, true, id(theme_secondary), id(sky_weather_subpage) != 0);
-
-        render_weather_subpage_icons(it, id(sky_weather_subpage), id(theme_primary), id(col_white));
-        if (id(sky_weather_subpage) == 0) {
-          record_ambient_frame_ms(millis());
-        }
-        if (id(sky_weather_subpage) == 0) {
-          pocket_ui::record_ambient_frame_ms(millis());
-        }
+        render_weather_page(
+            it, cx, cy, millis(), id(sky_weather_subpage), now, id(is_24h_format),
+            CLOUD_SPANS_PACKED, id(weather_sim_condition).current_option(),
+            id(ha_weather_temperature).state, id(ha_weather_high).state, id(ha_weather_low).state,
+            id(ha_weather_humidity).state, id(ha_weather_wind_speed).state, id(ha_weather_wind_bearing).state,
+            id(ha_weather_condition).state, id(ha_weather_forecast_5d).state,
+            id(ha_sun_state).state, id(ha_sun_elevation).state, id(ha_sun_azimuth).state,
+            id(ha_sun_next_rising).state, id(ha_sun_next_setting).state,
+            id(ha_moon_phase).state,
+            id(font_time), id(font_date), id(font_btn_bold), id(font_small), id(font_micro),
+            id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate),
+            id(col_gray), id(col_dark_gray), id(col_warm_gold));
       } else if (id(gui_page) == 7) {
         // ==============================================================================
         // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL (SECTION 17 OF ui_toolkit.h)
@@ -4044,7 +3513,7 @@ display:
         Color chevron_col = id(col_white);
 
         // Master App Deck Navigation Chevrons (< at x=165, > at x=301, y=424)
-        draw_deck_chevrons(chevron_col, true);
+        render_deck_chevrons(it, chevron_col, id(col_black), true);
 
         bool show_in_deck = (id(page_counter_mode).current_option() != "Never");
 
@@ -4063,6 +3532,9 @@ display:
           it.print(cx, 424, id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
         }
       }
+
+      // Stamp post-render timestamp so 20 FPS loops coalesce cleanly with disp1's 1s background timer
+      pocket_ui::record_ambient_frame_ms(millis());
 
 
 
@@ -4748,7 +4220,6 @@ touchscreen:
                     if (!s_id.empty()) {
                       if (is_podcast_list) {
                         id(drilldown_album_id) = s_id;
-                        id(drilldown_album_name) = s_name;
                         id(drilldown_album_page) = id(music_browse_page);
                         id(drilldown_parent_mode) = "podcast";
                         id(selected_category_mode) = "podcast_episodes";
@@ -4767,7 +4238,6 @@ touchscreen:
                           id(fetch_music_browse).execute();
                         } else {
                           id(drilldown_album_id) = s_id;
-                          id(drilldown_album_name) = s_name;
                           id(drilldown_album_page) = id(music_browse_page);
                           id(drilldown_parent_mode) = id(selected_category_mode);
                           id(selected_category_mode) = "album_tracks";

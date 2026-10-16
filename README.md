@@ -42,7 +42,10 @@ substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
   weather_entity: "weather.home"                     # Primary Home Assistant weather entity
-  tv_remote_entity: "remote.tv"                      # Target TV remote.* or LG webOS media_player.* entity
+  tv_remote_entity: "remote.shield_tv"               # Slot 1: Primary device & automatic Master Power target
+  tv_remote_entity_2: "remote.none"                  # Slot 2: Optional secondary device (remote.* or media_player.*)
+  tv_remote_entity_3: "remote.none"                  # Slot 3: Optional secondary device ("remote.none" hides slot)
+  tv_remote_entity_4: "remote.none"                  # Slot 4: Optional secondary device ("remote.none" hides slot)
 
 packages:
   slampton.pocket-assistant-175c:
@@ -107,25 +110,26 @@ After adding the configuration, reload Template Entities and Input Texts under *
 - **Dynamic Audio Ducking**: Software mixer smoothly ducks local playback during Voice Assistant speech synthesis and automatically resumes paused playback once TTS finishes draining.
 - **Hardware & Touch Dismissal**: Pressing the physical side button or tapping the glass during an active voice session immediately halts and mutes the session without leaking taps to the underlying app.
 
-### Universal TV & Media Remote Control (`Page 7`)
-- **Table-Driven Multi-Platform Dispatch (`remote_send_key`)**: Parameterized table-driven command engine supporting **6 native TV platforms** out of the box with zero YAML edits required to switch profiles:
+### Universal Multi-Device TV & Media Remote Control (`Page 7`)
+- **Up to 4 Preconfigured Devices & Slot-1 Master Power (`SETTINGS` Subpage)**: Configure up to 4 target entities (`tv_remote_entity` through `tv_remote_entity_4`; unused slots set to `"remote.none"` are hidden automatically). The top **`Toggle Power`** button always controls **Slot 1 (`tv_remote_entity`)** as your Master Power target even when the D-Pad is switched to a secondary device, while Slots 2–4 display dedicated right-aligned red `⏻` power override buttons.
+- **Multi-Protocol Command Engine (`resolve_remote_dispatch` & `remote_send_key`)**: Supports **7 native TV & AVR platforms** out of the box with automatic per-device heuristic detection:
   1. **Android TV / Google TV / Shield TV / Fire TV / Bravia** (`remote.send_command`, `DPAD_*`)
-  2. **Apple TV** (`remote.send_command`, `up`, `down`, `menu`, `top_menu`, `wakeup`)
-  3. **Roku** (`remote.send_command`, `up`, `down`, `back`, `home`, `power`)
-  4. **Samsung Smart TV** (`remote.send_command`, `KEY_UP`, `KEY_RETURN`, `KEY_HOME`, `KEY_POWER`)
-  5. **LG webOS Smart TV** (`webostv.button` targeting `media_player.*` directly—no `remote.*` entity required)
-  6. **Custom / Generic Remote** (User-configurable `${remote_cmd_*}` substitutions)
-- **Automatic Heuristic Detection**: Automatically detects the target platform on first boot from the entity ID or friendly name (`apple`, `roku`, `samsung`, `webos`, `lg`) while respecting manual selections persisted in NVS flash.
+  2. **Denon / Marantz AVR** (`denonavr.get_command` cursor/menu navigation `MNCUP`/`MNCDN`/`MNCLT`/`MNCRT`/`MNENT`/`MNRTN`/`MNMEN` + `media_player.*` volume & power)
+  3. **LG webOS Smart TV** (`webostv.button` targeting `media_player.*` directly + `media_player.*` volume & power)
+  4. **Apple TV** (`remote.send_command`, `up`, `down`, `menu`, `top_menu`, `wakeup`)
+  5. **Roku** (`remote.send_command`, `up`, `down`, `back`, `home`, `power`)
+  6. **Samsung Smart TV** (`remote.send_command`, `KEY_UP`, `KEY_RETURN`, `KEY_HOME`, `KEY_POWER`)
+  7. **Custom / Generic Remote** (User-configurable `${remote_cmd_*}` substitutions)
 
 ### 7-App Carousel & 8-Tool Suite Architecture
-- **7 Top-Level Carousel Apps**: Navigated via full-chin bottom chevrons (`y = 424`):
-  * **Clock (`Page 0`)**: Modern Roman Analog and Modern Digital Bold watch faces with date and battery complications.
-  * **Music Player (`Page 2`)**: Full-bleed album art, floating HUD, multi-room speaker manager, and 5-slot Music Assistant library browser.
-  * **TV Remote (`Page 7`)**: Concentric 5-way D-pad with 85px equatorial volume dead-zone and device settings subpage.
-  * **Sky & Weather (`Page 5`)**: 4-view meteorological & astronomical suite (Current Conditions with live particle rain/snow/starfield, 5-Day Forecast, Solar Arc, and 3D Raytraced Lunar Phase).
-  * **Games Suite (`Page 3`)**: Slot-machine reel launcher featuring 5 arcade and 6-axis IMU motion games (**Breakout**, **Marble Maze**, **Archery Target**, **Treat Catcher**, and **Asteroids**).
-  * **Tools Suite (`Page 8`)**: 2-page $2 \times 3$ utility grid with right-flank chevrons hosting **8 micro-apps**: **Countdown Timer**, **Multi-Alarm Manager**, **1970 Heuer Split-Lap Stopwatch**, **Dual D6 Dice Roll**, **AMOLED Flashlight Torch**, **Pocket Calculator**, **2D IMU Bubble Level**, and **Home Assistant Coin Flip**.
-  * **System Hub (`Page 4`)**: 2-page vertical settings menu (4 full-width pills per page with right-flank chevrons): Page 1 (`Display >`, `Clock >`, `Sleep & Wake >`, `Audio >`) and Page 2 (`App Deck >`, `Voice >`, `Info >`, `Actions >`).
+- **7 Top-Level Carousel Apps**: Navigated via full-chin bottom chevrons (`y = 424`), with 100% of rendering modularized in `ui_toolkit.h`:
+  * **Clock (`Page 0`)**: Modern Roman Analog (`.rodata` LUT sword hands) and Modern Digital Bold watch faces with date, live battery gauge, and instant `on_time_sync` refresh.
+  * **Music Player (`Page 2`)**: Full-bleed album art, floating HUD, multi-room speaker manager, optimistic remote volume/state sync, and 5-slot Music Assistant library browser.
+  * **TV Remote (`Page 7`)**: Concentric `r <= 146 px` 5-way D-pad with outer corner action buttons and 4-device `SETTINGS` switcher.
+  * **Sky & Weather (`Page 5`)**: 4-view meteorological & astronomical suite featuring a 20 FPS / 13.3 FPS audio-aware atmospheric motion engine (`Rain`, `Pouring`, `Snow`, `Thunderstorm`, `Fog & Mist`, `Windy` tumbling leaves, `Clear Day` migrating V-flock birds, `Clear Night` 3-tier stars + shooting stars), 5-Day Forecast, Solar Arc, and telescopic `.rodata` Lunar Albedo LUT Moon phases (`LUNAR_ALBEDO_139` & `LUNAR_ALBEDO_45`).
+  * **Games Suite (`Page 3`)**: Slot-machine reel launcher featuring 5 continuous-wave 20 FPS arcade and 6-axis IMU motion games (**Marbles** with diamond bumpers, **Archery** with articulated recurve bow & pinned arrows, **Breakout** with multi-hit armored bricks, **Chomp for Kids** with Cookie-Monster friend & 3 treats, and **Asteroids** with tilt-to-aim laser sight & Alien UFO saucers).
+  * **Tools Suite (`Page 8`)**: 2-page $2 \times 2$ utility grid with right-flank chevrons hosting **8 micro-apps**: **Countdown Timer**, **Multi-Alarm Manager**, **20 FPS 1970 Heuer Split-Lap Stopwatch**, **3D Ivory Dual D6 Dice Roll**, **AMOLED Flashlight Torch** (100% brightness & sleep-inhibited), **Pocket Calculator**, **20 FPS `300px` EMA Bubble Level** (sleep-inhibited while leveling), and **Zero-Trig 3D Milled-Edge Home Assistant Coin Flip**.
+  * **System Hub (`Page 4`)**: 2-page vertical settings menu (4 full-width pills per page with right-flank chevrons): Page 1 (`Display >`, `Sleep & Wake >`, `Sound >`, `Voice >`) and Page 2 (`Music >`, `App Deck >`, `Info >`, `Actions >`), plus 20 FPS docked screensavers (`Aurora Borealis`, `Starfield`, Katakana `Matrix Rain`, 3D `Fireworks`, and `Ambient Clock`).
 
 ---
 

@@ -8,11 +8,6 @@ deep_sleep:
   id: deep_sleep_ctrl
 
 globals:
-  - id: is_locked
-    type: bool
-    restore_value: no
-    initial_value: 'false'
-
   - id: sleep_start_time
     type: uint32_t
     restore_value: no
@@ -778,7 +773,6 @@ script:
     mode: restart
     then:
       - lambda: |-
-          id(is_locked) = false;
           id(active_game) = 0;
           id(is_hibernating) = true;
           id(display_power_state) = 0; // Force ACTIVE so confirmation displays when screen was sleeping
@@ -879,17 +873,6 @@ script:
           delay(100);
       - deep_sleep.enter: deep_sleep_ctrl
 
-  - id: unlock_device
-    mode: restart
-    then:
-      - lambda: |-
-          id(is_locked) = false;
-          id(apply_default_start_page).execute();
-          id(sleep_start_time) = 0;
-      - light.turn_on: display_brightness
-      - component.update: disp1
-      - script.execute: screen_sleep_timer
-
   - id: screen_sleep_timer
     mode: restart
     then:
@@ -922,9 +905,12 @@ script:
               } else {
                 if (id(display_off_timeout).current_option() == "Never") return false;
               }
+              // Keep display awake while Flashlight (subpage 5) or Bubble Level (subpage 7) is actively in use
+              const bool active_tool_awake =
+                  (id(gui_page) == 8 && (id(stuff_subpage) == 5 || id(stuff_subpage) == 7));
               // On battery power, screen sleep strictly honors display_off_timeout (default 15s)
               // regardless of remote playback status, protecting OLED panel and battery.
-              // Local playback only inhibits Tier 3 deep sleep hibernation in the 10s watchdog loop.
+              // Local playback only inhibits Tier 3 deep sleep hibernation in the 1s watchdog loop.
               return !id(ota_in_progress) &&
                      !id(va).is_running() &&
                      !id(va_tts_received) &&
@@ -933,6 +919,7 @@ script:
                      !id(timer_ringing) &&
                      !id(alarm_ringing) &&
                      !id(pickup_detected).state &&
+                     !active_tool_awake &&
                      (id(active_game) == 0);
           then:
             - script.execute: enter_standby_state
@@ -940,12 +927,15 @@ script:
             - if:
                 condition:
                   lambda: |-
+                    const bool active_tool_awake =
+                        (id(gui_page) == 8 && (id(stuff_subpage) == 5 || id(stuff_subpage) == 7));
                     return (id(display_power_state) == 0) &&
                            !id(ota_in_progress) &&
                            !id(va).is_running() &&
                            !id(stopwatch_running) &&
                            !id(timer_ringing) &&
                            !id(alarm_ringing) &&
+                           !active_tool_awake &&
                            (id(active_game) == 0);
                 then:
                   - delay: 2s

@@ -68,15 +68,15 @@
 | **Tier 2 (Display Standby)** | 15 – 25 mA | Inactivity timeout / Crown click | Top Crown (`GPIO3`), In-hand pickup (`QMI8658`) | < 5 ms |
 | **Tier 3 (Hardware Hibernate)** | < 40 µA | Hibernate timeout / Long Crown press | Top Crown hardware PEK interrupt only | Cold boot (~400ms UI, <1s API) |
 
-### NVS Flush & Client-Initiated Outgoing API (`ESPHome 2026.10+` & `Home Assistant 2026.10+`)
-* **Minimum Platform Dependency**: Client-initiated dial-back (`api: outgoing_connection:`) requires **ESPHome `2026.10.0+`** and **Home Assistant Core `2026.10.0+`** (`aioesphomeapi >= 46.4.0`, which wired up the inbound listener for client-initiated ESPHome connections).
-* **Pre-Shutdown NVS Sync**: Before writing `0x10 = 0x01` to the AXP2101 PMIC in `enter_deep_sleep`, firmware explicitly invokes `global_preferences->sync()` so all dirty NVS preferences (`outgoing_connection` dial-back target IP, `saved_battery_level`, and UI configuration selects) are committed to flash prior to rail cutoff.
+### NVS Flush, Smart On-Demand BLE & Client-Initiated Outgoing API (`ESPHome 2026.10+`)
+* **Minimum Platform Dependency**: Client-initiated dial-back (`api: outgoing_connection:`) requires **ESPHome `2026.10.0+`** and **Home Assistant Core `2026.10.0+`** (`aioesphomeapi >= 46.4.0`).
+* **Smart On-Demand BLE (`esp32_ble` + `improv_ble`)**: Configured with `enable_on_boot: false` and `use_psram: true` (`+40 KB` internal SRAM saved, `0` 2.4 GHz radio coexistence contention on normal boot/wake). Automatically enables at boot if no Wi-Fi credentials exist, after 15 seconds if configured Wi-Fi is unreachable while awake, or manually via `System -> Actions -> BLE Setup`.
+* **Pre-Shutdown NVS Sync**: Before writing `0x10 = 0x01` to the AXP2101 PMIC in `enter_deep_sleep`, firmware explicitly invokes `global_preferences->sync()` so all dirty NVS preferences (`outgoing_connection` dial-back target IP and UI configuration selects) are committed to flash prior to rail cutoff.
 * **Client-Initiated Native API (`api: outgoing_connection:`)**: Uses zero-IP dial-back learning mode (`ESPPreferenceObject`) protected by Noise encryption (`api: encryption:`) so the ESP32-S3 automatically remembers Home Assistant's IP and initiates an outbound TCP connection immediately upon Wi-Fi association after waking from Hibernate.
 
 ### Frame Rendering, C++ Toolkit (`ui_toolkit.h`) & Timing Budgets
-* **Chronograph & Standard Pages**: Target 10 FPS (100ms cycle).
-* **Render Execution**: < 45ms per frame (`~12ms` QSPI DMA transfer).
-* **CPU Idle Window**: $\ge$ 55ms guaranteed idle time per frame cycle to ensure zero-latency touch servicing.
+* **20 FPS / 13.3 FPS Audio-Aware Pacer (`should_step_ambient_anim`)**: Docked Screensavers (`Aurora Borealis`, `Starfield`, `Matrix Rain`, `Fireworks`), Sky & Weather motion wallpapers, active Games (`1..5`), and interactive Tools (`Stopwatch`, `Bubble Level`, `Dice Roll`, `Coin Flip`) run at **20 FPS (`50ms` interval, `>= 42ms` post-flush coalesce guard against `disp1`'s 1s timer)** when local audio is idle, and automatically pace at **`~13.3 FPS` (`75ms`)** during active Sendspin FLAC streaming.
+* **100% Modular C++20 UI Architecture (`ui_toolkit.h`)**: All 7 top-level apps, global overlays, and 8 tools are encapsulated in `ui_toolkit.h` (`Sections 1–20`), keeping `disp1` in `core/ui.yaml` as a compact top-level dispatcher.
 * **Zero-Heap Hot Path**: Select option comparisons use zero-copy `esphome::StringRef` (`id(...).current_option()`), and option cyclers (`cycle_option` in `ui_toolkit.h`) operate over `std::initializer_list<const char *>` with zero heap allocations.
 
 ---
@@ -110,11 +110,11 @@ The top-level App Deck carousel features 7 core applications with contiguous def
 | :--- | :--- | :--- |
 | **0** | **Clock** | Analog and digital watch faces, time format cycler, date and battery complication displays. |
 | **2** | **Music Player** | Full-bleed AMOLED album art, 5.0s auto-fading HUD, direct shortcut back-routing (`music_direct_nav`), `-10s/+30s` speech seek icons, parameterized `play_music_slot(slot)`, and 5-slot library browser. |
-| **7** | **TV Remote** | Universal media remote with 5-way D-pad, equatorial dead-zone, and parameterized `remote_send_key(0..9)` supporting Android TV, Apple TV, Roku, Samsung TV, LG webOS (`webostv.button`), and Custom. |
-| **5** | **Sky & Weather** | Astronomical & weather suite with current conditions, 5-day aligned forecast, Sun arc, and 3D raytraced Moon phases (`ui_toolkit.h`). |
-| **3** | **Games Suite** | Vertical slot-machine reel launcher (`Orbitron Bold` header) featuring Breakout, Marble Maze, Archery Target, Treat Catcher, and Asteroids. |
-| **8** | **Tools Suite** | 2-page $2 \times 3$ micro-app launcher: Countdown Timer, Multi-Alarm Manager, Heuer Chronometer, Dual D6 Dice, Flashlight Torch, Pocket Calculator, 2D Bubble Level, and HA Coin Flip. |
-| **4** | **System Hub** | 2-page vertical menu (4 full-width pills per page with right-flank chevrons): Page 1 (`Display >`, `Clock >`, `Sleep & Wake >`, `Audio >`) and Page 2 (`App Deck >`, `Voice >`, `Info >`, `Actions >`). |
+| **7** | **TV Remote** | Universal 4-device media remote (`tv_remote_entity`..`4`) with Slot-1 Master Power, per-device power overrides, radial `r <= 146 px` D-pad, and `resolve_remote_dispatch` supporting Android TV/Shield, Denon/Marantz AVR (`denonavr.get_command`), LG webOS (`webostv.button`), Apple TV, Roku, Samsung TV, and Custom. |
+| **5** | **Sky & Weather** | 20 FPS meteorological & astronomical suite (`render_weather_page`) with live weather motion wallpaper, 5-day forecast, Sun arc, and `.rodata` telescopic Lunar Albedo LUTs (`LUNAR_ALBEDO_139` & `LUNAR_ALBEDO_45`). |
+| **3** | **Games Suite** | Vertical slot-machine reel launcher (`render_games_launcher`) featuring 5 continuous-wave 20 FPS arcade games: Marbles, Archery, Breakout, Chomp for Kids, and Asteroids. |
+| **8** | **Tools Suite** | 2-page $2 \times 2$ micro-app launcher: Countdown Timer, Multi-Alarm Manager, 20 FPS Heuer Stopwatch, 3D Ivory Dual D6 Dice, AMOLED Flashlight Torch, Pocket Calculator, `300px` 20 FPS Bubble Level, and Zero-Trig 3D Coin Flip. |
+| **4** | **System Hub** | 2-page vertical menu (`render_system_page`): Page 1 (`Display >`, `Sleep & Wake >`, `Sound >`, `Voice >`) and Page 2 (`Music >`, `App Deck >`, `Info >`, `Actions >`). |
 
 *Note: Legacy top-level carousel allocations `gui_page == 1` (Stopwatch) and `gui_page == 6` (Timer & Alarm) redirect transparently to Tools Subpage 3 and Subpage 1 respectively.*
 
