@@ -5,6 +5,20 @@ esp32:
   flash_size: 32MB
   framework:
     type: esp-idf
+    sdkconfig_options:
+      # ESP-IDF 5.5 replacement for CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY
+      CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM: "y"
+      # Maximize ESP32-S3 L1 Data & Instruction Caches (64KB D-Cache / 64B line, 32KB I-Cache)
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB: "y"
+      # Execute instructions and read-only data from 80MHz Octal PSRAM so micro_wake_word
+      # and audio pipelines never stall during NVS flash writes
+      CONFIG_SPIRAM_RODATA: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: "y"
+      # Allocate mbedTLS buffers in PSRAM to preserve internal DMA SRAM
+      CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: "y"
+      CONFIG_MBEDTLS_SSL_PROTO_TLS1_3: "y"
     advanced:
       enable_idf_experimental_features: true
       nvs_cache_in_psram: true
@@ -45,4 +59,3 @@ motion:
     accelerometer_range: 4G
     gyroscope_range: 2048DPS
     update_interval: 100ms
-
