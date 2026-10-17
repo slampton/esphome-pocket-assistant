@@ -3332,43 +3332,80 @@ inline void compute_3d_game_tilt(
     float euler_roll_deg, float euler_pitch_deg,
     bool game_just_entered,
     float &out_roll_delta, float &out_pitch_delta) {
-  float roll = std::isnan(euler_roll_deg) ? 0.0f : euler_roll_deg;
-  float raw_pitch = std::isnan(euler_pitch_deg) ? -45.0f : euler_pitch_deg;
+  constexpr float DEG_TO_RAD = 3.14159265f / 180.0f;
+  constexpr float RAD_TO_DEG = 180.0f / 3.14159265f;
 
-  // Unfold imu_pitch seamlessly across +/-90° using the normalized Z-axis gravity sign
-  // while preserving 100% of ESPHome's native imu_roll and imu_pitch axis/sign conventions:
-  //   - sin(imu_pitch) is the exact sagittal gravity component (A_pitch / G) with hardware polarity.
-  //   - gz = raw_az / G provides the true Z-axis sign so pitch continues smoothly past 90°
-  //     (-85° -> -90° -> -95° -> -135°) without folding back when laying on your back.
-  float unfolded_pitch = raw_pitch;
+  float roll_fallback = std::isnan(euler_roll_deg) ? 0.0f : euler_roll_deg;
+  float pitch_fallback = std::isnan(euler_pitch_deg) ? -45.0f : euler_pitch_deg;
+
+  // Normalize 3D gravity vector in screen coordinates:
+  //   - gx (+Right / 3 o'clock downhill): +raw_ax / g_norm
+  //   - gy (+Up / 12 o'clock downhill, -Down / 6 o'clock downhill): -raw_ay / g_norm == sin(imu_pitch)
+  //   - gz (+Face-up sky, 0 Vertical, -Face-down ground): raw_az / g_norm
+  float gx = std::sin(roll_fallback * DEG_TO_RAD);
+  float gy = std::sin(pitch_fallback * DEG_TO_RAD);
+  float gz = std::cos(pitch_fallback * DEG_TO_RAD);
+
   if (!std::isnan(raw_ax) && !std::isnan(raw_ay) && !std::isnan(raw_az)) {
     float g_norm = std::sqrt(raw_ax * raw_ax + raw_ay * raw_ay + raw_az * raw_az);
     if (g_norm > 0.05f) {
-      constexpr float DEG_TO_RAD = 3.14159265f / 180.0f;
-      constexpr float RAD_TO_DEG = 180.0f / 3.14159265f;
-      float gp = std::sin(raw_pitch * DEG_TO_RAD);
-      float gz = raw_az / g_norm;
-      unfolded_pitch = std::atan2(gp, gz) * RAD_TO_DEG;
+      gx = raw_ax / g_norm;
+      gy = -raw_ay / g_norm;
+      gz = raw_az / g_norm;
     }
   }
 
+  // True 2D screen-plane gravity tilt angles using unsigned perpendicular magnitudes:
+  //   - Eliminates imu_roll's atan2(ax, az) +/-180° branch-cut jump and 90° vertical gimbal lock.
+  //   - Eliminates atan2(gp, gz)'s negative-gz gravity inversion when holding the screen facing
+  //     the ground (gz < 0), where raising an outer edge previously accelerated balls uphill into the rim.
+  //   - At flat face-down (gx = 0, gy = 0, gz = -1), both grav_roll and grav_pitch are 0.0° (zero branch cut).
+  float perp_yz = std::sqrt(gy * gy + gz * gz);
+  float perp_xz = std::sqrt(gx * gx + gz * gz);
+  float grav_roll = std::atan2(gx, (perp_yz > 1e-4f) ? perp_yz : 1e-4f) * RAD_TO_DEG;
+  float grav_pitch = std::atan2(gy, (perp_xz > 1e-4f) ? perp_xz : 1e-4f) * RAD_TO_DEG;
+
   static float zero_roll = 0.0f;
   static float zero_pitch = -45.0f;
+  static float zero_gy = -0.7071f;
+  static float zero_gz = 0.7071f;
+  static bool vertical_pitch_mode = false;
   static bool tare_initialized = false;
 
-  if (!tare_initialized || game_just_entered || game_imu_retare_flag()) {
+  // Auto-recenter if the player flips between face-up/vertical and overhead face-down mid-game
+  bool posture_flipped = tare_initialized && (
+      (!vertical_pitch_mode && zero_gz >= 0.45f && gz < -0.50f) ||
+      (!vertical_pitch_mode && zero_gz <= -0.45f && gz > 0.50f) ||
+      (vertical_pitch_mode && std::fabs(gz) > 0.68f));
+
+  if (!tare_initialized || game_just_entered || game_imu_retare_flag() || posture_flipped) {
     tare_initialized = true;
     game_imu_retare_flag() = false;
-    zero_roll = roll;
-    zero_pitch = unfolded_pitch;
+    zero_roll = grav_roll;
+    zero_pitch = grav_pitch;
+    float yz_norm = std::sqrt(gy * gy + gz * gz);
+    if (yz_norm > 0.05f) {
+      zero_gy = gy / yz_norm;
+      zero_gz = gz / yz_norm;
+    } else {
+      zero_gy = gy;
+      zero_gz = gz;
+    }
+    // Use 2D sagittal circle unfolding only when tared near 90° vertical (|gz| < 0.45, ~63°..117°)
+    vertical_pitch_mode = (std::fabs(gz) < 0.45f);
   }
 
-  float p_delta = unfolded_pitch - zero_pitch;
-  while (p_delta > 180.0f) p_delta -= 360.0f;
-  while (p_delta < -180.0f) p_delta += 360.0f;
+  out_roll_delta = grav_roll - zero_roll;
 
-  out_roll_delta = roll - zero_roll;
-  out_pitch_delta = p_delta;
+  if (vertical_pitch_mode) {
+    // Smooth 90° vertical crossing without fold-back when playing upright (63°..117°)
+    float cross_yz = gy * zero_gz - gz * zero_gy;
+    float dot_yz = gy * zero_gy + gz * zero_gz;
+    out_pitch_delta = std::atan2(cross_yz, dot_yz) * RAD_TO_DEG;
+  } else {
+    // Pure downhill screen-plane gravity in both face-up (gz > 0) and overhead face-down (gz < 0)
+    out_pitch_delta = grav_pitch - zero_pitch;
+  }
 }
 
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
