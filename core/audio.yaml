@@ -318,7 +318,6 @@ voice_assistant:
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
           esphome::voice_assistant::reset_va_session_state(id(va));
-          esphome::voice_assistant::prewarm_va_tts_mixer(id(va), id(announcement_mixing_input));
           ESP_LOGI("va", "Status: Thinking...");
       - component.update: disp1
   on_stt_end:
@@ -328,7 +327,15 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
-          esphome::voice_assistant::prewarm_va_tts_mixer(id(va), id(announcement_mixing_input));
+          // If the user asked Assist to pause/stop/turn off media, do not auto-resume music after VA ends
+          std::string utt = x;
+          for (char &c : utt) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+          if (utt.find("pause") != std::string::npos ||
+              utt.find("stop") != std::string::npos ||
+              utt.find("turn off") != std::string::npos) {
+            id(va_resume_music_after) = false;
+            ESP_LOGI("va", "Stop/Pause voice intent detected: clearing va_resume_music_after");
+          }
           ESP_LOGI("va", "STT End (hidden): %s", x.c_str());
   on_intent_progress:
     then:
@@ -615,14 +622,8 @@ script:
           } else {
             id(screen_sleep_timer).execute();
           }
-      - script.execute: pause_all_music
-      - if:
-          condition:
-            lambda: 'return id(va_resume_music_after);'
-          then:
-            - delay: 150ms
+          id(va_tts_received) = false;
       - script.execute: route_i2s_to_mic
-      - lambda: 'id(va_tts_received) = false;'
       - voice_assistant.start:
           wake_word: !lambda 'return id(last_detected_wake_word);'
 
@@ -674,6 +675,10 @@ script:
       - rtttl.stop:
           id: alarm_rtttl
       - script.stop: play_alarm_sound
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.05s
       - if:
           condition:
             media_player.is_playing: pocket_music_player
@@ -685,6 +690,7 @@ script:
           else:
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
+            - script.execute: sync_wake_word_state
 
 number:
   - platform: template

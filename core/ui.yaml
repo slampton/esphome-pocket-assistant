@@ -1519,14 +1519,8 @@ interval:
             static bool prev_tts_active = false;
             uint32_t now_va_ms = millis();
 
-            if (id(va_active)) {
-              if (!id(va_tts_received)) {
-                if (id(va_status_text) == "Thinking...") {
-                  esphome::voice_assistant::prewarm_va_tts_mixer(id(va), id(announcement_mixing_input));
-                }
-              } else {
-                esphome::voice_assistant::disarm_va_speaker_timeout(id(va));
-              }
+            if (id(va_active) && id(va_tts_received)) {
+              esphome::voice_assistant::disarm_va_speaker_timeout(id(va));
             }
 
             // Smooth state transition: reserve 1 quiet tick when speech starts so DAC unmutes cleanly
@@ -3047,12 +3041,7 @@ script:
                 } else {
                   id(screen_sleep_timer).execute();
                 }
-            - script.execute: pause_all_music
-            - if:
-                condition:
-                  lambda: 'return id(va_resume_music_after);'
-                then:
-                  - delay: 150ms
+                id(va_tts_received) = false;
             - if:
                 condition:
                   micro_wake_word.is_running:
@@ -3060,7 +3049,6 @@ script:
                   - micro_wake_word.stop:
                   - delay: 20ms
             - script.execute: route_i2s_to_mic
-            - lambda: 'id(va_tts_received) = false;'
             - voice_assistant.start:
 
   - id: cancel_voice_assistant
