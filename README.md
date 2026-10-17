@@ -106,7 +106,7 @@ After adding the configuration, reload Template Entities and Input Texts under *
 - **5-Slot Library Browser & Configurable Sorting**: Browse Music Assistant favorites, playlists, artists, albums, radio, podcasts (with series-to-episode drill-down via `mass_queue.get_podcast_episodes`), and audiobooks on-device with dual-action play (`▶`) and drill-down (`>`) cards, right-flank chevron pagination, and configurable sort orders (Alphabetical, Newest on Top, Oldest on Top).
 
 ### Voice Assistant Satellite
-- **Push-to-Talk Assist**: Side button (`GPIO0`) routes audio to the ES7210 microphone, pauses active music, and activates the Home Assistant Assist satellite pipeline with two selectable visual profiles (**Nebula** and **Solaris**).
+- **Push-to-Talk Assist**: Side button (`GPIO0`) routes audio to the ES7210 microphone, pauses active music, and activates the Home Assistant Assist satellite pipeline with three selectable pure-visual profiles (**Nebula** default, **Solaris**, and **Original**).
 - **Dynamic Audio Ducking**: Software mixer smoothly ducks local playback during Voice Assistant speech synthesis and automatically resumes paused playback once TTS finishes draining.
 - **Hardware & Touch Dismissal**: Pressing the physical side button or tapping the glass during an active voice session immediately halts and mutes the session without leaking taps to the underlying app.
 

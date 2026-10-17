@@ -1863,11 +1863,10 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
   }
 }
 
-// Complete Voice Assistant Visual Engine supporting 4 profiles:
-//   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven)
+// Complete Voice Assistant Visual Engine supporting 3 pure-visual profiles (zero text):
+//   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven, default)
 //   - "Solaris": Flagship Radial Acoustic Corona & Solar Astrolabe Spectrometer
-//   - "Classic Nebula": Original Nebula visual design with trig & loop optimizations
-//   - "Classic Solaris": Original Solaris visual design with trig & loop optimizations
+//   - "Original": Original Nebula visual design with trig & loop optimizations
 template<typename DisplayT, typename FontT, typename StrRefT>
 inline void render_voice_assistant_overlay(
     DisplayT &it, int cx, int cy, uint32_t now_ms,
@@ -1879,10 +1878,10 @@ inline void render_voice_assistant_overlay(
     esphome::Color col_purple, esphome::Color col_magenta,
     esphome::Color col_solaris_gold) {
 
-  const bool is_classic_nebula = (profile_opt == "Classic Nebula");
-  const bool is_classic_solaris = (profile_opt == "Classic Solaris");
-  const bool is_classic = (is_classic_nebula || is_classic_solaris);
-  const bool is_solaris = (profile_opt == "Solaris" || is_classic_solaris);
+  (void)va_status_text;
+  (void)font_small;
+  const bool is_original = (profile_opt == "Original" || profile_opt == "Classic Nebula");
+  const bool is_solaris = (profile_opt == "Solaris");
 
   // Smooth exponential envelopes (0.0f -> 1.0f) for fluid organic transitions
   // across Listening -> Thinking -> Speaking and progressive wave launch from the core
@@ -1905,9 +1904,9 @@ inline void render_voice_assistant_overlay(
   smooth_speak += (speak_target - smooth_speak) * 0.35f;
 
   // ============================================================================
-  // A. CLASSIC NEBULA & CLASSIC SOLARIS (Preserved Visuals, C++ Trig Optimized)
+  // A. "ORIGINAL" (Original Nebula Visual Design, C++ Trig Optimized, Pure Visual)
   // ============================================================================
-  if (is_classic) {
+  if (is_original) {
     if (is_speaking) {
       uint32_t speak_elapsed = now_ms - speak_start_ms;
       for (int w = 0; w < 5; w++) {
@@ -2038,7 +2037,6 @@ inline void render_voice_assistant_overlay(
     esphome::Color core_aura_col = is_solaris ? col_solaris_gold : col_purple;
     esphome::Color core_ring_col = is_solaris ? col_solaris_gold : col_light_blue;
     esphome::Color core_fill_col = is_solaris ? esphome::Color(250, 100, 15) : col_cyan;
-    esphome::Color text_col = is_solaris ? col_solaris_gold : col_cyan;
 
     int outer_halo_r = 118 + static_cast<int>(8.0f * pulse + vad_boost);
     it.circle(cx, cy, outer_halo_r + 1, col_dark_gray);
@@ -2079,8 +2077,6 @@ inline void render_voice_assistant_overlay(
       esphome::Color inner_tone = is_solaris ? col_solaris_gold : esphome::Color(30, 200, 230);
       it.circle(cx, cy - 1, core_r - 3, inner_tone);
     }
-    const char *status_str = va_status_text.empty() ? "Listening..." : va_status_text.c_str();
-    it.print(cx, 401, font_small, text_col, esphome::display::TextAlign::CENTER, status_str);
     return;
   }
 
@@ -2266,9 +2262,6 @@ inline void render_voice_assistant_overlay(
     it.circle(cx, cy, core_r + 1, c_elec_cyan);
     it.filled_circle(cx, cy, (core_r * 2) / 3, lerp_color(c_deep_azure, c_elec_cyan, smooth_vad * 0.5f));
     it.filled_circle(cx, cy, core_r / 2, c_ice_white);
-
-    const char *status_str = va_status_text.empty() ? "Listening..." : va_status_text.c_str();
-    it.print(cx, 401, font_small, c_elec_cyan, esphome::display::TextAlign::CENTER, status_str);
     return;
   }
 
@@ -2384,13 +2377,9 @@ inline void render_voice_assistant_overlay(
     return;
   }
 
-  // New Solaris Listening: Breathing 30-Ray Solar Corona + Emerald-Gold VAD Bloom
+  // New Solaris Listening: Breathing 30-Ray Solar Corona + Photosphere Core (no outer green ring, no text)
   float breath = sinf(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
   int tick = static_cast<int>(now_ms / 45U);
-
-  int outer_r = 120 + static_cast<int>(6.0f * breath + 12.0f * smooth_vad);
-  it.circle(cx, cy, outer_r, scale_color(c_emerald, 0.45f + 0.45f * smooth_vad));
-  it.circle(cx, cy, outer_r - 1, scale_color(c_gold, 0.30f + 0.40f * smooth_vad));
 
   const float r_inner = 42.0f + 3.0f * breath;
   for (int i = 0; i < 60; i += 2) {
@@ -2416,9 +2405,6 @@ inline void render_voice_assistant_overlay(
   it.filled_circle(cx, cy, core_r + 1, c_amber);
   it.filled_circle(cx, cy, core_r - 3, c_gold);
   it.circle(cx, cy, core_r - 5, c_warm_white);
-
-  const char *status_str = va_status_text.empty() ? "Listening..." : va_status_text.c_str();
-  it.print(cx, 401, font_small, c_gold, esphome::display::TextAlign::CENTER, status_str);
 }
 
 // ------------------------------------------------------------------------------

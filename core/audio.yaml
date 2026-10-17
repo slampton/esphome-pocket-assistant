@@ -406,13 +406,9 @@ voice_assistant:
           id(va_vad_active) = false;
           id(va_tts_received) = false;
           id(va_active) = false;
-          id(va_status_text) = code.substr(0, 24);
-          ESP_LOGE("va", "Error: %s - %s", code.c_str(), message.c_str());
-      - component.update: disp1
-      - delay: 2s
-      - lambda: |-
           id(va_status_text) = "";
           id(gui_page) = id(return_page);
+          ESP_LOGE("va", "Error: %s - %s", code.c_str(), message.c_str());
       - component.update: disp1
       - if:
           condition:
