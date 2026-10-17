@@ -3313,6 +3313,107 @@ inline void render_glass_marble(DisplayT &it, int bx, int by, int br,
   }
 }
 
+// ==============================================================================
+// 3D ORTHONORMAL TANGENT-BASIS IMU CALIBRATION (GIMBAL-LOCK-FREE 360° TILT)
+// ==============================================================================
+// Replaces 1D scalar Euler subtraction (which hits a hard mathematical fold-back
+// and sign-reversal singularity at 90.0° vertical when accel_z crosses 0.0g)
+// with a true 3D orthonormal tangent frame (R_hat, P_hat, N_hat) anchored to the
+// initial 3D gravity vector g0 = (ax0, ay0, az0) on the unit sphere S^2.
+// Works identically whether starting flat (0°), handheld (45°), vertical (90°),
+// laying on your back angled toward your face (95°..150°), or overhead (180°).
+inline bool &game_imu_retare_flag() {
+  static bool flag = false;
+  return flag;
+}
+
+inline void compute_3d_game_tilt(
+    float raw_ax, float raw_ay, float raw_az,
+    float euler_roll_deg, float euler_pitch_deg,
+    bool game_just_entered,
+    float &out_roll_delta, float &out_pitch_delta) {
+  // Fallback to Euler if raw 3-axis accelerometer hasn't published its first sample yet
+  if (std::isnan(raw_ax) || std::isnan(raw_ay) || std::isnan(raw_az)) {
+    static float fallback_zero_r = 0.0f;
+    static float fallback_zero_p = -45.0f;
+    float r = std::isnan(euler_roll_deg) ? 0.0f : euler_roll_deg;
+    float p = std::isnan(euler_pitch_deg) ? -45.0f : euler_pitch_deg;
+    if (game_just_entered || game_imu_retare_flag()) {
+      fallback_zero_r = r;
+      fallback_zero_p = p;
+      game_imu_retare_flag() = false;
+    }
+    out_roll_delta = r - fallback_zero_r;
+    out_pitch_delta = p - fallback_zero_p;
+    return;
+  }
+
+  // Lock to exact hardware axis polarity of imu_roll / imu_pitch when away from the 90° singularity
+  static float roll_sign = 1.0f;
+  static float pitch_sign = 1.0f;
+  if (std::fabs(raw_az) > 0.35f) {
+    if (std::fabs(raw_ax) > 0.12f && !std::isnan(euler_roll_deg) && std::fabs(euler_roll_deg) > 4.0f) {
+      roll_sign = ((raw_ax * euler_roll_deg) >= 0.0f) ? 1.0f : -1.0f;
+    }
+    if (std::fabs(raw_ay) > 0.12f && !std::isnan(euler_pitch_deg) && std::fabs(euler_pitch_deg) > 4.0f) {
+      pitch_sign = ((raw_ay * euler_pitch_deg) >= 0.0f) ? 1.0f : -1.0f;
+    }
+  }
+
+  float gx = raw_ax * roll_sign;
+  float gy = raw_ay * pitch_sign;
+  float gz = raw_az;
+  float g_norm = std::sqrt(gx * gx + gy * gy + gz * gz);
+  if (g_norm < 0.05f) {
+    gx = 0.0f;
+    gy = -0.70710678f;
+    gz = 0.70710678f;
+  } else {
+    float inv_g = 1.0f / g_norm;
+    gx *= inv_g;
+    gy *= inv_g;
+    gz *= inv_g;
+  }
+
+  // Orthonormal reference basis (R_hat, P_hat, N_hat) on the 3D unit sphere
+  static float nx = 0.0f, ny = -0.70710678f, nz = 0.70710678f;
+  static float px = 0.0f, py =  0.70710678f, pz = 0.70710678f;
+  static float rx = 1.0f, ry =  0.0f,        rz = 0.0f;
+  static bool basis_initialized = false;
+
+  if (!basis_initialized || game_just_entered || game_imu_retare_flag()) {
+    basis_initialized = true;
+    game_imu_retare_flag() = false;
+    nx = gx;
+    ny = gy;
+    nz = gz;
+    float yz_len = std::sqrt(ny * ny + nz * nz);
+    if (yz_len > 0.10f) {
+      float inv_yz = 1.0f / yz_len;
+      px = 0.0f;
+      py = nz * inv_yz;
+      pz = -ny * inv_yz;
+    } else {
+      px = 0.0f;
+      py = 0.0f;
+      pz = 1.0f;
+    }
+    // Right-handed cross product R_hat = P_hat x N_hat
+    rx = py * nz - pz * ny;
+    ry = pz * nx - px * nz;
+    rz = px * ny - py * nx;
+  }
+
+  // Project current 3D gravity vector onto local tangent basis (R_hat, P_hat, N_hat)
+  float ur = gx * rx + gy * ry + gz * rz;
+  float up = gx * px + gy * py + gz * pz;
+  float un = gx * nx + gy * ny + gz * nz;
+
+  constexpr float RAD_TO_DEG = 180.0f / 3.14159265f;
+  out_roll_delta = std::atan2(ur, std::sqrt(up * up + un * un)) * RAD_TO_DEG;
+  out_pitch_delta = std::atan2(up, un) * RAD_TO_DEG;
+}
+
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                 bool game_just_entered, float roll_delta, float pitch_delta,
@@ -3442,6 +3543,7 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
     if (round_over) {
       reset_full_game();
+      game_imu_retare_flag() = true;
     } else {
       shockwave_x = tx;
       shockwave_y = ty;
@@ -3908,6 +4010,7 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
     if (round_over) {
       reset_full_game();
+      game_imu_retare_flag() = true;
     } else if (!arrow_in_flight && arrows_left > 0) {
       arrow_in_flight = true;
       flight_z = 0.0f;
@@ -4387,6 +4490,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
       banner_ms = 0;
       init_brick_wave(1);
       reset_ball_on_paddle();
+      game_imu_retare_flag() = true;
     } else if (!ball_launched) {
       float launch_ang = std::max(-0.52f, std::min(0.52f, roll_delta * 0.025f));
       if (std::fabs(launch_ang) < 0.14f) {
@@ -5431,6 +5535,7 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
     if (ast_game_over) {
       reset_asteroids_game();
+      game_imu_retare_flag() = true;
     } else if (now_ms - last_shot_ms >= 135U) {
       for (int i = 0; i < MAX_SHOTS; i++) {
         if (!shots[i].active) {

@@ -301,5 +301,19 @@ inline void poll_and_persist_wake_words(VoiceAssistant *va) {
 #endif
 }
 
+// Cleanly sends ESPHome DisconnectRequest + TCP FIN to all connected API clients
+// before the AXP2101 cuts the 3.3V power rail in Hibernate (enter_deep_sleep).
+// Prevents Home Assistant from staying stuck on a half-open ("zombie") TCP socket
+// for 60-90s after power-off and ignoring mDNS wake announcements on the next boot.
+inline void clean_disconnect_api_before_hibernate(VoiceAssistant *va) {
+  if (va != nullptr) {
+    va->*get(VA_ApiClient_Tag()) = nullptr;
+  }
+  if (api::global_api_server != nullptr) {
+    ESP_LOGI("power", "Sending clean API DisconnectRequest to Home Assistant before Hibernate rail cut");
+    api::global_api_server->on_shutdown();
+  }
+}
+
 }  // namespace voice_assistant
 }  // namespace esphome

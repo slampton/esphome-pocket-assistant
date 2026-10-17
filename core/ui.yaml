@@ -1988,7 +1988,10 @@ text_sensor:
     internal: true
     on_value:
       then:
-        - component.update: disp1
+        - lambda: |-
+            if (id(display_power_state) == 0 && id(gui_page) == 4 && id(system_menu_mode) == 5) {
+              id(disp1).update();
+            }
   - platform: homeassistant
     id: ha_firmware_latest_version
     entity_id: update.pocket_assistant_project_firmware
@@ -1996,7 +1999,10 @@ text_sensor:
     internal: true
     on_value:
       then:
-        - component.update: disp1
+        - lambda: |-
+            if (id(display_power_state) == 0 && id(gui_page) == 4 && id(system_menu_mode) == 5) {
+              id(disp1).update();
+            }
   - platform: homeassistant
     id: ha_firmware_release_summary
     entity_id: update.pocket_assistant_project_firmware
@@ -2004,7 +2010,10 @@ text_sensor:
     internal: true
     on_value:
       then:
-        - component.update: disp1
+        - lambda: |-
+            if (id(display_power_state) == 0 && id(gui_page) == 4 && id(system_menu_mode) == 5) {
+              id(disp1).update();
+            }
   # 📺 Universal Remote Control Target Friendly Names (Slots 1..4)
   - platform: homeassistant
     id: ha_remote_friendly_name
@@ -2098,7 +2107,9 @@ text_sensor:
                 id(active_speaker_entity) = "${local_player_id}";
                 id(active_speaker_name) = "${friendly_name}";
               }
-              id(disp1).update();
+              if (id(display_power_state) == 0 && id(gui_page) == 2) {
+                id(throttled_disp_update).execute();
+              }
             }
         - if:
             condition:
@@ -3383,32 +3394,24 @@ display:
       // PAGE 3: GAMES SUITE (LAUNCHER & 3 GAMES)
       // ==========================================
       } else if (id(gui_page) == 3) {
-        // Read real-time accelerometer / gyroscope tilt angles
-        float roll = id(imu_roll).state;
-        float raw_pitch = id(imu_pitch).state;
-        if (isnan(roll)) roll = 0.0f;
-        if (isnan(raw_pitch)) raw_pitch = 0.0f;
-
-        // Dynamic Tare / Auto-Zero on Game Launch:
-        // Whatever angle the user is holding the device at when launching the game is calibrated as neutral flat.
-        static float zero_pitch = -45.0f;
-        static float zero_roll = 0.0f;
-
-        // Clean Game Reset and Calibration on State Entry
+        // Clean Game Reset and 3D Orthonormal Tangent-Basis Calibration on State Entry:
+        // Uses the full 3D gravity vector (accel_x, accel_y, accel_z) on the unit sphere so
+        // starting a game at 90° vertical or >90° facing down (laying on your back) has zero
+        // gimbal lock, zero 90° fold-back, and identical 1:1 physics in every posture.
         static int prev_game_state = 0;
         bool game_just_entered = false;
         if (id(active_game) != prev_game_state) {
           prev_game_state = id(active_game);
           game_just_entered = true;
-          if (id(active_game) > 0) {
-            zero_pitch = raw_pitch;
-            zero_roll = roll;
-          }
         }
 
-        // Relative tilt deltas from dynamic calibrated starting posture:
-        float pitch_delta = raw_pitch - zero_pitch;
-        float roll_delta = roll - zero_roll;
+        float roll_delta = 0.0f;
+        float pitch_delta = 0.0f;
+        compute_3d_game_tilt(
+            id(accel_x).state, id(accel_y).state, id(accel_z).state,
+            id(imu_roll).state, id(imu_pitch).state,
+            game_just_entered && (id(active_game) > 0),
+            roll_delta, pitch_delta);
 
         // ----------------------------------------------------
         // STATE 0: GAMES MENU LAUNCHER (SECTION 19 OF ui_toolkit.h)

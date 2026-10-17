@@ -843,7 +843,9 @@ script:
           id(display_power_state) = 2; // Set SCREEN_OFF immediately prior to rail cutoff
       - light.turn_off: display_brightness
       - component.update: disp1  # Flush all-black frame to AMOLED panel
-      - delay: 250ms  # Ensure QSPI frame buffer and brightness 0 are fully flushed before CPU sleep
+      - lambda: |-
+          esphome::voice_assistant::clean_disconnect_api_before_hibernate(id(va));
+      - delay: 250ms  # Flush QSPI black frame + TCP DisconnectRequest/FIN packet before 3.3V rail cut
       - safe_mode.mark_successful:
       - lambda: |-
           // =========================================================================
