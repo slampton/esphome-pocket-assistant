@@ -6,7 +6,7 @@ A local-first handheld companion, voice satellite, and universal media remote fo
 [![Version](https://img.shields.io/badge/Version-v1.3-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.10.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.10.0%2B-41BDF5.svg)](https://www.home-assistant.io)
-[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10%2B-purple.svg)](https://music-assistant.io)
+[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10.7%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
 Pocket Assistant started as a personal home lab project to explore what is possible when pairing modern ESP32-S3 hardware with Home Assistant, Music Assistant, and ESPHome. Rather than acting as a passive sensor display or a stationary voice satellite alone, it combines local FLAC/Opus audio playback, multi-room queue transfer and speaker group management, interactive 5-slot library browsing, universal TV remote control, push-to-talk Voice Assistant support, and a 3-tier power state machine (`<40 µA` hardware hibernate) in a 466×466 circular handheld form factor.
