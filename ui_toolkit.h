@@ -3853,7 +3853,7 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
   static float launch_aim_y = 112.0f;
   static float launch_wind = 0.0f;
   static float wind_speed = 0.0f;
-  static char hit_feedback[28] = "";
+  static char hit_feedback[36] = "";
   static esphome::Color feedback_col(255, 215, 0);
   static uint32_t feedback_timer = 0;
   static uint32_t round_banner_ms = 0;
@@ -4300,11 +4300,11 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
   static int popup_x = 233;
   static int popup_y = 140;
   static uint32_t popup_ms = 0;
-  static char popup_text[24] = "";
+  static char popup_text[32] = "";
   static esphome::Color popup_col(255, 215, 0);
 
   static uint32_t banner_ms = 0;
-  static char banner_text[28] = "";
+  static char banner_text[32] = "";
 
   // Helper to populate the symmetric 4-5-5-4 dome brick rack centered at cx = 233
   auto init_brick_wave = [&](int wv) {
@@ -5356,11 +5356,11 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
   static uint32_t popup_ms = 0;
   static int popup_x = 233;
   static int popup_y = 140;
-  static char popup_text[24] = "";
+  static char popup_text[32] = "";
   static esphome::Color popup_col(255, 215, 0);
 
   static uint32_t banner_ms = 0;
-  static char banner_text[28] = "";
+  static char banner_text[32] = "";
 
   auto spawn_wave_rocks = [&](int wv) {
     for (int i = 0; i < MAX_ROCKS; i++) rocks[i].active = false;

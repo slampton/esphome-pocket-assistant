@@ -1209,7 +1209,9 @@ switch:
   - platform: gpio
     name: "Speaker Enable"
     id: speaker_enable
-    pin: GPIO46
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
     restore_mode: ALWAYS_ON
   # --------------------------------------------------------------------------
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
@@ -1902,6 +1904,7 @@ binary_sensor:
       number: GPIO0
       mode: INPUT_PULLUP
       inverted: true
+      ignore_strapping_warning: true
     name: "Boot Button"
     id: boot_button
     on_press:
