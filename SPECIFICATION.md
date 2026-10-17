@@ -122,7 +122,7 @@ The top-level App Deck carousel features 7 core applications with contiguous def
 
 ## 5. Tools Suite Architecture (Page 8)
 
-The Tools Suite operates as a modular, high-efficiency utility hub organized across a 2-page $2 \times 3$ grid navigated by right-flank chevrons ($x = 415$):
+The Tools Suite operates as a modular, high-efficiency utility hub organized across a 2-page $2 \times 2$ grid navigated by right-flank chevrons ($x = 415$):
 
 | Subpage | Tool Name | Description & Key Mechanics |
 | :--- | :--- | :--- |

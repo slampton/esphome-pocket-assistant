@@ -162,7 +162,13 @@ sequence:
     album_sort_order: '{{ album_sort if (album_sort | default("") != "") else input_album_sort }}'
     artist_album_sort_order: '{{ artist_album_sort if (artist_album_sort | default("") != "") else input_artist_album_sort }}'
     podcast_sort_order: '{{ podcast_sort if (podcast_sort | default("") != "") else input_podcast_sort }}'
-    resolved_mass_queue_entry: '{{ input_mass_queue_entry if (input_mass_queue_entry | default("") != "") else "01KWT5KHS9J3CXG4PYGN26EYKS" }}'
+    resolved_mass_queue_entry: >-
+      {% if input_mass_queue_entry | default("") != "" %}
+        {{ input_mass_queue_entry }}
+      {% else %}
+        {% set mq_ents = integration_entities("mass_queue") %}
+        {{ config_entry_id(mq_ents | first) if mq_ents | length > 0 else "" }}
+      {% endif %}
 - choose:
   - conditions:
     - condition: template
