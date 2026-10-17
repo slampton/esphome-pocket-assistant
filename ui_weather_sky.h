@@ -800,50 +800,56 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     it.filled_circle(cx, cy, 228, esphome::Color(10, 15, 22));
   }
 
-  // LAYER 1A: 3D CELESTIAL NIGHT STARFIELD (64 Stars Projected via project_3d with Depth Parallax)
+  // LAYER 1A: 3D CELESTIAL NIGHT STARFIELD (72-Star Fibonacci Golden-Spiral Dome + 3D Depth Parallax)
+  // Guarantees uniform, gap-free star coverage across the entire 466x466 circular bezel (left, top, right, bottom)
   if (is_clear_or_partly_night) {
     float t_star = static_cast<float>(now_ms % 62832U) * 0.003f;
-    for (int k = 0; k < 64; k++) {
-      float hx = hash2d_01(k * 17 + 3, 11) * 2.0f - 1.0f;
-      float hy = hash2d_01(k * 31 + 7, 29) * 2.0f - 1.0f;
-      float hz = hash2d_01(k * 47 + 5, 53); // 0.0 (near) .. 1.0 (deep space)
-      float z_3d = -55.0f + hz * 210.0f;
-      float depth_factor = 1.0f - hz * 0.65f;
+    for (int k = 0; k < 72; k++) {
+      // Golden-angle spiral (137.50776 deg = 2.39996323 rad) + small deterministic jitter
+      float r_norm = sqrtf((static_cast<float>(k) + 0.5f) * (1.0f / 72.0f));
+      float r_px   = 18.0f + r_norm * 204.0f; // Spans r = 18px out to r = 222px bezel edge
+      float ang    = static_cast<float>(k) * 2.39996323f + (hash2d_01(k, 19) - 0.5f) * 0.18f;
+      float sa = 0.0f, ca = 1.0f;
+      fast_sincos(ang, sa, ca);
 
-      Vec3 star_v{hx * 235.0f + par_x * depth_factor * 0.55f,
-                  hy * 235.0f + par_y * depth_factor * 0.55f,
-                  z_3d};
-      ProjectedPoint sp = project_3d(star_v, cx, cy, 250.0f, 320.0f);
-      if (!sp.visible) continue;
-      int sx = sp.x, sy = sp.y;
-      if (mask_hero_temp && sx >= 165 && sx <= 302 && sy >= 89 && sy <= 144) continue;
+      // 3D depth tier (0.30 deep background .. 1.00 foreground) for wrist-tilt parallax & magnitude
+      float depth_u = hash2d_01(k * 23 + 5, 41);
+      float par_scale = 0.20f + 0.65f * depth_u;
+
+      int sx = cx + static_cast<int>(ca * r_px + par_x * par_scale);
+      int sy = cy + static_cast<int>(sa * r_px + par_y * par_scale);
+      if (!is_inside_bezel(sx, sy, cy, 6)) continue;
+
+      // Tight mask strictly around the digits of the hero temperature so top-center sky stays starry
+      if (mask_hero_temp && sx >= 188 && sx <= 278 && sy >= 96 && sy <= 136) continue;
       if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
-      float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.8f);
-      uint8_t br = static_cast<uint8_t>(188 + static_cast<int>(57.0f * twinkle));
+      float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.85f);
+      uint8_t br = static_cast<uint8_t>(182 + static_cast<int>(63.0f * twinkle));
       esphome::Color star_c = (k % 3 == 0)
           ? esphome::Color(br, static_cast<uint8_t>(br * 0.95f), br)
           : esphome::Color(static_cast<uint8_t>(br * 0.82f), static_cast<uint8_t>(br * 0.90f), br);
       it.draw_pixel_at(sx, sy, star_c);
 
-      if (sp.scale >= 0.88f && br > 212) {
+      if (depth_u >= 0.84f && br > 210) {
+        // Tier 1 Foreground Stars: Bright 5px cross glint
         esphome::Color gl_c(160, 190, 230);
         it.draw_pixel_at(sx + 1, sy, gl_c);
         it.draw_pixel_at(sx - 1, sy, gl_c);
         it.draw_pixel_at(sx, sy + 1, gl_c);
         it.draw_pixel_at(sx, sy - 1, gl_c);
-      } else if (sp.scale >= 0.72f) {
+      } else if (depth_u >= 0.48f) {
+        // Tier 2 Mid-Depth Stars: Soft companion glow pixel
         uint8_t mid_b = static_cast<uint8_t>(br * 0.68f);
         esphome::Color mid_c(static_cast<uint8_t>(mid_b * 0.80f), static_cast<uint8_t>(mid_b * 0.88f), mid_b);
         it.draw_pixel_at(sx + 1, sy, mid_c);
-        if (br > 192) {
+        if (br > 195) {
           uint8_t sub_b = static_cast<uint8_t>(br * 0.48f);
           it.draw_pixel_at(sx, sy + 1, esphome::Color(static_cast<uint8_t>(sub_b * 0.78f), static_cast<uint8_t>(sub_b * 0.86f), sub_b));
         }
       }
     }
   }
-
   // LAYER 1B: CELESTIAL CORNER POCKET ICON (SUN / MOON)
   if (cel_cx > 0 && cel_cy > 0) {
     if (is_night) {
@@ -941,65 +947,77 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1F: FOG & MIST — 6 GLIDING BAY FOG BANKS + 3D PROJECTED MIST DROPLETS
+  // LAYER 1F: FOG & MIST — VOLUMETRIC STRATUS PUFFS & UNDULATING WISPY CLOUD VEILS
   if (is_fog_mist) {
-    float t_fog = now_ms * 0.00015f;
-    static constexpr int16_t FOG_Y[6]  = { 66, 108, 154, 210, 252, 294};
-    static constexpr int16_t FOG_W[6]  = {230, 275, 255, 290, 260, 220};
-    static constexpr int8_t  FOG_H[6]  = { 12,  14,  13,  15,  13,  11};
-    static constexpr int16_t FOG_X0[6] = {195, 245, 215, 235, 220, 245};
+    float t_fog = now_ms * 0.00028f;
 
-    for (int b = 0; b < 6; b++) {
-      float dir_s = (b & 1) ? -1.0f : 1.0f;
-      float depth_par = 0.25f + 0.12f * static_cast<float>(b);
-      int drift_x = static_cast<int>(fast_sin(t_fog * (0.72f + b * 0.06f) + b * 1.4f) * 22.0f * dir_s + par_x * depth_par);
-      int bank_cx = FOG_X0[b] + drift_x;
-      int bank_cy = FOG_Y[b] + static_cast<int>(fast_cos(t_fog * 0.65f + b * 2.1f) * 1.5f + par_y * depth_par * 0.5f);
-      int half_h  = FOG_H[b];
-      int base_hw = FOG_W[b] >> 1;
+    // 1. Soft Background Stratus Cloud Puffs drifting slowly behind the mist
+    int c0_x = 125 + static_cast<int>(fast_sin(t_fog * 0.8f) * 18.0f + par_x * 0.30f);
+    int c1_x = 340 + static_cast<int>(fast_cos(t_fog * 0.7f + 1.4f) * 20.0f + par_x * 0.45f);
+    int c2_x = 155 + static_cast<int>(fast_sin(t_fog * 0.9f + 2.8f) * 16.0f + par_x * 0.60f);
+    render_cumulus_cloud(it, c0_x, 102 + static_cast<int>(par_y * 0.30f), 0.90f, true, is_night);
+    render_cumulus_cloud(it, c1_x, 188 + static_cast<int>(par_y * 0.45f), 0.85f, true, is_night);
+    render_cumulus_cloud(it, c2_x, 266 + static_cast<int>(par_y * 0.60f), 0.80f, true, is_night);
 
-      for (int dy = -half_h; dy <= half_h; dy += 2) {
-        int py = bank_cy + dy;
-        int max_hw = circle_half_span(py, 6);
-        if (max_hw <= 10) continue;
+    // 2. 5 Organic, Billowing Wispy Fog Plumes (Vertical column swells & pinches into feathered tendrils)
+    static constexpr int16_t PLUME_Y[5]  = { 76, 128, 178, 232, 284};
+    static constexpr int16_t PLUME_X0[5] = {198, 264, 212, 252, 224};
+    static constexpr int16_t PLUME_HW[5] = {155, 175, 168, 180, 148};
 
-        float norm_y = static_cast<float>(dy < 0 ? -dy : dy) / static_cast<float>(half_h + 1);
-        float env = 1.0f - norm_y * norm_y;
-        int wave_shift = static_cast<int>(fast_sin(py * 0.07f + t_fog * 1.1f + b) * 7.0f);
-        int row_hw = static_cast<int>(static_cast<float>(base_hw) * (0.55f + 0.45f * env));
-        int x0 = bank_cx + wave_shift - row_hw;
-        int x1 = bank_cx + wave_shift + row_hw;
-        if (x0 < cx - max_hw) x0 = cx - max_hw;
-        if (x1 > cx + max_hw) x1 = cx + max_hw;
-        if (x1 <= x0 + 4) continue;
+    esphome::Color c_wisp_crest = is_night ? esphome::Color(68,  86, 108) : esphome::Color(124, 148, 174);
+    esphome::Color c_wisp_body  = is_night ? esphome::Color(44,  58,  76) : esphome::Color( 84, 106, 130);
+    esphome::Color c_wisp_base  = is_night ? esphome::Color(26,  36,  48) : esphome::Color( 54,  72,  92);
 
-        uint8_t r_c = static_cast<uint8_t>((is_night ? 22.0f : 46.0f) + (is_night ? 32.0f : 56.0f) * env);
-        uint8_t g_c = static_cast<uint8_t>((is_night ? 30.0f : 62.0f) + (is_night ? 40.0f : 64.0f) * env);
-        uint8_t b_c = static_cast<uint8_t>((is_night ? 42.0f : 78.0f) + (is_night ? 48.0f : 68.0f) * env);
-        it.horizontal_line(x0, py, x1 - x0, esphome::Color(r_c, g_c, b_c));
+    for (int p = 0; p < 5; p++) {
+      float dir = (p & 1) ? -1.0f : 1.0f;
+      float depth_par = 0.35f + 0.15f * static_cast<float>(p);
+      float phase = t_fog * (1.1f + p * 0.14f) * dir + p * 1.7f;
+      int center_x = PLUME_X0[p] + static_cast<int>(fast_sin(phase) * 32.0f + par_x * depth_par);
+      int base_y   = PLUME_Y[p]  + static_cast<int>(fast_cos(phase * 0.8f) * 3.0f + par_y * depth_par * 0.5f);
+      int half_w   = PLUME_HW[p];
+      float inv_hw = 1.0f / static_cast<float>(half_w);
+
+      for (int x = center_x - half_w; x <= center_x + half_w; x += 3) {
+        int max_dy = circle_half_span(x, 6);
+        if (max_dy <= 10) continue;
+        int y_min = cy - max_dy;
+        int y_max = cy + max_dy;
+
+        float u = static_cast<float>(x - center_x) * inv_hw; // -1.0 .. +1.0
+        float taper = 1.0f - u * u; // Smooth parabolic fade to 0 at leading/trailing tips
+        if (taper <= 0.04f) continue;
+
+        float xf = static_cast<float>(x);
+        // Multi-harmonic billow: upper crest rises into rounded lobes while lower base curls into wisps
+        float wave_top = fast_sin(xf * 0.028f + phase * 1.6f) * 11.0f +
+                         fast_cos(xf * 0.062f - phase * 1.1f) * 5.5f;
+        float wave_bot = fast_sin(xf * 0.036f - phase * 1.3f + 1.2f) * 6.5f +
+                         fast_cos(xf * 0.085f + phase * 2.0f) * 3.5f;
+
+        // Modulate density so edges break up into delicate, separated wisp tendrils
+        float wisp_mod = 0.55f + 0.45f * fast_sin(xf * 0.052f + phase * 1.8f + p);
+        float eff_taper = taper * (0.65f + 0.35f * wisp_mod);
+        if (eff_taper < 0.14f) continue;
+
+        int y_top = base_y - static_cast<int>((8.0f + fmaxf(0.0f, wave_top)) * eff_taper);
+        int y_bot = base_y + static_cast<int>((5.0f + fmaxf(0.0f, wave_bot)) * eff_taper);
+        if (y_top < y_min) y_top = y_min;
+        if (y_bot > y_max) y_bot = y_max;
+        if (y_bot <= y_top) continue;
+
+        int y_mid1 = y_top + ((y_bot - y_top) / 3);
+        int y_mid2 = y_top + (((y_bot - y_top) * 2) / 3);
+
+        // Draw 2px-wide vertical wisp slice with 3-tone vertical shading (crest -> body -> shadow base)
+        it.line(x, y_top,  x, y_mid1, c_wisp_crest);
+        it.line(x, y_mid1, x, y_mid2, c_wisp_body);
+        it.line(x, y_mid2, x, y_bot,  c_wisp_base);
+        if (eff_taper > 0.32f && x + 1 < cx + max_dy) {
+          it.line(x + 1, y_top + 1, x + 1, y_mid2, c_wisp_body);
+        }
       }
     }
-
-    // 18 3D-Projected Mist Motes suspended at varying Z depths
-    for (int m = 0; m < 18; m++) {
-      float hx = hash2d_01(m * 29 + 3, 19);
-      float hy = hash2d_01(m * 43 + 7, 37) * 2.0f - 1.0f;
-      float hz = hash2d_01(m * 61 + 11, 73);
-      float z_3d = -85.0f + hz * 195.0f;
-      float drift = fmodf(hx * 380.0f + static_cast<float>(now_ms) * (0.004f + (1.0f - hz) * 0.004f), 380.0f) - 190.0f;
-      Vec3 mv{drift + par_x * (1.0f - hz * 0.6f),
-              hy * 175.0f + fast_sin(t_fog * 2.0f + m) * 4.0f + par_y * (1.0f - hz * 0.6f),
-              z_3d};
-      ProjectedPoint mp = project_3d(mv, cx, cy, 250.0f, 320.0f);
-      if (!mp.visible) continue;
-      float shimmer = 0.5f + 0.5f * fast_sin(now_ms * 0.0011f + m * 1.1f);
-      uint8_t mb = static_cast<uint8_t>((is_night ? 75.0f : 125.0f) + 55.0f * shimmer * fminf(1.1f, mp.scale));
-      esphome::Color m_col(static_cast<uint8_t>(mb * 0.82f), static_cast<uint8_t>(mb * 0.92f), mb);
-      it.draw_pixel_at(mp.x, mp.y, m_col);
-      if (mp.scale >= 0.82f) it.draw_pixel_at(mp.x + 1, mp.y, m_col);
-    }
   }
-
   // LAYER 1G: WINDY — 3D AIR-CURRENT RIBBONS & 10 TRUE 3D EULER-ROTATED TUMBLING LEAVES
   if (is_windy) {
     float t_sec = now_ms * 0.001f;
@@ -1060,50 +1078,51 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1H: 3D VOLUMETRIC RAIN & POURING STORM (Projected via project_3d across Z Depth)
+  // LAYER 1H: 3D VOLUMETRIC RAIN & POURING STORM (Stratified Lanes + Golden-Ratio Phase = Zero Clumping)
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
       cond.find("drizzle") != std::string::npos) {
     bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
-    int count = is_heavy ? 44 : 28;
+    int count = is_heavy ? 40 : 28;
     float t_sec = now_ms * 0.001f;
 
+    esphome::Color c_far  = is_night ? esphome::Color( 52,  78, 114) : esphome::Color( 74, 108, 148);
+    esphome::Color c_mid  = is_night ? esphome::Color( 88, 128, 178) : esphome::Color(110, 152, 200);
+    esphome::Color c_near = is_night ? esphome::Color(135, 182, 232) : esphome::Color(158, 202, 245);
+
     for (int i = 0; i < count; i++) {
-      // Distribute raindrops across 3D depth: i=0 (distant background) -> i=count-1 (near-glass foreground)
-      float depth_u = static_cast<float>(i) / static_cast<float>(count - 1); // 0.0 (far) .. 1.0 (near)
-      float z_3d = 155.0f - depth_u * 270.0f; // +155 (far) down to -115 (close to glass)
-      float spd_3d = (is_heavy ? 285.0f : 230.0f) * (0.75f + 0.50f * depth_u);
+      // Permute horizontal lane index via coprime stride so adjacent drops are at different depths & Y phases
+      int lane_idx = (i * 11 + 5) % count;
+      float lane_u = (static_cast<float>(lane_idx) + 0.5f) / static_cast<float>(count); // 0..1 across full width
+      int depth_tier = i % 3; // 0 = background, 1 = mid-ground, 2 = foreground
+      float depth_par = (depth_tier == 2) ? 0.85f : ((depth_tier == 1) ? 0.55f : 0.30f);
 
-      float x0 = (hash2d_01(i * 23 + 7, 17) * 2.0f - 1.0f) * 235.0f;
-      float y_off = hash2d_01(i * 41 + 3, 31) * 480.0f;
-      float y_3d = fmodf(y_off + t_sec * spd_3d, 480.0f) - 240.0f;
-      float x_3d = x0 - (y_3d + 240.0f) * (is_heavy ? 0.22f : 0.16f) + par_x * (0.35f + 0.65f * depth_u);
-      float py_3d = y_3d + par_y * (0.35f + 0.65f * depth_u);
+      // Wide speed spread (200..360 px/s) + Golden-Ratio initial vertical phase so drops never pack into clumps
+      float spd = (is_heavy ? 260.0f : 210.0f) + static_cast<float>(depth_tier) * 42.0f +
+                  hash2d_01(i * 29 + 7, 13) * 55.0f;
+      float y_phase = fmodf(static_cast<float>(i) * 0.6180339887f + hash2d_01(i, 31) * 0.25f, 1.0f);
+      float y_travel = fmodf(y_phase * 436.0f + t_sec * spd, 436.0f);
 
-      float streak_len = (is_heavy ? 24.0f : 18.0f) * (0.70f + 0.55f * depth_u);
-      Vec3 v_head{x_3d, py_3d, z_3d};
-      Vec3 v_tail{x_3d + streak_len * (is_heavy ? 0.22f : 0.16f), py_3d - streak_len, z_3d};
+      int ry = 15 + static_cast<int>(y_travel + par_y * depth_par);
+      if (ry < 15) ry += 436;
+      if (ry > 450) ry -= 436;
 
-      ProjectedPoint p_head = project_3d(v_head, cx, cy, 250.0f, 320.0f);
-      ProjectedPoint p_tail = project_3d(v_tail, cx, cy, 250.0f, 320.0f);
-      if (!p_head.visible || !p_tail.visible) continue;
+      // Full-screen horizontal coverage (26..440) with subtle wind slant
+      int base_x = 26 + static_cast<int>(lane_u * 414.0f + (hash2d_01(i, 71) - 0.5f) * 8.0f);
+      int wind_shift = (ry - 15) / (is_heavy ? 5 : 6);
+      int rx = base_x - wind_shift + static_cast<int>(par_x * depth_par);
+      while (rx < 24)  rx += 418;
+      while (rx > 442) rx -= 418;
 
-      // Depth-based atmospheric shading: dim slate-blue in back -> bright ice-cyan in foreground
-      float lum = 0.42f + 0.58f * depth_u;
-      if (is_night) lum *= 0.85f;
-      esphome::Color drop_c(
-          static_cast<uint8_t>(155.0f * lum),
-          static_cast<uint8_t>(200.0f * lum),
-          static_cast<uint8_t>(248.0f * lum));
-      it.line(p_tail.x, p_tail.y, p_head.x, p_head.y, drop_c);
+      // Crisp, fine streak lengths (9..14px normal, 12..17px heavy) — never oversized
+      int len_r = (is_heavy ? 12 : 9) + depth_tier * 2 + (i & 1);
+      int dx_r  = is_heavy ? 3 : 2;
+      if (!is_inside_bezel(rx, ry, cy, 6) || !is_inside_bezel(rx - dx_r, ry + len_r, cy, 6)) continue;
 
-      // Foreground drops close to the glass get a bright specular head glint
-      if (depth_u > 0.72f) {
-        it.draw_pixel_at(p_head.x, p_head.y, esphome::Color(220, 242, 255));
-      }
+      esphome::Color drop_c = (depth_tier == 2) ? c_near : ((depth_tier == 1) ? c_mid : c_far);
+      it.line(rx, ry, rx - dx_r, ry + len_r, drop_c);
     }
   }
-
   // LAYER 1I: 3D HELICAL SNOWFALL (38 3D-Projected Snowflakes with Perspective Crystal Scaling)
   if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
     float t_sec = now_ms * 0.001f;
