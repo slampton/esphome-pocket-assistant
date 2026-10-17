@@ -431,6 +431,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: remote_vol_level_str
+    type: std::string
+    restore_value: no
+    initial_value: '""0.70""'
   - id: remote_target_cmd
     type: std::string
     restore_value: no
@@ -2596,14 +2600,15 @@ script:
                     float sf = id(ha_target_supported_features).state;
                     return !std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0);
                 then:
+                  - lambda: |-
+                      char b[16];
+                      snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
+                      id(remote_vol_level_str) = b;
                   - homeassistant.action:
                       action: media_player.volume_set
                       data:
                         entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                        volume_level: !lambda |-
-                          char b[16];
-                          snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
-                          return std::string(b);
+                        volume_level: !lambda 'return id(remote_vol_level_str);'
                 else:
                   - homeassistant.action:
                       action: media_player.volume_up
@@ -2633,14 +2638,15 @@ script:
                     float sf = id(ha_target_supported_features).state;
                     return !std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0);
                 then:
+                  - lambda: |-
+                      char b[16];
+                      snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
+                      id(remote_vol_level_str) = b;
                   - homeassistant.action:
                       action: media_player.volume_set
                       data:
                         entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                        volume_level: !lambda |-
-                          char b[16];
-                          snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
-                          return std::string(b);
+                        volume_level: !lambda 'return id(remote_vol_level_str);'
                 else:
                   - homeassistant.action:
                       action: media_player.volume_down
