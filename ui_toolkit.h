@@ -2231,7 +2231,7 @@ inline void render_voice_assistant_overlay(
       return;
     }
 
-    // New Nebula Listening: Fluid Breathing Silk Aura + Smooth VAD Bloom
+    // New Nebula Listening: Fluid Breathing Silk Aura + Smooth VAD Bloom (no outer containment circle)
     float breath = sinf(static_cast<float>(now_ms % 2000U) * (2.0f * PI_F / 2000.0f));
     int tick = static_cast<int>(now_ms / 45U);
 
@@ -2239,11 +2239,6 @@ inline void render_voice_assistant_overlay(
     float a2 = 5.0f + 10.0f * smooth_vad;
     float a3 = 4.0f + 8.0f * smooth_vad;
     float a5 = 2.0f + 5.0f * smooth_vad;
-
-    // Subtle outer attentive containment halo
-    int outer_r = 122 + static_cast<int>(5.0f * breath + 12.0f * smooth_vad);
-    it.circle(cx, cy, outer_r, scale_color(c_royal_indigo, 0.45f + 0.35f * smooth_vad));
-    it.circle(cx, cy, outer_r - 1, scale_color(c_elec_cyan, 0.25f + 0.35f * smooth_vad));
 
     // 4 Fluid Silk Ribbons
     draw_silk_ribbon(base_r + 5.0f, a2, a3, a5, (tick) % 60, (tick + 20) % 60, (tick + 40) % 60,
