@@ -3332,86 +3332,43 @@ inline void compute_3d_game_tilt(
     float euler_roll_deg, float euler_pitch_deg,
     bool game_just_entered,
     float &out_roll_delta, float &out_pitch_delta) {
-  // Fallback to Euler if raw 3-axis accelerometer hasn't published its first sample yet
-  if (std::isnan(raw_ax) || std::isnan(raw_ay) || std::isnan(raw_az)) {
-    static float fallback_zero_r = 0.0f;
-    static float fallback_zero_p = -45.0f;
-    float r = std::isnan(euler_roll_deg) ? 0.0f : euler_roll_deg;
-    float p = std::isnan(euler_pitch_deg) ? -45.0f : euler_pitch_deg;
-    if (game_just_entered || game_imu_retare_flag()) {
-      fallback_zero_r = r;
-      fallback_zero_p = p;
-      game_imu_retare_flag() = false;
-    }
-    out_roll_delta = r - fallback_zero_r;
-    out_pitch_delta = p - fallback_zero_p;
-    return;
-  }
+  float roll = std::isnan(euler_roll_deg) ? 0.0f : euler_roll_deg;
+  float raw_pitch = std::isnan(euler_pitch_deg) ? -45.0f : euler_pitch_deg;
 
-  // Lock to exact hardware axis polarity of imu_roll / imu_pitch when away from the 90° singularity
-  static float roll_sign = 1.0f;
-  static float pitch_sign = 1.0f;
-  if (std::fabs(raw_az) > 0.35f) {
-    if (std::fabs(raw_ax) > 0.12f && !std::isnan(euler_roll_deg) && std::fabs(euler_roll_deg) > 4.0f) {
-      roll_sign = ((raw_ax * euler_roll_deg) >= 0.0f) ? 1.0f : -1.0f;
-    }
-    if (std::fabs(raw_ay) > 0.12f && !std::isnan(euler_pitch_deg) && std::fabs(euler_pitch_deg) > 4.0f) {
-      pitch_sign = ((raw_ay * euler_pitch_deg) >= 0.0f) ? 1.0f : -1.0f;
+  // Unfold imu_pitch seamlessly across +/-90° using the normalized Z-axis gravity sign
+  // while preserving 100% of ESPHome's native imu_roll and imu_pitch axis/sign conventions:
+  //   - sin(imu_pitch) is the exact sagittal gravity component (A_pitch / G) with hardware polarity.
+  //   - gz = raw_az / G provides the true Z-axis sign so pitch continues smoothly past 90°
+  //     (-85° -> -90° -> -95° -> -135°) without folding back when laying on your back.
+  float unfolded_pitch = raw_pitch;
+  if (!std::isnan(raw_ax) && !std::isnan(raw_ay) && !std::isnan(raw_az)) {
+    float g_norm = std::sqrt(raw_ax * raw_ax + raw_ay * raw_ay + raw_az * raw_az);
+    if (g_norm > 0.05f) {
+      constexpr float DEG_TO_RAD = 3.14159265f / 180.0f;
+      constexpr float RAD_TO_DEG = 180.0f / 3.14159265f;
+      float gp = std::sin(raw_pitch * DEG_TO_RAD);
+      float gz = raw_az / g_norm;
+      unfolded_pitch = std::atan2(gp, gz) * RAD_TO_DEG;
     }
   }
 
-  float gx = raw_ax * roll_sign;
-  float gy = raw_ay * pitch_sign;
-  float gz = raw_az;
-  float g_norm = std::sqrt(gx * gx + gy * gy + gz * gz);
-  if (g_norm < 0.05f) {
-    gx = 0.0f;
-    gy = -0.70710678f;
-    gz = 0.70710678f;
-  } else {
-    float inv_g = 1.0f / g_norm;
-    gx *= inv_g;
-    gy *= inv_g;
-    gz *= inv_g;
-  }
+  static float zero_roll = 0.0f;
+  static float zero_pitch = -45.0f;
+  static bool tare_initialized = false;
 
-  // Orthonormal reference basis (R_hat, P_hat, N_hat) on the 3D unit sphere
-  static float nx = 0.0f, ny = -0.70710678f, nz = 0.70710678f;
-  static float px = 0.0f, py =  0.70710678f, pz = 0.70710678f;
-  static float rx = 1.0f, ry =  0.0f,        rz = 0.0f;
-  static bool basis_initialized = false;
-
-  if (!basis_initialized || game_just_entered || game_imu_retare_flag()) {
-    basis_initialized = true;
+  if (!tare_initialized || game_just_entered || game_imu_retare_flag()) {
+    tare_initialized = true;
     game_imu_retare_flag() = false;
-    nx = gx;
-    ny = gy;
-    nz = gz;
-    float yz_len = std::sqrt(ny * ny + nz * nz);
-    if (yz_len > 0.10f) {
-      float inv_yz = 1.0f / yz_len;
-      px = 0.0f;
-      py = nz * inv_yz;
-      pz = -ny * inv_yz;
-    } else {
-      px = 0.0f;
-      py = 0.0f;
-      pz = 1.0f;
-    }
-    // Right-handed cross product R_hat = P_hat x N_hat
-    rx = py * nz - pz * ny;
-    ry = pz * nx - px * nz;
-    rz = px * ny - py * nx;
+    zero_roll = roll;
+    zero_pitch = unfolded_pitch;
   }
 
-  // Project current 3D gravity vector onto local tangent basis (R_hat, P_hat, N_hat)
-  float ur = gx * rx + gy * ry + gz * rz;
-  float up = gx * px + gy * py + gz * pz;
-  float un = gx * nx + gy * ny + gz * nz;
+  float p_delta = unfolded_pitch - zero_pitch;
+  while (p_delta > 180.0f) p_delta -= 360.0f;
+  while (p_delta < -180.0f) p_delta += 360.0f;
 
-  constexpr float RAD_TO_DEG = 180.0f / 3.14159265f;
-  out_roll_delta = std::atan2(ur, std::sqrt(up * up + un * un)) * RAD_TO_DEG;
-  out_pitch_delta = std::atan2(up, un) * RAD_TO_DEG;
+  out_roll_delta = roll - zero_roll;
+  out_pitch_delta = p_delta;
 }
 
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
@@ -3571,15 +3528,17 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
     }
   }
 
-  // Physics Step
-  const float friction = powf(0.985f, dt / 0.05f);
-  const float bounce = 0.84f;
+  // Physics Step:
+  //   - Controlled rolling damping (0.942 per 50ms step instead of 0.985 ice) prevents runaway overshoot
+  //   - Responsive low-angle tilt gain (36.0 px/s^2 per deg) so gentle 4°-8° tilts steer smoothly
+  const float friction = powf(0.942f, dt / 0.05f);
+  const float bounce = 0.72f;
   const float arena_r = 208.0f;
 
-  float ax = roll_delta * 30.0f;
-  float ay = -pitch_delta * 30.0f;
-  if (ax > 650.0f) ax = 650.0f; else if (ax < -650.0f) ax = -650.0f;
-  if (ay > 650.0f) ay = 650.0f; else if (ay < -650.0f) ay = -650.0f;
+  float ax = roll_delta * 36.0f;
+  float ay = -pitch_delta * 36.0f;
+  if (ax > 620.0f) ax = 620.0f; else if (ax < -620.0f) ax = -620.0f;
+  if (ay > 620.0f) ay = 620.0f; else if (ay < -620.0f) ay = -620.0f;
 
   int sunk_count = 0;
   if (!round_over) {
@@ -3617,11 +3576,19 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
         continue;
       }
 
-      // Realistic hole bevel slope (only within 44px of center, replacing the old 65px vacuum)
-      if (dist_hole < 44.0f && dist_hole >= 24.0f) {
-        float bevel_pull = (44.0f - dist_hole) * 11.5f;
+      // Two-zone concave bowl profile:
+      //   1. Inner hole bevel (24..52px): smooth capture lip around the center hole
+      //   2. Outer dish camber (52..208px): subtle inward dish slope (28..75 px/s^2) that
+      //      counteracts outward centrifugal force (v^2/r) so marbles never treat the outer
+      //      bezel rim as a low spot or require steep tilts to leave the wall.
+      if (dist_hole < 52.0f && dist_hole >= 24.0f) {
+        float bevel_pull = 45.0f + (52.0f - dist_hole) * 10.5f;
         balls[i].vx -= (dx / dist_hole) * bevel_pull * dt;
         balls[i].vy -= (dy / dist_hole) * bevel_pull * dt;
+      } else if (dist_hole >= 52.0f) {
+        float dish_pull = 28.0f + (dist_hole - 52.0f) * 0.30f;
+        balls[i].vx -= (dx / dist_hole) * dish_pull * dt;
+        balls[i].vy -= (dy / dist_hole) * dish_pull * dt;
       }
 
       // Slight rolling-inertia differentiation by size (smaller marbles accelerate slightly faster)
@@ -3645,12 +3612,12 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
           balls[i].y = peg_y[p] + pny * min_pdist;
           float v_dot_n = balls[i].vx * pnx + balls[i].vy * pny;
           if (v_dot_n < 0.0f) {
-            balls[i].vx -= (1.0f + 0.88f) * v_dot_n * pnx;
-            balls[i].vy -= (1.0f + 0.88f) * v_dot_n * pny;
+            balls[i].vx -= (1.0f + 0.80f) * v_dot_n * pnx;
+            balls[i].vy -= (1.0f + 0.80f) * v_dot_n * pny;
           }
           // Pinball bumper kick + 200ms visual ring flash
-          balls[i].vx += pnx * 38.0f;
-          balls[i].vy += pny * 38.0f;
+          balls[i].vx += pnx * 30.0f;
+          balls[i].vy += pny * 30.0f;
           if (now_ms - peg_hit_ms[p] > 180U) {
             game_score += 15;
           }
@@ -3658,7 +3625,8 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
         }
       }
 
-      // Outer circular arena boundary reflection (arena_r = 208)
+      // Outer circular arena boundary reflection (arena_r = 208) with tangential rim damping
+      // so marbles rolling against the edge lose orbital rim-skating speed and peel inward cleanly.
       float cur_dx = balls[i].x - static_cast<float>(cx);
       float cur_dy = balls[i].y - static_cast<float>(cy);
       float cur_dist = sqrtf(cur_dx * cur_dx + cur_dy * cur_dy);
@@ -3673,6 +3641,12 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
           balls[i].vx -= (1.0f + bounce) * v_dot_n * nx;
           balls[i].vy -= (1.0f + bounce) * v_dot_n * ny;
         }
+        // Damp tangential velocity along the wall so marbles don't orbit the perimeter
+        float tx_w = -ny;
+        float ty_w = nx;
+        float v_dot_t = balls[i].vx * tx_w + balls[i].vy * ty_w;
+        balls[i].vx -= 0.14f * v_dot_t * tx_w;
+        balls[i].vy -= 0.14f * v_dot_t * ty_w;
       }
     }
 
@@ -3994,8 +3968,8 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
   wind_speed = fast_sin(static_cast<float>(now_ms % 62832U) * 0.00065f) * max_wind;
 
   // EMA-smoothed Player Aim Reticle (centered around target_base_y = 112 so neutral posture aims at target level)
-  float raw_ax = static_cast<float>(cx) + roll_delta * 6.8f;
-  float raw_ay = target_base_y - pitch_delta * 6.8f;
+  float raw_ax = static_cast<float>(cx) + roll_delta * 8.2f;
+  float raw_ay = target_base_y - pitch_delta * 8.2f;
   if (raw_ax < 60.0f) raw_ax = 60.0f; else if (raw_ax > 406.0f) raw_ax = 406.0f;
   if (raw_ay < 48.0f) raw_ay = 48.0f; else if (raw_ay > 280.0f) raw_ay = 280.0f;
   smooth_ax += (raw_ax - smooth_ax) * 0.45f;
@@ -4464,7 +4438,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
   const int paddle_h = 10;
   // At y = 356 (dy = 123 from cy = 233), r = 208 arena chord half-width is 167px.
   // Clamping paddle center within cx +/- 136 keeps the entire 58px capsule inside the dome.
-  float raw_target_x = (float)cx + roll_delta * 8.4f;
+  float raw_target_x = (float)cx + roll_delta * 9.8f;
   if (raw_target_x < (float)(cx - 136)) raw_target_x = (float)(cx - 136);
   if (raw_target_x > (float)(cx + 136)) raw_target_x = (float)(cx + 136);
   smooth_paddle_x += (raw_target_x - smooth_paddle_x) * 0.34f;
@@ -5105,16 +5079,22 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
     float dy_m = (float)cy - treats[i].y;
     float dist_m = std::sqrt(dx_m * dx_m + dy_m * dy_m);
 
-    // Gentle "yummy slurp" attraction when treat rolls near the open mouth (dist < 95px)
+    // Gentle "yummy slurp" attraction near mouth (dist < 95px) + subtle outer bowl camber
+    // so treats never get stuck orbiting the outer rim for little kids!
     float pull_x = 0.0f, pull_y = 0.0f;
     if (dist_m < 95.0f && dist_m > 1.0f) {
       float pull_mag = (1.0f - dist_m / 95.0f) * 210.0f;
       pull_x = (dx_m / dist_m) * pull_mag;
       pull_y = (dy_m / dist_m) * pull_mag;
+    } else if (dist_m >= 95.0f) {
+      float dish_mag = 32.0f + (dist_m - 95.0f) * 0.28f;
+      pull_x = (dx_m / dist_m) * dish_mag;
+      pull_y = (dy_m / dist_m) * dish_mag;
     }
 
-    treats[i].vx = (treats[i].vx + (ax + pull_x) * dt) * 0.965f;
-    treats[i].vy = (treats[i].vy + (ay + pull_y) * dt) * 0.965f;
+    const float chomp_damp = powf(0.948f, dt / 0.05f);
+    treats[i].vx = (treats[i].vx + (ax + pull_x) * dt) * chomp_damp;
+    treats[i].vy = (treats[i].vy + (ay + pull_y) * dt) * chomp_damp;
     treats[i].x += treats[i].vx * dt;
     treats[i].y += treats[i].vy * dt;
 
