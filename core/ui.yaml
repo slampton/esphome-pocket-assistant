@@ -37,7 +37,7 @@ globals:
   - id: music_overlay_mode
     type: int
     restore_value: no
-    initial_value: '0' # 0 = Player, 1 = Top Menu, 2 = Library Submenu, 3 = Item Browser
+    initial_value: '0' # 0 = Player, 1 = Speakers, 2 = Library Categories, 3 = Item Browser, 4 = Speaker Action Sheet, 5 = Music Hub
   - id: music_direct_nav
     type: bool
     restore_value: no
@@ -346,7 +346,7 @@ globals:
   - id: stuff_menu_page
     type: int
     restore_value: no
-    initial_value: '0' # 0 = Page 1 (6 icons), 1 = Page 2 (2 icons)
+    initial_value: '0' # 0 = Page 1 (4 icons), 1 = Page 2 (4 icons)
   - id: coin_side
     type: int
     restore_value: no
@@ -1126,7 +1126,7 @@ select:
     set_action:
       - lambda: |-
           id(clock_face_digital) = (x == "Modern Digital (Bold)");
-          if (id(sleep_start_time) > 0) id(disp1).update();
+          if (id(display_power_state) == 0) id(disp1).update();
 
   - platform: template
     name: "Clock: Time Format"
@@ -1141,7 +1141,7 @@ select:
     set_action:
       - lambda: |-
           id(is_24h_format) = (x == "24-Hour");
-          if (id(sleep_start_time) > 0) id(disp1).update();
+          if (id(display_power_state) == 0) id(disp1).update();
 
   - platform: template
     name: "Apps: Default Start App"
@@ -2590,10 +2590,25 @@ script:
                 id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
-            - homeassistant.action:
-                action: media_player.volume_up
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: |-
+                    float sf = id(ha_target_supported_features).state;
+                    return !std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0);
+                then:
+                  - homeassistant.action:
+                      action: media_player.volume_set
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        volume_level: !lambda |-
+                          char b[16];
+                          snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
+                          return std::string(b);
+                else:
+                  - homeassistant.action:
+                      action: media_player.volume_up
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: music_vol_down
     mode: restart
@@ -2612,10 +2627,25 @@ script:
                 id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
-            - homeassistant.action:
-                action: media_player.volume_down
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - if:
+                condition:
+                  lambda: |-
+                    float sf = id(ha_target_supported_features).state;
+                    return !std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0);
+                then:
+                  - homeassistant.action:
+                      action: media_player.volume_set
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        volume_level: !lambda |-
+                          char b[16];
+                          snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
+                          return std::string(b);
+                else:
+                  - homeassistant.action:
+                      action: media_player.volume_down
+                      data:
+                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: toggle_ha_music
     mode: restart
@@ -2986,7 +3016,8 @@ script:
                      !id(va_tts_received) && 
                      !id(announcement_mixing_input).is_running() &&
                      !id(alarm_ringing) &&
-                     !id(timer_ringing);
+                     !id(timer_ringing) &&
+                     !id(find_my_active);
           then:
             - audio_dac.mute_on: es8311_dac
             - switch.turn_off: speaker_enable
@@ -3052,6 +3083,11 @@ script:
           id(va_vad_active) = false;
           id(va_active) = false;
           id(gui_page) = id(return_page);
+          if (id(display_power_state) == 2 && !id(usb_connected).state &&
+              id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+            extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+            esp_wifi_set_ps(1);
+          }
       - delay: 15ms
       - component.update: disp1
       - delay: 160ms
@@ -3218,19 +3254,9 @@ display:
       // 🎨 Centralized Standard UI & Theme Color Tokens (LUTs & Primitives in ui_toolkit.h)
       // ======================================================================
       const Color C_WHITE = id(col_white);
-      const Color C_BLACK = id(col_black);
-      const Color C_SILVER = id(col_silver);
-      const Color C_GRAY = id(col_gray);
       const Color C_DARK_GRAY = id(col_dark_gray);
-      const Color C_PRIMARY = id(theme_primary);
-      const Color C_SECONDARY = id(theme_secondary);
-      const Color C_RED = id(col_red);
-      const Color C_GREEN = id(col_green);
-      const Color C_GOLD = id(col_gold);
       const Color C_CYAN = id(col_cyan);
-      const Color C_ORANGE = id(col_orange);
       const Color C_SOLARIS_GOLD = id(col_solaris_gold);
-      const Color C_ACCENT_CYAN = id(col_accent_cyan);
 
       // ==========================================
       // GLOBAL OVERLAY: OTA FIRMWARE UPDATE IN PROGRESS (Always renders even if screen was off)
@@ -3681,7 +3707,7 @@ display:
       // Chevrons are solely suppressed during dormant clean art in "Art Only" mode.
       bool music_clean_art = (id(gui_page) == 2 && (current_overlay_mode.empty() || current_overlay_mode == "Art Only") && !id(music_hud_active));
 
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && !(id(gui_page) == 4 && id(system_menu_mode) > 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(gui_page) == 8 && id(stuff_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing))) {
+      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && !(id(gui_page) == 4 && id(system_menu_mode) > 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !music_clean_art && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(gui_page) == 8 && id(stuff_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active))) {
         Color chevron_col = id(col_white);
 
         // Master App Deck Navigation Chevrons (< at x=165, > at x=301, y=424)
@@ -3849,7 +3875,7 @@ touchscreen:
                                !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_dormant_art_only)) &&
                                !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
-                               !(id(alarm_ringing) || id(timer_ringing));
+                               !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
 
             if (is_deck_nav) {
               int deck_y_thresh = 400;
@@ -4591,12 +4617,14 @@ touchscreen:
                     id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp), 4->5 (Asteroids)
                     ESP_LOGI("touch", "Page 3 Launch Game: x=%d y=%d game=%d", touch.x, touch.y, id(active_game));
                     if (id(active_game) > 0) {
-                      // Pause background music, mute DAC, and power down amp for dedicated 20 FPS game performance
+                      // Pause local background music, mute DAC, and power down amp for dedicated 20 FPS game performance
                       if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                         auto call = id(pocket_music_player).make_call();
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
-                        id(toggle_ha_music).execute();
+                        if (id(active_speaker_entity) == "${local_player_id}") {
+                          id(stop_ha_music).execute();
+                        }
                         id(es8311_dac).set_mute_on();
                         id(speaker_enable).turn_off();
                       }
@@ -4999,8 +5027,6 @@ touchscreen:
                     id(disp1).update();
                   }
                   return;
-                } else {
-                  id(disp1).update();
                 }
               } else if (id(system_menu_mode) == 9) {
                 // Mode 9: Music Settings Submenu (5 Items on 1 Page: Art, Overlay, Album Sort, Artist Discog, Podcast Sort)

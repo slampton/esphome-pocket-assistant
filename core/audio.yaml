@@ -316,8 +316,10 @@ voice_assistant:
           id(va_status_text) = "Listening...";
           esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Listening...");
-      - light.turn_on: display_brightness
-      - component.update: disp1
+          if (id(display_power_state) == 0 || id(va_wake_screen_switch).state) {
+            id(display_brightness).turn_on().perform();
+            id(disp1).update();
+          }
   on_stt_vad_start:
     then:
       - script.stop: screen_sleep_timer
@@ -409,6 +411,11 @@ voice_assistant:
           id(va_active) = false;
           id(va_status_text) = "";
           id(gui_page) = id(return_page);
+          if (id(display_power_state) == 2 && !id(usb_connected).state &&
+              id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+            extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+            esp_wifi_set_ps(1);
+          }
           ESP_LOGE("va", "Error: %s - %s", code.c_str(), message.c_str());
       - component.update: disp1
       - if:
@@ -521,6 +528,11 @@ script:
           id(va_tts_received) = false;
           id(va_active) = false;
           id(gui_page) = id(return_page);
+          if (id(display_power_state) == 2 && !id(usb_connected).state &&
+              id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+            extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+            esp_wifi_set_ps(1);
+          }
       - component.update: disp1
       - delay: 160ms
       # 4. Now smoothly restore music playback (with 600ms fade-in) or mute & route I2S back to mic

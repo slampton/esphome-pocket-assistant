@@ -164,7 +164,7 @@ After adding the configuration, reload Template Entities and Input Texts under *
 
 ---
 
-## Repository Structure (25 Canonical Files)
+## Repository Structure (29 Canonical Files)
 
 ```text
 esphome-pocket-assistant/
@@ -200,7 +200,12 @@ esphome-pocket-assistant/
 ├── manifest.json                          # Web Installer firmware manifest
 ├── pocket-assistant-1.75c.yaml            # Remote package entry point for ESPHome adoption
 ├── pocket-assistant.yaml                  # Master node configuration, substitutions & outgoing API
-├── ui_toolkit.h                           # Reusable C++ UI primitives, LUTs, raytracers & touch toolkit
+├── ui_core.h                              # Display geometry, .rodata LUTs, 3D math, blitter & 30 Hz touch
+├── ui_ambient_va.h                        # 20 FPS Docked Screensavers & 3-Profile Voice Assistant engine
+├── ui_weather_sky.h                       # Telescopic Lunar Albedo LUTs & 20 FPS Weather Motion suite
+├── ui_games.h                             # 360-Deg IMU Tilt & 5-Game 20 FPS Arcade suite
+├── ui_tools_apps.h                        # 8-Tool Suite, Clock, Music Player, TV Remote & System Hub
+├── ui_toolkit.h                           # Umbrella C++20 UI toolkit header
 └── va_cancel_helper.h                     # C++ Voice Assistant cancellation & socket drain helper
 ```
 
