@@ -8,64 +8,6 @@
 
 namespace pocket_ui {
 
-// Weather Motion Wallpaper Particle Tables (Starfield, Rain, Snow)
-static constexpr int16_t WEATHER_STARS_X[64] = {
-  66, 113, 160, 207, 254, 301, 395,  89, 136, 183,
-  230, 277, 324, 371, 418,  69, 116, 351, 398,  92,
-  139, 186, 233, 280, 327, 374,  72, 119, 166, 213,
-  260, 307, 354, 401,  95, 142, 189, 236, 283, 330,
-  377,  75, 122, 169, 216, 263, 310, 357, 404,  98,
-  145, 192, 239, 286, 333, 380,  78, 125, 172, 219,
-  266, 313, 360, 407
-};
-static constexpr int16_t WEATHER_STARS_Y[64] = {
-   60,  97, 134, 171, 208, 245, 319, 393,  73, 110,
-  147, 184, 221, 258, 295, 369, 406,  86, 123, 160,
-  197, 234, 271, 308, 345, 382,  62,  99, 136, 173,
-  210, 247, 284, 321, 395,  75, 112, 149, 186, 223,
-  260, 334, 371, 408,  88, 125, 162, 199, 236, 273,
-  310, 347, 384,  64, 101, 138, 212, 249, 286, 323,
-  360, 397,  77, 114
-};
-static constexpr int16_t RAIN_X[40] = {
-  247, 229, 298, 115, 48, 127, 402, 66, 198, 379, 199, 211, 260, 120, 281, 407, 276, 88, 313, 221,
-  230, 308, 39, 254, 394, 146, 118, 38, 283, 226, 307, 48, 273, 200, 87, 350, 161, 377, 385, 328
-};
-static constexpr int16_t RAIN_Y[40] = {
-  82, 179, 267, 94, 79, 187, 136, 155, 101, 197, 392, 322, 55, 327, 157, 208, 132, 332, 230, 380,
-  58, 125, 395, 320, 433, 231, 425, 273, 425, 352, 294, 108, 81, 204, 119, 23, 370, 110, 51, 206
-};
-static constexpr uint8_t RAIN_SPD[40] = {
-  143, 175, 143, 200, 204, 155, 169, 183, 206, 190, 179, 202, 201, 161, 150, 195, 203, 197, 168, 167,
-  179, 152, 143, 166, 194, 185, 194, 188, 168, 177, 159, 146, 166, 158, 198, 176, 185, 157, 159, 152
-};
-static constexpr uint8_t RAIN_LEN[40] = {
-  16, 12, 17, 11, 12, 12, 17, 10, 15, 16, 12, 14, 14, 14, 11, 17, 13, 16, 13, 18,
-  10, 16, 18, 14, 17, 13, 18, 11, 17, 11, 10, 18, 13, 15, 17, 14, 11, 12, 11, 10
-};
-static constexpr int16_t SNOW_X[36] = {
-  361, 419, 370, 245, 100, 303, 251,  54, 132, 354, 325, 340, 362, 145, 336, 215,  68, 154,
-  139, 405, 312, 225, 176, 132, 321, 223, 265, 369, 225, 412, 358, 409, 258, 367, 143, 206
-};
-static constexpr int16_t SNOW_Y[36] = {
-  288,  99, 419, 371, 232, 372, 425, 195, 422, 249,  49, 411,  42,  68, 175, 236, 412, 328,
-  411, 392, 264, 391, 149, 176, 144, 325, 162, 251, 351, 124, 234, 185,  96, 179, 343, 414
-};
-static constexpr uint8_t SNOW_SPD[36] = {
-   50,  52,  39,  34,  54,  49,  51,  47,  55,  47,  48,  29,  49,  37,  28,  46,  45,  33,
-   49,  46,  45,  45,  30,  54,  29,  50,  51,  39,  49,  34,  45,  40,  50,  29,  41,  40
-};
-static constexpr float SNOW_PHASE[36] = {
-  2.30f, 5.18f, 5.79f, 4.78f, 3.99f, 2.19f, 5.02f, 0.74f, 1.97f, 1.66f, 3.30f, 0.45f, 0.11f, 1.23f, 5.00f, 4.96f, 4.56f, 3.32f,
-  0.32f, 2.86f, 4.72f, 5.01f, 4.45f, 0.49f, 3.48f, 5.53f, 6.10f, 2.39f, 4.04f, 0.85f, 1.59f, 3.92f, 2.95f, 0.19f, 1.93f, 5.49f
-};
-static constexpr uint8_t SNOW_TYPE[36] = {
-   1, 1, 1, 1, 0, 1, 2, 0, 2, 0, 1, 2, 0, 2, 1, 1, 1, 1,
-   1, 0, 2, 2, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 2, 1, 1, 0
-};
-
-// ------------------------------------------------------------------------------
-
 // Photorealistic Lunar Surface Albedo Maps (derived from telescopic Full Moon photography,
 // stored in .rodata Octal Flash: 19,321 B for r=69 Subpage 3 Moon + 2,025 B for r=22 Corner Moon, 0 B SRAM)
 static constexpr uint8_t LUNAR_ALBEDO_139[139][139] = {
@@ -770,49 +712,52 @@ inline void draw_migrating_bird(DisplayT &it, int bx, int by, int dir, float fla
   draw_clipped_seg(rx_m, ry_m, rx_t, ry_t);
 }
 
-// Draws a single tumbling, fluttering windblown leaf with pointed blade, midrib vein, and petiole stem
+// Draws a true 3D Euler-rotated tumbling leaf mesh (tip, base, cambered lobes, midrib & petiole stem)
+// projected into 2D screen space via rotate_3d_xyz() + project_3d() with 3D normal-vector sunlight glint
 template<typename DisplayT>
-inline void draw_tumbling_leaf(DisplayT &it, int lx, int ly, float ang, float flutter,
-                               float scale, esphome::Color col_main, esphome::Color col_vein, int cy) {
-  if (!is_inside_bezel(lx, ly, cy, 8)) return;
-  float sa = 0.0f, ca = 1.0f;
-  fast_sincos(ang, sa, ca);
+inline void draw_tumbling_leaf_3d(DisplayT &it, Vec3 center_3d, float rx, float ry, float rz,
+                                  float scale, esphome::Color col_base, esphome::Color col_vein, int cy) {
+  auto xform = [&](Vec3 local) -> ProjectedPoint {
+    Vec3 r = rotate_3d_xyz({local.x * scale, local.y * scale, local.z * scale}, rx, ry, rz);
+    return project_3d({center_3d.x + r.x, center_3d.y + r.y, center_3d.z + r.z}, SCREEN_CX, cy, 250.0f, 320.0f);
+  };
 
-  float len = 7.0f * scale;
-  float wid = (3.8f * scale) * (0.32f + 0.68f * flutter);
+  ProjectedPoint p_tip  = xform({ 9.5f,  0.0f,  0.0f});
+  ProjectedPoint p_base = xform({-8.5f,  0.0f,  0.0f});
+  ProjectedPoint p_up   = xform({-1.5f, -5.6f,  1.8f});
+  ProjectedPoint p_dn   = xform({-1.5f,  5.6f, -1.8f});
+  ProjectedPoint p_stem = xform({-13.0f, 1.2f,  0.0f});
 
-  int tx = lx + static_cast<int>(len * ca);
-  int ty = ly + static_cast<int>(len * sa);
-  int bx = lx - static_cast<int>(len * ca);
-  int by = ly - static_cast<int>(len * sa);
+  if (!p_tip.visible || !p_base.visible) return;
 
-  int mx = lx - static_cast<int>(1.2f * scale * ca);
-  int my = ly - static_cast<int>(1.2f * scale * sa);
-  int ux = mx - static_cast<int>(wid * sa);
-  int uy = my + static_cast<int>(wid * ca);
-  int dx = mx + static_cast<int>(wid * sa);
-  int dy = my - static_cast<int>(wid * ca);
+  // 3D surface normal Z/Y glint: brighten leaf blade when angled toward upper-right skylight
+  Vec3 norm = rotate_3d_xyz({0.0f, 0.0f, 1.0f}, rx, ry, rz);
+  float glint = 0.78f + 0.34f * fmaxf(0.0f, norm.z * 0.7f - norm.y * 0.5f);
+  esphome::Color c_blade = scale_color(col_base, fminf(1.15f, glint));
 
-  it.line(bx, by, ux, uy, col_main);
-  it.line(ux, uy, tx, ty, col_main);
-  it.line(bx, by, dx, dy, col_main);
-  it.line(dx, dy, tx, ty, col_main);
-  it.line(ux, uy, dx, dy, col_main);
-  it.line(bx, by, tx, ty, col_vein);
-  int sx = bx - static_cast<int>(3.0f * scale * ca);
-  int sy = by - static_cast<int>(3.0f * scale * sa);
-  it.line(bx, by, sx, sy, col_vein);
+  // Filled 3D leaf blade triangles + crisp outline & midrib vein
+  it.filled_triangle(p_base.x, p_base.y, p_up.x, p_up.y, p_tip.x, p_tip.y, c_blade);
+  it.filled_triangle(p_base.x, p_base.y, p_dn.x, p_dn.y, p_tip.x, p_tip.y, scale_color(c_blade, 0.85f));
+  it.line(p_base.x, p_base.y, p_up.x, p_up.y, col_vein);
+  it.line(p_up.x,   p_up.y,   p_tip.x, p_tip.y, col_vein);
+  it.line(p_base.x, p_base.y, p_dn.x, p_dn.y, c_blade);
+  it.line(p_dn.x,   p_dn.y,   p_tip.x, p_tip.y, c_blade);
+  it.line(p_base.x, p_base.y, p_tip.x, p_tip.y, col_vein);
+  if (p_stem.visible) {
+    it.line(p_base.x, p_base.y, p_stem.x, p_stem.y, col_vein);
+  }
 }
 
-// Modular Full-Screen Atmospheric & Weather Motion Wallpaper Engine:
-// Reusable across Sky & Weather (Page 5) and any future Home Page or Weather Screensaver.
+// Modular 3D Volumetric Atmospheric & Weather Motion Wallpaper Engine:
+// Uses Vec3, rotate_3d_xyz, and project_3d across depth layers with live IMU wrist-tilt parallax.
 template<typename DisplayT, typename SpanRangeT>
 inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                             const std::string &cond, bool is_night,
                                             const SpanRangeT &cloud_spans,
                                             double moon_cycle = 0.5,
                                             int cel_cx = 346, int cel_cy = 91,
-                                            bool mask_hero_temp = true) {
+                                            bool mask_hero_temp = true,
+                                            float accel_x = 0.0f, float accel_y = 0.0f) {
 
   const bool is_fog_mist = (cond.find("fog") != std::string::npos ||
                             cond.find("mist") != std::string::npos ||
@@ -828,49 +773,66 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       (is_night && (cond == "clear-night" || cond == "clearnight" ||
                     cond == "sunny" || cond == "clear" || cond == "clear-day" || is_partly));
 
+  // Smooth EMA-damped 3D IMU wrist-tilt parallax offset (foreground shifts more than deep sky)
+  static float par_x = 0.0f;
+  static float par_y = 0.0f;
+  if (!std::isnan(accel_x) && !std::isnan(accel_y)) {
+    float target_px = fmaxf(-22.0f, fminf(22.0f, accel_x * 24.0f));
+    float target_py = fmaxf(-22.0f, fminf(22.0f, accel_y * 24.0f));
+    par_x += (target_px - par_x) * 0.22f;
+    par_y += (target_py - par_y) * 0.22f;
+  }
+
   // LAYER 0: ATMOSPHERIC SKY CANVAS
   if (!is_night) {
-    esphome::Color day_bg(28, 54, 84); // Clear / Calm daylight sky
+    esphome::Color day_bg(28, 54, 84);
     if (is_fog_mist) {
-      day_bg = esphome::Color(32, 46, 60); // Cool coastal silver-slate fog sky
+      day_bg = esphome::Color(32, 46, 60);
     } else if (cond.find("cloud") != std::string::npos && !is_partly) {
-      day_bg = esphome::Color(22, 38, 56); // Overcast slate sky
+      day_bg = esphome::Color(22, 38, 56);
     } else if (cond.find("rain") != std::string::npos ||
                cond.find("lightning") != std::string::npos ||
                cond.find("thunder") != std::string::npos) {
-      day_bg = esphome::Color(18, 30, 46); // Stormy dark sky
+      day_bg = esphome::Color(18, 30, 46);
     }
     it.filled_circle(cx, cy, 228, day_bg);
   } else if (is_fog_mist) {
     it.filled_circle(cx, cy, 228, esphome::Color(10, 15, 22));
   }
 
-  // LAYER 1A: FULL-SCREEN NIGHT STARFIELD (3-Tier Magnitude Distribution, Same 245 Peak Ceiling)
+  // LAYER 1A: 3D CELESTIAL NIGHT STARFIELD (64 Stars Projected via project_3d with Depth Parallax)
   if (is_clear_or_partly_night) {
     float t_star = static_cast<float>(now_ms % 62832U) * 0.003f;
     for (int k = 0; k < 64; k++) {
-      int sx = WEATHER_STARS_X[k];
-      int sy = WEATHER_STARS_Y[k];
+      float hx = hash2d_01(k * 17 + 3, 11) * 2.0f - 1.0f;
+      float hy = hash2d_01(k * 31 + 7, 29) * 2.0f - 1.0f;
+      float hz = hash2d_01(k * 47 + 5, 53); // 0.0 (near) .. 1.0 (deep space)
+      float z_3d = -55.0f + hz * 210.0f;
+      float depth_factor = 1.0f - hz * 0.65f;
+
+      Vec3 star_v{hx * 235.0f + par_x * depth_factor * 0.55f,
+                  hy * 235.0f + par_y * depth_factor * 0.55f,
+                  z_3d};
+      ProjectedPoint sp = project_3d(star_v, cx, cy, 250.0f, 320.0f);
+      if (!sp.visible) continue;
+      int sx = sp.x, sy = sp.y;
       if (mask_hero_temp && sx >= 165 && sx <= 302 && sy >= 89 && sy <= 144) continue;
       if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
       float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.8f);
-      // Raised dimmest floor from 65 -> 131 while keeping exact same 245 peak ceiling (188 + 57 = 245)
       uint8_t br = static_cast<uint8_t>(188 + static_cast<int>(57.0f * twinkle));
       esphome::Color star_c = (k % 3 == 0)
           ? esphome::Color(br, static_cast<uint8_t>(br * 0.95f), br)
           : esphome::Color(static_cast<uint8_t>(br * 0.82f), static_cast<uint8_t>(br * 0.90f), br);
       it.draw_pixel_at(sx, sy, star_c);
 
-      if (k % 7 == 0 && br > 215) {
-        // Tier 1 (9 stars): Bright blinking 5px cross stars (unchanged peak)
+      if (sp.scale >= 0.88f && br > 212) {
         esphome::Color gl_c(160, 190, 230);
         it.draw_pixel_at(sx + 1, sy, gl_c);
         it.draw_pixel_at(sx - 1, sy, gl_c);
         it.draw_pixel_at(sx, sy + 1, gl_c);
         it.draw_pixel_at(sx, sy - 1, gl_c);
-      } else if ((k % 3) == 1) {
-        // Tier 2 (~18 stars): Medium "in-between" magnitude stars with a soft 2px/3px companion glow
+      } else if (sp.scale >= 0.72f) {
         uint8_t mid_b = static_cast<uint8_t>(br * 0.68f);
         esphome::Color mid_c(static_cast<uint8_t>(mid_b * 0.80f), static_cast<uint8_t>(mid_b * 0.88f), mid_b);
         it.draw_pixel_at(sx + 1, sy, mid_c);
@@ -905,29 +867,23 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1C: OCCASIONAL NIGHT SHOOTING STAR (Clear Night & Partly Cloudy Night)
+  // LAYER 1C: OCCASIONAL NIGHT SHOOTING STAR
   if (is_clear_or_partly_night) {
     render_night_shooting_star(it, now_ms, cy);
   }
 
-  // LAYER 1D: CLEAR DAY (AND PARTLY CLOUDY DAY) HIGH-ALTITUDE BLACK-SILHOUETTE V-FLOCK OF BIRDS
-  // - Zero unsigned underflow on entry (`touch_seen = true` anchors epoch to `now_ms`)
-  // - Travels from `x_left_edge - 14` to `x_right_edge + 64` (or vice versa) so all 5 birds in the V
-  //   roll smoothly onto and off of the circular bezel bird-by-bird without vanishing early!
+  // LAYER 1D: CLEAR DAY & PARTLY CLOUDY DAY V-FLOCK OF MIGRATING BIRDS
   if (is_clear_day || (!is_night && is_partly)) {
     if (is_clear_day_flock_active(now_ms, true)) {
       uint32_t rel_ms = now_ms - clear_day_flock_epoch_ms();
       uint32_t cycle_idx = rel_ms / 12000U;
       uint32_t flight_ms = rel_ms % 12000U;
-      float prog = static_cast<float>(flight_ms) * (1.0f / 9500.0f); // Calm 9.5s full roll-on to roll-off transit
+      float prog = static_cast<float>(flight_ms) * (1.0f / 9500.0f);
 
       int dir = ((cycle_idx & 1U) == 0U) ? 1 : -1;
       float r_alt = hash2d_01(static_cast<int>(cycle_idx * 31U + 7U), 19);
-      // High-altitude corridor (y = 72..134): flies through the upper sky, hero temperature & sun region
       int base_y = 72 + static_cast<int>(r_alt * 62.0f);
 
-      // Compute exact circular bezel edges at `base_y` and extend exit by +72px (trailing V length 54px + wingspan)
-      // so the trailing birds continue flying all the way off the screen after the lead bird exits!
       int chord_hw = circle_half_span(base_y, 2);
       int x_left_edge  = cx - chord_hw;
       int x_right_edge = cx + chord_hw;
@@ -939,13 +895,8 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
 
       float t_flap = now_ms * 0.0052f;
       static constexpr int8_t V_OFF[5][2] = {
-        {  0,   0}, // Lead bird at apex
-        {-24, -12}, // Upper echelon #1
-        {-27,  13}, // Lower echelon #1
-        {-48, -22}, // Upper echelon #2
-        {-54,  24}  // Lower echelon #2 (asymmetrical trailing goose)
+        {  0,   0}, {-24, -12}, {-27,  13}, {-48, -22}, {-54,  24}
       };
-      // Enlarged +22% over Chunk 80 for crisp legibility across the high-altitude sky
       static constexpr float V_SCALE[5] = {1.28f, 1.18f, 1.18f, 1.08f, 1.05f};
 
       for (int b = 0; b < 5; b++) {
@@ -957,17 +908,16 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1E: VOLUMETRIC CUMULUS (Partly Cloudy with Gentle Buoyant Drift) & RLE OVERCAST CANOPY
-  // Rendered after Shooting Stars and Birds so clouds sit naturally in front of meteors/birds and behind data!
+  // LAYER 1E: VOLUMETRIC CUMULUS (Partly Cloudy with 3D Depth Parallax) & RLE OVERCAST CANOPY
   if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
     if (is_partly) {
       float t_cld = now_ms * 0.0008f;
-      int dx0 = static_cast<int>(fast_sin(t_cld) * 6.5f);
-      int dy0 = static_cast<int>(fast_cos(t_cld * 1.3f) * 2.0f);
-      int dx1 = static_cast<int>(fast_cos(t_cld * 0.9f + 1.8f) * 6.5f);
-      int dy1 = static_cast<int>(fast_sin(t_cld * 1.2f + 1.1f) * 2.0f);
-      int dx2 = static_cast<int>(fast_sin(t_cld * 1.1f + 3.6f) * 6.5f);
-      int dy2 = static_cast<int>(fast_cos(t_cld * 1.4f + 2.4f) * 2.0f);
+      int dx0 = static_cast<int>(fast_sin(t_cld) * 6.5f + par_x * 0.45f);
+      int dy0 = static_cast<int>(fast_cos(t_cld * 1.3f) * 2.0f + par_y * 0.45f);
+      int dx1 = static_cast<int>(fast_cos(t_cld * 0.9f + 1.8f) * 6.5f + par_x * 0.30f);
+      int dy1 = static_cast<int>(fast_sin(t_cld * 1.2f + 1.1f) * 2.0f + par_y * 0.30f);
+      int dx2 = static_cast<int>(fast_sin(t_cld * 1.1f + 3.6f) * 6.5f + par_x * 0.60f);
+      int dy2 = static_cast<int>(fast_cos(t_cld * 1.4f + 2.4f) * 2.0f + par_y * 0.60f);
 
       render_cumulus_cloud(it,  95 + dx0,  95 + dy0, 0.95f, false, is_night);
       render_cumulus_cloud(it, 370 + dx1, 180 + dy1, 0.85f, false, is_night);
@@ -991,9 +941,8 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1F: FOG & MIST — 6 CALM, MELLOW GLIDING BAY FOG BANKS + SUBTLE MIST MOTES
+  // LAYER 1F: FOG & MIST — 6 GLIDING BAY FOG BANKS + 3D PROJECTED MIST DROPLETS
   if (is_fog_mist) {
-    // Slowed down ~3.7x (0.00015f vs 0.00055f) with gentle ±22px horizontal glide and subtle row variation
     float t_fog = now_ms * 0.00015f;
     static constexpr int16_t FOG_Y[6]  = { 66, 108, 154, 210, 252, 294};
     static constexpr int16_t FOG_W[6]  = {230, 275, 255, 290, 260, 220};
@@ -1002,9 +951,10 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
 
     for (int b = 0; b < 6; b++) {
       float dir_s = (b & 1) ? -1.0f : 1.0f;
-      int drift_x = static_cast<int>(fast_sin(t_fog * (0.72f + b * 0.06f) + b * 1.4f) * 22.0f * dir_s);
+      float depth_par = 0.25f + 0.12f * static_cast<float>(b);
+      int drift_x = static_cast<int>(fast_sin(t_fog * (0.72f + b * 0.06f) + b * 1.4f) * 22.0f * dir_s + par_x * depth_par);
       int bank_cx = FOG_X0[b] + drift_x;
-      int bank_cy = FOG_Y[b] + static_cast<int>(fast_cos(t_fog * 0.65f + b * 2.1f) * 1.5f);
+      int bank_cy = FOG_Y[b] + static_cast<int>(fast_cos(t_fog * 0.65f + b * 2.1f) * 1.5f + par_y * depth_par * 0.5f);
       int half_h  = FOG_H[b];
       int base_hw = FOG_W[b] >> 1;
 
@@ -1013,11 +963,8 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
         int max_hw = circle_half_span(py, 6);
         if (max_hw <= 10) continue;
 
-        // Vertical bell-curve profile (1.0 at center of bank -> 0.2 at feathered top/bottom edges)
         float norm_y = static_cast<float>(dy < 0 ? -dy : dy) / static_cast<float>(half_h + 1);
         float env = 1.0f - norm_y * norm_y;
-
-        // Subtle, mellow horizontal wave shift per scanline
         int wave_shift = static_cast<int>(fast_sin(py * 0.07f + t_fog * 1.1f + b) * 7.0f);
         int row_hw = static_cast<int>(static_cast<float>(base_hw) * (0.55f + 0.45f * env));
         int x0 = bank_cx + wave_shift - row_hw;
@@ -1033,24 +980,30 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       }
     }
 
-    // 18 Suspended Shimmering Mist Droplets drifting very slowly across the fog
+    // 18 3D-Projected Mist Motes suspended at varying Z depths
     for (int m = 0; m < 18; m++) {
-      int mx = (WEATHER_STARS_X[m * 3] + static_cast<int>((now_ms / 190U) + m * 23U)) % 380 + 43;
-      int my = WEATHER_STARS_Y[m * 3] + static_cast<int>(fast_sin(t_fog * 1.4f + m) * 3.0f);
-      if (!is_inside_bezel(mx, my, cy, 10)) continue;
+      float hx = hash2d_01(m * 29 + 3, 19);
+      float hy = hash2d_01(m * 43 + 7, 37) * 2.0f - 1.0f;
+      float hz = hash2d_01(m * 61 + 11, 73);
+      float z_3d = -85.0f + hz * 195.0f;
+      float drift = fmodf(hx * 380.0f + static_cast<float>(now_ms) * (0.004f + (1.0f - hz) * 0.004f), 380.0f) - 190.0f;
+      Vec3 mv{drift + par_x * (1.0f - hz * 0.6f),
+              hy * 175.0f + fast_sin(t_fog * 2.0f + m) * 4.0f + par_y * (1.0f - hz * 0.6f),
+              z_3d};
+      ProjectedPoint mp = project_3d(mv, cx, cy, 250.0f, 320.0f);
+      if (!mp.visible) continue;
       float shimmer = 0.5f + 0.5f * fast_sin(now_ms * 0.0011f + m * 1.1f);
-      uint8_t mb = static_cast<uint8_t>((is_night ? 75.0f : 125.0f) + 55.0f * shimmer);
+      uint8_t mb = static_cast<uint8_t>((is_night ? 75.0f : 125.0f) + 55.0f * shimmer * fminf(1.1f, mp.scale));
       esphome::Color m_col(static_cast<uint8_t>(mb * 0.82f), static_cast<uint8_t>(mb * 0.92f), mb);
-      it.draw_pixel_at(mx, my, m_col);
-      it.draw_pixel_at(mx + 1, my, m_col);
+      it.draw_pixel_at(mp.x, mp.y, m_col);
+      if (mp.scale >= 0.82f) it.draw_pixel_at(mp.x + 1, mp.y, m_col);
     }
   }
 
-  // LAYER 1G: WINDY — SWEEPING AIR-CURRENT RIBBONS & 10 TUMBLING AUTUMN/FOREST LEAVES (UNTOUCHED)
+  // LAYER 1G: WINDY — 3D AIR-CURRENT RIBBONS & 10 TRUE 3D EULER-ROTATED TUMBLING LEAVES
   if (is_windy) {
     float t_sec = now_ms * 0.001f;
 
-    // 1. 3 Translucent S-Curved Wind-Gust Streamlines sweeping across the sky
     static constexpr int16_t GUST_Y[3] = { 82, 168, 236};
     esphome::Color gust_hi  = is_night ? esphome::Color(70, 98, 130)  : esphome::Color(115, 155, 195);
     esphome::Color gust_dim = is_night ? esphome::Color(38, 56,  78)  : esphome::Color( 62,  92, 128);
@@ -1070,18 +1023,20 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       }
     }
 
-    // 2. 10 Tumbling, Swooping Windblown Leaves with 3D Flutter & Midrib Veins
-    static constexpr uint8_t LEAF_SPD[10] = {155, 195, 140, 215, 175, 160, 205, 148, 185, 225};
-    static constexpr int16_t LEAF_Y0[10]  = { 64,  96, 128, 162, 194, 224, 252, 282, 112, 238};
+    // 10 True 3D Euler-Rotated Leaves flying through 3D wind space (z in [-95..+110])
     for (int i = 0; i < 10; i++) {
-      int lx = ((RAIN_X[i * 3] + static_cast<int>((static_cast<uint64_t>(now_ms) * LEAF_SPD[i]) / 1000ULL)) % 490) - 12;
-      float gust_wave = fast_sin(t_sec * 2.6f + static_cast<float>(i) * 0.9f) * 16.0f +
-                        fast_cos(lx * 0.018f + static_cast<float>(i)) * 8.0f;
-      int ly = LEAF_Y0[i] + static_cast<int>(gust_wave);
+      float h_spd = 135.0f + hash2d_01(i * 19 + 5, 13) * 85.0f;
+      float h_y0  = -155.0f + hash2d_01(i * 37 + 9, 27) * 235.0f;
+      float h_z0  = -95.0f + hash2d_01(i * 53 + 3, 41) * 205.0f;
 
-      float spin_ang = t_sec * (2.8f + (i % 4) * 0.65f) + static_cast<float>(i) * 1.2f;
-      float flutter  = fabsf(fast_cos(t_sec * (4.2f + (i % 3) * 0.8f) + static_cast<float>(i)));
-      float l_scale  = (i % 3 == 0) ? 0.78f : 1.02f;
+      float lx_3d = fmodf(hash2d_01(i, 7) * 480.0f + t_sec * h_spd, 480.0f) - 240.0f;
+      float ly_3d = h_y0 + fast_sin(t_sec * 2.5f + i * 0.9f) * 18.0f + fast_cos(lx_3d * 0.018f + i) * 9.0f;
+      float lz_3d = h_z0 + fast_sin(t_sec * 1.8f + i * 1.4f) * 32.0f;
+
+      // Full 3-axis 3D Euler tumbling (roll, pitch, yaw)
+      float rx = t_sec * (2.6f + (i % 3) * 0.7f) + i * 1.1f;
+      float ry = t_sec * (3.1f + (i % 4) * 0.5f) + i * 0.7f;
+      float rz = 0.25f * fast_sin(t_sec * 2.2f + i) + 0.15f;
 
       esphome::Color c_leaf, c_vein;
       float night_scale = is_night ? 0.72f : 1.0f;
@@ -1100,41 +1055,86 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
         c_vein = scale_color(esphome::Color(135, 205, 145), night_scale);
       }
 
-      draw_tumbling_leaf(it, lx, ly, spin_ang, flutter, l_scale, c_leaf, c_vein, cy);
+      draw_tumbling_leaf_3d(it, {lx_3d + par_x * 0.7f, ly_3d + par_y * 0.7f, lz_3d},
+                            rx, ry, rz, 1.05f, c_leaf, c_vein, cy);
     }
   }
 
-  // LAYER 1H: PRE-SCATTERED FALLING RAIN (26 or 40 angled streaks)
+  // LAYER 1H: 3D VOLUMETRIC RAIN & POURING STORM (Projected via project_3d across Z Depth)
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
       cond.find("drizzle") != std::string::npos) {
     bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
-    int count = is_heavy ? 40 : 26;
-    esphome::Color rain_c1 = is_night ? esphome::Color(120, 160, 215) : esphome::Color(145, 185, 230);
-    esphome::Color rain_c2 = is_night ? esphome::Color(60, 90, 130)   : esphome::Color(90, 130, 175);
-    int extra_len = is_heavy ? 4 : 0;
+    int count = is_heavy ? 44 : 28;
+    float t_sec = now_ms * 0.001f;
+
     for (int i = 0; i < count; i++) {
-      int ry = (RAIN_Y[i] + static_cast<int>((static_cast<uint64_t>(now_ms) * static_cast<uint32_t>(RAIN_SPD[i])) / 1000ULL)) % 435 + 15;
-      int rx = (RAIN_X[i] - (ry - 15) / 5) % 410 + 28;
-      int len_r = RAIN_LEN[i] + extra_len;
-      it.line(rx, ry, rx - 3, ry + len_r, (i & 1) ? rain_c1 : rain_c2);
+      // Distribute raindrops across 3D depth: i=0 (distant background) -> i=count-1 (near-glass foreground)
+      float depth_u = static_cast<float>(i) / static_cast<float>(count - 1); // 0.0 (far) .. 1.0 (near)
+      float z_3d = 155.0f - depth_u * 270.0f; // +155 (far) down to -115 (close to glass)
+      float spd_3d = (is_heavy ? 285.0f : 230.0f) * (0.75f + 0.50f * depth_u);
+
+      float x0 = (hash2d_01(i * 23 + 7, 17) * 2.0f - 1.0f) * 235.0f;
+      float y_off = hash2d_01(i * 41 + 3, 31) * 480.0f;
+      float y_3d = fmodf(y_off + t_sec * spd_3d, 480.0f) - 240.0f;
+      float x_3d = x0 - (y_3d + 240.0f) * (is_heavy ? 0.22f : 0.16f) + par_x * (0.35f + 0.65f * depth_u);
+      float py_3d = y_3d + par_y * (0.35f + 0.65f * depth_u);
+
+      float streak_len = (is_heavy ? 24.0f : 18.0f) * (0.70f + 0.55f * depth_u);
+      Vec3 v_head{x_3d, py_3d, z_3d};
+      Vec3 v_tail{x_3d + streak_len * (is_heavy ? 0.22f : 0.16f), py_3d - streak_len, z_3d};
+
+      ProjectedPoint p_head = project_3d(v_head, cx, cy, 250.0f, 320.0f);
+      ProjectedPoint p_tail = project_3d(v_tail, cx, cy, 250.0f, 320.0f);
+      if (!p_head.visible || !p_tail.visible) continue;
+
+      // Depth-based atmospheric shading: dim slate-blue in back -> bright ice-cyan in foreground
+      float lum = 0.42f + 0.58f * depth_u;
+      if (is_night) lum *= 0.85f;
+      esphome::Color drop_c(
+          static_cast<uint8_t>(155.0f * lum),
+          static_cast<uint8_t>(200.0f * lum),
+          static_cast<uint8_t>(248.0f * lum));
+      it.line(p_tail.x, p_tail.y, p_head.x, p_head.y, drop_c);
+
+      // Foreground drops close to the glass get a bright specular head glint
+      if (depth_u > 0.72f) {
+        it.draw_pixel_at(p_head.x, p_head.y, esphome::Color(220, 242, 255));
+      }
     }
   }
 
-  // LAYER 1I: CRYSTALLINE SNOWFLAKES (36 multi-tier flakes with LUT fast_sin lateral drift)
+  // LAYER 1I: 3D HELICAL SNOWFALL (38 3D-Projected Snowflakes with Perspective Crystal Scaling)
   if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
-    float t_snow = static_cast<float>(now_ms % 62832U) * 0.0022f;
+    float t_sec = now_ms * 0.001f;
     esphome::Color c_core(255, 255, 255);
     esphome::Color c_arm2 = is_night ? esphome::Color(215, 235, 255) : esphome::Color(230, 245, 255);
     esphome::Color c_tip2 = is_night ? esphome::Color(160, 195, 235) : esphome::Color(180, 215, 245);
     esphome::Color c_tip1 = is_night ? esphome::Color(180, 215, 245) : esphome::Color(195, 225, 250);
-    esphome::Color c_dot0 = is_night ? esphome::Color(190, 220, 250) : esphome::Color(210, 235, 255);
-    for (int i = 0; i < 36; i++) {
-      int sy = (SNOW_Y[i] + static_cast<int>((static_cast<uint64_t>(now_ms) * static_cast<uint32_t>(SNOW_SPD[i])) / 1000ULL)) % 430 + 15;
-      int sx = SNOW_X[i] + static_cast<int>(fast_sin(t_snow + SNOW_PHASE[i]) * 8.0f);
-      if (sx < 2 || sx > 463 || sy < 2 || sy > 463) continue;
 
-      if (SNOW_TYPE[i] == 2) {
+    for (int i = 0; i < 38; i++) {
+      float depth_u = static_cast<float>(i) / 37.0f; // 0.0 (far) .. 1.0 (near-glass)
+      float z_base = 160.0f - depth_u * 275.0f;      // +160 down to -115
+      float spd_y = 32.0f + hash2d_01(i * 19 + 3, 23) * 26.0f;
+      float phase = hash2d_01(i * 37 + 11, 41) * (2.0f * PI_F);
+
+      float x0 = (hash2d_01(i * 29 + 5, 13) * 2.0f - 1.0f) * 230.0f;
+      float y0 = hash2d_01(i * 53 + 9, 59) * 460.0f;
+      float y_3d = fmodf(y0 + t_sec * spd_y, 460.0f) - 230.0f;
+
+      // 3D helical swirl (swirls in both X and Z depth as it drifts down)
+      float swirl_ang = t_sec * 1.35f + phase;
+      float x_3d = x0 + fast_sin(swirl_ang) * 14.0f + par_x * (0.35f + 0.65f * depth_u);
+      float z_3d = z_base + fast_cos(swirl_ang) * 18.0f;
+
+      ProjectedPoint sp = project_3d({x_3d, y_3d + par_y * (0.35f + 0.65f * depth_u), z_3d},
+                                     cx, cy, 250.0f, 320.0f);
+      if (!sp.visible) continue;
+      int sx = sp.x, sy = sp.y;
+      if (sx < 3 || sx > 462 || sy < 3 || sy > 462) continue;
+
+      if (sp.scale >= 0.94f) {
+        // Near-glass foreground: 13-pixel 8-point crystalline snowflake
         it.draw_pixel_at(sx, sy, c_core);
         it.draw_pixel_at(sx + 1, sy, c_arm2); it.draw_pixel_at(sx + 2, sy, c_tip2);
         it.draw_pixel_at(sx - 1, sy, c_arm2); it.draw_pixel_at(sx - 2, sy, c_tip2);
@@ -1142,24 +1142,27 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
         it.draw_pixel_at(sx, sy - 1, c_arm2); it.draw_pixel_at(sx, sy - 2, c_tip2);
         it.draw_pixel_at(sx + 1, sy + 1, c_tip2); it.draw_pixel_at(sx - 1, sy - 1, c_tip2);
         it.draw_pixel_at(sx + 1, sy - 1, c_tip2); it.draw_pixel_at(sx - 1, sy + 1, c_tip2);
-      } else if (SNOW_TYPE[i] == 1) {
+      } else if (sp.scale >= 0.74f) {
+        // Mid-ground: 5-pixel diamond crystal
         it.draw_pixel_at(sx, sy, c_core);
         it.draw_pixel_at(sx + 1, sy, c_tip1);
         it.draw_pixel_at(sx - 1, sy, c_tip1);
         it.draw_pixel_at(sx, sy + 1, c_tip1);
         it.draw_pixel_at(sx, sy - 1, c_tip1);
       } else {
-        it.draw_pixel_at(sx, sy, c_dot0);
-        it.draw_pixel_at(sx + 1, sy, c_dot0);
-        it.draw_pixel_at(sx, sy + 1, c_dot0);
-        it.draw_pixel_at(sx + 1, sy + 1, c_dot0);
+        // Deep background: soft 2x2 distant snow mote
+        uint8_t db = static_cast<uint8_t>(145.0f + 70.0f * sp.scale);
+        esphome::Color c_far(static_cast<uint8_t>(db * 0.85f), static_cast<uint8_t>(db * 0.93f), db);
+        it.draw_pixel_at(sx, sy, c_far);
+        it.draw_pixel_at(sx + 1, sy, c_far);
+        it.draw_pixel_at(sx, sy + 1, c_far);
       }
     }
   }
 
   // LAYER 1J: THUNDERSTORM BRANCHING LIGHTNING STRIKE
   if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
-    uint32_t flash_step = (now_ms / 250U) % 18U; // Repeats every 4.5 seconds
+    uint32_t flash_step = (now_ms / 250U) % 18U;
     if (flash_step <= 1U) {
       if (flash_step == 0U) {
         it.filled_circle(cx, cy, 228, is_night ? esphome::Color(42, 58, 85) : esphome::Color(72, 98, 135));
@@ -1178,7 +1181,6 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 }
-
 // Renders the 4 bottom Weather Subpage navigation icons (Current, Forecast, Sun, Moon)
 // with a 100% transparent button background and a 1px dark drop-shadow (matching the flank/deck chevrons)
 // so the white icons float cleanly over any daytime, nighttime, cloudy, or stormy sky.
@@ -1283,7 +1285,7 @@ inline void render_weather_page(
     esphome::Color theme_primary, esphome::Color theme_secondary,
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
     esphome::Color col_slate, esphome::Color col_gray, esphome::Color col_dark_gray,
-    esphome::Color col_warm_gold) {
+    esphome::Color col_warm_gold, float accel_x = 0.0f, float accel_y = 0.0f) {
   using esphome::Color;
   using esphome::display::TextAlign;
 
@@ -1305,7 +1307,7 @@ inline void render_weather_page(
                                  moon_phase_raw, moon_cycle, nullptr, nullptr);
     }
     render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                    cloud_spans_packed, moon_cycle, cel_cx, cel_cy, true);
+                                    cloud_spans_packed, moon_cycle, cel_cx, cel_cy, true, accel_x, accel_y);
 
     char temp_buf[16];
     if (!std::isnan(weather_temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", weather_temp);
