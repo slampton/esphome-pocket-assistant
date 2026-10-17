@@ -35,6 +35,7 @@ struct VA_SetState_Tag {
 };
 template struct Rob<VA_SetState_Tag, &esphome::voice_assistant::VoiceAssistant::set_state_>;
 
+#ifdef USE_SPEAKER
 struct VA_BufSize_Tag {
   typedef size_t esphome::voice_assistant::VoiceAssistant::*type;
   friend type get(VA_BufSize_Tag);
@@ -64,6 +65,15 @@ struct VA_StreamEnded_Tag {
   friend type get(VA_StreamEnded_Tag);
 };
 template struct Rob<VA_StreamEnded_Tag, &esphome::voice_assistant::VoiceAssistant::stream_ended_>;
+#endif
+
+#ifdef USE_MEDIA_PLAYER
+struct VA_StartedStreamingTts_Tag {
+  typedef bool esphome::voice_assistant::VoiceAssistant::*type;
+  friend type get(VA_StartedStreamingTts_Tag);
+};
+template struct Rob<VA_StartedStreamingTts_Tag, &esphome::voice_assistant::VoiceAssistant::started_streaming_tts_>;
+#endif
 
 struct VA_Continuous_Tag {
   typedef bool esphome::voice_assistant::VoiceAssistant::*type;
@@ -103,8 +113,8 @@ struct ComponentTimeoutAccessor : public esphome::Component {
   }
 };
 
-// Disarms VoiceAssistant's internal 5000ms "speaker-timeout" so responses buffered inside
-// announcement_mixing_input's 15s PSRAM ring buffer never prematurely time out at 5.0s.
+// Disarms VoiceAssistant's internal "speaker-timeout" and "playing" timers so responses
+// buffered inside announcement_mixing_input's 15s PSRAM ring buffer never prematurely time out.
 inline void disarm_va_speaker_timeout(VoiceAssistant *va) {
   ComponentTimeoutAccessor::cancel_va_speaker_timeout(va);
 }
@@ -112,11 +122,16 @@ inline void disarm_va_speaker_timeout(VoiceAssistant *va) {
 // Resets per-utterance stream/buffer tracking flags and disarms any leftover speaker timeouts.
 inline void reset_va_session_state(VoiceAssistant *va) {
   if (va != nullptr) {
+#ifdef USE_SPEAKER
     va->*get(VA_BufSize_Tag()) = 0;
     va->*get(VA_BufIndex_Tag()) = 0;
     va->*get(VA_BytesReceived_Tag()) = 0;
     va->*get(VA_WaitForStreamEnd_Tag()) = false;
     va->*get(VA_StreamEnded_Tag()) = false;
+#endif
+#ifdef USE_MEDIA_PLAYER
+    va->*get(VA_StartedStreamingTts_Tag()) = false;
+#endif
     disarm_va_speaker_timeout(va);
   }
 }

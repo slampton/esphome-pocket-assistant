@@ -87,6 +87,13 @@ speaker:
         timeout: 1500ms
 
   - platform: resampler
+    id: announcement_resampler
+    output_speaker: announcement_mixing_input
+    sample_rate: 16000
+    bits_per_sample: 16
+    task_stack_in_psram: true
+
+  - platform: resampler
     id: music_resampler
     output_speaker: media_mixing_input
     sample_rate: 16000
@@ -122,6 +129,10 @@ sendspin:
 
 
 media_source:
+  - platform: audio_http
+    id: http_announcement_source
+    buffer_size: 250000
+
   - platform: sendspin
     id: sendspin_source
     task_stack_in_psram: true
@@ -136,6 +147,13 @@ media_player:
   - platform: speaker_source
     id: pocket_music_player
     name: "Music"
+    announcement_pipeline:
+      format: FLAC
+      num_channels: 1
+      sample_rate: 48000
+      speaker: announcement_resampler
+      sources:
+        - http_announcement_source
     media_pipeline:
       format: FLAC
       num_channels: 2
@@ -147,6 +165,28 @@ media_player:
     volume_increment: 2%
     volume_min: 10%
     volume_max: 90%
+    on_announcement:
+      then:
+        - script.stop: mp_idle_debounce
+        - script.stop: screen_sleep_timer
+        - mixer_speaker.apply_ducking:
+            id: media_mixing_input
+            decibel_reduction: 50
+            duration: 0.1s
+        - mixer_speaker.apply_ducking:
+            id: announcement_mixing_input
+            decibel_reduction: 0
+            duration: 0.1s
+        - script.execute: route_i2s_to_spk
+        - switch.turn_on: speaker_enable
+        - audio_dac.mute_off: es8311_dac
+        - lambda: |-
+            if (id(va_active)) {
+              id(va_vad_active) = false;
+              id(va_tts_received) = true;
+              id(va_status_text) = "Responding...";
+            }
+        - script.execute: throttled_disp_update
     on_play:
       then:
         - lambda: |-
@@ -214,7 +254,7 @@ voice_assistant:
   microphone: pocket_mic
   micro_wake_word: mww
   use_wake_word: false
-  speaker: announcement_mixing_input
+  media_player: pocket_music_player
   noise_suppression_level: 2
   auto_gain: 31dBFS
   on_client_connected:
@@ -287,6 +327,29 @@ voice_assistant:
           id(va_status_text) = "Thinking...";
           esphome::voice_assistant::prewarm_va_tts_mixer(id(va), id(announcement_mixing_input));
           ESP_LOGI("va", "STT End (hidden): %s", x.c_str());
+  on_intent_progress:
+    then:
+      - if:
+          condition:
+            lambda: 'return !x.empty();'
+          then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
+            - mixer_speaker.apply_ducking:
+                id: announcement_mixing_input
+                decibel_reduction: 0
+                duration: 0.1s
+            - script.stop: screen_sleep_timer
+            - script.execute: route_i2s_to_spk
+            - audio_dac.mute_off: es8311_dac
+            - lambda: |-
+                id(va_vad_active) = false;
+                id(va_tts_received) = true;
+                id(va_status_text) = "Responding...";
+                ESP_LOGI("va", "Status: Responding (Streaming TTS)...");
+            - component.update: disp1
   on_tts_start:
     then:
       - mixer_speaker.apply_ducking:
@@ -305,11 +368,18 @@ voice_assistant:
           id(va_tts_received) = true;
           id(va_status_text) = "Responding...";
           ESP_LOGI("va", "Status: Responding (TTS)...");
-  on_tts_stream_end:
+      - component.update: disp1
+  on_tts_end:
     then:
+      - script.stop: screen_sleep_timer
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
       - lambda: |-
-          ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
-      - script.execute: va_tts_drain_and_finish
+          id(va_vad_active) = false;
+          id(va_tts_received) = true;
+          id(va_status_text) = "Responding...";
+          ESP_LOGI("va", "TTS URL ready: %s", x.c_str());
+      - component.update: disp1
   on_error:
     then:
       - script.stop: va_tts_drain_and_finish
@@ -391,9 +461,14 @@ voice_assistant:
           }
   on_end:
     then:
+      - wait_until:
+          condition:
+            not:
+              voice_assistant.is_running:
+          timeout: 25s
       - if:
           condition:
-            lambda: 'return !id(va_tts_received) && id(va_active);'
+            lambda: 'return id(va_active);'
           then:
             - script.execute: va_tts_drain_and_finish
 
@@ -402,14 +477,19 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
-      # 1. If triggered via on_end while announcement_mixing_input is still active, wait for it to finish
+      # 1. Wait for any ongoing media_player announcement and announcement_mixing_input buffer to finish
       - if:
           condition:
-            lambda: 'return id(announcement_mixing_input).is_running();'
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
+                     id(announcement_mixing_input).is_running();
           then:
             - wait_until:
                 condition:
-                  lambda: 'return !id(announcement_mixing_input).is_running() || !id(va_active);'
+                  lambda: |-
+                    return ((id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_ANNOUNCING) &&
+                            !id(announcement_mixing_input).is_running()) ||
+                           !id(va_active);
                 timeout: 15s
       # 2. Let the remaining ~450ms of TTS audio inside physical_speaker's 1000ms hardware buffer
       #    finish playing out of the ES8311 DAC before muting or resuming music
@@ -492,6 +572,7 @@ script:
               const bool busy = id(va_active) || id(va).is_running() || !id(va_status_text).empty() ||
                                 id(va_tts_received) || id(announcement_mixing_input).is_running() ||
                                 (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
                                 id(alarm_ringing) || id(timer_ringing) || id(find_my_active) ||
                                 (id(active_game) > 0) || id(is_hibernating) || id(ota_in_progress) ||
                                 !id(wifi_ctrl).is_connected() || (millis() < 6000U);

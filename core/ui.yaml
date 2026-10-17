@@ -3016,6 +3016,13 @@ script:
           id: announcement_mixing_input
           decibel_reduction: 50
           duration: 0.1s
+      - if:
+          condition:
+            media_player.is_announcing: pocket_music_player
+          then:
+            - media_player.stop:
+                id: pocket_music_player
+                announcement: true
       - speaker.stop: announcement_mixing_input
       - voice_assistant.stop:
       - lambda: |-
