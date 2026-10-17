@@ -1,5 +1,11 @@
 #pragma once
 #include "esphome.h"
+#include "esphome/core/version.h"
+
+#if defined(ESPHOME_VERSION_CODE) && defined(VERSION_CODE)
+static_assert(ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 10, 0),
+              "va_cancel_helper.h requires ESPHome 2026.10.0 or newer.");
+#endif
 #ifdef USE_ESP32
 #include <esp_sleep.h>
 #endif

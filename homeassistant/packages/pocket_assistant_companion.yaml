@@ -19,7 +19,7 @@ input_text:
 
 template:
   # ----------------------------------------------------------------------------
-  # 1. Active Media Mirror Sensor (8 attributes on single sensor)
+  # 1. Active Media Mirror Sensor (9 attributes on single sensor, including HA 2026.10 supported_features)
   # ----------------------------------------------------------------------------
   - trigger:
       - trigger: state
@@ -113,6 +113,13 @@ template:
               {% else %}
                 music
               {% endif %}
+            {% endif %}
+          supported_features: >-
+            {% set target = states('input_text.pocket_assistant_active_speaker') %}
+            {% if not target or target in ['unknown', 'unavailable', ''] %}
+              0
+            {% else %}
+              {{ state_attr(target, 'supported_features') | default(0, true) | int(0) }}
             {% endif %}
           art_url: >-
             {% set target = states('input_text.pocket_assistant_active_speaker') %}

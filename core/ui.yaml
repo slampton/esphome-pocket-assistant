@@ -1772,6 +1772,12 @@ sensor:
             id(music_pos_sync_time) = millis();
 
   - platform: homeassistant
+    id: ha_target_supported_features
+    entity_id: ${active_media_sensor}
+    attribute: supported_features
+    internal: true
+
+  - platform: homeassistant
     id: ha_target_volume
     entity_id: ${active_media_sensor}
     attribute: volume
@@ -3206,8 +3212,8 @@ display:
     brightness: 200
     update_interval: 1s
     lambda: |-
-      const int cx = 233;
-      const int cy = 233;
+      const int cx = pocket_ui::SCREEN_CX;
+      const int cy = pocket_ui::SCREEN_CY;
       // ======================================================================
       // 🎨 Centralized Standard UI & Theme Color Tokens (LUTs & Primitives in ui_toolkit.h)
       // ======================================================================
