@@ -143,8 +143,7 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
 template<typename DisplayT>
 inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t now_ms = 0) {
   struct Star3D { float x, y, z; };
-  static constexpr int NUM_STARS = 58;
-  static Star3D stars[NUM_STARS];
+  static Star3D stars[90];
   static bool stars_init = false;
   static uint32_t star_seed = 123456789;
   static uint32_t last_star_ms = 0;
@@ -155,38 +154,32 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
   };
   auto respawn_star = [&](int i, bool init_z) {
     float ang = star_rand() * (2.0f * PI_F);
-    // Linear radial distribution (52..492) so stars originate near the center and stay inside the bezel
-    // all the way into the high-speed foreground (z < 280) where 1/z perspective stretches their trails!
-    float dist = 52.0f + star_rand() * 440.0f;
-    float sa = 0.0f, ca = 1.0f;
-    fast_sincos(ang, sa, ca);
-    stars[i].x = ca * dist;
-    stars[i].y = sa * dist;
-    stars[i].z = init_z ? (35.0f + star_rand() * 880.0f) : (780.0f + star_rand() * 160.0f);
+    float dist = 95.0f + star_rand() * 600.0f;
+    stars[i].x = fast_cos(ang) * dist;
+    stars[i].y = fast_sin(ang) * dist;
+    stars[i].z = init_z ? (30.0f + star_rand() * 950.0f) : (850.0f + star_rand() * 150.0f);
   };
   if (!stars_init) {
-    for (int i = 0; i < NUM_STARS; i++) respawn_star(i, true);
+    for (int i = 0; i < 90; i++) respawn_star(i, true);
     stars_init = true;
     last_star_ms = now_ms;
   }
 
-  // Brisk 3D forward velocity (24 units/50ms frame = 480 units/sec)
-  float speed = 24.0f;
+  float speed = 14.0f;
   if (now_ms > 0) {
     uint32_t dt = now_ms - last_star_ms;
     last_star_ms = now_ms;
     if (dt >= 20U && dt <= 300U) {
-      speed = static_cast<float>(dt) * 0.48f;
+      speed = static_cast<float>(dt) * 0.28f;
     }
   }
 
-  for (int i = 0; i < NUM_STARS; i++) {
+  for (int i = 0; i < 90; i++) {
     stars[i].z -= speed;
-    if (stars[i].z <= 28.0f) {
+    if (stars[i].z <= 25.0f) {
       respawn_star(i, false);
       continue;
     }
-
     float k = 230.0f / stars[i].z;
     int sx = cx + static_cast<int>(stars[i].x * k);
     int sy = cy + static_cast<int>(stars[i].y * k);
@@ -194,34 +187,17 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
       respawn_star(i, false);
       continue;
     }
-
-    bool is_blue_accent = ((i & 3) == 0);   // 25% of stars carry electric ice-blue accent trails
-    bool is_long_trail  = ((i % 3) == 0);   // 33% of stars have 2.6x longer perspective streaks
-
-    if (stars[i].z > 680.0f) {
-      // Daylight-visible bright distant stars near the center
-      it.draw_pixel_at(sx, sy, esphome::Color(210, 220, 235));
+    float prev_k = 230.0f / (stars[i].z + speed * 1.65f);
+    int px = cx + static_cast<int>(stars[i].x * prev_k);
+    int py = cy + static_cast<int>(stars[i].y * prev_k);
+    if (stars[i].z > 650.0f) {
+      it.draw_pixel_at(sx, sy, esphome::Color(105, 125, 155));
+    } else if (stars[i].z > 350.0f) {
+      it.line(px, py, sx, sy, esphome::Color(130, 195, 240));
+      it.draw_pixel_at(sx, sy, esphome::Color(215, 240, 255));
     } else {
-      // Uncapped natural 1/z perspective trail (stretches organically as stars accelerate past the camera!)
-      float trail_mult = is_long_trail ? 2.65f : 1.40f;
-      float prev_k = 230.0f / (stars[i].z + speed * trail_mult);
-      int px = cx + static_cast<int>(stars[i].x * prev_k);
-      int py = cy + static_cast<int>(stars[i].y * prev_k);
-
-      if (stars[i].z > 340.0f) {
-        esphome::Color mid_trail = is_blue_accent ? esphome::Color(115, 200, 255) : esphome::Color(185, 195, 210);
-        it.line(px, py, sx, sy, mid_trail);
-        it.draw_pixel_at(sx, sy, esphome::Color(255, 255, 255));
-      } else {
-        // High-speed foreground stars: 2-stage bright wake + crisp r=1 white head
-        int mx = (px + sx) >> 1;
-        int my = (py + sy) >> 1;
-        esphome::Color wake_col  = is_blue_accent ? esphome::Color( 55, 155, 240) : esphome::Color(135, 145, 160);
-        esphome::Color shaft_col = is_blue_accent ? esphome::Color(160, 230, 255) : esphome::Color(225, 232, 242);
-        it.line(px, py, mx, my, wake_col);
-        it.line(mx, my, sx, sy, shaft_col);
-        it.filled_circle(sx, sy, 1, esphome::Color(255, 255, 255));
-      }
+      it.line(px, py, sx, sy, esphome::Color(70, 195, 255));
+      it.filled_circle(sx, sy, 1, esphome::Color(255, 255, 255));
     }
   }
 }
