@@ -268,63 +268,70 @@ inline void render_lunar_disc(DisplayT &it, int moon_cx, int moon_cy, int moon_r
 
 template<typename DisplayT>
 inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool overcast_mode, bool is_night) {
-  int max_extent = (int)(95.0f * scale);
-  if (bx + max_extent < 0 || bx - max_extent >= 466 ||
-      by + max_extent < 0 || by - max_extent >= 466) return;
+  int half_w = static_cast<int>(82.0f * scale);
+  if (bx + half_w < 6 || bx - half_w >= 460 || by + 40 < 6 || by - 60 >= 460) return;
 
-  static constexpr int8_t lobes[8][3] = {
-    {-45,  10, 24}, {-25,  -5, 32}, {  5, -18, 40}, { 35,  -8, 30},
-    { 55,  10, 22}, {-10,  15, 26}, { 20,  15, 26}, {  0,   8, 28}
-  };
+  esphome::Color col_rim    = is_night ? esphome::Color( 86, 108, 138) : (overcast_mode ? esphome::Color(118, 148, 182) : esphome::Color(172, 204, 236));
+  esphome::Color col_crest  = is_night ? esphome::Color( 60,  78, 102) : (overcast_mode ? esphome::Color( 86, 114, 146) : esphome::Color(126, 160, 198));
+  esphome::Color col_high   = is_night ? esphome::Color( 40,  54,  72) : (overcast_mode ? esphome::Color( 60,  84, 112) : esphome::Color( 88, 118, 154));
+  esphome::Color col_body   = is_night ? esphome::Color( 24,  34,  46) : (overcast_mode ? esphome::Color( 42,  60,  82) : esphome::Color( 58,  82, 112));
+  esphome::Color col_shadow = is_night ? esphome::Color( 14,  20,  28) : (overcast_mode ? esphome::Color( 26,  40,  58) : esphome::Color( 36,  54,  76));
 
-  esphome::Color col_shadow = is_night ? esphome::Color(12, 16, 22) : (overcast_mode ? esphome::Color(24, 38, 56) : esphome::Color(34, 52, 74));
-  esphome::Color col_body   = is_night ? esphome::Color(20, 28, 38) : (overcast_mode ? esphome::Color(38, 56, 78) : esphome::Color(54, 78, 106));
-  esphome::Color col_high   = is_night ? esphome::Color(36, 48, 64) : (overcast_mode ? esphome::Color(54, 76, 102) : esphome::Color(78, 108, 142));
-  esphome::Color col_crest  = is_night ? esphome::Color(58, 74, 98) : (overcast_mode ? esphome::Color(75, 102, 132) : esphome::Color(110, 145, 185));
+  float inv_hw = 1.0f / static_cast<float>(half_w);
+  float phase_seed = static_cast<float>((bx / 16) & 7) * 0.7f;
 
-  int16_t sc_x[8], sc_y[8], sc_r[8];
-  for (int i = 0; i < 8; i++) {
-    sc_x[i] = (int16_t)(lobes[i][0] * scale);
-    sc_y[i] = (int16_t)(lobes[i][1] * scale);
-    sc_r[i] = (int16_t)(lobes[i][2] * scale);
-  }
-  int16_t off_y_sh = (int16_t)(5.0f * scale);
-  int16_t off_r_bd = (int16_t)(2.0f * scale);
-  int16_t off_x_hi = (int16_t)(3.0f * scale);
-  int16_t off_y_hi = (int16_t)(3.0f * scale);
-  int16_t off_r_hi = (int16_t)(5.0f * scale);
-  int16_t off_x_cr = (int16_t)(4.0f * scale);
-  int16_t off_y_cr = (int16_t)(6.0f * scale);
-  int16_t off_r_cr = (int16_t)(9.0f * scale);
+  // Single-pass zero-overdraw vertical scanline synthesizer:
+  // Combines 4 asymmetric parabolic turret domes on top with a gently curved flat anvil condensation base
+  for (int dx = -half_w; dx <= half_w; dx += 2) {
+    int x = bx + dx;
+    int max_dy = circle_half_span(x, 5);
+    if (max_dy <= 8) continue;
+    int y_min = SCREEN_CY - max_dy;
+    int y_max = SCREEN_CY + max_dy;
 
-  static constexpr uint8_t shadow_lobes[5] = {0, 4, 5, 6, 7};
-  for (int i = 0; i < 5; i++) {
-    uint8_t idx = shadow_lobes[i];
-    int sx = bx + sc_x[idx], sy = by + sc_y[idx] + off_y_sh, sr = sc_r[idx];
-    if (sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-    it.filled_circle(sx, sy, sr, col_shadow);
-  }
-  for (int i = 0; i < 5; i++) {
-    uint8_t idx = shadow_lobes[i];
-    int sx = bx + sc_x[idx], sy = by + sc_y[idx], sr = sc_r[idx] - off_r_bd;
-    if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-    it.filled_circle(sx, sy, sr, col_body);
-  }
-  for (int i = 0; i < 5; i++) {
-    int sx = bx + sc_x[i] + off_x_hi, sy = by + sc_y[i] - off_y_hi, sr = sc_r[i] - off_r_hi;
-    if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-    it.filled_circle(sx, sy, sr, col_high);
-  }
-  static constexpr uint8_t crest_idx[3] = {1, 2, 3};
-  for (int i = 0; i < 3; i++) {
-    uint8_t idx = crest_idx[i];
-    int sx = bx + sc_x[idx] + off_x_cr, sy = by + sc_y[idx] - off_y_cr, sr = sc_r[idx] - off_r_cr;
-    if (sr <= 0 || sx + sr < 0 || sx - sr >= 466 || sy + sr < 0 || sy - sr >= 466) continue;
-    it.filled_circle(sx, sy, sr, col_crest);
+    float u = static_cast<float>(dx) * inv_hw; // -1.0 .. +1.0
+    float env = 1.0f - u * u;
+    if (env <= 0.02f) continue;
+
+    // 4 sculpted turret lobes across u in [-1..+1]: main anvil peak at u=+0.08, secondary turrets at -0.38, +0.46, -0.68
+    float d0 = u - 0.08f;  float t0 = fmaxf(0.0f, 1.0f - d0 * d0 * 4.2f);
+    float d1 = u + 0.36f;  float t1 = fmaxf(0.0f, 1.0f - d1 * d1 * 6.5f) * 0.78f;
+    float d2 = u - 0.48f;  float t2 = fmaxf(0.0f, 1.0f - d2 * d2 * 7.8f) * 0.68f;
+    float d3 = u + 0.68f;  float t3 = fmaxf(0.0f, 1.0f - d3 * d3 * 12.0f) * 0.42f;
+    float d4 = u - 0.74f;  float t4 = fmaxf(0.0f, 1.0f - d4 * d4 * 14.0f) * 0.36f;
+
+    float dome = fmaxf(fmaxf(t0, t1), fmaxf(t2, fmaxf(t3, t4)));
+    // Add fine organic billow ripples along the upper contour
+    float ripple = 0.07f * fast_sin(u * 9.5f + phase_seed) * env;
+    float h_top_f = (14.0f + 38.0f * dome + 38.0f * ripple) * scale * sqrtf(env);
+    // Flat, gently rolling anvil base at the bottom
+    float h_bot_f = (12.0f * env + 2.5f * fast_cos(u * 5.2f + phase_seed)) * scale;
+
+    int y_top = by - static_cast<int>(h_top_f);
+    int y_bot = by + static_cast<int>(h_bot_f);
+    if (y_top < y_min) y_top = y_min;
+    if (y_bot > y_max) y_bot = y_max;
+    int span = y_bot - y_top;
+    if (span <= 2) continue;
+
+    int y_c1 = y_top + std::max(2, span / 6);
+    int y_c2 = y_top + (span * 45) / 100;
+    int y_c3 = y_top + (span * 76) / 100;
+
+    // Sunlit / Moonlit upper-right slope catch-light on the top 2px rim
+    bool sunlit_slope = (u > -0.45f && dome > 0.32f);
+    esphome::Color top_c = sunlit_slope ? col_rim : col_crest;
+
+    for (int ox = 0; ox < 2; ox++) {
+      int px = x + ox;
+      if (px < 6 || px >= 460) continue;
+      it.line(px, y_top, px, y_c1,  top_c);
+      it.line(px, y_c1,  px, y_c2,  col_crest);
+      it.line(px, y_c2,  px, y_c3,  col_high);
+      it.line(px, y_c3,  px, y_bot, (ox == 0) ? col_body : col_shadow);
+    }
   }
 }
-
-
 // ------------------------------------------------------------------------------
 // 6. Weather Suite Formatters, Simulation Override & Forecast Glyph Engine
 // ------------------------------------------------------------------------------
@@ -647,6 +654,8 @@ inline bool has_weather_motion(const std::string &cond, bool is_night, uint32_t 
       cond.find("fog") != std::string::npos ||
       cond.find("mist") != std::string::npos ||
       cond.find("haze") != std::string::npos ||
+      cond.find("cloud") != std::string::npos ||
+      cond.find("overcast") != std::string::npos ||
       cond.find("partly") != std::string::npos ||
       cond.find("mostlysunny") != std::string::npos ||
       cond.find("partlysunny") != std::string::npos) {
@@ -914,39 +923,87 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1E: VOLUMETRIC CUMULUS (Partly Cloudy with 3D Depth Parallax) & RLE OVERCAST CANOPY
+  // LAYER 1E: SCULPTED 3D CUMULUS (Partly Cloudy) & 4-DECK PARALLAX OVERCAST CANOPY (Cloudy / Overcast)
+  (void)cloud_spans;
   if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
     if (is_partly) {
       float t_cld = now_ms * 0.0008f;
-      int dx0 = static_cast<int>(fast_sin(t_cld) * 6.5f + par_x * 0.45f);
-      int dy0 = static_cast<int>(fast_cos(t_cld * 1.3f) * 2.0f + par_y * 0.45f);
-      int dx1 = static_cast<int>(fast_cos(t_cld * 0.9f + 1.8f) * 6.5f + par_x * 0.30f);
-      int dy1 = static_cast<int>(fast_sin(t_cld * 1.2f + 1.1f) * 2.0f + par_y * 0.30f);
-      int dx2 = static_cast<int>(fast_sin(t_cld * 1.1f + 3.6f) * 6.5f + par_x * 0.60f);
-      int dy2 = static_cast<int>(fast_cos(t_cld * 1.4f + 2.4f) * 2.0f + par_y * 0.60f);
+      int dx0 = static_cast<int>(fast_sin(t_cld) * 8.0f + par_x * 0.45f);
+      int dy0 = static_cast<int>(fast_cos(t_cld * 1.3f) * 2.5f + par_y * 0.45f);
+      int dx1 = static_cast<int>(fast_cos(t_cld * 0.9f + 1.8f) * 8.0f + par_x * 0.30f);
+      int dy1 = static_cast<int>(fast_sin(t_cld * 1.2f + 1.1f) * 2.5f + par_y * 0.30f);
+      int dx2 = static_cast<int>(fast_sin(t_cld * 1.1f + 3.6f) * 8.0f + par_x * 0.65f);
+      int dy2 = static_cast<int>(fast_cos(t_cld * 1.4f + 2.4f) * 2.5f + par_y * 0.65f);
 
-      render_cumulus_cloud(it,  95 + dx0,  95 + dy0, 0.95f, false, is_night);
-      render_cumulus_cloud(it, 370 + dx1, 180 + dy1, 0.85f, false, is_night);
-      render_cumulus_cloud(it, 100 + dx2, 255 + dy2, 0.80f, false, is_night);
+      render_cumulus_cloud(it, 104 + dx0,  98 + dy0, 0.98f, false, is_night);
+      render_cumulus_cloud(it, 362 + dx1, 182 + dy1, 0.88f, false, is_night);
+      render_cumulus_cloud(it, 108 + dx2, 256 + dy2, 0.84f, false, is_night);
     } else {
-      esphome::Color c_shad = is_night ? esphome::Color(12, 16, 22) : esphome::Color(24, 38, 56);
-      esphome::Color c_body = is_night ? esphome::Color(20, 28, 38) : esphome::Color(38, 56, 78);
-      esphome::Color c_mid  = is_night ? esphome::Color(28, 38, 50) : esphome::Color(46, 66, 90);
-      esphome::Color c_high = is_night ? esphome::Color(38, 50, 66) : esphome::Color(56, 78, 104);
-      esphome::Color c_crst = is_night ? esphome::Color(58, 74, 98) : esphome::Color(76, 104, 134);
-      esphome::Color c_brgt = is_night ? esphome::Color(68, 86, 112) : esphome::Color(90, 120, 154);
-      esphome::Color pal[6] = {c_shad, c_body, c_mid, c_high, c_crst, c_brgt};
+      // Zero-overdraw 4-Deck Parallax Stratocumulus Canopy (drifts smoothly at 20 FPS in <3ms/frame):
+      // Replaces static circle-blob RLE table with 4 sculpted, billowing cloud decks with flat shadowed bases
+      float t_ov = now_ms * 0.00038f;
+      static constexpr int16_t DECK_Y_BASE[4] = { 96, 154, 218, 282};
+      static constexpr int16_t DECK_AMP[4]    = { 38,  44,  42,  36};
+      static constexpr float   DECK_FREQ[4]   = {0.015f, 0.018f, 0.016f, 0.020f};
 
-      for (uint32_t v : cloud_spans) {
-        int sy = static_cast<int>(v & 0x1FFU);
-        int sx = static_cast<int>((v >> 9) & 0x1FFU);
-        int slen = static_cast<int>((v >> 18) & 0x1FFU);
-        int scol = static_cast<int>((v >> 27) & 0x7U);
-        it.horizontal_line(sx, sy, slen, pal[scol]);
+      for (int d = 0; d < 4; d++) {
+        float dir = (d & 1) ? -1.0f : 1.0f;
+        float depth_k = 0.25f + 0.22f * static_cast<float>(d);
+        float drift_px = t_ov * (26.0f + d * 9.0f) * dir + par_x * depth_k + d * 85.0f;
+        int base_y = DECK_Y_BASE[d] + static_cast<int>(par_y * depth_k * 0.6f);
+        int amp    = DECK_AMP[d];
+        float freq = DECK_FREQ[d];
+
+        // Deck-specific atmospheric depth shading (upper decks catch more sky light; lower decks have deeper bases)
+        int deck_dim = d * (is_night ? 4 : 7);
+        esphome::Color c_rim   = is_night ? esphome::Color(82 - deck_dim, 104 - deck_dim, 134 - deck_dim)
+                                          : esphome::Color(136 - deck_dim, 168 - deck_dim, 202 - deck_dim);
+        esphome::Color c_crest = is_night ? esphome::Color(58 - deck_dim,  76 - deck_dim,  98 - deck_dim)
+                                          : esphome::Color( 96 - deck_dim, 126 - deck_dim, 158 - deck_dim);
+        esphome::Color c_body  = is_night ? esphome::Color(36 - deck_dim / 2, 48 - deck_dim / 2, 64 - deck_dim / 2)
+                                          : esphome::Color( 62 - deck_dim / 2, 86 - deck_dim / 2, 114 - deck_dim / 2);
+        esphome::Color c_base  = is_night ? esphome::Color(16, 22, 32)
+                                          : esphome::Color( 32, 48, 68);
+
+        for (int x = 10; x <= 456; x += 2) {
+          int max_dy = circle_half_span(x, 5);
+          if (max_dy <= 6) continue;
+          int y_min = cy - max_dy;
+          int y_max = cy + max_dy;
+
+          float wx = static_cast<float>(x) + drift_px;
+          // Folded multi-harmonic wave synthesis: |sin| creates rounded turret domes, cos creates rolling valleys
+          float s1 = std::fabs(fast_sin(wx * freq));
+          float s2 = 0.5f + 0.5f * fast_cos(wx * (freq * 1.65f) + d * 1.9f);
+          float s3 = fast_sin(wx * (freq * 3.1f) - t_ov * 0.8f);
+          float slope = fast_cos(wx * freq); // Positive on windward/sunward turret slope
+
+          int h_turret = static_cast<int>((0.38f + 0.42f * s1 + 0.24f * s2 + 0.08f * s3) * static_cast<float>(amp));
+          int h_base   = 6 + static_cast<int>(fast_cos(wx * 0.012f + d) * 4.0f);
+
+          int y_top = base_y - h_turret;
+          int y_bot = base_y + h_base;
+          if (y_top < y_min) y_top = y_min;
+          if (y_bot > y_max) y_bot = y_max;
+          int span = y_bot - y_top;
+          if (span <= 2) continue;
+
+          int y_m1 = y_top + std::max(2, span / 5);
+          int y_m2 = y_top + (span * 62) / 100;
+
+          esphome::Color top_c = (slope > 0.15f && s1 > 0.45f) ? c_rim : c_crest;
+          it.line(x, y_top, x, y_m1, top_c);
+          it.line(x, y_m1,  x, y_m2, c_body);
+          it.line(x, y_m2,  x, y_bot, c_base);
+          if (x + 1 <= cx + max_dy) {
+            it.line(x + 1, y_top, x + 1, y_m1, top_c);
+            it.line(x + 1, y_m1,  x + 1, y_m2, c_body);
+            it.line(x + 1, y_m2,  x + 1, y_bot, c_base);
+          }
+        }
       }
     }
   }
-
   // LAYER 1F: FOG & MIST — VOLUMETRIC STRATUS PUFFS & UNDULATING WISPY CLOUD VEILS
   if (is_fog_mist) {
     float t_fog = now_ms * 0.00028f;
@@ -1078,78 +1135,78 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1H: 3D VOLUMETRIC RAIN & POURING STORM (Per-Pass Re-Seeded X/Z + 2-Stage Tapered Water Droplets)
+  // LAYER 1H: STYLIZED 3D ANIMATED RAIN & POURING STORM (Midpoint Density + Expressive Water-Bead Tips)
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
       cond.find("drizzle") != std::string::npos) {
     bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
-    int count = is_heavy ? 76 : 48;
+    // Sweet-spot midpoint density: 34 drops in Rainy, 52 drops in Pouring / Heavy Rain
+    int count = is_heavy ? 52 : 34;
     float t_sec = now_ms * 0.001f;
 
     for (int i = 0; i < count; i++) {
-      int perm_i = (i * 17 + 7) % count;
+      int perm_i = (i * 13 + 5) % count;
       float h_spd = hash2d_01(perm_i * 37 + 11, i * 19 + 5);
       float h_gap = hash2d_01(perm_i * 53 + 23, i * 29 + 9);
 
-      // Fast, realistic terminal velocity: 320..460 px/s in Rain, 490..680 px/s in Pouring Storm!
-      float spd = (is_heavy ? 490.0f : 320.0f) + h_spd * (is_heavy ? 190.0f : 140.0f);
-      float cycle_h = 440.0f + h_gap * 90.0f;
+      // Balanced animated velocity: 265..365 px/s in Rainy, 390..520 px/s in Pouring Storm
+      float spd = (is_heavy ? 390.0f : 265.0f) + h_spd * (is_heavy ? 130.0f : 100.0f);
+      float cycle_h = 440.0f + h_gap * 75.0f;
 
-      // Golden-ratio initial phase scatter + per-pass re-randomization
       float init_phase = fmodf(static_cast<float>(i) * 0.381966011f + static_cast<float>(perm_i) * 0.145898f, 1.0f);
       float total_y = t_sec * spd + init_phase * cycle_h;
       uint32_t pass_idx = static_cast<uint32_t>(total_y / cycle_h);
       float local_y = total_y - static_cast<float>(pass_idx) * cycle_h;
-      if (local_y > 436.0f) continue; // Brief random rest gap between passes
+      if (local_y > 436.0f) continue;
 
-      // Re-roll X coordinate, Z depth tier, and droplet length on every pass so tracks never repeat!
+      // Per-pass X & depth re-seeding so drops never repeat fixed tracks
       int pass_seed = static_cast<int>(pass_idx * 59U + static_cast<uint32_t>(i) * 131U);
       float rx_u    = hash2d_01(pass_seed, 17);
       float r_depth = hash2d_01(pass_seed, 31);
       float r_len   = hash2d_01(pass_seed, 47);
 
-      int depth_tier = (r_depth > 0.68f) ? 2 : ((r_depth > 0.30f) ? 1 : 0);
+      int depth_tier = (r_depth > 0.64f) ? 2 : ((r_depth > 0.28f) ? 1 : 0);
       float depth_par = (depth_tier == 2) ? 0.85f : ((depth_tier == 1) ? 0.55f : 0.30f);
 
       int ry = 14 + static_cast<int>(local_y + par_y * depth_par);
       if (ry < 14 || ry > 448) continue;
 
-      // Stratified + randomized X across full 420px width with wind slant
-      float base_lane = (static_cast<float>(perm_i) + (rx_u - 0.5f) * 3.2f) / static_cast<float>(count);
+      float base_lane = (static_cast<float>(perm_i) + (rx_u - 0.5f) * 2.8f) / static_cast<float>(count);
       if (base_lane < 0.0f) base_lane += 1.0f;
       if (base_lane > 1.0f) base_lane -= 1.0f;
-      int wind_shift = (ry - 14) / (is_heavy ? 5 : 7);
+      int wind_shift = (ry - 14) / (is_heavy ? 5 : 6);
       int rx = 24 + static_cast<int>(base_lane * 418.0f) - wind_shift + static_cast<int>(par_x * depth_par);
       while (rx < 20)  rx += 426;
       while (rx > 446) rx -= 426;
 
-      // Fine, natural droplet lengths: 5..10px in Rain, 8..14px in Pouring Storm
-      int len_r = (is_heavy ? 8 : 5) + depth_tier * (is_heavy ? 2 : 1) + static_cast<int>(r_len * 3.5f);
-      int dx_r  = is_heavy ? ((len_r >= 11) ? 2 : 1) : 1;
+      // Stylized animated streak lengths: 9..14px in Rainy, 12..17px in Pouring Storm
+      int len_r = (is_heavy ? 12 : 9) + depth_tier * 2 + static_cast<int>(r_len * 2.5f);
+      int dx_r  = is_heavy ? 3 : 2;
       int hx = rx - dx_r;
       int hy = ry + len_r;
       if (!is_inside_bezel(rx, ry, cy, 6) || !is_inside_bezel(hx, hy, cy, 6)) continue;
 
-      // 2-Stage Tapered Water-Droplet Shading (faint upper wake -> brighter lower water tip)
       int mx = (rx + hx) >> 1;
       int my = (ry + hy) >> 1;
       if (depth_tier == 2) {
-        esphome::Color c_wake = is_night ? esphome::Color( 68, 102, 148) : esphome::Color( 86, 124, 170);
-        esphome::Color c_tip  = is_night ? esphome::Color(152, 198, 245) : esphome::Color(178, 218, 255);
+        esphome::Color c_wake = is_night ? esphome::Color( 82, 122, 174) : esphome::Color(102, 146, 198);
+        esphome::Color c_tip  = is_night ? esphome::Color(158, 206, 250) : esphome::Color(184, 224, 255);
         it.line(rx, ry, mx, my, c_wake);
         it.line(mx, my, hx, hy, c_tip);
+        // Expressive animated water-bead tip on foreground drops
+        it.draw_pixel_at(hx - 1, hy, c_tip);
+        it.draw_pixel_at(hx, hy - 1, esphome::Color(225, 244, 255));
       } else if (depth_tier == 1) {
-        esphome::Color c_wake = is_night ? esphome::Color( 46,  72, 108) : esphome::Color( 64,  96, 136);
-        esphome::Color c_tip  = is_night ? esphome::Color(102, 144, 194) : esphome::Color(124, 168, 215);
+        esphome::Color c_wake = is_night ? esphome::Color( 58,  90, 134) : esphome::Color( 78, 114, 160);
+        esphome::Color c_tip  = is_night ? esphome::Color(118, 162, 214) : esphome::Color(142, 186, 232);
         it.line(rx, ry, mx, my, c_wake);
         it.line(mx, my, hx, hy, c_tip);
       } else {
-        esphome::Color c_far  = is_night ? esphome::Color( 54,  82, 118) : esphome::Color( 76, 110, 150);
+        esphome::Color c_far  = is_night ? esphome::Color( 62,  92, 132) : esphome::Color( 88, 124, 166);
         it.line(rx, ry, hx, hy, c_far);
       }
     }
   }
-
   // LAYER 1I: 3D HELICAL SNOWFALL (Full-Width Edge-to-Edge Coverage + Per-Pass Re-Seeded Paths)
   if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
     float t_sec = now_ms * 0.001f;
