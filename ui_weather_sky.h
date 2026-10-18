@@ -839,16 +839,24 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     par_y += (target_py - par_y) * 0.22f;
   }
 
-  // LAYER 0: ATMOSPHERIC SKY CANVAS
-  if (!is_night) {
+  const bool is_storm = (cond.find("lightning") != std::string::npos ||
+                         cond.find("thunder") != std::string::npos);
+  uint32_t storm_cycle_idx = now_ms / 4200U;
+  uint32_t storm_phase_ms  = now_ms % 4200U;
+  // Realistic double-pulse lightning flicker: primary flash (0..95ms) + restrike (155..255ms)
+  const bool storm_sky_flash = is_storm && (storm_phase_ms < 95U || (storm_phase_ms >= 155U && storm_phase_ms < 255U));
+  const bool storm_bolt_vis  = is_storm && (storm_phase_ms < 285U);
+
+  // LAYER 0: ATMOSPHERIC SKY CANVAS (with background sheet-lightning flash behind clouds & rain)
+  if (storm_sky_flash) {
+    it.filled_circle(cx, cy, 228, is_night ? esphome::Color(38, 54, 82) : esphome::Color(64, 90, 126));
+  } else if (!is_night) {
     esphome::Color day_bg(28, 54, 84);
     if (is_fog_mist) {
       day_bg = esphome::Color(32, 46, 60);
     } else if (cond.find("cloud") != std::string::npos && !is_partly) {
       day_bg = esphome::Color(22, 38, 56);
-    } else if (cond.find("rain") != std::string::npos ||
-               cond.find("lightning") != std::string::npos ||
-               cond.find("thunder") != std::string::npos) {
+    } else if (cond.find("rain") != std::string::npos || is_storm) {
       day_bg = esphome::Color(18, 30, 46);
     }
     it.filled_circle(cx, cy, 228, day_bg);
@@ -1111,6 +1119,57 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
+  // LAYER 1G_B: THUNDERSTORM UPPER ANVIL CLOUDS & PROCEDURAL GLOWING LIGHTNING BOLT
+  // Rendered before Rain (Layer 1H) so falling rain streaks naturally pass in front of the clouds & bolt!
+  if (is_storm) {
+    float t_st = now_ms * 0.00045f;
+    int sc0_x = 142 + static_cast<int>(fast_sin(t_st) * 14.0f + par_x * 0.35f);
+    int sc1_x = 324 + static_cast<int>(fast_cos(t_st * 0.9f + 1.5f) * 16.0f + par_x * 0.45f);
+    render_cumulus_cloud(it, sc0_x, 82 + static_cast<int>(par_y * 0.35f), 1.08f, true, is_night && !storm_sky_flash);
+    render_cumulus_cloud(it, sc1_x, 94 + static_cast<int>(par_y * 0.45f), 1.02f, true, is_night && !storm_sky_flash);
+
+    if (storm_bolt_vis) {
+      int b_seed = static_cast<int>(storm_cycle_idx * 43U + 19U);
+      int x0 = 135 + static_cast<int>(hash2d_01(b_seed, 11) * 196.0f);
+      int y0 = 68;
+
+      int x1 = x0 + static_cast<int>((hash2d_01(b_seed, 23) - 0.5f) * 44.0f);
+      int y1 = 108;
+      int x2 = x1 + static_cast<int>((hash2d_01(b_seed, 37) - 0.5f) * 48.0f);
+      int y2 = 152;
+      int x3 = x2 + static_cast<int>((hash2d_01(b_seed, 53) - 0.5f) * 52.0f);
+      int y3 = 204;
+      int x4 = x3 + static_cast<int>((hash2d_01(b_seed, 71) - 0.5f) * 46.0f);
+      int y4 = 262;
+
+      esphome::Color c_core(255, 255, 255);
+      esphome::Color c_halo(110, 195, 255);
+      esphome::Color c_fork(155, 215, 255);
+
+      // Sub-cloud anvil glow where the bolt emerges
+      it.filled_circle(x0, y0, 7, c_halo);
+      it.filled_circle(x0, y0, 4, c_core);
+
+      // Main glowing lightning trunk (3px wide: core + halo)
+      draw_glow_line(it, x0, y0, x1, y1, c_core, c_halo);
+      draw_glow_line(it, x1, y1, x2, y2, c_core, c_halo);
+      draw_glow_line(it, x2, y2, x3, y3, c_core, c_halo);
+      draw_glow_line(it, x3, y3, x4, y4, c_core, c_halo);
+
+      // Secondary branching forks
+      int f1_dir = (x2 >= x1) ? 1 : -1;
+      int fx1 = x1 + f1_dir * 28, fy1 = y1 + 26;
+      int fx2 = fx1 + f1_dir * 18, fy2 = fy1 + 28;
+      it.line(x1, y1, fx1, fy1, c_fork);
+      it.line(fx1, fy1, fx2, fy2, c_halo);
+
+      int f2_dir = -f1_dir;
+      int gx1 = x2 + f2_dir * 32, gy1 = y2 + 34;
+      int gx2 = gx1 + f2_dir * 16, gy2 = gy1 + 26;
+      it.line(x2, y2, gx1, gy1, c_fork);
+      it.line(gx1, gy1, gx2, gy2, c_halo);
+    }
+  }
   // LAYER 1H: STUDIO GHIBLI / ANIME ATMOSPHERIC RAIN (Long 3-Stage Tapered Filaments + Upper-Canopy Density)
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
@@ -1318,27 +1377,8 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       }
     }
   }
-  // LAYER 1J: THUNDERSTORM BRANCHING LIGHTNING STRIKE
-  if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
-    uint32_t flash_step = (now_ms / 250U) % 18U;
-    if (flash_step <= 1U) {
-      if (flash_step == 0U) {
-        it.filled_circle(cx, cy, 228, is_night ? esphome::Color(42, 58, 85) : esphome::Color(72, 98, 135));
-      }
-      esphome::Color bolt_c(255, 255, 255);
-      esphome::Color glow_c(180, 220, 255);
-      it.line(245, 25, 235, 60, bolt_c);
-      it.line(235, 60, 252, 95, bolt_c);
-      it.line(252, 95, 220, 140, bolt_c);
-      it.line(220, 140, 195, 190, bolt_c);
-      it.line(195, 190, 165, 250, bolt_c);
-      it.line(235, 60, 275, 90, glow_c);
-      it.line(275, 90, 290, 125, glow_c);
-      it.line(220, 140, 180, 175, glow_c);
-      it.line(195, 190, 215, 225, glow_c);
-    }
-  }
 }
+
 // Renders the 4 bottom Weather Subpage navigation icons (Current, Forecast, Sun, Moon)
 // with a 100% transparent button background and a 1px dark drop-shadow (matching the flank/deck chevrons)
 // so the white icons float cleanly over any daytime, nighttime, cloudy, or stormy sky.
