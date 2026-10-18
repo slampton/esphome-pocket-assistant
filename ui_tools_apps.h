@@ -131,7 +131,7 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
     int y1 = row_1_y + y_shift;
     if (page_idx == 0) {
       if (y0 >= 95 && y0 <= 355) {
-        render_tool_launcher_card(it, col_left_x, y0, 1, "Timer", font_small,
+        render_tool_launcher_card(it, col_left_x, y0, 1, "Timers", font_small,
                                   theme_secondary, col_white, col_silver, col_slate,
                                   col_gold, col_cyan, col_green, col_orange, col_red);
         render_tool_launcher_card(it, col_right_x, y0, 2, "Alarms", font_small,
@@ -1134,7 +1134,7 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
     // -------------------------------------------------------------------------
     it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "TIMERS");
 
-    static constexpr int CARD_YS[3] = {122, 210, 298};
+    static constexpr int CARD_YS[3] = {122, 222, 322};
     for (int i = 0; i < 3; i++) {
       const auto &s = slots[i];
       int y_mid = CARD_YS[i];
@@ -1312,8 +1312,8 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
     };
 
     draw_modern_alarm_card(122, alarm1_hour, alarm1_minute, alarm1_enabled, alarm1_recurrence, 1);
-    draw_modern_alarm_card(210, alarm2_hour, alarm2_minute, alarm2_enabled, alarm2_recurrence, 2);
-    draw_modern_alarm_card(298, alarm3_hour, alarm3_minute, alarm3_enabled, alarm3_recurrence, 3);
+    draw_modern_alarm_card(222, alarm2_hour, alarm2_minute, alarm2_enabled, alarm2_recurrence, 2);
+    draw_modern_alarm_card(322, alarm3_hour, alarm3_minute, alarm3_enabled, alarm3_recurrence, 3);
   } else {
     it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "EDIT ALARM");
 
