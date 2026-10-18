@@ -631,8 +631,7 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
                                   int coin_side,
                                   FontBigT *font_date, FontSmallT *font_small,
                                   esphome::Color theme_primary, esphome::Color /*theme_secondary*/,
-                                  esphome::Color col_white, esphome::Color col_dark_gray) {
-  float flip_progress = 1.0f;
+                                  esphome::Color /*col_white*/, esphome::Color col_dark_gray) {
   float scale_y = 1.0f;
   float y_hop = 0.0f;
   float theta = (coin_side == 0) ? 0.0f : PI_F;
@@ -640,25 +639,24 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
 
   if (coin_anim_active) {
     uint32_t elapsed = now_ms - coin_anim_start_ms;
-    const uint32_t flip_dur = 900U;
+    const uint32_t flip_dur = 960U;
     if (elapsed >= flip_dur) {
       coin_anim_active = false;
     } else {
-      flip_progress = static_cast<float>(elapsed) / static_cast<float>(flip_dur);
-      // High parabolic airborne toss (-76px apex)
-      y_hop = -76.0f * fast_sin(flip_progress * PI_F);
+      float p = static_cast<float>(elapsed) / static_cast<float>(flip_dur);
+      y_hop = -78.0f * fast_sin(p * PI_F);
 
-      // Anti-aliased 20 FPS rotation rate: 4*PI (2 full turns) for Heads, 5*PI (2.5 turns) for Tails
-      // Guarantees 4-5 distinct frames per half-flip at 20 FPS (zero wagon-wheel stroboscopic aliasing!)
-      float total_rot = (coin_side == 0) ? (4.0f * PI_F) : (5.0f * PI_F);
-      float inv_p = 1.0f - flip_progress;
-      float ease_out = 1.0f - inv_p * inv_p * (0.35f + 0.65f * inv_p);
-      theta = total_rot * ease_out;
+      // Fast, steady airborne spin (6*PI = 6 half-flips for Heads, 7*PI = 7 half-flips for Tails):
+      // Uses a gentle 1.35-power ease (65% linear constant angular momentum + 35% quadratic settle)
+      // so the coin flips rapidly through the entire airborne arc and crosses edge-on 6-7 times!
+      float total_rot = (coin_side == 0) ? (6.0f * PI_F) : (7.0f * PI_F);
+      float ease_p = p * (1.35f - 0.35f * p);
+      theta = total_rot * ease_p;
 
       float raw_cos = fast_cos(theta);
       show_heads = (raw_cos >= 0.0f);
       scale_y = std::abs(raw_cos);
-      if (scale_y < 0.07f) scale_y = 0.07f;
+      if (scale_y < 0.06f) scale_y = 0.06f;
     }
   }
 
@@ -679,94 +677,93 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
     it.horizontal_line(cx - sdx, sh_base_y + sdy, 2 * sdx + 1, esphome::Color(12, 16, 22));
   }
 
-  esphome::Color col_rim_dark(92, 102, 118);
-  esphome::Color col_rim_mid(138, 148, 164);
-  esphome::Color col_bevel_hi(244, 248, 255);
-  esphome::Color col_groove_sh(122, 132, 148);
-  esphome::Color text_col(16, 30, 48);
-  esphome::Color ha_blue(24, 188, 242);
-  esphome::Color ha_blue_dark(14, 118, 164);
+  // All-Silver Struck Medallion Palette (Zero Blue — Pure 3D Engraved Silver Quarter / Dollar)
+  esphome::Color col_rim_dark(64, 72, 84);
+  esphome::Color col_rim_mid(134, 144, 160);
+  esphome::Color col_bevel_hi(248, 252, 255);
+  esphome::Color col_groove_sh(82, 92, 108);
+  esphome::Color col_relief_shadow(52, 60, 72);    // Deep struck crevice shadow
+  esphome::Color col_relief_hi(252, 254, 255);     // Gleaming upper-left struck ridge catch-light
+  esphome::Color col_engrave_ recess(74, 84, 98);  // Intaglio recessed detail shadow
 
-  // Specular highlight center shifts across the silver face as the coin tilts in 3D!
-  float spec_center = -0.38f + 0.55f * fast_sin(theta * 2.0f);
+  float spec_center = -0.35f + 0.55f * fast_sin(theta * 2.0f);
   int b_outer = std::max(3, static_cast<int>(r_outer * scale_y));
-  int edge_h = std::max(3, static_cast<int>(13.0f * (1.0f - scale_y * 0.78f)));
+  int edge_h = std::max(3, static_cast<int>(14.0f * (1.0f - scale_y * 0.78f)));
 
-  // 2. 3D Milled / Reeded Silver Dollar Edge Band (visible beneath lower rim)
-  for (int dy = 0; dy <= b_outer; dy++) {
-    int lut_idx = 233 + (dy * 232) / b_outer;
+  // 2. O(1) Crescent 3D Milled Silver Edge Band (only draws the visible rows below the front face!)
+  for (int dy = 1; dy <= b_outer + edge_h; dy++) {
+    int src_dy = (dy > edge_h) ? (dy - edge_h) : 0;
+    int lut_idx = 233 + (src_dy * 232) / b_outer;
     if (lut_idx < 0) lut_idx = 0;
     if (lut_idx > 465) lut_idx = 465;
     int dx_outer = (r_outer * CIRCLE_HW[lut_idx]) / 233;
-    for (int eh = 1; eh <= edge_h; eh++) {
-      esphome::Color ec = (eh == edge_h) ? col_rim_dark : col_rim_mid;
-      it.horizontal_line(cx - dx_outer, coin_cy + dy + eh, 2 * dx_outer + 1, ec);
-    }
-  }
-  // Vertical milled reeding ticks across the front 3D coin thickness band
-  for (int rx_off = -r_outer + 8; rx_off <= r_outer - 8; rx_off += 7) {
-    int lut_x = 233 + (rx_off * 232) / r_outer;
-    if (lut_x < 0) lut_x = 0;
-    if (lut_x > 465) lut_x = 465;
-    int y_rim = coin_cy + (b_outer * CIRCLE_HW[lut_x]) / 233;
-    esphome::Color reed_c = ((rx_off / 7) & 1) ? esphome::Color(215, 224, 238) : esphome::Color(82, 92, 108);
-    it.line(cx + rx_off, y_rim + 1, cx + rx_off, y_rim + edge_h - 1, reed_c);
+    esphome::Color ec = (dy >= b_outer + edge_h - 1) ? col_rim_dark : col_rim_mid;
+    it.horizontal_line(cx - dx_outer, coin_cy + dy, 2 * dx_outer + 1, ec);
   }
 
-  // 3. 3D Brushed-Silver Coin Face with Dynamic Specular Sheen & Stepped Inner Dish Rim
+  // 3. 3D Brushed-Silver Coin Field (Recessed Satin Pewter-Silver Field so Raised Relief Pops!)
   for (int dy = -b_outer; dy <= b_outer; dy++) {
     int lut_idx = 233 + (dy * 232) / b_outer;
     if (lut_idx < 0) lut_idx = 0;
     if (lut_idx > 465) lut_idx = 465;
     int dx_outer = (r_outer * CIRCLE_HW[lut_idx]) / 233;
 
-    // Brushed metallic luster profile per scanline (combines top-to-bottom gradient + moving specular band)
-    float u_y = static_cast<float>(dy) / static_cast<float>(b_outer); // -1.0 .. +1.0
+    float u_y = static_cast<float>(dy) / static_cast<float>(b_outer);
     float d_spec = std::fabs(u_y - spec_center);
-    float spec_boost = fmaxf(0.0f, 1.0f - d_spec * 2.2f);
-    float sheen = 186.0f - u_y * 16.0f + spec_boost * 48.0f;
-    uint8_t sr = static_cast<uint8_t>(fminf(248.0f, sheen * 0.97f));
-    uint8_t sg = static_cast<uint8_t>(fminf(250.0f, sheen * 0.99f));
-    uint8_t sb = static_cast<uint8_t>(fminf(255.0f, sheen * 1.03f));
-    esphome::Color c_silver_line(sr, sg, sb);
+    float spec_boost = fmaxf(0.0f, 1.0f - d_spec * 2.1f);
+    // Satin silver background field (148..198 luminance range so 235..255 raised relief has strong contrast)
+    float sheen = 156.0f - u_y * 18.0f + spec_boost * 42.0f;
+    uint8_t sr = static_cast<uint8_t>(fminf(225.0f, sheen * 0.96f));
+    uint8_t sg = static_cast<uint8_t>(fminf(228.0f, sheen * 0.99f));
+    uint8_t sb = static_cast<uint8_t>(fminf(236.0f, sheen * 1.04f));
+    it.horizontal_line(cx - dx_outer, coin_cy + dy, 2 * dx_outer + 1, esphome::Color(sr, sg, sb));
 
-    it.horizontal_line(cx - dx_outer, coin_cy + dy, 2 * dx_outer + 1, c_silver_line);
-
-    // Outer 3D stepped rim & inner dish trench
+    // Raised Outer Coin Rim & Stepped Dish Trench
     it.draw_pixel_at(cx - dx_outer, coin_cy + dy, col_rim_dark);
     it.draw_pixel_at(cx + dx_outer, coin_cy + dy, col_rim_dark);
-    if (dx_outer > 3) {
+    if (dx_outer > 4) {
       it.draw_pixel_at(cx - dx_outer + 1, coin_cy + dy, col_bevel_hi);
       it.draw_pixel_at(cx - dx_outer + 2, coin_cy + dy, col_bevel_hi);
       it.draw_pixel_at(cx + dx_outer - 1, coin_cy + dy, col_rim_mid);
+      it.draw_pixel_at(cx + dx_outer - 2, coin_cy + dy, col_rim_mid);
     }
-    if (dx_outer > 10) {
+    if (dx_outer > 11) {
       esphome::Color dish_l = (dy < 0) ? col_groove_sh : col_bevel_hi;
       esphome::Color dish_r = (dy < 0) ? col_bevel_hi  : col_groove_sh;
-      it.draw_pixel_at(cx - dx_outer + 7, coin_cy + dy, dish_l);
       it.draw_pixel_at(cx - dx_outer + 8, coin_cy + dy, dish_l);
-      it.draw_pixel_at(cx + dx_outer - 7, coin_cy + dy, dish_r);
+      it.draw_pixel_at(cx - dx_outer + 9, coin_cy + dy, dish_l);
       it.draw_pixel_at(cx + dx_outer - 8, coin_cy + dy, dish_r);
+      it.draw_pixel_at(cx + dx_outer - 9, coin_cy + dy, dish_r);
     }
+  }
+
+  // Vertical milled reeding ticks along the front 3D coin thickness band
+  for (int rx_off = -r_outer + 6; rx_off <= r_outer - 6; rx_off += 6) {
+    int lut_x = 233 + (rx_off * 232) / r_outer;
+    if (lut_x < 0) lut_x = 0;
+    if (lut_x > 465) lut_x = 465;
+    int y_rim = coin_cy + (b_outer * CIRCLE_HW[lut_x]) / 233;
+    esphome::Color reed_c = ((rx_off / 6) & 1) ? esphome::Color(224, 232, 245) : col_rim_dark;
+    it.line(cx + rx_off, y_rim + 1, cx + rx_off, y_rim + edge_h - 1, reed_c);
   }
 
   if (scale_y >= 0.96f) {
     it.circle(cx, coin_cy, r_outer, col_rim_dark);
     it.circle(cx, coin_cy, r_outer - 1, col_bevel_hi);
-    it.circle(cx, coin_cy, r_outer - 7, col_groove_sh);
-    it.circle(cx, coin_cy, r_outer - 8, col_bevel_hi);
+    it.circle(cx, coin_cy, r_outer - 8, col_groove_sh);
+    it.circle(cx, coin_cy, r_outer - 9, col_bevel_hi);
   }
 
-  // 4. Embossed 3D Home Assistant Medallion Motif (HEADS = Assist Smile, TAILS = Network Graph)
-  if (scale_y > 0.24f) {
+  // 4. Enlarged (+30%) All-Silver 3D Struck Bas-Relief Home Assistant Emblem & Quarter Lettering
+  if (scale_y > 0.18f) {
     int hx = cx;
-    int hy = coin_cy - static_cast<int>(14.0f * scale_y);
-    int hw = 49;
-    int y_top = hy - static_cast<int>(46.0f * scale_y);
-    int y_eave = hy - static_cast<int>(1.0f * scale_y);
-    int y_bot = hy + static_cast<int>(47.0f * scale_y);
+    int hy = coin_cy - static_cast<int>(18.0f * scale_y);
+    int hw = 62; // Enlarged from 49 -> 62 (124px wide dominant central relief)
+    int y_top = hy - static_cast<int>(56.0f * scale_y);
+    int y_eave = hy - static_cast<int>(2.0f * scale_y);
+    int y_bot = hy + static_cast<int>(54.0f * scale_y);
 
-    // 3D embossed drop-bevel (+2px lower-right dark shadow + -1px upper-left bright silver highlight)
+    // Pass 1: Deep 3D struck relief shadow (+3px lower-right) & gleaming upper-left bevel (-2px)
     for (int y = y_top; y <= y_bot; y++) {
       int cur_hw = 0;
       if (y < y_eave) {
@@ -775,14 +772,15 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
         }
       } else {
         int dy_b = y_bot - y;
-        cur_hw = (dy_b < 4 && scale_y > 0.8f) ? (hw - (4 - dy_b)) : hw;
+        cur_hw = (dy_b < 5 && scale_y > 0.75f) ? (hw - (5 - dy_b)) : hw;
       }
       if (cur_hw > 0) {
-        it.horizontal_line(hx - cur_hw + 2, y + 2, 2 * cur_hw + 1, col_rim_dark);
-        it.horizontal_line(hx - cur_hw - 1, y - 1, 2 * cur_hw + 1, col_bevel_hi);
+        it.horizontal_line(hx - cur_hw + 2, y + 2, 2 * cur_hw + 2, col_relief_shadow);
+        it.horizontal_line(hx - cur_hw - 2, y - 1, 2 * cur_hw + 1, col_relief_hi);
       }
     }
 
+    // Pass 2: Raised Brushed-Silver Bas-Relief House Plateau (brighter than background field)
     for (int y = y_top; y <= y_bot; y++) {
       int cur_hw = 0;
       if (y < y_eave) {
@@ -791,71 +789,100 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
         }
       } else {
         int dy_b = y_bot - y;
-        cur_hw = (dy_b < 4 && scale_y > 0.8f) ? (hw - (4 - dy_b)) : hw;
+        cur_hw = (dy_b < 5 && scale_y > 0.75f) ? (hw - (5 - dy_b)) : hw;
       }
       if (cur_hw > 0) {
-        esphome::Color row_blue = (y < hy) ? ha_blue : lerp_color(ha_blue, ha_blue_dark, static_cast<float>(y - hy) / static_cast<float>(y_bot - hy + 1) * 0.45f);
-        it.horizontal_line(hx - cur_hw, y, 2 * cur_hw + 1, row_blue);
+        float rel_u = static_cast<float>(y - y_top) / static_cast<float>(y_bot - y_top + 1);
+        uint8_t rl = static_cast<uint8_t>(232.0f - rel_u * 26.0f);
+        it.horizontal_line(hx - cur_hw, y, 2 * cur_hw + 1, esphome::Color(rl, static_cast<uint8_t>(rl + 2), static_cast<uint8_t>(fminf(255.0f, rl + 7.0f))));
+        // Chiseled dark inner outline around the house relief
+        it.draw_pixel_at(hx - cur_hw, y, col_groove_sh);
+        it.draw_pixel_at(hx + cur_hw, y, col_relief_shadow);
       }
     }
 
     if (show_heads) {
-      int eye_y = hy + static_cast<int>(6.0f * scale_y);
-      int eye_r = std::max(2, static_cast<int>(6.0f * scale_y));
-      it.filled_circle(hx - 21, eye_y, eye_r, col_white);
-      it.filled_circle(hx + 21, eye_y, eye_r, col_white);
+      // HEADS: 3D Engraved Assist Eyes & Smile (Dark Struck Recess + Bright Lower-Right Catch-Light)
+      int eye_y = hy + static_cast<int>(7.0f * scale_y);
+      int eye_r = std::max(2, static_cast<int>(8.0f * scale_y));
+      // Highlight bevel
+      it.filled_circle(hx - 26 + 1, eye_y + 1, eye_r, col_relief_hi);
+      it.filled_circle(hx + 26 + 1, eye_y + 1, eye_r, col_relief_hi);
+      // Deep engraved recess
+      it.filled_circle(hx - 26, eye_y, eye_r, col_relief_shadow);
+      it.filled_circle(hx + 26, eye_y, eye_r, col_relief_shadow);
+      it.filled_circle(hx - 26 + 1, eye_y + 1, std::max(1, eye_r - 2), col_engrave_recess);
+      it.filled_circle(hx + 26 + 1, eye_y + 1, std::max(1, eye_r - 2), col_engrave_recess);
 
-      int smile_top_y = hy + static_cast<int>(18.0f * scale_y);
-      int smile_mid_y = hy + static_cast<int>(23.0f * scale_y);
-      int smile_bot_y = hy + static_cast<int>(32.0f * scale_y);
-      int smile_hw = 15;
+      int smile_top_y = hy + static_cast<int>(22.0f * scale_y);
+      int smile_mid_y = hy + static_cast<int>(28.0f * scale_y);
+      int smile_bot_y = hy + static_cast<int>(40.0f * scale_y);
+      int smile_hw = 20;
 
       for (int y = smile_top_y; y <= smile_mid_y; y++) {
-        for (int t = -1; t <= 1; t++) {
-          it.draw_pixel_at(hx - smile_hw + t, y, col_white);
-          it.draw_pixel_at(hx + smile_hw + t, y, col_white);
+        for (int t = -2; t <= 1; t++) {
+          it.draw_pixel_at(hx - smile_hw + t + 1, y + 1, col_relief_hi);
+          it.draw_pixel_at(hx + smile_hw + t + 1, y + 1, col_relief_hi);
+          it.draw_pixel_at(hx - smile_hw + t, y, col_relief_shadow);
+          it.draw_pixel_at(hx + smile_hw + t, y, col_relief_shadow);
         }
       }
-      for (int i = 0; i <= 30; i++) {
-        float sa = static_cast<float>(i) * (PI_F / 30.0f);
+      for (int i = 0; i <= 36; i++) {
+        float sa = static_cast<float>(i) * (PI_F / 36.0f);
         int sx = hx - static_cast<int>(smile_hw * fast_cos(sa));
         int sy = smile_mid_y + static_cast<int>((smile_bot_y - smile_mid_y) * fast_sin(sa));
         for (int t = -1; t <= 1; t++) {
-          it.draw_pixel_at(sx, sy + t, col_white);
-          it.draw_pixel_at(sx + t, sy, col_white);
+          it.draw_pixel_at(sx + 1, sy + t + 1, col_relief_hi);
+          it.draw_pixel_at(sx, sy + t, col_relief_shadow);
+          it.draw_pixel_at(sx + t, sy, col_relief_shadow);
         }
       }
-      if (scale_y > 0.62f) {
-        it.print(cx + 1, coin_cy + static_cast<int>(63.0f * scale_y) + 1, font_date, col_bevel_hi,
-                 esphome::display::TextAlign::CENTER, "HEADS");
-        it.print(cx, coin_cy + static_cast<int>(63.0f * scale_y), font_date, text_col,
-                 esphome::display::TextAlign::CENTER, "HEADS");
+
+      if (scale_y > 0.55f) {
+        int ty = coin_cy + static_cast<int>(74.0f * scale_y);
+        // 3D Raised Quarter Lettering: dark drop shadow + bright silver face
+        it.print(cx + 2, ty + 2, font_date, col_relief_shadow, esphome::display::TextAlign::CENTER, "HEADS");
+        it.print(cx - 1, ty - 1, font_date, col_relief_hi,     esphome::display::TextAlign::CENTER, "HEADS");
+        it.print(cx,     ty,     font_date, esphome::Color(220, 228, 240), esphome::display::TextAlign::CENTER, "HEADS");
       }
     } else {
+      // TAILS: 3D Engraved Home Assistant Network Graph (Enlarged +30% with Chiseled 3D Relief)
       int H_total = y_bot - y_top;
-      int top_node_y = y_top + static_cast<int>(0.331f * static_cast<float>(H_total));
-      int right_node_x = hx + 24;
-      int right_node_y = y_top + static_cast<int>(0.596f * static_cast<float>(H_total));
-      int left_node_x = hx - 24;
-      int left_node_y = y_top + static_cast<int>(0.742f * static_cast<float>(H_total));
+      int top_node_y   = y_top + static_cast<int>(0.32f * static_cast<float>(H_total));
+      int right_node_x = hx + 31;
+      int right_node_y = y_top + static_cast<int>(0.59f * static_cast<float>(H_total));
+      int left_node_x  = hx - 31;
+      int left_node_y  = y_top + static_cast<int>(0.73f * static_cast<float>(H_total));
 
-      int node_r = std::max(3, static_cast<int>(8.0f * scale_y));
-      int line_hw = std::max(1, static_cast<int>(2.5f * scale_y));
+      int node_r = std::max(3, static_cast<int>(10.0f * scale_y));
+      int line_hw = std::max(1, static_cast<int>(3.0f * scale_y));
+      int branch_drop = static_cast<int>(29.0f * scale_y);
 
+      // Highlight bevel pass (+2px)
       for (int w = -line_hw; w <= line_hw; w++) {
-        it.line(hx + w, top_node_y, hx + w, y_bot, col_white);
-        it.line(hx + w, right_node_y + 24, right_node_x + w, right_node_y, col_white);
-        it.line(hx + w, left_node_y + 24, left_node_x + w, left_node_y, col_white);
+        it.line(hx + w + 2, top_node_y + 1, hx + w + 2, y_bot, col_relief_hi);
+        it.line(hx + w + 2, right_node_y + branch_drop + 1, right_node_x + w + 2, right_node_y + 1, col_relief_hi);
+        it.line(hx + w + 2, left_node_y + branch_drop + 1, left_node_x + w + 2, left_node_y + 1, col_relief_hi);
       }
-      it.filled_circle(hx, top_node_y, node_r, col_white);
-      it.filled_circle(right_node_x, right_node_y, node_r, col_white);
-      it.filled_circle(left_node_x, left_node_y, node_r, col_white);
+      it.filled_circle(hx + 2, top_node_y + 2, node_r, col_relief_hi);
+      it.filled_circle(right_node_x + 2, right_node_y + 2, node_r, col_relief_hi);
+      it.filled_circle(left_node_x + 2, left_node_y + 2, node_r, col_relief_hi);
 
-      if (scale_y > 0.62f) {
-        it.print(cx + 1, coin_cy + static_cast<int>(63.0f * scale_y) + 1, font_date, col_bevel_hi,
-                 esphome::display::TextAlign::CENTER, "TAILS");
-        it.print(cx, coin_cy + static_cast<int>(63.0f * scale_y), font_date, text_col,
-                 esphome::display::TextAlign::CENTER, "TAILS");
+      // Deep engraved channel pass
+      for (int w = -line_hw; w <= line_hw; w++) {
+        it.line(hx + w, top_node_y, hx + w, y_bot, col_relief_shadow);
+        it.line(hx + w, right_node_y + branch_drop, right_node_x + w, right_node_y, col_relief_shadow);
+        it.line(hx + w, left_node_y + branch_drop, left_node_x + w, left_node_y, col_relief_shadow);
+      }
+      it.filled_circle(hx, top_node_y, node_r, col_relief_shadow);
+      it.filled_circle(right_node_x, right_node_y, node_r, col_relief_shadow);
+      it.filled_circle(left_node_x, left_node_y, node_r, col_relief_shadow);
+
+      if (scale_y > 0.55f) {
+        int ty = coin_cy + static_cast<int>(74.0f * scale_y);
+        it.print(cx + 2, ty + 2, font_date, col_relief_shadow, esphome::display::TextAlign::CENTER, "TAILS");
+        it.print(cx - 1, ty - 1, font_date, col_relief_hi,     esphome::display::TextAlign::CENTER, "TAILS");
+        it.print(cx,     ty,     font_date, esphome::Color(220, 228, 240), esphome::display::TextAlign::CENTER, "TAILS");
       }
     }
   }
