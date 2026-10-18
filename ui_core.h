@@ -329,17 +329,24 @@ inline void render_modern_card(DisplayT &it, int cx_card, int cy_card, int w, in
                                const char *label, esphome::Color text_c, FontT *font) {
   int x0 = cx_card - w / 2;
   int y0 = cy_card - h / 2;
-  it.filled_rectangle(x0 + r, y0, w - 2 * r, h, bg_c);
-  it.filled_rectangle(x0, y0 + r, w, h - 2 * r, bg_c);
-  it.filled_circle(x0 + r, y0 + r, r, bg_c);
-  it.filled_circle(x0 + w - r, y0 + r, r, bg_c);
-  it.filled_circle(x0 + r, y0 + h - r, r, bg_c);
-  it.filled_circle(x0 + w - r, y0 + h - r, r, bg_c);
 
-  it.line(x0 + r, y0, x0 + w - r, y0, border_c);
-  it.line(x0 + r, y0 + h - 1, x0 + w - r, y0 + h - 1, border_c);
-  it.line(x0, y0 + r, x0, y0 + h - r, border_c);
-  it.line(x0 + w - 1, y0 + r, x0 + w - 1, y0 + h - r, border_c);
+  // 1. Outer rounded rectangle in border_c (connects all 4 corner arcs seamlessly!)
+  it.filled_rectangle(x0 + r, y0, w - 2 * r, h, border_c);
+  it.filled_rectangle(x0, y0 + r, w, h - 2 * r, border_c);
+  it.filled_circle(x0 + r, y0 + r, r, border_c);
+  it.filled_circle(x0 + w - 1 - r, y0 + r, r, border_c);
+  it.filled_circle(x0 + r, y0 + h - 1 - r, r, border_c);
+  it.filled_circle(x0 + w - 1 - r, y0 + h - 1 - r, r, border_c);
+
+  // 2. Inner rounded rectangle inset by 1px in bg_c
+  int ri = (r > 1) ? (r - 1) : 1;
+  int xi = x0 + 1, yi = y0 + 1, wi = w - 2, hi = h - 2;
+  it.filled_rectangle(xi + ri, yi, wi - 2 * ri, hi, bg_c);
+  it.filled_rectangle(xi, yi + ri, wi, hi - 2 * ri, bg_c);
+  it.filled_circle(xi + ri, yi + ri, ri, bg_c);
+  it.filled_circle(xi + wi - 1 - ri, yi + ri, ri, bg_c);
+  it.filled_circle(xi + ri, yi + hi - 1 - ri, ri, bg_c);
+  it.filled_circle(xi + wi - 1 - ri, yi + hi - 1 - ri, ri, bg_c);
 
   if (label != nullptr && label[0] != '\0' && font != nullptr) {
     it.print(cx_card, cy_card, font, text_c, esphome::display::TextAlign::CENTER, label);

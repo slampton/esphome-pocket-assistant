@@ -22,26 +22,9 @@ inline void render_tool_launcher_card(DisplayT &it, int cx_card, int cy_card,
                                       esphome::Color col_slate, esphome::Color col_gold,
                                       esphome::Color col_cyan, esphome::Color col_green,
                                       esphome::Color col_orange, esphome::Color col_red) {
-  const int cw = 124;
-  const int ch = 100;
-  const int cr = 16;
-  int x0 = cx_card - cw / 2;
-  int y0 = cy_card - ch / 2;
-
   esphome::Color card_bg(22, 27, 36);
   esphome::Color card_border(48, 56, 70);
-
-  it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, card_bg);
-  it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, card_bg);
-  it.filled_circle(x0 + cr, y0 + cr, cr, card_bg);
-  it.filled_circle(x0 + cw - cr, y0 + cr, cr, card_bg);
-  it.filled_circle(x0 + cr, y0 + ch - cr, cr, card_bg);
-  it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, card_bg);
-
-  it.line(x0 + cr, y0, x0 + cw - cr, y0, card_border);
-  it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, card_border);
-  it.line(x0, y0 + cr, x0, y0 + ch - cr, card_border);
-  it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, card_border);
+  render_modern_card(it, cx_card, cy_card, 124, 100, 16, card_bg, card_border, nullptr, col_white, font_small);
 
   int ix = cx_card;
   int iy = cy_card - 16;
@@ -1134,44 +1117,43 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
       it.print(cx, 336, font_small, col_gold, esphome::display::TextAlign::CENTER, snz_buf);
     }
   } else {
-    char hdr_buf[32];
-    snprintf(hdr_buf, sizeof(hdr_buf), "ALARM %d", alarm_edit_idx);
-    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, hdr_buf);
+    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "EDIT ALARM");
 
     int cur_h = (alarm_edit_idx == 2) ? alarm2_hour : alarm1_hour;
     int cur_m = (alarm_edit_idx == 2) ? alarm2_minute : alarm1_minute;
     int cur_rec = (alarm_edit_idx == 2) ? alarm2_recurrence : alarm1_recurrence;
 
+    // Giant Time Readout at y = 142 (exact same vertical position & gap below title as Timer!)
     char t_buf[16];
     char ap_buf[8] = "";
     format_time_hhmm(cur_h, cur_m, is_24h_format, t_buf, sizeof(t_buf), ap_buf);
-    it.print(cx, 124, font_time, col_white, esphome::display::TextAlign::CENTER, t_buf);
+    it.print(cx, 142, font_time, col_white, esphome::display::TextAlign::CENTER, t_buf);
     if (!is_24h_format) {
       int h12 = cur_h % 12;
       if (h12 == 0) h12 = 12;
       int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
-      it.print(ap_x, 133, font_small, theme_secondary, esphome::display::TextAlign::LEFT, ap_buf);
+      it.print(ap_x, 151, font_small, theme_secondary, esphome::display::TextAlign::LEFT, ap_buf);
     }
 
-    // Row 1 (y = 212): 4 Modern Rounded Stepper Cards matching Timer (-1h, +1h, -5m, +5m)
+    // Row 1 (y = 236): 4 Modern Rounded Stepper Cards (-1h, +1h, -5m, +5m) with connected corners
     esphome::Color card_bg(22, 27, 36);
     esphome::Color card_brd(52, 62, 78);
     static constexpr int STEP_XS[4] = {89, 185, 281, 377};
     static constexpr const char *STEP_LBLS[4] = {"-1h", "+1h", "-5m", "+5m"};
     for (int i = 0; i < 4; i++) {
-      render_modern_card(it, STEP_XS[i], 212, 68, 46, 12, card_bg, card_brd,
+      render_modern_card(it, STEP_XS[i], 236, 68, 46, 12, card_bg, card_brd,
                          STEP_LBLS[i], col_white, font_small);
     }
 
-    // Row 2 (y = 296): Modern Schedule Card with Left/Right Cycle Chevrons
+    // Row 2 (y = 316): Modern Rounded Schedule Card with subtle connected border & cycle chevrons
     static constexpr const char *REC_NAMES[4] = {
         "Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
-    render_modern_card(it, cx, 296, 264, 48, 14, card_bg, theme_secondary,
+    render_modern_card(it, cx, 316, 264, 46, 12, card_bg, card_brd,
                        REC_NAMES[cur_rec & 3], col_white, font_small);
-    it.line(118, 296, 124, 290, theme_secondary);
-    it.line(118, 296, 124, 302, theme_secondary);
-    it.line(348, 296, 342, 290, theme_secondary);
-    it.line(348, 296, 342, 302, theme_secondary);
+    it.line(118, 316, 124, 310, theme_secondary);
+    it.line(118, 316, 124, 322, theme_secondary);
+    it.line(348, 316, 342, 310, theme_secondary);
+    it.line(348, 316, 342, 322, theme_secondary);
   }
 
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
@@ -1832,22 +1814,9 @@ inline void render_music_menus(
 
     // 3. Lower Row (y = 324): Two Subtle Tools-Launcher-Style Cards (Artist Discography & Up Next Queue)
     auto draw_subtle_tool_card = [&](int card_cx, int card_cy, bool is_queue, const char *label) {
-      const int cw = 128, ch = 84, cr = 16;
-      int x0 = card_cx - cw / 2, y0 = card_cy - ch / 2;
       esphome::Color card_bg(22, 27, 36);
       esphome::Color card_border(48, 56, 70);
-
-      it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, card_bg);
-      it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, card_bg);
-      it.filled_circle(x0 + cr, y0 + cr, cr, card_bg);
-      it.filled_circle(x0 + cw - cr, y0 + cr, cr, card_bg);
-      it.filled_circle(x0 + cr, y0 + ch - cr, cr, card_bg);
-      it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, card_bg);
-
-      it.line(x0 + cr, y0, x0 + cw - cr, y0, card_border);
-      it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, card_border);
-      it.line(x0, y0 + cr, x0, y0 + ch - cr, card_border);
-      it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, card_border);
+      render_modern_card(it, card_cx, card_cy, 128, 84, 16, card_bg, card_border, nullptr, col_white, font_small);
 
       int ix = card_cx;
       int iy = card_cy - 15;
