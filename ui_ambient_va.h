@@ -691,38 +691,124 @@ inline uint32_t &last_page2_draw_ms() {
   return ts;
 }
 
-// Zero-trig LUT-driven 2px perimeter track progress arc (r = 224..225) for Page 2 Now Playing
-// Replaces 180-step (360 sincosf + 360 line) loop with 60-segment DIAL_SIN/DIAL_COS LUT + fractional tip
+// Pinhole-free scanline-annulus perimeter progress ring (r = 220..226, 6px radial width)
+// Eliminates Bresenham diagonal pinholes and 60-chord polygonal kinks with contiguous horizontal spans,
+// a 1px dark inner contrast edge (r = 219), a rounded 12 o'clock start cap, and a glowing playhead tip.
 template<typename DisplayT>
 inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, esphome::Color col) {
-  if (prog <= 0.005f) return;
+  if (prog <= 0.003f) return;
   if (prog > 1.0f) prog = 1.0f;
-  float total_segs = prog * 60.0f;
-  int full_segs = static_cast<int>(total_segs);
-  if (full_segs > 60) full_segs = 60;
-  float frac = total_segs - static_cast<float>(full_segs);
 
-  for (int i = 0; i < full_segs; i++) {
-    int nxt = (i + 1) % 60;
-    float s1 = DIAL_SIN[i], c1 = DIAL_COS[i];
-    float s2 = DIAL_SIN[nxt], c2 = DIAL_COS[nxt];
-    it.line(cx + static_cast<int>(224.0f * s1), cy - static_cast<int>(224.0f * c1),
-            cx + static_cast<int>(224.0f * s2), cy - static_cast<int>(224.0f * c2), col);
-    it.line(cx + static_cast<int>(225.0f * s1), cy - static_cast<int>(225.0f * c1),
-            cx + static_cast<int>(225.0f * s2), cy - static_cast<int>(225.0f * c2), col);
+  static constexpr int R_BORDER = 219;
+  static constexpr int R_IN     = 220;
+  static constexpr int R_OUT    = 226;
+  static constexpr int R_MID    = 223;
+  static constexpr int R_BORDER_SQ = R_BORDER * R_BORDER;
+  static constexpr int R_IN_SQ     = R_IN * R_IN;
+  static constexpr int R_OUT_SQ    = R_OUT * R_OUT;
+
+  float theta = prog * (2.0f * PI_F);
+  float sin_t = 0.0f, cos_t = 1.0f;
+  fast_sincos(theta, sin_t, cos_t);
+  // Clockwise sweep direction vector from 12 o'clock: u = (sin(theta), -cos(theta))
+  float ux = sin_t;
+  float uy = -cos_t;
+  bool past_half = (prog >= 0.5f);
+
+  esphome::Color col_shadow(0, 0, 0);
+  // Subtle brighter inner highlight tone for 3D ring depth
+  esphome::Color col_hi(
+      static_cast<uint8_t>(col.r + ((255 - col.r) >> 2)),
+      static_cast<uint8_t>(col.g + ((255 - col.g) >> 2)),
+      static_cast<uint8_t>(col.b + ((255 - col.b) >> 2)));
+
+  // Helper: tests whether pixel offset (dx, dy) lies within the clockwise sweep [0 .. theta]
+  auto in_sweep = [&](int dx, int dy) -> bool {
+    if (dx >= 0) {
+      if (past_half) return true;
+      return (static_cast<float>(dx) * uy - static_cast<float>(dy) * ux) <= 0.0f;
+    } else {
+      if (!past_half) return false;
+      return (static_cast<float>(dx) * uy - static_cast<float>(dy) * ux) <= 0.0f;
+    }
+  };
+
+  for (int dy = -R_OUT; dy <= R_OUT; dy++) {
+    int y = cy + dy;
+    if (y < 0 || y >= SCREEN_H) continue;
+    int dy2 = dy * dy;
+    int dx_out = static_cast<int>(sqrtf(static_cast<float>(R_OUT_SQ - dy2)));
+    int dx_in  = (dy2 < R_IN_SQ) ? static_cast<int>(sqrtf(static_cast<float>(R_IN_SQ - dy2))) : 0;
+    int dx_brd = (dy2 < R_BORDER_SQ) ? static_cast<int>(sqrtf(static_cast<float>(R_BORDER_SQ - dy2))) : 0;
+
+    // 1. Right semicircle chord: dx in [dx_in .. dx_out]
+    if (past_half) {
+      int span = dx_out - dx_in + 1;
+      if (dx_brd > 0 && dx_in > dx_brd) {
+        it.horizontal_line(cx + dx_brd, y, dx_in - dx_brd, col_shadow);
+      }
+      it.horizontal_line(cx + dx_in, y, span, col);
+      if (span >= 3) {
+        it.draw_pixel_at(cx + dx_in + (span >> 1), y, col_hi);
+      }
+    } else if (in_sweep(dx_in, dy) || in_sweep(dx_out, dy)) {
+      int x0 = -1, x1 = -1;
+      for (int dx = dx_in; dx <= dx_out; dx++) {
+        if (in_sweep(dx, dy)) {
+          if (x0 < 0) x0 = dx;
+          x1 = dx;
+        }
+      }
+      if (x0 >= 0) {
+        if (dx_brd > 0 && x0 == dx_in && dx_in > dx_brd) {
+          it.horizontal_line(cx + dx_brd, y, dx_in - dx_brd, col_shadow);
+        }
+        int span = x1 - x0 + 1;
+        it.horizontal_line(cx + x0, y, span, col);
+        if (span >= 3) {
+          it.draw_pixel_at(cx + x0 + (span >> 1), y, col_hi);
+        }
+      }
+    }
+
+    // 2. Left semicircle chord: dx in [-dx_out .. -dx_in] (only active when prog > 0.5)
+    if (past_half && dx_out > 0) {
+      int left_max_dx = (dx_in > 0) ? -dx_in : -1;
+      if (in_sweep(-dx_out, dy) && in_sweep(left_max_dx, dy)) {
+        int span = left_max_dx - (-dx_out) + 1;
+        it.horizontal_line(cx - dx_out, y, span, col);
+        if (span >= 3) {
+          it.draw_pixel_at(cx - dx_out + (span >> 1), y, col_hi);
+        }
+        if (dx_brd > 0 && dx_in > dx_brd) {
+          it.horizontal_line(cx - dx_in + 1, y, dx_in - dx_brd, col_shadow);
+        }
+      } else if (in_sweep(-dx_out, dy) || in_sweep(left_max_dx, dy)) {
+        int x0 = 1, x1 = 0;
+        for (int dx = -dx_out; dx <= left_max_dx; dx++) {
+          if (in_sweep(dx, dy)) {
+            if (x0 > 0) x0 = dx;
+            x1 = dx;
+          }
+        }
+        if (x0 <= 0) {
+          int span = x1 - x0 + 1;
+          it.horizontal_line(cx + x0, y, span, col);
+          if (span >= 3) {
+            it.draw_pixel_at(cx + x0 + (span >> 1), y, col_hi);
+          }
+        }
+      }
+    }
   }
-  if (full_segs < 60 && frac > 0.05f) {
-    int nxt = (full_segs + 1) % 60;
-    float s1 = DIAL_SIN[full_segs], c1 = DIAL_COS[full_segs];
-    float s2 = s1 + (DIAL_SIN[nxt] - s1) * frac;
-    float c2 = c1 + (DIAL_COS[nxt] - c1) * frac;
-    it.line(cx + static_cast<int>(224.0f * s1), cy - static_cast<int>(224.0f * c1),
-            cx + static_cast<int>(224.0f * s2), cy - static_cast<int>(224.0f * c2), col);
-    it.line(cx + static_cast<int>(225.0f * s1), cy - static_cast<int>(225.0f * c1),
-            cx + static_cast<int>(225.0f * s2), cy - static_cast<int>(225.0f * c2), col);
-  }
+
+  // Rounded 12 o'clock start cap & glowing leading playhead cap along R_MID = 223
+  it.filled_circle(cx, cy - R_MID, 3, col);
+  int tip_x = cx + static_cast<int>(roundf(static_cast<float>(R_MID) * ux));
+  int tip_y = cy + static_cast<int>(roundf(static_cast<float>(R_MID) * uy));
+  it.filled_circle(tip_x, tip_y, 3, col_hi);
+  it.filled_circle(tip_x, tip_y, 1, esphome::Color(255, 255, 255));
 }
-
 // Complete Voice Assistant Visual Engine supporting 3 pure-visual profiles (zero text):
 //   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven, default)
 //   - "Solaris": Flagship Radial Acoustic Corona & Solar Astrolabe Spectrometer
