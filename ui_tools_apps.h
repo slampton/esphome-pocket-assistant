@@ -351,6 +351,7 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
   int hop_y1 = 0, hop_y2 = 0;
   int jostle_x1 = 0, jostle_x2 = 0;
   int shadow_extra = 0;
+  float anim_p = 1.0f;
 
   if (dice_anim_active) {
     uint32_t elapsed = now_ms - dice_anim_start_ms;
@@ -358,23 +359,20 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
     if (elapsed >= roll_dur) {
       dice_anim_active = false;
     } else {
-      float p = (float)elapsed / (float)roll_dur;
-      float damp = 1.0f - p;
-      // 2-bounce damped parabolic hop & out-of-phase lateral clatter
-      hop_y1 = -(int)(std::abs(fast_sin(p * PI_F * 2.2f)) * 32.0f * damp);
-      hop_y2 = -(int)(std::abs(fast_sin(p * PI_F * 2.2f + 0.7f)) * 30.0f * damp);
-      jostle_x1 = (int)(fast_sin(p * PI_F * 6.0f) * 8.0f * damp);
-      jostle_x2 = -(int)(fast_cos(p * PI_F * 6.0f) * 8.0f * damp);
-      shadow_extra = (int)(6.0f * damp);
+      anim_p = static_cast<float>(elapsed) / static_cast<float>(roll_dur);
+      float damp = 1.0f - anim_p;
+      hop_y1 = -static_cast<int>(std::abs(fast_sin(anim_p * PI_F * 2.2f)) * 34.0f * damp);
+      hop_y2 = -static_cast<int>(std::abs(fast_sin(anim_p * PI_F * 2.2f + 0.7f)) * 32.0f * damp);
+      jostle_x1 = static_cast<int>(fast_sin(anim_p * PI_F * 6.0f) * 8.0f * damp);
+      jostle_x2 = -static_cast<int>(fast_cos(anim_p * PI_F * 6.0f) * 8.0f * damp);
+      shadow_extra = static_cast<int>(6.0f * damp);
 
-      // Pseudo-random independent face tumbling
       uint32_t step = elapsed / 55U;
-      cur_val_1 = 1 + ((int)(hash2d_01((int)step, 17) * 60.0f) % 6);
-      cur_val_2 = 1 + ((int)(hash2d_01((int)step + 31, 53) * 60.0f) % 6);
+      cur_val_1 = 1 + (static_cast<int>(hash2d_01(static_cast<int>(step), 17) * 60.0f) % 6);
+      cur_val_2 = 1 + (static_cast<int>(hash2d_01(static_cast<int>(step) + 31, 53) * 60.0f) % 6);
     }
   }
 
-  // Clean Canvas: Centered 132x132 3D Rounded Ivory Dice at y = 192
   const int dice_base_y = 192;
   const int d1_cx = cx - 75 + jostle_x1;
   const int d2_cx = cx + 75 + jostle_x2;
@@ -383,13 +381,82 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
   const int d_size = 132;
   const int cr = 16;
 
+  // 3D Airborne Tumbling Cube Renderer (active during airborne tumble anim_p < 0.80f)
+  auto draw_tumbling_cube_3d = [&](int center_x, int center_y, float rx, float ry, float rz) {
+    static constexpr float CUBE_V[8][3] = {
+      {-1.0f, -1.0f, -1.0f}, { 1.0f, -1.0f, -1.0f}, { 1.0f,  1.0f, -1.0f}, {-1.0f,  1.0f, -1.0f},
+      {-1.0f, -1.0f,  1.0f}, { 1.0f, -1.0f,  1.0f}, { 1.0f,  1.0f,  1.0f}, {-1.0f,  1.0f,  1.0f}
+    };
+    static constexpr uint8_t CUBE_E[12][2] = {
+      {0,1}, {1,2}, {2,3}, {3,0},
+      {4,5}, {5,6}, {6,7}, {7,4},
+      {0,4}, {1,5}, {2,6}, {3,7}
+    };
+    static constexpr uint8_t CUBE_F[6][4] = {
+      {0,1,2,3}, {4,5,6,7}, {0,1,5,4}, {2,3,7,6}, {0,3,7,4}, {1,2,6,5}
+    };
+
+    const float half_s = 46.0f;
+    ProjectedPoint pts[8];
+    Vec3 rv[8];
+    for (int i = 0; i < 8; i++) {
+      rv[i] = rotate_3d_xyz({CUBE_V[i][0] * half_s, CUBE_V[i][1] * half_s, CUBE_V[i][2] * half_s}, rx, ry, rz);
+      pts[i] = project_3d(rv[i], center_x, center_y, 260.0f, 280.0f);
+    }
+
+    // Floor drop shadow beneath airborne tumbling cube
+    it.filled_circle(center_x + 6, center_y + 18 - hop_y1 / 2, 42, esphome::Color(16, 20, 28));
+
+    esphome::Color c_ivory(244, 240, 232);
+    esphome::Color c_shade(205, 198, 186);
+    esphome::Color c_back_edge(75, 82, 96);
+    esphome::Color c_pip(25, 28, 35);
+
+    // Fill front-facing cube faces (z_avg < 0)
+    for (int f = 0; f < 6; f++) {
+      uint8_t i0 = CUBE_F[f][0], i1 = CUBE_F[f][1], i2 = CUBE_F[f][2], i3 = CUBE_F[f][3];
+      float z_face = 0.25f * (rv[i0].z + rv[i1].z + rv[i2].z + rv[i3].z);
+      if (z_face < -4.0f) {
+        esphome::Color fc = (z_face < -24.0f) ? c_ivory : c_shade;
+        it.filled_triangle(pts[i0].x, pts[i0].y, pts[i1].x, pts[i1].y, pts[i2].x, pts[i2].y, fc);
+        it.filled_triangle(pts[i0].x, pts[i0].y, pts[i2].x, pts[i2].y, pts[i3].x, pts[i3].y, fc);
+
+        // Draw 3D pip cluster on visible front-facing cube faces
+        int fcx = (pts[i0].x + pts[i1].x + pts[i2].x + pts[i3].x) >> 2;
+        int fcy = (pts[i0].y + pts[i1].y + pts[i2].y + pts[i3].y) >> 2;
+        it.filled_circle(fcx, fcy, 4, c_pip);
+        if ((f & 1) != 0) {
+          it.filled_circle((fcx + pts[i0].x) >> 1, (fcy + pts[i0].y) >> 1, 3, c_pip);
+          it.filled_circle((fcx + pts[i2].x) >> 1, (fcy + pts[i2].y) >> 1, 3, c_pip);
+        }
+        if (f >= 3) {
+          it.filled_circle((fcx + pts[i1].x) >> 1, (fcy + pts[i1].y) >> 1, 3, c_pip);
+          it.filled_circle((fcx + pts[i3].x) >> 1, (fcy + pts[i3].y) >> 1, 3, c_pip);
+        }
+      }
+    }
+
+    // Draw rear wireframe edges first, then crisp white/gold front edges on top
+    for (int e = 0; e < 12; e++) {
+      uint8_t a = CUBE_E[e][0], b = CUBE_E[e][1];
+      if ((rv[a].z + rv[b].z) > 0.0f) {
+        it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, c_back_edge);
+      }
+    }
+    for (int e = 0; e < 12; e++) {
+      uint8_t a = CUBE_E[e][0], b = CUBE_E[e][1];
+      if ((rv[a].z + rv[b].z) <= 0.0f) {
+        it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, col_white);
+      }
+    }
+  };
+
   auto draw_rounded_d6 = [&](int center_x, int center_y, int val) {
     int x0 = center_x - d_size / 2;
     int y0 = center_y - d_size / 2;
     int sx0 = x0 + 6 + shadow_extra;
     int sy0 = y0 + 8 + shadow_extra;
 
-    // 1. Rounded Drop Shadow
     esphome::Color sh_col(16, 20, 28);
     it.filled_rectangle(sx0 + cr, sy0, d_size - 2 * cr, d_size, sh_col);
     it.filled_rectangle(sx0, sy0 + cr, d_size, d_size - 2 * cr, sh_col);
@@ -398,7 +465,6 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
     it.filled_circle(sx0 + cr, sy0 + d_size - cr, cr, sh_col);
     it.filled_circle(sx0 + d_size - cr, sy0 + d_size - cr, cr, sh_col);
 
-    // 2. Rounded Ivory Die Body + 3D Top/Left Specular Bevel
     esphome::Color body_col(248, 246, 240);
     esphome::Color border_col(182, 176, 164);
     it.filled_rectangle(x0 + cr, y0, d_size - 2 * cr, d_size, body_col);
@@ -408,20 +474,17 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
     it.filled_circle(x0 + cr, y0 + d_size - cr, cr, body_col);
     it.filled_circle(x0 + d_size - cr, y0 + d_size - cr, cr, body_col);
 
-    // Subtle top/left highlight & bottom/right bone bevel
     it.line(x0 + cr, y0 + 1, x0 + d_size - cr, y0 + 1, col_white);
     it.line(x0 + 1, y0 + cr, x0 + 1, y0 + d_size - cr, col_white);
     it.line(x0 + cr, y0 + d_size - 1, x0 + d_size - cr, y0 + d_size - 1, border_col);
     it.line(x0 + d_size - 1, y0 + cr, x0 + d_size - 1, y0 + d_size - cr, border_col);
 
-    // 3. Recessed Obsidian Black Pips (Radius 9, all obsidian black with 3D rim glint)
     const int pr = 9;
     const int p_dist = 34;
     esphome::Color pip_c(25, 28, 35);
     esphome::Color pip_rim(85, 92, 105);
     auto draw_pip = [&](int px, int py) {
       it.filled_circle(px, py, pr, pip_c);
-      // Recessed bottom-right rim highlight
       it.draw_pixel_at(px + 4, py + 5, pip_rim);
       it.draw_pixel_at(px + 5, py + 4, pip_rim);
       it.draw_pixel_at(px + 3, py + 6, pip_rim);
@@ -438,10 +501,15 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
     if (p_mid_lr) { draw_pip(center_x - p_dist, center_y); draw_pip(center_x + p_dist, center_y); }
   };
 
-  draw_rounded_d6(d1_cx, d1_cy, cur_val_1);
-  draw_rounded_d6(d2_cx, d2_cy, cur_val_2);
+  if (dice_anim_active && anim_p < 0.80f) {
+    float spin = anim_p * 7.8f;
+    draw_tumbling_cube_3d(d1_cx, d1_cy, spin * 1.1f, spin * 1.4f + 0.5f, spin * 0.7f);
+    draw_tumbling_cube_3d(d2_cx, d2_cy, -spin * 1.2f + 0.8f, spin * 1.0f, -spin * 0.9f);
+  } else {
+    draw_rounded_d6(d1_cx, d1_cy, cur_val_1);
+    draw_rounded_d6(d2_cx, d2_cy, cur_val_2);
+  }
 
-  // Prominent Total Readout at y = 324 (Clean canvas: no top title or instruction clutter)
   if (dice_anim_active) {
     it.print(cx, 324, font_date, theme_secondary, esphome::display::TextAlign::CENTER, "ROLLING...");
   } else {
@@ -452,7 +520,6 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
 
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
 }
-
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_tool_bubble_level(DisplayT &it, int cx, float ax, float ay, float az,
                                      FontBigT *font_date, FontSmallT *font_small,

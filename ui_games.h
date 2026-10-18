@@ -2033,39 +2033,73 @@ template<typename DisplayT>
 inline void render_asteroids_rock(DisplayT &it, float rx, float ry, float r_base,
                                   int shape, float rot_rad,
                                   esphome::Color rim_col, esphome::Color crater_col) {
-  static constexpr float SHAPE_OFFSETS[3][8] = {
-      {0.86f, 1.14f, 0.90f, 1.18f, 0.82f, 1.10f, 0.94f, 1.06f},
-      {1.10f, 0.85f, 1.15f, 0.82f, 1.18f, 0.90f, 1.05f, 0.86f},
-      {0.94f, 1.18f, 0.85f, 1.10f, 0.90f, 1.15f, 0.82f, 1.06f}};
-  const int sh = ((shape % 3) + 3) % 3;
-  int px_prev = 0, py_prev = 0, px_first = 0, py_first = 0;
-  for (int v = 0; v < 8; v++) {
-    float ang = rot_rad + (float)v * 0.785398f;
-    float r = r_base * SHAPE_OFFSETS[sh][v];
-    int vx = (int)(rx + fast_cos(ang) * r);
-    int vy = (int)(ry + fast_sin(ang) * r);
-    if (v == 0) {
-      px_first = vx;
-      py_first = vy;
-    } else {
-      it.line(px_prev, py_prev, vx, vy, rim_col);
+  // 3D 10-vertex craggy polyhedral asteroid mesh (2 polar apices + 8 staggered equatorial/mid vertices)
+  // Rotated in 3D via rotate_3d_xyz() and projected via project_3d() with back-to-front edge depth sorting
+  static constexpr float VERT_3D[3][10][3] = {
+    { // Shape 0
+      { 0.00f, -0.92f,  0.15f}, { 0.05f,  0.90f, -0.15f},
+      { 0.95f, -0.18f,  0.12f}, { 0.68f,  0.22f,  0.72f},
+      {-0.12f, -0.24f,  0.96f}, {-0.76f,  0.18f,  0.65f},
+      {-0.98f, -0.15f, -0.08f}, {-0.66f,  0.25f, -0.70f},
+      { 0.10f, -0.20f, -0.94f}, { 0.74f,  0.16f, -0.68f}
+    },
+    { // Shape 1
+      {-0.10f, -0.95f, -0.12f}, { 0.12f,  0.88f,  0.18f},
+      { 1.02f,  0.15f, -0.10f}, { 0.64f, -0.25f,  0.76f},
+      {-0.18f,  0.20f,  0.92f}, {-0.82f, -0.18f,  0.58f},
+      {-0.92f,  0.22f, -0.14f}, {-0.70f, -0.20f, -0.68f},
+      { 0.15f,  0.24f, -0.96f}, { 0.68f, -0.16f, -0.72f}
+    },
+    { // Shape 2
+      { 0.12f, -0.88f,  0.18f}, {-0.10f,  0.94f, -0.12f},
+      { 0.90f, -0.22f,  0.20f}, { 0.76f,  0.18f,  0.64f},
+      {-0.08f, -0.16f,  0.98f}, {-0.72f,  0.24f,  0.68f},
+      {-1.00f, -0.12f,  0.05f}, {-0.64f,  0.18f, -0.74f},
+      { 0.08f, -0.24f, -0.90f}, { 0.78f,  0.20f, -0.62f}
     }
-    px_prev = vx;
-    py_prev = vy;
-  }
-  it.line(px_prev, py_prev, px_first, py_first, rim_col);
+  };
 
-  // Subtle internal facet ridge on Large & Medium asteroids
-  if (r_base >= 15.0f) {
-    int c1x = (int)(rx + fast_cos(rot_rad + 0.5f) * (r_base * 0.38f));
-    int c1y = (int)(ry + fast_sin(rot_rad + 0.5f) * (r_base * 0.38f));
-    int c2x = (int)(rx + fast_cos(rot_rad + 2.4f) * (r_base * 0.32f));
-    int c2y = (int)(ry + fast_sin(rot_rad + 2.4f) * (r_base * 0.32f));
-    it.line((int)rx, (int)ry, c1x, c1y, crater_col);
-    it.line((int)rx, (int)ry, c2x, c2y, crater_col);
+  const int sh = ((shape % 3) + 3) % 3;
+  float ax = rot_rad * 0.85f + static_cast<float>(sh) * 0.9f;
+  float ay = rot_rad * 1.15f + static_cast<float>(sh) * 0.5f;
+  float az = rot_rad * 0.55f;
+
+  ProjectedPoint pts[10];
+  float vz[10];
+  int cx_r = static_cast<int>(rx);
+  int cy_r = static_cast<int>(ry);
+
+  for (int i = 0; i < 10; i++) {
+    Vec3 v_local{VERT_3D[sh][i][0] * r_base,
+                 VERT_3D[sh][i][1] * r_base,
+                 VERT_3D[sh][i][2] * r_base};
+    Vec3 vr = rotate_3d_xyz(v_local, ax, ay, az);
+    vz[i] = vr.z;
+    pts[i] = project_3d(vr, cx_r, cy_r, 250.0f, 250.0f);
+  }
+
+  // 16 polyhedral edges: 8 around the jagged equator (2..9) + 4 upper facets to apex 0 + 4 lower facets to apex 1
+  static constexpr uint8_t EDGES[16][2] = {
+    {2,3}, {3,4}, {4,5}, {5,6}, {6,7}, {7,8}, {8,9}, {9,2},
+    {0,2}, {0,4}, {0,6}, {0,8},
+    {1,3}, {1,5}, {1,7}, {1,9}
+  };
+
+  // Pass 1: Draw rear-hemisphere edges (z_avg > 0) in dimmer crater_col for 3D wireframe depth
+  for (int e = 0; e < 16; e++) {
+    uint8_t a = EDGES[e][0], b = EDGES[e][1];
+    if ((vz[a] + vz[b]) > 0.0f) {
+      it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, crater_col);
+    }
+  }
+  // Pass 2: Draw front-hemisphere edges (z_avg <= 0) on top in bright rim_col
+  for (int e = 0; e < 16; e++) {
+    uint8_t a = EDGES[e][0], b = EDGES[e][1];
+    if ((vz[a] + vz[b]) <= 0.0f) {
+      it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, rim_col);
+    }
   }
 }
-
 template<typename DisplayT>
 inline void render_asteroids_ufo(DisplayT &it, int ux, int uy, float scale,
                                  uint32_t now_ms, esphome::Color col_white,
@@ -2548,11 +2582,16 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
   // RENDERING PIPELINE (Clean Deep-Space Vector Arena)
   // ==========================================================================
 
-  // 1. Deep-Space Starfield & Outer Radar Ring (r = 212)
+  // 1. Deep-Space 3D Parallax Starfield & Outer Radar Ring (r = 212)
   static constexpr int16_t STAR_X[16] = {65, 140, 310, 395, 75, 130, 340, 400, 85, 160, 305, 380, 195, 270, 200, 265};
   static constexpr int16_t STAR_Y[16] = {80, 115, 75, 110, 195, 240, 205, 265, 315, 360, 330, 375, 95, 115, 375, 360};
+  float st_px = fmaxf(-14.0f, fminf(14.0f, -roll_delta * 0.45f));
+  float st_py = fmaxf(-14.0f, fminf(14.0f, pitch_delta * 0.45f));
   for (int s = 0; s < 16; s++) {
-    it.draw_pixel_at(STAR_X[s], STAR_Y[s], esphome::Color(125, 142, 168));
+    float depth_k = (s & 1) ? 1.0f : 0.45f;
+    int sx = STAR_X[s] + static_cast<int>(st_px * depth_k);
+    int sy = STAR_Y[s] + static_cast<int>(st_py * depth_k);
+    it.draw_pixel_at(sx, sy, (s & 1) ? esphome::Color(165, 185, 215) : esphome::Color(95, 112, 138));
   }
   it.circle(cx, cy, 212, col_dark_gray);
 
