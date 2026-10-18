@@ -29,10 +29,24 @@ static constexpr uint16_t AURORA_PLUME_LUT[64] = {
 
 template<typename DisplayT>
 inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now_ms) {
-  (void)cx;
   float t = now_ms * 0.0010f;
 
-  // Slow organic breathing pulse per veil (0.90 .. 1.04) with deep, saturated base hues
+  // 1. Subtle Polar Night Starfield in the upper/mid sky dome (shines softly behind the aurora veils)
+  float t_twinkle = now_ms * 0.0025f;
+  for (int k = 0; k < 28; k++) {
+    float r_norm = sqrtf((static_cast<float>(k) + 0.5f) * (1.0f / 28.0f));
+    float r_px = 24.0f + r_norm * 196.0f;
+    float ang = static_cast<float>(k) * 2.39996323f + 0.4f;
+    float sa = 0.0f, ca = 1.0f;
+    fast_sincos(ang, sa, ca);
+    int sx = cx + static_cast<int>(ca * r_px);
+    int sy = cy - static_cast<int>( std::fabs(sa) * r_px * 0.85f) + 18; // Concentrated in upper/mid polar sky
+    if (!is_inside_bezel(sx, sy, cy, 8)) continue;
+    uint8_t br = static_cast<uint8_t>(110 + static_cast<int>(55.0f * fast_sin(t_twinkle + k * 1.1f)));
+    it.draw_pixel_at(sx, sy, esphome::Color(static_cast<uint8_t>(br * 0.82f), static_cast<uint8_t>(br * 0.90f), br));
+  }
+
+  // 2. 3 Full-Bodied Polar Curtains with Zero-Division Soft-Max Overlap Blending
   float b1 = 0.92f + 0.10f * fast_sin(t * 0.9f);
   int p1_r = static_cast<int>(192.0f * b1);
   int p1_g = static_cast<int>(24.0f  * b1);
@@ -55,7 +69,6 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     int y_max = cy + h_half;
     float xf = static_cast<float>(x);
 
-    // Full-bodied Chunk 72 physical veil geometry (120..150px heights & wide organic overlap)
     int y1 = cy - 10 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 58.0f + fast_cos(xf * 0.006f - t * 0.35f) * 28.0f);
     int len1 = 120 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 35.0f);
     int top1 = y1 - len1;
@@ -81,58 +94,48 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     if (y3 > col_bot) col_bot = y3;
     if (col_bot > y_max) col_bot = y_max;
 
-    // Hue-Preserving Soft-Add Blending:
-    // When two or three curtains overlap, we weight their RGB mix by (w_max + 28% of secondary weights) / w_sum
-    // so intersections glow slightly brighter while blending into deep indigo, royal blue, and seafoam
-    // instead of saturating all three RGB channels into white!
+    // Zero-Division Hue-Preserving Soft-Max Blend:
+    // For each RGB channel, takes max(c1, c2, c3) + 25% of secondary contributions ((sum - max) >> 2).
+    // Eliminates 3 hardware divisions per pixel (~100,000 divisions/frame saved!) while preserving
+    // deep indigo, royal blue, and seafoam overlap blends without white saturation.
     for (int py = col_bot; py >= col_top; py -= 2) {
-      int r = 0, g = 0, b = 0;
-      uint32_t w_sum = 0;
-      uint32_t w_max = 0;
+      int r_sum = 0, g_sum = 0, b_sum = 0;
+      int r_max = 0, g_max = 0, b_max = 0;
 
       if (py <= y1 && py >= top1) {
-        int idx1 = ((y1 - py) * step1_fp) >> 10;
-        uint32_t w1 = AURORA_PLUME_LUT[idx1 & 63];
-        r += (p1_r * static_cast<int>(w1)) >> 8;
-        g += (p1_g * static_cast<int>(w1)) >> 8;
-        b += (p1_b * static_cast<int>(w1)) >> 8;
-        w_sum += w1;
-        w_max = w1;
+        uint32_t w1 = AURORA_PLUME_LUT[(((y1 - py) * step1_fp) >> 10) & 63];
+        r_sum = r_max = (p1_r * static_cast<int>(w1)) >> 8;
+        g_sum = g_max = (p1_g * static_cast<int>(w1)) >> 8;
+        b_sum = b_max = (p1_b * static_cast<int>(w1)) >> 8;
       }
       if (py <= y2 && py >= top2) {
-        int idx2 = ((y2 - py) * step2_fp) >> 10;
-        uint32_t w2 = AURORA_PLUME_LUT[idx2 & 63];
-        r += (p2_r * static_cast<int>(w2)) >> 8;
-        g += (p2_g * static_cast<int>(w2)) >> 8;
-        b += (p2_b * static_cast<int>(w2)) >> 8;
-        w_sum += w2;
-        if (w2 > w_max) w_max = w2;
+        uint32_t w2 = AURORA_PLUME_LUT[(((y2 - py) * step2_fp) >> 10) & 63];
+        int r2 = (p2_r * static_cast<int>(w2)) >> 8;
+        int g2 = (p2_g * static_cast<int>(w2)) >> 8;
+        int b2 = (p2_b * static_cast<int>(w2)) >> 8;
+        r_sum += r2; if (r2 > r_max) r_max = r2;
+        g_sum += g2; if (g2 > g_max) g_max = g2;
+        b_sum += b2; if (b2 > b_max) b_max = b2;
       }
       if (py <= y3 && py >= top3) {
-        int idx3 = ((y3 - py) * step3_fp) >> 10;
-        uint32_t w3 = AURORA_PLUME_LUT[idx3 & 63];
-        r += (p3_r * static_cast<int>(w3)) >> 8;
-        g += (p3_g * static_cast<int>(w3)) >> 8;
-        b += (p3_b * static_cast<int>(w3)) >> 8;
-        w_sum += w3;
-        if (w3 > w_max) w_max = w3;
+        uint32_t w3 = AURORA_PLUME_LUT[(((y3 - py) * step3_fp) >> 10) & 63];
+        int r3 = (p3_r * static_cast<int>(w3)) >> 8;
+        int g3 = (p3_g * static_cast<int>(w3)) >> 8;
+        int b3 = (p3_b * static_cast<int>(w3)) >> 8;
+        r_sum += r3; if (r3 > r_max) r_max = r3;
+        g_sum += g3; if (g3 > g_max) g_max = g3;
+        b_sum += b3; if (b3 > b_max) b_max = b3;
       }
 
-      if (w_sum > w_max && w_sum > 0) {
-        // Normalize overlapping curtains so hue mixes cleanly with a +25% intersection glow
-        // rather than summing R+G+B to 255 (white)
-        uint32_t w_target = w_max + ((w_sum - w_max) >> 2);
-        r = static_cast<int>((static_cast<uint32_t>(r) * w_target) / w_sum);
-        g = static_cast<int>((static_cast<uint32_t>(g) * w_target) / w_sum);
-        b = static_cast<int>((static_cast<uint32_t>(b) * w_target) / w_sum);
-      }
+      int r = r_max + ((r_sum - r_max) >> 2);
+      int g = g_max + ((g_sum - g_max) >> 2);
+      int b = b_max + ((b_sum - b_max) >> 2);
 
       if ((r | g | b) > 5) {
         uint8_t cr = static_cast<uint8_t>(r > 255 ? 255 : r);
         uint8_t cg = static_cast<uint8_t>(g > 255 ? 255 : g);
         uint8_t cb = static_cast<uint8_t>(b > 255 ? 255 : b);
         it.draw_pixel_at(x, py, esphome::Color(cr, cg, cb));
-        // Subtle 38% companion pixel at py - 1: splits the brightness difference between Chunk 71 and Chunk 72
         if (py - 1 >= y_min) {
           it.draw_pixel_at(x, py - 1, esphome::Color(
               static_cast<uint8_t>((cr * 96U) >> 8),
@@ -146,7 +149,7 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
 
 template<typename DisplayT>
 inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t now_ms = 0) {
-  struct Star3D { float x, y, z; };
+  struct Star3D { float x, y, z; uint8_t tint; };
   static Star3D stars[90];
   static bool stars_init = false;
   static uint32_t star_seed = 123456789;
@@ -158,10 +161,11 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
   };
   auto respawn_star = [&](int i, bool init_z) {
     float ang = star_rand() * (2.0f * PI_F);
-    float dist = 40.0f + star_rand() * 650.0f;
+    float dist = 36.0f + star_rand() * 640.0f;
     stars[i].x = fast_cos(ang) * dist;
     stars[i].y = fast_sin(ang) * dist;
-    stars[i].z = init_z ? (30.0f + star_rand() * 950.0f) : (850.0f + star_rand() * 150.0f);
+    stars[i].z = init_z ? (35.0f + star_rand() * 920.0f) : (840.0f + star_rand() * 140.0f);
+    stars[i].tint = static_cast<uint8_t>(i & 3);
   };
   if (!stars_init) {
     for (int i = 0; i < 90; i++) respawn_star(i, true);
@@ -169,116 +173,110 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
     last_star_ms = now_ms;
   }
 
-  // Time-delta driven progression (250 units/sec = 25 units per 100ms frame)
-  float speed = 25.0f;
+  float speed = 13.5f;
   if (now_ms > 0) {
     uint32_t dt = now_ms - last_star_ms;
     last_star_ms = now_ms;
     if (dt >= 20U && dt <= 300U) {
-      speed = static_cast<float>(dt) * 0.25f;
+      speed = static_cast<float>(dt) * 0.26f;
     }
   }
 
+  // Gentle 3D spacecraft banking & vanishing-point drift for fluid 3D flight feel
+  float t_flight = now_ms * 0.00045f;
+  int vp_x = cx + static_cast<int>(fast_sin(t_flight) * 24.0f);
+  int vp_y = cy + static_cast<int>(fast_cos(t_flight * 0.8f) * 18.0f);
+  float bank_s = 0.0f, bank_c = 1.0f;
+  fast_sincos(0.28f * fast_sin(t_flight * 0.7f), bank_s, bank_c);
+
   for (int i = 0; i < 90; i++) {
     stars[i].z -= speed;
-    if (stars[i].z <= 25.0f) {
+    if (stars[i].z <= 28.0f) {
       respawn_star(i, false);
       continue;
     }
+
+    // Rotate star (x, y) by gentle 3D spacecraft bank angle
+    float rx = stars[i].x * bank_c - stars[i].y * bank_s;
+    float ry = stars[i].x * bank_s + stars[i].y * bank_c;
+
     float k = 230.0f / stars[i].z;
-    int sx = cx + static_cast<int>(stars[i].x * k);
-    int sy = cy + static_cast<int>(stars[i].y * k);
+    int sx = vp_x + static_cast<int>(rx * k);
+    int sy = vp_y + static_cast<int>(ry * k);
     if (!is_inside_bezel(sx, sy, cy, 6)) {
       respawn_star(i, false);
       continue;
     }
-    float prev_k = 230.0f / (stars[i].z + speed * 1.5f);
-    int px = cx + static_cast<int>(stars[i].x * prev_k);
-    int py = cy + static_cast<int>(stars[i].y * prev_k);
-    if (stars[i].z > 650.0f) {
-      it.draw_pixel_at(sx, sy, esphome::Color(80, 100, 130));
-    } else if (stars[i].z > 350.0f) {
-      it.line(px, py, sx, sy, esphome::Color(100, 180, 230));
-      it.draw_pixel_at(sx, sy, esphome::Color(180, 220, 255));
+
+    // Smooth continuous depth-luminance ramp (0.12 at z=960 -> 1.0 at z=30: zero bucket popping!)
+    float depth_u = fmaxf(0.0f, fminf(1.0f, 1.0f - (stars[i].z * (1.0f / 960.0f))));
+    float lum = 0.14f + 0.86f * depth_u * (0.45f + 0.55f * depth_u);
+
+    // Subtle stellar spectral tints (0: Ice-Cyan, 1: Pure White-Blue, 2: Solar Gold, 3: Soft Rose-Amber)
+    uint8_t sr, sg, sb;
+    if (stars[i].tint == 0) {
+      sr = static_cast<uint8_t>(165.0f * lum); sg = static_cast<uint8_t>(235.0f * lum); sb = static_cast<uint8_t>(255.0f * lum);
+    } else if (stars[i].tint == 2) {
+      sr = static_cast<uint8_t>(255.0f * lum); sg = static_cast<uint8_t>(230.0f * lum); sb = static_cast<uint8_t>(175.0f * lum);
+    } else if (stars[i].tint == 3) {
+      sr = static_cast<uint8_t>(255.0f * lum); sg = static_cast<uint8_t>(195.0f * lum); sb = static_cast<uint8_t>(215.0f * lum);
     } else {
-      it.line(px, py, sx, sy, esphome::Color(40, 180, 255));
-      it.filled_circle(sx, sy, 2, esphome::Color(255, 255, 255));
+      sr = static_cast<uint8_t>(215.0f * lum); sg = static_cast<uint8_t>(235.0f * lum); sb = static_cast<uint8_t>(255.0f * lum);
+    }
+    esphome::Color head_col(sr, sg, sb);
+
+    if (depth_u < 0.28f) {
+      it.draw_pixel_at(sx, sy, head_col);
+    } else {
+      float tail_z = stars[i].z + speed * (1.2f + 1.4f * depth_u);
+      float prev_k = 230.0f / tail_z;
+      int px = vp_x + static_cast<int>(rx * prev_k);
+      int py = vp_y + static_cast<int>(ry * prev_k);
+      esphome::Color tail_col(static_cast<uint8_t>(sr >> 1), static_cast<uint8_t>(sg >> 1), static_cast<uint8_t>(sb >> 1));
+      it.line(px, py, sx, sy, tail_col);
+      it.draw_pixel_at(sx, sy, head_col);
+      if (depth_u > 0.74f) {
+        it.filled_circle(sx, sy, (depth_u > 0.88f) ? 2 : 1, head_col);
+      }
     }
   }
 }
 
-// 32-entry procedural Matrix Katakana & mirrored cipher stroke bitmask LUT in .rodata Flash:
-// Bits 0..9 encode 10 canonical 7x9 cell strokes (top/mid/bot bars, UL/LL/UR/LR stems, center spine,
-// sweeping Katakana diagonal, and dakuten/cross accents) so every grid cell renders a sharp,
-// authentic Japanese half-width Katakana or mirrored cipher character rather than a solid rectangle.
 static constexpr uint16_t MATRIX_GLYPH_MASK[32] = {
-  0x121, // 0: ア (top bar + UR stem + sweeping Katakana diagonal)
-  0x181, // 1: イ / テ (top bar + center spine + sweeping diagonal)
-  0x069, // 2: ウ (top bar + UL stem + UR/LR right vertical)
-  0x085, // 3: エ (top bar + center spine + bottom bar)
-  0x183, // 4: オ (top + mid bar + center spine + diagonal sweep)
-  0x06B, // 5: カ (top + mid bar + UL stem + UR/LR hook)
-  0x083, // 6: キ / 十 (top + mid bar + center spine)
-  0x129, // 7: ク (top bar + UL stem + UR stem + diagonal sweep)
-  0x0A9, // 8: ケ (top bar + UL stem + UR stem + center spine)
-  0x065, // 9: コ (top bar + UR/LR stem + bottom bar)
-  0x0A3, // 10: サ (top + mid bar + UL + UR + center spine)
-  0x105, // 11: ス / Z (top bar + diagonal sweep + bottom bar)
-  0x214, // 12: ソ / レ (LL stem + bottom bar + dakuten accent)
-  0x12B, // 13: タ (top + mid bar + UL/UR + diagonal sweep)
-  0x182, // 14: ナ (mid bar + center spine + diagonal sweep)
-  0x007, // 15: ニ / 三 (top + mid + bottom horizontal bars)
-  0x301, // 16: ヌ (top bar + sweeping diagonal + cross accent)
-  0x381, // 17: ネ (top bar + center spine + diagonal + cross)
-  0x108, // 18: ノ / ハ (UL stem + sweeping Katakana diagonal)
-  0x056, // 19: ヒ (mid + bottom bar + LL + LR stems)
-  0x141, // 20: フ (top bar + LR hook + sweeping diagonal)
-  0x187, // 21: ホ (top + mid + bot bar + spine + diagonal)
-  0x223, // 22: マ (top + mid bar + UR stem + accent)
-  0x207, // 23: ミ (three horizontal bars + diagonal accent)
-  0x114, // 24: ム (LL stem + bottom bar + sweeping diagonal)
-  0x300, // 25: メ (crossing Katakana diagonals)
-  0x097, // 26: モ (top + mid + bot bar + LL stem + center spine)
-  0x067, // 27: ヨ (top + mid + bot bar + UR/LR right stem)
-  0x107, // 28: ラ (top + mid + bot bar + sweeping diagonal)
-  0x028, // 29: リ (UL short stem + UR/LR long stem)
-  0x07D, // 30: ロ (full Katakana box)
-  0x204  // 31: ン (bottom bar + dakuten diagonal accent)
+  0x121, 0x181, 0x069, 0x085, 0x183, 0x06B, 0x083, 0x129,
+  0x0A9, 0x065, 0x0A3, 0x105, 0x214, 0x12B, 0x182, 0x007,
+  0x301, 0x381, 0x108, 0x056, 0x141, 0x187, 0x223, 0x207,
+  0x114, 0x300, 0x097, 0x067, 0x107, 0x028, 0x07D, 0x204
 };
 
 template<typename DisplayT>
 inline void draw_matrix_katakana_glyph(DisplayT &it, int sx, int gy, uint16_t mask,
                                        esphome::Color col, bool slim_tail) {
   if (slim_tail) {
-    // Dimmest tail tip: render only primary vertical/diagonal spine + 1 bar so phosphor dissolves cleanly
     if (mask & 0x080) it.line(sx, gy - 3, sx, gy + 3, col);
     else if (mask & 0x100) it.line(sx + 2, gy - 2, sx - 2, gy + 3, col);
     else it.line(sx - 2, gy - 3, sx + 2, gy - 3, col);
     if (mask & 0x002) it.line(sx - 2, gy, sx + 2, gy, col);
     return;
   }
-  if (mask & 0x001) it.line(sx - 3, gy - 4, sx + 3, gy - 4, col); // Top bar
-  if (mask & 0x002) it.line(sx - 3, gy,     sx + 3, gy,     col); // Mid bar
-  if (mask & 0x004) it.line(sx - 3, gy + 4, sx + 3, gy + 4, col); // Bottom bar
-  if (mask & 0x008) it.line(sx - 3, gy - 4, sx - 3, gy,     col); // UL stem
-  if (mask & 0x010) it.line(sx - 3, gy,     sx - 3, gy + 4, col); // LL stem
-  if (mask & 0x020) it.line(sx + 3, gy - 4, sx + 3, gy,     col); // UR stem
-  if (mask & 0x040) it.line(sx + 3, gy,     sx + 3, gy + 4, col); // LR stem
-  if (mask & 0x080) it.line(sx,     gy - 4, sx,     gy + 4, col); // Center spine
-  if (mask & 0x100) it.line(sx + 3, gy - 2, sx - 3, gy + 4, col); // Katakana sweep diagonal
-  if (mask & 0x200) it.line(sx - 2, gy - 2, sx + 2, gy + 2, col); // Cross / dakuten accent
+  if (mask & 0x001) it.line(sx - 3, gy - 4, sx + 3, gy - 4, col);
+  if (mask & 0x002) it.line(sx - 3, gy,     sx + 3, gy,     col);
+  if (mask & 0x004) it.line(sx - 3, gy + 4, sx + 3, gy + 4, col);
+  if (mask & 0x008) it.line(sx - 3, gy - 4, sx - 3, gy,     col);
+  if (mask & 0x010) it.line(sx - 3, gy,     sx - 3, gy + 4, col);
+  if (mask & 0x020) it.line(sx + 3, gy - 4, sx + 3, gy,     col);
+  if (mask & 0x040) it.line(sx + 3, gy,     sx + 3, gy + 4, col);
+  if (mask & 0x080) it.line(sx,     gy - 4, sx,     gy + 4, col);
+  if (mask & 0x100) it.line(sx + 3, gy - 2, sx - 3, gy + 4, col);
+  if (mask & 0x200) it.line(sx - 2, gy - 2, sx + 2, gy + 2, col);
 }
 
 template<typename DisplayT>
 inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now_ms) {
   (void)cx;
-  // 22 independent single-stream columns (19px pitch across x = 33..432) instead of 31 double-stacked streams:
-  // Eliminates same-column stream collisions and leaves ~35% of columns in a dark rest gap at any moment
-  // so the rain feels authentically sparse, airy, and un-clumped.
   static constexpr int NUM_COLS = 22;
-  static constexpr int CELL_H = 14; // Stationary 14px vertical Katakana grid
+  static constexpr int CELL_H = 14;
 
-  // Slow anti-burn-in horizontal & vertical grid drift (shifts ±4px X, ±3px Y over a 90s cycle)
   float t_drift = now_ms * 0.00007f;
   int drift_x = static_cast<int>(fast_sin(t_drift) * 4.2f);
   int drift_y = static_cast<int>(fast_cos(t_drift * 1.3f) * 3.2f);
@@ -292,54 +290,39 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
     int y_min = cy - max_dy;
     int y_max = cy + max_dy;
 
-    // Convert circular column chord into discrete 14px grid row indices
     int min_row = (y_min - drift_y) / CELL_H;
     int max_row = (y_max - drift_y) / CELL_H;
     int visible_rows = max_row - min_row + 1;
     if (visible_rows <= 2) continue;
 
-    // Wide 2.3x per-column base velocity spread (5.4 .. 12.4 rows/sec) using low-discrepancy hashing
-    // so adjacent columns never march down the screen in synchronized horizontal waves ("clumps")
     float col_h1 = hash2d_01(i * 37 + 11, i * 19 + 5);
     float col_h2 = hash2d_01(i * 53 + 23, i * 29 + 7);
     float rows_per_sec = 5.4f + col_h1 * 7.0f;
-
-    // Total cycle length per pass = visible rows + max tail (16) + generous dark rest gap (14..32 rows)
-    // so each column rests in pure black for 1.5..3.5s between drops!
     float cycle_rows_f = static_cast<float>(visible_rows) + 30.0f + col_h2 * 18.0f;
 
-    // Golden-ratio + hash phase scatter (0.0 .. cycle_rows_f):
-    // Guarantees that at t = 0 (and at every moment thereafter), all 22 columns are uniformly
-    // scattered across their lifecycle (some mid-fall, some entering, ~35% in their dark pause gap)
     float init_phase_frac = fmodf(static_cast<float>(i) * 0.6180339887f + col_h1 * 0.37f, 1.0f);
     float total_travel = t_sec * rows_per_sec + init_phase_frac * cycle_rows_f;
 
     uint32_t pass_idx = static_cast<uint32_t>(total_travel / cycle_rows_f);
     float local_pos = total_travel - static_cast<float>(pass_idx) * cycle_rows_f;
 
-    // Deterministic per-pass randomization via hash2d_01:
-    // Every pass of column `i` rolls a fresh tail length, extra spawn delay, and 3D depth tier
     int pass_seed = static_cast<int>(pass_idx * 43U + static_cast<uint32_t>(i) * 109U);
     float r_len   = hash2d_01(pass_seed, 13);
     float r_tier  = hash2d_01(pass_seed, 29);
     float r_delay = hash2d_01(pass_seed, 47);
 
-    // Slightly shorter, crisper tail lengths (5..14 glyphs) for a cleaner, sparser look
     int slen = 5 + static_cast<int>(r_len * 9.9f);
     float slen_f = static_cast<float>(slen);
+    // Hoist reciprocal tail length outside the inner glyph loop (saves ~250 float divisions/frame!)
+    float inv_tail_span = 1.0f / (slen_f > 2.4f ? (slen_f - 2.2f) : 1.0f);
 
-    // ~30% of passes run as dimmer background-depth code streams for 3D depth
     bool is_bg_stream = (r_tier < 0.30f);
     float bright_scale = is_bg_stream ? 0.54f : 1.0f;
 
-    // Continuous floating-point cursor position (head_row_f) over stationary integer grid rows:
-    // Glyphs stay locked to `row * CELL_H`, while `dist = head_row_f - row` interpolates brightness
-    // continuously on every 20 FPS frame so the rain glides down smoothly with zero stepping!
     float start_row_f = static_cast<float>(min_row) - 1.0f - r_delay * 8.0f;
     float head_row_f = start_row_f + local_pos;
     int head_row_top = static_cast<int>(floorf(head_row_f));
 
-    // Sub-pixel phosphor bloom box tracking the continuous cursor head on foreground streams
     if (!is_bg_stream) {
       int exact_hy = static_cast<int>(head_row_f * static_cast<float>(CELL_H)) + drift_y;
       if (exact_hy >= y_min && exact_hy <= y_max) {
@@ -356,10 +339,6 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
       float dist = head_row_f - static_cast<float>(row);
       if (dist < 0.0f || dist > slen_f) continue;
 
-      // Stationary cell glyph hash keyed by (column i, stationary grid row, pass_idx):
-      // - Lead cursor (dist < 1.1) scrambles every 85ms
-      // - Stationary trail cells hold their printed Katakana glyph, while ~12% of cells
-      //   asynchronously "glitch-mutate" in place at independent intervals (190..445ms)
       uint32_t cell_hash = static_cast<uint32_t>(i * 73856093) ^
                            static_cast<uint32_t>(row * 19349663) ^
                            (pass_idx * 83492791U);
@@ -370,8 +349,7 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
 
       esphome::Color g_col;
       if (dist < 0.95f) {
-        // Smooth sub-row attack & incandescent white-mint peak as cursor sweeps across the cell
-        float lead_env = (dist < 0.30f) ? (0.45f + (dist / 0.30f) * 0.55f) : 1.0f;
+        float lead_env = (dist < 0.30f) ? (0.45f + (dist * (1.0f / 0.30f)) * 0.55f) : 1.0f;
         if (!is_bg_stream) {
           g_col = esphome::Color(
               static_cast<uint8_t>(225.0f * lead_env),
@@ -384,23 +362,17 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
               static_cast<uint8_t>(138.0f * lead_env));
         }
       } else if (dist < 2.2f) {
-        // Continuous sub-pixel cooling from white-mint (dist=0.95) to bright neon emerald (dist=2.2)
         float u = (dist - 0.95f) * (1.0f / 1.25f);
         float r_c = (115.0f * (1.0f - u) + 24.0f * u) * bright_scale;
         float g_c = (255.0f * (1.0f - u) + 225.0f * u) * bright_scale;
         float b_c = (140.0f * (1.0f - u) + 58.0f * u) * bright_scale;
-        g_col = esphome::Color(
-            static_cast<uint8_t>(r_c),
-            static_cast<uint8_t>(g_c),
-            static_cast<uint8_t>(b_c));
+        g_col = esphome::Color(static_cast<uint8_t>(r_c), static_cast<uint8_t>(g_c), static_cast<uint8_t>(b_c));
       } else {
-        // Smooth continuous exponential-like phosphor trail decay from dist=2.2 to slen_f
-        float tail_u = (dist - 2.2f) / (slen_f > 2.4f ? (slen_f - 2.2f) : 1.0f);
+        float tail_u = (dist - 2.2f) * inv_tail_span;
         if (tail_u > 1.0f) tail_u = 1.0f;
         float inv_u = 1.0f - tail_u;
         float fade = (16.0f + 198.0f * inv_u * (0.65f + 0.35f * inv_u)) * bright_scale;
 
-        // Asynchronous phosphor glitch-pulse when a stationary trail glyph mutates
         bool glitch_flash = (dist < 5.0f) && ((cell_hash & 7U) == 0U) &&
                             (((now_ms / 160U) + static_cast<uint32_t>(row)) % 6U == 0U);
         if (glitch_flash) {
@@ -419,6 +391,23 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
     }
   }
 }
+
+// Precomputed 36-Point Golden-Spiral Unit Sphere LUT in .rodata Flash (432 B Flash, 0 B RAM):
+// Eliminates 108 sqrtf() calls and 216 trig lookups per frame in render_screensaver_fireworks!
+static constexpr Vec3 FIB_SPHERE_36[36] = {
+  { 0.2333f,  0.9722f,  0.0000f}, {-0.3016f,  0.9167f,  0.2624f}, { 0.0445f,  0.8611f, -0.5065f},
+  { 0.3471f,  0.8056f,  0.4800f}, {-0.6258f,  0.7500f, -0.2145f}, { 0.6775f,  0.6944f, -0.2423f},
+  {-0.4359f,  0.6389f,  0.6337f}, {-0.0566f,  0.5833f, -0.8103f}, { 0.5624f,  0.5278f,  0.6365f},
+  {-0.8588f,  0.4722f, -0.1987f}, { 0.8170f,  0.4167f, -0.3986f}, {-0.4052f,  0.3611f,  0.8399f},
+  {-0.2286f,  0.3056f, -0.9243f}, { 0.7661f,  0.2500f,  0.5921f}, {-0.9628f,  0.1944f,  0.1885f},
+  { 0.7254f,  0.1389f, -0.6742f}, {-0.1459f,  0.0833f,  0.9858f}, {-0.5313f,  0.0278f, -0.8467f},
+  { 0.9469f, -0.0278f,  0.3204f}, {-0.8805f, -0.0833f,  0.4666f}, { 0.3827f, -0.1389f, -0.9134f},
+  { 0.2896f, -0.1944f,  0.9372f}, {-0.8184f, -0.2500f, -0.5174f}, { 0.9438f, -0.3056f, -0.1264f},
+  {-0.6337f, -0.3611f,  0.6842f}, { 0.0445f, -0.4167f, -0.9080f}, { 0.5798f, -0.4722f,  0.6640f},
+  {-0.8501f, -0.5278f, -0.0085f}, { 0.6766f, -0.5833f, -0.4493f}, {-0.1882f, -0.6389f,  0.7459f},
+  {-0.3360f, -0.6944f, -0.6363f}, { 0.6540f, -0.7500f,  0.0987f}, {-0.5480f, -0.8056f,  0.2255f},
+  { 0.1476f, -0.8611f, -0.4865f}, { 0.2333f, -0.9167f,  0.3249f}, {-0.2333f, -0.9722f, -0.0145f}
+};
 
 template<typename DisplayT>
 inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t now_ms) {
@@ -450,7 +439,6 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
     int launch_h = circle_half_span(launch_x, 10);
     int launch_y = cy + (launch_h > 40 ? launch_h : 180);
 
-    // STAGE 1: ASCENDING MORTAR ROCKET (phase 0..0.22)
     if (phase < 0.22f) {
       float u = phase * (1.0f / 0.22f);
       float ease = 1.0f - (1.0f - u) * (1.0f - u);
@@ -473,7 +461,6 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
       continue;
     }
 
-    // STAGE 2: TRUE 3D FIBONACCI-SPHERE SKYBURST (rotate_3d_xyz + project_3d)
     float bp = (phase - 0.22f) * (1.0f / 0.78f);
     float expand = 1.0f - (1.0f - bp) * (1.0f - bp) * (1.0f - bp);
     float bp_tail = (bp > 0.15f) ? (bp - 0.15f) : (bp * 0.35f);
@@ -497,22 +484,23 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
     int shell_style = static_cast<int>(rtype * 4.0f) & 3;
     float max_radius = 98.0f + 32.0f * hash2d_01(seed_base, 61);
 
-    // Per-shell 3D Euler orientation + slow 3D rotation during expansion
+    // Precompute 3D Euler trig once per shell (saves 35 * 3 = 105 fast_sincos calls per shell!)
     float rot_x = hash2d_01(seed_base, 101) * PI_F + bp * 0.55f;
     float rot_y = hash2d_01(seed_base, 113) * PI_F - bp * 0.45f;
     float rot_z = hash2d_01(seed_base, 127) * PI_F + bp * 0.30f;
+    float sx_r, cx_r, sy_r, cy_r, sz_r, cz_r;
+    fast_sincos(rot_x, sx_r, cx_r);
+    fast_sincos(rot_y, sy_r, cy_r);
+    fast_sincos(rot_z, sz_r, cz_r);
 
     for (int k = 0; k < NUM_SPARKS; k++) {
-      // Golden-spiral unit 3D sphere direction vector
-      float uy = 1.0f - 2.0f * (static_cast<float>(k) + 0.5f) * (1.0f / static_cast<float>(NUM_SPARKS));
-      float r_xz = sqrtf(fmaxf(0.0f, 1.0f - uy * uy));
-      float phi = static_cast<float>(k) * 2.39996323f;
-      float sp_s = 0.0f, sp_c = 1.0f;
-      fast_sincos(phi, sp_s, sp_c);
+      const Vec3 &u = FIB_SPHERE_36[k];
+      float y1 = u.y * cx_r - u.z * sx_r;
+      float z1 = u.y * sx_r + u.z * cx_r;
+      float x2 = u.x * cy_r + z1 * sy_r;
+      float z2 = -u.x * sy_r + z1 * cy_r;
+      Vec3 dir_3d{x2 * cz_r - y1 * sz_r, x2 * sz_r + y1 * cz_r, z2};
 
-      Vec3 dir_3d = rotate_3d_xyz({r_xz * sp_c, uy, r_xz * sp_s}, rot_x, rot_y, rot_z);
-
-      // Dual-shell layer (inner pistil core on every 4th spark for style 1, else full sphere with jitter)
       bool is_pistil = (shell_style == 1 && (k & 3) == 0);
       float jitter = is_pistil ? 0.52f : (0.88f + 0.24f * hash2d_01(seed_base + k, k * 7));
       float spark_rmax = max_radius * jitter;
@@ -527,7 +515,6 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
       ProjectedPoint p_tail = project_3d(v_tail, bx, by, 260.0f, 320.0f);
       if (!is_inside_bezel(p_head.x, p_head.y, cy, 5) || !is_inside_bezel(p_tail.x, p_tail.y, cy, 5)) continue;
 
-      // 3D depth shading: sparks flying toward the viewer (dir_3d.z < 0 -> p_head.scale > 0.81) glow brighter
       float depth_boost = fmaxf(0.55f, fminf(1.15f, p_head.scale * 1.12f));
       float bright = fminf(1.0f, base_bright * depth_boost);
 
@@ -581,7 +568,6 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
             static_cast<uint8_t>(spark_col.g + ((255 - spark_col.g) >> 1)),
             static_cast<uint8_t>(spark_col.b + ((255 - spark_col.b) >> 1)));
         it.draw_pixel_at(p_head.x, p_head.y, tip_col);
-        // Near-viewer foreground sparks render a 2px perspective glowing head
         if (bp < 0.36f && dir_3d.z < -0.15f) {
           it.filled_circle(p_head.x, p_head.y, 1, tip_col);
         }
@@ -592,14 +578,15 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
     }
   }
 }
+
 // Unified Docked Screensaver Dispatcher (Ambient Clock + 4 Procedural Engines)
 template<typename DisplayT, typename TimeT, typename StrT, typename FontT>
 inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                       const TimeT &now, bool is_24h, const StrT &ss_style,
                                       FontT *font_time, FontT *font_small,
                                       esphome::Color col_slate, esphome::Color col_dark_gray) {
+  (void)col_dark_gray;
   if (ss_style == "Ambient Clock") {
-    // Calm 1-minute OLED burn-in drift (shifts gently once per minute instead of twitching every second)
     int min_val = now.is_valid() ? now.minute : 0;
     int drift_x = (min_val % 10) * 4 - 18;
     int drift_y = ((min_val / 10) % 6) * 4 - 10;
@@ -608,7 +595,8 @@ inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now
     if (now.is_valid()) {
       format_time_hhmm(now.hour, now.minute, is_24h, amb_time, sizeof(amb_time));
       it.print(cx + drift_x, cy - 20 + drift_y, font_time, col_slate, esphome::display::TextAlign::CENTER, amb_time);
-      it.strftime(cx + drift_x, cy + 45 + drift_y, font_small, col_dark_gray, esphome::display::TextAlign::CENTER, "%a, %b %d", now);
+      it.strftime(cx + drift_x, cy + 45 + drift_y, font_small, esphome::Color(90, 102, 118),
+                  esphome::display::TextAlign::CENTER, "%a, %b %d", now);
     } else {
       it.print(cx + drift_x, cy - 20 + drift_y, font_time, col_slate, esphome::display::TextAlign::CENTER, "--:--");
     }
@@ -625,8 +613,6 @@ inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now
     render_screensaver_aurora(it, cx, cy, now_ms);
   }
 }
-
-
 inline esphome::Color get_va_radiation_color(bool is_solaris, float t) {
   t = t - floorf(t);
   if (is_solaris) {
