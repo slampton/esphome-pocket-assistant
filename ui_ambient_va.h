@@ -154,8 +154,6 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
   };
   auto respawn_star = [&](int i, bool init_z) {
     float ang = star_rand() * (2.0f * PI_F);
-    // Area-uniform radial distribution (sqrt(rand)) so stars fill the 3D tunnel evenly
-    // instead of clumping 16x denser in a spoke-ring around the center!
     float dist = 32.0f + sqrtf(star_rand()) * 620.0f;
     float sa = 0.0f, ca = 1.0f;
     fast_sincos(ang, sa, ca);
@@ -169,12 +167,13 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
     last_star_ms = now_ms;
   }
 
-  float speed = 15.0f;
+  // Brisk forward zip (~28% faster than Chunk 144)
+  float speed = 19.5f;
   if (now_ms > 0) {
     uint32_t dt = now_ms - last_star_ms;
     last_star_ms = now_ms;
     if (dt >= 20U && dt <= 300U) {
-      speed = static_cast<float>(dt) * 0.28f;
+      speed = static_cast<float>(dt) * 0.36f;
     }
   }
 
@@ -193,44 +192,44 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
       continue;
     }
 
-    // Bright, high-contrast Classic Hyperspace progression (z in [32..940])
     float depth_u = fmaxf(0.0f, fminf(1.0f, 1.0f - (stars[i].z * (1.0f / 920.0f))));
-    // High baseline brightness (125..255) so the starfield looks vibrant & crisp
-    float lum = 0.48f + 0.52f * depth_u;
+    float lum = 0.45f + 0.55f * depth_u;
+    bool is_blue_accent = ((i % 5) == 0); // Only 1 in 5 stars carries a subtle ice-blue highlight
 
-    if (stars[i].z > 640.0f) {
-      // Distant deep-space pinpoint stars (crisp cool silver-blue)
-      uint8_t b_far = static_cast<uint8_t>(220.0f * lum);
-      it.draw_pixel_at(sx, sy, esphome::Color(
-          static_cast<uint8_t>(b_far * 0.72f),
-          static_cast<uint8_t>(b_far * 0.85f),
-          b_far));
+    if (stars[i].z > 620.0f) {
+      // Distant deep-space pinpoint stars (crisp silver-gray)
+      uint8_t b_far = static_cast<uint8_t>(205.0f * lum);
+      it.draw_pixel_at(sx, sy, esphome::Color(b_far, b_far, static_cast<uint8_t>(fminf(255.0f, b_far * 1.06f))));
     } else {
-      // Organic hyperspace motion trail (capped at 26px max screen length so close stars never draw long artificial spokes)
-      float prev_k = 230.0f / (stars[i].z + speed * 1.35f);
+      // Compact 3D motion-shadow tail (capped at 16px so stars look like zipping points, not long warp beams)
+      float prev_k = 230.0f / (stars[i].z + speed * 0.95f);
       int px = cx + static_cast<int>(stars[i].x * prev_k);
       int py = cy + static_cast<int>(stars[i].y * prev_k);
       int dx = sx - px, dy = sy - py;
       int len_sq = dx * dx + dy * dy;
-      if (len_sq > 676) { // Cap trail length at 26px
-        float scale_l = 26.0f / sqrtf(static_cast<float>(len_sq));
+      if (len_sq > 256) { // Cap trail length at 16px
+        float scale_l = 16.0f / sqrtf(static_cast<float>(len_sq));
         px = sx - static_cast<int>(dx * scale_l);
         py = sy - static_cast<int>(dy * scale_l);
       }
 
-      if (stars[i].z > 320.0f) {
-        uint8_t tr = static_cast<uint8_t>(110.0f * lum);
-        uint8_t tg = static_cast<uint8_t>(195.0f * lum);
-        uint8_t tb = static_cast<uint8_t>(250.0f * lum);
-        it.line(px, py, sx, sy, esphome::Color(tr, tg, tb));
-        it.draw_pixel_at(sx, sy, esphome::Color(220, 240, 255));
+      if (stars[i].z > 300.0f) {
+        uint8_t g_mid = static_cast<uint8_t>(145.0f * lum);
+        esphome::Color mid_trail = is_blue_accent
+            ? esphome::Color(static_cast<uint8_t>(g_mid * 0.65f), static_cast<uint8_t>(g_mid * 0.92f), static_cast<uint8_t>(fminf(255.0f, g_mid * 1.25f)))
+            : esphome::Color(g_mid, g_mid, g_mid);
+        it.line(px, py, sx, sy, mid_trail);
+        uint8_t h_br = static_cast<uint8_t>(235.0f * lum);
+        it.draw_pixel_at(sx, sy, esphome::Color(h_br, h_br, h_br));
       } else {
-        // Foreground hyperspace stars: two-stage ice-blue wake + brilliant white star head
+        // Foreground stars: 2-stage 3D shadow wake (dark slate -> silver/ice-blue) + brilliant white star head
         int mx = (px + sx) >> 1;
         int my = (py + sy) >> 1;
-        it.line(px, py, mx, my, esphome::Color(35, 135, 220));
-        it.line(mx, my, sx, sy, esphome::Color(135, 220, 255));
-        it.filled_circle(sx, sy, (stars[i].z < 175.0f) ? 2 : 1, esphome::Color(255, 255, 255));
+        esphome::Color wake_col  = is_blue_accent ? esphome::Color(38, 82, 128)  : esphome::Color(68, 72, 78);
+        esphome::Color shaft_col = is_blue_accent ? esphome::Color(125, 195, 245) : esphome::Color(165, 170, 178);
+        it.line(px, py, mx, my, wake_col);
+        it.line(mx, my, sx, sy, shaft_col);
+        it.filled_circle(sx, sy, (stars[i].z < 165.0f) ? 2 : 1, esphome::Color(255, 255, 255));
       }
     }
   }
