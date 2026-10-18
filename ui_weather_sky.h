@@ -1111,75 +1111,155 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1H: STYLIZED 3D ANIMATED RAIN & POURING STORM (Midpoint Density + Expressive Water-Bead Tips)
+  // LAYER 1H: STUDIO GHIBLI / ANIME ATMOSPHERIC RAIN (Long 3-Stage Tapered Filaments + Upper-Canopy Density)
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
-      cond.find("drizzle") != std::string::npos) {
-    bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
-    // Sweet-spot midpoint density: 34 drops in Rainy, 52 drops in Pouring / Heavy Rain
-    int count = is_heavy ? 52 : 34;
-    float t_sec = now_ms * 0.001f;
+      cond.find("drizzle") != std::string::npos ||
+      cond.find("thunder") != std::string::npos ||
+      cond.find("lightning") != std::string::npos) {
+    bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos ||
+                     cond.find("thunder") != std::string::npos || cond.find("lightning") != std::string::npos);
 
-    for (int i = 0; i < count; i++) {
-      int perm_i = (i * 13 + 5) % count;
-      float h_spd = hash2d_01(perm_i * 37 + 11, i * 19 + 5);
-      float h_gap = hash2d_01(perm_i * 53 + 23, i * 29 + 9);
+    struct AnimeRainDrop {
+      float x, y, spd, len, max_y;
+      uint8_t tier; // 0 = upper-canopy distant mist sheet, 1 = mid-ground, 2 = foreground filament
+    };
+    static constexpr int MAX_RAIN = 56;
+    static AnimeRainDrop drops[MAX_RAIN];
+    static bool rain_init = false;
+    static uint32_t rain_seed = 987654321U;
+    static uint32_t last_rain_ms = 0;
 
-      // Balanced animated velocity: 265..365 px/s in Rainy, 390..520 px/s in Pouring Storm
-      float spd = (is_heavy ? 390.0f : 265.0f) + h_spd * (is_heavy ? 130.0f : 100.0f);
-      float cycle_h = 440.0f + h_gap * 75.0f;
+    auto rain_rand = [&]() -> float {
+      rain_seed = rain_seed * 1664525U + 1013904223U;
+      return static_cast<float>(rain_seed & 0xFFFFU) * (1.0f / 65535.0f);
+    };
 
-      float init_phase = fmodf(static_cast<float>(i) * 0.381966011f + static_cast<float>(perm_i) * 0.145898f, 1.0f);
-      float total_y = t_sec * spd + init_phase * cycle_h;
-      uint32_t pass_idx = static_cast<uint32_t>(total_y / cycle_h);
-      float local_y = total_y - static_cast<float>(pass_idx) * cycle_h;
-      if (local_y > 436.0f) continue;
+    // Stratified horizontal spawning: divides the 420px sky into 14 sectors so drops never clump!
+    auto respawn_drop = [&](int idx, bool random_y) {
+      int sector = (idx * 5 + static_cast<int>(rain_seed & 3U)) % 14;
+      float sector_w = 420.0f / 14.0f;
+      drops[idx].x = 24.0f + (static_cast<float>(sector) + 0.12f + rain_rand() * 0.76f) * sector_w;
 
-      // Per-pass X & depth re-seeding so drops never repeat fixed tracks
-      int pass_seed = static_cast<int>(pass_idx * 59U + static_cast<uint32_t>(i) * 131U);
-      float rx_u    = hash2d_01(pass_seed, 17);
-      float r_depth = hash2d_01(pass_seed, 31);
-      float r_len   = hash2d_01(pass_seed, 47);
+      // 45% Tier 0 (upper/mid-sky rain curtain that fades out at y = 165..265 -> denser at top, sparser at bottom!)
+      // 35% Tier 1 (full-height mid-ground rain), 20% Tier 2 (long foreground anime filaments)
+      int mod_t = idx % 9;
+      uint8_t tier = (mod_t < 4) ? 0 : ((mod_t < 7) ? 1 : 2);
+      drops[idx].tier = tier;
 
-      int depth_tier = (r_depth > 0.64f) ? 2 : ((r_depth > 0.28f) ? 1 : 0);
-      float depth_par = (depth_tier == 2) ? 0.85f : ((depth_tier == 1) ? 0.55f : 0.30f);
-
-      int ry = 14 + static_cast<int>(local_y + par_y * depth_par);
-      if (ry < 14 || ry > 448) continue;
-
-      float base_lane = (static_cast<float>(perm_i) + (rx_u - 0.5f) * 2.8f) / static_cast<float>(count);
-      if (base_lane < 0.0f) base_lane += 1.0f;
-      if (base_lane > 1.0f) base_lane -= 1.0f;
-      int wind_shift = (ry - 14) / (is_heavy ? 5 : 6);
-      int rx = 24 + static_cast<int>(base_lane * 418.0f) - wind_shift + static_cast<int>(par_x * depth_par);
-      while (rx < 20)  rx += 426;
-      while (rx > 446) rx -= 426;
-
-      // Stylized animated streak lengths: 9..14px in Rainy, 12..17px in Pouring Storm
-      int len_r = (is_heavy ? 12 : 9) + depth_tier * 2 + static_cast<int>(r_len * 2.5f);
-      int dx_r  = is_heavy ? 3 : 2;
-      int hx = rx - dx_r;
-      int hy = ry + len_r;
-      if (!is_inside_bezel(rx, ry, cy, 6) || !is_inside_bezel(hx, hy, cy, 6)) continue;
-
-      int mx = (rx + hx) >> 1;
-      int my = (ry + hy) >> 1;
-      if (depth_tier == 2) {
-        esphome::Color c_wake = is_night ? esphome::Color( 82, 122, 174) : esphome::Color(102, 146, 198);
-        esphome::Color c_tip  = is_night ? esphome::Color(158, 206, 250) : esphome::Color(184, 224, 255);
-        it.line(rx, ry, mx, my, c_wake);
-        it.line(mx, my, hx, hy, c_tip);
-        // Expressive animated water-bead tip on foreground drops
-        it.draw_pixel_at(hx - 1, hy, c_tip);
-        it.draw_pixel_at(hx, hy - 1, esphome::Color(225, 244, 255));
-      } else if (depth_tier == 1) {
-        esphome::Color c_wake = is_night ? esphome::Color( 58,  90, 134) : esphome::Color( 78, 114, 160);
-        esphome::Color c_tip  = is_night ? esphome::Color(118, 162, 214) : esphome::Color(142, 186, 232);
-        it.line(rx, ry, mx, my, c_wake);
-        it.line(mx, my, hx, hy, c_tip);
+      if (tier == 0) {
+        drops[idx].spd   = 250.0f + rain_rand() * 70.0f;
+        drops[idx].len   = 18.0f  + rain_rand() * 8.0f;
+        drops[idx].max_y = 165.0f + rain_rand() * 105.0f; // Dissolves in mid-sky!
+      } else if (tier == 1) {
+        drops[idx].spd   = 320.0f + rain_rand() * 85.0f;
+        drops[idx].len   = 24.0f  + rain_rand() * 10.0f;
+        drops[idx].max_y = 435.0f;
       } else {
-        esphome::Color c_far  = is_night ? esphome::Color( 62,  92, 132) : esphome::Color( 88, 124, 166);
-        it.line(rx, ry, hx, hy, c_far);
+        drops[idx].spd   = 390.0f + rain_rand() * 95.0f;
+        drops[idx].len   = 32.0f  + rain_rand() * 12.0f;
+        drops[idx].max_y = 445.0f;
+      }
+
+      if (random_y) {
+        drops[idx].y = 12.0f + rain_rand() * (drops[idx].max_y - 12.0f);
+      } else {
+        drops[idx].y = 8.0f - rain_rand() * 32.0f;
+      }
+    };
+
+    if (!rain_init) {
+      for (int i = 0; i < MAX_RAIN; i++) respawn_drop(i, true);
+      rain_init = true;
+      last_rain_ms = now_ms;
+    }
+
+    float dt = 0.05f;
+    if (now_ms > last_rain_ms) {
+      uint32_t d_ms = now_ms - last_rain_ms;
+      last_rain_ms = now_ms;
+      if (d_ms >= 15U && d_ms <= 250U) dt = static_cast<float>(d_ms) * 0.001f;
+    }
+
+    int active_count = is_heavy ? 54 : 38;
+    float spd_mult   = is_heavy ? 1.28f : 1.0f;
+    float len_mult   = is_heavy ? 1.18f : 1.0f;
+    float slant      = is_heavy ? 0.19f : 0.14f; // Subtle, consistent diagonal wind angle
+
+    for (int i = 0; i < active_count; i++) {
+      float step_y = drops[i].spd * spd_mult * dt;
+      drops[i].y += step_y;
+      drops[i].x -= step_y * slant;
+      if (drops[i].x < 18.0f) drops[i].x += 426.0f;
+
+      if (drops[i].y > drops[i].max_y) {
+        respawn_drop(i, false);
+        continue;
+      }
+
+      float depth_par = (drops[i].tier == 2) ? 0.80f : ((drops[i].tier == 1) ? 0.50f : 0.25f);
+      float cur_len = drops[i].len * len_mult;
+
+      // Smooth fade-out as Tier 0 (upper-sky curtain) approaches its mid-sky dissolve point
+      float fade = 1.0f;
+      if (drops[i].max_y - drops[i].y < 42.0f) {
+        fade = fmaxf(0.15f, (drops[i].max_y - drops[i].y) * (1.0f / 42.0f));
+      }
+
+      int hx = static_cast<int>(drops[i].x + par_x * depth_par);
+      int hy = static_cast<int>(drops[i].y + par_y * depth_par);
+      int tx = hx + static_cast<int>(cur_len * slant);
+      int ty = hy - static_cast<int>(cur_len);
+
+      if (!is_inside_bezel(hx, hy, cy, 6) || !is_inside_bezel(tx, ty, cy, 6)) continue;
+
+      // 3-Stage Anime Filament Taper:
+      //   Segment 1 (tx,ty -> m1x,m1y): Faint misty upper tail dissolving into sky
+      //   Segment 2 (m1x,m1y -> m2x,m2y): Translucent silver-blue shaft
+      //   Segment 3 (m2x,m2y -> hx,hy): Crisp, luminous silver-white water tip (strictly 1px thin!)
+      int m1x = tx + ((hx - tx) * 45) / 100;
+      int m1y = ty + ((hy - ty) * 45) / 100;
+      int m2x = tx + ((hx - tx) * 78) / 100;
+      int m2y = ty + ((hy - ty) * 78) / 100;
+
+      if (drops[i].tier == 0) {
+        esphome::Color c_tail = scale_color(is_night ? esphome::Color(32,  50,  76) : esphome::Color( 54,  82, 118), fade);
+        esphome::Color c_tip  = scale_color(is_night ? esphome::Color(58,  88, 128) : esphome::Color( 82, 118, 162), fade);
+        it.line(tx, ty, m1x, m1y, c_tail);
+        it.line(m1x, m1y, hx, hy, c_tip);
+      } else if (drops[i].tier == 1) {
+        esphome::Color c_tail  = scale_color(is_night ? esphome::Color( 42,  66,  98) : esphome::Color( 62,  94, 134), fade);
+        esphome::Color c_shaft = scale_color(is_night ? esphome::Color( 76, 114, 162) : esphome::Color( 98, 140, 188), fade);
+        esphome::Color c_tip   = scale_color(is_night ? esphome::Color(118, 164, 218) : esphome::Color(144, 190, 238), fade);
+        it.line(tx, ty, m1x, m1y, c_tail);
+        it.line(m1x, m1y, m2x, m2y, c_shaft);
+        it.line(m2x, m2y, hx, hy, c_tip);
+      } else {
+        esphome::Color c_tail  = scale_color(is_night ? esphome::Color( 52,  82, 120) : esphome::Color( 74, 110, 154), fade);
+        esphome::Color c_shaft = scale_color(is_night ? esphome::Color( 98, 144, 198) : esphome::Color(122, 168, 218), fade);
+        esphome::Color c_tip   = scale_color(is_night ? esphome::Color(168, 214, 255) : esphome::Color(196, 232, 255), fade);
+        it.line(tx, ty, m1x, m1y, c_tail);
+        it.line(m1x, m1y, m2x, m2y, c_shaft);
+        it.line(m2x, m2y, hx, hy, c_tip);
+      }
+    }
+
+    // Subtle Ghibli Water-Surface Splash Ripples along the y = 310 Horizon Divider Line
+    int num_splashes = is_heavy ? 5 : 3;
+    esphome::Color splash_c = is_night ? esphome::Color(86, 128, 178) : esphome::Color(115, 160, 210);
+    for (int s = 0; s < num_splashes; s++) {
+      uint32_t sp_t = (now_ms + static_cast<uint32_t>(s) * 210U);
+      uint32_t sp_cycle = sp_t / 650U;
+      float sp_p = static_cast<float>(sp_t % 650U) * (1.0f / 650.0f);
+      if (sp_p < 0.65f) {
+        int sp_x = 96 + static_cast<int>(hash2d_01(static_cast<int>(sp_cycle * 31U + s * 17U), 23) * 274.0f);
+        int rx_sp = 2 + static_cast<int>(sp_p * 8.0f);
+        esphome::Color rc = scale_color(splash_c, 1.0f - (sp_p * 1.45f));
+        it.horizontal_line(sp_x - rx_sp, 309, rx_sp * 2 + 1, rc);
+        if (sp_p < 0.30f) {
+          it.draw_pixel_at(sp_x - 2, 307, rc);
+          it.draw_pixel_at(sp_x + 2, 307, rc);
+        }
       }
     }
   }
