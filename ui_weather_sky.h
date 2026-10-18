@@ -268,20 +268,18 @@ inline void render_lunar_disc(DisplayT &it, int moon_cx, int moon_cy, int moon_r
 
 template<typename DisplayT>
 inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool overcast_mode, bool is_night) {
-  int half_w = static_cast<int>(82.0f * scale);
-  if (bx + half_w < 6 || bx - half_w >= 460 || by + 40 < 6 || by - 60 >= 460) return;
+  int half_w = static_cast<int>(84.0f * scale);
+  if (bx + half_w < 6 || bx - half_w >= 460 || by + 45 < 6 || by - 65 >= 460) return;
 
-  esphome::Color col_rim    = is_night ? esphome::Color( 86, 108, 138) : (overcast_mode ? esphome::Color(118, 148, 182) : esphome::Color(172, 204, 236));
-  esphome::Color col_crest  = is_night ? esphome::Color( 60,  78, 102) : (overcast_mode ? esphome::Color( 86, 114, 146) : esphome::Color(126, 160, 198));
-  esphome::Color col_high   = is_night ? esphome::Color( 40,  54,  72) : (overcast_mode ? esphome::Color( 60,  84, 112) : esphome::Color( 88, 118, 154));
+  esphome::Color col_rim    = is_night ? esphome::Color( 86, 108, 138) : (overcast_mode ? esphome::Color(124, 154, 188) : esphome::Color(172, 204, 236));
+  esphome::Color col_crest  = is_night ? esphome::Color( 60,  78, 102) : (overcast_mode ? esphome::Color( 90, 118, 150) : esphome::Color(126, 160, 198));
+  esphome::Color col_high   = is_night ? esphome::Color( 40,  54,  72) : (overcast_mode ? esphome::Color( 62,  86, 114) : esphome::Color( 88, 118, 154));
   esphome::Color col_body   = is_night ? esphome::Color( 24,  34,  46) : (overcast_mode ? esphome::Color( 42,  60,  82) : esphome::Color( 58,  82, 112));
-  esphome::Color col_shadow = is_night ? esphome::Color( 14,  20,  28) : (overcast_mode ? esphome::Color( 26,  40,  58) : esphome::Color( 36,  54,  76));
+  esphome::Color col_shadow = is_night ? esphome::Color( 14,  20,  28) : (overcast_mode ? esphome::Color( 24,  38,  56) : esphome::Color( 36,  54,  76));
 
   float inv_hw = 1.0f / static_cast<float>(half_w);
-  float phase_seed = static_cast<float>((bx / 16) & 7) * 0.7f;
+  float phase_seed = static_cast<float>((bx / 13) & 7) * 0.85f;
 
-  // Single-pass zero-overdraw vertical scanline synthesizer:
-  // Combines 4 asymmetric parabolic turret domes on top with a gently curved flat anvil condensation base
   for (int dx = -half_w; dx <= half_w; dx += 2) {
     int x = bx + dx;
     int max_dy = circle_half_span(x, 5);
@@ -293,19 +291,20 @@ inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool
     float env = 1.0f - u * u;
     if (env <= 0.02f) continue;
 
-    // 4 sculpted turret lobes across u in [-1..+1]: main anvil peak at u=+0.08, secondary turrets at -0.38, +0.46, -0.68
+    // 5 asymmetric sculpted turret domes on top
     float d0 = u - 0.08f;  float t0 = fmaxf(0.0f, 1.0f - d0 * d0 * 4.2f);
-    float d1 = u + 0.36f;  float t1 = fmaxf(0.0f, 1.0f - d1 * d1 * 6.5f) * 0.78f;
-    float d2 = u - 0.48f;  float t2 = fmaxf(0.0f, 1.0f - d2 * d2 * 7.8f) * 0.68f;
-    float d3 = u + 0.68f;  float t3 = fmaxf(0.0f, 1.0f - d3 * d3 * 12.0f) * 0.42f;
-    float d4 = u - 0.74f;  float t4 = fmaxf(0.0f, 1.0f - d4 * d4 * 14.0f) * 0.36f;
+    float d1 = u + 0.36f;  float t1 = fmaxf(0.0f, 1.0f - d1 * d1 * 6.2f) * 0.80f;
+    float d2 = u - 0.48f;  float t2 = fmaxf(0.0f, 1.0f - d2 * d2 * 7.5f) * 0.70f;
+    float d3 = u + 0.68f;  float t3 = fmaxf(0.0f, 1.0f - d3 * d3 * 11.5f) * 0.45f;
+    float d4 = u - 0.74f;  float t4 = fmaxf(0.0f, 1.0f - d4 * d4 * 13.5f) * 0.38f;
 
     float dome = fmaxf(fmaxf(t0, t1), fmaxf(t2, fmaxf(t3, t4)));
-    // Add fine organic billow ripples along the upper contour
-    float ripple = 0.07f * fast_sin(u * 9.5f + phase_seed) * env;
-    float h_top_f = (14.0f + 38.0f * dome + 38.0f * ripple) * scale * sqrtf(env);
-    // Flat, gently rolling anvil base at the bottom
-    float h_bot_f = (12.0f * env + 2.5f * fast_cos(u * 5.2f + phase_seed)) * scale;
+    float ripple = 0.08f * fast_sin(u * 9.5f + phase_seed) * env;
+    float h_top_f = (14.0f + 40.0f * dome + 36.0f * ripple) * scale * sqrtf(env);
+
+    // Billowing, rounded multi-lobe underside (eliminates flat horizontal bottom lines!)
+    float bot_lobes = 0.55f + 0.45f * std::fabs(fast_cos(u * 4.2f + phase_seed * 0.7f));
+    float h_bot_f = (8.0f + 14.0f * bot_lobes) * env * scale;
 
     int y_top = by - static_cast<int>(h_top_f);
     int y_bot = by + static_cast<int>(h_bot_f);
@@ -315,10 +314,9 @@ inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool
     if (span <= 2) continue;
 
     int y_c1 = y_top + std::max(2, span / 6);
-    int y_c2 = y_top + (span * 45) / 100;
+    int y_c2 = y_top + (span * 46) / 100;
     int y_c3 = y_top + (span * 76) / 100;
 
-    // Sunlit / Moonlit upper-right slope catch-light on the top 2px rim
     bool sunlit_slope = (u > -0.45f && dome > 0.32f);
     esphome::Color top_c = sunlit_slope ? col_rim : col_crest;
 
@@ -329,6 +327,55 @@ inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool
       it.line(px, y_c1,  px, y_c2,  col_crest);
       it.line(px, y_c2,  px, y_c3,  col_high);
       it.line(px, y_c3,  px, y_bot, (ox == 0) ? col_body : col_shadow);
+    }
+  }
+}
+
+// Reusable Undulating Wispy Cloud Veil / Tendril Primitive:
+// Shared by both Cloudy/Overcast (interleaved between sculpted cumulus masses) and Fog & Mist.
+template<typename DisplayT>
+inline void render_wispy_cloud_veil(DisplayT &it, int center_x, int base_y, int half_w,
+                                    float phase, int seed_id,
+                                    esphome::Color c_crest, esphome::Color c_body,
+                                    esphome::Color c_base, int cy) {
+  if (half_w <= 10) return;
+  float inv_hw = 1.0f / static_cast<float>(half_w);
+
+  for (int x = center_x - half_w; x <= center_x + half_w; x += 3) {
+    int max_dy = circle_half_span(x, 6);
+    if (max_dy <= 10) continue;
+    int y_min = cy - max_dy;
+    int y_max = cy + max_dy;
+
+    float u = static_cast<float>(x - center_x) * inv_hw;
+    float taper = 1.0f - u * u;
+    if (taper <= 0.04f) continue;
+
+    float xf = static_cast<float>(x);
+    float wave_top = fast_sin(xf * 0.028f + phase * 1.6f) * 12.0f +
+                     fast_cos(xf * 0.062f - phase * 1.1f) * 6.0f;
+    float wave_bot = fast_sin(xf * 0.036f - phase * 1.3f + 1.2f) * 7.5f +
+                     fast_cos(xf * 0.085f + phase * 2.0f) * 4.0f;
+
+    // Pinch and break edges into separated, feathered wisp strands
+    float wisp_mod = 0.55f + 0.45f * fast_sin(xf * 0.052f + phase * 1.8f + static_cast<float>(seed_id));
+    float eff_taper = taper * (0.65f + 0.35f * wisp_mod);
+    if (eff_taper < 0.14f) continue;
+
+    int y_top = base_y - static_cast<int>((9.0f + fmaxf(0.0f, wave_top)) * eff_taper);
+    int y_bot = base_y + static_cast<int>((6.0f + fmaxf(0.0f, wave_bot)) * eff_taper);
+    if (y_top < y_min) y_top = y_min;
+    if (y_bot > y_max) y_bot = y_max;
+    if (y_bot <= y_top) continue;
+
+    int y_mid1 = y_top + ((y_bot - y_top) / 3);
+    int y_mid2 = y_top + (((y_bot - y_top) * 2) / 3);
+
+    it.line(x, y_top,  x, y_mid1, c_crest);
+    it.line(x, y_mid1, x, y_mid2, c_body);
+    it.line(x, y_mid2, x, y_bot,  c_base);
+    if (eff_taper > 0.32f && x + 1 < SCREEN_CX + max_dy) {
+      it.line(x + 1, y_top + 1, x + 1, y_mid2, c_body);
     }
   }
 }
@@ -923,7 +970,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1E: SCULPTED 3D CUMULUS (Partly Cloudy) & 4-DECK PARALLAX OVERCAST CANOPY (Cloudy / Overcast)
+  // LAYER 1E: SCULPTED 3D CUMULUS (Partly Cloudy) & HYBRID CUMULUS + WISPY VEIL OVERCAST (Cloudy / Overcast)
   (void)cloud_spans;
   if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
     if (is_partly) {
@@ -939,76 +986,46 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       render_cumulus_cloud(it, 362 + dx1, 182 + dy1, 0.88f, false, is_night);
       render_cumulus_cloud(it, 108 + dx2, 256 + dy2, 0.84f, false, is_night);
     } else {
-      // Zero-overdraw 4-Deck Parallax Stratocumulus Canopy (drifts smoothly at 20 FPS in <3ms/frame):
-      // Replaces static circle-blob RLE table with 4 sculpted, billowing cloud decks with flat shadowed bases
-      float t_ov = now_ms * 0.00038f;
-      static constexpr int16_t DECK_Y_BASE[4] = { 96, 154, 218, 282};
-      static constexpr int16_t DECK_AMP[4]    = { 38,  44,  42,  36};
-      static constexpr float   DECK_FREQ[4]   = {0.015f, 0.018f, 0.016f, 0.020f};
+      // Hybrid Overcast Canopy: Combines staggered, sculpted 3D cumulus cloud masses with
+      // interleaved wispy stratus tendrils (zero full-width horizontal stripes!)
+      float t_ov = now_ms * 0.00042f;
 
-      for (int d = 0; d < 4; d++) {
-        float dir = (d & 1) ? -1.0f : 1.0f;
-        float depth_k = 0.25f + 0.22f * static_cast<float>(d);
-        float drift_px = t_ov * (26.0f + d * 9.0f) * dir + par_x * depth_k + d * 85.0f;
-        int base_y = DECK_Y_BASE[d] + static_cast<int>(par_y * depth_k * 0.6f);
-        int amp    = DECK_AMP[d];
-        float freq = DECK_FREQ[d];
+      esphome::Color c_wisp_crest = is_night ? esphome::Color(74,  94, 120) : esphome::Color(134, 162, 192);
+      esphome::Color c_wisp_body  = is_night ? esphome::Color(48,  64,  84) : esphome::Color( 92, 118, 146);
+      esphome::Color c_wisp_base  = is_night ? esphome::Color(28,  38,  52) : esphome::Color( 56,  76, 100);
 
-        // Deck-specific atmospheric depth shading (upper decks catch more sky light; lower decks have deeper bases)
-        int deck_dim = d * (is_night ? 4 : 7);
-        esphome::Color c_rim   = is_night ? esphome::Color(82 - deck_dim, 104 - deck_dim, 134 - deck_dim)
-                                          : esphome::Color(136 - deck_dim, 168 - deck_dim, 202 - deck_dim);
-        esphome::Color c_crest = is_night ? esphome::Color(58 - deck_dim,  76 - deck_dim,  98 - deck_dim)
-                                          : esphome::Color( 96 - deck_dim, 126 - deck_dim, 158 - deck_dim);
-        esphome::Color c_body  = is_night ? esphome::Color(36 - deck_dim / 2, 48 - deck_dim / 2, 64 - deck_dim / 2)
-                                          : esphome::Color( 62 - deck_dim / 2, 86 - deck_dim / 2, 114 - deck_dim / 2);
-        esphome::Color c_base  = is_night ? esphome::Color(16, 22, 32)
-                                          : esphome::Color( 32, 48, 68);
+      // 1. Deep Background Cloud Masses (Upper-Left, Upper-Right, and Center-Low)
+      int b0_x = 128 + static_cast<int>(fast_sin(t_ov * 0.8f) * 16.0f + par_x * 0.28f);
+      int b1_x = 338 + static_cast<int>(fast_cos(t_ov * 0.7f + 1.2f) * 18.0f + par_x * 0.34f);
+      int b2_x = 242 + static_cast<int>(fast_sin(t_ov * 0.75f + 2.5f) * 15.0f + par_x * 0.40f);
+      render_cumulus_cloud(it, b0_x,  88 + static_cast<int>(par_y * 0.28f), 1.12f, true, is_night);
+      render_cumulus_cloud(it, b1_x, 126 + static_cast<int>(par_y * 0.34f), 1.06f, true, is_night);
+      render_cumulus_cloud(it, b2_x, 214 + static_cast<int>(par_y * 0.40f), 1.15f, true, is_night);
 
-        for (int x = 10; x <= 456; x += 2) {
-          int max_dy = circle_half_span(x, 5);
-          if (max_dy <= 6) continue;
-          int y_min = cy - max_dy;
-          int y_max = cy + max_dy;
+      // 2. Interleaved Wispy Cloud Veils weaving across the mid-sky between the cumulus masses
+      int w0_x = 238 + static_cast<int>(fast_cos(t_ov * 1.1f + 0.5f) * 28.0f + par_x * 0.48f);
+      int w1_x = 186 + static_cast<int>(fast_sin(t_ov * 1.25f + 2.1f) * 30.0f + par_x * 0.56f);
+      render_wispy_cloud_veil(it, w0_x, 114 + static_cast<int>(par_y * 0.45f), 165,  t_ov * 1.15f, 1,
+                              c_wisp_crest, c_wisp_body, c_wisp_base, cy);
+      render_wispy_cloud_veil(it, w1_x, 178 + static_cast<int>(par_y * 0.52f), 175, -t_ov * 1.30f + 1.7f, 2,
+                              c_wisp_crest, c_wisp_body, c_wisp_base, cy);
 
-          float wx = static_cast<float>(x) + drift_px;
-          // Folded multi-harmonic wave synthesis: |sin| creates rounded turret domes, cos creates rolling valleys
-          float s1 = std::fabs(fast_sin(wx * freq));
-          float s2 = 0.5f + 0.5f * fast_cos(wx * (freq * 1.65f) + d * 1.9f);
-          float s3 = fast_sin(wx * (freq * 3.1f) - t_ov * 0.8f);
-          float slope = fast_cos(wx * freq); // Positive on windward/sunward turret slope
+      // 3. Foreground Sculpted Cumulus Formations & Lower Wispy Tendril
+      int f0_x = 116 + static_cast<int>(fast_cos(t_ov * 1.05f + 3.1f) * 20.0f + par_x * 0.68f);
+      int f1_x = 346 + static_cast<int>(fast_sin(t_ov * 0.95f + 0.8f) * 22.0f + par_x * 0.76f);
+      render_cumulus_cloud(it, f0_x, 172 + static_cast<int>(par_y * 0.68f), 0.96f, false, is_night);
+      render_cumulus_cloud(it, f1_x, 258 + static_cast<int>(par_y * 0.76f), 0.92f, true,  is_night);
 
-          int h_turret = static_cast<int>((0.38f + 0.42f * s1 + 0.24f * s2 + 0.08f * s3) * static_cast<float>(amp));
-          int h_base   = 6 + static_cast<int>(fast_cos(wx * 0.012f + d) * 4.0f);
-
-          int y_top = base_y - h_turret;
-          int y_bot = base_y + h_base;
-          if (y_top < y_min) y_top = y_min;
-          if (y_bot > y_max) y_bot = y_max;
-          int span = y_bot - y_top;
-          if (span <= 2) continue;
-
-          int y_m1 = y_top + std::max(2, span / 5);
-          int y_m2 = y_top + (span * 62) / 100;
-
-          esphome::Color top_c = (slope > 0.15f && s1 > 0.45f) ? c_rim : c_crest;
-          it.line(x, y_top, x, y_m1, top_c);
-          it.line(x, y_m1,  x, y_m2, c_body);
-          it.line(x, y_m2,  x, y_bot, c_base);
-          if (x + 1 <= cx + max_dy) {
-            it.line(x + 1, y_top, x + 1, y_m1, top_c);
-            it.line(x + 1, y_m1,  x + 1, y_m2, c_body);
-            it.line(x + 1, y_m2,  x + 1, y_bot, c_base);
-          }
-        }
-      }
+      int w2_x = 228 + static_cast<int>(fast_cos(t_ov * 1.35f + 3.8f) * 26.0f + par_x * 0.82f);
+      render_wispy_cloud_veil(it, w2_x, 276 + static_cast<int>(par_y * 0.78f), 158,  t_ov * 1.40f + 3.4f, 3,
+                              c_wisp_crest, c_wisp_body, c_wisp_base, cy);
     }
   }
+
   // LAYER 1F: FOG & MIST — VOLUMETRIC STRATUS PUFFS & UNDULATING WISPY CLOUD VEILS
   if (is_fog_mist) {
     float t_fog = now_ms * 0.00028f;
 
-    // 1. Soft Background Stratus Cloud Puffs drifting slowly behind the mist
     int c0_x = 125 + static_cast<int>(fast_sin(t_fog * 0.8f) * 18.0f + par_x * 0.30f);
     int c1_x = 340 + static_cast<int>(fast_cos(t_fog * 0.7f + 1.4f) * 20.0f + par_x * 0.45f);
     int c2_x = 155 + static_cast<int>(fast_sin(t_fog * 0.9f + 2.8f) * 16.0f + par_x * 0.60f);
@@ -1016,7 +1033,6 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     render_cumulus_cloud(it, c1_x, 188 + static_cast<int>(par_y * 0.45f), 0.85f, true, is_night);
     render_cumulus_cloud(it, c2_x, 266 + static_cast<int>(par_y * 0.60f), 0.80f, true, is_night);
 
-    // 2. 5 Organic, Billowing Wispy Fog Plumes (Vertical column swells & pinches into feathered tendrils)
     static constexpr int16_t PLUME_Y[5]  = { 76, 128, 178, 232, 284};
     static constexpr int16_t PLUME_X0[5] = {198, 264, 212, 252, 224};
     static constexpr int16_t PLUME_HW[5] = {155, 175, 168, 180, 148};
@@ -1031,48 +1047,8 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       float phase = t_fog * (1.1f + p * 0.14f) * dir + p * 1.7f;
       int center_x = PLUME_X0[p] + static_cast<int>(fast_sin(phase) * 32.0f + par_x * depth_par);
       int base_y   = PLUME_Y[p]  + static_cast<int>(fast_cos(phase * 0.8f) * 3.0f + par_y * depth_par * 0.5f);
-      int half_w   = PLUME_HW[p];
-      float inv_hw = 1.0f / static_cast<float>(half_w);
-
-      for (int x = center_x - half_w; x <= center_x + half_w; x += 3) {
-        int max_dy = circle_half_span(x, 6);
-        if (max_dy <= 10) continue;
-        int y_min = cy - max_dy;
-        int y_max = cy + max_dy;
-
-        float u = static_cast<float>(x - center_x) * inv_hw; // -1.0 .. +1.0
-        float taper = 1.0f - u * u; // Smooth parabolic fade to 0 at leading/trailing tips
-        if (taper <= 0.04f) continue;
-
-        float xf = static_cast<float>(x);
-        // Multi-harmonic billow: upper crest rises into rounded lobes while lower base curls into wisps
-        float wave_top = fast_sin(xf * 0.028f + phase * 1.6f) * 11.0f +
-                         fast_cos(xf * 0.062f - phase * 1.1f) * 5.5f;
-        float wave_bot = fast_sin(xf * 0.036f - phase * 1.3f + 1.2f) * 6.5f +
-                         fast_cos(xf * 0.085f + phase * 2.0f) * 3.5f;
-
-        // Modulate density so edges break up into delicate, separated wisp tendrils
-        float wisp_mod = 0.55f + 0.45f * fast_sin(xf * 0.052f + phase * 1.8f + p);
-        float eff_taper = taper * (0.65f + 0.35f * wisp_mod);
-        if (eff_taper < 0.14f) continue;
-
-        int y_top = base_y - static_cast<int>((8.0f + fmaxf(0.0f, wave_top)) * eff_taper);
-        int y_bot = base_y + static_cast<int>((5.0f + fmaxf(0.0f, wave_bot)) * eff_taper);
-        if (y_top < y_min) y_top = y_min;
-        if (y_bot > y_max) y_bot = y_max;
-        if (y_bot <= y_top) continue;
-
-        int y_mid1 = y_top + ((y_bot - y_top) / 3);
-        int y_mid2 = y_top + (((y_bot - y_top) * 2) / 3);
-
-        // Draw 2px-wide vertical wisp slice with 3-tone vertical shading (crest -> body -> shadow base)
-        it.line(x, y_top,  x, y_mid1, c_wisp_crest);
-        it.line(x, y_mid1, x, y_mid2, c_wisp_body);
-        it.line(x, y_mid2, x, y_bot,  c_wisp_base);
-        if (eff_taper > 0.32f && x + 1 < cx + max_dy) {
-          it.line(x + 1, y_top + 1, x + 1, y_mid2, c_wisp_body);
-        }
-      }
+      render_wispy_cloud_veil(it, center_x, base_y, PLUME_HW[p], phase, p,
+                              c_wisp_crest, c_wisp_body, c_wisp_base, cy);
     }
   }
   // LAYER 1G: WINDY — 3D AIR-CURRENT RIBBONS & 10 TRUE 3D EULER-ROTATED TUMBLING LEAVES
