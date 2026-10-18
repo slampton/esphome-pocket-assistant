@@ -203,6 +203,16 @@ api:
         s5_active: bool
       then:
         - lambda: |-
+            if (!mode.empty()) {
+              id(selected_category_mode) = mode;
+              if (mode == "album_info") {
+                id(selected_category_title) = "ALBUM INFO";
+                if (id(gui_page) == 2 && id(music_overlay_mode) == 6) id(music_overlay_mode) = 7;
+              } else if (mode == "track_lyrics") {
+                id(selected_category_title) = "LYRICS";
+                if (id(gui_page) == 2 && id(music_overlay_mode) == 6) id(music_overlay_mode) = 7;
+              }
+            }
             id(music_browse_page) = page;
             id(music_browse_total_pages) = total_pages;
             id(slot_1_name) = s1_name;

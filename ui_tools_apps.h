@@ -1693,6 +1693,12 @@ inline void render_music_menus(
         std::string disp_name = fit_text_to_width_font(name, 196, font_small);
         it.print(126, y_mid, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
         draw_drilldown_icon(336, y_mid);
+      } else if (mtype == "text") {
+        std::string disp_name = fit_text_to_width_font(name, 236, font_small);
+        render_pill_button(it, 110, 356, y_mid, 18, col_dark_gray, col_dark_gray, disp_name.c_str(), col_slate, font_small);
+      } else if (mtype == "text") {
+        std::string disp_name = fit_text_to_width_font(name, 236, font_small);
+        render_pill_button(it, 110, 356, y_mid, 18, col_dark_gray, col_dark_gray, disp_name.c_str(), col_slate, font_small);
       } else {
         esphome::Color border_c = is_act ? theme_primary : theme_secondary;
         esphome::Color txt_c = is_act ? theme_primary : col_white;

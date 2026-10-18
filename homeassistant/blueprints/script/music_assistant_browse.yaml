@@ -308,20 +308,53 @@ sequence:
       value_template: '{{ mode == "current_album_tracks" }}'
     sequence:
     - variables:
-        target_spk: '{{ speaker if (speaker | default("") != "") else "media_player." ~ (dev_input | replace("-", "_")) }}'
-        alb_query: '{{ search if (search | default("") != "" and search != "None") else (state_attr(target_spk, "media_album_name") | default("", true)) }}'
-    - action: music_assistant.get_library
+        all_mass_players: '{{ integration_entities("music_assistant") | select("match", "^media_player") | list }}'
+        helper_val: '{{ states(helper_entity) if helper_entity and states(helper_entity) not in ["unknown", "unavailable", ""] else "" }}'
+        local_spk: '{{ "media_player." ~ (dev_input | replace("-", "_")) }}'
+        target_spk: >-
+          {% if speaker | default("") != "" and speaker in all_mass_players %}
+            {{ speaker }}
+          {% elif helper_val in all_mass_players %}
+            {{ helper_val }}
+          {% elif local_spk in all_mass_players %}
+            {{ local_spk }}
+          {% else %}
+            {{ all_mass_players | first | default(local_spk, true) }}
+          {% endif %}
+        raw_alb_query: '{{ search if (search | default("") != "" and search not in ["None", "Idle"]) else (state_attr(target_spk, "media_album_name") | default("", true)) }}'
+        clean_alb_query: '{{ raw_alb_query | regex_replace("\\s*[\\(\\[].*?[\\)\\]]", "") | trim }}'
+    - action: music_assistant.get_queue
       continue_on_error: true
-      data:
-        config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
-        media_type: album
-        search: '{{ alb_query }}'
-        limit: 5
-      response_variable: cur_alb_resp
+      target:
+        entity_id: '{{ target_spk }}'
+      response_variable: q_alb_resp
+    - variables:
+        queue_alb_uri: >-
+          {% set q_data = (q_alb_resp.values() | list | first) if q_alb_resp is defined and q_alb_resp is mapping and (q_alb_resp.values() | list | length > 0) else {} %}
+          {% set cur_item = q_data.current_item if q_data is mapping and q_data.current_item is defined and q_data.current_item is mapping else {} %}
+          {% set m_item = cur_item.media_item if cur_item is mapping and cur_item.media_item is defined and cur_item.media_item is mapping else {} %}
+          {% set alb_obj = m_item.album if m_item is mapping and m_item.album is defined and m_item.album is mapping else {} %}
+          {{ alb_obj.uri | default("", true) }}
+    - if:
+      - condition: template
+        value_template: '{{ queue_alb_uri == "" and clean_alb_query != "" }}'
+      then:
+      - action: music_assistant.get_library
+        continue_on_error: true
+        data:
+          config_entry_id: '{{ config_entry_id(all_mass_players | first) }}'
+          media_type: album
+          search: '{{ clean_alb_query }}'
+          limit: 5
+        response_variable: cur_alb_resp
     - variables:
         resolved_alb_uri: >-
-          {% set items = cur_alb_resp["items"] | default([]) if cur_alb_resp is defined and cur_alb_resp is mapping else [] %}
-          {{ items[0].uri if items | length > 0 else "" }}
+          {% if queue_alb_uri != "" %}
+            {{ queue_alb_uri }}
+          {% else %}
+            {% set items = cur_alb_resp["items"] | default([]) if cur_alb_resp is defined and cur_alb_resp is mapping else [] %}
+            {{ items[0].uri if items | length > 0 else "" }}
+          {% endif %}
     - if:
       - condition: template
         value_template: '{{ resolved_alb_uri != "" }}'
@@ -329,7 +362,7 @@ sequence:
       - action: media_player.browse_media
         continue_on_error: true
         target:
-          entity_id: '{{ integration_entities("music_assistant") | select("match", "^media_player") | first }}'
+          entity_id: '{{ target_spk }}'
         data:
           media_content_type: "music"
           media_content_id: '{{ resolved_alb_uri }}'
@@ -350,7 +383,7 @@ sequence:
             }] %}
           {% endfor %}
           {% if ns.items | length == 0 %}
-            {% set ns.items = [{"name": "No album tracks found", "id": "", "type": "track", "active": false}] %}
+            {% set ns.items = [{"name": "No album tracks found", "id": "", "type": "text", "active": false}] %}
           {% endif %}
           {{ ns.items | to_json }}
   - conditions:
@@ -358,9 +391,23 @@ sequence:
       value_template: '{{ mode in ["album_info", "track_lyrics"] }}'
     sequence:
     - variables:
-        target_spk: '{{ speaker if (speaker | default("") != "") else "media_player." ~ (dev_input | replace("-", "_")) }}'
-        alb_query: '{{ state_attr(target_spk, "media_album_name") | default(search, true) }}'
-        ttl_query: '{{ state_attr(target_spk, "media_title") | default(search, true) }}'
+        all_mass_players: '{{ integration_entities("music_assistant") | select("match", "^media_player") | list }}'
+        helper_val: '{{ states(helper_entity) if helper_entity and states(helper_entity) not in ["unknown", "unavailable", ""] else "" }}'
+        local_spk: '{{ "media_player." ~ (dev_input | replace("-", "_")) }}'
+        target_spk: >-
+          {% if speaker | default("") != "" and speaker in all_mass_players %}
+            {{ speaker }}
+          {% elif helper_val in all_mass_players %}
+            {{ helper_val }}
+          {% elif local_spk in all_mass_players %}
+            {{ local_spk }}
+          {% else %}
+            {{ all_mass_players | first | default(local_spk, true) }}
+          {% endif %}
+        raw_alb: '{{ state_attr(target_spk, "media_album_name") | default(search, true) }}'
+        raw_ttl: '{{ state_attr(target_spk, "media_title") | default(search, true) }}'
+        alb_query: '{{ raw_alb | regex_replace("\\s*[\\(\\[].*?[\\)\\]]", "") | trim }}'
+        ttl_query: '{{ raw_ttl | regex_replace("\\s*[\\(\\[].*?[\\)\\]]", "") | trim }}'
     - action: music_assistant.get_queue
       continue_on_error: true
       target:
@@ -368,27 +415,27 @@ sequence:
       response_variable: q_resp
     - if:
       - condition: template
-        value_template: '{{ mode == "album_info" and (alb_query | default("") != "") }}'
+        value_template: '{{ mode == "album_info" and (alb_query | default("") != "" and alb_query not in ["None", "Idle"]) }}'
       then:
       - action: music_assistant.get_library
         continue_on_error: true
         data:
-          config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
+          config_entry_id: '{{ config_entry_id(all_mass_players | first) }}'
           media_type: album
           search: '{{ alb_query }}'
-          limit: 3
+          limit: 5
         response_variable: alb_meta_resp
     - if:
       - condition: template
-        value_template: '{{ mode == "track_lyrics" and (ttl_query | default("") != "") }}'
+        value_template: '{{ mode == "track_lyrics" and (ttl_query | default("") != "" and ttl_query not in ["None", "Idle"]) }}'
       then:
       - action: music_assistant.get_library
         continue_on_error: true
         data:
-          config_entry_id: '{{ config_entry_id(integration_entities("music_assistant") | select("match", "^media_player") | first) }}'
+          config_entry_id: '{{ config_entry_id(all_mass_players | first) }}'
           media_type: track
           search: '{{ ttl_query }}'
-          limit: 3
+          limit: 5
         response_variable: trk_meta_resp
     - variables:
         raw_items: >-
@@ -396,11 +443,13 @@ sequence:
           {% set cur_item = q_data.current_item if q_data is mapping and q_data.current_item is defined and q_data.current_item is mapping else {} %}
           {% set m_item = cur_item.media_item if cur_item is mapping and cur_item.media_item is defined and cur_item.media_item is mapping else {} %}
           {% set q_meta = m_item.metadata if m_item is mapping and m_item.metadata is defined and m_item.metadata is mapping else {} %}
+          {% set q_alb = m_item.album if m_item is mapping and m_item.album is defined and m_item.album is mapping else {} %}
+          {% set q_alb_meta = q_alb.metadata if q_alb is mapping and q_alb.metadata is defined and q_alb.metadata is mapping else {} %}
           {% set raw_txt = "" %}
           {% if mode == "album_info" %}
             {% set a_items = alb_meta_resp["items"] | default([]) if alb_meta_resp is defined and alb_meta_resp is mapping else [] %}
             {% set a_meta = a_items[0].metadata if (a_items | length > 0 and a_items[0] is mapping and a_items[0].metadata is defined and a_items[0].metadata is mapping) else {} %}
-            {% set raw_txt = (a_meta.description | default("", true)) or (q_meta.description | default("", true)) %}
+            {% set raw_txt = (q_alb_meta.description | default("", true)) or (a_meta.description | default("", true)) or (q_meta.description | default("", true)) %}
           {% else %}
             {% set t_items = trk_meta_resp["items"] | default([]) if trk_meta_resp is defined and trk_meta_resp is mapping else [] %}
             {% set t_meta = t_items[0].metadata if (t_items | length > 0 and t_items[0] is mapping and t_items[0].metadata is defined and t_items[0].metadata is mapping) else {} %}
@@ -440,8 +489,7 @@ sequence:
           {% for ln in ns.lines %}
             {% set out.items = out.items + [{"name": ln, "id": "", "type": "text", "active": false}] %}
           {% endfor %}
-          {{ out.items | to_json }}
-  - conditions:
+          {{ out.items | to_json }}  - conditions:
     - condition: template
       value_template: '{{ mode == "album_tracks" }}'
     sequence:
