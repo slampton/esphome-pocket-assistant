@@ -1537,23 +1537,23 @@ inline void render_music_now_playing(
 
     bool has_shadow = has_art;
     if (has_shadow) {
-      it.print(cx + 1, 349, font_small, col_black, esphome::display::TextAlign::CENTER, title.c_str());
+      it.print(cx + 1, 353, font_small, col_black, esphome::display::TextAlign::CENTER, title.c_str());
     }
-    it.print(cx, 348, font_small, col_white, esphome::display::TextAlign::CENTER, title.c_str());
+    it.print(cx, 352, font_small, col_white, esphome::display::TextAlign::CENTER, title.c_str());
 
     if (!artist.empty() && artist != "None") {
       artist = fit_text_to_width_font(artist, 260, font_small);
       if (has_shadow) {
-        it.print(cx + 1, 371, font_small, col_black, esphome::display::TextAlign::CENTER, artist.c_str());
+        it.print(cx + 1, 374, font_small, col_black, esphome::display::TextAlign::CENTER, artist.c_str());
       }
-      it.print(cx, 370, font_small, col_white, esphome::display::TextAlign::CENTER, artist.c_str());
+      it.print(cx, 373, font_small, col_white, esphome::display::TextAlign::CENTER, artist.c_str());
     }
     if (!album.empty() && album != "None") {
       album = fit_text_to_width_font(album, 240, font_small);
       if (has_shadow) {
-        it.print(cx + 1, 391, font_small, col_black, esphome::display::TextAlign::CENTER, album.c_str());
+        it.print(cx + 1, 395, font_small, col_black, esphome::display::TextAlign::CENTER, album.c_str());
       }
-      it.print(cx, 390, font_small, col_white, esphome::display::TextAlign::CENTER, album.c_str());
+      it.print(cx, 394, font_small, col_white, esphome::display::TextAlign::CENTER, album.c_str());
     }
   }
 }
