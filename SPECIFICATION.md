@@ -112,7 +112,7 @@ The top-level App Deck carousel features 7 core applications with contiguous def
 | **2** | **Music Player** | Full-bleed AMOLED album art, 5.0s auto-fading HUD, direct shortcut back-routing (`music_direct_nav`), `-10s/+30s` speech seek icons, parameterized `play_music_slot(slot)`, and 5-slot library browser. |
 | **7** | **TV Remote** | Universal 4-device media remote (`tv_remote_entity`..`4`) with Slot-1 Master Power, per-device power overrides, radial `r <= 146 px` D-pad, and `resolve_remote_dispatch` supporting Android TV/Shield, Denon/Marantz AVR (`denonavr.get_command`), LG webOS (`webostv.button`), Apple TV, Roku, Samsung TV, and Custom. |
 | **5** | **Sky & Weather** | 20 FPS meteorological & astronomical suite (`render_weather_page`) with live weather motion wallpaper, 5-day forecast, Sun arc, and `.rodata` telescopic Lunar Albedo LUTs (`LUNAR_ALBEDO_139` & `LUNAR_ALBEDO_45`). |
-| **3** | **Games Suite** | Vertical slot-machine reel launcher (`render_games_launcher`) featuring 5 continuous-wave 20 FPS arcade games: Marbles, Archery, Breakout, Chomp for Kids, and Asteroids. |
+| **3** | **Games Suite** | Vertical slot-machine reel launcher (`render_games_launcher`) featuring 4 continuous-wave 20 FPS arcade games: Marbles, Archery, Breakout, and Chomp for Kids. |
 | **8** | **Tools Suite** | 2-page $2 \times 2$ micro-app launcher: Countdown Timer, Multi-Alarm Manager, 20 FPS Heuer Stopwatch, 3D Ivory Dual D6 Dice, AMOLED Flashlight Torch, Pocket Calculator, `300px` 20 FPS Bubble Level, and Zero-Trig 3D Coin Flip. |
 | **4** | **System Hub** | 2-page vertical menu (`render_system_page`): Page 1 (`Display >`, `Sleep & Wake >`, `Sound >`, `Voice >`) and Page 2 (`Music >`, `App Deck >`, `Info >`, `Actions >`). |
 

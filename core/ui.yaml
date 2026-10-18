@@ -3448,7 +3448,7 @@ display:
               it, cx, id(game_carousel_idx), id(menu_scroll_active),
               id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
               id(high_score_marbles), id(high_score_archery), id(high_score_breakout),
-              id(high_score_chomp), id(high_score_asteroids),
+              id(high_score_chomp),
               id(font_games_title), id(font_btn_bold), id(font_small),
               id(theme_primary), id(theme_secondary),
               id(col_bg), id(col_black), id(col_white), id(col_silver),
@@ -3500,17 +3500,6 @@ display:
               id(col_black), id(col_gold), id(col_cyan), id(col_red),
               id(col_green), id(col_magenta), id(col_orange), id(col_dark_gray));
 
-        // ----------------------------------------------------
-        // GAME 5: ASTEROIDS (TILT-AIM VECTOR COMBAT, WAVES & ALIEN UFO SAUCERS)
-        // ----------------------------------------------------
-        } else if (id(active_game) == 5) {
-          render_game_asteroids(
-              it, cx, cy, millis(), game_just_entered, roll_delta, pitch_delta,
-              id(marble_touch_x), id(game_btn_pressed), id(high_score_asteroids),
-              id(font_date), id(font_small), id(theme_secondary),
-              id(col_bg), id(col_white), id(col_silver), id(col_slate),
-              id(col_dark_gray), id(col_gold), id(col_cyan), id(col_green),
-              id(col_magenta), id(col_orange), id(col_red));
         }
       // ==========================================
       // PAGE 4: SYSTEM SETTINGS & DIAGNOSTICS (SECTION 18 OF ui_toolkit.h)
@@ -4590,7 +4579,7 @@ touchscreen:
                     int dir = (touch.y < 220) ? -1 : 1;
                     id(menu_scroll_active) = true;
                     id(menu_scroll_dir) = dir;
-                    id(menu_scroll_target_page) = step_wrap(id(game_carousel_idx), dir, 5);
+                    id(menu_scroll_target_page) = step_wrap(id(game_carousel_idx), dir, 4);
                     id(menu_scroll_step) = 0;
                     ESP_LOGI("touch", "Page 3 Game Chevron: x=%d y=%d dir=%d target=%d", touch.x, touch.y, dir, id(menu_scroll_target_page));
                     id(menu_scroll_transition).execute();
@@ -4609,7 +4598,7 @@ touchscreen:
                   uint32_t now_gl = millis();
                   if (now_gl - last_game_launch_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_game_launch_tap = now_gl;
-                    id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp), 4->5 (Asteroids)
+                    id(active_game) = id(game_carousel_idx) + 1; // 0->1 (Marbles), 1->2 (Archery), 2->3 (Breakout), 3->4 (Chomp)
                     ESP_LOGI("touch", "Page 3 Launch Game: x=%d y=%d game=%d", touch.x, touch.y, id(active_game));
                     if (id(active_game) > 0) {
                       // Pause local background music, mute DAC, and power down amp for dedicated 20 FPS game performance

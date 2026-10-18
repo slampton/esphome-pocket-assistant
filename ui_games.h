@@ -1760,17 +1760,24 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
                               esphome::Color col_green, esphome::Color col_magenta,
                               esphome::Color col_orange, esphome::Color col_dark_gray) {
   struct KidTreat {
-    float x, y, vx, vy;
+    float x, y;
     int kind;
+    uint32_t spawn_ms;
   };
   struct ConfettiSpark {
     float x, y, vx, vy;
     esphome::Color col;
   };
 
-  static constexpr int NUM_TREATS = 3;
+  static constexpr int NUM_TREATS = 5;
   static KidTreat treats[NUM_TREATS];
+  static float mon_x = 233.0f;
+  static float mon_y = 233.0f;
+  static float mon_vx = 0.0f;
+  static float mon_vy = 0.0f;
   static uint32_t last_phys_ms = 0;
+  static uint32_t entry_ms = 0;
+  static bool post_play_tared = false;
   static int treat_score = 0;
   static int next_kind = 0;
   static uint32_t chomp_timer = 0;
@@ -1778,520 +1785,64 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   static uint32_t party_timer = 0;
   static ConfettiSpark confetti[14];
 
-  auto spawn_single_treat = [&](int idx, float angle_rad) {
-    float dist = 156.0f + (float)(idx * 8);
-    treats[idx].x = (float)cx + std::sin(angle_rad) * dist;
-    treats[idx].y = (float)cy - std::cos(angle_rad) * dist;
-    treats[idx].vx = 0.0f;
-    treats[idx].vy = 0.0f;
+  // Places a treat in a well-spaced spot on the plate away from the monster and other treats
+  auto place_treat = [&](int idx, uint32_t seed_val) {
+    float best_x = static_cast<float>(cx);
+    float best_y = static_cast<float>(cy - 120);
+    float best_min_d2 = -1.0f;
+
+    for (int attempt = 0; attempt < 12; attempt++) {
+      int s = static_cast<int>(seed_val * 31U + idx * 53U + attempt * 97U);
+      float ang = hash2d_01(s, 13) * (2.0f * PI_F);
+      float rad = 68.0f + hash2d_01(s, 29) * 102.0f; // r in [68..170px] inside bowl
+      float tx = static_cast<float>(cx) + fast_cos(ang) * rad;
+      float ty = static_cast<float>(cy) + fast_sin(ang) * rad;
+
+      // Keep clear of the monster's current position
+      float dmx = tx - mon_x;
+      float dmy = ty - mon_y;
+      float min_d2 = dmx * dmx + dmy * dmy;
+      if (min_d2 < 6400.0f) min_d2 *= 0.25f; // Penalize spawning right on top of the monster
+
+      for (int j = 0; j < NUM_TREATS; j++) {
+        if (j == idx) continue;
+        float dx = tx - treats[j].x;
+        float dy = ty - treats[j].y;
+        float d2 = dx * dx + dy * dy;
+        if (d2 < min_d2) min_d2 = d2;
+      }
+
+      if (min_d2 > best_min_d2) {
+        best_min_d2 = min_d2;
+        best_x = tx;
+        best_y = ty;
+      }
+    }
+    treats[idx].x = best_x;
+    treats[idx].y = best_y;
     treats[idx].kind = next_kind++;
+    treats[idx].spawn_ms = now_ms;
   };
 
   if (game_just_entered) {
     last_phys_ms = now_ms;
+    entry_ms = now_ms;
+    post_play_tared = false;
+    mon_x = static_cast<float>(cx);
+    mon_y = static_cast<float>(cy);
+    mon_vx = 0.0f;
+    mon_vy = 0.0f;
     treat_score = 0;
     next_kind = 0;
     chomp_timer = 0;
     party_timer = 0;
-    spawn_single_treat(0, 0.85f);
-    spawn_single_treat(1, 2.95f);
-    spawn_single_treat(2, 5.05f);
-  }
-
-  float dt = (now_ms >= last_phys_ms) ? ((now_ms - last_phys_ms) * 0.001f) : 0.05f;
-  last_phys_ms = now_ms;
-  if (dt < 0.012f) dt = 0.012f;
-  if (dt > 0.075f) dt = 0.075f;
-
-  // Tap Screen: Cheerful hop TOWARD the monster's mouth so tapping always helps little kids!
-  if (marble_touch_x >= 0.0f || game_btn_pressed) {
-    marble_touch_x = -1.0f;
-    game_btn_pressed = false;
     for (int i = 0; i < NUM_TREATS; i++) {
-      float dx = (float)cx - treats[i].x;
-      float dy = (float)cy - treats[i].y;
-      float d = std::sqrt(dx * dx + dy * dy);
-      if (d > 1.0f) {
-        treats[i].vx += (dx / d) * 185.0f;
-        treats[i].vy += (dy / d) * 185.0f;
-      }
+      treats[i] = {static_cast<float>(cx), static_cast<float>(cy), i, now_ms};
     }
-  }
-
-  // Tilt acceleration
-  float ax = std::max(-580.0f, std::min(580.0f, roll_delta * 26.0f));
-  float ay = std::max(-580.0f, std::min(580.0f, -pitch_delta * 26.0f));
-
-  float nearest_dist = 999.0f;
-  float look_dx = 0.0f;
-  float look_dy = 0.0f;
-
-  // Update each of the 3 treats
-  for (int i = 0; i < NUM_TREATS; i++) {
-    float dx_m = (float)cx - treats[i].x;
-    float dy_m = (float)cy - treats[i].y;
-    float dist_m = std::sqrt(dx_m * dx_m + dy_m * dy_m);
-
-    // Gentle "yummy slurp" attraction when treat rolls near the open mouth (dist < 95px)
-    float pull_x = 0.0f, pull_y = 0.0f;
-    if (dist_m < 95.0f && dist_m > 1.0f) {
-      float pull_mag = (1.0f - dist_m / 95.0f) * 210.0f;
-      pull_x = (dx_m / dist_m) * pull_mag;
-      pull_y = (dy_m / dist_m) * pull_mag;
+    for (int i = 0; i < NUM_TREATS; i++) {
+      place_treat(i, static_cast<uint32_t>(i * 71 + 19));
     }
-
-    treats[i].vx = (treats[i].vx + (ax + pull_x) * dt) * 0.965f;
-    treats[i].vy = (treats[i].vy + (ay + pull_y) * dt) * 0.965f;
-    treats[i].x += treats[i].vx * dt;
-    treats[i].y += treats[i].vy * dt;
-
-    // Circular bowl boundary reflection (r = 194px center limit)
-    float b_dx = treats[i].x - (float)cx;
-    float b_dy = treats[i].y - (float)cy;
-    float b_dist = std::sqrt(b_dx * b_dx + b_dy * b_dy);
-    const float max_r = 192.0f;
-    if (b_dist > max_r && b_dist > 0.001f) {
-      float nx = b_dx / b_dist;
-      float ny = b_dy / b_dist;
-      treats[i].x = (float)cx + nx * max_r;
-      treats[i].y = (float)cy + ny * max_r;
-      float v_dot = treats[i].vx * nx + treats[i].vy * ny;
-      if (v_dot > 0.0f) {
-        treats[i].vx -= 1.75f * v_dot * nx;
-        treats[i].vy -= 1.75f * v_dot * ny;
-      }
-    }
-  }
-
-  // Soft treat-to-treat separation so the 3 treats bounce playfully off each other
-  for (int i = 0; i < NUM_TREATS; i++) {
-    for (int j = i + 1; j < NUM_TREATS; j++) {
-      float dx = treats[j].x - treats[i].x;
-      float dy = treats[j].y - treats[i].y;
-      float dist = std::sqrt(dx * dx + dy * dy);
-      const float min_sep = 28.0f;
-      if (dist < min_sep && dist > 0.01f) {
-        float nx = dx / dist;
-        float ny = dy / dist;
-        float overlap = (min_sep - dist) * 0.5f;
-        treats[i].x -= nx * overlap;
-        treats[i].y -= ny * overlap;
-        treats[j].x += nx * overlap;
-        treats[j].y += ny * overlap;
-        float kx = treats[i].vx - treats[j].vx;
-        float ky = treats[i].vy - treats[j].vy;
-        float v_rel = kx * nx + ky * ny;
-        if (v_rel > 0.0f) {
-          treats[i].vx -= 0.85f * v_rel * nx;
-          treats[i].vy -= 0.85f * v_rel * ny;
-          treats[j].vx += 0.85f * v_rel * nx;
-          treats[j].vy += 0.85f * v_rel * ny;
-        }
-      }
-    }
-  }
-
-  // Check if any treat is eaten + find nearest treat for the monster's eyes to follow
-  for (int i = 0; i < NUM_TREATS; i++) {
-    float dx = treats[i].x - (float)cx;
-    float dy = treats[i].y - (float)cy;
-    float dist = std::sqrt(dx * dx + dy * dy);
-
-    if (dist < 32.0f) {
-      treat_score++;
-      chomp_timer = now_ms;
-      chomp_word_idx = (chomp_word_idx + 1) % 5;
-      if (treat_score > high_score_chomp) {
-        high_score_chomp = treat_score;
-      }
-      // Every 5 treats: Milestone Party Celebration!
-      if (treat_score > 0 && (treat_score % 5 == 0)) {
-        party_timer = now_ms;
-        esphome::Color p_cols[5] = {col_gold, col_cyan, col_magenta, col_green, col_orange};
-        for (int c = 0; c < 14; c++) {
-          float ang = (float)c * (2.0f * PI_F / 14.0f);
-          float spd = 95.0f + (float)((c % 3) * 32);
-          confetti[c].x = (float)cx + std::cos(ang) * 24.0f;
-          confetti[c].y = (float)cy + std::sin(ang) * 24.0f;
-          confetti[c].vx = std::cos(ang) * spd;
-          confetti[c].vy = std::sin(ang) * spd - 35.0f;
-          confetti[c].col = p_cols[c % 5];
-        }
-      }
-      // Respawn this treat along the outer rim away from the other treats
-      float spawn_ang = ((float)((treat_score * 137 + i * 120) % 360)) * (PI_F / 180.0f);
-      spawn_single_treat(i, spawn_ang);
-      dist = 160.0f;
-    }
-
-    if (dist < nearest_dist) {
-      nearest_dist = dist;
-      look_dx = dx / (dist + 1.0f);
-      look_dy = dy / (dist + 1.0f);
-    }
-  }
-
-  // Update milestone confetti
-  bool is_party = (party_timer > 0 && (now_ms - party_timer < 1500U));
-  if (is_party) {
-    for (int c = 0; c < 14; c++) {
-      confetti[c].x += confetti[c].vx * dt;
-      confetti[c].y += confetti[c].vy * dt;
-      confetti[c].vy += 110.0f * dt;
-    }
-  }
-
-  bool is_chomping = (chomp_timer > 0 && (now_ms - chomp_timer < 550U));
-  bool mouth_open = (nearest_dist < 96.0f);
-
-  // ==========================================================================
-  // RENDERING PIPELINE
-  // ==========================================================================
-
-  // 1. Subtle Play Bowl Rim & Bottom Scorekeeper HUD (y = 408)
-  it.circle(cx, cy, 208, col_dark_gray);
-  char t_buf[48];
-  snprintf(t_buf, sizeof(t_buf), "Treats: %d  •  Best: %d", treat_score, high_score_chomp);
-  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, t_buf);
-
-  // 2. Render Center Cookie-Monster-Style Friend (with cute rounded ears & party hat at 5+ treats)
-  render_chomp_monster(it, cx, cy, 38, look_dx, look_dy, mouth_open, is_chomping,
-                       (treat_score >= 5), now_ms,
-                       col_white, col_black, col_gold, col_red, col_magenta, col_dark_gray);
-
-  // 3. Render All 3 Rolling Kid Treats
-  for (int i = 0; i < NUM_TREATS; i++) {
-    render_chomp_treat(it, (int)treats[i].x, (int)treats[i].y, treats[i].kind,
-                       col_white, col_red, col_gold, col_cyan, col_green, col_magenta, col_bg);
-  }
-
-  // 4. Happy Chomp Word Popup & Milestone Party Confetti Burst
-  if (is_party) {
-    for (int c = 0; c < 14; c++) {
-      it.filled_circle((int)confetti[c].x, (int)confetti[c].y, 3, confetti[c].col);
-    }
-    char p_msg[32];
-    snprintf(p_msg, sizeof(p_msg), "%d TREATS! YAY!", treat_score);
-    it.print(cx, 142, font_date, col_gold, esphome::display::TextAlign::CENTER, p_msg);
-  } else if (is_chomping) {
-    static constexpr const char *CHOMP_WORDS[5] = {
-        "NOM NOM!", "YUMMY!", "COOKIE!", "CHOMP!", "DELICIOUS!"};
-    it.print(cx, 148, font_date, col_gold, esphome::display::TextAlign::CENTER,
-             CHOMP_WORDS[chomp_word_idx]);
-    // Sparkle stars around the happy monster
-    it.filled_circle(cx - 48, cy - 18, 3, col_gold);
-    it.filled_circle(cx + 48, cy - 18, 3, col_cyan);
-    it.filled_circle(cx, cy + 50, 3, col_magenta);
-  }
-}
-
-
-// ============================================================================
-// SECTION 12: REUSABLE VECTOR STARSHIP, ASTEROID, ALIEN UFO & ASTEROIDS ENGINE
-// ============================================================================
-
-template<typename DisplayT>
-inline void render_asteroids_ship(DisplayT &it, int sx, int sy, float angle_rad,
-                                  float scale, bool thruster_on,
-                                  esphome::Color col_white, esphome::Color col_silver,
-                                  esphome::Color col_cyan, esphome::Color col_orange) {
-  float c_a = fast_cos(angle_rad);
-  float s_a = fast_sin(angle_rad);
-  float c_lw = fast_cos(angle_rad + 2.52f);
-  float s_lw = fast_sin(angle_rad + 2.52f);
-  float c_rw = fast_cos(angle_rad - 2.52f);
-  float s_rw = fast_sin(angle_rad - 2.52f);
-
-  int nx = sx + (int)(c_a * 17.0f * scale);
-  int ny = sy + (int)(s_a * 17.0f * scale);
-  int lwx = sx + (int)(c_lw * 13.0f * scale);
-  int lwy = sy + (int)(s_lw * 13.0f * scale);
-  int rwx = sx + (int)(c_rw * 13.0f * scale);
-  int rwy = sy + (int)(s_rw * 13.0f * scale);
-  int kx = sx - (int)(c_a * 5.0f * scale);
-  int ky = sy - (int)(s_a * 5.0f * scale);
-
-  // Vector delta hull
-  it.line(nx, ny, lwx, lwy, col_white);
-  it.line(nx, ny, rwx, rwy, col_white);
-  it.line(lwx, lwy, kx, ky, col_silver);
-  it.line(rwx, rwy, kx, ky, col_silver);
-
-  //Glowing cockpit canopy
-  int cpx = sx + (int)(c_a * 4.0f * scale);
-  int cpy = sy + (int)(s_a * 4.0f * scale);
-  it.filled_circle(cpx, cpy, std::max(1, (int)(2.0f * scale)), col_cyan);
-
-  if (thruster_on) {
-    int fx = sx - (int)(c_a * 14.0f * scale);
-    int fy = sy - (int)(s_a * 14.0f * scale);
-    it.line(kx, ky, fx, fy, col_orange);
-  }
-}
-
-template<typename DisplayT>
-inline void render_asteroids_rock(DisplayT &it, float rx, float ry, float r_base,
-                                  int shape, float rot_rad,
-                                  esphome::Color rim_col, esphome::Color crater_col) {
-  (void)crater_col;
-  // Closed 8-vertex, 12-triangle, 18-edge 3D polyhedral asteroid (0 = top apex, 1 = bottom apex, 2..7 = craggy equator)
-  static constexpr float VERT_3D[3][8][3] = {
-    { // Shape 0
-      { 0.04f, -0.96f,  0.10f}, {-0.05f,  0.94f, -0.10f},
-      { 1.02f, -0.14f,  0.00f}, { 0.54f,  0.18f,  0.86f},
-      {-0.52f, -0.16f,  0.84f}, {-1.00f,  0.14f,  0.04f},
-      {-0.48f, -0.20f, -0.88f}, { 0.56f,  0.16f, -0.82f}
-    },
-    { // Shape 1
-      {-0.06f, -0.92f, -0.08f}, { 0.08f,  0.96f,  0.08f},
-      { 0.96f,  0.16f, -0.06f}, { 0.48f, -0.20f,  0.90f},
-      {-0.58f,  0.15f,  0.80f}, {-0.94f, -0.18f, -0.04f},
-      {-0.52f,  0.22f, -0.84f}, { 0.50f, -0.14f, -0.88f}
-    },
-    { // Shape 2
-      { 0.08f, -0.94f,  0.06f}, {-0.06f,  0.92f, -0.08f},
-      { 0.98f, -0.18f,  0.08f}, { 0.56f,  0.14f,  0.82f},
-      {-0.46f, -0.22f,  0.88f}, {-1.02f,  0.16f, -0.06f},
-      {-0.54f, -0.14f, -0.84f}, { 0.48f,  0.20f, -0.86f}
-    }
-  };
-
-  // 12 outward-oriented triangular facets: 6 upper hemisphere (0..5), 6 lower hemisphere (6..11)
-  static constexpr uint8_t FACES[12][3] = {
-    {0, 2, 3}, {0, 3, 4}, {0, 4, 5}, {0, 5, 6}, {0, 6, 7}, {0, 7, 2},
-    {1, 3, 2}, {1, 4, 3}, {1, 5, 4}, {1, 6, 5}, {1, 7, 6}, {1, 2, 7}
-  };
-
-  // 18 edges: {vertex_a, vertex_b, adjacent_face_1, adjacent_face_2}
-  static constexpr uint8_t EDGES[18][4] = {
-    // 6 Equatorial edges
-    {2, 3, 0,  6}, {3, 4, 1,  7}, {4, 5, 2,  8},
-    {5, 6, 3,  9}, {6, 7, 4, 10}, {7, 2, 5, 11},
-    // 6 Upper cone edges (to apex 0)
-    {0, 2, 5,  0}, {0, 3, 0,  1}, {0, 4, 1,  2},
-    {0, 5, 2,  3}, {0, 6, 3,  4}, {0, 7, 4,  5},
-    // 6 Lower cone edges (to apex 1)
-    {1, 2, 6, 11}, {1, 3, 7,  6}, {1, 4, 8,  7},
-    {1, 5, 9,  8}, {1, 6, 10, 9}, {1, 7, 11, 10}
-  };
-
-  const int sh = ((shape % 3) + 3) % 3;
-  float ax = rot_rad * 0.75f + static_cast<float>(sh) * 0.9f;
-  float ay = rot_rad * 1.05f + static_cast<float>(sh) * 0.5f;
-  float az = rot_rad * 0.50f;
-
-  ProjectedPoint pts[8];
-  int cx_r = static_cast<int>(rx);
-  int cy_r = static_cast<int>(ry);
-
-  for (int i = 0; i < 8; i++) {
-    Vec3 v_local{VERT_3D[sh][i][0] * r_base,
-                 VERT_3D[sh][i][1] * r_base,
-                 VERT_3D[sh][i][2] * r_base};
-    Vec3 vr = rotate_3d_xyz(v_local, ax, ay, az);
-    pts[i] = project_3d(vr, cx_r, cy_r, 260.0f, 260.0f);
-  }
-
-  // Exact 2D screen-space backface classification for each of the 12 triangular facets
-  bool face_front[12];
-  for (int f = 0; f < 12; f++) {
-    uint8_t i0 = FACES[f][0], i1 = FACES[f][1], i2 = FACES[f][2];
-    int cross = (pts[i1].x - pts[i0].x) * (pts[i2].y - pts[i0].y) -
-                (pts[i1].y - pts[i0].y) * (pts[i2].x - pts[i0].x);
-    face_front[f] = (cross < 0);
-  }
-
-  esphome::Color ridge_col = scale_color(rim_col, 0.52f);
-
-  // Pass 1: Draw visible interior front facet creases (both adjacent faces front-facing)
-  for (int e = 0; e < 18; e++) {
-    bool f1 = face_front[EDGES[e][2]];
-    bool f2 = face_front[EDGES[e][3]];
-    if (f1 && f2) {
-      uint8_t a = EDGES[e][0], b = EDGES[e][1];
-      it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, ridge_col);
-    }
-  }
-
-  // Pass 2: Draw outer silhouette boundary edges (1 front-facing + 1 back-facing) in 100% bright rim_col
-  // Guarantees a closed, unbroken outer asteroid perimeter at every possible 3D rotation angle!
-  for (int e = 0; e < 18; e++) {
-    bool f1 = face_front[EDGES[e][2]];
-    bool f2 = face_front[EDGES[e][3]];
-    if (f1 != f2) {
-      uint8_t a = EDGES[e][0], b = EDGES[e][1];
-      it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, rim_col);
-    }
-  }
-}
-template<typename DisplayT>
-inline void render_asteroids_ufo(DisplayT &it, int ux, int uy, float scale,
-                                 uint32_t now_ms, esphome::Color col_white,
-                                 esphome::Color col_cyan, esphome::Color col_magenta,
-                                 esphome::Color col_green, esphome::Color col_gold) {
-  int hw = (int)(16.0f * scale);
-  int mid_w = (int)(10.0f * scale);
-  int dome_r = std::max(3, (int)(6.0f * scale));
-  int body_h = std::max(3, (int)(5.0f * scale));
-
-  // Upper glass dome canopy
-  it.circle(ux, uy - 2, dome_r, col_cyan);
-  it.horizontal_line(ux - dome_r, uy - 1, dome_r * 2 + 1, esphome::Color(15, 22, 32));
-
-  // Metallic saucer upper & lower hull bevels
-  it.line(ux - mid_w, uy - 2, ux + mid_w, uy - 2, col_white);
-  it.line(ux - mid_w, uy - 2, ux - hw, uy + 2, col_magenta);
-  it.line(ux + mid_w, uy - 2, ux + hw, uy + 2, col_magenta);
-  it.line(ux - hw, uy + 2, ux + hw, uy + 2, col_white);
-  it.line(ux - hw, uy + 2, ux - mid_w, uy + body_h, col_magenta);
-  it.line(ux + hw, uy + 2, ux + mid_w, uy + body_h, col_magenta);
-  it.line(ux - mid_w, uy + body_h, ux + mid_w, uy + body_h, col_cyan);
-
-  // 3 Animated blinking running lights across the saucer rim
-  int blink = (int)((now_ms / 120U) % 3U);
-  it.filled_circle(ux - hw / 2, uy + 2, 1, (blink == 0) ? col_gold : col_green);
-  it.filled_circle(ux, uy + 2, 1, (blink == 1) ? col_gold : col_cyan);
-  it.filled_circle(ux + hw / 2, uy + 2, 1, (blink == 2) ? col_gold : col_green);
-}
-
-template<typename DisplayT, typename FontBigT, typename FontSmallT>
-inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
-                                  bool game_just_entered, float roll_delta, float pitch_delta,
-                                  float &marble_touch_x, bool &game_btn_pressed,
-                                  int &high_score_asteroids,
-                                  FontBigT *font_date, FontSmallT *font_small,
-                                  esphome::Color theme_secondary,
-                                  esphome::Color col_bg, esphome::Color col_white,
-                                  esphome::Color col_silver, esphome::Color col_slate,
-                                  esphome::Color col_dark_gray, esphome::Color col_gold,
-                                  esphome::Color col_cyan, esphome::Color col_green,
-                                  esphome::Color col_magenta, esphome::Color col_orange,
-                                  esphome::Color col_red) {
-  (void)col_silver;
-  static constexpr int NUM_LANES = 12;
-  static constexpr float TUBE_R = 192.0f;
-  static constexpr float Z_PIT  = 460.0f;
-
-  struct VortexEnemy {
-    int lane;          // 0..11
-    float z;           // 460.0f (deep pit) -> 0.0f (outer rim)
-    float speed;
-    uint8_t type;      // 0 = Flipper (crimson bowtie), 1 = Pulsar (magenta diamond), 2 = Tanker (2-hit gold/green)
-    uint8_t hp;
-    float flip_timer;
-    int flip_dir;
-    bool active;
-  };
-
-  struct VortexShot {
-    int lane;
-    float z;           // 0.0f (outer rim) -> 460.0f (deep pit)
-    bool active;
-  };
-
-  struct VortexSpark {
-    float x, y, vx, vy, life;
-    esphome::Color col;
-    bool active;
-  };
-
-  static constexpr int MAX_ENEMIES = 10;
-  static constexpr int MAX_SHOTS   = 8;
-  static constexpr int MAX_SPARKS  = 18;
-
-  static VortexEnemy enemies[MAX_ENEMIES];
-  static VortexShot  shots[MAX_SHOTS];
-  static VortexSpark sparks[MAX_SPARKS];
-
-  static uint32_t last_phys_ms = 0;
-  static uint32_t game_entry_ms = 0;
-  static bool post_play_tared = false;
-  static int wave_num = 1;
-  static int vtx_score = 0;
-  static int vtx_lives = 3;
-  static int hit_streak = 0;
-  static int enemies_to_spawn = 12;
-  static int enemies_cleared = 0;
-  static float spawn_timer = 0.0f;
-  static float smooth_roll = 0.0f;
-  static int player_lane = 6; // Lane 6 = 6 o'clock bottom center
-  static uint32_t last_shot_ms = 0;
-  static uint32_t burst_pending_ms = 0;
-  static int burst_lane = 6;
-  static uint32_t invuln_until_ms = 0;
-  static float zapper_ring_z = -1.0f;
-  static bool vtx_game_over = false;
-  static bool is_new_high = false;
-
-  static uint32_t popup_ms = 0;
-  static int popup_x = 233, popup_y = 180;
-  static char popup_text[32] = "";
-  static esphome::Color popup_col(255, 215, 0);
-  static uint32_t banner_ms = 0;
-  static char banner_text[32] = "";
-
-  // 12 radial vertices around the tube: Vertex v is at angle v * 30 deg (0 = 12 o'clock, 6 = 6 o'clock)
-  // Lane L spans between Vertex L and Vertex (L + 1) % 12.
-  auto get_vertex_xy = [](int v_idx, float &out_x, float &out_y) {
-    int dial_i = ((v_idx % 12) * 5 + 60) % 60;
-    out_x = DIAL_SIN[dial_i] * TUBE_R;
-    out_y = -DIAL_COS[dial_i] * TUBE_R;
-  };
-
-  auto get_lane_center_xy = [&](int l_idx, float &out_x, float &out_y) {
-    float x0, y0, x1, y1;
-    get_vertex_xy(l_idx, x0, y0);
-    get_vertex_xy((l_idx + 1) % NUM_LANES, x1, y1);
-    out_x = 0.5f * (x0 + x1);
-    out_y = 0.5f * (y0 + y1);
-  };
-
-  auto spawn_sparks = [&](int sx, int sy, esphome::Color sc, int count) {
-    int n = 0;
-    for (int i = 0; i < MAX_SPARKS && n < count; i++) {
-      if (!sparks[i].active) {
-        float ang = static_cast<float>((i * 47 + (now_ms & 0xFF)) % 60) * (2.0f * PI_F / 60.0f);
-        float spd = 55.0f + static_cast<float>((i % 3) * 28);
-        sparks[i] = {static_cast<float>(sx), static_cast<float>(sy),
-                     fast_cos(ang) * spd, fast_sin(ang) * spd, 0.38f, sc, true};
-        n++;
-      }
-    }
-  };
-
-  auto start_wave = [&](int wv) {
-    for (int i = 0; i < MAX_ENEMIES; i++) enemies[i].active = false;
-    for (int i = 0; i < MAX_SHOTS; i++) shots[i].active = false;
-    enemies_to_spawn = 10 + wv * 3;
-    enemies_cleared = 0;
-    spawn_timer = 0.45f;
-  };
-
-  auto reset_vortex_game = [&]() {
-    last_phys_ms = now_ms;
-    game_entry_ms = now_ms;
-    post_play_tared = false;
-    wave_num = 1;
-    vtx_score = 0;
-    vtx_lives = 3;
-    hit_streak = 0;
-    smooth_roll = 0.0f;
-    player_lane = 6;
-    last_shot_ms = 0;
-    burst_pending_ms = 0;
-    invuln_until_ms = now_ms + 1200U;
-    zapper_ring_z = -1.0f;
-    vtx_game_over = false;
-    is_new_high = false;
-    popup_ms = 0;
-    banner_ms = 0;
-    for (int i = 0; i < MAX_SPARKS; i++) sparks[i].active = false;
-    start_wave(1);
-  };
-
-  if (game_just_entered) {
-    reset_vortex_game();
-  } else if (!post_play_tared && (now_ms - game_entry_ms >= 220U)) {
+  } else if (!post_play_tared && (now_ms - entry_ms >= 220U)) {
     post_play_tared = true;
     game_imu_retare_flag() = true;
   }
@@ -2301,460 +1852,191 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (dt < 0.012f) dt = 0.012f;
   if (dt > 0.075f) dt = 0.075f;
 
-  // ---------------------------------------------------------------------------
-  // 1. EFFORTLESS 1D BREAKOUT-STYLE ROLL MAPPED AROUND THE 360-DEG 12-LANE RIM
-  //    - Hold level (0 deg)    -> Bottom center (Lane 6 / 5)
-  //    - Roll Left  (0..-26)   -> Sweeps up the Left rim  (Lane 6 -> 7 -> 8 -> 9 -> 10 -> 11)
-  //    - Roll Right (0..+26)   -> Sweeps up the Right rim (Lane 5 -> 4 -> 3 -> 2 -> 1 -> 0)
-  // ---------------------------------------------------------------------------
-  if (!vtx_game_over) {
-    float clamped_r = fmaxf(-28.0f, fminf(28.0f, roll_delta));
-    smooth_roll += (clamped_r - smooth_roll) * 0.38f;
-    // Map smooth_roll in [-26..+26] linearly across the 12 lanes:
-    // -26 deg -> lane 11 (11:30), 0 deg -> lane 5.5 (6:00 bottom), +26 deg -> lane 0 (12:30)
-    float lane_f = 5.5f - (smooth_roll / 26.0f) * 5.9f;
-    int idx = static_cast<int>(std::floor(lane_f + 0.5f));
-    player_lane = ((idx % NUM_LANES) + NUM_LANES) % NUM_LANES;
+  // Find the nearest snack so the monster's eyes track it and tap-to-hop dashes toward it
+  int nearest_idx = 0;
+  float nearest_dist = 999.0f;
+  float look_dx = 0.0f;
+  float look_dy = 0.0f;
+
+  for (int i = 0; i < NUM_TREATS; i++) {
+    float dx = treats[i].x - mon_x;
+    float dy = treats[i].y - mon_y;
+    float d = std::sqrt(dx * dx + dy * dy);
+    if (d < nearest_dist) {
+      nearest_dist = d;
+      nearest_idx = i;
+      look_dx = dx / (d + 0.1f);
+      look_dy = dy / (d + 0.1f);
+    }
   }
 
-  auto fire_shot_in_lane = [&](int ln) {
-    for (int i = 0; i < MAX_SHOTS; i++) {
-      if (!shots[i].active) {
-        shots[i] = {ln, 8.0f, true};
-        break;
-      }
-    }
-  };
-
-  // Tap Anywhere or Press Side Button -> Fires a crisp 2-shot rapid laser burst down active lane!
+  // Tap Screen or Press Button -> Cheerful Monster Dash toward the nearest snack!
   if (marble_touch_x >= 0.0f || game_btn_pressed) {
     marble_touch_x = -1.0f;
     game_btn_pressed = false;
+    mon_vx += look_dx * 240.0f;
+    mon_vy += look_dy * 240.0f;
+  }
 
-    if (vtx_game_over) {
-      reset_vortex_game();
-      game_imu_retare_flag() = true;
-    } else if (now_ms - last_shot_ms >= 110U) {
-      last_shot_ms = now_ms;
-      // Smart adjacent-lane assist: if no enemy is in player_lane but an enemy is near the rim (z < 120)
-      // on an immediately adjacent lane (player_lane +/- 1), also send the second bolt into that lane!
-      fire_shot_in_lane(player_lane);
-      burst_lane = player_lane;
-      bool has_in_lane = false;
-      for (int e = 0; e < MAX_ENEMIES; e++) {
-        if (enemies[e].active && enemies[e].lane == player_lane) { has_in_lane = true; break; }
+  // Kid-Friendly Roaming Monster Physics:
+  // Responsive tilt acceleration + gentle snack-magnet pull when within 64px of a treat
+  // + controlled 0.90f damping so the monster is easy to steer and never slides out of control!
+  float ax = fmaxf(-620.0f, fminf(620.0f, roll_delta * 32.0f));
+  float ay = fmaxf(-620.0f, fminf(620.0f, -pitch_delta * 32.0f));
+
+  float pull_x = 0.0f, pull_y = 0.0f;
+  if (nearest_dist < 64.0f) {
+    float pull_mag = (1.0f - nearest_dist / 64.0f) * 240.0f;
+    pull_x = look_dx * pull_mag;
+    pull_y = look_dy * pull_mag;
+  }
+
+  float damping = std::pow(0.90f, dt / 0.05f);
+  mon_vx = (mon_vx + (ax + pull_x) * dt) * damping;
+  mon_vy = (mon_vy + (ay + pull_y) * dt) * damping;
+  mon_x += mon_vx * dt;
+  mon_y += mon_vy * dt;
+
+  // Keep Monster inside the circular play bowl (r_bowl = 208, monster_r = 36 -> max center r = 170)
+  float mdx = mon_x - static_cast<float>(cx);
+  float mdy = mon_y - static_cast<float>(cy);
+  float mdist = std::sqrt(mdx * mdx + mdy * mdy);
+  const float max_mon_r = 170.0f;
+  if (mdist > max_mon_r && mdist > 0.001f) {
+    float nx = mdx / mdist;
+    float ny = mdy / mdist;
+    mon_x = static_cast<float>(cx) + nx * max_mon_r;
+    mon_y = static_cast<float>(cy) + ny * max_mon_r;
+    float v_dot = mon_vx * nx + mon_vy * ny;
+    if (v_dot > 0.0f) {
+      mon_vx -= 1.55f * v_dot * nx;
+      mon_vy -= 1.55f * v_dot * ny;
+    }
+  }
+
+  // Check if the roaming Monster chomped any of the 5 treats!
+  nearest_dist = 999.0f;
+  for (int i = 0; i < NUM_TREATS; i++) {
+    float dx = treats[i].x - mon_x;
+    float dy = treats[i].y - mon_y;
+    float dist = std::sqrt(dx * dx + dy * dy);
+
+    if (dist < 42.0f) {
+      treat_score++;
+      chomp_timer = now_ms;
+      chomp_word_idx = (chomp_word_idx + 1) % 5;
+      if (treat_score > high_score_chomp) {
+        high_score_chomp = treat_score;
       }
-      if (!has_in_lane) {
-        int l_prev = (player_lane + NUM_LANES - 1) % NUM_LANES;
-        int l_next = (player_lane + 1) % NUM_LANES;
-        for (int e = 0; e < MAX_ENEMIES; e++) {
-          if (enemies[e].active && enemies[e].z < 150.0f) {
-            if (enemies[e].lane == l_prev || enemies[e].lane == l_next) {
-              burst_lane = enemies[e].lane;
-              break;
-            }
-          }
+      // Every 5 treats: Milestone Party Confetti Burst around the Monster!
+      if (treat_score > 0 && (treat_score % 5 == 0)) {
+        party_timer = now_ms;
+        esphome::Color p_cols[5] = {col_gold, col_cyan, col_magenta, col_green, col_orange};
+        for (int c = 0; c < 14; c++) {
+          float ang = static_cast<float>(c) * (2.0f * PI_F / 14.0f);
+          float spd = 95.0f + static_cast<float>((c % 3) * 32);
+          confetti[c].x = mon_x + fast_cos(ang) * 20.0f;
+          confetti[c].y = mon_y + fast_sin(ang) * 20.0f;
+          confetti[c].vx = fast_cos(ang) * spd;
+          confetti[c].vy = fast_sin(ang) * spd - 35.0f;
+          confetti[c].col = p_cols[c % 5];
         }
       }
-      burst_pending_ms = now_ms + 65U;
+      place_treat(i, now_ms + static_cast<uint32_t>(treat_score * 89));
+      dx = treats[i].x - mon_x;
+      dy = treats[i].y - mon_y;
+      dist = std::sqrt(dx * dx + dy * dy);
+    }
+
+    if (dist < nearest_dist) {
+      nearest_dist = dist;
+      look_dx = dx / (dist + 0.1f);
+      look_dy = dy / (dist + 0.1f);
     }
   }
 
-  if (!vtx_game_over && burst_pending_ms > 0U && now_ms >= burst_pending_ms) {
-    burst_pending_ms = 0U;
-    fire_shot_in_lane(burst_lane);
-  }
-
-  // 3D Camera Parallax Offset for the Vortex Pit
-  float cam_x = fmaxf(-18.0f, fminf(18.0f, -smooth_roll * 0.55f));
-  float cam_y = fmaxf(-14.0f, fminf(14.0f, pitch_delta * 0.35f));
-
-  if (!vtx_game_over) {
-    // 2. Spawn Enemies from the Deep Vortex Pit (z = Z_PIT)
-    if (enemies_to_spawn > 0) {
-      spawn_timer -= dt;
-      if (spawn_timer <= 0.0f) {
-        for (int e = 0; e < MAX_ENEMIES; e++) {
-          if (!enemies[e].active) {
-            int ln = static_cast<int>((now_ms / 37U + e * 5U + enemies_to_spawn * 7U) % NUM_LANES);
-            uint8_t etype = 0;
-            if (wave_num >= 2 && (enemies_to_spawn % 4 == 0)) etype = 2;      // Tanker (2-hit)
-            else if (wave_num >= 1 && (enemies_to_spawn % 3 == 0)) etype = 1; // Pulsar (fast)
-            float base_spd = (etype == 1) ? 115.0f : ((etype == 2) ? 72.0f : 88.0f);
-            base_spd += std::min(55.0f, static_cast<float>(wave_num - 1) * 9.0f);
-
-            enemies[e] = {ln, Z_PIT, base_spd, etype, static_cast<uint8_t>(etype == 2 ? 2 : 1),
-                          0.85f, (e & 1) ? 1 : -1, true};
-            enemies_to_spawn--;
-            break;
-          }
-        }
-        spawn_timer = fmaxf(0.48f, 1.15f - static_cast<float>(wave_num - 1) * 0.08f);
-      }
-    }
-
-    // 3. Advance Shots Down the 3D Tube (z: 0 -> Z_PIT)
-    for (int s = 0; s < MAX_SHOTS; s++) {
-      if (shots[s].active) {
-        shots[s].z += 680.0f * dt;
-        if (shots[s].z > Z_PIT) shots[s].active = false;
-      }
-    }
-
-    if (zapper_ring_z >= 0.0f) {
-      zapper_ring_z += 750.0f * dt;
-      if (zapper_ring_z > Z_PIT) zapper_ring_z = -1.0f;
-    }
-
-    // 4. Advance Enemies Up the 3D Tube (z: Z_PIT -> 0) & Check Collisions
-    for (int e = 0; e < MAX_ENEMIES; e++) {
-      if (!enemies[e].active) continue;
-      enemies[e].z -= enemies[e].speed * dt;
-
-      // Flippers (type 0) periodically flip into an adjacent lane as they climb
-      if (enemies[e].type == 0 && enemies[e].z < 340.0f && enemies[e].z > 45.0f) {
-        enemies[e].flip_timer -= dt;
-        if (enemies[e].flip_timer <= 0.0f) {
-          enemies[e].lane = (enemies[e].lane + enemies[e].flip_dir + NUM_LANES) % NUM_LANES;
-          enemies[e].flip_timer = 0.75f;
-        }
-      }
-
-      // Check Shot vs. Enemy Collisions
-      bool killed = false;
-      for (int s = 0; s < MAX_SHOTS; s++) {
-        if (!shots[s].active) continue;
-        if (shots[s].lane == enemies[e].lane && std::fabs(shots[s].z - enemies[e].z) <= 46.0f) {
-          shots[s].active = false;
-          float ex_3d, ey_3d;
-          get_lane_center_xy(enemies[e].lane, ex_3d, ey_3d);
-          ProjectedPoint ep = project_3d({ex_3d + cam_x * (enemies[e].z / Z_PIT),
-                                          ey_3d + cam_y * (enemies[e].z / Z_PIT),
-                                          enemies[e].z}, cx, cy, 240.0f, 240.0f);
-
-          if (enemies[e].hp > 1) {
-            enemies[e].hp--;
-            enemies[e].z = fminf(Z_PIT, enemies[e].z + 35.0f); // Knockback on armor hit
-            vtx_score += 50;
-            spawn_sparks(ep.x, ep.y, col_gold, 5);
-          } else {
-            enemies[e].active = false;
-            enemies_cleared++;
-            killed = true;
-            hit_streak++;
-            int mult = std::min(4, 1 + hit_streak / 3);
-            int base_pts = (enemies[e].type == 2) ? 150 : ((enemies[e].type == 1) ? 120 : 100);
-            int pts = base_pts * mult;
-            vtx_score += pts;
-            if (vtx_score > high_score_asteroids) {
-              high_score_asteroids = vtx_score;
-              is_new_high = true;
-            }
-            esphome::Color sc = (enemies[e].type == 2) ? col_gold : ((enemies[e].type == 1) ? col_magenta : col_red);
-            spawn_sparks(ep.x, ep.y, sc, 8);
-            popup_x = ep.x; popup_y = ep.y; popup_ms = now_ms;
-            if (mult > 1) snprintf(popup_text, sizeof(popup_text), "+%d %dx", pts, mult);
-            else snprintf(popup_text, sizeof(popup_text), "+%d", pts);
-            popup_col = (mult > 1) ? col_gold : col_white;
-          }
-          break;
-        }
-      }
-      if (killed) continue;
-
-      // Check if Enemy Reached the Outer Rim (z <= 0)
-      if (enemies[e].z <= 0.0f) {
-        float ex_3d, ey_3d;
-        get_lane_center_xy(enemies[e].lane, ex_3d, ey_3d);
-        ProjectedPoint ep = project_3d({ex_3d, ey_3d, 0.0f}, cx, cy, 240.0f, 240.0f);
-
-        enemies[e].active = false;
-        enemies_cleared++;
-
-        // If the player's Claw is on this lane, the Claw rams/auto-zaps the enemy at the rim!
-        if (enemies[e].lane == player_lane || now_ms < invuln_until_ms) {
-          vtx_score += 100;
-          if (vtx_score > high_score_asteroids) {
-            high_score_asteroids = vtx_score;
-            is_new_high = true;
-          }
-          spawn_sparks(ep.x, ep.y, col_cyan, 7);
-        } else {
-          // Rim breach: lose 1 shield & trigger Superzapper shockwave that clears near-rim enemies!
-          vtx_lives--;
-          hit_streak = 0;
-          invuln_until_ms = now_ms + 1600U;
-          zapper_ring_z = 5.0f;
-          spawn_sparks(ep.x, ep.y, col_red, 10);
-          for (int k = 0; k < MAX_ENEMIES; k++) {
-            if (enemies[k].active && enemies[k].z < 180.0f) {
-              enemies[k].active = false;
-              enemies_cleared++;
-            }
-          }
-          if (vtx_lives <= 0) {
-            vtx_game_over = true;
-            if (vtx_score > high_score_asteroids) {
-              high_score_asteroids = vtx_score;
-              is_new_high = true;
-            }
-          }
-        }
-      }
-    }
-
-    // 5. Check Wave Clear
-    int active_en = 0;
-    for (int e = 0; e < MAX_ENEMIES; e++) {
-      if (enemies[e].active) active_en++;
-    }
-    if (enemies_to_spawn == 0 && active_en == 0) {
-      int wave_bonus = wave_num * 300;
-      vtx_score += wave_bonus;
-      if (vtx_score > high_score_asteroids) {
-        high_score_asteroids = vtx_score;
-        is_new_high = true;
-      }
-      wave_num++;
-      if (vtx_lives < 3) vtx_lives++;
-      zapper_ring_z = 5.0f;
-      snprintf(banner_text, sizeof(banner_text), "WARP WAVE %d! +%d", wave_num, wave_bonus);
-      banner_ms = now_ms;
-      start_wave(wave_num);
+  bool is_party = (party_timer > 0U && (now_ms - party_timer < 1500U));
+  if (is_party) {
+    for (int c = 0; c < 14; c++) {
+      confetti[c].x += confetti[c].vx * dt;
+      confetti[c].y += confetti[c].vy * dt;
+      confetti[c].vy += 110.0f * dt;
     }
   }
 
-  for (int i = 0; i < MAX_SPARKS; i++) {
-    if (sparks[i].active) {
-      sparks[i].x += sparks[i].vx * dt;
-      sparks[i].y += sparks[i].vy * dt;
-      sparks[i].life -= dt;
-      if (sparks[i].life <= 0.0f) sparks[i].active = false;
+  bool is_chomping = (chomp_timer > 0U && (now_ms - chomp_timer < 550U));
+  bool mouth_open = (nearest_dist < 95.0f);
+
+  // ==========================================================================
+  // RENDERING PIPELINE
+  // ==========================================================================
+
+  // 1. Play Bowl Rim & Bottom Scorekeeper HUD (y = 408)
+  it.circle(cx, cy, 208, col_dark_gray);
+  char t_buf[48];
+  snprintf(t_buf, sizeof(t_buf), "Treats: %d  •  Best: %d", treat_score, high_score_chomp);
+  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, t_buf);
+
+  // 2. Render All 5 Scattered Kid Treats (with gentle floating bob)
+  float t_bob = now_ms * 0.0045f;
+  for (int i = 0; i < NUM_TREATS; i++) {
+    int bob_y = static_cast<int>(fast_sin(t_bob + static_cast<float>(i) * 1.25f) * 2.5f);
+    render_chomp_treat(it, static_cast<int>(treats[i].x), static_cast<int>(treats[i].y) + bob_y,
+                       treats[i].kind, col_white, col_red, col_gold, col_cyan, col_green, col_magenta, col_bg);
+  }
+
+  // 3. Render Roaming Cookie-Monster Friend (drawn on top of treats as he gobbles them up!)
+  int imx = static_cast<int>(mon_x);
+  int imy = static_cast<int>(mon_y);
+  render_chomp_monster(it, imx, imy, 36, look_dx, look_dy, mouth_open, is_chomping,
+                       (treat_score >= 5), now_ms,
+                       col_white, col_black, col_gold, col_red, col_magenta, col_dark_gray);
+
+  // 4. Happy Chomp Word Popup & Milestone Party Confetti Burst
+  if (is_party) {
+    for (int c = 0; c < 14; c++) {
+      it.filled_circle(static_cast<int>(confetti[c].x), static_cast<int>(confetti[c].y), 3, confetti[c].col);
     }
-  }
-
-  // ===========================================================================
-  // RENDERING PIPELINE: 12-LANE 3D PERSPECTIVE TEMPEST TUBE & VECTOR CLAW
-  // ===========================================================================
-  static constexpr float RING_ZS[4] = {0.0f, 130.0f, 280.0f, Z_PIT};
-  ProjectedPoint tube_pts[4][NUM_LANES];
-
-  for (int r = 0; r < 4; r++) {
-    float z = RING_ZS[r];
-    float par_k = z / Z_PIT;
-    for (int v = 0; v < NUM_LANES; v++) {
-      float vx, vy;
-      get_vertex_xy(v, vx, vy);
-      tube_pts[r][v] = project_3d({vx + cam_x * par_k, vy + cam_y * par_k, z}, cx, cy, 240.0f, 240.0f);
-    }
-  }
-
-  esphome::Color c_web_deep(22, 46, 86);
-  esphome::Color c_web_mid(36, 78, 138);
-  esphome::Color c_web_rim(68, 132, 215);
-
-  // 1. Draw 4 Concentric 3D Depth Rings
-  for (int r = 3; r >= 0; r--) {
-    esphome::Color rc = (r == 0) ? c_web_rim : ((r == 1) ? c_web_mid : c_web_deep);
-    for (int l = 0; l < NUM_LANES; l++) {
-      int nxt = (l + 1) % NUM_LANES;
-      esphome::Color seg_c = (l == player_lane) ? (r == 0 ? col_gold : theme_secondary) : rc;
-      it.line(tube_pts[r][l].x, tube_pts[r][l].y, tube_pts[r][nxt].x, tube_pts[r][nxt].y, seg_c);
-    }
-  }
-
-  // 2. Draw 12 Radial 3D Tunnel Spokes (with Active Lane Illuminated in Bright Cyan/Gold!)
-  int act_v0 = player_lane;
-  int act_v1 = (player_lane + 1) % NUM_LANES;
-  for (int v = 0; v < NUM_LANES; v++) {
-    bool is_active_rail = (v == act_v0 || v == act_v1);
-    esphome::Color rail_c = is_active_rail ? theme_secondary : c_web_mid;
-    it.line(tube_pts[0][v].x, tube_pts[0][v].y, tube_pts[3][v].x, tube_pts[3][v].y, rail_c);
-    if (is_active_rail) {
-      // Double-brighten active lane outer rim segment
-      it.line(tube_pts[0][act_v0].x, tube_pts[0][act_v0].y,
-              tube_pts[0][act_v1].x, tube_pts[0][act_v1].y, col_gold);
-    }
-  }
-
-  // 3. Draw Expanding Superzapper / Warp Shockwave Ring
-  if (zapper_ring_z >= 0.0f) {
-    float zk = zapper_ring_z / Z_PIT;
-    int prev_zx = 0, prev_zy = 0, first_zx = 0, first_zy = 0;
-    for (int v = 0; v < NUM_LANES; v++) {
-      float vx, vy;
-      get_vertex_xy(v, vx, vy);
-      ProjectedPoint zp = project_3d({vx + cam_x * zk, vy + cam_y * zk, zapper_ring_z}, cx, cy, 240.0f, 240.0f);
-      if (v == 0) { first_zx = zp.x; first_zy = zp.y; }
-      else { it.line(prev_zx, prev_zy, zp.x, zp.y, col_cyan); }
-      prev_zx = zp.x; prev_zy = zp.y;
-    }
-    it.line(prev_zx, prev_zy, first_zx, first_zy, col_cyan);
-  }
-
-  // 4. Draw Player Laser Shots Flying Down the 3D Tube
-  for (int s = 0; s < MAX_SHOTS; s++) {
-    if (!shots[s].active) continue;
-    float sx_3d, sy_3d;
-    get_lane_center_xy(shots[s].lane, sx_3d, sy_3d);
-    float zk1 = shots[s].z / Z_PIT;
-    float z2  = fminf(Z_PIT, shots[s].z + 36.0f);
-    float zk2 = z2 / Z_PIT;
-    ProjectedPoint p1 = project_3d({sx_3d + cam_x * zk1, sy_3d + cam_y * zk1, shots[s].z}, cx, cy, 240.0f, 240.0f);
-    ProjectedPoint p2 = project_3d({sx_3d + cam_x * zk2, sy_3d + cam_y * zk2, z2}, cx, cy, 240.0f, 240.0f);
-    it.line(p1.x, p1.y, p2.x, p2.y, col_gold);
-    it.filled_circle(p1.x, p1.y, 2, col_white);
-  }
-
-  // 5. Draw 3D Enemies Climbing Up the Vortex Lanes
-  for (int e = 0; e < MAX_ENEMIES; e++) {
-    if (!enemies[e].active) continue;
-    int ln = enemies[e].lane;
-    int nxt = (ln + 1) % NUM_LANES;
-    float vx0, vy0, vx1, vy1;
-    get_vertex_xy(ln, vx0, vy0);
-    get_vertex_xy(nxt, vx1, vy1);
-
-    float z = enemies[e].z;
-    float zk = z / Z_PIT;
-    ProjectedPoint p_l = project_3d({vx0 + cam_x * zk, vy0 + cam_y * zk, z}, cx, cy, 240.0f, 240.0f);
-    ProjectedPoint p_r = project_3d({vx1 + cam_x * zk, vy1 + cam_y * zk, z}, cx, cy, 240.0f, 240.0f);
-    int mx = (p_l.x + p_r.x) >> 1;
-    int my = (p_l.y + p_r.y) >> 1;
-    int span = std::max(4, static_cast<int>(14.0f * p_l.scale));
-
-    // Radial normal toward center for enemy height
-    float dx_c = static_cast<float>(cx - mx);
-    float dy_c = static_cast<float>(cy - my);
-    float d_len = std::sqrt(dx_c * dx_c + dy_c * dy_c) + 0.01f;
-    int nx = static_cast<int>((dx_c / d_len) * span);
-    int ny = static_cast<int>((dy_c / d_len) * span);
-
-    if (enemies[e].type == 0) {
-      // Type 0: Crimson Flipper (Iconic Tempest Bowtie)
-      it.line(p_l.x, p_l.y, p_r.x + nx, p_r.y + ny, col_red);
-      it.line(p_r.x, p_r.y, p_l.x + nx, p_l.y + ny, col_red);
-      it.line(p_l.x, p_l.y, p_l.x + nx, p_l.y + ny, col_orange);
-      it.line(p_r.x, p_r.y, p_r.x + nx, p_r.y + ny, col_orange);
-      it.filled_circle(mx + (nx >> 1), my + (ny >> 1), 2, col_gold);
-    } else if (enemies[e].type == 1) {
-      // Type 1: Neon Magenta Pulsar Diamond
-      int tx = (p_r.x - p_l.x) / 3;
-      int ty = (p_r.y - p_l.y) / 3;
-      it.line(p_l.x, p_l.y, mx + nx, my + ny, col_magenta);
-      it.line(p_r.x, p_r.y, mx + nx, my + ny, col_magenta);
-      it.line(p_l.x, p_l.y, mx - nx / 2, my - ny / 2, col_white);
-      it.line(p_r.x, p_r.y, mx - nx / 2, my - ny / 2, col_white);
-      it.line(mx - tx, my - ty, mx + tx, my + ty, col_cyan);
-    } else {
-      // Type 2: Heavy 2-Hit Tanker (3D Faceted Octahedron)
-      esphome::Color tc = (enemies[e].hp >= 2) ? col_gold : col_green;
-      render_asteroids_rock(it, static_cast<float>(mx), static_cast<float>(my),
-                            fmaxf(6.0f, 15.0f * p_l.scale), e, now_ms * 0.003f, tc, col_dark_gray);
-    }
-  }
-
-  // 6. Draw the Player's Golden "Claw" Ship Straddling the Active Rim Lane
-  if (!vtx_game_over) {
-    ProjectedPoint p0 = tube_pts[0][act_v0];
-    ProjectedPoint p1 = tube_pts[0][act_v1];
-    int mx = (p0.x + p1.x) >> 1;
-    int my = (p0.y + p1.y) >> 1;
-
-    // Outward normal (away from vortex center) & inward normal (into vortex)
-    float dx_out = static_cast<float>(mx - cx);
-    float dy_out = static_cast<float>(my - cy);
-    float d_out = std::sqrt(dx_out * dx_out + dy_out * dy_out) + 0.01f;
-    float ux = dx_out / d_out;
-    float uy = dy_out / d_out;
-
-    int keel_x = mx + static_cast<int>(ux * 14.0f);
-    int keel_y = my + static_cast<int>(uy * 14.0f);
-    int tip0_x = p0.x - static_cast<int>(ux * 10.0f);
-    int tip0_y = p0.y - static_cast<int>(uy * 10.0f);
-    int tip1_x = p1.x - static_cast<int>(ux * 10.0f);
-    int tip1_y = p1.y - static_cast<int>(uy * 10.0f);
-
-    esphome::Color claw_c = (now_ms < invuln_until_ms && ((now_ms / 90U) & 1)) ? col_cyan : col_gold;
-    // Outer V-hull + inward-pointing pincer mandibles
-    it.line(keel_x, keel_y, p0.x, p0.y, claw_c);
-    it.line(keel_x, keel_y, p1.x, p1.y, claw_c);
-    it.line(p0.x, p0.y, tip0_x, tip0_y, col_white);
-    it.line(p1.x, p1.y, tip1_x, tip1_y, col_white);
-    it.line(keel_x, keel_y, mx - static_cast<int>(ux * 4.0f), my - static_cast<int>(uy * 4.0f), col_orange);
-    it.filled_circle(keel_x, keel_y, 2, col_white);
-  }
-
-  // 7. Explosion Sparks, Floating Popups & Wave Banner
-  for (int i = 0; i < MAX_SPARKS; i++) {
-    if (sparks[i].active) {
-      it.filled_rectangle(static_cast<int>(sparks[i].x) - 1, static_cast<int>(sparks[i].y) - 1, 2, 2, sparks[i].col);
-    }
-  }
-  if (popup_ms > 0U && (now_ms - popup_ms < 600U)) {
-    int py_off = static_cast<int>((now_ms - popup_ms) * 18U / 600U);
-    it.print(popup_x, popup_y - py_off, font_small, popup_col, esphome::display::TextAlign::CENTER, popup_text);
-  }
-  if (banner_ms > 0U && (now_ms - banner_ms < 1200U)) {
-    it.print(cx, 146, font_date, col_cyan, esphome::display::TextAlign::CENTER, banner_text);
-  }
-
-  // 8. Bottom Scorekeeper HUD at y = 408
-  char hud_sc[56];
-  int mult_now = std::min(4, 1 + hit_streak / 3);
-  if (mult_now > 1) {
-    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Shield:%d  •  %dx  •  %d", wave_num, vtx_lives, mult_now, vtx_score);
-  } else {
-    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Shield:%d  •  %d", wave_num, vtx_lives, vtx_score);
-  }
-  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, hud_sc);
-
-  // 9. Game Over Summary Modal
-  if (vtx_game_over) {
-    it.filled_circle(cx, cy, 115, col_bg);
-    it.circle(cx, cy, 115, is_new_high ? col_gold : theme_secondary);
-    it.circle(cx, cy, 113, is_new_high ? col_gold : theme_secondary);
-
-    if (is_new_high) {
-      it.print(cx, 156, font_date, col_gold, esphome::display::TextAlign::CENTER, "NEW HIGH SCORE!");
-    } else if (wave_num == 1) {
-      it.print(cx, 156, font_date, col_red, esphome::display::TextAlign::CENTER, "GAME OVER");
-    } else {
-      char w_end[32];
-      snprintf(w_end, sizeof(w_end), "WAVE %d REACHED", wave_num);
-      it.print(cx, 156, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_end);
-    }
-
-    char score_str[32];
-    snprintf(score_str, sizeof(score_str), "Score: %d", vtx_score);
-    it.print(cx, 198, font_date, col_white, esphome::display::TextAlign::CENTER, score_str);
-
-    char best_str[32];
-    snprintf(best_str, sizeof(best_str), "Best: %d", high_score_asteroids);
-    it.print(cx, 233, font_small, col_gold, esphome::display::TextAlign::CENTER, best_str);
-
-    it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
+    char p_msg[32];
+    snprintf(p_msg, sizeof(p_msg), "%d TREATS! YAY!", treat_score);
+    int pop_y = (imy > 170) ? (imy - 58) : (imy + 56);
+    it.print(cx, pop_y, font_date, col_gold, esphome::display::TextAlign::CENTER, p_msg);
+  } else if (is_chomping) {
+    static constexpr const char *CHOMP_WORDS[5] = {
+        "NOM NOM!", "YUMMY!", "COOKIE!", "CHOMP!", "DELICIOUS!"};
+    int pop_y = (imy > 150) ? (imy - 54) : (imy + 54);
+    int pop_x = std::max(115, std::min(351, imx));
+    it.print(pop_x, pop_y, font_date, col_gold, esphome::display::TextAlign::CENTER,
+             CHOMP_WORDS[chomp_word_idx]);
+    it.filled_circle(imx - 44, imy - 16, 3, col_gold);
+    it.filled_circle(imx + 44, imy - 16, 3, col_cyan);
   }
 }
+
 // ==============================================================================
-// SECTION 19: GAMES SUITE CAROUSEL LAUNCHER (PAGE 3, STATE 0)
+// SECTION 19: GAMES SUITE CAROUSEL LAUNCHER (PAGE 3, STATE 0 — 4 GAMES)
 // ==============================================================================
 
 template<typename DisplayT, typename FontTitleT, typename FontBoldT, typename FontSmallT>
 inline void render_games_launcher(
     DisplayT &it, int cx,
-    int game_carousel_idx, bool menu_scroll_active, int menu_scroll_step,
+    int &game_carousel_idx, bool menu_scroll_active, int menu_scroll_step,
     int menu_scroll_dir, int menu_scroll_target_page,
     int high_score_marbles, int high_score_archery, int high_score_breakout,
-    int high_score_chomp, int high_score_asteroids,
+    int high_score_chomp,
     FontTitleT *font_games_title, FontBoldT *font_btn_bold, FontSmallT *font_small,
     esphome::Color theme_primary, esphome::Color theme_secondary,
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
     esphome::Color col_silver, esphome::Color col_slate, esphome::Color col_dark_gray,
     esphome::Color col_gold, esphome::Color col_cyan, esphome::Color col_green,
     esphome::Color col_orange, esphome::Color col_red, esphome::Color col_magenta) {
+  (void)col_silver;
   using esphome::Color;
   using esphome::display::TextAlign;
+
+  if (game_carousel_idx < 0 || game_carousel_idx >= 4) {
+    game_carousel_idx = 0;
+  }
 
   auto draw_game_icon = [&](int g_idx, int icon_x, int icon_y) {
     if (g_idx == 0) {
@@ -2839,41 +2121,21 @@ inline void render_games_launcher(
       it.circle(ball_x, ball_y, 5, col_white);
       it.filled_circle(ball_x - 2, ball_y - 2, 1, col_white);
 
-    } else if (g_idx == 3) {
-      // GAME 3: CHOMP FOR KIDS — Cute Cookie-Monster Friend & 2 Treats
-      render_chomp_monster(it, icon_x - 16, icon_y + 4, 34, 0.85f, -0.15f,
+    } else if (g_idx >= 3) {
+      // GAME 3: CHOMP FOR KIDS — Roaming Cookie-Monster Friend Chasing Scattered Treats
+      render_chomp_treat(it, icon_x + 30, icon_y - 22, 0,
+                         col_white, col_red, col_gold, col_cyan,
+                         col_green, col_magenta, col_bg);
+      render_chomp_treat(it, icon_x + 38, icon_y + 18, 2,
+                         col_white, col_red, col_gold, col_cyan,
+                         col_green, col_magenta, col_bg);
+      render_chomp_treat(it, icon_x - 34, icon_y - 26, 1,
+                         col_white, col_red, col_gold, col_cyan,
+                         col_green, col_magenta, col_bg);
+      render_chomp_monster(it, icon_x - 8, icon_y + 6, 32, 0.85f, -0.25f,
                            true, false, false, 0,
                            col_white, col_black, col_gold,
                            col_red, col_magenta, col_dark_gray);
-      render_chomp_treat(it, icon_x + 32, icon_y - 16, 0,
-                         col_white, col_red, col_gold, col_cyan,
-                         col_green, col_magenta, col_bg);
-      render_chomp_treat(it, icon_x + 42, icon_y + 20, 1,
-                         col_white, col_red, col_gold, col_cyan,
-                         col_green, col_magenta, col_bg);
-    } else if (g_idx == 4) {
-      // GAME 4: VORTEX 3D — 12-Lane 3D Tempest Wormhole Web, Golden Claw & Crimson Flipper
-      it.filled_circle(icon_x, icon_y, 52, Color(10, 14, 24));
-      it.circle(icon_x, icon_y, 48, Color(48, 102, 185));
-      it.circle(icon_x, icon_y, 28, Color(32, 68, 128));
-      it.circle(icon_x, icon_y, 12, Color(20, 42, 82));
-
-      for (int v = 0; v < 12; v++) {
-        int di = (v * 5) % 60;
-        float sx = DIAL_SIN[di], cy_d = -DIAL_COS[di];
-        Color spoke_c = (v == 5 || v == 6) ? theme_secondary : Color(36, 76, 140);
-        it.line(icon_x + static_cast<int>(sx * 12.0f), icon_y + static_cast<int>(cy_d * 12.0f),
-                icon_x + static_cast<int>(sx * 48.0f), icon_y + static_cast<int>(cy_d * 48.0f), spoke_c);
-      }
-      // Golden Claw at 6 o'clock (Lane 5..6) + laser bolt + Crimson Flipper in lane
-      it.line(icon_x - 12, icon_y + 46, icon_x, icon_y + 53, col_gold);
-      it.line(icon_x + 12, icon_y + 46, icon_x, icon_y + 53, col_gold);
-      it.line(icon_x - 12, icon_y + 46, icon_x - 7, icon_y + 38, col_white);
-      it.line(icon_x + 12, icon_y + 46, icon_x + 7, icon_y + 38, col_white);
-      it.line(icon_x, icon_y + 42, icon_x, icon_y + 24, col_gold);
-      it.filled_circle(icon_x, icon_y + 24, 2, col_white);
-      it.line(icon_x - 7, icon_y + 18, icon_x + 7, icon_y + 12, col_red);
-      it.line(icon_x + 7, icon_y + 18, icon_x - 7, icon_y + 12, col_red);
     }
   };
 
@@ -2886,12 +2148,9 @@ inline void render_games_launcher(
     } else if (g_idx == 2) {
       title = "BREAKOUT";
       score = high_score_breakout;
-    } else if (g_idx == 3) {
+    } else if (g_idx >= 3) {
       title = "CHOMP FOR KIDS";
       score = high_score_chomp;
-    } else if (g_idx >= 4) {
-      title = "VORTEX 3D";
-      score = high_score_asteroids;
     }
 
     if (icon_y >= 40 && icon_y <= 380) {
@@ -2940,7 +2199,4 @@ inline void render_games_launcher(
   render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, false);
   render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, false);
 }
-
-// ==============================================================================
-
 }  // namespace pocket_ui
