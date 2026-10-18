@@ -699,10 +699,10 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
   if (prog <= 0.003f) return;
   if (prog > 1.0f) prog = 1.0f;
 
-  static constexpr int R_BORDER = 219;
-  static constexpr int R_IN     = 220;
-  static constexpr int R_OUT    = 226;
-  static constexpr int R_MID    = 223;
+  static constexpr int R_BORDER = 226;
+  static constexpr int R_IN     = 227;
+  static constexpr int R_OUT    = 232;
+  static constexpr int R_MID    = 229;
   static constexpr int R_BORDER_SQ = R_BORDER * R_BORDER;
   static constexpr int R_IN_SQ     = R_IN * R_IN;
   static constexpr int R_OUT_SQ    = R_OUT * R_OUT;
@@ -803,10 +803,10 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
   }
 
   // Rounded 12 o'clock start cap & glowing leading playhead cap along R_MID = 223
-  it.filled_circle(cx, cy - R_MID, 3, col);
+  it.filled_circle(cx, cy - R_MID, 2, col);
   int tip_x = cx + static_cast<int>(roundf(static_cast<float>(R_MID) * ux));
   int tip_y = cy + static_cast<int>(roundf(static_cast<float>(R_MID) * uy));
-  it.filled_circle(tip_x, tip_y, 3, col);
+  it.filled_circle(tip_x, tip_y, 2, col);
 }
 // Complete Voice Assistant Visual Engine supporting 3 pure-visual profiles (zero text):
 //   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven, default)
