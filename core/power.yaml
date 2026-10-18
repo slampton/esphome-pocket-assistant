@@ -447,6 +447,7 @@ interval:
           else if (st_opt == "Disabled") auto_sleep_enabled = false;
 
           if (auto_sleep_enabled &&
+              !id(is_hibernating) &&
               !id(prevent_deep_sleep_switch).state &&
               !id(display_brightness).current_values.is_on() &&
               !id(usb_connected).state &&
@@ -464,6 +465,7 @@ interval:
               id(sleep_start_time) > 0 &&
               (millis() - id(sleep_start_time) >= hibernate_timeout_ms)) {
             ESP_LOGI("power", "Inactivity with screen off exceeded %s: starting hibernation countdown", st_opt.c_str());
+            id(sleep_start_time) = 0;
             id(start_hibernation_countdown).execute();
           }
 
@@ -742,6 +744,7 @@ script:
     mode: restart
     then:
       - lambda: |-
+          id(sleep_start_time) = 0;
           id(hibernate_countdown_val) = 0;
           id(is_hibernating) = true;
           id(active_game) = 0;
@@ -762,6 +765,7 @@ script:
     mode: restart
     then:
       - lambda: |-
+          id(sleep_start_time) = 0;
           id(hibernate_countdown_val) = 5;
           id(is_hibernating) = true;
           id(active_game) = 0;
@@ -797,12 +801,15 @@ script:
           condition:
             lambda: 'return id(is_hibernating);'
           then:
+            - lambda: 'id(hibernate_countdown_val) = 0;'
             - script.execute: enter_deep_sleep
 
   - id: enter_deep_sleep
     mode: restart
     then:
       - lambda: |-
+          id(sleep_start_time) = 0;
+          id(hibernate_countdown_val) = 0;
           id(active_game) = 0;
           id(is_hibernating) = true;
           id(display_power_state) = 0; // Force ACTIVE so confirmation displays when screen was sleeping

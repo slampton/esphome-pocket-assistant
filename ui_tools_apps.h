@@ -1630,14 +1630,11 @@ inline void render_clock_page(
   render_battery_indicator(it, cx, 380, batt, is_charging, font_small,
                            theme_primary, col_gold, col_green);
 
-  // 2. Pre-sync state: keep exact watch face layout geometry with clean syncing placeholders
+  // 2. Pre-sync state: minimalist "--:--" placeholder without text clutter until HA time syncs
   if (!now.is_valid()) {
     if (clock_face_digital) {
-      it.print(cx, 130, font_date, theme_primary, esphome::display::TextAlign::CENTER, "SYNCING...");
       it.print(cx, 205, font_time, col_slate, esphome::display::TextAlign::CENTER, "--:--");
-      it.print(cx, 262, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "HOME ASSISTANT");
     } else {
-      it.print(cx, 104, font_date, theme_primary, esphome::display::TextAlign::CENTER, "SYNCING...");
       it.print(cx, 305, font_date, col_slate, esphome::display::TextAlign::CENTER, "--:--");
       it.filled_circle(cx, cy, 7, col_white);
       it.filled_circle(cx, cy, 4, col_red);
