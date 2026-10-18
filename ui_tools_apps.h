@@ -1575,7 +1575,11 @@ inline void render_music_menus(
     FontDateT *font_date, FontSmallT *font_small, FontMicroT *font_micro,
     esphome::Color theme_primary, esphome::Color theme_secondary,
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
-    esphome::Color col_slate, esphome::Color col_dark_gray) {
+    esphome::Color col_slate, esphome::Color col_dark_gray,
+    uint32_t now_ms = 0, bool is_playing = false, float dur = 0.0f,
+    float music_pos_base = 0.0f, uint32_t music_pos_sync_time = 0,
+    const std::string &cur_title = "", const std::string &cur_artist = "",
+    const std::string &cur_album = "") {
   auto draw_right_chevrons = [&](bool show_up, bool show_down) {
     if (!show_up && !show_down) return;
     it.filled_rectangle(395, 140, 71, 160, col_bg);
@@ -1738,6 +1742,150 @@ inline void render_music_menus(
       render_pill_button(it, 110, 356, 188, 18, theme_secondary, col_dark_gray, "CONTROL ONLY", col_white, font_small);
       render_pill_button(it, 110, 356, 246, 18, theme_secondary, col_dark_gray, "JOIN AUDIO", col_white, font_small);
       render_pill_button(it, 110, 356, 304, 18, theme_secondary, col_dark_gray, "UNJOIN / DETACH", col_white, font_small);
+    }
+  } else if (music_overlay_mode == 6) {
+    // LEVEL 6: NOW PLAYING TRACK & ALBUM INSPECTOR (Album Tracks + Inline Scrubber + Info/Lyrics Cards)
+    std::string disp_t = cur_title.empty() ? "NOW PLAYING" : fit_text_to_width_font(cur_title, 240, font_date);
+    it.print(cx, 44, font_date, theme_primary, esphome::display::TextAlign::CENTER, disp_t.c_str());
+
+    std::string sub_meta = cur_artist;
+    if (!cur_album.empty() && cur_album != "None") {
+      sub_meta = sub_meta.empty() ? cur_album : (sub_meta + " • " + cur_album);
+    }
+    if (!sub_meta.empty() && sub_meta != "None") {
+      sub_meta = fit_text_to_width_font(sub_meta, 275, font_small);
+      it.print(cx, 74, font_small, col_slate, esphome::display::TextAlign::CENTER, sub_meta.c_str());
+    }
+
+    // 1. Top Pill: Album Tracks (y = 118) with 3-bar tracklist icon
+    render_pill_button(it, 118, 348, 118, 18, theme_primary, col_dark_gray, "Album Tracks", col_white, font_small);
+    for (int dy : {-4, 0, 4}) {
+      it.filled_rectangle(332, 118 + dy, 12, 2, theme_secondary);
+    }
+
+    // 2. Center Hero: Inline Track Position Scrubber & Time Readout (y = 172 .. 236)
+    float cur_pos = music_pos_base;
+    if (is_playing && music_pos_sync_time > 0 && now_ms >= music_pos_sync_time) {
+      cur_pos += static_cast<float>(now_ms - music_pos_sync_time) * 0.001f;
+    }
+    float valid_dur = (!std::isnan(dur) && dur > 0.0f) ? dur : 0.0f;
+    if (valid_dur > 0.0f && cur_pos > valid_dur) cur_pos = valid_dur;
+    if (cur_pos < 0.0f) cur_pos = 0.0f;
+    float prog = (valid_dur > 0.0f) ? (cur_pos / valid_dur) : 0.0f;
+
+    int el_s = static_cast<int>(cur_pos);
+    int tot_s = static_cast<int>(valid_dur);
+    char time_buf[40];
+    if (tot_s > 0) {
+      snprintf(time_buf, sizeof(time_buf), "%02d:%02d  /  %02d:%02d   (%d%%)",
+               el_s / 60, el_s % 60, tot_s / 60, tot_s % 60, static_cast<int>(prog * 100.0f));
+    } else {
+      snprintf(time_buf, sizeof(time_buf), "%02d:%02d  /  --:--", el_s / 60, el_s % 60);
+    }
+    it.print(cx, 174, font_small, col_white, esphome::display::TextAlign::CENTER, time_buf);
+
+    // Flanking -15s (x=76) and +15s (x=390) step buttons + Interactive Scrubber Bar (x=116..350, y=216)
+    const int scrub_y = 216;
+    const int bar_x0  = 116;
+    const int bar_x1  = 350;
+    const int bar_w   = bar_x1 - bar_x0;
+
+    it.filled_circle(76, scrub_y, 17, col_dark_gray);
+    it.circle(76, scrub_y, 17, theme_secondary);
+    it.print(76, scrub_y, font_micro, col_white, esphome::display::TextAlign::CENTER, "-15s");
+
+    it.filled_circle(390, scrub_y, 17, col_dark_gray);
+    it.circle(390, scrub_y, 17, theme_secondary);
+    it.print(390, scrub_y, font_micro, col_white, esphome::display::TextAlign::CENTER, "+15s");
+
+    // Scrubber Track Groove (r=5 capsule) + 25%/50%/75% ticks
+    it.filled_circle(bar_x0, scrub_y, 5, col_dark_gray);
+    it.filled_circle(bar_x1, scrub_y, 5, col_dark_gray);
+    it.filled_rectangle(bar_x0, scrub_y - 5, bar_w, 11, col_dark_gray);
+    it.line(bar_x0, scrub_y - 5, bar_x1, scrub_y - 5, col_slate);
+    it.line(bar_x0, scrub_y + 5, bar_x1, scrub_y + 5, col_slate);
+    for (int q = 1; q <= 3; q++) {
+      int tx = bar_x0 + (bar_w * q) / 4;
+      it.line(tx, scrub_y - 8, tx, scrub_y - 6, col_slate);
+      it.line(tx, scrub_y + 6, tx, scrub_y + 8, col_slate);
+    }
+
+    // Filled Elapsed Bar + 3D Playhead Knob
+    int knob_x = bar_x0 + static_cast<int>(prog * static_cast<float>(bar_w));
+    if (knob_x > bar_x0) {
+      it.filled_circle(bar_x0, scrub_y, 4, theme_primary);
+      it.filled_rectangle(bar_x0, scrub_y - 4, knob_x - bar_x0, 9, theme_primary);
+      it.horizontal_line(bar_x0, scrub_y - 3, knob_x - bar_x0, col_white);
+    }
+    it.filled_circle(knob_x, scrub_y, 9, col_white);
+    it.filled_circle(knob_x, scrub_y, 6, theme_secondary);
+    it.filled_circle(knob_x, scrub_y, 2, col_black);
+
+    // 3. Lower Row (y = 316): Two Artistic Icon + Text Badge Cards (Album Info & Lyrics)
+    auto draw_badge_card = [&](int card_cx, int card_cy, bool is_lyrics, const char *lbl1, const char *lbl2) {
+      const int cw = 134, ch = 64, cr = 14;
+      int x0 = card_cx - cw / 2, y0 = card_cy - ch / 2;
+      esphome::Color bg_c(22, 28, 38);
+      it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, bg_c);
+      it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, bg_c);
+      it.filled_circle(x0 + cr, y0 + cr, cr, bg_c);
+      it.filled_circle(x0 + cw - cr, y0 + cr, cr, bg_c);
+      it.filled_circle(x0 + cr, y0 + ch - cr, cr, bg_c);
+      it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, bg_c);
+
+      it.line(x0 + cr, y0, x0 + cw - cr, y0, theme_secondary);
+      it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, theme_secondary);
+      it.line(x0, y0 + cr, x0, y0 + ch - cr, theme_secondary);
+      it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, theme_secondary);
+
+      int ix = x0 + 28;
+      int iy = card_cy;
+      if (!is_lyrics) {
+        // Album Info Icon: Vinyl/Info Medallion with serif 'i'
+        it.circle(ix, iy, 14, theme_primary);
+        it.circle(ix, iy, 13, theme_primary);
+        it.filled_circle(ix, iy - 6, 2, col_white);
+        it.filled_rectangle(ix - 1, iy - 2, 3, 9, col_white);
+        it.line(ix - 3, iy - 2, ix + 1, iy - 2, col_white);
+        it.line(ix - 3, iy + 7, ix + 3, iy + 7, col_white);
+      } else {
+        // Lyrics Icon: Beamed Double Eighth Notes (♫) + Lyric wave
+        it.filled_circle(ix - 6, iy + 6, 4, theme_primary);
+        it.filled_circle(ix + 5, iy + 4, 4, theme_primary);
+        it.line(ix - 3, iy + 6, ix - 3, iy - 9, col_white);
+        it.line(ix - 2, iy + 6, ix - 2, iy - 9, col_white);
+        it.line(ix + 8, iy + 4, ix + 8, iy - 11, col_white);
+        it.line(ix + 9, iy + 4, ix + 9, iy - 11, col_white);
+        it.line(ix - 3, iy - 9, ix + 9, iy - 11, col_white);
+        it.line(ix - 3, iy - 8, ix + 9, iy - 10, theme_primary);
+        it.line(ix - 3, iy - 5, ix + 9, iy - 7, theme_secondary);
+      }
+
+      it.print(x0 + 52, card_cy - 10, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, lbl1);
+      it.print(x0 + 52, card_cy + 12, font_micro, col_slate, esphome::display::TextAlign::CENTER_LEFT, lbl2);
+    };
+
+    draw_badge_card(156, 316, false, "Album", "Info");
+    draw_badge_card(310, 316, true,  "Song",  "Lyrics");
+
+  } else if (music_overlay_mode == 7) {
+    // LEVEL 7: 5-LINE PAGINATED READER VIEW (Album Biography & Song Lyrics)
+    render_menu_header(it, cx, 50, selected_category_title, font_date, theme_primary);
+    it.line(90, 74, 376, 74, col_dark_gray);
+
+    const std::string *lines[5] = {&slot_1_name, &slot_2_name, &slot_3_name, &slot_4_name, &slot_5_name};
+    for (int i = 0; i < 5; i++) {
+      if (!lines[i]->empty()) {
+        std::string fit_ln = fit_text_to_width_font(*lines[i], 304, font_small);
+        it.print(cx, 108 + i * 50, font_small, col_white, esphome::display::TextAlign::CENTER, fit_ln.c_str());
+      }
+    }
+
+    if (music_browse_total_pages > 1) {
+      draw_right_chevrons(true, true);
+      char pg_buf[16];
+      snprintf(pg_buf, sizeof(pg_buf), "%d / %d", music_browse_page, music_browse_total_pages);
+      it.print(cx, 366, font_micro, col_slate, esphome::display::TextAlign::CENTER, pg_buf);
     }
   }
 

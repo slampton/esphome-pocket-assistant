@@ -2786,6 +2786,18 @@ script:
               float cur_pos = id(music_pos_base);
               return to_string((int)std::max(0.0f, cur_pos));
 
+  - id: music_seek_absolute
+    mode: restart
+    then:
+      - delay: 0ms
+      - homeassistant.action:
+          action: media_player.media_seek
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            seek_position: !lambda |-
+              float cur_pos = id(music_pos_base);
+              return to_string((int)std::max(0.0f, cur_pos));
+
   - id: fetch_music_browse
     mode: restart
     then:
@@ -2798,7 +2810,7 @@ script:
             search: !lambda |-
               if (id(selected_category_mode) == "artist_albums") {
                 return id(drilldown_artist_name).c_str();
-              } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
+              } else if (id(selected_category_mode) == "current_album_tracks") { id(music_overlay_mode) = 6; id(disp1).update(); return; } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
                 return id(drilldown_album_id).c_str();
               }
               return "";
@@ -3414,7 +3426,16 @@ display:
               id(target_speaker_id), id(target_speaker_name),
               id(font_date), id(font_small), id(font_micro),
               id(theme_primary), id(theme_secondary), id(col_bg), id(col_black),
-              id(col_white), id(col_slate), id(col_dark_gray));
+              id(col_white), id(col_slate), id(col_dark_gray),
+              now_p2_ms,
+              pocket_ui::is_music_playing_effective(
+                  id(active_speaker_entity) != "${local_player_id}",
+                  id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING,
+                  id(ha_target_state).state, now_p2_ms),
+              id(ha_media_duration).state, id(music_pos_base), id(music_pos_sync_time),
+              (id(active_speaker_entity) != "${local_player_id}" || id(track_title).state.empty() || id(track_title).state == "None") ? id(ha_track_title).state : id(track_title).state,
+              (id(active_speaker_entity) != "${local_player_id}" || id(track_artist).state.empty() || id(track_artist).state == "None") ? id(ha_track_artist).state : id(track_artist).state,
+              (id(active_speaker_entity) != "${local_player_id}" || id(track_album).state.empty() || id(track_album).state == "None") ? id(ha_track_album).state : id(track_album).state);
         }
 
       // ==========================================
@@ -3893,7 +3914,7 @@ touchscreen:
             }
 
             // Edge tap support for one-handed navigation in Browse Library, Speakers & Item Browser (Right-Flank Chevrons)
-            if (id(gui_page) == 2 && id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3 && touch.y >= 70 && touch.y <= 375) {
+            if (id(gui_page) == 2 && ((id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3) || id(music_overlay_mode) == 7) && touch.y >= 70 && touch.y <= 375) {
               if (touch.x < 75) {
                 return; // Left flank has no chevrons in vertical navigation
               } else if (is_right_chevron_zone(touch)) {
@@ -3920,7 +3941,7 @@ touchscreen:
                     }
                   }
                   return;
-                } else if (id(music_overlay_mode) == 1 || id(music_overlay_mode) == 3) {
+                } else if (id(music_overlay_mode) == 1 || id(music_overlay_mode) == 3 || id(music_overlay_mode) == 7) {
                   if (id(music_browse_total_pages) > 1) {
                     static uint32_t last_browse_scroll = 0;
                     uint32_t now_s = millis();
@@ -3943,6 +3964,24 @@ touchscreen:
                 // ----------------------------------------------------
                 // Normal Player Mode (Dedicated Radial Geometry & Clean HUD Dismissal)
                 // ----------------------------------------------------
+                // 0. Direct Metadata Band Tap Zone (y in 340..399): Opens Track & Album Inspector (Mode 6)
+                // Active whenever metadata is currently visible (Art + Metadata, Always Visible, or active HUD)
+                {
+                  std::string ov_m = id(music_overlay_style).current_option();
+                  bool meta_vis = (ov_m == "Always Visible" || ov_m == "Art + Metadata" || id(music_hud_active));
+                  if (meta_vis && touch.x >= 90 && touch.x <= 376 && touch.y >= 340 && touch.y < 400) {
+                    static uint32_t last_meta_tap = 0;
+                    uint32_t now_mt = millis();
+                    if (now_mt - last_meta_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_meta_tap = now_mt;
+                      id(music_overlay_mode) = 6;
+                      ESP_LOGI("touch", "Page 2 Metadata Tap -> Track & Album Inspector: x=%d y=%d", touch.x, touch.y);
+                      id(disp1).update();
+                    }
+                    return;
+                  }
+                }
+
                 // 1. Direct Header Tap Zone: Tapping Title / Speaker Name directly opens Music Hub
                 // Active even when HUD is dormant, delivering instant 1-tap navigation
                 if (touch.x >= 100 && touch.x <= 366 && touch.y <= 85) {
@@ -4447,7 +4486,7 @@ touchscreen:
                 if (is_back_button(touch)) {
                   if (now_item - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_item;
-                    if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
+                    if (id(selected_category_mode) == "current_album_tracks") { id(music_overlay_mode) = 6; id(disp1).update(); return; } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
                       id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                       id(selected_category_title) = (id(selected_category_mode) == "podcast") ? "PODCASTS" : ((id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS");
                       id(music_browse_page) = std::max(1, id(drilldown_album_page));
@@ -4557,6 +4596,226 @@ touchscreen:
                   if (now_sheet - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sheet;
                     id(music_overlay_mode) = 1;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+              } else if (id(music_overlay_mode) == 6) {
+                // ----------------------------------------------------
+                // LEVEL 6: TRACK & ALBUM INSPECTOR TOUCH HANDLERS
+                // ----------------------------------------------------
+                static uint32_t last_insp_tap = 0;
+                uint32_t now_in = millis();
+
+                if (is_back_button(touch)) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_insp_tap = now_in;
+                    id(music_overlay_mode) = 0;
+                    id(music_hud_active) = true;
+                    id(music_hud_timer) = now_in;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // 1. Row 1 Pill: Album Tracks (y in 94..144, x in 100..366)
+                if (touch.y >= 94 && touch.y <= 144 && touch.x >= 100 && touch.x <= 366) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_insp_tap = now_in;
+                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
+                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
+                                          ? id(ha_track_album).state : id(track_album).state;
+                    id(selected_category_mode) = "current_album_tracks";
+                    id(selected_category_title) = (alb.empty() || alb == "None") ? "ALBUM TRACKS" : alb;
+                    id(drilldown_album_id) = alb;
+                    id(music_browse_page) = 1;
+                    id(music_browse_total_pages) = 1;
+                    id(slot_1_name) = "Loading album tracks...";
+                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
+                    id(music_overlay_mode) = 3;
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // 2. Center Scrubber Bar & -15s / +15s Buttons (y in 186..248)
+                if (touch.y >= 186 && touch.y <= 248) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_RAPID) {
+                    last_insp_tap = now_in;
+                    float dur = id(ha_media_duration).state;
+                    float cur_pos = id(music_pos_base);
+                    if (id(music_pos_sync_time) > 0) {
+                      cur_pos += static_cast<float>(now_in - id(music_pos_sync_time)) * 0.001f;
+                    }
+                    if (touch.x < 104) {
+                      // -15s Step
+                      id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
+                      id(music_pos_sync_time) = now_in;
+                      id(music_seek_absolute).execute();
+                      id(disp1).update();
+                    } else if (touch.x > 362) {
+                      // +15s Step
+                      float new_p = cur_pos + 15.0f;
+                      if (!std::isnan(dur) && dur > 0.0f) new_p = std::min(dur, new_p);
+                      id(music_pos_base) = new_p;
+                      id(music_pos_sync_time) = now_in;
+                      id(music_seek_absolute).execute();
+                      id(disp1).update();
+                    } else if (!std::isnan(dur) && dur > 0.0f) {
+                      // Direct Scrubber Bar Tap (x in 116..350)
+                      float frac = (static_cast<float>(touch.x) - 116.0f) / 234.0f;
+                      frac = std::max(0.0f, std::min(1.0f, frac));
+                      id(music_pos_base) = frac * dur;
+                      id(music_pos_sync_time) = now_in;
+                      id(music_seek_absolute).execute();
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+
+                // 3. Lower Row Badge Cards: Album Info (left x < 233) & Song Lyrics (right x >= 233), y in 278..356
+                if (touch.y >= 278 && touch.y <= 356 && touch.x >= 75 && touch.x <= 391) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_insp_tap = now_in;
+                    bool is_lyrics = (touch.x >= 233);
+                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
+                    std::string ttl = (is_rem || id(track_title).state.empty() || id(track_title).state == "None")
+                                          ? id(ha_track_title).state : id(track_title).state;
+                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
+                                          ? id(ha_track_album).state : id(track_album).state;
+                    id(selected_category_mode) = is_lyrics ? "track_lyrics" : "album_info";
+                    id(selected_category_title) = is_lyrics ? "LYRICS" : "ALBUM INFO";
+                    id(drilldown_album_id) = is_lyrics ? ttl : alb;
+                    id(music_browse_page) = 1;
+                    id(music_browse_total_pages) = 1;
+                    id(slot_1_name) = is_lyrics ? "Loading lyrics..." : "Loading album info...";
+                    id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
+                    id(music_overlay_mode) = 7;
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+              } else if (id(music_overlay_mode) == 7) {
+                // ----------------------------------------------------
+                // LEVEL 7: READER VIEW (< BACK returns to Mode 6 Inspector)
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (millis() - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_back_tap = millis();
+                    id(music_overlay_mode) = 6;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+              } else if (id(music_overlay_mode) == 6) {
+                // ----------------------------------------------------
+                // LEVEL 6: TRACK & ALBUM INSPECTOR TOUCH HANDLERS
+                // ----------------------------------------------------
+                static uint32_t last_insp_tap = 0;
+                uint32_t now_in = millis();
+
+                if (is_back_button(touch)) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_insp_tap = now_in;
+                    id(music_overlay_mode) = 0;
+                    id(music_hud_active) = true;
+                    id(music_hud_timer) = now_in;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // 1. Row 1 Pill: Album Tracks (y in 94..144, x in 100..366)
+                if (touch.y >= 94 && touch.y <= 144 && touch.x >= 100 && touch.x <= 366) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_insp_tap = now_in;
+                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
+                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
+                                          ? id(ha_track_album).state : id(track_album).state;
+                    id(selected_category_mode) = "current_album_tracks";
+                    id(selected_category_title) = (alb.empty() || alb == "None") ? "ALBUM TRACKS" : alb;
+                    id(drilldown_album_id) = alb;
+                    id(music_browse_page) = 1;
+                    id(music_browse_total_pages) = 1;
+                    id(slot_1_name) = "Loading album tracks...";
+                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
+                    id(music_overlay_mode) = 3;
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+
+                // 2. Center Scrubber Bar & -15s / +15s Buttons (y in 186..248)
+                if (touch.y >= 186 && touch.y <= 248) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_RAPID) {
+                    last_insp_tap = now_in;
+                    float dur = id(ha_media_duration).state;
+                    float cur_pos = id(music_pos_base);
+                    if (id(music_pos_sync_time) > 0) {
+                      cur_pos += static_cast<float>(now_in - id(music_pos_sync_time)) * 0.001f;
+                    }
+                    if (touch.x < 104) {
+                      // -15s Step
+                      id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
+                      id(music_pos_sync_time) = now_in;
+                      id(music_seek_absolute).execute();
+                      id(disp1).update();
+                    } else if (touch.x > 362) {
+                      // +15s Step
+                      float new_p = cur_pos + 15.0f;
+                      if (!std::isnan(dur) && dur > 0.0f) new_p = std::min(dur, new_p);
+                      id(music_pos_base) = new_p;
+                      id(music_pos_sync_time) = now_in;
+                      id(music_seek_absolute).execute();
+                      id(disp1).update();
+                    } else if (!std::isnan(dur) && dur > 0.0f) {
+                      // Direct Scrubber Bar Tap (x in 116..350)
+                      float frac = (static_cast<float>(touch.x) - 116.0f) / 234.0f;
+                      frac = std::max(0.0f, std::min(1.0f, frac));
+                      id(music_pos_base) = frac * dur;
+                      id(music_pos_sync_time) = now_in;
+                      id(music_seek_absolute).execute();
+                      id(disp1).update();
+                    }
+                  }
+                  return;
+                }
+
+                // 3. Lower Row Badge Cards: Album Info (left x < 233) & Song Lyrics (right x >= 233), y in 278..356
+                if (touch.y >= 278 && touch.y <= 356 && touch.x >= 75 && touch.x <= 391) {
+                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_insp_tap = now_in;
+                    bool is_lyrics = (touch.x >= 233);
+                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
+                    std::string ttl = (is_rem || id(track_title).state.empty() || id(track_title).state == "None")
+                                          ? id(ha_track_title).state : id(track_title).state;
+                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
+                                          ? id(ha_track_album).state : id(track_album).state;
+                    id(selected_category_mode) = is_lyrics ? "track_lyrics" : "album_info";
+                    id(selected_category_title) = is_lyrics ? "LYRICS" : "ALBUM INFO";
+                    id(drilldown_album_id) = is_lyrics ? ttl : alb;
+                    id(music_browse_page) = 1;
+                    id(music_browse_total_pages) = 1;
+                    id(slot_1_name) = is_lyrics ? "Loading lyrics..." : "Loading album info...";
+                    id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
+                    id(music_overlay_mode) = 7;
+                    id(fetch_music_browse).execute();
+                    id(disp1).update();
+                  }
+                  return;
+                }
+              } else if (id(music_overlay_mode) == 7) {
+                // ----------------------------------------------------
+                // LEVEL 7: READER VIEW (< BACK returns to Mode 6 Inspector)
+                // ----------------------------------------------------
+                if (is_back_button(touch)) {
+                  if (millis() - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_back_tap = millis();
+                    id(music_overlay_mode) = 6;
                     id(disp1).update();
                   }
                   return;
