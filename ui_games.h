@@ -1667,18 +1667,7 @@ inline void render_chomp_monster(DisplayT &it, int mx, int my, int mr,
   it.circle(mx, cy_m, mr, fur_hi);
   it.circle(mx, cy_m, mr - 1, fur_dark);
 
-  // Optional Festive Party Hat between the ears (unlocked at 5+ treats!)
-  if (party_hat) {
-    int hat_base_y = cy_m - mr + 2;
-    int hat_top_y = hat_base_y - (mr * 52) / 100;
-    int hat_hw = (mr * 28) / 100;
-    it.filled_triangle(mx - hat_hw, hat_base_y, mx + hat_hw, hat_base_y, mx, hat_top_y, col_gold);
-    it.line(mx - hat_hw / 2, (hat_base_y + hat_top_y) / 2, mx + hat_hw / 2, (hat_base_y + hat_top_y) / 2, col_magenta);
-    it.line(mx - hat_hw, hat_base_y, mx, hat_top_y, col_white);
-    it.line(mx + hat_hw, hat_base_y, mx, hat_top_y, col_white);
-    it.filled_circle(mx, hat_top_y - 2, 4, col_red);
-    it.draw_pixel_at(mx - 1, hat_top_y - 3, col_white);
-  }
+  (void)party_hat;
 
   // 4. Clean Furry Face (no cheek circles)
 

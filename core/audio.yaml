@@ -686,6 +686,7 @@ script:
     then:
       - script.stop: mp_idle_debounce
       - script.execute: route_i2s_to_spk
+      - switch.turn_on: speaker_enable
       - audio_dac.mute_off: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
@@ -695,17 +696,16 @@ script:
             if (v > 100.0f) v = 100.0f;
             if (v < 20.0f) v = 20.0f;
             return (100.0f - v) * 0.18f;
-          duration: 0.02s
+          duration: 0.01s
       - rtttl.play:
           id: alarm_rtttl
           rtttl: !lambda |-
             if (sfx_id == 2) {
-              // Upbeat Arcade Level-Clear Celebration Fanfare
-              return std::string("win:d=16,o=5,b=240:c,e,g,c6,p,g,c6,e6,8g6");
+              // Upbeat Octave-6 Arcade Level-Clear Fanfare
+              return std::string("win:d=16,o=6,b=220:c,e,g,c7,p,g,8c7");
             }
-            // Low-register Cookie-Monster "Nom-Nom" Double Crunch
-            return std::string("chomp:d=32,o=4,b=355:g,d,c,p,g,d,c");
-
+            // Playful Octave-5/6 "Nom-Nom" Double Crunch (audible on micro-speaker)
+            return std::string("chomp:d=16,o=5,b=260:g,c6,p,g,c6");
   - id: stop_alarm_sound
     mode: restart
     then:

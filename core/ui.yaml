@@ -3562,6 +3562,16 @@ display:
               id(font_date), id(font_small), id(col_bg), id(col_white),
               id(col_black), id(col_gold), id(col_cyan), id(col_red),
               id(col_green), id(col_magenta), id(col_orange), id(col_dark_gray));
+          if (game_just_entered) {
+            id(route_i2s_to_spk).execute();
+            id(speaker_enable).turn_on();
+            id(es8311_dac).set_mute_off();
+          }
+          if (pocket_ui::pending_game_sfx() > 0) {
+            int sfx = pocket_ui::pending_game_sfx();
+            pocket_ui::pending_game_sfx() = 0;
+            id(play_game_sfx).execute(sfx);
+          }
 
         }
       // ==========================================
