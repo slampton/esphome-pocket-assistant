@@ -416,12 +416,10 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer started via Assist: %s (%lu sec)", timer.name.c_str(), (unsigned long)timer.total_seconds);
-          id(va_timer_name) = timer.name;
-          id(timer_duration_sec) = timer.total_seconds;
-          id(timer_remaining_sec) = timer.seconds_left;
-          id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
-          id(timer_running) = timer.is_active;
-          id(timer_paused) = !timer.is_active;
+          uint32_t now_t = millis();
+          pocket_ui::upsert_voice_timer_slot(timer.id, timer.name, timer.total_seconds, timer.seconds_left, timer.is_active, now_t);
+          if (!timer.name.empty()) id(va_timer_name) = timer.name;
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
           id(timer_ringing) = false;
           if (!id(va_active) && id(va_status_text).empty()) {
             if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
@@ -432,11 +430,9 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer updated via Assist: %s (left: %lu sec, active: %d)", timer.name.c_str(), (unsigned long)timer.seconds_left, timer.is_active);
-          if (!timer.name.empty()) id(va_timer_name) = timer.name;
-          id(timer_remaining_sec) = timer.seconds_left;
-          id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
-          id(timer_running) = timer.is_active;
-          id(timer_paused) = !timer.is_active;
+          uint32_t now_t = millis();
+          pocket_ui::upsert_voice_timer_slot(timer.id, timer.name, timer.total_seconds, timer.seconds_left, timer.is_active, now_t);
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
           if (!id(va_active) && id(va_status_text).empty()) {
             if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
               id(disp1).update();
@@ -446,11 +442,16 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer cancelled via Assist: %s", timer.name.c_str());
-          id(va_timer_name) = "";
-          id(timer_running) = false;
-          id(timer_paused) = false;
+          auto *slots = pocket_ui::timer_slots();
+          for (int i = 0; i < 3; i++) {
+            if ((!timer.id.empty() && slots[i].id == timer.id) || (!timer.name.empty() && slots[i].name == timer.name)) {
+              slots[i].running = false;
+              slots[i].paused = false;
+              slots[i].remaining_sec = slots[i].duration_sec;
+            }
+          }
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
           id(timer_ringing) = false;
-          id(timer_remaining_sec) = id(timer_duration_sec);
           if (!id(va_active) && id(va_status_text).empty()) {
             if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
               id(disp1).update();
@@ -461,10 +462,19 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer finished via Assist: %s", timer.name.c_str());
-          if (id(timer_running) && !id(timer_paused) && !id(timer_ringing)) {
-            id(timer_running) = false;
-            id(timer_paused) = false;
-            id(timer_remaining_sec) = 0;
+          auto *slots = pocket_ui::timer_slots();
+          std::string fired_name = timer.name;
+          for (int i = 0; i < 3; i++) {
+            if ((!timer.id.empty() && slots[i].id == timer.id) || (!timer.name.empty() && slots[i].name == timer.name)) {
+              if (fired_name.empty()) fired_name = slots[i].name;
+              slots[i].running = false;
+              slots[i].paused = false;
+              slots[i].remaining_sec = slots[i].duration_sec; // Keep duration & name saved as a reusable preset!
+            }
+          }
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+          if (!id(timer_ringing)) {
+            id(va_timer_name) = fired_name;
             id(timer_ringing) = true;
             id(wake_to_active_state).execute();
             id(play_alarm_sound).execute();

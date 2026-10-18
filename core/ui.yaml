@@ -519,6 +519,22 @@ globals:
     type: int
     restore_value: yes
     initial_value: '2'
+  - id: alarm3_hour
+    type: int
+    restore_value: yes
+    initial_value: '9'
+  - id: alarm3_minute
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: alarm3_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: alarm3_recurrence
+    type: int
+    restore_value: yes
+    initial_value: '2'
   - id: alarm_edit_idx
     type: int
     restore_value: no
@@ -1573,27 +1589,45 @@ interval:
     then:
       - lambda: |-
           // ------------------------------------------------------------------
-          // COUNTDOWN TIMER TICK & ALERT TRIGGER
+          // 3-SLOT COUNTDOWN TIMER TICK & ALERT TRIGGER
           // ------------------------------------------------------------------
           if (id(timer_running)) {
             uint32_t now_ms = millis();
-            if (now_ms >= id(timer_target_ms)) {
-              id(timer_running) = false;
-              id(timer_paused) = false;
-              id(timer_remaining_sec) = 0;
+            auto *slots = pocket_ui::timer_slots();
+            bool any_expired = false;
+            std::string exp_name = "";
+            bool sec_changed = false;
+
+            for (int i = 0; i < 3; i++) {
+              if (!slots[i].running) continue;
+              if (now_ms >= slots[i].target_ms) {
+                slots[i].running = false;
+                slots[i].paused = false;
+                slots[i].remaining_sec = slots[i].duration_sec; // Preserve duration for 1-tap reuse!
+                exp_name = slots[i].name;
+                any_expired = true;
+              } else {
+                int rem = static_cast<int>((slots[i].target_ms - now_ms + 999U) / 1000U);
+                if (rem != slots[i].remaining_sec) {
+                  slots[i].remaining_sec = rem;
+                  sec_changed = true;
+                }
+              }
+            }
+
+            pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+
+            if (any_expired) {
+              id(va_timer_name) = exp_name;
               id(timer_ringing) = true;
               id(wake_to_active_state).execute();
               id(play_alarm_sound).execute();
               id(disp1).update();
               ESP_LOGI("timer", "Countdown timer expired! Firing alert.");
-            } else {
-              int rem = (id(timer_target_ms) - now_ms + 999) / 1000;
-              if (rem != id(timer_remaining_sec)) {
-                id(timer_remaining_sec) = rem;
-                if (!id(va_active) && id(va_status_text).empty()) {
-                  if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
-                    id(disp1).update();
-                  }
+            } else if (sec_changed) {
+              if (!id(va_active) && id(va_status_text).empty()) {
+                if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
+                  id(disp1).update();
                 }
               }
             }
@@ -1678,6 +1712,14 @@ interval:
                 triggered = true;
                 trig_idx = 2;
                 if (id(alarm2_recurrence) == 3) id(alarm2_enabled) = false; // Once: auto-disable
+              } else if (check_alarm(id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled), id(alarm3_recurrence), 3)) {
+                triggered = true;
+                trig_idx = 3;
+                if (id(alarm3_recurrence) == 3) id(alarm3_enabled) = false; // Once: auto-disable
+              } else if (check_alarm(id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled), id(alarm3_recurrence), 3)) {
+                triggered = true;
+                trig_idx = 3;
+                if (id(alarm3_recurrence) == 3) id(alarm3_enabled) = false; // Once: auto-disable
               }
 
               if (triggered) {
@@ -3630,7 +3672,7 @@ display:
               id(font_time), id(font_date), id(font_btn_bold), id(font_small),
               id(theme_primary), id(theme_secondary), id(col_black),
               id(col_white), id(col_slate), id(col_dark_gray), id(col_red),
-              id(va_timer_name));
+              id(va_timer_name), id(font_chrono_time), id(col_gray));
 
         } else if (id(stuff_subpage) == 2) {
           // --------------------------------------------------
@@ -3641,6 +3683,8 @@ display:
               id(alarm_snooze_until), id(alarm_ringing_idx),
               id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence),
               id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence),
+              id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled), id(alarm3_recurrence),
+              id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled), id(alarm3_recurrence),
               id(font_time), id(font_chrono_time), id(font_date), id(font_small),
               id(theme_primary), id(theme_secondary), id(col_black),
               id(col_white), id(col_gray), id(col_dark_gray), id(col_gold));
@@ -5760,39 +5804,87 @@ touchscreen:
 
               } else if (id(stuff_subpage) == 1) {
                 // ----------------------------------------------------
-                // SUBPAGE 1: TIMER TOUCH HANDLING
+                // SUBPAGE 1: 3-SLOT TIMERS LANDING PAGE & DETAIL VIEW
                 // ----------------------------------------------------
+                auto *slots = pocket_ui::timer_slots();
+                int &view_idx = pocket_ui::timer_view_slot();
+
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
-                    id(stuff_subpage) = 0;
+                    if (view_idx > 0) {
+                      view_idx = 0; // Back from Single-Timer Detail to 3-Timer Landing Page
+                    } else {
+                      id(stuff_subpage) = 0; // Back from Landing Page to Tools Launcher
+                    }
                     id(disp1).update();
                   }
                   return;
                 }
 
+                if (view_idx == 0) {
+                  // 3-Timer Landing Page: Cards at y = 122 (85..160), 210 (173..247), 298 (261..336)
+                  int card_i = -1;
+                  if (touch.y >= 85 && touch.y <= 160) card_i = 0;
+                  else if (touch.y >= 173 && touch.y <= 247) card_i = 1;
+                  else if (touch.y >= 261 && touch.y <= 336) card_i = 2;
+
+                  if (card_i >= 0 && touch.x >= 70 && touch.x <= 396) {
+                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                      last_stuff_tap = now_stuff;
+                      auto &s = slots[card_i];
+                      if (touch.x >= 298) {
+                        // 1-Tap Play / Pause Toggle directly from Landing Page!
+                        if (!s.running && !s.paused) {
+                          s.running = true;
+                          s.paused = false;
+                          s.remaining_sec = s.duration_sec;
+                          s.target_ms = now_stuff + static_cast<uint32_t>(s.duration_sec) * 1000U;
+                        } else if (s.running) {
+                          s.running = false;
+                          s.paused = true;
+                          s.remaining_sec = (s.target_ms > now_stuff) ? static_cast<int>((s.target_ms - now_stuff + 999U) / 1000U) : 0;
+                        } else {
+                          s.running = true;
+                          s.paused = false;
+                          s.target_ms = now_stuff + static_cast<uint32_t>(s.remaining_sec) * 1000U;
+                        }
+                        pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+                      } else {
+                        // Open Single-Timer Detail / Editor View for this slot
+                        view_idx = card_i + 1;
+                      }
+                      id(disp1).update();
+                    }
+                    return;
+                  }
+                  return;
+                }
+
+                // Single-Timer Detail View (view_idx == 1..3)
+                int s_idx = (view_idx >= 1 && view_idx <= 3) ? (view_idx - 1) : 0;
+                auto &s = slots[s_idx];
+
                 // Hero Button (Start / Pause / Resume): y in [218..278], x in [135..331]
                 if (touch.y >= 218 && touch.y <= 278 && touch.x >= 135 && touch.x <= 331) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
-                    if (!id(timer_running) && !id(timer_paused)) {
-                      id(va_timer_name) = "";
-                      id(timer_running) = true;
-                      id(timer_paused) = false;
-                      id(timer_remaining_sec) = id(timer_duration_sec);
-                      id(timer_target_ms) = millis() + (id(timer_duration_sec) * 1000);
-                      id(disp1).update();
-                    } else if (id(timer_running)) {
-                      id(timer_running) = false;
-                      id(timer_paused) = true;
-                      id(timer_remaining_sec) = (id(timer_target_ms) > millis()) ? ((id(timer_target_ms) - millis() + 999) / 1000) : 0;
-                      id(disp1).update();
-                    } else if (id(timer_paused)) {
-                      id(timer_running) = true;
-                      id(timer_paused) = false;
-                      id(timer_target_ms) = millis() + (id(timer_remaining_sec) * 1000);
-                      id(disp1).update();
+                    if (!s.running && !s.paused) {
+                      s.running = true;
+                      s.paused = false;
+                      s.remaining_sec = s.duration_sec;
+                      s.target_ms = now_stuff + static_cast<uint32_t>(s.duration_sec) * 1000U;
+                    } else if (s.running) {
+                      s.running = false;
+                      s.paused = true;
+                      s.remaining_sec = (s.target_ms > now_stuff) ? static_cast<int>((s.target_ms - now_stuff + 999U) / 1000U) : 0;
+                    } else {
+                      s.running = true;
+                      s.paused = false;
+                      s.target_ms = now_stuff + static_cast<uint32_t>(s.remaining_sec) * 1000U;
                     }
+                    pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+                    id(disp1).update();
                   }
                   return;
                 }
@@ -5801,49 +5893,42 @@ touchscreen:
                 if (touch.y >= 292 && touch.y <= 358) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_stuff_tap = now_stuff;
-                    if (!id(timer_running) && !id(timer_paused)) {
+                    if (!s.running && !s.paused) {
                       if (touch.x >= 45 && touch.x < 137) {
-                        id(timer_duration_sec) = clamp(id(timer_duration_sec) - 300, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
+                        s.duration_sec = clamp(s.duration_sec - 300, 60, 3600);
                       } else if (touch.x >= 137 && touch.x < 233) {
-                        id(timer_duration_sec) = clamp(id(timer_duration_sec) - 60, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
+                        s.duration_sec = clamp(s.duration_sec - 60, 60, 3600);
                       } else if (touch.x >= 233 && touch.x < 329) {
-                        id(timer_duration_sec) = clamp(id(timer_duration_sec) + 60, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
+                        s.duration_sec = clamp(s.duration_sec + 60, 60, 3600);
                       } else if (touch.x >= 329 && touch.x <= 421) {
-                        id(timer_duration_sec) = clamp(id(timer_duration_sec) + 300, 60, 3600);
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                        return;
+                        s.duration_sec = clamp(s.duration_sec + 300, 60, 3600);
                       }
-                    } else {
-                      // Reset Card (x in 150..316)
-                      if (touch.x >= 150 && touch.x <= 316) {
-                        id(va_timer_name) = "";
-                        id(timer_running) = false;
-                        id(timer_paused) = false;
-                        id(timer_remaining_sec) = id(timer_duration_sec);
-                        id(disp1).update();
-                      }
+                      s.remaining_sec = s.duration_sec;
+                      pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+                      id(disp1).update();
+                      return;
+                    } else if (touch.x >= 150 && touch.x <= 316) {
+                      // Reset Card
+                      s.running = false;
+                      s.paused = false;
+                      s.remaining_sec = s.duration_sec;
+                      pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+                      id(disp1).update();
                       return;
                     }
                   }
                 }
 
-                // Readout Tap to reset default 5m: y in [110..175], x in [140..326]
+                // Readout Tap to reset slot to default (5m / 10m / 15m) & clear custom voice label: y in [110..175]
                 if (touch.y >= 110 && touch.y <= 175 && touch.x >= 140 && touch.x <= 326) {
-                  if (!id(timer_running) && !id(timer_paused)) {
+                  if (!s.running && !s.paused) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
-                      id(timer_duration_sec) = 300;
-                      id(timer_remaining_sec) = 300;
+                      s.name = "";
+                      s.id = "";
+                      s.duration_sec = (s_idx + 1) * 300;
+                      s.remaining_sec = s.duration_sec;
+                      pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
                       id(disp1).update();
                     }
                   }
@@ -5852,7 +5937,7 @@ touchscreen:
 
               } else if (id(stuff_subpage) == 2) {
                 // ----------------------------------------------------
-                // SUBPAGE 2: ALARMS TOUCH HANDLING
+                // SUBPAGE 2: 3-SLOT ALARMS LANDING PAGE & EDITOR VIEW
                 // ----------------------------------------------------
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -5868,52 +5953,33 @@ touchscreen:
                 }
 
                 if (id(alarm_edit_idx) == 0) {
-                  // Snooze dismiss tap if snoozed
-                  if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == 1 || id(alarm_ringing_idx) == 0)) {
-                    if (touch.y >= 108 && touch.y <= 200 && touch.x >= 70 && touch.x <= 396) {
-                      if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_stuff_tap = now_stuff;
-                        id(alarm_snooze_until) = 0;
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                  }
-                  if (id(alarm_snooze_until) > 0 && id(alarm_ringing_idx) == 2) {
-                    if (touch.y >= 214 && touch.y <= 306 && touch.x >= 70 && touch.x <= 396) {
-                      if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_stuff_tap = now_stuff;
-                        id(alarm_snooze_until) = 0;
-                        id(disp1).update();
-                      }
-                      return;
-                    }
-                  }
+                  // 3-Alarm Landing Page: Cards at y = 122 (85..160), 210 (173..247), 298 (261..336)
+                  int card_i = 0;
+                  if (touch.y >= 85 && touch.y <= 160) card_i = 1;
+                  else if (touch.y >= 173 && touch.y <= 247) card_i = 2;
+                  else if (touch.y >= 261 && touch.y <= 336) card_i = 3;
 
-                  // Alarm 1 Modern Card: y in [108..200] (centered at y=154)
-                  if (touch.y >= 108 && touch.y <= 200 && touch.x >= 70 && touch.x <= 396) {
+                  if (card_i >= 1 && touch.x >= 70 && touch.x <= 396) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
-                      if (touch.x >= 298) {
-                        id(alarm1_enabled) = !id(alarm1_enabled);
-                        if (!id(alarm1_enabled) && id(alarm_ringing_idx) <= 1) id(alarm_snooze_until) = 0;
-                      } else {
-                        id(alarm_edit_idx) = 1;
+                      if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == card_i || id(alarm_ringing_idx) == 0)) {
+                        id(alarm_snooze_until) = 0;
+                        id(disp1).update();
+                        return;
                       }
-                      id(disp1).update();
-                    }
-                    return;
-                  }
-
-                  // Alarm 2 Modern Card: y in [214..306] (centered at y=260)
-                  if (touch.y >= 214 && touch.y <= 306 && touch.x >= 70 && touch.x <= 396) {
-                    if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_stuff_tap = now_stuff;
                       if (touch.x >= 298) {
-                        id(alarm2_enabled) = !id(alarm2_enabled);
-                        if (!id(alarm2_enabled) && id(alarm_ringing_idx) == 2) id(alarm_snooze_until) = 0;
+                        if (card_i == 1) {
+                          id(alarm1_enabled) = !id(alarm1_enabled);
+                          if (!id(alarm1_enabled) && id(alarm_ringing_idx) <= 1) id(alarm_snooze_until) = 0;
+                        } else if (card_i == 2) {
+                          id(alarm2_enabled) = !id(alarm2_enabled);
+                          if (!id(alarm2_enabled) && id(alarm_ringing_idx) == 2) id(alarm_snooze_until) = 0;
+                        } else {
+                          id(alarm3_enabled) = !id(alarm3_enabled);
+                          if (!id(alarm3_enabled) && id(alarm_ringing_idx) == 3) id(alarm_snooze_until) = 0;
+                        }
                       } else {
-                        id(alarm_edit_idx) = 2;
+                        id(alarm_edit_idx) = card_i;
                       }
                       id(disp1).update();
                     }
@@ -5921,9 +5987,9 @@ touchscreen:
                   }
                 } else {
                   int edit_idx = id(alarm_edit_idx);
-                  int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
-                  int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
-                  int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
+                  int& cur_h = (edit_idx == 3) ? id(alarm3_hour) : ((edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour));
+                  int& cur_m = (edit_idx == 3) ? id(alarm3_minute) : ((edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute));
+                  int& cur_rec = (edit_idx == 3) ? id(alarm3_recurrence) : ((edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence));
 
                   // Row 1 Modern Stepper Cards: y in [204..268] (x = 89, 185, 281, 377)
                   if (touch.y >= 204 && touch.y <= 268) {
@@ -5942,7 +6008,7 @@ touchscreen:
                         id(disp1).update();
                         return;
                       } else if (touch.x >= 329 && touch.x <= 421) {
-                        cur_m = (cur_m + 5) % 60;
+                        cur_m = (cur_m + 5 + 60) % 60;
                         id(disp1).update();
                         return;
                       }

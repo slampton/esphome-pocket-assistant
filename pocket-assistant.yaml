@@ -233,29 +233,32 @@ api:
       then:
         - lambda: |-
             if (seconds > 0) {
-              id(timer_duration_sec) = seconds;
-              id(timer_remaining_sec) = seconds;
-              id(timer_target_ms) = millis() + (seconds * 1000);
-              id(timer_running) = true;
-              id(timer_paused) = false;
+              uint32_t now_t = millis();
+              int slot = pocket_ui::upsert_voice_timer_slot("ha_action", "", seconds, seconds, true, now_t);
+              pocket_ui::timer_view_slot() = slot + 1;
+              pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
               id(timer_ringing) = false;
               id(gui_page) = 8;
               id(stuff_subpage) = 1;
               id(wake_to_active_state).execute();
               id(disp1).update();
-              ESP_LOGI("timer", "Voice/HA Timer started for %d seconds", (int)seconds);
+              ESP_LOGI("timer", "Voice/HA Timer started for %d seconds in slot %d", (int)seconds, slot + 1);
             }
 
     - action: cancel_timer
       then:
         - lambda: |-
-            id(timer_running) = false;
-            id(timer_paused) = false;
+            auto *slots = pocket_ui::timer_slots();
+            for (int i = 0; i < 3; i++) {
+              slots[i].running = false;
+              slots[i].paused = false;
+              slots[i].remaining_sec = slots[i].duration_sec;
+            }
+            pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
             id(timer_ringing) = false;
-            id(timer_remaining_sec) = id(timer_duration_sec);
             id(stop_alarm_sound).execute();
             id(disp1).update();
-            ESP_LOGI("timer", "Voice/HA Timer cancelled");
+            ESP_LOGI("timer", "Voice/HA Timers cancelled");
 
 ota:
   - platform: esphome
