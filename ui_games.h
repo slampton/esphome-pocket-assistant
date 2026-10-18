@@ -2157,7 +2157,7 @@ inline void render_asteroids_ufo(DisplayT &it, int ux, int uy, float scale,
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                   bool game_just_entered, float roll_delta, float pitch_delta,
-                                  float &marble_touch_x, bool &game_btn_pressed,
+                                  float &marble_touch_x, float &marble_touch_y, bool &game_btn_pressed,
                                   int &high_score_asteroids,
                                   FontBigT *font_date, FontSmallT *font_small,
                                   esphome::Color theme_secondary,
@@ -2167,133 +2167,133 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                   esphome::Color col_cyan, esphome::Color col_green,
                                   esphome::Color col_magenta, esphome::Color col_orange,
                                   esphome::Color col_red) {
-  struct AsteroidRock {
-    float x, y, vx, vy;
-    uint8_t tier;   // 3 = Large (r=26), 2 = Medium (r=16), 1 = Small (r=10)
-    uint8_t shape;  // 0, 1, 2
-    float rot, vrot;
+  (void)col_silver;
+  static constexpr int NUM_LANES = 12;
+  static constexpr float TUBE_R = 192.0f;
+  static constexpr float Z_PIT  = 460.0f;
+
+  struct VortexEnemy {
+    int lane;          // 0..11
+    float z;           // 460.0f (deep pit) -> 0.0f (outer rim)
+    float speed;
+    uint8_t type;      // 0 = Flipper (crimson bowtie), 1 = Pulsar (magenta diamond), 2 = Tanker (2-hit gold/green)
+    uint8_t hp;
+    float flip_timer;
+    int flip_dir;
     bool active;
   };
-  struct SpacePhoton {
-    float x, y, vx, vy;
+
+  struct VortexShot {
+    int lane;
+    float z;           // 0.0f (outer rim) -> 460.0f (deep pit)
     bool active;
   };
-  struct SpaceDebris {
-    float x, y, vx, vy;
-    float life;
+
+  struct VortexSpark {
+    float x, y, vx, vy, life;
     esphome::Color col;
     bool active;
   };
 
-  static constexpr int MAX_ROCKS = 20;
-  static constexpr int MAX_SHOTS = 6;
-  static constexpr int MAX_SPARKS = 18;
+  static constexpr int MAX_ENEMIES = 10;
+  static constexpr int MAX_SHOTS   = 8;
+  static constexpr int MAX_SPARKS  = 18;
 
-  static AsteroidRock rocks[MAX_ROCKS];
-  static SpacePhoton shots[MAX_SHOTS];
-  static SpaceDebris sparks[MAX_SPARKS];
+  static VortexEnemy enemies[MAX_ENEMIES];
+  static VortexShot  shots[MAX_SHOTS];
+  static VortexSpark sparks[MAX_SPARKS];
 
   static uint32_t last_phys_ms = 0;
+  static uint32_t game_entry_ms = 0;
+  static bool post_play_tared = false;
   static int wave_num = 1;
-  static int ast_score = 0;
-  static int ast_lives = 3;
+  static int vtx_score = 0;
+  static int vtx_lives = 3;
   static int hit_streak = 0;
-  static bool ast_game_over = false;
-  static bool is_new_high = false;
-  static float ship_angle = -1.570796f;
+  static int enemies_to_spawn = 12;
+  static int enemies_cleared = 0;
+  static float spawn_timer = 0.0f;
+  static float smooth_roll = 0.0f;
+  static int player_lane = 6; // Lane 6 = 6 o'clock bottom center
   static uint32_t last_shot_ms = 0;
+  static uint32_t burst_pending_ms = 0;
+  static int burst_lane = 6;
   static uint32_t invuln_until_ms = 0;
-  static uint32_t shield_flash_ms = 0;
+  static float zapper_ring_z = -1.0f;
+  static bool vtx_game_over = false;
+  static bool is_new_high = false;
 
-  // Alien UFO Flying Saucer state
-  static bool ufo_active = false;
-  static float ufo_x = 0.0f;
-  static float ufo_y = 110.0f;
-  static float ufo_base_y = 110.0f;
-  static float ufo_vx = 68.0f;
-  static float ufo_phase = 0.0f;
-  static uint32_t next_ufo_ms = 0;
-
-  // Enemy UFO slow plasma orb (can be shot down by player!)
-  static bool ufo_orb_active = false;
-  static float ufo_orb_x = 0.0f;
-  static float ufo_orb_y = 0.0f;
-  static float ufo_orb_vx = 0.0f;
-  static float ufo_orb_vy = 0.0f;
-  static uint32_t ufo_next_fire_ms = 0;
-
-  // Floating popup & wave banner
   static uint32_t popup_ms = 0;
-  static int popup_x = 233;
-  static int popup_y = 140;
+  static int popup_x = 233, popup_y = 180;
   static char popup_text[32] = "";
   static esphome::Color popup_col(255, 215, 0);
-
   static uint32_t banner_ms = 0;
   static char banner_text[32] = "";
 
-  auto spawn_wave_rocks = [&](int wv) {
-    for (int i = 0; i < MAX_ROCKS; i++) rocks[i].active = false;
-    int num_large = std::min(6, 2 + wv);  // W1: 3, W2: 4, W3: 5, W4+: 6
-    float base_spd = std::min(58.0f, 32.0f + (wv - 1) * 4.5f);
-    for (int i = 0; i < num_large; i++) {
-      float sp_ang = (float)i * (2.0f * PI_F / (float)num_large) + 0.42f * (float)wv;
-      rocks[i].x = (float)cx + fast_cos(sp_ang) * 204.0f;
-      rocks[i].y = (float)cy + fast_sin(sp_ang) * 204.0f;
-      // Aim slightly offset from center so rocks orbit/cross cleanly
-      float off_ang = sp_ang + PI_F + ((i & 1) ? 0.34f : -0.34f);
-      rocks[i].vx = fast_cos(off_ang) * base_spd;
-      rocks[i].vy = fast_sin(off_ang) * base_spd;
-      rocks[i].tier = 3;
-      rocks[i].shape = (uint8_t)((i + wv) % 3);
-      rocks[i].rot = (float)i * 1.1f;
-      rocks[i].vrot = (i & 1) ? 0.85f : -0.85f;
-      rocks[i].active = true;
-    }
+  // 12 radial vertices around the tube: Vertex v is at angle v * 30 deg (0 = 12 o'clock, 6 = 6 o'clock)
+  // Lane L spans between Vertex L and Vertex (L + 1) % 12.
+  auto get_vertex_xy = [](int v_idx, float &out_x, float &out_y) {
+    int dial_i = ((v_idx % 12) * 5 + 60) % 60;
+    out_x = DIAL_SIN[dial_i] * TUBE_R;
+    out_y = -DIAL_COS[dial_i] * TUBE_R;
   };
 
-  auto spawn_debris = [&](float sx, float sy, esphome::Color sc, int count) {
-    int spawned = 0;
-    for (int s = 0; s < MAX_SPARKS && spawned < count; s++) {
-      if (!sparks[s].active) {
-        float sa = (float)(s * 47 + (int)(now_ms & 0xFF)) * 0.085f;
-        float spd = 48.0f + (float)((s % 4) * 22);
-        sparks[s].x = sx;
-        sparks[s].y = sy;
-        sparks[s].vx = fast_cos(sa) * spd;
-        sparks[s].vy = fast_sin(sa) * spd;
-        sparks[s].life = 0.42f;
-        sparks[s].col = sc;
-        sparks[s].active = true;
-        spawned++;
+  auto get_lane_center_xy = [&](int l_idx, float &out_x, float &out_y) {
+    float x0, y0, x1, y1;
+    get_vertex_xy(l_idx, x0, y0);
+    get_vertex_xy((l_idx + 1) % NUM_LANES, x1, y1);
+    out_x = 0.5f * (x0 + x1);
+    out_y = 0.5f * (y0 + y1);
+  };
+
+  auto spawn_sparks = [&](int sx, int sy, esphome::Color sc, int count) {
+    int n = 0;
+    for (int i = 0; i < MAX_SPARKS && n < count; i++) {
+      if (!sparks[i].active) {
+        float ang = static_cast<float>((i * 47 + (now_ms & 0xFF)) % 60) * (2.0f * PI_F / 60.0f);
+        float spd = 55.0f + static_cast<float>((i % 3) * 28);
+        sparks[i] = {static_cast<float>(sx), static_cast<float>(sy),
+                     fast_cos(ang) * spd, fast_sin(ang) * spd, 0.38f, sc, true};
+        n++;
       }
     }
   };
 
-  auto reset_asteroids_game = [&]() {
+  auto start_wave = [&](int wv) {
+    for (int i = 0; i < MAX_ENEMIES; i++) enemies[i].active = false;
+    for (int i = 0; i < MAX_SHOTS; i++) shots[i].active = false;
+    enemies_to_spawn = 10 + wv * 3;
+    enemies_cleared = 0;
+    spawn_timer = 0.45f;
+  };
+
+  auto reset_vortex_game = [&]() {
     last_phys_ms = now_ms;
+    game_entry_ms = now_ms;
+    post_play_tared = false;
     wave_num = 1;
-    ast_score = 0;
-    ast_lives = 3;
+    vtx_score = 0;
+    vtx_lives = 3;
     hit_streak = 0;
-    ast_game_over = false;
-    is_new_high = false;
-    ship_angle = -1.570796f;
+    smooth_roll = 0.0f;
+    player_lane = 6;
     last_shot_ms = 0;
-    invuln_until_ms = now_ms + 1800U;
-    shield_flash_ms = 0;
-    ufo_active = false;
-    ufo_orb_active = false;
-    next_ufo_ms = now_ms + 6500U;
+    burst_pending_ms = 0;
+    invuln_until_ms = now_ms + 1200U;
+    zapper_ring_z = -1.0f;
+    vtx_game_over = false;
+    is_new_high = false;
     popup_ms = 0;
     banner_ms = 0;
-    for (int i = 0; i < MAX_SHOTS; i++) shots[i].active = false;
     for (int i = 0; i < MAX_SPARKS; i++) sparks[i].active = false;
-    spawn_wave_rocks(1);
+    start_wave(1);
   };
 
   if (game_just_entered) {
-    reset_asteroids_game();
+    reset_vortex_game();
+  } else if (!post_play_tared && (now_ms - game_entry_ms >= 220U)) {
+    post_play_tared = true;
+    game_imu_retare_flag() = true;
   }
 
   float dt = (now_ms >= last_phys_ms) ? ((now_ms - last_phys_ms) * 0.001f) : 0.05f;
@@ -2301,403 +2301,417 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (dt < 0.012f) dt = 0.012f;
   if (dt > 0.075f) dt = 0.075f;
 
-  // 1. Option A Controls: Pure Tilt-to-Steer/Aim + Tap Anywhere to Fire
-  // Tilting in any 360-degree direction smoothly rotates the starship nose toward your tilt vector!
-  float tilt_mag = std::sqrt(roll_delta * roll_delta + pitch_delta * pitch_delta);
-  if (!ast_game_over && tilt_mag > 1.15f) {
-    float target_ang = std::atan2(-pitch_delta, roll_delta);
-    float diff = target_ang - ship_angle;
-    while (diff > PI_F) diff -= 2.0f * PI_F;
-    while (diff < -PI_F) diff += 2.0f * PI_F;
-    float slew = std::min(1.0f, dt * 8.5f);
-    ship_angle += diff * slew;
+  // ---------------------------------------------------------------------------
+  // 1. EFFORTLESS 1D BREAKOUT-STYLE ROLL MAPPED AROUND THE 360-DEG 12-LANE RIM
+  //    - Hold level (0 deg)    -> Bottom center (Lane 6 / 5)
+  //    - Roll Left  (0..-26)   -> Sweeps up the Left rim  (Lane 6 -> 7 -> 8 -> 9 -> 10 -> 11)
+  //    - Roll Right (0..+26)   -> Sweeps up the Right rim (Lane 5 -> 4 -> 3 -> 2 -> 1 -> 0)
+  // ---------------------------------------------------------------------------
+  if (!vtx_game_over) {
+    float clamped_r = fmaxf(-28.0f, fminf(28.0f, roll_delta));
+    smooth_roll += (clamped_r - smooth_roll) * 0.38f;
+    // Map smooth_roll in [-26..+26] linearly across the 12 lanes:
+    // -26 deg -> lane 11 (11:30), 0 deg -> lane 5.5 (6:00 bottom), +26 deg -> lane 0 (12:30)
+    float lane_f = 5.5f - (smooth_roll / 26.0f) * 5.9f;
+    int idx = static_cast<int>(std::floor(lane_f + 0.5f));
+    player_lane = ((idx % NUM_LANES) + NUM_LANES) % NUM_LANES;
   }
 
-  // Tap Anywhere on Screen or Press Button -> Fire Photon Torpedo (No tap-position aim override!)
+  auto fire_shot_in_lane = [&](int ln) {
+    for (int i = 0; i < MAX_SHOTS; i++) {
+      if (!shots[i].active) {
+        shots[i] = {ln, 8.0f, true};
+        break;
+      }
+    }
+  };
+
+  // Tap Anywhere or Press Side Button -> Fires a crisp 2-shot rapid laser burst down active lane!
   if (marble_touch_x >= 0.0f || game_btn_pressed) {
     marble_touch_x = -1.0f;
+    marble_touch_y = -1.0f;
     game_btn_pressed = false;
 
-    if (ast_game_over) {
-      reset_asteroids_game();
+    if (vtx_game_over) {
+      reset_vortex_game();
       game_imu_retare_flag() = true;
-    } else if (now_ms - last_shot_ms >= 135U) {
-      for (int i = 0; i < MAX_SHOTS; i++) {
-        if (!shots[i].active) {
-          float ca = fast_cos(ship_angle);
-          float sa = fast_sin(ship_angle);
-          shots[i].x = (float)cx + ca * 18.0f;
-          shots[i].y = (float)cy + sa * 18.0f;
-          shots[i].vx = ca * 265.0f;
-          shots[i].vy = sa * 265.0f;
-          shots[i].active = true;
-          last_shot_ms = now_ms;
-          break;
+    } else if (now_ms - last_shot_ms >= 110U) {
+      last_shot_ms = now_ms;
+      // Smart adjacent-lane assist: if no enemy is in player_lane but an enemy is near the rim (z < 120)
+      // on an immediately adjacent lane (player_lane +/- 1), also send the second bolt into that lane!
+      fire_shot_in_lane(player_lane);
+      burst_lane = player_lane;
+      bool has_in_lane = false;
+      for (int e = 0; e < MAX_ENEMIES; e++) {
+        if (enemies[e].active && enemies[e].lane == player_lane) { has_in_lane = true; break; }
+      }
+      if (!has_in_lane) {
+        int l_prev = (player_lane + NUM_LANES - 1) % NUM_LANES;
+        int l_next = (player_lane + 1) % NUM_LANES;
+        for (int e = 0; e < MAX_ENEMIES; e++) {
+          if (enemies[e].active && enemies[e].z < 150.0f) {
+            if (enemies[e].lane == l_prev || enemies[e].lane == l_next) {
+              burst_lane = enemies[e].lane;
+              break;
+            }
+          }
         }
       }
+      burst_pending_ms = now_ms + 65U;
     }
   }
 
-  if (!ast_game_over) {
-    // 2. Alien UFO Saucer Spawner & Flight
-    if (!ufo_active && now_ms >= next_ufo_ms) {
-      ufo_active = true;
-      bool from_left = ((now_ms / 100U) & 1) == 0;
-      ufo_base_y = ((now_ms / 300U) & 1) ? 105.0f : 335.0f;
-      ufo_y = ufo_base_y;
-      ufo_x = from_left ? 48.0f : 418.0f;
-      float u_spd = std::min(95.0f, 56.0f + (wave_num - 1) * 6.0f);
-      ufo_vx = from_left ? u_spd : -u_spd;
-      ufo_phase = 0.0f;
-      ufo_next_fire_ms = now_ms + 1600U;
-    }
+  if (!vtx_game_over && burst_pending_ms > 0U && now_ms >= burst_pending_ms) {
+    burst_pending_ms = 0U;
+    fire_shot_in_lane(burst_lane);
+  }
 
-    if (ufo_active) {
-      ufo_x += ufo_vx * dt;
-      ufo_phase += dt * 3.8f;
-      ufo_y = ufo_base_y + fast_sin(ufo_phase) * 18.0f;
+  // 3D Camera Parallax Offset for the Vortex Pit
+  float cam_x = fmaxf(-18.0f, fminf(18.0f, -smooth_roll * 0.55f));
+  float cam_y = fmaxf(-14.0f, fminf(14.0f, pitch_delta * 0.35f));
 
-      // UFO fires a slow glowing plasma orb toward the ship if none is active
-      if (!ufo_orb_active && now_ms >= ufo_next_fire_ms) {
-        float dx = (float)cx - ufo_x;
-        float dy = (float)cy - ufo_y;
-        float d = std::sqrt(dx * dx + dy * dy);
-        if (d > 24.0f) {
-          ufo_orb_active = true;
-          ufo_orb_x = ufo_x;
-          ufo_orb_y = ufo_y;
-          ufo_orb_vx = (dx / d) * 78.0f;
-          ufo_orb_vy = (dy / d) * 78.0f;
-        }
-        ufo_next_fire_ms = now_ms + 3200U;
-      }
+  if (!vtx_game_over) {
+    // 2. Spawn Enemies from the Deep Vortex Pit (z = Z_PIT)
+    if (enemies_to_spawn > 0) {
+      spawn_timer -= dt;
+      if (spawn_timer <= 0.0f) {
+        for (int e = 0; e < MAX_ENEMIES; e++) {
+          if (!enemies[e].active) {
+            int ln = static_cast<int>((now_ms / 37U + e * 5U + enemies_to_spawn * 7U) % NUM_LANES);
+            uint8_t etype = 0;
+            if (wave_num >= 2 && (enemies_to_spawn % 4 == 0)) etype = 2;      // Tanker (2-hit)
+            else if (wave_num >= 1 && (enemies_to_spawn % 3 == 0)) etype = 1; // Pulsar (fast)
+            float base_spd = (etype == 1) ? 115.0f : ((etype == 2) ? 72.0f : 88.0f);
+            base_spd += std::min(55.0f, static_cast<float>(wave_num - 1) * 9.0f);
 
-      // Despawn UFO if it exits the opposite side of the circular arena
-      if (ufo_x < 36.0f || ufo_x > 430.0f) {
-        ufo_active = false;
-        next_ufo_ms = now_ms + (uint32_t)std::max(4500, 9500 - wave_num * 600);
-      }
-    }
-
-    // Move UFO Plasma Orb
-    if (ufo_orb_active) {
-      ufo_orb_x += ufo_orb_vx * dt;
-      ufo_orb_y += ufo_orb_vy * dt;
-      float odx = ufo_orb_x - (float)cx;
-      float ody = ufo_orb_y - (float)cy;
-      if (odx * odx + ody * ody > 220.0f * 220.0f) {
-        ufo_orb_active = false;
-      }
-    }
-
-    // 3. Move Player Photons
-    for (int i = 0; i < MAX_SHOTS; i++) {
-      if (shots[i].active) {
-        shots[i].x += shots[i].vx * dt;
-        shots[i].y += shots[i].vy * dt;
-        float sdx = shots[i].x - (float)cx;
-        float sdy = shots[i].y - (float)cy;
-        if (sdx * sdx + sdy * sdy > 222.0f * 222.0f) {
-          shots[i].active = false;
-          hit_streak = 0;
-        }
-      }
-    }
-
-    // 4. Move Asteroids
-    for (int i = 0; i < MAX_ROCKS; i++) {
-      if (rocks[i].active) {
-        rocks[i].x += rocks[i].vx * dt;
-        rocks[i].y += rocks[i].vy * dt;
-        rocks[i].rot += rocks[i].vrot * dt;
-        float rdx = rocks[i].x - (float)cx;
-        float rdy = rocks[i].y - (float)cy;
-        float d_sq = rdx * rdx + rdy * rdy;
-        if (d_sq > 218.0f * 218.0f) {
-          // Toroidal circular wrap across the antipodal chord
-          rocks[i].x = (float)cx - rdx * 0.94f;
-          rocks[i].y = (float)cy - rdy * 0.94f;
-        }
-      }
-    }
-
-    // 5. Photons vs. UFO, UFO Plasma Orb & Asteroids
-    for (int s = 0; s < MAX_SHOTS; s++) {
-      if (!shots[s].active) continue;
-
-      // 5A. Photon vs. UFO Plasma Orb (Player can shoot down incoming UFO fire!)
-      if (ufo_orb_active) {
-        float odx = shots[s].x - ufo_orb_x;
-        float ody = shots[s].y - ufo_orb_y;
-        if (odx * odx + ody * ody < 12.0f * 12.0f) {
-          shots[s].active = false;
-          ufo_orb_active = false;
-          ast_score += 50;
-          spawn_debris(ufo_orb_x, ufo_orb_y, col_cyan, 5);
-          continue;
-        }
-      }
-
-      // 5B. Photon vs. Alien UFO Saucer
-      if (ufo_active) {
-        float udx = shots[s].x - ufo_x;
-        float udy = shots[s].y - ufo_y;
-        if (udx * udx + udy * udy < 20.0f * 20.0f) {
-          shots[s].active = false;
-          ufo_active = false;
-          next_ufo_ms = now_ms + (uint32_t)std::max(5000, 10000 - wave_num * 600);
-          hit_streak++;
-          int mult = std::min(4, 1 + hit_streak / 3);
-          int pts = 250 * mult;
-          ast_score += pts;
-          if (ast_score > high_score_asteroids) {
-            high_score_asteroids = ast_score;
-            is_new_high = true;
-          }
-          spawn_debris(ufo_x, ufo_y, col_magenta, 10);
-          popup_x = (int)ufo_x;
-          popup_y = (int)ufo_y;
-          popup_ms = now_ms;
-          if (ast_lives < 3) {
-            ast_lives++;
-            snprintf(popup_text, sizeof(popup_text), "UFO +%d +1 SHIP!", pts);
-          } else {
-            snprintf(popup_text, sizeof(popup_text), "UFO +%d!", pts);
-          }
-          popup_col = col_magenta;
-          continue;
-        }
-      }
-
-      // 5C. Photon vs. Asteroids
-      for (int a = 0; a < MAX_ROCKS; a++) {
-        if (!rocks[a].active) continue;
-        float r_hit = (rocks[a].tier == 3) ? 27.0f : ((rocks[a].tier == 2) ? 17.0f : 11.0f);
-        float adx = shots[s].x - rocks[a].x;
-        float ady = shots[s].y - rocks[a].y;
-        if (adx * adx + ady * ady < r_hit * r_hit) {
-          shots[s].active = false;
-          hit_streak++;
-          int mult = std::min(4, 1 + hit_streak / 3);
-          spawn_debris(rocks[a].x, rocks[a].y, col_gold, 6);
-
-          int base_pts = (rocks[a].tier == 3) ? 20 : ((rocks[a].tier == 2) ? 50 : 100);
-          int pts = base_pts * mult;
-          ast_score += pts;
-          if (ast_score > high_score_asteroids) {
-            high_score_asteroids = ast_score;
-            is_new_high = true;
-          }
-
-          popup_x = (int)rocks[a].x;
-          popup_y = (int)rocks[a].y;
-          popup_ms = now_ms;
-          if (mult > 1) {
-            snprintf(popup_text, sizeof(popup_text), "+%d %dx", pts, mult);
-            popup_col = col_gold;
-          } else {
-            snprintf(popup_text, sizeof(popup_text), "+%d", pts);
-            popup_col = col_white;
-          }
-
-          if (rocks[a].tier > 1) {
-            uint8_t next_tier = rocks[a].tier - 1;
-            float speed_up = (next_tier == 2) ? 1.25f : 1.38f;
-            float old_vx = rocks[a].vx;
-            float old_vy = rocks[a].vy;
-            rocks[a].tier = next_tier;
-            rocks[a].shape = (rocks[a].shape + 1) % 3;
-            rocks[a].vx = -old_vy * speed_up;
-            rocks[a].vy = old_vx * speed_up;
-
-            for (int n = 0; n < MAX_ROCKS; n++) {
-              if (!rocks[n].active) {
-                rocks[n].x = rocks[a].x;
-                rocks[n].y = rocks[a].y;
-                rocks[n].vx = old_vy * speed_up;
-                rocks[n].vy = -old_vx * speed_up;
-                rocks[n].tier = next_tier;
-                rocks[n].shape = (rocks[a].shape + 1) % 3;
-                rocks[n].rot = rocks[a].rot + 0.8f;
-                rocks[n].vrot = -rocks[a].vrot * 1.2f;
-                rocks[n].active = true;
-                break;
-              }
-            }
-          } else {
-            rocks[a].active = false;
-          }
-          break;
-        }
-      }
-    }
-
-    // 6. Check Wave Clear
-    int active_rocks = 0;
-    for (int a = 0; a < MAX_ROCKS; a++) {
-      if (rocks[a].active) active_rocks++;
-    }
-    if (active_rocks == 0) {
-      int wave_bonus = wave_num * 300;
-      ast_score += wave_bonus;
-      if (ast_score > high_score_asteroids) {
-        high_score_asteroids = ast_score;
-        is_new_high = true;
-      }
-      wave_num++;
-      invuln_until_ms = now_ms + 1500U;
-      snprintf(banner_text, sizeof(banner_text), "WAVE %d! +%d", wave_num, wave_bonus);
-      banner_ms = now_ms;
-      spawn_wave_rocks(wave_num);
-    }
-
-    // 7. Ship Collision Check (Asteroids & UFO Plasma Orb)
-    if (now_ms >= invuln_until_ms) {
-      bool ship_hit = false;
-      if (ufo_orb_active) {
-        float odx = ufo_orb_x - (float)cx;
-        float ody = ufo_orb_y - (float)cy;
-        if (odx * odx + ody * ody < 15.0f * 15.0f) {
-          ufo_orb_active = false;
-          ship_hit = true;
-        }
-      }
-      if (!ship_hit) {
-        for (int a = 0; a < MAX_ROCKS; a++) {
-          if (!rocks[a].active) continue;
-          float r_hit = (rocks[a].tier == 3) ? 25.0f : ((rocks[a].tier == 2) ? 15.0f : 9.0f);
-          float adx = rocks[a].x - (float)cx;
-          float ady = rocks[a].y - (float)cy;
-          if (adx * adx + ady * ady < (r_hit + 10.0f) * (r_hit + 10.0f)) {
-            rocks[a].active = false;
-            ship_hit = true;
+            enemies[e] = {ln, Z_PIT, base_spd, etype, static_cast<uint8_t>(etype == 2 ? 2 : 1),
+                          0.85f, (e & 1) ? 1 : -1, true};
+            enemies_to_spawn--;
             break;
           }
         }
+        spawn_timer = fmaxf(0.48f, 1.15f - static_cast<float>(wave_num - 1) * 0.08f);
       }
-      if (ship_hit) {
-        ast_lives--;
-        hit_streak = 0;
-        shield_flash_ms = now_ms;
-        invuln_until_ms = now_ms + 2000U;
-        spawn_debris((float)cx, (float)cy, col_red, 10);
-        if (ast_lives <= 0) {
-          ast_game_over = true;
-          if (ast_score > high_score_asteroids) {
-            high_score_asteroids = ast_score;
+    }
+
+    // 3. Advance Shots Down the 3D Tube (z: 0 -> Z_PIT)
+    for (int s = 0; s < MAX_SHOTS; s++) {
+      if (shots[s].active) {
+        shots[s].z += 680.0f * dt;
+        if (shots[s].z > Z_PIT) shots[s].active = false;
+      }
+    }
+
+    if (zapper_ring_z >= 0.0f) {
+      zapper_ring_z += 750.0f * dt;
+      if (zapper_ring_z > Z_PIT) zapper_ring_z = -1.0f;
+    }
+
+    // 4. Advance Enemies Up the 3D Tube (z: Z_PIT -> 0) & Check Collisions
+    for (int e = 0; e < MAX_ENEMIES; e++) {
+      if (!enemies[e].active) continue;
+      enemies[e].z -= enemies[e].speed * dt;
+
+      // Flippers (type 0) periodically flip into an adjacent lane as they climb
+      if (enemies[e].type == 0 && enemies[e].z < 340.0f && enemies[e].z > 45.0f) {
+        enemies[e].flip_timer -= dt;
+        if (enemies[e].flip_timer <= 0.0f) {
+          enemies[e].lane = (enemies[e].lane + enemies[e].flip_dir + NUM_LANES) % NUM_LANES;
+          enemies[e].flip_timer = 0.75f;
+        }
+      }
+
+      // Check Shot vs. Enemy Collisions
+      bool killed = false;
+      for (int s = 0; s < MAX_SHOTS; s++) {
+        if (!shots[s].active) continue;
+        if (shots[s].lane == enemies[e].lane && std::fabs(shots[s].z - enemies[e].z) <= 46.0f) {
+          shots[s].active = false;
+          float ex_3d, ey_3d;
+          get_lane_center_xy(enemies[e].lane, ex_3d, ey_3d);
+          ProjectedPoint ep = project_3d({ex_3d + cam_x * (enemies[e].z / Z_PIT),
+                                          ey_3d + cam_y * (enemies[e].z / Z_PIT),
+                                          enemies[e].z}, cx, cy, 240.0f, 240.0f);
+
+          if (enemies[e].hp > 1) {
+            enemies[e].hp--;
+            enemies[e].z = fminf(Z_PIT, enemies[e].z + 35.0f); // Knockback on armor hit
+            vtx_score += 50;
+            spawn_sparks(ep.x, ep.y, col_gold, 5);
+          } else {
+            enemies[e].active = false;
+            enemies_cleared++;
+            killed = true;
+            hit_streak++;
+            int mult = std::min(4, 1 + hit_streak / 3);
+            int base_pts = (enemies[e].type == 2) ? 150 : ((enemies[e].type == 1) ? 120 : 100);
+            int pts = base_pts * mult;
+            vtx_score += pts;
+            if (vtx_score > high_score_asteroids) {
+              high_score_asteroids = vtx_score;
+              is_new_high = true;
+            }
+            esphome::Color sc = (enemies[e].type == 2) ? col_gold : ((enemies[e].type == 1) ? col_magenta : col_red);
+            spawn_sparks(ep.x, ep.y, sc, 8);
+            popup_x = ep.x; popup_y = ep.y; popup_ms = now_ms;
+            if (mult > 1) snprintf(popup_text, sizeof(popup_text), "+%d %dx", pts, mult);
+            else snprintf(popup_text, sizeof(popup_text), "+%d", pts);
+            popup_col = (mult > 1) ? col_gold : col_white;
+          }
+          break;
+        }
+      }
+      if (killed) continue;
+
+      // Check if Enemy Reached the Outer Rim (z <= 0)
+      if (enemies[e].z <= 0.0f) {
+        float ex_3d, ey_3d;
+        get_lane_center_xy(enemies[e].lane, ex_3d, ey_3d);
+        ProjectedPoint ep = project_3d({ex_3d, ey_3d, 0.0f}, cx, cy, 240.0f, 240.0f);
+
+        enemies[e].active = false;
+        enemies_cleared++;
+
+        // If the player's Claw is on this lane, the Claw rams/auto-zaps the enemy at the rim!
+        if (enemies[e].lane == player_lane || now_ms < invuln_until_ms) {
+          vtx_score += 100;
+          if (vtx_score > high_score_asteroids) {
+            high_score_asteroids = vtx_score;
             is_new_high = true;
+          }
+          spawn_sparks(ep.x, ep.y, col_cyan, 7);
+        } else {
+          // Rim breach: lose 1 shield & trigger Superzapper shockwave that clears near-rim enemies!
+          vtx_lives--;
+          hit_streak = 0;
+          invuln_until_ms = now_ms + 1600U;
+          zapper_ring_z = 5.0f;
+          spawn_sparks(ep.x, ep.y, col_red, 10);
+          for (int k = 0; k < MAX_ENEMIES; k++) {
+            if (enemies[k].active && enemies[k].z < 180.0f) {
+              enemies[k].active = false;
+              enemies_cleared++;
+            }
+          }
+          if (vtx_lives <= 0) {
+            vtx_game_over = true;
+            if (vtx_score > high_score_asteroids) {
+              high_score_asteroids = vtx_score;
+              is_new_high = true;
+            }
           }
         }
       }
     }
-  }
 
-  // Update explosion sparks
-  for (int s = 0; s < MAX_SPARKS; s++) {
-    if (sparks[s].active) {
-      sparks[s].x += sparks[s].vx * dt;
-      sparks[s].y += sparks[s].vy * dt;
-      sparks[s].life -= dt;
-      if (sparks[s].life <= 0.0f) sparks[s].active = false;
+    // 5. Check Wave Clear
+    int active_en = 0;
+    for (int e = 0; e < MAX_ENEMIES; e++) {
+      if (enemies[e].active) active_en++;
+    }
+    if (enemies_to_spawn == 0 && active_en == 0) {
+      int wave_bonus = wave_num * 300;
+      vtx_score += wave_bonus;
+      if (vtx_score > high_score_asteroids) {
+        high_score_asteroids = vtx_score;
+        is_new_high = true;
+      }
+      wave_num++;
+      if (vtx_lives < 3) vtx_lives++;
+      zapper_ring_z = 5.0f;
+      snprintf(banner_text, sizeof(banner_text), "WARP WAVE %d! +%d", wave_num, wave_bonus);
+      banner_ms = now_ms;
+      start_wave(wave_num);
     }
   }
 
-  // ==========================================================================
-  // RENDERING PIPELINE (Clean Deep-Space Vector Arena)
-  // ==========================================================================
-
-  // 1. Deep-Space 3D Parallax Starfield & Outer Radar Ring (r = 212)
-  static constexpr int16_t STAR_X[16] = {65, 140, 310, 395, 75, 130, 340, 400, 85, 160, 305, 380, 195, 270, 200, 265};
-  static constexpr int16_t STAR_Y[16] = {80, 115, 75, 110, 195, 240, 205, 265, 315, 360, 330, 375, 95, 115, 375, 360};
-  float st_px = fmaxf(-14.0f, fminf(14.0f, -roll_delta * 0.45f));
-  float st_py = fmaxf(-14.0f, fminf(14.0f, pitch_delta * 0.45f));
-  for (int s = 0; s < 16; s++) {
-    float depth_k = (s & 1) ? 1.0f : 0.45f;
-    int sx = STAR_X[s] + static_cast<int>(st_px * depth_k);
-    int sy = STAR_Y[s] + static_cast<int>(st_py * depth_k);
-    it.draw_pixel_at(sx, sy, (s & 1) ? esphome::Color(165, 185, 215) : esphome::Color(95, 112, 138));
-  }
-  it.circle(cx, cy, 212, col_dark_gray);
-
-  // 2. Unified Bottom Scorekeeper at y = 408 (No clipped top-right ship icons!)
-  char hud_sc[56];
-  int mult_now = std::min(4, 1 + hit_streak / 3);
-  if (mult_now > 1) {
-    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Ships:%d  •  %dx  •  %d", wave_num, ast_lives, mult_now, ast_score);
-  } else {
-    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Ships:%d  •  %d", wave_num, ast_lives, ast_score);
-  }
-  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, hud_sc);
-
-  // 3. Explosion Sparks
-  for (int s = 0; s < MAX_SPARKS; s++) {
-    if (sparks[s].active) {
-      it.filled_rectangle((int)sparks[s].x - 1, (int)sparks[s].y - 1, 2, 2, sparks[s].col);
+  for (int i = 0; i < MAX_SPARKS; i++) {
+    if (sparks[i].active) {
+      sparks[i].x += sparks[i].vx * dt;
+      sparks[i].y += sparks[i].vy * dt;
+      sparks[i].life -= dt;
+      if (sparks[i].life <= 0.0f) sparks[i].active = false;
     }
   }
 
-  // 4. Player Photon Torpedoes & UFO Plasma Orb
-  for (int i = 0; i < MAX_SHOTS; i++) {
-    if (shots[i].active) {
-      int px = (int)shots[i].x;
-      int py = (int)shots[i].y;
-      it.filled_circle(px, py, 2, col_white);
-      it.line(px, py, px - (int)(shots[i].vx * 0.032f), py - (int)(shots[i].vy * 0.032f), theme_secondary);
-    }
-  }
-  if (ufo_orb_active) {
-    it.filled_circle((int)ufo_orb_x, (int)ufo_orb_y, 4, col_red);
-    it.circle((int)ufo_orb_x, (int)ufo_orb_y, 5, col_gold);
-    it.draw_pixel_at((int)ufo_orb_x - 1, (int)ufo_orb_y - 1, col_white);
-  }
+  // ===========================================================================
+  // RENDERING PIPELINE: 12-LANE 3D PERSPECTIVE TEMPEST TUBE & VECTOR CLAW
+  // ===========================================================================
+  static constexpr float RING_ZS[4] = {0.0f, 130.0f, 280.0f, Z_PIT};
+  ProjectedPoint tube_pts[4][NUM_LANES];
 
-  // 5. Asteroids Vector Polygons
-  for (int a = 0; a < MAX_ROCKS; a++) {
-    if (!rocks[a].active) continue;
-    float r_base = (rocks[a].tier == 3) ? 26.0f : ((rocks[a].tier == 2) ? 16.0f : 10.0f);
-    esphome::Color ast_col = (rocks[a].tier == 3) ? col_white : ((rocks[a].tier == 2) ? col_silver : col_slate);
-    render_asteroids_rock(it, rocks[a].x, rocks[a].y, r_base, rocks[a].shape, rocks[a].rot, ast_col, col_dark_gray);
-  }
-
-  // 6. Alien UFO Flying Saucer
-  if (ufo_active) {
-    render_asteroids_ufo(it, (int)ufo_x, (int)ufo_y, 1.0f, now_ms,
-                         col_white, col_cyan, col_magenta, col_green, col_gold);
-  }
-
-  // 7. Player Starship + Subtle Forward Laser Sight Dots
-  if (!ast_game_over) {
-    float ca = fast_cos(ship_angle);
-    float sa = fast_sin(ship_angle);
-    // Subtle 3-dot forward targeting sight so tilt aiming is effortless
-    for (int d = 32; d <= 68; d += 18) {
-      it.draw_pixel_at(cx + (int)(ca * (float)d), cy + (int)(sa * (float)d), theme_secondary);
-    }
-
-    bool show_ship = true;
-    if (now_ms < invuln_until_ms) {
-      show_ship = ((now_ms / 95U) & 1) == 0;
-      esphome::Color sh_c = (now_ms - shield_flash_ms < 320U) ? col_red : theme_secondary;
-      it.circle(cx, cy, 19, sh_c);
-    }
-    if (show_ship) {
-      render_asteroids_ship(it, cx, cy, ship_angle, 1.0f, (now_ms - last_shot_ms < 120U),
-                            col_white, col_silver, theme_secondary, col_orange);
+  for (int r = 0; r < 4; r++) {
+    float z = RING_ZS[r];
+    float par_k = z / Z_PIT;
+    for (int v = 0; v < NUM_LANES; v++) {
+      float vx, vy;
+      get_vertex_xy(v, vx, vy);
+      tube_pts[r][v] = project_3d({vx + cam_x * par_k, vy + cam_y * par_k, z}, cx, cy, 240.0f, 240.0f);
     }
   }
 
-  // 8. Floating Popups & Wave Banner
-  if (popup_ms > 0 && (now_ms - popup_ms < 650U)) {
-    int py_off = (int)((now_ms - popup_ms) * 20U / 650U);
-    it.print(popup_x, popup_y - py_off, font_small, popup_col,
-             esphome::display::TextAlign::CENTER, popup_text);
+  esphome::Color c_web_deep(22, 46, 86);
+  esphome::Color c_web_mid(36, 78, 138);
+  esphome::Color c_web_rim(68, 132, 215);
+
+  // 1. Draw 4 Concentric 3D Depth Rings
+  for (int r = 3; r >= 0; r--) {
+    esphome::Color rc = (r == 0) ? c_web_rim : ((r == 1) ? c_web_mid : c_web_deep);
+    for (int l = 0; l < NUM_LANES; l++) {
+      int nxt = (l + 1) % NUM_LANES;
+      esphome::Color seg_c = (l == player_lane) ? (r == 0 ? col_gold : theme_secondary) : rc;
+      it.line(tube_pts[r][l].x, tube_pts[r][l].y, tube_pts[r][nxt].x, tube_pts[r][nxt].y, seg_c);
+    }
   }
-  if (banner_ms > 0 && (now_ms - banner_ms < 1300U)) {
+
+  // 2. Draw 12 Radial 3D Tunnel Spokes (with Active Lane Illuminated in Bright Cyan/Gold!)
+  int act_v0 = player_lane;
+  int act_v1 = (player_lane + 1) % NUM_LANES;
+  for (int v = 0; v < NUM_LANES; v++) {
+    bool is_active_rail = (v == act_v0 || v == act_v1);
+    esphome::Color rail_c = is_active_rail ? theme_secondary : c_web_mid;
+    it.line(tube_pts[0][v].x, tube_pts[0][v].y, tube_pts[3][v].x, tube_pts[3][v].y, rail_c);
+    if (is_active_rail) {
+      // Double-brighten active lane outer rim segment
+      it.line(tube_pts[0][act_v0].x, tube_pts[0][act_v0].y,
+              tube_pts[0][act_v1].x, tube_pts[0][act_v1].y, col_gold);
+    }
+  }
+
+  // 3. Draw Expanding Superzapper / Warp Shockwave Ring
+  if (zapper_ring_z >= 0.0f) {
+    float zk = zapper_ring_z / Z_PIT;
+    int prev_zx = 0, prev_zy = 0, first_zx = 0, first_zy = 0;
+    for (int v = 0; v < NUM_LANES; v++) {
+      float vx, vy;
+      get_vertex_xy(v, vx, vy);
+      ProjectedPoint zp = project_3d({vx + cam_x * zk, vy + cam_y * zk, zapper_ring_z}, cx, cy, 240.0f, 240.0f);
+      if (v == 0) { first_zx = zp.x; first_zy = zp.y; }
+      else { it.line(prev_zx, prev_zy, zp.x, zp.y, col_cyan); }
+      prev_zx = zp.x; prev_zy = zp.y;
+    }
+    it.line(prev_zx, prev_zy, first_zx, first_zy, col_cyan);
+  }
+
+  // 4. Draw Player Laser Shots Flying Down the 3D Tube
+  for (int s = 0; s < MAX_SHOTS; s++) {
+    if (!shots[s].active) continue;
+    float sx_3d, sy_3d;
+    get_lane_center_xy(shots[s].lane, sx_3d, sy_3d);
+    float zk1 = shots[s].z / Z_PIT;
+    float z2  = fminf(Z_PIT, shots[s].z + 36.0f);
+    float zk2 = z2 / Z_PIT;
+    ProjectedPoint p1 = project_3d({sx_3d + cam_x * zk1, sy_3d + cam_y * zk1, shots[s].z}, cx, cy, 240.0f, 240.0f);
+    ProjectedPoint p2 = project_3d({sx_3d + cam_x * zk2, sy_3d + cam_y * zk2, z2}, cx, cy, 240.0f, 240.0f);
+    it.line(p1.x, p1.y, p2.x, p2.y, col_gold);
+    it.filled_circle(p1.x, p1.y, 2, col_white);
+  }
+
+  // 5. Draw 3D Enemies Climbing Up the Vortex Lanes
+  for (int e = 0; e < MAX_ENEMIES; e++) {
+    if (!enemies[e].active) continue;
+    int ln = enemies[e].lane;
+    int nxt = (ln + 1) % NUM_LANES;
+    float vx0, vy0, vx1, vy1;
+    get_vertex_xy(ln, vx0, vy0);
+    get_vertex_xy(nxt, vx1, vy1);
+
+    float z = enemies[e].z;
+    float zk = z / Z_PIT;
+    ProjectedPoint p_l = project_3d({vx0 + cam_x * zk, vy0 + cam_y * zk, z}, cx, cy, 240.0f, 240.0f);
+    ProjectedPoint p_r = project_3d({vx1 + cam_x * zk, vy1 + cam_y * zk, z}, cx, cy, 240.0f, 240.0f);
+    int mx = (p_l.x + p_r.x) >> 1;
+    int my = (p_l.y + p_r.y) >> 1;
+    int span = std::max(4, static_cast<int>(14.0f * p_l.scale));
+
+    // Radial normal toward center for enemy height
+    float dx_c = static_cast<float>(cx - mx);
+    float dy_c = static_cast<float>(cy - my);
+    float d_len = std::sqrt(dx_c * dx_c + dy_c * dy_c) + 0.01f;
+    int nx = static_cast<int>((dx_c / d_len) * span);
+    int ny = static_cast<int>((dy_c / d_len) * span);
+
+    if (enemies[e].type == 0) {
+      // Type 0: Crimson Flipper (Iconic Tempest Bowtie)
+      it.line(p_l.x, p_l.y, p_r.x + nx, p_r.y + ny, col_red);
+      it.line(p_r.x, p_r.y, p_l.x + nx, p_l.y + ny, col_red);
+      it.line(p_l.x, p_l.y, p_l.x + nx, p_l.y + ny, col_orange);
+      it.line(p_r.x, p_r.y, p_r.x + nx, p_r.y + ny, col_orange);
+      it.filled_circle(mx + (nx >> 1), my + (ny >> 1), 2, col_gold);
+    } else if (enemies[e].type == 1) {
+      // Type 1: Neon Magenta Pulsar Diamond
+      int tx = (p_r.x - p_l.x) / 3;
+      int ty = (p_r.y - p_l.y) / 3;
+      it.line(p_l.x, p_l.y, mx + nx, my + ny, col_magenta);
+      it.line(p_r.x, p_r.y, mx + nx, my + ny, col_magenta);
+      it.line(p_l.x, p_l.y, mx - nx / 2, my - ny / 2, col_white);
+      it.line(p_r.x, p_r.y, mx - nx / 2, my - ny / 2, col_white);
+      it.line(mx - tx, my - ty, mx + tx, my + ty, col_cyan);
+    } else {
+      // Type 2: Heavy 2-Hit Tanker (3D Faceted Octahedron)
+      esphome::Color tc = (enemies[e].hp >= 2) ? col_gold : col_green;
+      render_asteroids_rock(it, static_cast<float>(mx), static_cast<float>(my),
+                            fmaxf(6.0f, 15.0f * p_l.scale), e, now_ms * 0.003f, tc, col_dark_gray);
+    }
+  }
+
+  // 6. Draw the Player's Golden "Claw" Ship Straddling the Active Rim Lane
+  if (!vtx_game_over) {
+    ProjectedPoint p0 = tube_pts[0][act_v0];
+    ProjectedPoint p1 = tube_pts[0][act_v1];
+    int mx = (p0.x + p1.x) >> 1;
+    int my = (p0.y + p1.y) >> 1;
+
+    // Outward normal (away from vortex center) & inward normal (into vortex)
+    float dx_out = static_cast<float>(mx - cx);
+    float dy_out = static_cast<float>(my - cy);
+    float d_out = std::sqrt(dx_out * dx_out + dy_out * dy_out) + 0.01f;
+    float ux = dx_out / d_out;
+    float uy = dy_out / d_out;
+
+    int keel_x = mx + static_cast<int>(ux * 14.0f);
+    int keel_y = my + static_cast<int>(uy * 14.0f);
+    int tip0_x = p0.x - static_cast<int>(ux * 10.0f);
+    int tip0_y = p0.y - static_cast<int>(uy * 10.0f);
+    int tip1_x = p1.x - static_cast<int>(ux * 10.0f);
+    int tip1_y = p1.y - static_cast<int>(uy * 10.0f);
+
+    esphome::Color claw_c = (now_ms < invuln_until_ms && ((now_ms / 90U) & 1)) ? col_cyan : col_gold;
+    // Outer V-hull + inward-pointing pincer mandibles
+    it.line(keel_x, keel_y, p0.x, p0.y, claw_c);
+    it.line(keel_x, keel_y, p1.x, p1.y, claw_c);
+    it.line(p0.x, p0.y, tip0_x, tip0_y, col_white);
+    it.line(p1.x, p1.y, tip1_x, tip1_y, col_white);
+    it.line(keel_x, keel_y, mx - static_cast<int>(ux * 4.0f), my - static_cast<int>(uy * 4.0f), col_orange);
+    it.filled_circle(keel_x, keel_y, 2, col_white);
+  }
+
+  // 7. Explosion Sparks, Floating Popups & Wave Banner
+  for (int i = 0; i < MAX_SPARKS; i++) {
+    if (sparks[i].active) {
+      it.filled_rectangle(static_cast<int>(sparks[i].x) - 1, static_cast<int>(sparks[i].y) - 1, 2, 2, sparks[i].col);
+    }
+  }
+  if (popup_ms > 0U && (now_ms - popup_ms < 600U)) {
+    int py_off = static_cast<int>((now_ms - popup_ms) * 18U / 600U);
+    it.print(popup_x, popup_y - py_off, font_small, popup_col, esphome::display::TextAlign::CENTER, popup_text);
+  }
+  if (banner_ms > 0U && (now_ms - banner_ms < 1200U)) {
     it.print(cx, 146, font_date, col_cyan, esphome::display::TextAlign::CENTER, banner_text);
   }
 
-  // 9. Circular Game Over Summary Modal (Matching Games 1-3)
-  if (ast_game_over) {
+  // 8. Bottom Scorekeeper HUD at y = 408
+  char hud_sc[56];
+  int mult_now = std::min(4, 1 + hit_streak / 3);
+  if (mult_now > 1) {
+    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Shield:%d  •  %dx  •  %d", wave_num, vtx_lives, mult_now, vtx_score);
+  } else {
+    snprintf(hud_sc, sizeof(hud_sc), "W%d  •  Shield:%d  •  %d", wave_num, vtx_lives, vtx_score);
+  }
+  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, hud_sc);
+
+  // 9. Game Over Summary Modal
+  if (vtx_game_over) {
     it.filled_circle(cx, cy, 115, col_bg);
     it.circle(cx, cy, 115, is_new_high ? col_gold : theme_secondary);
     it.circle(cx, cy, 113, is_new_high ? col_gold : theme_secondary);
@@ -2713,7 +2727,7 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
     }
 
     char score_str[32];
-    snprintf(score_str, sizeof(score_str), "Score: %d", ast_score);
+    snprintf(score_str, sizeof(score_str), "Score: %d", vtx_score);
     it.print(cx, 198, font_date, col_white, esphome::display::TextAlign::CENTER, score_str);
 
     char best_str[32];
@@ -2723,10 +2737,6 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
     it.print(cx, 275, font_small, col_cyan, esphome::display::TextAlign::CENTER, "[ TAP TO REPLAY ]");
   }
 }
-
-
-// ============================================================================
-
 // ==============================================================================
 // SECTION 19: GAMES SUITE CAROUSEL LAUNCHER (PAGE 3, STATE 0)
 // ==============================================================================
@@ -2843,26 +2853,28 @@ inline void render_games_launcher(
                          col_white, col_red, col_gold, col_cyan,
                          col_green, col_magenta, col_bg);
     } else if (g_idx == 4) {
-      // GAME 4: ASTEROIDS — Vector Starship, Space Rocks & Alien UFO
-      it.filled_circle(icon_x, icon_y, 52, Color(12, 16, 24));
-      it.circle(icon_x, icon_y, 52, col_slate);
-      it.circle(icon_x, icon_y, 51, col_slate);
+      // GAME 4: VORTEX 3D — 12-Lane 3D Tempest Wormhole Web, Golden Claw & Crimson Flipper
+      it.filled_circle(icon_x, icon_y, 52, Color(10, 14, 24));
+      it.circle(icon_x, icon_y, 48, Color(48, 102, 185));
+      it.circle(icon_x, icon_y, 28, Color(32, 68, 128));
+      it.circle(icon_x, icon_y, 12, Color(20, 42, 82));
 
-      it.draw_pixel_at(icon_x + 35, icon_y - 30, col_silver);
-      it.draw_pixel_at(icon_x - 35, icon_y + 30, col_silver);
-      it.draw_pixel_at(icon_x + 30, icon_y + 35, col_white);
-
-      render_asteroids_rock(it, icon_x + 17.0f, icon_y - 12.0f, 19.0f, 0, 0.3f, col_white, col_dark_gray);
-      render_asteroids_rock(it, icon_x + 26.0f, icon_y + 22.0f, 9.0f, 1, 1.1f, col_silver, col_dark_gray);
-
-      render_asteroids_ufo(it, icon_x - 20, icon_y - 22, 0.78f, 0,
-                           col_white, col_cyan, col_magenta, col_green, col_gold);
-
-      int sx = icon_x - 16, sy = icon_y + 18;
-      render_asteroids_ship(it, sx, sy, -0.785398f, 0.95f, true,
-                            col_white, col_silver, theme_secondary, col_orange);
-      it.filled_circle(sx + 16, sy - 16, 2, col_white);
-      it.line(sx + 16, sy - 16, sx + 11, sy - 11, theme_secondary);
+      for (int v = 0; v < 12; v++) {
+        int di = (v * 5) % 60;
+        float sx = DIAL_SIN[di], cy_d = -DIAL_COS[di];
+        Color spoke_c = (v == 5 || v == 6) ? theme_secondary : Color(36, 76, 140);
+        it.line(icon_x + static_cast<int>(sx * 12.0f), icon_y + static_cast<int>(cy_d * 12.0f),
+                icon_x + static_cast<int>(sx * 48.0f), icon_y + static_cast<int>(cy_d * 48.0f), spoke_c);
+      }
+      // Golden Claw at 6 o'clock (Lane 5..6) + laser bolt + Crimson Flipper in lane
+      it.line(icon_x - 12, icon_y + 46, icon_x, icon_y + 53, col_gold);
+      it.line(icon_x + 12, icon_y + 46, icon_x, icon_y + 53, col_gold);
+      it.line(icon_x - 12, icon_y + 46, icon_x - 7, icon_y + 38, col_white);
+      it.line(icon_x + 12, icon_y + 46, icon_x + 7, icon_y + 38, col_white);
+      it.line(icon_x, icon_y + 42, icon_x, icon_y + 24, col_gold);
+      it.filled_circle(icon_x, icon_y + 24, 2, col_white);
+      it.line(icon_x - 7, icon_y + 18, icon_x + 7, icon_y + 12, col_red);
+      it.line(icon_x + 7, icon_y + 18, icon_x - 7, icon_y + 12, col_red);
     }
   };
 
@@ -2879,7 +2891,7 @@ inline void render_games_launcher(
       title = "CHOMP FOR KIDS";
       score = high_score_chomp;
     } else if (g_idx >= 4) {
-      title = "ASTEROIDS";
+      title = "VORTEX 3D";
       score = high_score_asteroids;
     }
 
