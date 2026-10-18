@@ -501,8 +501,8 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
     draw_tumbling_cube_3d(d1_cx, d1_cy, spin * 1.1f, spin * 1.4f + 0.5f, spin * 0.7f);
     draw_tumbling_cube_3d(d2_cx, d2_cy, -spin * 1.2f + 0.8f, spin * 1.0f, -spin * 0.9f);
   } else {
-    draw_rounded_d6(d1_cx, d1_cy, cur_val_1);
-    draw_rounded_d6(d2_cx, d2_cy, cur_val_2);
+    draw_rounded_d6(d1_cx, d1_cy, dice_val_d6);
+    draw_rounded_d6(d2_cx, d2_cy, dice_val_d6_2);
   }
 
   if (dice_anim_active) {
@@ -615,45 +615,65 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
                                   FontBigT *font_date, FontSmallT *font_small,
                                   esphome::Color theme_primary, esphome::Color /*theme_secondary*/,
                                   esphome::Color /*col_white*/, esphome::Color col_dark_gray) {
+  (void)now_ms;
+  static uint32_t last_start_ms = 0;
+  static int flip_frame = 0;
+  static int start_side = 0;
+
   float scale_y = 1.0f;
   float y_hop = 0.0f;
-  float z_zoom = 1.0f; // 3D perspective scale as coin leaps toward the glass at apex
+  float z_zoom = 1.0f;
   float theta = (coin_side == 0) ? 0.0f : PI_F;
   bool show_heads = (coin_side == 0);
   bool is_edge_flash = false;
 
   if (coin_anim_active) {
-    uint32_t elapsed = now_ms - coin_anim_start_ms;
-    const uint32_t flip_dur = 1150U;
-    if (elapsed >= flip_dur) {
-      coin_anim_active = false;
-    } else {
-      float p = static_cast<float>(elapsed) / static_cast<float>(flip_dur);
-      float arc = fast_sin(p * PI_F); // 0.0 -> 1.0 at apex -> 0.0 at catch
-      y_hop = -68.0f * arc;
-      z_zoom = 0.95f + 0.21f * arc;  // Expands from 110px -> 134px at apex -> 116px on catch!
-
-      // 4*PI (4 half-flips) for Heads, 5*PI (5 half-flips) for Tails over 1150ms (~23 frames @ 20 FPS):
-      // Gives ~5 frames per half-flip so every single revolution is sampled cleanly without aliasing!
-      float total_rot = (coin_side == 0) ? (4.0f * PI_F) : (5.0f * PI_F);
-      float ease_p = p * (1.28f - 0.28f * p);
-      theta = total_rot * ease_p;
-
-      float raw_cos = fast_cos(theta);
-      show_heads = (raw_cos >= 0.0f);
-      float abs_c = std::abs(raw_cos);
-
-      // Keyframe edge-on capture: whenever the coin rotates within +/-20 deg of edge-on (|cos| < 0.34),
-      // snap to the razor-thin 3D reeded edge profile so every single half-flip visibly flashes the edge!
-      if (abs_c < 0.34f) {
-        scale_y = 0.06f + (abs_c * 0.22f);
-        is_edge_flash = true;
-      } else {
-        scale_y = abs_c;
-      }
+    if (coin_anim_start_ms != last_start_ms) {
+      last_start_ms = coin_anim_start_ms;
+      flip_frame = 0;
+      // Always start opposite to final side if needed so the toss visibly turns over 4 or 5 times!
+      start_side = (coin_side == 0) ? 0 : 1;
     }
-  }
 
+    // 16 guaranteed rendered frames per toss (4 full half-flips = 4 frames per half-flip):
+    // Every 4-frame half-flip steps deterministically through:
+    //   sub 0: Full Face (scale_y = 0.90)
+    //   sub 1: Tilting Away (scale_y = 0.46)
+    //   sub 2: RAZOR-THIN 3D MILLED EDGE FLASH (scale_y = 0.06, is_edge_flash = true)
+    //   sub 3: Opening Opposite Face (scale_y = 0.48)
+    // This makes it mathematically impossible to skip a face or rock like a feather!
+    static constexpr int TOTAL_FRAMES = 16;
+    if (flip_frame >= TOTAL_FRAMES) {
+      coin_anim_active = false;
+      scale_y = 1.0f;
+      y_hop = 0.0f;
+      z_zoom = 1.0f;
+      show_heads = (coin_side == 0);
+    } else {
+      float p = static_cast<float>(flip_frame + 1) / static_cast<float>(TOTAL_FRAMES + 1);
+      float arc = fast_sin(p * PI_F);
+      y_hop = -68.0f * arc;
+      z_zoom = 0.96f + 0.20f * arc;
+
+      int half_flip_idx = flip_frame / 4; // 0, 1, 2, 3 (4 half-flips)
+      int sub_step      = flip_frame % 4; // 0=Full, 1=Tilt, 2=Edge, 3=Open opposite
+
+      // Alternate Heads <-> Tails on every single half-flip, landing on coin_side at the end
+      int cur_side = (half_flip_idx & 1) ? (1 - start_side) : start_side;
+      if (sub_step == 3) {
+        cur_side = 1 - cur_side; // Crossed edge-on at sub_step 2 -> now showing opposite face!
+      }
+      show_heads = (cur_side == 0);
+
+      static constexpr float SUB_SCALES[4] = {0.92f, 0.46f, 0.06f, 0.50f};
+      scale_y = SUB_SCALES[sub_step];
+      is_edge_flash = (sub_step == 2);
+      theta = static_cast<float>(flip_frame) * (PI_F * 0.25f);
+      flip_frame++;
+    }
+  } else {
+    last_start_ms = 0;
+  }
   const int coin_base_y = 216;
   int coin_cy = coin_base_y + static_cast<int>(y_hop);
   const int r_outer = static_cast<int>(116.0f * z_zoom);
