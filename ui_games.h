@@ -2033,69 +2033,93 @@ template<typename DisplayT>
 inline void render_asteroids_rock(DisplayT &it, float rx, float ry, float r_base,
                                   int shape, float rot_rad,
                                   esphome::Color rim_col, esphome::Color crater_col) {
-  // 3D 10-vertex craggy polyhedral asteroid mesh (2 polar apices + 8 staggered equatorial/mid vertices)
-  // Rotated in 3D via rotate_3d_xyz() and projected via project_3d() with back-to-front edge depth sorting
-  static constexpr float VERT_3D[3][10][3] = {
+  (void)crater_col;
+  // Closed 8-vertex, 12-triangle, 18-edge 3D polyhedral asteroid (0 = top apex, 1 = bottom apex, 2..7 = craggy equator)
+  static constexpr float VERT_3D[3][8][3] = {
     { // Shape 0
-      { 0.00f, -0.92f,  0.15f}, { 0.05f,  0.90f, -0.15f},
-      { 0.95f, -0.18f,  0.12f}, { 0.68f,  0.22f,  0.72f},
-      {-0.12f, -0.24f,  0.96f}, {-0.76f,  0.18f,  0.65f},
-      {-0.98f, -0.15f, -0.08f}, {-0.66f,  0.25f, -0.70f},
-      { 0.10f, -0.20f, -0.94f}, { 0.74f,  0.16f, -0.68f}
+      { 0.04f, -0.96f,  0.10f}, {-0.05f,  0.94f, -0.10f},
+      { 1.02f, -0.14f,  0.00f}, { 0.54f,  0.18f,  0.86f},
+      {-0.52f, -0.16f,  0.84f}, {-1.00f,  0.14f,  0.04f},
+      {-0.48f, -0.20f, -0.88f}, { 0.56f,  0.16f, -0.82f}
     },
     { // Shape 1
-      {-0.10f, -0.95f, -0.12f}, { 0.12f,  0.88f,  0.18f},
-      { 1.02f,  0.15f, -0.10f}, { 0.64f, -0.25f,  0.76f},
-      {-0.18f,  0.20f,  0.92f}, {-0.82f, -0.18f,  0.58f},
-      {-0.92f,  0.22f, -0.14f}, {-0.70f, -0.20f, -0.68f},
-      { 0.15f,  0.24f, -0.96f}, { 0.68f, -0.16f, -0.72f}
+      {-0.06f, -0.92f, -0.08f}, { 0.08f,  0.96f,  0.08f},
+      { 0.96f,  0.16f, -0.06f}, { 0.48f, -0.20f,  0.90f},
+      {-0.58f,  0.15f,  0.80f}, {-0.94f, -0.18f, -0.04f},
+      {-0.52f,  0.22f, -0.84f}, { 0.50f, -0.14f, -0.88f}
     },
     { // Shape 2
-      { 0.12f, -0.88f,  0.18f}, {-0.10f,  0.94f, -0.12f},
-      { 0.90f, -0.22f,  0.20f}, { 0.76f,  0.18f,  0.64f},
-      {-0.08f, -0.16f,  0.98f}, {-0.72f,  0.24f,  0.68f},
-      {-1.00f, -0.12f,  0.05f}, {-0.64f,  0.18f, -0.74f},
-      { 0.08f, -0.24f, -0.90f}, { 0.78f,  0.20f, -0.62f}
+      { 0.08f, -0.94f,  0.06f}, {-0.06f,  0.92f, -0.08f},
+      { 0.98f, -0.18f,  0.08f}, { 0.56f,  0.14f,  0.82f},
+      {-0.46f, -0.22f,  0.88f}, {-1.02f,  0.16f, -0.06f},
+      {-0.54f, -0.14f, -0.84f}, { 0.48f,  0.20f, -0.86f}
     }
   };
 
-  const int sh = ((shape % 3) + 3) % 3;
-  float ax = rot_rad * 0.85f + static_cast<float>(sh) * 0.9f;
-  float ay = rot_rad * 1.15f + static_cast<float>(sh) * 0.5f;
-  float az = rot_rad * 0.55f;
+  // 12 outward-oriented triangular facets: 6 upper hemisphere (0..5), 6 lower hemisphere (6..11)
+  static constexpr uint8_t FACES[12][3] = {
+    {0, 2, 3}, {0, 3, 4}, {0, 4, 5}, {0, 5, 6}, {0, 6, 7}, {0, 7, 2},
+    {1, 3, 2}, {1, 4, 3}, {1, 5, 4}, {1, 6, 5}, {1, 7, 6}, {1, 2, 7}
+  };
 
-  ProjectedPoint pts[10];
-  float vz[10];
+  // 18 edges: {vertex_a, vertex_b, adjacent_face_1, adjacent_face_2}
+  static constexpr uint8_t EDGES[18][4] = {
+    // 6 Equatorial edges
+    {2, 3, 0,  6}, {3, 4, 1,  7}, {4, 5, 2,  8},
+    {5, 6, 3,  9}, {6, 7, 4, 10}, {7, 2, 5, 11},
+    // 6 Upper cone edges (to apex 0)
+    {0, 2, 5,  0}, {0, 3, 0,  1}, {0, 4, 1,  2},
+    {0, 5, 2,  3}, {0, 6, 3,  4}, {0, 7, 4,  5},
+    // 6 Lower cone edges (to apex 1)
+    {1, 2, 6, 11}, {1, 3, 7,  6}, {1, 4, 8,  7},
+    {1, 5, 9,  8}, {1, 6, 10, 9}, {1, 7, 11, 10}
+  };
+
+  const int sh = ((shape % 3) + 3) % 3;
+  float ax = rot_rad * 0.75f + static_cast<float>(sh) * 0.9f;
+  float ay = rot_rad * 1.05f + static_cast<float>(sh) * 0.5f;
+  float az = rot_rad * 0.50f;
+
+  ProjectedPoint pts[8];
   int cx_r = static_cast<int>(rx);
   int cy_r = static_cast<int>(ry);
 
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 8; i++) {
     Vec3 v_local{VERT_3D[sh][i][0] * r_base,
                  VERT_3D[sh][i][1] * r_base,
                  VERT_3D[sh][i][2] * r_base};
     Vec3 vr = rotate_3d_xyz(v_local, ax, ay, az);
-    vz[i] = vr.z;
-    pts[i] = project_3d(vr, cx_r, cy_r, 250.0f, 250.0f);
+    pts[i] = project_3d(vr, cx_r, cy_r, 260.0f, 260.0f);
   }
 
-  // 16 polyhedral edges: 8 around the jagged equator (2..9) + 4 upper facets to apex 0 + 4 lower facets to apex 1
-  static constexpr uint8_t EDGES[16][2] = {
-    {2,3}, {3,4}, {4,5}, {5,6}, {6,7}, {7,8}, {8,9}, {9,2},
-    {0,2}, {0,4}, {0,6}, {0,8},
-    {1,3}, {1,5}, {1,7}, {1,9}
-  };
+  // Exact 2D screen-space backface classification for each of the 12 triangular facets
+  bool face_front[12];
+  for (int f = 0; f < 12; f++) {
+    uint8_t i0 = FACES[f][0], i1 = FACES[f][1], i2 = FACES[f][2];
+    int cross = (pts[i1].x - pts[i0].x) * (pts[i2].y - pts[i0].y) -
+                (pts[i1].y - pts[i0].y) * (pts[i2].x - pts[i0].x);
+    face_front[f] = (cross < 0);
+  }
 
-  // Pass 1: Draw rear-hemisphere edges (z_avg > 0) in dimmer crater_col for 3D wireframe depth
-  for (int e = 0; e < 16; e++) {
-    uint8_t a = EDGES[e][0], b = EDGES[e][1];
-    if ((vz[a] + vz[b]) > 0.0f) {
-      it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, crater_col);
+  esphome::Color ridge_col = scale_color(rim_col, 0.52f);
+
+  // Pass 1: Draw visible interior front facet creases (both adjacent faces front-facing)
+  for (int e = 0; e < 18; e++) {
+    bool f1 = face_front[EDGES[e][2]];
+    bool f2 = face_front[EDGES[e][3]];
+    if (f1 && f2) {
+      uint8_t a = EDGES[e][0], b = EDGES[e][1];
+      it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, ridge_col);
     }
   }
-  // Pass 2: Draw front-hemisphere edges (z_avg <= 0) on top in bright rim_col
-  for (int e = 0; e < 16; e++) {
-    uint8_t a = EDGES[e][0], b = EDGES[e][1];
-    if ((vz[a] + vz[b]) <= 0.0f) {
+
+  // Pass 2: Draw outer silhouette boundary edges (1 front-facing + 1 back-facing) in 100% bright rim_col
+  // Guarantees a closed, unbroken outer asteroid perimeter at every possible 3D rotation angle!
+  for (int e = 0; e < 18; e++) {
+    bool f1 = face_front[EDGES[e][2]];
+    bool f2 = face_front[EDGES[e][3]];
+    if (f1 != f2) {
+      uint8_t a = EDGES[e][0], b = EDGES[e][1];
       it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, rim_col);
     }
   }

@@ -381,19 +381,20 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
   const int d_size = 132;
   const int cr = 16;
 
-  // 3D Airborne Tumbling Cube Renderer (active during airborne tumble anim_p < 0.80f)
+  // Opaque Back-Face Culled 3D Airborne Tumbling Cube Renderer (Zero see-through rear lines!)
   auto draw_tumbling_cube_3d = [&](int center_x, int center_y, float rx, float ry, float rz) {
     static constexpr float CUBE_V[8][3] = {
       {-1.0f, -1.0f, -1.0f}, { 1.0f, -1.0f, -1.0f}, { 1.0f,  1.0f, -1.0f}, {-1.0f,  1.0f, -1.0f},
       {-1.0f, -1.0f,  1.0f}, { 1.0f, -1.0f,  1.0f}, { 1.0f,  1.0f,  1.0f}, {-1.0f,  1.0f,  1.0f}
     };
-    static constexpr uint8_t CUBE_E[12][2] = {
-      {0,1}, {1,2}, {2,3}, {3,0},
-      {4,5}, {5,6}, {6,7}, {7,4},
-      {0,4}, {1,5}, {2,6}, {3,7}
-    };
+    // 6 outward-oriented faces (CCW when viewed from outside the cube)
     static constexpr uint8_t CUBE_F[6][4] = {
-      {0,1,2,3}, {4,5,6,7}, {0,1,5,4}, {2,3,7,6}, {0,3,7,4}, {1,2,6,5}
+      {0, 1, 2, 3}, // Face 0 (-Z): 1 pip
+      {5, 4, 7, 6}, // Face 1 (+Z): 6 pips
+      {4, 5, 1, 0}, // Face 2 (-Y): 2 pips
+      {3, 2, 6, 7}, // Face 3 (+Y): 5 pips
+      {4, 0, 3, 7}, // Face 4 (-X): 3 pips
+      {1, 5, 6, 2}  // Face 5 (+X): 4 pips
     };
 
     const float half_s = 46.0f;
@@ -404,53 +405,64 @@ inline void render_tool_dice_roll(DisplayT &it, int cx, uint32_t now_ms,
       pts[i] = project_3d(rv[i], center_x, center_y, 260.0f, 280.0f);
     }
 
-    // Floor drop shadow beneath airborne tumbling cube
-    it.filled_circle(center_x + 6, center_y + 18 - hop_y1 / 2, 42, esphome::Color(16, 20, 28));
+    // Soft floor shadow beneath airborne cube
+    it.filled_circle(center_x + 6, center_y + 18 - hop_y1 / 2, 40, esphome::Color(16, 20, 28));
 
-    esphome::Color c_ivory(244, 240, 232);
-    esphome::Color c_shade(205, 198, 186);
-    esphome::Color c_back_edge(75, 82, 96);
+    esphome::Color c_border(158, 150, 138);
     esphome::Color c_pip(25, 28, 35);
 
-    // Fill front-facing cube faces (z_avg < 0)
+    // Render only front-facing cube faces (screen-space cross > 0 -> 100% solid, opaque cube)
     for (int f = 0; f < 6; f++) {
       uint8_t i0 = CUBE_F[f][0], i1 = CUBE_F[f][1], i2 = CUBE_F[f][2], i3 = CUBE_F[f][3];
-      float z_face = 0.25f * (rv[i0].z + rv[i1].z + rv[i2].z + rv[i3].z);
-      if (z_face < -4.0f) {
-        esphome::Color fc = (z_face < -24.0f) ? c_ivory : c_shade;
-        it.filled_triangle(pts[i0].x, pts[i0].y, pts[i1].x, pts[i1].y, pts[i2].x, pts[i2].y, fc);
-        it.filled_triangle(pts[i0].x, pts[i0].y, pts[i2].x, pts[i2].y, pts[i3].x, pts[i3].y, fc);
+      int cross = (pts[i1].x - pts[i0].x) * (pts[i2].y - pts[i0].y) -
+                  (pts[i1].y - pts[i0].y) * (pts[i2].x - pts[i0].x);
+      if (cross <= 0) continue; // Cull back-facing faces completely
 
-        // Draw 3D pip cluster on visible front-facing cube faces
-        int fcx = (pts[i0].x + pts[i1].x + pts[i2].x + pts[i3].x) >> 2;
-        int fcy = (pts[i0].y + pts[i1].y + pts[i2].y + pts[i3].y) >> 2;
-        it.filled_circle(fcx, fcy, 4, c_pip);
-        if ((f & 1) != 0) {
-          it.filled_circle((fcx + pts[i0].x) >> 1, (fcy + pts[i0].y) >> 1, 3, c_pip);
-          it.filled_circle((fcx + pts[i2].x) >> 1, (fcy + pts[i2].y) >> 1, 3, c_pip);
-        }
-        if (f >= 3) {
-          it.filled_circle((fcx + pts[i1].x) >> 1, (fcy + pts[i1].y) >> 1, 3, c_pip);
-          it.filled_circle((fcx + pts[i3].x) >> 1, (fcy + pts[i3].y) >> 1, 3, c_pip);
-        }
-      }
-    }
+      // Directional 3D shading per face based on face center Z/Y normal orientation
+      float nx = (rv[i0].x + rv[i1].x + rv[i2].x + rv[i3].x) * (0.25f / half_s);
+      float ny = (rv[i0].y + rv[i1].y + rv[i2].y + rv[i3].y) * (0.25f / half_s);
+      float nz = (rv[i0].z + rv[i1].z + rv[i2].z + rv[i3].z) * (0.25f / half_s);
+      float light = fmaxf(0.74f, fminf(1.0f, 0.84f + (-nz * 0.12f - ny * 0.10f - nx * 0.06f)));
+      esphome::Color face_col(
+          static_cast<uint8_t>(248.0f * light),
+          static_cast<uint8_t>(244.0f * light),
+          static_cast<uint8_t>(236.0f * light));
 
-    // Draw rear wireframe edges first, then crisp white/gold front edges on top
-    for (int e = 0; e < 12; e++) {
-      uint8_t a = CUBE_E[e][0], b = CUBE_E[e][1];
-      if ((rv[a].z + rv[b].z) > 0.0f) {
-        it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, c_back_edge);
+      // Fill opaque quad (2 triangles) + draw crisp perimeter bevel edges
+      it.filled_triangle(pts[i0].x, pts[i0].y, pts[i1].x, pts[i1].y, pts[i2].x, pts[i2].y, face_col);
+      it.filled_triangle(pts[i0].x, pts[i0].y, pts[i2].x, pts[i2].y, pts[i3].x, pts[i3].y, face_col);
+      it.line(pts[i0].x, pts[i0].y, pts[i1].x, pts[i1].y, c_border);
+      it.line(pts[i1].x, pts[i1].y, pts[i2].x, pts[i2].y, c_border);
+      it.line(pts[i2].x, pts[i2].y, pts[i3].x, pts[i3].y, c_border);
+      it.line(pts[i3].x, pts[i3].y, pts[i0].x, pts[i0].y, c_border);
+
+      // Bilinear helper to project pips directly onto the 3D quad face (u, v in [0..1])
+      auto draw_face_pip = [&](float u, float v) {
+        float px = (1.0f - u) * (1.0f - v) * pts[i0].x + u * (1.0f - v) * pts[i1].x +
+                   u * v * pts[i2].x + (1.0f - u) * v * pts[i3].x;
+        float py = (1.0f - u) * (1.0f - v) * pts[i0].y + u * (1.0f - v) * pts[i1].y +
+                   u * v * pts[i2].y + (1.0f - u) * v * pts[i3].y;
+        it.filled_circle(static_cast<int>(px), static_cast<int>(py), 3, c_pip);
+      };
+
+      // Standard D6 pip patterns per face (f = 0..5 -> 1..6 pips)
+      if (f == 0 || f == 4 || f == 3) { // 1, 3, 5 center pip
+        draw_face_pip(0.50f, 0.50f);
       }
-    }
-    for (int e = 0; e < 12; e++) {
-      uint8_t a = CUBE_E[e][0], b = CUBE_E[e][1];
-      if ((rv[a].z + rv[b].z) <= 0.0f) {
-        it.line(pts[a].x, pts[a].y, pts[b].x, pts[b].y, col_white);
+      if (f >= 1) { // 2, 3, 4, 5, 6 diagonal pair
+        draw_face_pip(0.26f, 0.26f);
+        draw_face_pip(0.74f, 0.74f);
+      }
+      if (f == 1 || f == 3 || f == 5) { // 4, 5, 6 second diagonal pair
+        draw_face_pip(0.74f, 0.26f);
+        draw_face_pip(0.26f, 0.74f);
+      }
+      if (f == 1) { // 6 middle pair
+        draw_face_pip(0.26f, 0.50f);
+        draw_face_pip(0.74f, 0.50f);
       }
     }
   };
-
   auto draw_rounded_d6 = [&](int center_x, int center_y, int val) {
     int x0 = center_x - d_size / 2;
     int y0 = center_y - d_size / 2;
