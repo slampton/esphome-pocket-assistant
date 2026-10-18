@@ -729,7 +729,7 @@ inline bool has_weather_motion(const std::string &cond, bool is_night, uint32_t 
 //   in front of the bright golden Sun disc at (cel_cx, cel_cy)!
 template<typename DisplayT>
 inline void draw_migrating_bird(DisplayT &it, int bx, int by, int dir, float flap_phase,
-                                float scale, int cy, int cel_cx = 346, int cel_cy = 91) {
+                                float scale, int cy, int cel_cx = 341, int cel_cy = 91) {
   if (by < 12 || by > 454) return;
   float s1 = fast_sin(flap_phase);
   float s2 = fast_sin(flap_phase - 0.55f);
@@ -811,7 +811,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
                                             const std::string &cond, bool is_night,
                                             const SpanRangeT &cloud_spans,
                                             double moon_cycle = 0.5,
-                                            int cel_cx = 346, int cel_cy = 91,
+                                            int cel_cx = 341, int cel_cy = 91,
                                             bool mask_hero_temp = true,
                                             float accel_x = 0.0f, float accel_y = 0.0f) {
 
@@ -1495,7 +1495,7 @@ inline void render_weather_page(
                      cond == "clearnight" || (cond.find("night") != std::string::npos));
     apply_weather_sim_override(weather_sim_opt, cond, is_night);
 
-    const int cel_cx = 346;
+    const int cel_cx = 341;
     const int cel_cy = 91;
 
     double moon_cycle = 0.5;
