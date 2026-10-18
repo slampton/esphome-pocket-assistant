@@ -1837,8 +1837,8 @@ inline void render_music_menus(
     it.filled_circle(knob_x, scrub_y, 6, theme_secondary);
     it.filled_circle(knob_x, scrub_y, 2, col_black);
 
-    // 3. Lower Row (y = 324): Two Subtle Tools-Launcher-Style Cards (Album Info & Lyrics)
-    auto draw_subtle_tool_card = [&](int card_cx, int card_cy, bool is_lyrics, const char *label) {
+    // 3. Lower Row (y = 324): Two Subtle Tools-Launcher-Style Cards (Artist Discography & Up Next Queue)
+    auto draw_subtle_tool_card = [&](int card_cx, int card_cy, bool is_queue, const char *label) {
       const int cw = 128, ch = 84, cr = 16;
       int x0 = card_cx - cw / 2, y0 = card_cy - ch / 2;
       esphome::Color card_bg(22, 27, 36);
@@ -1858,52 +1858,25 @@ inline void render_music_menus(
 
       int ix = card_cx;
       int iy = card_cy - 15;
-      if (!is_lyrics) {
-        // Album Info Icon: Medallion Circle + Serif 'i'
-        it.circle(ix, iy, 14, theme_primary);
-        it.circle(ix, iy, 13, theme_secondary);
-        it.filled_circle(ix, iy - 6, 2, col_white);
-        it.filled_rectangle(ix - 1, iy - 2, 3, 9, col_white);
-        it.line(ix - 3, iy - 2, ix + 1, iy - 2, col_white);
-        it.line(ix - 3, iy + 7, ix + 3, iy + 7, col_white);
+      if (!is_queue) {
+        // Artist Discography Icon: Vinyl Record with grooves & center label
+        it.circle(ix, iy, 14, col_white);
+        it.circle(ix, iy, 10, col_slate);
+        it.filled_circle(ix, iy, 5, theme_primary);
+        it.filled_circle(ix, iy, 2, col_bg);
       } else {
-        // Lyrics Icon: Beamed Double Eighth Notes (♫)
-        it.filled_circle(ix - 7, iy + 6, 4, theme_primary);
-        it.filled_circle(ix + 5, iy + 4, 4, theme_primary);
-        it.line(ix - 4, iy + 6, ix - 4, iy - 9, col_white);
-        it.line(ix - 3, iy + 6, ix - 3, iy - 9, col_white);
-        it.line(ix + 8, iy + 4, ix + 8, iy - 11, col_white);
-        it.line(ix + 9, iy + 4, ix + 9, iy - 11, col_white);
-        it.line(ix - 4, iy - 9, ix + 9, iy - 11, col_white);
-        it.line(ix - 4, iy - 8, ix + 9, iy - 10, theme_primary);
-        it.line(ix - 4, iy - 5, ix + 9, iy - 7, theme_secondary);
+        // Active Play Queue Icon: Play triangle (▶) + 3 stacked queue bars (≡)
+        it.filled_triangle(ix - 13, iy - 8, ix - 13, iy + 2, ix - 4, iy - 3, theme_primary);
+        it.filled_rectangle(ix, iy - 7, 13, 2, col_white);
+        it.filled_rectangle(ix, iy - 1, 13, 2, col_white);
+        it.filled_rectangle(ix - 13, iy + 5, 26, 2, theme_secondary);
       }
 
       it.print(card_cx, card_cy + 20, font_small, col_white, esphome::display::TextAlign::CENTER, label);
     };
 
-    draw_subtle_tool_card(160, 324, false, "Album Info");
-    draw_subtle_tool_card(306, 324, true,  "Lyrics");
-
-  } else if (music_overlay_mode == 7) {
-    // LEVEL 7: 5-LINE PAGINATED READER VIEW (Album Biography & Song Lyrics)
-    render_menu_header(it, cx, 50, selected_category_title, font_date, theme_primary);
-    it.line(90, 74, 376, 74, col_dark_gray);
-
-    const std::string *lines[5] = {&slot_1_name, &slot_2_name, &slot_3_name, &slot_4_name, &slot_5_name};
-    for (int i = 0; i < 5; i++) {
-      if (!lines[i]->empty()) {
-        std::string fit_ln = fit_text_to_width_font(*lines[i], 304, font_small);
-        it.print(cx, 108 + i * 50, font_small, col_white, esphome::display::TextAlign::CENTER, fit_ln.c_str());
-      }
-    }
-
-    if (music_browse_total_pages > 1) {
-      draw_right_chevrons(music_browse_page > 1, music_browse_page < music_browse_total_pages);
-      char pg_buf[16];
-      snprintf(pg_buf, sizeof(pg_buf), "%d / %d", music_browse_page, music_browse_total_pages);
-      it.print(cx, 366, font_micro, col_slate, esphome::display::TextAlign::CENTER, pg_buf);
-    }
+    draw_subtle_tool_card(160, 324, false, "Artist");
+    draw_subtle_tool_card(306, 324, true,  "Queue");
   }
 
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);

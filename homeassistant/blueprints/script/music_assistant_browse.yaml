@@ -389,7 +389,7 @@ sequence:
           {{ ns.items | to_json }}
   - conditions:
     - condition: template
-      value_template: '{{ mode in ["album_info", "track_lyrics"] }}'
+      value_template: '{{ mode == "active_queue" }}'
     sequence:
     - variables:
         all_mass_players: '{{ integration_entities("music_assistant") | select("match", "^media_player") | list }}'
@@ -405,115 +405,67 @@ sequence:
           {% else %}
             {{ all_mass_players | first | default(local_spk, true) }}
           {% endif %}
-        raw_alb: '{{ state_attr(target_spk, "media_album_name") | default(search, true) }}'
-        raw_ttl: '{{ state_attr(target_spk, "media_title") | default(search, true) }}'
-        raw_art: '{{ state_attr(target_spk, "media_artist") | default("", true) }}'
-        alb_query: '{{ raw_alb | regex_replace("\\s*[\\(\\[].*?[\\)\\]]", "") | trim }}'
-        ttl_query: '{{ raw_ttl | regex_replace("\\s*[\\(\\[].*?[\\)\\]]", "") | trim }}'
+    - if:
+      - condition: template
+        value_template: '{{ resolved_mass_queue_entry != "" }}'
+      then:
+      - action: mass_queue.get_queue_items
+        continue_on_error: true
+        data:
+          entity: '{{ target_spk }}'
+          limit_before: 1
+          limit_after: 50
+        response_variable: mq_items_resp
     - action: music_assistant.get_queue
       continue_on_error: true
       target:
         entity_id: '{{ target_spk }}'
-      response_variable: q_resp
-    - if:
-      - condition: template
-        value_template: '{{ mode == "album_info" and (alb_query | default("") != "" and alb_query not in ["None", "Idle"]) }}'
-      then:
-      - action: music_assistant.get_library
-        continue_on_error: true
-        data:
-          config_entry_id: '{{ config_entry_id(all_mass_players | first) }}'
-          media_type: album
-          search: '{{ alb_query }}'
-          limit: 25
-        response_variable: alb_meta_resp
-    - if:
-      - condition: template
-        value_template: '{{ mode == "track_lyrics" and (ttl_query | default("") != "" and ttl_query not in ["None", "Idle"]) }}'
-      then:
-      - action: music_assistant.get_library
-        continue_on_error: true
-        data:
-          config_entry_id: '{{ config_entry_id(all_mass_players | first) }}'
-          media_type: track
-          search: '{{ ttl_query }}'
-          limit: 25
-        response_variable: trk_meta_resp
+      response_variable: ma_q_resp
     - variables:
         raw_items: >-
-          {% set q_data = (q_resp.values() | list | first) if q_resp is defined and q_resp is mapping and (q_resp.values() | list | length > 0) else {} %}
-          {% set cur_item = q_data.current_item if q_data is mapping and q_data.current_item is defined and q_data.current_item is mapping else {} %}
-          {% set m_item = cur_item.media_item if cur_item is mapping and cur_item.media_item is defined and cur_item.media_item is mapping else {} %}
-          {% set q_meta = m_item.metadata if m_item is mapping and m_item.metadata is defined and m_item.metadata is mapping else {} %}
-          {% set q_alb = m_item.album if m_item is mapping and m_item.album is defined and m_item.album is mapping else {} %}
-          {% set q_alb_meta = q_alb.metadata if q_alb is mapping and q_alb.metadata is defined and q_alb.metadata is mapping else {} %}
-          {% set f = namespace(txt="") %}
-          {% if mode == "album_info" %}
-            {% if q_alb_meta.description is defined and q_alb_meta.description %}
-              {% set f.txt = q_alb_meta.description %}
+          {% set cur_title = state_attr(target_spk, "media_title") | default("", true) %}
+          {% set q_list = (mq_items_resp[target_spk] if mq_items_resp is defined and mq_items_resp is mapping and target_spk in mq_items_resp else []) %}
+          {% set ns = namespace(items=[]) %}
+          {% if q_list is iterable and (q_list | length > 0) %}
+            {% for ep in q_list %}
+              {% set t_name = ep.media_title | default(ep.name | default("Track", true), true) %}
+              {% set t_id = ep.media_content_id | default(ep.uri | default("", true), true) %}
+              {% if t_id != "" %}
+                {% set idx = (ns.items | length) + 1 %}
+                {% set ns.items = ns.items + [{
+                  "name": idx ~ ". " ~ t_name,
+                  "id": t_id,
+                  "type": "track",
+                  "active": (cur_title != "" and (t_name | lower) == (cur_title | lower))
+                }] %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if ns.items | length == 0 %}
+            {% set q_data = (ma_q_resp.values() | list | first) if ma_q_resp is defined and ma_q_resp is mapping and (ma_q_resp.values() | list | length > 0) else {} %}
+            {% set c_it = q_data.current_item if q_data is mapping and q_data.current_item is defined and q_data.current_item is mapping else {} %}
+            {% set n_it = q_data.next_item if q_data is mapping and q_data.next_item is defined and q_data.next_item is mapping else {} %}
+            {% if c_it.media_item is defined and c_it.media_item is mapping %}
+              {% set ns.items = ns.items + [{
+                "name": "1. " ~ (c_it.media_item.name | default(c_it.name, true)),
+                "id": c_it.media_item.uri | default("", true),
+                "type": "track",
+                "active": true
+              }] %}
             {% endif %}
-            {% if f.txt == "" and alb_meta_resp is defined and alb_meta_resp is mapping %}
-              {% for itm in (alb_meta_resp["items"] | default([])) %}
-                {% if f.txt == "" and itm is mapping and itm.metadata is defined and itm.metadata is mapping and itm.metadata.description %}
-                  {% set f.txt = itm.metadata.description %}
-                {% endif %}
-              {% endfor %}
-            {% endif %}
-            {% if f.txt == "" and q_meta.description is defined and q_meta.description %}
-              {% set f.txt = q_meta.description %}
-            {% endif %}
-          {% else %}
-            {% if q_meta.lyrics is defined and q_meta.lyrics %}
-              {% set f.txt = q_meta.lyrics %}
-            {% elif q_meta.lrc_lyrics is defined and q_meta.lrc_lyrics %}
-              {% set f.txt = q_meta.lrc_lyrics %}
-            {% endif %}
-            {% if f.txt == "" and trk_meta_resp is defined and trk_meta_resp is mapping %}
-              {% for itm in (trk_meta_resp["items"] | default([])) %}
-                {% if f.txt == "" and itm is mapping and itm.metadata is defined and itm.metadata is mapping %}
-                  {% if itm.metadata.lyrics is defined and itm.metadata.lyrics %}
-                    {% set f.txt = itm.metadata.lyrics %}
-                  {% elif itm.metadata.lrc_lyrics is defined and itm.metadata.lrc_lyrics %}
-                    {% set f.txt = itm.metadata.lrc_lyrics %}
-                  {% endif %}
-                {% endif %}
-              {% endfor %}
+            {% if n_it.media_item is defined and n_it.media_item is mapping %}
+              {% set ns.items = ns.items + [{
+                "name": "2. " ~ (n_it.media_item.name | default(n_it.name, true)),
+                "id": n_it.media_item.uri | default("", true),
+                "type": "track",
+                "active": false
+              }] %}
             {% endif %}
           {% endif %}
-          {% set clean_txt = (f.txt ~ "") | regex_replace("\\[[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?\\]", "") | replace("\r\n", "\n") | trim %}
-          {% if clean_txt == "" %}
-            {% set clean_txt = "No lyrics returned by Music Assistant API" if mode == "track_lyrics" else "No album biography returned by Music Assistant API" %}
+          {% if ns.items | length == 0 %}
+            {% set ns.items = [{"name": "Queue is empty", "id": "", "type": "text", "active": false}] %}
           {% endif %}
-          {% set ns = namespace(lines=[], cur="") %}
-          {% for para in clean_txt.split("\n") %}
-            {% set p_trim = para | trim %}
-            {% if p_trim == "" %}
-              {% if ns.cur != "" %}
-                {% set ns.lines = ns.lines + [ns.cur] %}
-                {% set ns.cur = "" %}
-              {% endif %}
-            {% else %}
-              {% for word in p_trim.split() %}
-                {% if ns.cur == "" %}
-                  {% set ns.cur = word %}
-                {% elif (ns.cur | length) + 1 + (word | length) <= 26 %}
-                  {% set ns.cur = ns.cur ~ " " ~ word %}
-                {% else %}
-                  {% set ns.lines = ns.lines + [ns.cur] %}
-                  {% set ns.cur = word %}
-                {% endif %}
-              {% endfor %}
-              {% if ns.cur != "" %}
-                {% set ns.lines = ns.lines + [ns.cur] %}
-                {% set ns.cur = "" %}
-              {% endif %}
-            {% endif %}
-          {% endfor %}
-          {% set out = namespace(items=[]) %}
-          {% for ln in ns.lines %}
-            {% set out.items = out.items + [{"name": ln, "id": "", "type": "text", "active": false}] %}
-          {% endfor %}
-          {{ out.items | to_json }}
+          {{ ns.items | to_json }}
   - conditions:
     - condition: template
       value_template: '{{ mode == "album_tracks" }}'

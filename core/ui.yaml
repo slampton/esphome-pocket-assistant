@@ -4496,7 +4496,13 @@ touchscreen:
                 if (is_back_button(touch)) {
                   if (now_item - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_item;
-                    if (id(selected_category_mode) == "current_album_tracks") { id(music_overlay_mode) = 6; id(disp1).update(); return; } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
+                    if (id(selected_category_mode) == "current_album_tracks" || id(selected_category_mode) == "active_queue" ||
+                        (id(selected_category_mode) == "artist_albums" && id(drilldown_parent_mode) == "track_inspector")) {
+                      id(drilldown_parent_mode) = "";
+                      id(music_overlay_mode) = 6;
+                      id(disp1).update();
+                      return;
+                    } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
                       id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
                       id(selected_category_title) = (id(selected_category_mode) == "podcast") ? "PODCASTS" : ((id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS");
                       id(music_browse_page) = std::max(1, id(drilldown_album_page));
@@ -4685,24 +4691,29 @@ touchscreen:
                   return;
                 }
 
-                // 3. Lower Row Tools-Style Cards: Album Info (left x < 233) & Lyrics (right x >= 233), y in 276..370
+                // 3. Lower Row Tools-Style Cards: Artist Discography (left x < 233) & Active Queue (right x >= 233), y in 276..370
                 if (touch.y >= 276 && touch.y <= 370 && touch.x >= 80 && touch.x <= 386) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_insp_tap = now_in;
-                    bool is_lyrics = (touch.x >= 233);
+                    bool is_queue = (touch.x >= 233);
                     bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
-                    std::string ttl = (is_rem || id(track_title).state.empty() || id(track_title).state == "None")
-                                          ? id(ha_track_title).state : id(track_title).state;
-                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
-                                          ? id(ha_track_album).state : id(track_album).state;
-                    id(selected_category_mode) = is_lyrics ? "track_lyrics" : "album_info";
-                    id(selected_category_title) = is_lyrics ? "LYRICS" : "ALBUM INFO";
-                    id(drilldown_album_id) = is_lyrics ? ttl : alb;
+                    std::string art_name = (is_rem || id(track_artist).state.empty() || id(track_artist).state == "None")
+                                               ? id(ha_track_artist).state : id(track_artist).state;
+                    id(drilldown_parent_mode) = "track_inspector";
                     id(music_browse_page) = 1;
                     id(music_browse_total_pages) = 1;
-                    id(slot_1_name) = is_lyrics ? "Loading lyrics..." : "Loading album info...";
-                    id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
-                    id(music_overlay_mode) = 7;
+                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
+                    if (!is_queue) {
+                      id(selected_category_mode) = "artist_albums";
+                      id(selected_category_title) = (art_name.empty() || art_name == "None") ? "ARTIST" : art_name;
+                      id(drilldown_artist_name) = art_name;
+                      id(slot_1_name) = "Loading artist albums...";
+                    } else {
+                      id(selected_category_mode) = "active_queue";
+                      id(selected_category_title) = "UP NEXT";
+                      id(slot_1_name) = "Loading queue...";
+                    }
+                    id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
                     id(disp1).update();
                   }
@@ -4795,24 +4806,29 @@ touchscreen:
                   return;
                 }
 
-                // 3. Lower Row Tools-Style Cards: Album Info (left x < 233) & Lyrics (right x >= 233), y in 276..370
+                // 3. Lower Row Tools-Style Cards: Artist Discography (left x < 233) & Active Queue (right x >= 233), y in 276..370
                 if (touch.y >= 276 && touch.y <= 370 && touch.x >= 80 && touch.x <= 386) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_insp_tap = now_in;
-                    bool is_lyrics = (touch.x >= 233);
+                    bool is_queue = (touch.x >= 233);
                     bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
-                    std::string ttl = (is_rem || id(track_title).state.empty() || id(track_title).state == "None")
-                                          ? id(ha_track_title).state : id(track_title).state;
-                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
-                                          ? id(ha_track_album).state : id(track_album).state;
-                    id(selected_category_mode) = is_lyrics ? "track_lyrics" : "album_info";
-                    id(selected_category_title) = is_lyrics ? "LYRICS" : "ALBUM INFO";
-                    id(drilldown_album_id) = is_lyrics ? ttl : alb;
+                    std::string art_name = (is_rem || id(track_artist).state.empty() || id(track_artist).state == "None")
+                                               ? id(ha_track_artist).state : id(track_artist).state;
+                    id(drilldown_parent_mode) = "track_inspector";
                     id(music_browse_page) = 1;
                     id(music_browse_total_pages) = 1;
-                    id(slot_1_name) = is_lyrics ? "Loading lyrics..." : "Loading album info...";
-                    id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
-                    id(music_overlay_mode) = 7;
+                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
+                    if (!is_queue) {
+                      id(selected_category_mode) = "artist_albums";
+                      id(selected_category_title) = (art_name.empty() || art_name == "None") ? "ARTIST" : art_name;
+                      id(drilldown_artist_name) = art_name;
+                      id(slot_1_name) = "Loading artist albums...";
+                    } else {
+                      id(selected_category_mode) = "active_queue";
+                      id(selected_category_title) = "UP NEXT";
+                      id(slot_1_name) = "Loading queue...";
+                    }
+                    id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
                     id(disp1).update();
                   }
