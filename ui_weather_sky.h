@@ -1078,52 +1078,79 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1H: 3D VOLUMETRIC RAIN & POURING STORM (Stratified Lanes + Golden-Ratio Phase = Zero Clumping)
+  // LAYER 1H: 3D VOLUMETRIC RAIN & POURING STORM (Per-Pass Re-Seeded X/Z + 2-Stage Tapered Water Droplets)
   if (cond.find("rain") != std::string::npos ||
       cond.find("pouring") != std::string::npos ||
       cond.find("drizzle") != std::string::npos) {
     bool is_heavy = (cond == "pouring" || cond.find("heavy") != std::string::npos);
-    int count = is_heavy ? 40 : 28;
+    int count = is_heavy ? 76 : 48;
     float t_sec = now_ms * 0.001f;
 
-    esphome::Color c_far  = is_night ? esphome::Color( 52,  78, 114) : esphome::Color( 74, 108, 148);
-    esphome::Color c_mid  = is_night ? esphome::Color( 88, 128, 178) : esphome::Color(110, 152, 200);
-    esphome::Color c_near = is_night ? esphome::Color(135, 182, 232) : esphome::Color(158, 202, 245);
-
     for (int i = 0; i < count; i++) {
-      // Permute horizontal lane index via coprime stride so adjacent drops are at different depths & Y phases
-      int lane_idx = (i * 11 + 5) % count;
-      float lane_u = (static_cast<float>(lane_idx) + 0.5f) / static_cast<float>(count); // 0..1 across full width
-      int depth_tier = i % 3; // 0 = background, 1 = mid-ground, 2 = foreground
+      int perm_i = (i * 17 + 7) % count;
+      float h_spd = hash2d_01(perm_i * 37 + 11, i * 19 + 5);
+      float h_gap = hash2d_01(perm_i * 53 + 23, i * 29 + 9);
+
+      // Fast, realistic terminal velocity: 320..460 px/s in Rain, 490..680 px/s in Pouring Storm!
+      float spd = (is_heavy ? 490.0f : 320.0f) + h_spd * (is_heavy ? 190.0f : 140.0f);
+      float cycle_h = 440.0f + h_gap * 90.0f;
+
+      // Golden-ratio initial phase scatter + per-pass re-randomization
+      float init_phase = fmodf(static_cast<float>(i) * 0.381966011f + static_cast<float>(perm_i) * 0.145898f, 1.0f);
+      float total_y = t_sec * spd + init_phase * cycle_h;
+      uint32_t pass_idx = static_cast<uint32_t>(total_y / cycle_h);
+      float local_y = total_y - static_cast<float>(pass_idx) * cycle_h;
+      if (local_y > 436.0f) continue; // Brief random rest gap between passes
+
+      // Re-roll X coordinate, Z depth tier, and droplet length on every pass so tracks never repeat!
+      int pass_seed = static_cast<int>(pass_idx * 59U + static_cast<uint32_t>(i) * 131U);
+      float rx_u    = hash2d_01(pass_seed, 17);
+      float r_depth = hash2d_01(pass_seed, 31);
+      float r_len   = hash2d_01(pass_seed, 47);
+
+      int depth_tier = (r_depth > 0.68f) ? 2 : ((r_depth > 0.30f) ? 1 : 0);
       float depth_par = (depth_tier == 2) ? 0.85f : ((depth_tier == 1) ? 0.55f : 0.30f);
 
-      // Wide speed spread (200..360 px/s) + Golden-Ratio initial vertical phase so drops never pack into clumps
-      float spd = (is_heavy ? 260.0f : 210.0f) + static_cast<float>(depth_tier) * 42.0f +
-                  hash2d_01(i * 29 + 7, 13) * 55.0f;
-      float y_phase = fmodf(static_cast<float>(i) * 0.6180339887f + hash2d_01(i, 31) * 0.25f, 1.0f);
-      float y_travel = fmodf(y_phase * 436.0f + t_sec * spd, 436.0f);
+      int ry = 14 + static_cast<int>(local_y + par_y * depth_par);
+      if (ry < 14 || ry > 448) continue;
 
-      int ry = 15 + static_cast<int>(y_travel + par_y * depth_par);
-      if (ry < 15) ry += 436;
-      if (ry > 450) ry -= 436;
+      // Stratified + randomized X across full 420px width with wind slant
+      float base_lane = (static_cast<float>(perm_i) + (rx_u - 0.5f) * 3.2f) / static_cast<float>(count);
+      if (base_lane < 0.0f) base_lane += 1.0f;
+      if (base_lane > 1.0f) base_lane -= 1.0f;
+      int wind_shift = (ry - 14) / (is_heavy ? 5 : 7);
+      int rx = 24 + static_cast<int>(base_lane * 418.0f) - wind_shift + static_cast<int>(par_x * depth_par);
+      while (rx < 20)  rx += 426;
+      while (rx > 446) rx -= 426;
 
-      // Full-screen horizontal coverage (26..440) with subtle wind slant
-      int base_x = 26 + static_cast<int>(lane_u * 414.0f + (hash2d_01(i, 71) - 0.5f) * 8.0f);
-      int wind_shift = (ry - 15) / (is_heavy ? 5 : 6);
-      int rx = base_x - wind_shift + static_cast<int>(par_x * depth_par);
-      while (rx < 24)  rx += 418;
-      while (rx > 442) rx -= 418;
+      // Fine, natural droplet lengths: 5..10px in Rain, 8..14px in Pouring Storm
+      int len_r = (is_heavy ? 8 : 5) + depth_tier * (is_heavy ? 2 : 1) + static_cast<int>(r_len * 3.5f);
+      int dx_r  = is_heavy ? ((len_r >= 11) ? 2 : 1) : 1;
+      int hx = rx - dx_r;
+      int hy = ry + len_r;
+      if (!is_inside_bezel(rx, ry, cy, 6) || !is_inside_bezel(hx, hy, cy, 6)) continue;
 
-      // Crisp, fine streak lengths (9..14px normal, 12..17px heavy) — never oversized
-      int len_r = (is_heavy ? 12 : 9) + depth_tier * 2 + (i & 1);
-      int dx_r  = is_heavy ? 3 : 2;
-      if (!is_inside_bezel(rx, ry, cy, 6) || !is_inside_bezel(rx - dx_r, ry + len_r, cy, 6)) continue;
-
-      esphome::Color drop_c = (depth_tier == 2) ? c_near : ((depth_tier == 1) ? c_mid : c_far);
-      it.line(rx, ry, rx - dx_r, ry + len_r, drop_c);
+      // 2-Stage Tapered Water-Droplet Shading (faint upper wake -> brighter lower water tip)
+      int mx = (rx + hx) >> 1;
+      int my = (ry + hy) >> 1;
+      if (depth_tier == 2) {
+        esphome::Color c_wake = is_night ? esphome::Color( 68, 102, 148) : esphome::Color( 86, 124, 170);
+        esphome::Color c_tip  = is_night ? esphome::Color(152, 198, 245) : esphome::Color(178, 218, 255);
+        it.line(rx, ry, mx, my, c_wake);
+        it.line(mx, my, hx, hy, c_tip);
+      } else if (depth_tier == 1) {
+        esphome::Color c_wake = is_night ? esphome::Color( 46,  72, 108) : esphome::Color( 64,  96, 136);
+        esphome::Color c_tip  = is_night ? esphome::Color(102, 144, 194) : esphome::Color(124, 168, 215);
+        it.line(rx, ry, mx, my, c_wake);
+        it.line(mx, my, hx, hy, c_tip);
+      } else {
+        esphome::Color c_far  = is_night ? esphome::Color( 54,  82, 118) : esphome::Color( 76, 110, 150);
+        it.line(rx, ry, hx, hy, c_far);
+      }
     }
   }
-  // LAYER 1I: 3D HELICAL SNOWFALL (38 3D-Projected Snowflakes with Perspective Crystal Scaling)
+
+  // LAYER 1I: 3D HELICAL SNOWFALL (Full-Width Edge-to-Edge Coverage + Per-Pass Re-Seeded Paths)
   if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
     float t_sec = now_ms * 0.001f;
     esphome::Color c_core(255, 255, 255);
@@ -1131,29 +1158,31 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     esphome::Color c_tip2 = is_night ? esphome::Color(160, 195, 235) : esphome::Color(180, 215, 245);
     esphome::Color c_tip1 = is_night ? esphome::Color(180, 215, 245) : esphome::Color(195, 225, 250);
 
-    for (int i = 0; i < 38; i++) {
-      float depth_u = static_cast<float>(i) / 37.0f; // 0.0 (far) .. 1.0 (near-glass)
-      float z_base = 160.0f - depth_u * 275.0f;      // +160 down to -115
-      float spd_y = 32.0f + hash2d_01(i * 19 + 3, 23) * 26.0f;
-      float phase = hash2d_01(i * 37 + 11, 41) * (2.0f * PI_F);
+    for (int i = 0; i < 40; i++) {
+      int perm_i = (i * 13 + 5) % 40;
+      float depth_u = static_cast<float>(i % 5) * 0.25f; // 0.0 (far) .. 1.0 (near-glass)
+      float depth_par = 0.28f + 0.65f * depth_u;
+      float spd_y = 28.0f + depth_u * 18.0f + hash2d_01(perm_i * 19 + 3, 23) * 16.0f;
+      float cycle_h = 445.0f;
 
-      float x0 = (hash2d_01(i * 29 + 5, 13) * 2.0f - 1.0f) * 230.0f;
-      float y0 = hash2d_01(i * 53 + 9, 59) * 460.0f;
-      float y_3d = fmodf(y0 + t_sec * spd_y, 460.0f) - 230.0f;
+      float init_phase = fmodf(static_cast<float>(i) * 0.381966011f + static_cast<float>(perm_i) * 0.17f, 1.0f);
+      float total_y = t_sec * spd_y + init_phase * cycle_h;
+      uint32_t pass_idx = static_cast<uint32_t>(total_y / cycle_h);
+      float local_y = total_y - static_cast<float>(pass_idx) * cycle_h;
 
-      // 3D helical swirl (swirls in both X and Z depth as it drifts down)
-      float swirl_ang = t_sec * 1.35f + phase;
-      float x_3d = x0 + fast_sin(swirl_ang) * 14.0f + par_x * (0.35f + 0.65f * depth_u);
-      float z_3d = z_base + fast_cos(swirl_ang) * 18.0f;
+      int pass_seed = static_cast<int>(pass_idx * 43U + static_cast<uint32_t>(i) * 97U);
+      float rx_u  = hash2d_01(pass_seed, 13);
+      float phase = hash2d_01(pass_seed, 41) * (2.0f * PI_F);
 
-      ProjectedPoint sp = project_3d({x_3d, y_3d + par_y * (0.35f + 0.65f * depth_u), z_3d},
-                                     cx, cy, 250.0f, 320.0f);
-      if (!sp.visible) continue;
-      int sx = sp.x, sy = sp.y;
-      if (sx < 3 || sx > 462 || sy < 3 || sy > 462) continue;
+      float base_lane = (static_cast<float>(perm_i) + (rx_u - 0.5f) * 2.5f) * (1.0f / 40.0f);
+      float swirl_ang = t_sec * (1.15f + 0.35f * depth_u) + phase;
+      int sx = 24 + static_cast<int>(base_lane * 418.0f + fast_sin(swirl_ang) * (7.0f + 5.0f * depth_u) + par_x * depth_par);
+      int sy = 15 + static_cast<int>(local_y + par_y * depth_par);
+      while (sx < 20)  sx += 426;
+      while (sx > 446) sx -= 426;
+      if (!is_inside_bezel(sx, sy, cy, 6)) continue;
 
-      if (sp.scale >= 0.94f) {
-        // Near-glass foreground: 13-pixel 8-point crystalline snowflake
+      if (depth_u >= 0.85f) {
         it.draw_pixel_at(sx, sy, c_core);
         it.draw_pixel_at(sx + 1, sy, c_arm2); it.draw_pixel_at(sx + 2, sy, c_tip2);
         it.draw_pixel_at(sx - 1, sy, c_arm2); it.draw_pixel_at(sx - 2, sy, c_tip2);
@@ -1161,16 +1190,14 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
         it.draw_pixel_at(sx, sy - 1, c_arm2); it.draw_pixel_at(sx, sy - 2, c_tip2);
         it.draw_pixel_at(sx + 1, sy + 1, c_tip2); it.draw_pixel_at(sx - 1, sy - 1, c_tip2);
         it.draw_pixel_at(sx + 1, sy - 1, c_tip2); it.draw_pixel_at(sx - 1, sy + 1, c_tip2);
-      } else if (sp.scale >= 0.74f) {
-        // Mid-ground: 5-pixel diamond crystal
+      } else if (depth_u >= 0.45f) {
         it.draw_pixel_at(sx, sy, c_core);
         it.draw_pixel_at(sx + 1, sy, c_tip1);
         it.draw_pixel_at(sx - 1, sy, c_tip1);
         it.draw_pixel_at(sx, sy + 1, c_tip1);
         it.draw_pixel_at(sx, sy - 1, c_tip1);
       } else {
-        // Deep background: soft 2x2 distant snow mote
-        uint8_t db = static_cast<uint8_t>(145.0f + 70.0f * sp.scale);
+        uint8_t db = static_cast<uint8_t>(165.0f + 45.0f * depth_u);
         esphome::Color c_far(static_cast<uint8_t>(db * 0.85f), static_cast<uint8_t>(db * 0.93f), db);
         it.draw_pixel_at(sx, sy, c_far);
         it.draw_pixel_at(sx + 1, sy, c_far);
@@ -1178,7 +1205,6 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       }
     }
   }
-
   // LAYER 1J: THUNDERSTORM BRANCHING LIGHTNING STRIKE
   if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
     uint32_t flash_step = (now_ms / 250U) % 18U;
