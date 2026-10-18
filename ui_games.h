@@ -2157,7 +2157,7 @@ inline void render_asteroids_ufo(DisplayT &it, int ux, int uy, float scale,
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                   bool game_just_entered, float roll_delta, float pitch_delta,
-                                  float &marble_touch_x, float &marble_touch_y, bool &game_btn_pressed,
+                                  float &marble_touch_x, bool &game_btn_pressed,
                                   int &high_score_asteroids,
                                   FontBigT *font_date, FontSmallT *font_small,
                                   esphome::Color theme_secondary,
@@ -2329,7 +2329,6 @@ inline void render_game_asteroids(DisplayT &it, int cx, int cy, uint32_t now_ms,
   // Tap Anywhere or Press Side Button -> Fires a crisp 2-shot rapid laser burst down active lane!
   if (marble_touch_x >= 0.0f || game_btn_pressed) {
     marble_touch_x = -1.0f;
-    marble_touch_y = -1.0f;
     game_btn_pressed = false;
 
     if (vtx_game_over) {
