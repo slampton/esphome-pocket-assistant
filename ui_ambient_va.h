@@ -1130,9 +1130,11 @@ inline void render_voice_assistant_overlay(
   if (is_speaking) {
     float syl_env = (0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f)) * smooth_speak;
     if (syl_env < 0.15f) syl_env = 0.15f;
+    float breath = sinf(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
     int tick = static_cast<int>(now_ms / 35U);
     uint32_t speak_elapsed = now_ms - speak_start_ms;
 
+    // 3 Expanding Coronal Shockwave Rings radiating outward from the solar corona
     for (int w = 0; w < 3; w++) {
       uint32_t launch_offset = static_cast<uint32_t>(w) * 600U;
       if (speak_elapsed < launch_offset) continue;
@@ -1147,34 +1149,33 @@ inline void render_voice_assistant_overlay(
       it.circle(cx, cy, r_wave + 1, glow_c);
     }
 
-    const float r_inner = 42.0f;
+    // Center Solar Corona & Photosphere Core matching Listening mode aesthetics
+    const float r_inner = 42.0f + 3.0f * breath;
     for (int i = 0; i < 60; i += 2) {
-      float h1 = DIAL_SIN[(i * 3 + tick * 2) % 60];
-      float h2 = DIAL_COS[(i * 5 + tick * 3) % 60];
-      float bar_len = (14.0f + 28.0f * syl_env) * (0.55f + 0.28f * h1 + 0.17f * h2);
-      float r_outer = r_inner + bar_len;
+      float wave = DIAL_SIN[(i * 3 + tick) % 60] * 0.6f + DIAL_COS[(i * 2 + tick) % 60] * 0.4f;
+      float bar_len = (16.0f + 22.0f * syl_env) + (6.0f + 10.0f * syl_env) * wave;
+      if (bar_len < 6.0f) bar_len = 6.0f;
 
       float ux = DIAL_SIN[i];
       float uy = -DIAL_COS[i];
       int x0 = cx + static_cast<int>(r_inner * ux);
       int y0 = cy + static_cast<int>(r_inner * uy);
       int xm = cx + static_cast<int>((r_inner + bar_len * 0.65f) * ux);
-      int ym = cy + static_cast<int>((r_inner + bar_len * 0.65f * uy));
-      int x1 = cx + static_cast<int>(r_outer * ux);
-      int y1 = cy + static_cast<int>(r_outer * uy);
+      int ym = cy + static_cast<int>((r_inner + bar_len * 0.65f) * uy);
+      int x1 = cx + static_cast<int>((r_inner + bar_len) * ux);
+      int y1 = cy + static_cast<int>((r_inner + bar_len) * uy);
 
       it.line(x0, y0, xm, ym, c_amber);
-      it.line(xm, ym, x1, y1, (i % 4 == 0) ? c_gold : c_emerald);
+      it.line(xm, ym, x1, y1, (i % 4 == 0) ? c_emerald : c_gold);
     }
 
-    int core_r = 26 + static_cast<int>(6.0f * syl_env);
-    it.filled_circle(cx, cy, core_r + 6, c_crimson_ember);
-    it.filled_circle(cx, cy, core_r + 2, c_amber);
+    int core_r = 27 + static_cast<int>(4.0f * breath + 5.0f * syl_env);
+    it.filled_circle(cx, cy, core_r + 5, c_crimson_ember);
+    it.filled_circle(cx, cy, core_r + 1, c_amber);
     it.filled_circle(cx, cy, core_r - 3, c_gold);
     it.circle(cx, cy, core_r - 5, c_warm_white);
     return;
   }
-
   if (is_thinking) {
     // 3D Gimbaled Armillary Sphere / Solar Astrolabe (rotate_3d_xyz + project_3d)
     const int head_1 = static_cast<int>((now_ms / 18U) % 60U);
