@@ -1680,12 +1680,7 @@ inline void render_chomp_monster(DisplayT &it, int mx, int my, int mr,
     it.draw_pixel_at(mx - 1, hat_top_y - 3, col_white);
   }
 
-  // 4. Rosy Pink Muppet Cheeks
-  int cheek_dx = (mr * 62) / 100;
-  int cheek_y = cy_m + (mr * 12) / 100;
-  int cheek_r = std::max(4, (mr * 17) / 100);
-  it.filled_circle(mx - cheek_dx, cheek_y, cheek_r, cheek_pink);
-  it.filled_circle(mx + cheek_dx, cheek_y, cheek_r, cheek_pink);
+  // 4. Clean Furry Face (no cheek circles)
 
   // 5. Big Googly Cookie-Monster Eyes perched high on the head
   int eye_dx = (mr * 30) / 100;
@@ -1748,6 +1743,12 @@ inline void render_chomp_monster(DisplayT &it, int mx, int my, int mr,
   }
 }
 
+// Pending sound effect trigger for arcade games: 0 = none, 1 = chomp ("nom-nom"), 2 = level clear fanfare
+inline int &pending_game_sfx() {
+  static int sfx = 0;
+  return sfx;
+}
+
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
                               bool game_just_entered, float roll_delta, float pitch_delta,
@@ -1760,16 +1761,16 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
                               esphome::Color col_green, esphome::Color col_magenta,
                               esphome::Color col_orange, esphome::Color col_dark_gray) {
   struct KidTreat {
-    float x, y;
+    float x, y, vx, vy;
     int kind;
-    uint32_t spawn_ms;
+    bool eaten;
   };
   struct ConfettiSpark {
     float x, y, vx, vy;
     esphome::Color col;
   };
 
-  static constexpr int NUM_TREATS = 5;
+  static constexpr int NUM_TREATS = 7;
   static KidTreat treats[NUM_TREATS];
   static float mon_x = 233.0f;
   static float mon_y = 233.0f;
@@ -1778,50 +1779,39 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   static uint32_t last_phys_ms = 0;
   static uint32_t entry_ms = 0;
   static bool post_play_tared = false;
+  static int level_num = 1;
+  static int treats_left = NUM_TREATS;
   static int treat_score = 0;
   static int next_kind = 0;
   static uint32_t chomp_timer = 0;
   static int chomp_word_idx = 0;
-  static uint32_t party_timer = 0;
-  static ConfettiSpark confetti[14];
+  static uint32_t level_clear_until_ms = 0;
+  static ConfettiSpark confetti[16];
 
-  // Places a treat in a well-spaced spot on the plate away from the monster and other treats
-  auto place_treat = [&](int idx, uint32_t seed_val) {
-    float best_x = static_cast<float>(cx);
-    float best_y = static_cast<float>(cy - 120);
-    float best_min_d2 = -1.0f;
-
-    for (int attempt = 0; attempt < 12; attempt++) {
-      int s = static_cast<int>(seed_val * 31U + idx * 53U + attempt * 97U);
-      float ang = hash2d_01(s, 13) * (2.0f * PI_F);
-      float rad = 68.0f + hash2d_01(s, 29) * 102.0f; // r in [68..170px] inside bowl
+  auto spawn_level_platter = [&](int lv, uint32_t seed_base) {
+    treats_left = NUM_TREATS;
+    float base_ang = static_cast<float>(lv) * 0.45f;
+    for (int i = 0; i < NUM_TREATS; i++) {
+      // Distribute 7 treats in a staggered ring/spiral away from the monster
+      int s = static_cast<int>(seed_base + i * 73U + lv * 37U);
+      float ang = base_ang + static_cast<float>(i) * (2.0f * PI_F / static_cast<float>(NUM_TREATS)) +
+                  (hash2d_01(s, 11) - 0.5f) * 0.35f;
+      float rad = 76.0f + (static_cast<float>((i * 3) % 4) * 26.0f) + hash2d_01(s, 29) * 18.0f;
       float tx = static_cast<float>(cx) + fast_cos(ang) * rad;
       float ty = static_cast<float>(cy) + fast_sin(ang) * rad;
 
-      // Keep clear of the monster's current position
-      float dmx = tx - mon_x;
-      float dmy = ty - mon_y;
-      float min_d2 = dmx * dmx + dmy * dmy;
-      if (min_d2 < 6400.0f) min_d2 *= 0.25f; // Penalize spawning right on top of the monster
-
-      for (int j = 0; j < NUM_TREATS; j++) {
-        if (j == idx) continue;
-        float dx = tx - treats[j].x;
-        float dy = ty - treats[j].y;
-        float d2 = dx * dx + dy * dy;
-        if (d2 < min_d2) min_d2 = d2;
+      // Push away if too close to current monster position
+      float dmx = tx - mon_x, dmy = ty - mon_y;
+      if (dmx * dmx + dmy * dmy < 4900.0f) {
+        tx = static_cast<float>(cx) - dmx * 1.1f;
+        ty = static_cast<float>(cy) - dmy * 1.1f;
       }
 
-      if (min_d2 > best_min_d2) {
-        best_min_d2 = min_d2;
-        best_x = tx;
-        best_y = ty;
-      }
+      // Level 2+: Treats drift around the plate!
+      float drift_spd = (lv <= 1) ? 0.0f : std::min(68.0f, 22.0f + static_cast<float>(lv - 2) * 12.0f);
+      float v_ang = hash2d_01(s, 47) * (2.0f * PI_F);
+      treats[i] = {tx, ty, fast_cos(v_ang) * drift_spd, fast_sin(v_ang) * drift_spd, next_kind++, false};
     }
-    treats[idx].x = best_x;
-    treats[idx].y = best_y;
-    treats[idx].kind = next_kind++;
-    treats[idx].spawn_ms = now_ms;
   };
 
   if (game_just_entered) {
@@ -1832,16 +1822,13 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
     mon_y = static_cast<float>(cy);
     mon_vx = 0.0f;
     mon_vy = 0.0f;
+    level_num = 1;
     treat_score = 0;
     next_kind = 0;
     chomp_timer = 0;
-    party_timer = 0;
-    for (int i = 0; i < NUM_TREATS; i++) {
-      treats[i] = {static_cast<float>(cx), static_cast<float>(cy), i, now_ms};
-    }
-    for (int i = 0; i < NUM_TREATS; i++) {
-      place_treat(i, static_cast<uint32_t>(i * 71 + 19));
-    }
+    level_clear_until_ms = 0;
+    pending_game_sfx() = 0;
+    spawn_level_platter(1, now_ms);
   } else if (!post_play_tared && (now_ms - entry_ms >= 220U)) {
     post_play_tared = true;
     game_imu_retare_flag() = true;
@@ -1852,56 +1839,110 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (dt < 0.012f) dt = 0.012f;
   if (dt > 0.075f) dt = 0.075f;
 
-  // Find the nearest snack so the monster's eyes track it and tap-to-hop dashes toward it
-  int nearest_idx = 0;
+  // Check if Level Clear Celebration just finished -> Advance to Next Level!
+  bool in_celebration = (level_clear_until_ms > 0U && now_ms < level_clear_until_ms);
+  if (level_clear_until_ms > 0U && now_ms >= level_clear_until_ms) {
+    level_clear_until_ms = 0U;
+    level_num++;
+    spawn_level_platter(level_num, now_ms);
+    in_celebration = false;
+  }
+
+  // Update drifting / dodging treats on Level 2+
+  if (!in_celebration && level_num >= 2) {
+    for (int i = 0; i < NUM_TREATS; i++) {
+      if (treats[i].eaten) continue;
+
+      // Level 3+: Treats shyly scoot away when the monster charges within 82px!
+      if (level_num >= 3) {
+        float edx = treats[i].x - mon_x;
+        float edy = treats[i].y - mon_y;
+        float ed2 = edx * edx + edy * edy;
+        if (ed2 < 6724.0f && ed2 > 1.0f) {
+          float ed = std::sqrt(ed2);
+          float evade = (1.0f - ed / 82.0f) * std::min(110.0f, static_cast<float>(level_num - 2) * 32.0f);
+          treats[i].vx += (edx / ed) * evade * dt;
+          treats[i].vy += (edy / ed) * evade * dt;
+        }
+      }
+
+      // Clamp treat drift speed
+      float max_t_spd = std::min(78.0f, 24.0f + static_cast<float>(level_num - 2) * 14.0f);
+      float cur_spd = std::sqrt(treats[i].vx * treats[i].vx + treats[i].vy * treats[i].vy);
+      if (cur_spd > max_t_spd && cur_spd > 0.1f) {
+        treats[i].vx = (treats[i].vx / cur_spd) * max_t_spd;
+        treats[i].vy = (treats[i].vy / cur_spd) * max_t_spd;
+      }
+
+      treats[i].x += treats[i].vx * dt;
+      treats[i].y += treats[i].vy * dt;
+
+      // Bounce treats inside the plate rim (r = 180)
+      float bdx = treats[i].x - static_cast<float>(cx);
+      float bdy = treats[i].y - static_cast<float>(cy);
+      float bd = std::sqrt(bdx * bdx + bdy * bdy);
+      if (bd > 180.0f && bd > 0.1f) {
+        float nx = bdx / bd, ny = bdy / bd;
+        treats[i].x = static_cast<float>(cx) + nx * 180.0f;
+        treats[i].y = static_cast<float>(cy) + ny * 180.0f;
+        float v_dot = treats[i].vx * nx + treats[i].vy * ny;
+        if (v_dot > 0.0f) {
+          treats[i].vx -= 1.9f * v_dot * nx;
+          treats[i].vy -= 1.9f * v_dot * ny;
+        }
+      }
+    }
+  }
+
+  // Find nearest remaining uneaten snack for eye tracking
   float nearest_dist = 999.0f;
   float look_dx = 0.0f;
   float look_dy = 0.0f;
 
   for (int i = 0; i < NUM_TREATS; i++) {
+    if (treats[i].eaten) continue;
     float dx = treats[i].x - mon_x;
     float dy = treats[i].y - mon_y;
     float d = std::sqrt(dx * dx + dy * dy);
     if (d < nearest_dist) {
       nearest_dist = d;
-      nearest_idx = i;
       look_dx = dx / (d + 0.1f);
       look_dy = dy / (d + 0.1f);
     }
   }
 
-  // Tap Screen or Press Button -> Cheerful Monster Dash toward the nearest snack!
+  // Tap Screen or Press Button -> Playful hop boost in the direction the monster is looking
   if (marble_touch_x >= 0.0f || game_btn_pressed) {
     marble_touch_x = -1.0f;
     game_btn_pressed = false;
-    mon_vx += look_dx * 240.0f;
-    mon_vy += look_dy * 240.0f;
+    if (!in_celebration && nearest_dist < 900.0f) {
+      mon_vx += look_dx * 165.0f;
+      mon_vy += look_dy * 165.0f;
+    }
   }
 
-  // Kid-Friendly Roaming Monster Physics:
-  // Responsive tilt acceleration + gentle snack-magnet pull when within 64px of a treat
-  // + controlled 0.90f damping so the monster is easy to steer and never slides out of control!
+  // Roaming Monster Physics (slightly livelier 0.925f damping + tighter 36px mouth-snap)
   float ax = fmaxf(-620.0f, fminf(620.0f, roll_delta * 32.0f));
   float ay = fmaxf(-620.0f, fminf(620.0f, -pitch_delta * 32.0f));
 
   float pull_x = 0.0f, pull_y = 0.0f;
-  if (nearest_dist < 64.0f) {
-    float pull_mag = (1.0f - nearest_dist / 64.0f) * 240.0f;
+  if (!in_celebration && nearest_dist < 38.0f) {
+    float pull_mag = (1.0f - nearest_dist / 38.0f) * 110.0f;
     pull_x = look_dx * pull_mag;
     pull_y = look_dy * pull_mag;
   }
 
-  float damping = std::pow(0.90f, dt / 0.05f);
+  float damping = std::pow(0.925f, dt / 0.05f);
   mon_vx = (mon_vx + (ax + pull_x) * dt) * damping;
   mon_vy = (mon_vy + (ay + pull_y) * dt) * damping;
   mon_x += mon_vx * dt;
   mon_y += mon_vy * dt;
 
-  // Keep Monster inside the circular play bowl (r_bowl = 208, monster_r = 36 -> max center r = 170)
+  // Keep Monster inside the circular play bowl (max center r = 172)
   float mdx = mon_x - static_cast<float>(cx);
   float mdy = mon_y - static_cast<float>(cy);
   float mdist = std::sqrt(mdx * mdx + mdy * mdy);
-  const float max_mon_r = 170.0f;
+  const float max_mon_r = 172.0f;
   if (mdist > max_mon_r && mdist > 0.001f) {
     float nx = mdx / mdist;
     float ny = mdy / mdist;
@@ -1909,63 +1950,68 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
     mon_y = static_cast<float>(cy) + ny * max_mon_r;
     float v_dot = mon_vx * nx + mon_vy * ny;
     if (v_dot > 0.0f) {
-      mon_vx -= 1.55f * v_dot * nx;
-      mon_vy -= 1.55f * v_dot * ny;
+      mon_vx -= 1.6f * v_dot * nx;
+      mon_vy -= 1.6f * v_dot * ny;
     }
   }
 
-  // Check if the roaming Monster chomped any of the 5 treats!
-  nearest_dist = 999.0f;
-  for (int i = 0; i < NUM_TREATS; i++) {
-    float dx = treats[i].x - mon_x;
-    float dy = treats[i].y - mon_y;
-    float dist = std::sqrt(dx * dx + dy * dy);
+  // Check if the Monster chomped any remaining treat (tighter 36px capture radius)
+  if (!in_celebration) {
+    for (int i = 0; i < NUM_TREATS; i++) {
+      if (treats[i].eaten) continue;
+      float dx = treats[i].x - mon_x;
+      float dy = treats[i].y - mon_y;
+      float dist = std::sqrt(dx * dx + dy * dy);
 
-    if (dist < 42.0f) {
-      treat_score++;
-      chomp_timer = now_ms;
-      chomp_word_idx = (chomp_word_idx + 1) % 5;
-      if (treat_score > high_score_chomp) {
-        high_score_chomp = treat_score;
-      }
-      // Every 5 treats: Milestone Party Confetti Burst around the Monster!
-      if (treat_score > 0 && (treat_score % 5 == 0)) {
-        party_timer = now_ms;
-        esphome::Color p_cols[5] = {col_gold, col_cyan, col_magenta, col_green, col_orange};
-        for (int c = 0; c < 14; c++) {
-          float ang = static_cast<float>(c) * (2.0f * PI_F / 14.0f);
-          float spd = 95.0f + static_cast<float>((c % 3) * 32);
-          confetti[c].x = mon_x + fast_cos(ang) * 20.0f;
-          confetti[c].y = mon_y + fast_sin(ang) * 20.0f;
-          confetti[c].vx = fast_cos(ang) * spd;
-          confetti[c].vy = fast_sin(ang) * spd - 35.0f;
-          confetti[c].col = p_cols[c % 5];
+      if (dist < 36.0f) {
+        treats[i].eaten = true;
+        treats_left--;
+        treat_score++;
+        chomp_timer = now_ms;
+        chomp_word_idx = (chomp_word_idx + 1) % 5;
+        if (treat_score > high_score_chomp) {
+          high_score_chomp = treat_score;
         }
-      }
-      place_treat(i, now_ms + static_cast<uint32_t>(treat_score * 89));
-      dx = treats[i].x - mon_x;
-      dy = treats[i].y - mon_y;
-      dist = std::sqrt(dx * dx + dy * dy);
-    }
 
-    if (dist < nearest_dist) {
-      nearest_dist = dist;
-      look_dx = dx / (dist + 0.1f);
-      look_dy = dy / (dist + 0.1f);
+        if (treats_left <= 0) {
+          // All 7 treats on the plate gobbled up -> Level Clear Celebration + Victory Fanfare!
+          treat_score += 3; // Level Clear bonus
+          if (treat_score > high_score_chomp) {
+            high_score_chomp = treat_score;
+          }
+          level_clear_until_ms = now_ms + 1550U;
+          in_celebration = true;
+          pending_game_sfx() = 2; // Level Clear Fanfare!
+
+          esphome::Color p_cols[5] = {col_gold, col_cyan, col_magenta, col_green, col_orange};
+          for (int c = 0; c < 16; c++) {
+            float ang = static_cast<float>(c) * (2.0f * PI_F / 16.0f);
+            float spd = 105.0f + static_cast<float>((c % 3) * 34);
+            confetti[c].x = mon_x + fast_cos(ang) * 20.0f;
+            confetti[c].y = mon_y + fast_sin(ang) * 20.0f;
+            confetti[c].vx = fast_cos(ang) * spd;
+            confetti[c].vy = fast_sin(ang) * spd - 40.0f;
+            confetti[c].col = p_cols[c % 5];
+          }
+        } else {
+          // Regular treat chomped -> Play Cookie-Monster "Nom-Nom" Chomp SFX!
+          pending_game_sfx() = 1;
+        }
+        break;
+      }
     }
   }
 
-  bool is_party = (party_timer > 0U && (now_ms - party_timer < 1500U));
-  if (is_party) {
-    for (int c = 0; c < 14; c++) {
+  if (in_celebration) {
+    for (int c = 0; c < 16; c++) {
       confetti[c].x += confetti[c].vx * dt;
       confetti[c].y += confetti[c].vy * dt;
       confetti[c].vy += 110.0f * dt;
     }
   }
 
-  bool is_chomping = (chomp_timer > 0U && (now_ms - chomp_timer < 550U));
-  bool mouth_open = (nearest_dist < 95.0f);
+  bool is_chomping = in_celebration || (chomp_timer > 0U && (now_ms - chomp_timer < 520U));
+  bool mouth_open  = (!in_celebration && nearest_dist < 82.0f);
 
   // ==========================================================================
   // RENDERING PIPELINE
@@ -1973,46 +2019,47 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
   // 1. Play Bowl Rim & Bottom Scorekeeper HUD (y = 408)
   it.circle(cx, cy, 208, col_dark_gray);
-  char t_buf[48];
-  snprintf(t_buf, sizeof(t_buf), "Treats: %d  •  Best: %d", treat_score, high_score_chomp);
+  char t_buf[56];
+  snprintf(t_buf, sizeof(t_buf), "Lv %d  •  Left:%d/7  •  Score:%d  •  Best:%d",
+           level_num, treats_left, treat_score, high_score_chomp);
   it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, t_buf);
 
-  // 2. Render All 5 Scattered Kid Treats (with gentle floating bob)
+  // 2. Render Remaining Uneaten Treats on the Plate
   float t_bob = now_ms * 0.0045f;
   for (int i = 0; i < NUM_TREATS; i++) {
-    int bob_y = static_cast<int>(fast_sin(t_bob + static_cast<float>(i) * 1.25f) * 2.5f);
+    if (treats[i].eaten) continue;
+    int bob_y = static_cast<int>(fast_sin(t_bob + static_cast<float>(i) * 1.15f) * 2.5f);
     render_chomp_treat(it, static_cast<int>(treats[i].x), static_cast<int>(treats[i].y) + bob_y,
                        treats[i].kind, col_white, col_red, col_gold, col_cyan, col_green, col_magenta, col_bg);
   }
 
-  // 3. Render Roaming Cookie-Monster Friend (drawn on top of treats as he gobbles them up!)
+  // 3. Render Roaming Cookie-Monster Friend (wears Party Hat on Level 2+ or during celebration!)
   int imx = static_cast<int>(mon_x);
   int imy = static_cast<int>(mon_y);
-  render_chomp_monster(it, imx, imy, 36, look_dx, look_dy, mouth_open, is_chomping,
-                       (treat_score >= 5), now_ms,
+  render_chomp_monster(it, imx, imy, 34, look_dx, look_dy, mouth_open, is_chomping,
+                       (level_num >= 2 || in_celebration), now_ms,
                        col_white, col_black, col_gold, col_red, col_magenta, col_dark_gray);
 
-  // 4. Happy Chomp Word Popup & Milestone Party Confetti Burst
-  if (is_party) {
-    for (int c = 0; c < 14; c++) {
+  // 4. Level Clear Celebration Banner & Confetti vs. Chomp Word Popup
+  if (in_celebration) {
+    for (int c = 0; c < 16; c++) {
       it.filled_circle(static_cast<int>(confetti[c].x), static_cast<int>(confetti[c].y), 3, confetti[c].col);
     }
     char p_msg[32];
-    snprintf(p_msg, sizeof(p_msg), "%d TREATS! YAY!", treat_score);
-    int pop_y = (imy > 170) ? (imy - 58) : (imy + 56);
+    snprintf(p_msg, sizeof(p_msg), "LEVEL %d CLEAR!", level_num);
+    int pop_y = (imy > 180) ? (imy - 62) : (imy + 60);
     it.print(cx, pop_y, font_date, col_gold, esphome::display::TextAlign::CENTER, p_msg);
   } else if (is_chomping) {
     static constexpr const char *CHOMP_WORDS[5] = {
         "NOM NOM!", "YUMMY!", "COOKIE!", "CHOMP!", "DELICIOUS!"};
-    int pop_y = (imy > 150) ? (imy - 54) : (imy + 54);
+    int pop_y = (imy > 150) ? (imy - 52) : (imy + 52);
     int pop_x = std::max(115, std::min(351, imx));
     it.print(pop_x, pop_y, font_date, col_gold, esphome::display::TextAlign::CENTER,
              CHOMP_WORDS[chomp_word_idx]);
-    it.filled_circle(imx - 44, imy - 16, 3, col_gold);
-    it.filled_circle(imx + 44, imy - 16, 3, col_cyan);
+    it.filled_circle(imx - 42, imy - 16, 3, col_gold);
+    it.filled_circle(imx + 42, imy - 16, 3, col_cyan);
   }
 }
-
 // ==============================================================================
 // SECTION 19: GAMES SUITE CAROUSEL LAUNCHER (PAGE 3, STATE 0 — 4 GAMES)
 // ==============================================================================

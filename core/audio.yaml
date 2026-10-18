@@ -679,6 +679,33 @@ script:
                 timeout: 5s
             - delay: 800ms
 
+  - id: play_game_sfx
+    mode: restart
+    parameters:
+      sfx_id: int
+    then:
+      - script.stop: mp_idle_debounce
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: !lambda |-
+            float v = id(alert_volume).state;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
+            if (v > 100.0f) v = 100.0f;
+            if (v < 20.0f) v = 20.0f;
+            return (100.0f - v) * 0.18f;
+          duration: 0.02s
+      - rtttl.play:
+          id: alarm_rtttl
+          rtttl: !lambda |-
+            if (sfx_id == 2) {
+              // Upbeat Arcade Level-Clear Celebration Fanfare
+              return std::string("win:d=16,o=5,b=240:c,e,g,c6,p,g,c6,e6,8g6");
+            }
+            // Low-register Cookie-Monster "Nom-Nom" Double Crunch
+            return std::string("chomp:d=32,o=4,b=355:g,d,c,p,g,d,c");
+
   - id: stop_alarm_sound
     mode: restart
     then:
