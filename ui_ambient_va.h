@@ -29,24 +29,10 @@ static constexpr uint16_t AURORA_PLUME_LUT[64] = {
 
 template<typename DisplayT>
 inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now_ms) {
+  (void)cx;
   float t = now_ms * 0.0010f;
 
-  // 1. Subtle Polar Night Starfield in the upper/mid sky dome (shines softly behind the aurora veils)
-  float t_twinkle = now_ms * 0.0025f;
-  for (int k = 0; k < 28; k++) {
-    float r_norm = sqrtf((static_cast<float>(k) + 0.5f) * (1.0f / 28.0f));
-    float r_px = 24.0f + r_norm * 196.0f;
-    float ang = static_cast<float>(k) * 2.39996323f + 0.4f;
-    float sa = 0.0f, ca = 1.0f;
-    fast_sincos(ang, sa, ca);
-    int sx = cx + static_cast<int>(ca * r_px);
-    int sy = cy - static_cast<int>( std::fabs(sa) * r_px * 0.85f) + 18; // Concentrated in upper/mid polar sky
-    if (!is_inside_bezel(sx, sy, cy, 8)) continue;
-    uint8_t br = static_cast<uint8_t>(110 + static_cast<int>(55.0f * fast_sin(t_twinkle + k * 1.1f)));
-    it.draw_pixel_at(sx, sy, esphome::Color(static_cast<uint8_t>(br * 0.82f), static_cast<uint8_t>(br * 0.90f), br));
-  }
-
-  // 2. 3 Full-Bodied Polar Curtains with Zero-Division Soft-Max Overlap Blending
+  // Slow organic breathing pulse per veil (0.90 .. 1.04) with deep, saturated base hues
   float b1 = 0.92f + 0.10f * fast_sin(t * 0.9f);
   int p1_r = static_cast<int>(192.0f * b1);
   int p1_g = static_cast<int>(24.0f  * b1);
@@ -69,6 +55,7 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     int y_max = cy + h_half;
     float xf = static_cast<float>(x);
 
+    // Full-bodied Chunk 72 physical veil geometry (120..150px heights & wide organic overlap)
     int y1 = cy - 10 + static_cast<int>(fast_sin(xf * 0.011f + t * 0.6f) * 58.0f + fast_cos(xf * 0.006f - t * 0.35f) * 28.0f);
     int len1 = 120 + static_cast<int>(fast_sin(xf * 0.024f + t * 1.2f) * 35.0f);
     int top1 = y1 - len1;
@@ -94,42 +81,48 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
     if (y3 > col_bot) col_bot = y3;
     if (col_bot > y_max) col_bot = y_max;
 
-    // Zero-Division Hue-Preserving Soft-Max Blend:
-    // For each RGB channel, takes max(c1, c2, c3) + 25% of secondary contributions ((sum - max) >> 2).
-    // Eliminates 3 hardware divisions per pixel (~100,000 divisions/frame saved!) while preserving
-    // deep indigo, royal blue, and seafoam overlap blends without white saturation.
+    // Exact Chunk 73 Hue-Preserving Soft-Add Blending:
+    // Weights RGB mix by (w_max + 25% of secondary weights) / w_sum so intersections glow
+    // into deep indigo, royal blue, and seafoam instead of saturating to white.
     for (int py = col_bot; py >= col_top; py -= 2) {
-      int r_sum = 0, g_sum = 0, b_sum = 0;
-      int r_max = 0, g_max = 0, b_max = 0;
+      int r = 0, g = 0, b = 0;
+      uint32_t w_sum = 0;
+      uint32_t w_max = 0;
 
       if (py <= y1 && py >= top1) {
-        uint32_t w1 = AURORA_PLUME_LUT[(((y1 - py) * step1_fp) >> 10) & 63];
-        r_sum = r_max = (p1_r * static_cast<int>(w1)) >> 8;
-        g_sum = g_max = (p1_g * static_cast<int>(w1)) >> 8;
-        b_sum = b_max = (p1_b * static_cast<int>(w1)) >> 8;
+        int idx1 = ((y1 - py) * step1_fp) >> 10;
+        uint32_t w1 = AURORA_PLUME_LUT[idx1 & 63];
+        r += (p1_r * static_cast<int>(w1)) >> 8;
+        g += (p1_g * static_cast<int>(w1)) >> 8;
+        b += (p1_b * static_cast<int>(w1)) >> 8;
+        w_sum += w1;
+        w_max = w1;
       }
       if (py <= y2 && py >= top2) {
-        uint32_t w2 = AURORA_PLUME_LUT[(((y2 - py) * step2_fp) >> 10) & 63];
-        int r2 = (p2_r * static_cast<int>(w2)) >> 8;
-        int g2 = (p2_g * static_cast<int>(w2)) >> 8;
-        int b2 = (p2_b * static_cast<int>(w2)) >> 8;
-        r_sum += r2; if (r2 > r_max) r_max = r2;
-        g_sum += g2; if (g2 > g_max) g_max = g2;
-        b_sum += b2; if (b2 > b_max) b_max = b2;
+        int idx2 = ((y2 - py) * step2_fp) >> 10;
+        uint32_t w2 = AURORA_PLUME_LUT[idx2 & 63];
+        r += (p2_r * static_cast<int>(w2)) >> 8;
+        g += (p2_g * static_cast<int>(w2)) >> 8;
+        b += (p2_b * static_cast<int>(w2)) >> 8;
+        w_sum += w2;
+        if (w2 > w_max) w_max = w2;
       }
       if (py <= y3 && py >= top3) {
-        uint32_t w3 = AURORA_PLUME_LUT[(((y3 - py) * step3_fp) >> 10) & 63];
-        int r3 = (p3_r * static_cast<int>(w3)) >> 8;
-        int g3 = (p3_g * static_cast<int>(w3)) >> 8;
-        int b3 = (p3_b * static_cast<int>(w3)) >> 8;
-        r_sum += r3; if (r3 > r_max) r_max = r3;
-        g_sum += g3; if (g3 > g_max) g_max = g3;
-        b_sum += b3; if (b3 > b_max) b_max = b3;
+        int idx3 = ((y3 - py) * step3_fp) >> 10;
+        uint32_t w3 = AURORA_PLUME_LUT[idx3 & 63];
+        r += (p3_r * static_cast<int>(w3)) >> 8;
+        g += (p3_g * static_cast<int>(w3)) >> 8;
+        b += (p3_b * static_cast<int>(w3)) >> 8;
+        w_sum += w3;
+        if (w3 > w_max) w_max = w3;
       }
 
-      int r = r_max + ((r_sum - r_max) >> 2);
-      int g = g_max + ((g_sum - g_max) >> 2);
-      int b = b_max + ((b_sum - b_max) >> 2);
+      if (w_sum > w_max && w_sum > 0) {
+        uint32_t w_target = w_max + ((w_sum - w_max) >> 2);
+        r = static_cast<int>((static_cast<uint32_t>(r) * w_target) / w_sum);
+        g = static_cast<int>((static_cast<uint32_t>(g) * w_target) / w_sum);
+        b = static_cast<int>((static_cast<uint32_t>(b) * w_target) / w_sum);
+      }
 
       if ((r | g | b) > 5) {
         uint8_t cr = static_cast<uint8_t>(r > 255 ? 255 : r);
@@ -149,8 +142,8 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
 
 template<typename DisplayT>
 inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t now_ms = 0) {
-  struct Star3D { float x, y, z; uint8_t tint; };
-  static Star3D stars[90];
+  struct Star3D { float x, y, z; };
+  static Star3D stars[95];
   static bool stars_init = false;
   static uint32_t star_seed = 123456789;
   static uint32_t last_star_ms = 0;
@@ -161,87 +154,87 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
   };
   auto respawn_star = [&](int i, bool init_z) {
     float ang = star_rand() * (2.0f * PI_F);
-    float dist = 36.0f + star_rand() * 640.0f;
-    stars[i].x = fast_cos(ang) * dist;
-    stars[i].y = fast_sin(ang) * dist;
-    stars[i].z = init_z ? (35.0f + star_rand() * 920.0f) : (840.0f + star_rand() * 140.0f);
-    stars[i].tint = static_cast<uint8_t>(i & 3);
+    // Area-uniform radial distribution (sqrt(rand)) so stars fill the 3D tunnel evenly
+    // instead of clumping 16x denser in a spoke-ring around the center!
+    float dist = 32.0f + sqrtf(star_rand()) * 620.0f;
+    float sa = 0.0f, ca = 1.0f;
+    fast_sincos(ang, sa, ca);
+    stars[i].x = ca * dist;
+    stars[i].y = sa * dist;
+    stars[i].z = init_z ? (40.0f + star_rand() * 880.0f) : (780.0f + star_rand() * 160.0f);
   };
   if (!stars_init) {
-    for (int i = 0; i < 90; i++) respawn_star(i, true);
+    for (int i = 0; i < 95; i++) respawn_star(i, true);
     stars_init = true;
     last_star_ms = now_ms;
   }
 
-  float speed = 13.5f;
+  float speed = 15.0f;
   if (now_ms > 0) {
     uint32_t dt = now_ms - last_star_ms;
     last_star_ms = now_ms;
     if (dt >= 20U && dt <= 300U) {
-      speed = static_cast<float>(dt) * 0.26f;
+      speed = static_cast<float>(dt) * 0.28f;
     }
   }
 
-  // Gentle 3D spacecraft banking & vanishing-point drift for fluid 3D flight feel
-  float t_flight = now_ms * 0.00045f;
-  int vp_x = cx + static_cast<int>(fast_sin(t_flight) * 24.0f);
-  int vp_y = cy + static_cast<int>(fast_cos(t_flight * 0.8f) * 18.0f);
-  float bank_s = 0.0f, bank_c = 1.0f;
-  fast_sincos(0.28f * fast_sin(t_flight * 0.7f), bank_s, bank_c);
-
-  for (int i = 0; i < 90; i++) {
+  for (int i = 0; i < 95; i++) {
     stars[i].z -= speed;
-    if (stars[i].z <= 28.0f) {
+    if (stars[i].z <= 32.0f) {
       respawn_star(i, false);
       continue;
     }
 
-    // Rotate star (x, y) by gentle 3D spacecraft bank angle
-    float rx = stars[i].x * bank_c - stars[i].y * bank_s;
-    float ry = stars[i].x * bank_s + stars[i].y * bank_c;
-
     float k = 230.0f / stars[i].z;
-    int sx = vp_x + static_cast<int>(rx * k);
-    int sy = vp_y + static_cast<int>(ry * k);
+    int sx = cx + static_cast<int>(stars[i].x * k);
+    int sy = cy + static_cast<int>(stars[i].y * k);
     if (!is_inside_bezel(sx, sy, cy, 6)) {
       respawn_star(i, false);
       continue;
     }
 
-    // Smooth continuous depth-luminance ramp (0.12 at z=960 -> 1.0 at z=30: zero bucket popping!)
-    float depth_u = fmaxf(0.0f, fminf(1.0f, 1.0f - (stars[i].z * (1.0f / 960.0f))));
-    float lum = 0.14f + 0.86f * depth_u * (0.45f + 0.55f * depth_u);
+    // Bright, high-contrast Classic Hyperspace progression (z in [32..940])
+    float depth_u = fmaxf(0.0f, fminf(1.0f, 1.0f - (stars[i].z * (1.0f / 920.0f))));
+    // High baseline brightness (125..255) so the starfield looks vibrant & crisp
+    float lum = 0.48f + 0.52f * depth_u;
 
-    // Subtle stellar spectral tints (0: Ice-Cyan, 1: Pure White-Blue, 2: Solar Gold, 3: Soft Rose-Amber)
-    uint8_t sr, sg, sb;
-    if (stars[i].tint == 0) {
-      sr = static_cast<uint8_t>(165.0f * lum); sg = static_cast<uint8_t>(235.0f * lum); sb = static_cast<uint8_t>(255.0f * lum);
-    } else if (stars[i].tint == 2) {
-      sr = static_cast<uint8_t>(255.0f * lum); sg = static_cast<uint8_t>(230.0f * lum); sb = static_cast<uint8_t>(175.0f * lum);
-    } else if (stars[i].tint == 3) {
-      sr = static_cast<uint8_t>(255.0f * lum); sg = static_cast<uint8_t>(195.0f * lum); sb = static_cast<uint8_t>(215.0f * lum);
+    if (stars[i].z > 640.0f) {
+      // Distant deep-space pinpoint stars (crisp cool silver-blue)
+      uint8_t b_far = static_cast<uint8_t>(220.0f * lum);
+      it.draw_pixel_at(sx, sy, esphome::Color(
+          static_cast<uint8_t>(b_far * 0.72f),
+          static_cast<uint8_t>(b_far * 0.85f),
+          b_far));
     } else {
-      sr = static_cast<uint8_t>(215.0f * lum); sg = static_cast<uint8_t>(235.0f * lum); sb = static_cast<uint8_t>(255.0f * lum);
-    }
-    esphome::Color head_col(sr, sg, sb);
+      // Organic hyperspace motion trail (capped at 26px max screen length so close stars never draw long artificial spokes)
+      float prev_k = 230.0f / (stars[i].z + speed * 1.35f);
+      int px = cx + static_cast<int>(stars[i].x * prev_k);
+      int py = cy + static_cast<int>(stars[i].y * prev_k);
+      int dx = sx - px, dy = sy - py;
+      int len_sq = dx * dx + dy * dy;
+      if (len_sq > 676) { // Cap trail length at 26px
+        float scale_l = 26.0f / sqrtf(static_cast<float>(len_sq));
+        px = sx - static_cast<int>(dx * scale_l);
+        py = sy - static_cast<int>(dy * scale_l);
+      }
 
-    if (depth_u < 0.28f) {
-      it.draw_pixel_at(sx, sy, head_col);
-    } else {
-      float tail_z = stars[i].z + speed * (1.2f + 1.4f * depth_u);
-      float prev_k = 230.0f / tail_z;
-      int px = vp_x + static_cast<int>(rx * prev_k);
-      int py = vp_y + static_cast<int>(ry * prev_k);
-      esphome::Color tail_col(static_cast<uint8_t>(sr >> 1), static_cast<uint8_t>(sg >> 1), static_cast<uint8_t>(sb >> 1));
-      it.line(px, py, sx, sy, tail_col);
-      it.draw_pixel_at(sx, sy, head_col);
-      if (depth_u > 0.74f) {
-        it.filled_circle(sx, sy, (depth_u > 0.88f) ? 2 : 1, head_col);
+      if (stars[i].z > 320.0f) {
+        uint8_t tr = static_cast<uint8_t>(110.0f * lum);
+        uint8_t tg = static_cast<uint8_t>(195.0f * lum);
+        uint8_t tb = static_cast<uint8_t>(250.0f * lum);
+        it.line(px, py, sx, sy, esphome::Color(tr, tg, tb));
+        it.draw_pixel_at(sx, sy, esphome::Color(220, 240, 255));
+      } else {
+        // Foreground hyperspace stars: two-stage ice-blue wake + brilliant white star head
+        int mx = (px + sx) >> 1;
+        int my = (py + sy) >> 1;
+        it.line(px, py, mx, my, esphome::Color(35, 135, 220));
+        it.line(mx, my, sx, sy, esphome::Color(135, 220, 255));
+        it.filled_circle(sx, sy, (stars[i].z < 175.0f) ? 2 : 1, esphome::Color(255, 255, 255));
       }
     }
   }
 }
-
 static constexpr uint16_t MATRIX_GLYPH_MASK[32] = {
   0x121, 0x181, 0x069, 0x085, 0x183, 0x06B, 0x083, 0x129,
   0x0A9, 0x065, 0x0A3, 0x105, 0x214, 0x12B, 0x182, 0x007,
@@ -587,9 +580,11 @@ inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now
                                       esphome::Color col_slate, esphome::Color col_dark_gray) {
   (void)col_dark_gray;
   if (ss_style == "Ambient Clock") {
-    int min_val = now.is_valid() ? now.minute : 0;
-    int drift_x = (min_val % 10) * 4 - 18;
-    int drift_y = ((min_val / 10) % 6) * 4 - 10;
+    // Continuous visible Lissajous floating drift (updated every second on disp1's 1 Hz tick):
+    // Glides smoothly across +/-42px X and +/-52px Y so the clock & date visibly float around the screen
+    float t_drift = static_cast<float>(now_ms % 3600000U) * 0.00018f;
+    int drift_x = static_cast<int>(fast_sin(t_drift) * 42.0f);
+    int drift_y = static_cast<int>(fast_cos(t_drift * 0.73f) * 52.0f);
 
     char amb_time[16];
     if (now.is_valid()) {
