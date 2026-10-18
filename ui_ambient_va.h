@@ -143,7 +143,7 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
 template<typename DisplayT>
 inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t now_ms = 0) {
   struct Star3D { float x, y, z; };
-  static constexpr int NUM_STARS = 110;
+  static constexpr int NUM_STARS = 74;
   static Star3D stars[NUM_STARS];
   static bool stars_init = false;
   static uint32_t star_seed = 123456789;
@@ -155,8 +155,6 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
   };
   auto respawn_star = [&](int i, bool init_z) {
     float ang = star_rand() * (2.0f * PI_F);
-    // 75-unit inner clearance: spawns within ~19px of center at z=900 so the center stays well-populated,
-    // while still angling every star outward past r>105px before reaching the foreground!
     float dist = 75.0f + sqrtf(star_rand()) * 560.0f;
     float sa = 0.0f, ca = 1.0f;
     fast_sincos(ang, sa, ca);
@@ -195,27 +193,32 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
     }
 
     float depth_u = fmaxf(0.0f, fminf(1.0f, 1.0f - (stars[i].z * (1.0f / 920.0f))));
-    // Boosted baseline luminance (0.62 -> 1.00) so center & mid-field stars shine crisply
     float lum = 0.62f + 0.38f * depth_u;
     bool is_blue_accent = ((i % 5) == 0);
+    // 1 in 4 stars ((i & 3) == 0) gets a 2.2x longer origin streak (up to 34px) to convey high-speed flight
+    bool is_long_streak = ((i & 3) == 0);
+    float streak_start_z = is_long_streak ? 700.0f : 600.0f;
 
-    if (stars[i].z > 620.0f) {
-      // Distant center-origin stars: crisp bright silver-white (150..215)
+    if (stars[i].z > streak_start_z) {
       uint8_t b_far = static_cast<uint8_t>(240.0f * lum);
       it.draw_pixel_at(sx, sy, esphome::Color(b_far, b_far, static_cast<uint8_t>(fminf(255.0f, b_far * 1.05f))));
     } else {
-      float prev_k = 230.0f / (stars[i].z + speed * 0.95f);
+      float lookback = is_long_streak ? (speed * 2.15f) : (speed * 0.90f);
+      float max_len  = is_long_streak ? 34.0f : 14.0f;
+      int max_len_sq = is_long_streak ? 1156 : 196;
+
+      float prev_k = 230.0f / (stars[i].z + lookback);
       int px = cx + static_cast<int>(stars[i].x * prev_k);
       int py = cy + static_cast<int>(stars[i].y * prev_k);
       int dx = sx - px, dy = sy - py;
       int len_sq = dx * dx + dy * dy;
-      if (len_sq > 256) {
-        float scale_l = 16.0f / sqrtf(static_cast<float>(len_sq));
+      if (len_sq > max_len_sq) {
+        float scale_l = max_len / sqrtf(static_cast<float>(len_sq));
         px = sx - static_cast<int>(dx * scale_l);
         py = sy - static_cast<int>(dy * scale_l);
       }
 
-      if (stars[i].z > 300.0f) {
+      if (stars[i].z > 320.0f && !is_long_streak) {
         uint8_t g_mid = static_cast<uint8_t>(195.0f * lum);
         esphome::Color mid_trail = is_blue_accent
             ? esphome::Color(static_cast<uint8_t>(g_mid * 0.68f), static_cast<uint8_t>(g_mid * 0.94f), static_cast<uint8_t>(fminf(255.0f, g_mid * 1.22f)))
@@ -225,11 +228,11 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
       } else {
         int mx = (px + sx) >> 1;
         int my = (py + sy) >> 1;
-        esphome::Color wake_col  = is_blue_accent ? esphome::Color(65, 130, 200)  : esphome::Color(110, 116, 125);
+        esphome::Color wake_col  = is_blue_accent ? esphome::Color(65, 130, 200)  : esphome::Color(95, 102, 112);
         esphome::Color shaft_col = is_blue_accent ? esphome::Color(165, 225, 255) : esphome::Color(215, 220, 228);
         it.line(px, py, mx, my, wake_col);
         it.line(mx, my, sx, sy, shaft_col);
-        it.filled_circle(sx, sy, 1, esphome::Color(255, 255, 255));
+        it.filled_circle(sx, sy, (stars[i].z < 300.0f) ? 1 : 0, esphome::Color(255, 255, 255));
       }
     }
   }
