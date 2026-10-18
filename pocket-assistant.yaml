@@ -158,7 +158,7 @@ esphome:
             then:
               - logger.log: "No Wi-Fi credentials configured: enabling BLE for first-time Improv setup"
               - ble.enable:
-        - lambda: 'esphome::voice_assistant::ensure_wake_words_restored(id(va));'
+        - lambda: 'esphome::voice_assistant::ensure_wake_words_restored(id(va), true);'
         - script.execute: apply_wake_word_sensitivities
         - script.execute: sync_display_brightness
         - script.execute: screen_sleep_timer

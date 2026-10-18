@@ -582,9 +582,9 @@ inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now
   if (ss_style == "Ambient Clock") {
     // Continuous visible Lissajous floating drift (updated every second on disp1's 1 Hz tick):
     // Glides smoothly across +/-42px X and +/-52px Y so the clock & date visibly float around the screen
-    float t_drift = static_cast<float>(now_ms % 3600000U) * 0.00018f;
-    int drift_x = static_cast<int>(fast_sin(t_drift) * 42.0f);
-    int drift_y = static_cast<int>(fast_cos(t_drift * 0.73f) * 52.0f);
+    float t_drift = static_cast<float>(now_ms % 3600000U) * 0.000035f;
+    int drift_x = static_cast<int>(fast_sin(t_drift) * 28.0f);
+    int drift_y = static_cast<int>(fast_cos(t_drift * 0.73f) * 32.0f);
 
     char amb_time[16];
     if (now.is_valid()) {

@@ -183,7 +183,7 @@ inline void abort_voice_assistant(VoiceAssistant *va) {
 }
 
 // ==============================================================================
-// Wake Word NVS Persistence, Model State Sync & API Client Handoff
+// Wake Word NVS Persistence (Dual-Slot ww1 & ww2), Model State Sync & API Handoff
 // ==============================================================================
 struct SavedWakeWordsNVS {
   uint32_t magic;
@@ -192,7 +192,8 @@ struct SavedWakeWordsNVS {
 };
 
 static constexpr uint32_t WAKE_WORDS_NVS_KEY = 0x50415757UL;
-static constexpr uint32_t WAKE_WORDS_NVS_MAGIC = 0x50415733UL;
+static constexpr uint32_t WAKE_WORDS_NVS_MAGIC = 0x50415734UL;
+static constexpr uint32_t WAKE_WORDS_NVS_MAGIC_LEGACY = 0x50415733UL;
 
 inline bool &wake_words_restored_flag() {
   static bool restored = false;
@@ -204,52 +205,65 @@ inline std::string &last_persisted_ww1() {
   return s;
 }
 
-inline void save_wake_words_to_nvs(const std::string &w1) {
+inline std::string &last_persisted_ww2() {
+  static std::string s;
+  return s;
+}
+
+inline void save_wake_words_to_nvs(const std::string &w1, const std::string &w2 = "") {
   last_persisted_ww1() = w1;
+  last_persisted_ww2() = w2;
   if (global_preferences == nullptr) return;
   SavedWakeWordsNVS data{};
   data.magic = WAKE_WORDS_NVS_MAGIC;
   std::snprintf(data.ww1, sizeof(data.ww1), "%s", w1.c_str());
-  data.ww2[0] = '\0';
+  std::snprintf(data.ww2, sizeof(data.ww2), "%s", w2.c_str());
   auto pref = global_preferences->make_preference<SavedWakeWordsNVS>(WAKE_WORDS_NVS_KEY);
   pref.save(&data);
   global_preferences->sync();
+  ESP_LOGI("va_nvs", "Saved wake words to NVS: ww1='%s', ww2='%s'", w1.c_str(), w2.c_str());
 }
 
-// Restores the selected wake word from NVS on boot (defaulting to only "okay_nabu"
-// on first boot instead of leaving all 5 compiled models simultaneously enabled).
-inline void ensure_wake_words_restored(VoiceAssistant *va) {
-  if (wake_words_restored_flag() || va == nullptr) return;
+// Restores both Wake Word 1 and Wake Word 2 from NVS on boot
+inline void ensure_wake_words_restored(VoiceAssistant *va, bool force = false) {
+  if ((wake_words_restored_flag() && !force) || va == nullptr) return;
 #ifdef USE_MICRO_WAKE_WORD
   auto *mww = va->*get(VA_MicroWakeWord_Tag());
   if (mww == nullptr) return;
   wake_words_restored_flag() = true;
 
   std::string w1 = "okay_nabu";
+  std::string w2 = "";
   if (global_preferences != nullptr) {
     SavedWakeWordsNVS data{};
     auto pref = global_preferences->make_preference<SavedWakeWordsNVS>(WAKE_WORDS_NVS_KEY);
-    if (pref.load(&data) && data.magic == WAKE_WORDS_NVS_MAGIC) {
+    if (pref.load(&data) && (data.magic == WAKE_WORDS_NVS_MAGIC || data.magic == WAKE_WORDS_NVS_MAGIC_LEGACY)) {
       data.ww1[sizeof(data.ww1) - 1] = '\0';
+      data.ww2[sizeof(data.ww2) - 1] = '\0';
       w1 = data.ww1;
+      if (data.magic == WAKE_WORDS_NVS_MAGIC) {
+        w2 = data.ww2;
+      }
     } else {
-      save_wake_words_to_nvs(w1);
+      save_wake_words_to_nvs(w1, w2);
     }
   }
   last_persisted_ww1() = w1;
+  last_persisted_ww2() = w2;
 
   for (auto *model : mww->get_wake_words()) {
     model->disable();
   }
-  bool matched = false;
+  int matched_count = 0;
   for (auto *model : mww->get_wake_words()) {
-    if (!w1.empty() && model->get_id() == w1) {
+    const std::string id_str = model->get_id();
+    if ((!w1.empty() && w1 != "no_wake_word" && id_str == w1) ||
+        (!w2.empty() && w2 != "no_wake_word" && id_str == w2)) {
       model->enable();
-      matched = true;
-      break;
+      matched_count++;
     }
   }
-  if (!matched && w1 != "no_wake_word" && !mww->get_wake_words().empty()) {
+  if (matched_count == 0 && w1 != "no_wake_word" && !mww->get_wake_words().empty()) {
     mww->get_wake_words().front()->enable();
     last_persisted_ww1() = mww->get_wake_words().front()->get_id();
   }
@@ -257,10 +271,6 @@ inline void ensure_wake_words_restored(VoiceAssistant *va) {
 }
 
 // Called synchronously from `api: on_client_connected:` inside APIConnection::complete_authentication_()
-// during HelloRequest — BEFORE SubscribeVoiceAssistantRequest and VoiceAssistantConfigurationRequest
-// are sent by Home Assistant. Ensures wake word models are initialized from NVS and releases any
-// stale api_client_ pointer from a previous socket so VoiceAssistant::client_subscription() always
-// binds the new Home Assistant connection and returns all 5 wake word models.
 inline void on_api_client_authenticated(VoiceAssistant *va,
                                         const std::string &client_info,
                                         const std::string &client_address) {
@@ -277,8 +287,7 @@ inline void on_api_client_authenticated(VoiceAssistant *va,
 }
 
 // Polls mww->get_wake_words() once per second to detect when Home Assistant updates
-// the active wake word via on_set_configuration, persisting the new selection to NVS
-// and restarting mww so only the selected TFLite model is loaded in PSRAM.
+// Wake Word 1 or Wake Word 2 via on_set_configuration, persisting both slots to NVS.
 inline void poll_and_persist_wake_words(VoiceAssistant *va) {
   if (va == nullptr) return;
   ensure_wake_words_restored(va);
@@ -287,26 +296,28 @@ inline void poll_and_persist_wake_words(VoiceAssistant *va) {
   if (mww == nullptr) return;
 
   std::string cur_w1 = "no_wake_word";
+  std::string cur_w2 = "";
   for (auto *model : mww->get_wake_words()) {
     if (model->is_enabled()) {
       if (cur_w1 == "no_wake_word") {
         cur_w1 = model->get_id();
+      } else if (cur_w2.empty()) {
+        cur_w2 = model->get_id();
       } else {
-        // Keep at most 1 active wake word to match ESPHome's max_active_wake_words = 1
+        // Keep at most 2 active wake words to match Home Assistant's 2-slot Assist Satellite UI
         model->disable();
       }
     }
   }
 
-  if (cur_w1 != last_persisted_ww1()) {
-    save_wake_words_to_nvs(cur_w1);
+  if (cur_w1 != last_persisted_ww1() || cur_w2 != last_persisted_ww2()) {
+    save_wake_words_to_nvs(cur_w1, cur_w2);
     if (mww->is_running()) {
       mww->stop();
     }
   }
 #endif
 }
-
 // Cleanly sends ESPHome DisconnectRequest + TCP FIN to all connected API clients
 // before the AXP2101 cuts the 3.3V power rail in Hibernate (enter_deep_sleep).
 // Prevents Home Assistant from staying stuck on a half-open ("zombie") TCP socket
