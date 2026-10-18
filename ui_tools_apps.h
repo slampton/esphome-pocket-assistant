@@ -635,14 +635,9 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
       start_side = (coin_side == 0) ? 0 : 1;
     }
 
-    // 16 guaranteed rendered frames per toss (4 full half-flips = 4 frames per half-flip):
-    // Every 4-frame half-flip steps deterministically through:
-    //   sub 0: Full Face (scale_y = 0.90)
-    //   sub 1: Tilting Away (scale_y = 0.46)
-    //   sub 2: RAZOR-THIN 3D MILLED EDGE FLASH (scale_y = 0.06, is_edge_flash = true)
-    //   sub 3: Opening Opposite Face (scale_y = 0.48)
-    // This makes it mathematically impossible to skip a face or rock like a feather!
-    static constexpr int TOTAL_FRAMES = 16;
+    // 11 guaranteed rendered frames per toss (~31% shorter duration, faster spin cadence):
+    // Packs 4 razor-thin milled-edge flashes and 4 full face reversals into 11 crisp frames!
+    static constexpr int TOTAL_FRAMES = 11;
     if (flip_frame >= TOTAL_FRAMES) {
       coin_anim_active = false;
       scale_y = 1.0f;
@@ -650,25 +645,24 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
       z_zoom = 1.0f;
       show_heads = (coin_side == 0);
     } else {
+      static constexpr float STEP_SCALES[11] = {
+        0.84f, 0.06f, 0.56f, 0.90f, 0.06f, 0.58f, 0.90f, 0.06f, 0.86f, 0.06f, 0.58f
+      };
+      // 0 = coin_side, 1 = opposite side (alternates on every edge crossing at frames 1, 4, 7, 9)
+      static constexpr uint8_t STEP_OPP[11] = {
+        0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0
+      };
+
       float p = static_cast<float>(flip_frame + 1) / static_cast<float>(TOTAL_FRAMES + 1);
       float arc = fast_sin(p * PI_F);
       y_hop = -68.0f * arc;
       z_zoom = 0.96f + 0.20f * arc;
 
-      int half_flip_idx = flip_frame / 4; // 0, 1, 2, 3 (4 half-flips)
-      int sub_step      = flip_frame % 4; // 0=Full, 1=Tilt, 2=Edge, 3=Open opposite
-
-      // Alternate Heads <-> Tails on every single half-flip, landing on coin_side at the end
-      int cur_side = (half_flip_idx & 1) ? (1 - start_side) : start_side;
-      if (sub_step == 3) {
-        cur_side = 1 - cur_side; // Crossed edge-on at sub_step 2 -> now showing opposite face!
-      }
+      scale_y = STEP_SCALES[flip_frame];
+      is_edge_flash = (scale_y < 0.10f);
+      int cur_side = STEP_OPP[flip_frame] ? (1 - coin_side) : coin_side;
       show_heads = (cur_side == 0);
-
-      static constexpr float SUB_SCALES[4] = {0.92f, 0.46f, 0.06f, 0.50f};
-      scale_y = SUB_SCALES[sub_step];
-      is_edge_flash = (sub_step == 2);
-      theta = static_cast<float>(flip_frame) * (PI_F * 0.25f);
+      theta = static_cast<float>(flip_frame) * (PI_F * 0.36f);
       flip_frame++;
     }
   } else {
