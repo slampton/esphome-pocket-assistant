@@ -268,7 +268,9 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
   (void)cx;
   static constexpr int NUM_COLS = 22;
   static constexpr int CELL_H = 14;
+  static constexpr int GRID_ROWS = 33; // Flat rectangular terminal grid (rows 0..33 across 466px height)
 
+  // Slow anti-burn-in horizontal & vertical grid drift
   float t_drift = now_ms * 0.00007f;
   int drift_x = static_cast<int>(fast_sin(t_drift) * 4.2f);
   int drift_y = static_cast<int>(fast_cos(t_drift * 1.3f) * 3.2f);
@@ -282,54 +284,92 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
     int y_min = cy - max_dy;
     int y_max = cy + max_dy;
 
-    int min_row = (y_min - drift_y) / CELL_H;
-    int max_row = (y_max - drift_y) / CELL_H;
-    int visible_rows = max_row - min_row + 1;
-    if (visible_rows <= 2) continue;
+    // Circular bezel clipping bounds in flat terminal row coordinates
+    int clip_min_row = (y_min - drift_y) / CELL_H;
+    int clip_max_row = (y_max - drift_y) / CELL_H;
+    if (clip_max_row - clip_min_row < 2) continue;
 
-    float col_h1 = hash2d_01(i * 37 + 11, i * 19 + 5);
-    float col_h2 = hash2d_01(i * 53 + 23, i * 29 + 7);
-    float rows_per_sec = 5.4f + col_h1 * 7.0f;
-    float cycle_rows_f = static_cast<float>(visible_rows) + 30.0f + col_h2 * 18.0f;
+    // Permute column index with coprime stride (7) so adjacent columns never share similar speeds or lengths
+    int perm_i = (i * 7 + 3) % NUM_COLS;
+    float col_h1 = hash2d_01(perm_i * 41 + 13, i * 19 + 5);
+    float col_h2 = hash2d_01(perm_i * 59 + 29, i * 31 + 11);
 
-    float init_phase_frac = fmodf(static_cast<float>(i) * 0.6180339887f + col_h1 * 0.37f, 1.0f);
+    // Base velocity (5.2 .. 12.0 rows/sec) on a uniform flat terminal cycle (independent of bezel arch!)
+    float rows_per_sec = 5.2f + col_h1 * 6.8f;
+    float cycle_rows_f = static_cast<float>(GRID_ROWS) + 22.0f + col_h2 * 14.0f;
+
+    // Golden-ratio conjugate step (0.381966) between neighboring columns prevents horizontal wave clumping
+    float init_phase_frac = fmodf(static_cast<float>(i) * 0.381966011f + static_cast<float>(perm_i) * 0.145898f, 1.0f);
     float total_travel = t_sec * rows_per_sec + init_phase_frac * cycle_rows_f;
 
     uint32_t pass_idx = static_cast<uint32_t>(total_travel / cycle_rows_f);
     float local_pos = total_travel - static_cast<float>(pass_idx) * cycle_rows_f;
 
-    int pass_seed = static_cast<int>(pass_idx * 43U + static_cast<uint32_t>(i) * 109U);
+    int pass_seed = static_cast<int>(pass_idx * 47U + static_cast<uint32_t>(i) * 113U);
     float r_len   = hash2d_01(pass_seed, 13);
     float r_tier  = hash2d_01(pass_seed, 29);
-    float r_delay = hash2d_01(pass_seed, 47);
+    float r_spawn = hash2d_01(pass_seed, 47);
+    float r_end   = hash2d_01(pass_seed, 61);
 
-    int slen = 5 + static_cast<int>(r_len * 9.9f);
+    // Movie-Accurate 3-Tier Trail Lengths:
+    // - 35% Long Cathedral Ribbons (18..27 glyphs = up to 80% of screen height!)
+    // - 45% Medium Streams (11..17 glyphs)
+    // - 20% Fast Short Runners (6..10 glyphs)
+    int slen;
+    if (r_len > 0.65f) {
+      slen = 18 + static_cast<int>((r_len - 0.65f) * 28.0f); // 18..27 glyphs
+    } else if (r_len > 0.20f) {
+      slen = 11 + static_cast<int>((r_len - 0.20f) * 15.0f); // 11..17 glyphs
+    } else {
+      slen = 6 + static_cast<int>(r_len * 24.0f);            // 6..10 glyphs
+    }
     float slen_f = static_cast<float>(slen);
-    // Hoist reciprocal tail length outside the inner glyph loop (saves ~250 float divisions/frame!)
     float inv_tail_span = 1.0f / (slen_f > 2.4f ? (slen_f - 2.2f) : 1.0f);
 
-    bool is_bg_stream = (r_tier < 0.30f);
-    float bright_scale = is_bg_stream ? 0.54f : 1.0f;
+    // Mid-Screen Ignition & Mid-Screen Dissolve (authentic 1999 film behavior):
+    // ~40% of streams materialize inside the upper/middle screen (row 4..15); 60% enter from above (row -2..1)
+    int spawn_row = (r_spawn < 0.40f)
+        ? (4 + static_cast<int>(r_spawn * 28.0f))
+        : (-2 + static_cast<int>((r_spawn - 0.40f) * 5.0f));
+    // ~25% of streams terminate/dissolve in the lower-mid screen (row 20..28); 75% run all the way off the bottom
+    int dissolve_row = (r_end < 0.25f)
+        ? (20 + static_cast<int>(r_end * 34.0f))
+        : (GRID_ROWS + 4);
 
-    float start_row_f = static_cast<float>(min_row) - 1.0f - r_delay * 8.0f;
-    float head_row_f = start_row_f + local_pos;
+    bool is_bg_stream = (r_tier < 0.28f);
+    float bright_scale = is_bg_stream ? 0.52f : 1.0f;
+
+    float head_row_f = static_cast<float>(spawn_row) + local_pos;
     int head_row_top = static_cast<int>(floorf(head_row_f));
 
-    if (!is_bg_stream) {
+    // Only draw the incandescent lead cursor bloom while the head hasn't dissolved yet
+    if (!is_bg_stream && head_row_top <= dissolve_row) {
       int exact_hy = static_cast<int>(head_row_f * static_cast<float>(CELL_H)) + drift_y;
-      if (exact_hy >= y_min && exact_hy <= y_max) {
+      if (exact_hy >= y_min && exact_hy <= y_max && head_row_f >= static_cast<float>(spawn_row)) {
         it.filled_rectangle(sx - 4, exact_hy - 5, 9, 11, esphome::Color(0, 62, 18));
       }
     }
 
     for (int j = 0; j <= slen; j++) {
       int row = head_row_top - j;
-      if (row < min_row || row > max_row) continue;
+      // Clip to the stream's mid-screen ignition row, mid-screen dissolve row, and circular bezel
+      if (row < spawn_row || row > dissolve_row) continue;
+      if (row < clip_min_row || row > clip_max_row) continue;
       int gy = row * CELL_H + drift_y;
       if (gy < y_min || gy > y_max) continue;
 
       float dist = head_row_f - static_cast<float>(row);
       if (dist < 0.0f || dist > slen_f) continue;
+
+      // If the cursor head has already passed dissolve_row, fade out the lingering tail smoothly
+      float dissolve_fade = 1.0f;
+      if (head_row_f > static_cast<float>(dissolve_row)) {
+        float over = head_row_f - static_cast<float>(dissolve_row);
+        dissolve_fade = fmaxf(0.0f, 1.0f - over * (1.0f / (slen_f * 0.75f)));
+        if (dissolve_fade <= 0.05f) continue;
+      }
+
+      float eff_scale = bright_scale * dissolve_fade;
 
       uint32_t cell_hash = static_cast<uint32_t>(i * 73856093) ^
                            static_cast<uint32_t>(row * 19349663) ^
@@ -340,8 +380,8 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
       uint16_t mask = MATRIX_GLYPH_MASK[(cell_hash + glitch_tick * 19U) & 31U];
 
       esphome::Color g_col;
-      if (dist < 0.95f) {
-        float lead_env = (dist < 0.30f) ? (0.45f + (dist * (1.0f / 0.30f)) * 0.55f) : 1.0f;
+      if (dist < 0.95f && head_row_top <= dissolve_row) {
+        float lead_env = ((dist < 0.30f) ? (0.45f + (dist * (1.0f / 0.30f)) * 0.55f) : 1.0f) * dissolve_fade;
         if (!is_bg_stream) {
           g_col = esphome::Color(
               static_cast<uint8_t>(225.0f * lead_env),
@@ -355,35 +395,35 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
         }
       } else if (dist < 2.2f) {
         float u = (dist - 0.95f) * (1.0f / 1.25f);
-        float r_c = (115.0f * (1.0f - u) + 24.0f * u) * bright_scale;
-        float g_c = (255.0f * (1.0f - u) + 225.0f * u) * bright_scale;
-        float b_c = (140.0f * (1.0f - u) + 58.0f * u) * bright_scale;
+        if (u < 0.0f) u = 0.0f;
+        float r_c = (115.0f * (1.0f - u) + 24.0f * u) * eff_scale;
+        float g_c = (255.0f * (1.0f - u) + 225.0f * u) * eff_scale;
+        float b_c = (140.0f * (1.0f - u) + 58.0f * u) * eff_scale;
         g_col = esphome::Color(static_cast<uint8_t>(r_c), static_cast<uint8_t>(g_c), static_cast<uint8_t>(b_c));
       } else {
         float tail_u = (dist - 2.2f) * inv_tail_span;
         if (tail_u > 1.0f) tail_u = 1.0f;
         float inv_u = 1.0f - tail_u;
-        float fade = (16.0f + 198.0f * inv_u * (0.65f + 0.35f * inv_u)) * bright_scale;
+        float fade = (14.0f + 200.0f * inv_u * (0.60f + 0.40f * inv_u)) * eff_scale;
 
-        bool glitch_flash = (dist < 5.0f) && ((cell_hash & 7U) == 0U) &&
+        bool glitch_flash = (dist < 6.0f) && ((cell_hash & 7U) == 0U) &&
                             (((now_ms / 160U) + static_cast<uint32_t>(row)) % 6U == 0U);
         if (glitch_flash) {
           g_col = esphome::Color(
-              static_cast<uint8_t>(90.0f * bright_scale),
-              static_cast<uint8_t>(255.0f * bright_scale),
-              static_cast<uint8_t>(118.0f * bright_scale));
+              static_cast<uint8_t>(90.0f * eff_scale),
+              static_cast<uint8_t>(255.0f * eff_scale),
+              static_cast<uint8_t>(118.0f * eff_scale));
         } else {
           uint8_t fg = static_cast<uint8_t>(fade);
           g_col = esphome::Color(0, fg, static_cast<uint8_t>(fg >> 2));
         }
       }
 
-      bool slim_tail = (dist > slen_f - 1.6f && slen > 6);
+      bool slim_tail = (dist > slen_f - 2.0f && slen > 8);
       draw_matrix_katakana_glyph(it, sx, gy, mask, g_col, slim_tail);
     }
   }
 }
-
 // Precomputed 36-Point Golden-Spiral Unit Sphere LUT in .rodata Flash (432 B Flash, 0 B RAM):
 // Eliminates 108 sqrtf() calls and 216 trig lookups per frame in render_screensaver_fireworks!
 static constexpr Vec3 FIB_SPHERE_36[36] = {
