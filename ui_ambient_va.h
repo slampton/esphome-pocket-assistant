@@ -726,10 +726,10 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
   auto in_sweep = [&](int dx, int dy) -> bool {
     if (dx >= 0) {
       if (past_half) return true;
-      return (static_cast<float>(dx) * uy - static_cast<float>(dy) * ux) <= 0.0f;
+      return (static_cast<float>(dx) * uy - static_cast<float>(dy) * ux) >= 0.0f;
     } else {
       if (!past_half) return false;
-      return (static_cast<float>(dx) * uy - static_cast<float>(dy) * ux) <= 0.0f;
+      return (static_cast<float>(dx) * uy - static_cast<float>(dy) * ux) >= 0.0f;
     }
   };
 
@@ -806,8 +806,7 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
   it.filled_circle(cx, cy - R_MID, 3, col);
   int tip_x = cx + static_cast<int>(roundf(static_cast<float>(R_MID) * ux));
   int tip_y = cy + static_cast<int>(roundf(static_cast<float>(R_MID) * uy));
-  it.filled_circle(tip_x, tip_y, 3, col_hi);
-  it.filled_circle(tip_x, tip_y, 1, esphome::Color(255, 255, 255));
+  it.filled_circle(tip_x, tip_y, 3, col);
 }
 // Complete Voice Assistant Visual Engine supporting 3 pure-visual profiles (zero text):
 //   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven, default)
