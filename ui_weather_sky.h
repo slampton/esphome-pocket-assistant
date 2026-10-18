@@ -885,7 +885,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       if (!is_inside_bezel(sx, sy, cy, 6)) continue;
 
       // Tight mask strictly around the digits of the hero temperature so top-center sky stays starry
-      if (mask_hero_temp && sx >= 188 && sx <= 278 && sy >= 96 && sy <= 136) continue;
+      if (mask_hero_temp && sx >= 188 && sx <= 278 && sy >= 86 && sy <= 126) continue;
       if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
       float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.85f);
@@ -1509,35 +1509,73 @@ inline void render_weather_page(
     char temp_buf[16];
     if (!std::isnan(weather_temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", weather_temp);
     else snprintf(temp_buf, sizeof(temp_buf), "--°");
-    it.print(cx, 134, font_time, col_white, TextAlign::CENTER, temp_buf);
+    it.print(cx + 1, 125, font_time, col_black, TextAlign::CENTER, temp_buf);
+    it.print(cx,     124, font_time, col_white, TextAlign::CENTER, temp_buf);
 
     std::string cond_title = format_weather_title(cond);
     Color cond_color = is_night ? theme_primary : Color(255, 225, 110);
-    it.print(cx, 197, font_date, cond_color, TextAlign::CENTER, cond_title.c_str());
+    it.print(cx + 1, 195, font_date, col_black, TextAlign::CENTER, cond_title.c_str());
+    it.print(cx,     194, font_date, cond_color, TextAlign::CENTER, cond_title.c_str());
 
-    Color label_c = is_night ? col_slate : Color(165, 190, 215);
+    // Single-Line Icon + Value Telemetry at y = 280 (Uncluttered sky canvas, zero text headers)
+    const int tele_y = 280;
+    Color icon_c = is_night ? theme_secondary : Color(165, 210, 245);
 
-    // Column 1: HUMIDITY (Left x = 156)
-    it.print(156, 258, font_small, label_c, TextAlign::CENTER, "HUMIDITY");
+    // A) Left: Classic Water Droplet Icon + Humidity % (centered around x = 154)
+    auto draw_droplet = [&](int dx, int dy, Color c) {
+      it.filled_triangle(dx, dy - 10, dx - 6, dy + 1, dx + 6, dy + 1, c);
+      it.filled_circle(dx, dy + 3, 6, c);
+    };
+    int drop_x = 122;
+    draw_droplet(drop_x + 1, tele_y + 1, col_black);
+    draw_droplet(drop_x,     tele_y,     icon_c);
+    // Specular highlight glint inside water droplet
+    it.draw_pixel_at(drop_x - 2, tele_y + 2, col_white);
+    it.draw_pixel_at(drop_x - 2, tele_y + 3, col_white);
+    it.draw_pixel_at(drop_x - 1, tele_y + 4, col_white);
+
     char hum_str[16];
     if (!std::isnan(weather_humidity)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", weather_humidity);
-    else snprintf(hum_str, sizeof(hum_str), "--");
-    it.print(156, 288, font_small, col_white, TextAlign::CENTER, hum_str);
+    else snprintf(hum_str, sizeof(hum_str), "--%%");
+    it.print(drop_x + 15, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, hum_str);
+    it.print(drop_x + 14, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, hum_str);
 
-    it.line(cx, 252, cx, 302, col_dark_gray);
+    // B) Right: Universal 3-Line Curled Wind Icon + Speed mph (centered around x = 312, no direction letter)
+    auto draw_wind_glyph = [&](int wx, int wy, Color c) {
+      // Top streamline + upward spiral curl
+      it.horizontal_line(wx - 10, wy - 5, 16, c);
+      it.horizontal_line(wx - 10, wy - 4, 16, c);
+      it.draw_pixel_at(wx + 6, wy - 6, c);
+      it.draw_pixel_at(wx + 7, wy - 7, c);
+      it.draw_pixel_at(wx + 6, wy - 8, c);
+      it.draw_pixel_at(wx + 4, wy - 8, c);
+      // Middle longest streamline + upward spiral curl
+      it.horizontal_line(wx - 12, wy,     21, c);
+      it.horizontal_line(wx - 12, wy + 1, 21, c);
+      it.draw_pixel_at(wx + 9,  wy - 1, c);
+      it.draw_pixel_at(wx + 10, wy - 2, c);
+      it.draw_pixel_at(wx + 9,  wy - 3, c);
+      // Bottom streamline + downward curl
+      it.horizontal_line(wx - 8, wy + 5, 13, c);
+      it.horizontal_line(wx - 8, wy + 6, 13, c);
+      it.draw_pixel_at(wx + 5, wy + 7, c);
+      it.draw_pixel_at(wx + 6, wy + 8, c);
+      it.draw_pixel_at(wx + 4, wy + 9, c);
+    };
+    int w_icon_x = 272;
+    draw_wind_glyph(w_icon_x + 1, tele_y + 1, col_black);
+    draw_wind_glyph(w_icon_x,     tele_y,     icon_c);
 
-    // Column 2: WIND (Right x = 310)
-    it.print(310, 258, font_small, label_c, TextAlign::CENTER, "WIND");
-    char wind_str[32];
+    char wind_str[24];
     if (!std::isnan(weather_wind_speed)) {
-      snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", std::roundf(weather_wind_speed), get_cardinal(weather_wind_bearing));
+      snprintf(wind_str, sizeof(wind_str), "%.0f mph", std::roundf(weather_wind_speed));
     } else {
-      snprintf(wind_str, sizeof(wind_str), "--");
+      snprintf(wind_str, sizeof(wind_str), "-- mph");
     }
-    it.print(310, 288, font_small, col_white, TextAlign::CENTER, wind_str);
+    it.print(w_icon_x + 17, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, wind_str);
+    it.print(w_icon_x + 16, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
 
     it.line(80, 310, 386, 310, col_dark_gray);
-
   } else if (sky_weather_subpage == 1) {
     // ----------------------------------------------------------------------
     // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
@@ -1695,13 +1733,13 @@ inline void render_weather_page(
     std::string s_rise = format_iso_time(sun_next_rising, is_24h_format);
     std::string s_set = format_iso_time(sun_next_setting, is_24h_format);
 
-    it.print(156, 264, font_small, col_slate, TextAlign::CENTER, "SUNRISE");
-    it.print(156, 290, font_small, col_warm_gold, TextAlign::CENTER, s_rise.c_str());
+    it.print(154, 258, font_small, col_slate, TextAlign::CENTER, "SUNRISE");
+    it.print(154, 289, font_date,  col_warm_gold, TextAlign::CENTER, s_rise.c_str());
 
-    it.line(cx, 258, cx, 304, col_dark_gray);
+    it.line(cx, 250, cx, 304, col_dark_gray);
 
-    it.print(310, 264, font_small, col_slate, TextAlign::CENTER, "SUNSET");
-    it.print(310, 290, font_small, col_warm_gold, TextAlign::CENTER, s_set.c_str());
+    it.print(312, 258, font_small, col_slate, TextAlign::CENTER, "SUNSET");
+    it.print(312, 289, font_date,  col_warm_gold, TextAlign::CENTER, s_set.c_str());
 
     it.line(80, 310, 386, 310, col_dark_gray);
 
