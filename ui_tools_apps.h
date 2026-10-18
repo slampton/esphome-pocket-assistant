@@ -684,7 +684,7 @@ inline void render_tool_coin_flip(DisplayT &it, int cx, uint32_t now_ms,
   esphome::Color col_groove_sh(82, 92, 108);
   esphome::Color col_relief_shadow(52, 60, 72);    // Deep struck crevice shadow
   esphome::Color col_relief_hi(252, 254, 255);     // Gleaming upper-left struck ridge catch-light
-  esphome::Color col_engrave_ recess(74, 84, 98);  // Intaglio recessed detail shadow
+  esphome::Color col_engrave_recess(74, 84, 98);  // Intaglio recessed detail shadow
 
   float spec_center = -0.35f + 0.55f * fast_sin(theta * 2.0f);
   int b_outer = std::max(3, static_cast<int>(r_outer * scale_y));
