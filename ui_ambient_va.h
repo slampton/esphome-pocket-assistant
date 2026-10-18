@@ -154,7 +154,7 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
   };
   auto respawn_star = [&](int i, bool init_z) {
     float ang = star_rand() * (2.0f * PI_F);
-    float dist = 32.0f + sqrtf(star_rand()) * 620.0f;
+    float dist = 155.0f + sqrtf(star_rand()) * 540.0f;
     float sa = 0.0f, ca = 1.0f;
     fast_sincos(ang, sa, ca);
     stars[i].x = ca * dist;
@@ -229,7 +229,7 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
         esphome::Color shaft_col = is_blue_accent ? esphome::Color(125, 195, 245) : esphome::Color(165, 170, 178);
         it.line(px, py, mx, my, wake_col);
         it.line(mx, my, sx, sy, shaft_col);
-        it.filled_circle(sx, sy, (stars[i].z < 165.0f) ? 2 : 1, esphome::Color(255, 255, 255));
+        it.filled_circle(sx, sy, 1, esphome::Color(255, 255, 255));
       }
     }
   }
