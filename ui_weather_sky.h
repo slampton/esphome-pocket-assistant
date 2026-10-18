@@ -1517,22 +1517,21 @@ inline void render_weather_page(
     it.print(cx + 1, 195, font_date, col_black, TextAlign::CENTER, cond_title.c_str());
     it.print(cx,     194, font_date, cond_color, TextAlign::CENTER, cond_title.c_str());
 
-    // Single-Line Icon + Value Telemetry at y = 280 (Uncluttered sky canvas, zero text headers)
-    const int tele_y = 280;
+    // Single-Line Icon + Value Telemetry at y = 268 (Brought inward & slightly higher)
+    const int tele_y = 268;
     Color icon_c = is_night ? theme_secondary : Color(165, 210, 245);
 
-    // A) Left: Classic Water Droplet Icon + Humidity % (centered around x = 154)
+    // A) Left: Classic Water Droplet Icon + Humidity % (shifted inward to x = 154)
     auto draw_droplet = [&](int dx, int dy, Color c) {
-      it.filled_triangle(dx, dy - 10, dx - 6, dy + 1, dx + 6, dy + 1, c);
-      it.filled_circle(dx, dy + 3, 6, c);
+      it.filled_triangle(dx, dy - 11, dx - 7, dy + 1, dx + 7, dy + 1, c);
+      it.filled_circle(dx, dy + 3, 7, c);
     };
-    int drop_x = 122;
+    int drop_x = 154;
     draw_droplet(drop_x + 1, tele_y + 1, col_black);
     draw_droplet(drop_x,     tele_y,     icon_c);
-    // Specular highlight glint inside water droplet
-    it.draw_pixel_at(drop_x - 2, tele_y + 2, col_white);
-    it.draw_pixel_at(drop_x - 2, tele_y + 3, col_white);
-    it.draw_pixel_at(drop_x - 1, tele_y + 4, col_white);
+    it.draw_pixel_at(drop_x - 3, tele_y + 2, col_white);
+    it.draw_pixel_at(drop_x - 3, tele_y + 3, col_white);
+    it.draw_pixel_at(drop_x - 2, tele_y + 4, col_white);
 
     char hum_str[16];
     if (!std::isnan(weather_humidity)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", weather_humidity);
@@ -1540,29 +1539,45 @@ inline void render_weather_page(
     it.print(drop_x + 15, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, hum_str);
     it.print(drop_x + 14, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, hum_str);
 
-    // B) Right: Universal 3-Line Curled Wind Icon + Speed mph (centered around x = 312, no direction letter)
+    // B) Right: Enlarged 3-Line Wind Icon with 270-Deg Spiral Curls on 2 of 3 Ends (x = 248)
     auto draw_wind_glyph = [&](int wx, int wy, Color c) {
-      // Top streamline + upward spiral curl
-      it.horizontal_line(wx - 10, wy - 5, 16, c);
-      it.horizontal_line(wx - 10, wy - 4, 16, c);
-      it.draw_pixel_at(wx + 6, wy - 6, c);
-      it.draw_pixel_at(wx + 7, wy - 7, c);
-      it.draw_pixel_at(wx + 6, wy - 8, c);
-      it.draw_pixel_at(wx + 4, wy - 8, c);
-      // Middle longest streamline + upward spiral curl
-      it.horizontal_line(wx - 12, wy,     21, c);
-      it.horizontal_line(wx - 12, wy + 1, 21, c);
-      it.draw_pixel_at(wx + 9,  wy - 1, c);
-      it.draw_pixel_at(wx + 10, wy - 2, c);
-      it.draw_pixel_at(wx + 9,  wy - 3, c);
-      // Bottom streamline + downward curl
-      it.horizontal_line(wx - 8, wy + 5, 13, c);
-      it.horizontal_line(wx - 8, wy + 6, 13, c);
-      it.draw_pixel_at(wx + 5, wy + 7, c);
-      it.draw_pixel_at(wx + 6, wy + 8, c);
-      it.draw_pixel_at(wx + 4, wy + 9, c);
+      // 1. Top streamline (y = wy - 4) + 270-deg upward spiral curl centered at (wx + 3, wy - 8)
+      it.horizontal_line(wx - 12, wy - 4, 16, c);
+      it.horizontal_line(wx - 12, wy - 3, 16, c);
+      int tc_x = wx + 3, tc_y = wy - 8;
+      // Sweep CCW from 6 o'clock (30) -> 3 o'clock (15) -> 12 o'clock (0/60) -> 9 o'clock (45)
+      static constexpr uint8_t TOP_ARC[10] = {30, 25, 20, 15, 10, 5, 0, 55, 50, 46};
+      for (int k = 0; k < 9; k++) {
+        int i0 = TOP_ARC[k], i1 = TOP_ARC[k + 1];
+        int x0 = tc_x + static_cast<int>(roundf(4.5f * DIAL_SIN[i0]));
+        int y0 = tc_y - static_cast<int>(roundf(4.5f * DIAL_COS[i0]));
+        int x1 = tc_x + static_cast<int>(roundf(4.5f * DIAL_SIN[i1]));
+        int y1 = tc_y - static_cast<int>(roundf(4.5f * DIAL_COS[i1]));
+        it.line(x0, y0, x1, y1, c);
+        it.line(x0, y0 + 1, x1, y1 + 1, c);
+      }
+
+      // 2. Middle longest streamline (shoots straight through to wx + 12)
+      it.horizontal_line(wx - 14, wy + 1, 26, c);
+      it.horizontal_line(wx - 14, wy + 2, 26, c);
+
+      // 3. Bottom streamline (y = wy + 6) + 270-deg downward spiral curl centered at (wx + 5, wy + 10)
+      it.horizontal_line(wx - 9, wy + 6, 15, c);
+      it.horizontal_line(wx - 9, wy + 7, 15, c);
+      int bc_x = wx + 5, bc_y = wy + 10;
+      // Sweep CW from 12 o'clock (0) -> 3 o'clock (15) -> 6 o'clock (30) -> 9 o'clock (44)
+      static constexpr uint8_t BOT_ARC[10] = {0, 5, 10, 15, 20, 25, 30, 35, 40, 44};
+      for (int k = 0; k < 9; k++) {
+        int i0 = BOT_ARC[k], i1 = BOT_ARC[k + 1];
+        int x0 = bc_x + static_cast<int>(roundf(4.2f * DIAL_SIN[i0]));
+        int y0 = bc_y - static_cast<int>(roundf(4.2f * DIAL_COS[i0]));
+        int x1 = bc_x + static_cast<int>(roundf(4.2f * DIAL_SIN[i1]));
+        int y1 = bc_y - static_cast<int>(roundf(4.2f * DIAL_COS[i1]));
+        it.line(x0, y0, x1, y1, c);
+        it.line(x0, y0 - 1, x1, y1 - 1, c);
+      }
     };
-    int w_icon_x = 272;
+    int w_icon_x = 248;
     draw_wind_glyph(w_icon_x + 1, tele_y + 1, col_black);
     draw_wind_glyph(w_icon_x,     tele_y,     icon_c);
 
@@ -1572,8 +1587,8 @@ inline void render_weather_page(
     } else {
       snprintf(wind_str, sizeof(wind_str), "-- mph");
     }
-    it.print(w_icon_x + 17, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, wind_str);
-    it.print(w_icon_x + 16, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
+    it.print(w_icon_x + 19, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, wind_str);
+    it.print(w_icon_x + 18, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
 
     it.line(80, 310, 386, 310, col_dark_gray);
   } else if (sky_weather_subpage == 1) {
