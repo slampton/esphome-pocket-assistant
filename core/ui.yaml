@@ -5771,8 +5771,8 @@ touchscreen:
                   return;
                 }
 
-                // Hero Button (Start / Pause / Resume): y in [228..284], x in [140..326]
-                if (touch.y >= 228 && touch.y <= 284 && touch.x >= 140 && touch.x <= 326) {
+                // Hero Button (Start / Pause / Resume): y in [218..278], x in [135..331]
+                if (touch.y >= 218 && touch.y <= 278 && touch.x >= 135 && touch.x <= 331) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     if (!id(timer_running) && !id(timer_paused)) {
@@ -5797,34 +5797,34 @@ touchscreen:
                   return;
                 }
 
-                // Quick Stepper Row: y in [295..348] (Rapid 100ms debounce + contiguous horizontal partitions)
-                if (touch.y >= 295 && touch.y <= 348) {
+                // Modern Stepper Cards Row: y in [292..358] (x = 89, 185, 281, 377)
+                if (touch.y >= 292 && touch.y <= 358) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_stuff_tap = now_stuff;
                     if (!id(timer_running) && !id(timer_paused)) {
-                      if (touch.x >= 40 && touch.x <= 132) {
+                      if (touch.x >= 45 && touch.x < 137) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) - 300, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 133 && touch.x <= 225) {
+                      } else if (touch.x >= 137 && touch.x < 233) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) - 60, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 241 && touch.x <= 333) {
+                      } else if (touch.x >= 233 && touch.x < 329) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) + 60, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 334 && touch.x <= 426) {
+                      } else if (touch.x >= 329 && touch.x <= 421) {
                         id(timer_duration_sec) = clamp(id(timer_duration_sec) + 300, 60, 3600);
                         id(timer_remaining_sec) = id(timer_duration_sec);
                         id(disp1).update();
                         return;
                       }
                     } else {
-                      // Reset Button (x in 150..316)
+                      // Reset Card (x in 150..316)
                       if (touch.x >= 150 && touch.x <= 316) {
                         id(va_timer_name) = "";
                         id(timer_running) = false;
@@ -5837,8 +5837,8 @@ touchscreen:
                   }
                 }
 
-                // Readout Tap to reset default 5m: y in [120..178], x in [140..326]
-                if (touch.y >= 120 && touch.y <= 178 && touch.x >= 140 && touch.x <= 326) {
+                // Readout Tap to reset default 5m: y in [110..175], x in [140..326]
+                if (touch.y >= 110 && touch.y <= 175 && touch.x >= 140 && touch.x <= 326) {
                   if (!id(timer_running) && !id(timer_paused)) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
@@ -5858,9 +5858,9 @@ touchscreen:
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     if (id(alarm_edit_idx) > 0) {
-                      id(alarm_edit_idx) = 0; // Exit editor back to alarm list
+                      id(alarm_edit_idx) = 0;
                     } else {
-                      id(stuff_subpage) = 0;  // Exit alarm list back to Tools menu
+                      id(stuff_subpage) = 0;
                     }
                     id(disp1).update();
                   }
@@ -5868,10 +5868,9 @@ touchscreen:
                 }
 
                 if (id(alarm_edit_idx) == 0) {
-                  // Alarm list view:
                   // Snooze dismiss tap if snoozed
                   if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == 1 || id(alarm_ringing_idx) == 0)) {
-                    if (touch.y >= 110 && touch.y <= 202 && touch.x >= 50 && touch.x <= 385) {
+                    if (touch.y >= 108 && touch.y <= 200 && touch.x >= 70 && touch.x <= 396) {
                       if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_stuff_tap = now_stuff;
                         id(alarm_snooze_until) = 0;
@@ -5881,7 +5880,7 @@ touchscreen:
                     }
                   }
                   if (id(alarm_snooze_until) > 0 && id(alarm_ringing_idx) == 2) {
-                    if (touch.y >= 216 && touch.y <= 308 && touch.x >= 50 && touch.x <= 385) {
+                    if (touch.y >= 214 && touch.y <= 306 && touch.x >= 70 && touch.x <= 396) {
                       if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_stuff_tap = now_stuff;
                         id(alarm_snooze_until) = 0;
@@ -5891,11 +5890,11 @@ touchscreen:
                     }
                   }
 
-                  // Alarm 1 Card: y in [110..202] (centered at y=156)
-                  if (touch.y >= 110 && touch.y <= 202 && touch.x >= 50 && touch.x <= 385) {
+                  // Alarm 1 Modern Card: y in [108..200] (centered at y=154)
+                  if (touch.y >= 108 && touch.y <= 200 && touch.x >= 70 && touch.x <= 396) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
-                      if (touch.x >= 310) {
+                      if (touch.x >= 298) {
                         id(alarm1_enabled) = !id(alarm1_enabled);
                         if (!id(alarm1_enabled) && id(alarm_ringing_idx) <= 1) id(alarm_snooze_until) = 0;
                       } else {
@@ -5906,11 +5905,11 @@ touchscreen:
                     return;
                   }
 
-                  // Alarm 2 Card: y in [216..308] (centered at y=262)
-                  if (touch.y >= 216 && touch.y <= 308 && touch.x >= 50 && touch.x <= 385) {
+                  // Alarm 2 Modern Card: y in [214..306] (centered at y=260)
+                  if (touch.y >= 214 && touch.y <= 306 && touch.x >= 70 && touch.x <= 396) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
-                      if (touch.x >= 310) {
+                      if (touch.x >= 298) {
                         id(alarm2_enabled) = !id(alarm2_enabled);
                         if (!id(alarm2_enabled) && id(alarm_ringing_idx) == 2) id(alarm_snooze_until) = 0;
                       } else {
@@ -5921,29 +5920,28 @@ touchscreen:
                     return;
                   }
                 } else {
-                  // Alarm editor view:
                   int edit_idx = id(alarm_edit_idx);
                   int& cur_h = (edit_idx == 2) ? id(alarm2_hour) : id(alarm1_hour);
                   int& cur_m = (edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute);
                   int& cur_rec = (edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence);
 
-                  // Hour / Minute Steppers: y in [205..265] (Rapid 100ms debounce)
-                  if (touch.y >= 205 && touch.y <= 265) {
+                  // Row 1 Modern Stepper Cards: y in [180..246] (x = 89, 185, 281, 377)
+                  if (touch.y >= 180 && touch.y <= 246) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_stuff_tap = now_stuff;
-                      if (touch.x >= 80 && touch.x <= 145) {
+                      if (touch.x >= 45 && touch.x < 137) {
                         cur_h = (cur_h - 1 + 24) % 24;
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 146 && touch.x <= 212) {
+                      } else if (touch.x >= 137 && touch.x < 233) {
                         cur_h = (cur_h + 1) % 24;
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 254 && touch.x <= 318) {
+                      } else if (touch.x >= 233 && touch.x < 329) {
                         cur_m = (cur_m - 5 + 60) % 60;
                         id(disp1).update();
                         return;
-                      } else if (touch.x >= 319 && touch.x <= 386) {
+                      } else if (touch.x >= 329 && touch.x <= 421) {
                         cur_m = (cur_m + 5) % 60;
                         id(disp1).update();
                         return;
@@ -5951,8 +5949,8 @@ touchscreen:
                     }
                   }
 
-                  // Recurrence Pill: y in [275..320], x in [100..366]
-                  if (touch.y >= 275 && touch.y <= 320 && touch.x >= 100 && touch.x <= 366) {
+                  // Row 2 Modern Schedule Card: y in [264..330], x in [95..371]
+                  if (touch.y >= 264 && touch.y <= 330 && touch.x >= 95 && touch.x <= 371) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       cur_rec = (cur_rec + 1) % 4;
@@ -5961,7 +5959,6 @@ touchscreen:
                     return;
                   }
                 }
-
               } else if (id(stuff_subpage) == 3) {
                 // ----------------------------------------------------
                 // SUBPAGE 3: STOPWATCH TOUCH HANDLING

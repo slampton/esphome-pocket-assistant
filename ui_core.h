@@ -323,6 +323,29 @@ inline void render_pill_button(DisplayT &it, int x1, int x2, int y_mid, int r,
   }
 }
 
+template<typename DisplayT, typename FontT>
+inline void render_modern_card(DisplayT &it, int cx_card, int cy_card, int w, int h, int r,
+                               esphome::Color bg_c, esphome::Color border_c,
+                               const char *label, esphome::Color text_c, FontT *font) {
+  int x0 = cx_card - w / 2;
+  int y0 = cy_card - h / 2;
+  it.filled_rectangle(x0 + r, y0, w - 2 * r, h, bg_c);
+  it.filled_rectangle(x0, y0 + r, w, h - 2 * r, bg_c);
+  it.filled_circle(x0 + r, y0 + r, r, bg_c);
+  it.filled_circle(x0 + w - r, y0 + r, r, bg_c);
+  it.filled_circle(x0 + r, y0 + h - r, r, bg_c);
+  it.filled_circle(x0 + w - r, y0 + h - r, r, bg_c);
+
+  it.line(x0 + r, y0, x0 + w - r, y0, border_c);
+  it.line(x0 + r, y0 + h - 1, x0 + w - r, y0 + h - 1, border_c);
+  it.line(x0, y0 + r, x0, y0 + h - r, border_c);
+  it.line(x0 + w - 1, y0 + r, x0 + w - 1, y0 + h - r, border_c);
+
+  if (label != nullptr && label[0] != '\0' && font != nullptr) {
+    it.print(cx_card, cy_card, font, text_c, esphome::display::TextAlign::CENTER, label);
+  }
+}
+
 template<typename DisplayT>
 inline void render_scroll_chevron(DisplayT &it, int x, int y, bool is_up,
                                   esphome::Color c, esphome::Color shadow_c, bool shadow = false) {

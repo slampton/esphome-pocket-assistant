@@ -1002,7 +1002,16 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
                               esphome::Color col_slate, esphome::Color col_dark_gray,
                               esphome::Color col_red,
                               const std::string &va_timer_name = "") {
-  // Keep "TIMER" title at y = 50
+  (void)col_slate;
+  // 1. Continuous 5px Outer Bezel Progress Ring when running or paused (pure black bezel when idle)
+  if (timer_running || timer_paused) {
+    float frac = (timer_duration_sec > 0)
+                     ? (static_cast<float>(timer_remaining_sec) / static_cast<float>(timer_duration_sec))
+                     : 0.0f;
+    render_progress_arc_r224(it, cx, cy, frac, timer_paused ? theme_secondary : theme_primary);
+  }
+
+  // 2. Title & Giant Digital Countdown Readout
   it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "TIMER");
 
   int disp_sec = (timer_running || timer_paused) ? timer_remaining_sec : timer_duration_sec;
@@ -1010,58 +1019,36 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
   int s_part = disp_sec % 60;
   char t_str[16];
   snprintf(t_str, sizeof(t_str), "%02d:%02d", m_part, s_part);
-  it.print(cx, 148, font_time, col_white, esphome::display::TextAlign::CENTER, t_str);
+  it.print(cx, 142, font_time, col_white, esphome::display::TextAlign::CENTER, t_str);
 
   if (timer_running) {
     std::string sub_lbl = va_timer_name.empty() ? "Countdown" : fit_text_to_width_font(va_timer_name, 240, font_small);
-    it.print(cx, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, sub_lbl.c_str());
+    it.print(cx, 192, font_small, theme_secondary, esphome::display::TextAlign::CENTER, sub_lbl.c_str());
   } else if (timer_paused) {
-    it.print(cx, 196, font_small, theme_primary, esphome::display::TextAlign::CENTER, "Paused");
+    it.print(cx, 192, font_small, theme_primary, esphome::display::TextAlign::CENTER, "Paused");
   } else {
-    it.print(cx, 196, font_small, col_white, esphome::display::TextAlign::CENTER, "Ready");
+    it.print(cx, 192, font_small, col_slate, esphome::display::TextAlign::CENTER, "Ready");
   }
 
-  const int hero_y = 256;
+  // 3. Hero START / PAUSE / RESUME Pill at y = 248
+  const int hero_y = 248;
   const char *hero_lbl = (!timer_running && !timer_paused) ? "START" : (timer_running ? "PAUSE" : "RESUME");
   render_pill_button(it, 143, 323, hero_y, 22, theme_secondary, theme_secondary,
                      hero_lbl, col_black, font_btn_bold);
 
+  // 4. Modern Tools-Style Rounded Stepper Cards at y = 324
+  esphome::Color card_bg(22, 27, 36);
+  esphome::Color card_brd(52, 62, 78);
   if (!timer_running && !timer_paused) {
-    render_pill_button(it, 62, 112, 320, 14, theme_primary, col_dark_gray, "-5m", col_white, font_small);
-    render_pill_button(it, 154, 190, 320, 14, theme_primary, col_dark_gray, "-1m", col_white, font_small);
-    render_pill_button(it, 276, 312, 320, 14, theme_primary, col_dark_gray, "+1m", col_white, font_small);
-    render_pill_button(it, 354, 404, 320, 14, theme_primary, col_dark_gray, "+5m", col_white, font_small);
-  } else {
-    render_pill_button(it, 170, 296, 320, 16, col_red, col_dark_gray, "RESET", col_red, font_small);
-  }
-
-  // 60-tick perimeter track (always subtly visible to frame the circular dial; illuminated when running/paused)
-  for (int s = 0; s < 60; s++) {
-    float sn = DIAL_SIN[s];
-    float cs = DIAL_COS[s];
-    int r1 = (s % 5 == 0) ? 219 : 222;
-    int r2 = (s % 5 == 0) ? 228 : 227;
-    esphome::Color tc = (s % 5 == 0) ? col_slate : col_dark_gray;
-    it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
-            cx + (int)(r2 * sn), cy - (int)(r2 * cs), tc);
-  }
-
-  if (timer_running || timer_paused) {
-    float frac = (timer_duration_sec > 0) ? ((float)timer_remaining_sec / (float)timer_duration_sec) : 0.0f;
-    int sweep_ticks = std::min(60, (int)(frac * 60.0f));
-    esphome::Color arc_c = timer_paused ? theme_secondary : theme_primary;
-    for (int t = 0; t <= sweep_ticks; t++) {
-      int idx = t % 60;
-      float sn = DIAL_SIN[idx];
-      float cs = DIAL_COS[idx];
-      int r1 = (idx % 5 == 0) ? 219 : 221;
-      it.line(cx + (int)(r1 * sn), cy - (int)(r1 * cs),
-              cx + (int)(228.0f * sn), cy - (int)(228.0f * cs), arc_c);
-      if (idx % 5 == 0) {
-        it.line(cx + (int)(r1 * sn - cs), cy - (int)(r1 * cs + sn),
-                cx + (int)(228.0f * sn - cs), cy - (int)(228.0f * cs + sn), arc_c);
-      }
+    static constexpr int STEP_XS[4] = {89, 185, 281, 377};
+    static constexpr const char *STEP_LBLS[4] = {"-5m", "-1m", "+1m", "+5m"};
+    for (int i = 0; i < 4; i++) {
+      render_modern_card(it, STEP_XS[i], 324, 68, 46, 12, card_bg, card_brd,
+                         STEP_LBLS[i], col_white, font_small);
     }
+  } else {
+    render_modern_card(it, cx, 324, 136, 46, 12, esphome::Color(28, 20, 24), col_red,
+                       "RESET", col_red, font_small);
   }
 
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
@@ -1081,65 +1068,65 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
                                esphome::Color col_gray, esphome::Color col_dark_gray,
                                esphome::Color col_gold) {
   if (alarm_edit_idx == 0) {
-    // Keep "ALARMS" title at y = 50
     it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "ALARMS");
 
     static constexpr const char *REC_LABELS[4] = {"Daily", "Weekdays", "Weekends", "Once"};
 
-    auto draw_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
+    auto draw_modern_alarm_card = [&](int y_mid, int h, int m, bool en, int rec, int idx) {
       bool is_snoozed = (alarm_snooze_until > 0 && (alarm_ringing_idx == idx || alarm_ringing_idx == 0));
 
-      esphome::Color card_bg = en ? esphome::Color(24, 30, 38) : esphome::Color(16, 18, 22);
-      esphome::Color border_c = en ? theme_secondary : esphome::Color(45, 52, 60);
+      esphome::Color card_bg  = en ? esphome::Color(22, 27, 36) : esphome::Color(14, 17, 22);
+      esphome::Color border_c = en ? esphome::Color(58, 70, 88) : esphome::Color(34, 40, 50);
 
-      it.filled_circle(90, y_mid, 42, border_c);
-      it.filled_circle(376, y_mid, 42, border_c);
-      it.filled_rectangle(90, y_mid - 42, 286, 85, border_c);
-
-      it.filled_circle(90, y_mid, 40, card_bg);
-      it.filled_circle(376, y_mid, 40, card_bg);
-      it.filled_rectangle(90, y_mid - 40, 286, 81, card_bg);
+      render_modern_card(it, cx, y_mid, 312, 86, 18, card_bg, border_c, nullptr, col_white, font_small);
 
       if (is_snoozed) {
-        render_pill_button(it, 110, 356, y_mid, 22, theme_secondary, theme_secondary,
+        render_pill_button(it, 114, 352, y_mid, 20, theme_secondary, theme_secondary,
                            "DISMISS SNOOZE", col_black, font_small);
         return;
       }
 
+      // Left vertical status accent stripe (4px wide)
+      esphome::Color bar_c = en ? theme_primary : esphome::Color(38, 44, 54);
+      it.filled_rectangle(88, y_mid - 25, 4, 50, bar_c);
+
+      // Top Row: Bold Time + AM/PM
       char t_buf[16];
       char ap_buf[8] = "";
       format_time_hhmm(h, m, is_24h_format, t_buf, sizeof(t_buf), ap_buf, true);
       esphome::Color time_col = en ? col_white : col_gray;
-      it.print(92, y_mid + 2, font_chrono_time, time_col,
+      it.print(102, y_mid - 4, font_chrono_time, time_col,
                esphome::display::TextAlign::BASELINE_LEFT, t_buf);
-      if (!is_24h_format && ap_buf[0] != 0) {
-        // Dynamic AM/PM x-offset so 2-digit hours (10:xx, 11:xx, 12:xx) never overlap AM/PM!
+      if (!is_24h_format && ap_buf[0] != '\0') {
         int h12 = h % 12;
         if (h12 == 0) h12 = 12;
-        int ap_x = (h12 >= 10) ? 208 : 182;
-        it.print(ap_x, y_mid + 2, font_small, en ? theme_secondary : col_gray,
+        int ap_x = (h12 >= 10) ? 216 : 192;
+        it.print(ap_x, y_mid - 4, font_small, en ? theme_secondary : col_gray,
                  esphome::display::TextAlign::BASELINE_LEFT, ap_buf);
       }
 
-      char tag_buf[32];
-      snprintf(tag_buf, sizeof(tag_buf), "Alarm %d • %s", idx, REC_LABELS[rec & 3]);
-      it.print(92, y_mid + 14, font_small, en ? theme_primary : col_gray,
-               esphome::display::TextAlign::LEFT, tag_buf);
+      // Bottom Row: Clean Schedule Subtitle (with generous vertical breathing room below time)
+      it.print(104, y_mid + 21, font_small, en ? theme_primary : col_gray,
+               esphome::display::TextAlign::CENTER_LEFT, REC_LABELS[rec & 3]);
 
-      esphome::Color sw_bg = en ? theme_primary : esphome::Color(45, 52, 60);
-      it.filled_circle(330, y_mid - 6, 12, sw_bg);
-      it.filled_circle(354, y_mid - 6, 12, sw_bg);
-      it.filled_rectangle(330, y_mid - 18, 24, 25, sw_bg);
-      int knob_x = en ? 354 : 330;
-      it.filled_circle(knob_x, y_mid - 6, 9, col_white);
+      // Subtle vertical separator between Edit Zone (left) and Toggle Switch (right)
+      it.line(298, y_mid - 26, 298, y_mid + 26, border_c);
+
+      // Centered Modern Toggle Switch (x = 330..356, y = y_mid)
+      esphome::Color sw_bg = en ? theme_primary : esphome::Color(42, 48, 58);
+      it.filled_circle(330, y_mid, 13, sw_bg);
+      it.filled_circle(356, y_mid, 13, sw_bg);
+      it.filled_rectangle(330, y_mid - 13, 26, 27, sw_bg);
+      int knob_x = en ? 356 : 330;
+      it.filled_circle(knob_x, y_mid, 10, en ? col_white : esphome::Color(180, 186, 196));
     };
 
-    draw_alarm_card(156, alarm1_hour, alarm1_minute, alarm1_enabled, alarm1_recurrence, 1);
-    draw_alarm_card(262, alarm2_hour, alarm2_minute, alarm2_enabled, alarm2_recurrence, 2);
+    draw_modern_alarm_card(154, alarm1_hour, alarm1_minute, alarm1_enabled, alarm1_recurrence, 1);
+    draw_modern_alarm_card(260, alarm2_hour, alarm2_minute, alarm2_enabled, alarm2_recurrence, 2);
 
     if (alarm_snooze_until > 0) {
-      int rem_s = (now.is_valid() && alarm_snooze_until > (uint32_t)now.timestamp)
-                      ? (int)(alarm_snooze_until - (uint32_t)now.timestamp)
+      int rem_s = (now.is_valid() && alarm_snooze_until > static_cast<uint32_t>(now.timestamp))
+                      ? static_cast<int>(alarm_snooze_until - static_cast<uint32_t>(now.timestamp))
                       : 0;
       int snz_idx = (alarm_ringing_idx > 0) ? alarm_ringing_idx : 1;
       char snz_buf[48];
@@ -1158,31 +1145,37 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
     char t_buf[16];
     char ap_buf[8] = "";
     format_time_hhmm(cur_h, cur_m, is_24h_format, t_buf, sizeof(t_buf), ap_buf);
-    it.print(cx, 120, font_time, col_white, esphome::display::TextAlign::CENTER, t_buf);
+    it.print(cx, 124, font_time, col_white, esphome::display::TextAlign::CENTER, t_buf);
     if (!is_24h_format) {
       int h12 = cur_h % 12;
       if (h12 == 0) h12 = 12;
       int ap_x = (h12 >= 10) ? (cx + 107) : (cx + 84);
-      it.print(ap_x, 129, font_small, theme_secondary, esphome::display::TextAlign::LEFT, ap_buf);
+      it.print(ap_x, 133, font_small, theme_secondary, esphome::display::TextAlign::LEFT, ap_buf);
     }
 
-    it.print(145, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "HOUR");
-    render_pill_button(it, 105, 123, 233, 15, theme_primary, col_dark_gray, "-1h", col_white, font_small);
-    render_pill_button(it, 167, 185, 233, 15, theme_primary, col_dark_gray, "+1h", col_white, font_small);
+    // Row 1 (y = 212): 4 Modern Rounded Stepper Cards matching Timer (-1h, +1h, -5m, +5m)
+    esphome::Color card_bg(22, 27, 36);
+    esphome::Color card_brd(52, 62, 78);
+    static constexpr int STEP_XS[4] = {89, 185, 281, 377};
+    static constexpr const char *STEP_LBLS[4] = {"-1h", "+1h", "-5m", "+5m"};
+    for (int i = 0; i < 4; i++) {
+      render_modern_card(it, STEP_XS[i], 212, 68, 46, 12, card_bg, card_brd,
+                         STEP_LBLS[i], col_white, font_small);
+    }
 
-    it.print(321, 196, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "MINUTE");
-    render_pill_button(it, 281, 299, 233, 15, theme_primary, col_dark_gray, "-5m", col_white, font_small);
-    render_pill_button(it, 343, 361, 233, 15, theme_primary, col_dark_gray, "+5m", col_white, font_small);
-
+    // Row 2 (y = 296): Modern Schedule Card with Left/Right Cycle Chevrons
     static constexpr const char *REC_NAMES[4] = {
         "Repeat: Daily", "Repeat: Weekdays", "Repeat: Weekends", "Repeat: Once"};
-    render_pill_button(it, 120, 346, 296, 18, theme_secondary, col_dark_gray,
-                       REC_NAMES[cur_rec & 3], theme_secondary, font_small);
+    render_modern_card(it, cx, 296, 264, 48, 14, card_bg, theme_secondary,
+                       REC_NAMES[cur_rec & 3], col_white, font_small);
+    it.line(118, 296, 124, 290, theme_secondary);
+    it.line(118, 296, 124, 302, theme_secondary);
+    it.line(348, 296, 342, 290, theme_secondary);
+    it.line(348, 296, 342, 302, theme_secondary);
   }
 
   render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
 }
-
 template<typename DisplayT, typename FontDateT, typename FontBoldT, typename FontSmallT>
 inline void render_tool_calculator(DisplayT &it, const std::string &calc_history,
                                    const std::string &calc_entry, int calc_op,
