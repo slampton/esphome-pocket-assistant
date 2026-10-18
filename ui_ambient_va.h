@@ -190,13 +190,14 @@ inline void render_screensaver_starfield(DisplayT &it, int cx, int cy, uint32_t 
     float prev_k = 230.0f / (stars[i].z + speed * 1.65f);
     int px = cx + static_cast<int>(stars[i].x * prev_k);
     int py = cy + static_cast<int>(stars[i].y * prev_k);
+    bool is_blue = ((i % 5) == 0); // 80% crisp silver-white, 20% ice-blue accent
     if (stars[i].z > 650.0f) {
-      it.draw_pixel_at(sx, sy, esphome::Color(105, 125, 155));
+      it.draw_pixel_at(sx, sy, esphome::Color(148, 154, 166));
     } else if (stars[i].z > 350.0f) {
-      it.line(px, py, sx, sy, esphome::Color(130, 195, 240));
-      it.draw_pixel_at(sx, sy, esphome::Color(215, 240, 255));
+      it.line(px, py, sx, sy, is_blue ? esphome::Color(135, 205, 250) : esphome::Color(195, 202, 212));
+      it.draw_pixel_at(sx, sy, esphome::Color(245, 250, 255));
     } else {
-      it.line(px, py, sx, sy, esphome::Color(70, 195, 255));
+      it.line(px, py, sx, sy, is_blue ? esphome::Color(95, 210, 255) : esphome::Color(222, 228, 238));
       it.filled_circle(sx, sy, 1, esphome::Color(255, 255, 255));
     }
   }
