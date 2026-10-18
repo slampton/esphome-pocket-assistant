@@ -422,11 +422,9 @@ inline void render_screensaver_matrix(DisplayT &it, int cx, int cy, uint32_t now
 
 template<typename DisplayT>
 inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t now_ms) {
-  // 3 staggered pyrotechnic shells (3600ms lifecycle each, staggered by 1200ms)
-  // Zero static pixels: every launch & skyburst occurs at a new pseudo-random coordinate
-  // across the circular sky and fades completely to pure AMOLED black (0,0,0).
   static constexpr uint32_t SHELL_CYCLE_MS = 3600U;
   static constexpr uint32_t SHELL_STAGGER_MS = 1200U;
+  static constexpr int NUM_SPARKS = 36;
 
   for (int s = 0; s < 3; s++) {
     uint32_t t_offset = now_ms + static_cast<uint32_t>(s) * SHELL_STAGGER_MS;
@@ -434,34 +432,27 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
     uint32_t phase_ms = t_offset % SHELL_CYCLE_MS;
     float phase = static_cast<float>(phase_ms) * (1.0f / static_cast<float>(SHELL_CYCLE_MS));
 
-    // Deterministic per-shell pseudo-random seed (unique per shell slot and cycle)
     int seed_base = static_cast<int>(cycle_idx * 17U + static_cast<uint32_t>(s) * 53U);
     float rx = hash2d_01(seed_base, 11);
     float ry = hash2d_01(seed_base, 29);
     float rtype = hash2d_01(seed_base, 47);
     float rhue = hash2d_01(seed_base, 73);
 
-    // Burst target coordinates distributed across the upper/mid circular sky
-    int bx = cx + static_cast<int>((rx - 0.5f) * 230.0f);
-    int by = (cy - 30) + static_cast<int>((ry - 0.5f) * 165.0f);
-    // Keep burst center comfortably inside bezel so 3D spark sphere has room to bloom
+    int bx = cx + static_cast<int>((rx - 0.5f) * 220.0f);
+    int by = (cy - 32) + static_cast<int>((ry - 0.5f) * 155.0f);
     int dx_b = bx - cx, dy_b = by - cy;
-    if (dx_b * dx_b + dy_b * dy_b > 15625) { // R_burst_center <= 125px
-      bx = cx + (dx_b * 110) / 160;
-      by = cy + (dy_b * 110) / 160;
+    if (dx_b * dx_b + dy_b * dy_b > 14400) {
+      bx = cx + (dx_b * 105) / 155;
+      by = cy + (dy_b * 105) / 155;
     }
 
-    // Launch origin near the bottom bezel arc
     int launch_x = cx + static_cast<int>((hash2d_01(seed_base, 91) - 0.5f) * 120.0f);
     int launch_h = circle_half_span(launch_x, 10);
     int launch_y = cy + (launch_h > 40 ? launch_h : 180);
 
-    // -------------------------------------------------------------------------
-    // STAGE 1: ASCENDING MORTAR ROCKET WITH SPARKING COMET TAIL (phase 0..0.22)
-    // -------------------------------------------------------------------------
+    // STAGE 1: ASCENDING MORTAR ROCKET (phase 0..0.22)
     if (phase < 0.22f) {
-      float u = phase * (1.0f / 0.22f); // 0.0 -> 1.0
-      // Ease-out upward ballistic arc
+      float u = phase * (1.0f / 0.22f);
       float ease = 1.0f - (1.0f - u) * (1.0f - u);
       float prev_u = (u > 0.14f) ? (u - 0.14f) : 0.0f;
       float prev_ease = 1.0f - (1.0f - prev_u) * (1.0f - prev_u);
@@ -482,76 +473,72 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
       continue;
     }
 
-    // -------------------------------------------------------------------------
-    // STAGE 2: 3D SPHERICAL PYROTECHNIC SKYBURST & GRAVITY SPARK TRAILS
-    // -------------------------------------------------------------------------
-    float bp = (phase - 0.22f) * (1.0f / 0.78f); // 0.0 -> 1.0 across explosion lifetime
-    // Exponential drag expansion: fast outward pop that decelerates in air
+    // STAGE 2: TRUE 3D FIBONACCI-SPHERE SKYBURST (rotate_3d_xyz + project_3d)
+    float bp = (phase - 0.22f) * (1.0f / 0.78f);
     float expand = 1.0f - (1.0f - bp) * (1.0f - bp) * (1.0f - bp);
-    // Tail position slightly earlier on the expansion curve
-    float bp_tail = (bp > 0.14f) ? (bp - 0.14f) : (bp * 0.35f);
+    float bp_tail = (bp > 0.15f) ? (bp - 0.15f) : (bp * 0.35f);
     float expand_tail = 1.0f - (1.0f - bp_tail) * (1.0f - bp_tail) * (1.0f - bp_tail);
 
-    // Parabolic downward gravity droop (y += g * bp^2)
-    float grav_head = 56.0f * bp * bp;
-    float grav_tail = 56.0f * bp_tail * bp_tail;
+    float grav_head = 54.0f * bp * bp;
+    float grav_tail = 54.0f * bp_tail * bp_tail;
     float fade = (1.0f - bp);
-    float bright = (bp < 0.12f) ? 1.0f : (fade * (1.12f - 0.12f * bp));
-    if (bright > 1.0f) bright = 1.0f;
+    float base_bright = (bp < 0.12f) ? 1.0f : (fade * (1.12f - 0.12f * bp));
+    if (base_bright > 1.0f) base_bright = 1.0f;
 
-    // Initial detonation core flash (first 16% of burst)
     if (bp < 0.16f) {
       float fl = 1.0f - (bp * 6.25f);
-      int flash_r = static_cast<int>(4.0f + bp * 95.0f);
-      esphome::Color fl_col(
+      int flash_r = static_cast<int>(4.0f + bp * 90.0f);
+      it.circle(bx, by, flash_r, esphome::Color(
           static_cast<uint8_t>(255.0f * fl),
           static_cast<uint8_t>(240.0f * fl),
-          static_cast<uint8_t>(185.0f * fl));
-      it.circle(bx, by, flash_r, fl_col);
+          static_cast<uint8_t>(185.0f * fl)));
     }
 
-    // 4 Pyrotechnic Shell Styles:
-    // 0: Golden Kamuro Willow (weeping gold-amber trails)
-    // 1: Dual-Ring Peony + Pistil (Neon Magenta/Orchid outer + Electric Cyan inner core)
-    // 2: Chrysanthemum Prism (360-degree rainbow spectrum burst)
-    // 3: Emerald & Violet Crossette with Strobe Crackle Glitter
     int shell_style = static_cast<int>(rtype * 4.0f) & 3;
-    float max_radius = 96.0f + 34.0f * hash2d_01(seed_base, 61);
+    float max_radius = 98.0f + 32.0f * hash2d_01(seed_base, 61);
 
-    // 36 sparks distributed across 3 concentric 3D spherical latitude shells
-    for (int i = 0; i < 60; i++) {
-      // Select 36 rays out of the 60 LUT angles (3 out of every 5 ticks)
-      if ((i % 5) == 1 || (i % 5) == 3) continue;
+    // Per-shell 3D Euler orientation + slow 3D rotation during expansion
+    float rot_x = hash2d_01(seed_base, 101) * PI_F + bp * 0.55f;
+    float rot_y = hash2d_01(seed_base, 113) * PI_F - bp * 0.45f;
+    float rot_z = hash2d_01(seed_base, 127) * PI_F + bp * 0.30f;
 
-      // 3D spherical depth layer (outer equator=1.0, mid latitude=0.68, inner pole=0.38)
-      int ring_id = i % 3;
-      float ring_scale = (ring_id == 0) ? 1.00f : ((ring_id == 1) ? 0.68f : 0.40f);
-      float jitter = 0.86f + 0.28f * hash2d_01(seed_base + i, i * 7);
-      float spark_rmax = max_radius * ring_scale * jitter;
+    for (int k = 0; k < NUM_SPARKS; k++) {
+      // Golden-spiral unit 3D sphere direction vector
+      float uy = 1.0f - 2.0f * (static_cast<float>(k) + 0.5f) * (1.0f / static_cast<float>(NUM_SPARKS));
+      float r_xz = sqrtf(fmaxf(0.0f, 1.0f - uy * uy));
+      float phi = static_cast<float>(k) * 2.39996323f;
+      float sp_s = 0.0f, sp_c = 1.0f;
+      fast_sincos(phi, sp_s, sp_c);
 
-      float r_head = spark_rmax * expand;
-      float r_tail = spark_rmax * expand_tail;
+      Vec3 dir_3d = rotate_3d_xyz({r_xz * sp_c, uy, r_xz * sp_s}, rot_x, rot_y, rot_z);
 
-      float ca = DIAL_COS[i];
-      float sa = DIAL_SIN[i];
+      // Dual-shell layer (inner pistil core on every 4th spark for style 1, else full sphere with jitter)
+      bool is_pistil = (shell_style == 1 && (k & 3) == 0);
+      float jitter = is_pistil ? 0.52f : (0.88f + 0.24f * hash2d_01(seed_base + k, k * 7));
+      float spark_rmax = max_radius * jitter;
 
-      int hx = bx + static_cast<int>(r_head * ca);
-      int hy = by + static_cast<int>(r_head * sa + grav_head * (0.75f + 0.25f * ring_scale));
-      int tx = bx + static_cast<int>(r_tail * ca);
-      int ty = by + static_cast<int>(r_tail * sa + grav_tail * (0.75f + 0.25f * ring_scale));
+      float r_h = spark_rmax * expand;
+      float r_t = spark_rmax * expand_tail;
 
-      if (!is_inside_bezel(hx, hy, cy, 5) || !is_inside_bezel(tx, ty, cy, 5)) continue;
+      Vec3 v_head{dir_3d.x * r_h, dir_3d.y * r_h + grav_head, dir_3d.z * r_h};
+      Vec3 v_tail{dir_3d.x * r_t, dir_3d.y * r_t + grav_tail, dir_3d.z * r_t};
+
+      ProjectedPoint p_head = project_3d(v_head, bx, by, 260.0f, 320.0f);
+      ProjectedPoint p_tail = project_3d(v_tail, bx, by, 260.0f, 320.0f);
+      if (!is_inside_bezel(p_head.x, p_head.y, cy, 5) || !is_inside_bezel(p_tail.x, p_tail.y, cy, 5)) continue;
+
+      // 3D depth shading: sparks flying toward the viewer (dir_3d.z < 0 -> p_head.scale > 0.81) glow brighter
+      float depth_boost = fmaxf(0.55f, fminf(1.15f, p_head.scale * 1.12f));
+      float bright = fminf(1.0f, base_bright * depth_boost);
 
       esphome::Color spark_col;
       if (shell_style == 0) {
-        // Golden Kamuro Willow: white-gold cooling to warm amber and deep ember red
-        uint8_t cr = static_cast<uint8_t>(255.0f * bright);
-        uint8_t cg = static_cast<uint8_t>((215.0f * fade + 35.0f) * bright);
-        uint8_t cb = static_cast<uint8_t>(110.0f * fade * fade * bright);
-        spark_col = esphome::Color(cr, cg, cb);
+        spark_col = esphome::Color(
+            static_cast<uint8_t>(255.0f * bright),
+            static_cast<uint8_t>((215.0f * fade + 35.0f) * bright),
+            static_cast<uint8_t>(110.0f * fade * fade * bright));
       } else if (shell_style == 1) {
-        // Dual-Ring Peony + Pistil: outer neon magenta/violet, inner electric cyan
-        if (ring_id == 2) {
+        if (is_pistil) {
           spark_col = esphome::Color(
               static_cast<uint8_t>(40.0f * bright),
               static_cast<uint8_t>(245.0f * bright),
@@ -563,12 +550,10 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
               static_cast<uint8_t>(220.0f * bright));
         }
       } else if (shell_style == 2) {
-        // Chrysanthemum Prism: smooth azimuthal hue wheel
-        float h = rhue + static_cast<float>(i) * (1.0f / 60.0f);
+        float h = rhue + static_cast<float>(k) * (1.0f / static_cast<float>(NUM_SPARKS));
         spark_col = hsv_to_rgb(h, 0.82f, bright);
       } else {
-        // Emerald & Royal Amethyst Crossette
-        if (ring_id == 1) {
+        if ((k % 3) == 1) {
           spark_col = esphome::Color(
               static_cast<uint8_t>(185.0f * bright),
               static_cast<uint8_t>(75.0f * bright),
@@ -581,35 +566,32 @@ inline void render_screensaver_fireworks(DisplayT &it, int cx, int cy, uint32_t 
         }
       }
 
-      // Draw two-stage tapering comet trail (faded tail -> bright mid-to-head spine)
-      int mx = (hx + tx) >> 1;
-      int my = (hy + ty) >> 1;
+      int mx = (p_head.x + p_tail.x) >> 1;
+      int my = (p_head.y + p_tail.y) >> 1;
       esphome::Color tail_col(
           static_cast<uint8_t>((spark_col.r * 95U) >> 8),
           static_cast<uint8_t>((spark_col.g * 95U) >> 8),
           static_cast<uint8_t>((spark_col.b * 95U) >> 8));
-      it.line(tx, ty, mx, my, tail_col);
-      it.line(mx, my, hx, hy, spark_col);
+      it.line(p_tail.x, p_tail.y, mx, my, tail_col);
+      it.line(mx, my, p_head.x, p_head.y, spark_col);
 
-      // Glowing spark tip during first 55% of burst, or crackling strobe glitter at the end
-      if (bp < 0.55f) {
+      if (bp < 0.58f) {
         esphome::Color tip_col(
             static_cast<uint8_t>(spark_col.r + ((255 - spark_col.r) >> 1)),
             static_cast<uint8_t>(spark_col.g + ((255 - spark_col.g) >> 1)),
             static_cast<uint8_t>(spark_col.b + ((255 - spark_col.b) >> 1)));
-        it.draw_pixel_at(hx, hy, tip_col);
-        if (bp < 0.28f && ring_id == 0) {
-          it.filled_circle(hx, hy, 1, tip_col);
+        it.draw_pixel_at(p_head.x, p_head.y, tip_col);
+        // Near-viewer foreground sparks render a 2px perspective glowing head
+        if (bp < 0.36f && dir_3d.z < -0.15f) {
+          it.filled_circle(p_head.x, p_head.y, 1, tip_col);
         }
-      } else if (bp > 0.62f && ((i + (phase_ms / 90U)) % 4 == 0)) {
-        // Secondary crackle glitter twinkle as embers dissolve into the night sky
+      } else if (bp > 0.62f && ((k + (phase_ms / 90U)) % 4 == 0)) {
         uint8_t gl = static_cast<uint8_t>(255.0f * fade);
-        it.draw_pixel_at(hx, hy, esphome::Color(gl, gl, static_cast<uint8_t>(gl * 0.8f)));
+        it.draw_pixel_at(p_head.x, p_head.y, esphome::Color(gl, gl, static_cast<uint8_t>(gl * 0.8f)));
       }
     }
   }
 }
-
 // Unified Docked Screensaver Dispatcher (Ambient Clock + 4 Procedural Engines)
 template<typename DisplayT, typename TimeT, typename StrT, typename FontT>
 inline void render_docked_screensaver(DisplayT &it, int cx, int cy, uint32_t now_ms,
@@ -936,8 +918,7 @@ inline void render_voice_assistant_overlay(
   }
 
   // ============================================================================
-  // B. NEW FLAGSHIP "NEBULA" — 3D MULTI-RIBBON SILK WAVE ORB (Siri / Gemini Style)
-  //    Uses 60-entry .rodata DIAL_SIN / DIAL_COS LUT for zero-sinf ribbon meshes!
+  // B. FLAGSHIP "NEBULA" — TRUE 3D GYROSCOPIC SILK WAVE ORB (rotate_3d_xyz + project_3d)
   // ============================================================================
   if (!is_solaris) {
     const esphome::Color c_elec_cyan(0, 229, 255);
@@ -946,37 +927,49 @@ inline void render_voice_assistant_overlay(
     const esphome::Color c_deep_azure(20, 95, 195);
     const esphome::Color c_ice_white(215, 248, 255);
 
-    // Helper: Draws a 30-segment closed harmonic silk ribbon using DIAL_SIN/DIAL_COS LUT
-    auto draw_silk_ribbon = [&](float base_r, float a2, float a3, float a5,
-                                int ph2, int ph3, int ph5,
-                                esphome::Color col_main, esphome::Color col_glow,
-                                bool double_stroke) {
+    float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
+
+    // Draws a 30-segment closed 3D harmonic silk ribbon tilted in 3D space (rx, ry, rz)
+    // with depth-sorted luminance (brighter when arcing in front of the core, dimmer behind)
+    auto draw_silk_ribbon_3d = [&](float base_r, float a2, float a3, float a5,
+                                   int ph2, int ph3, int ph5,
+                                   float rx, float ry, float rz,
+                                   esphome::Color col_main, esphome::Color col_glow,
+                                   bool double_stroke) {
       int prev_x = 0, prev_y = 0, first_x = 0, first_y = 0;
       int prev_gx = 0, prev_gy = 0, first_gx = 0, first_gy = 0;
+      float prev_z = 0.0f;
       for (int i = 0; i < 60; i += 2) {
         float w2 = DIAL_SIN[(i * 2 + ph2) % 60];
         float w3 = DIAL_COS[(i * 3 + ph3) % 60];
         float w5 = DIAL_SIN[(i * 5 + ph5) % 60];
-        float r = base_r + a2 * w2 + a3 * w3 + a5 * w5;
+        float r = base_r + a2 * w2 + a3 * w3;
+        float z_local = a5 * w5 * 3.2f; // Out-of-plane 3D silk undulation
 
         float ux = DIAL_SIN[i];
         float uy = -DIAL_COS[i];
-        int x = cx + static_cast<int>(r * ux);
-        int y = cy + static_cast<int>(r * uy);
-        int gx = cx + static_cast<int>((r + 2.5f) * ux);
-        int gy = cy + static_cast<int>((r + 2.5f) * uy);
+        Vec3 v3 = rotate_3d_xyz({r * ux, r * uy, z_local}, rx, ry, rz);
+        ProjectedPoint p = project_3d(v3, cx, cy, 260.0f, 320.0f);
+
+        Vec3 vg3 = rotate_3d_xyz({(r + 2.5f) * ux, (r + 2.5f) * uy, z_local}, rx, ry, rz);
+        ProjectedPoint pg = project_3d(vg3, cx, cy, 260.0f, 320.0f);
 
         if (i == 0) {
-          first_x = x; first_y = y;
-          first_gx = gx; first_gy = gy;
+          first_x = p.x; first_y = p.y;
+          first_gx = pg.x; first_gy = pg.y;
         } else {
-          if (double_stroke) {
-            it.line(prev_gx, prev_gy, gx, gy, col_glow);
+          // Depth shading: v3.z < 0 is closer to viewer (bright), v3.z > 0 is behind core (dimmer)
+          float z_avg = 0.5f * (v3.z + prev_z);
+          float depth_k = fmaxf(0.45f, fminf(1.12f, 0.84f - (z_avg / (base_r + 10.0f)) * 0.36f));
+          esphome::Color seg_c = scale_color(col_main, depth_k);
+          if (double_stroke && z_avg < 12.0f) {
+            it.line(prev_gx, prev_gy, pg.x, pg.y, scale_color(col_glow, depth_k));
           }
-          it.line(prev_x, prev_y, x, y, col_main);
+          it.line(prev_x, prev_y, p.x, p.y, seg_c);
         }
-        prev_x = x; prev_y = y;
-        prev_gx = gx; prev_gy = gy;
+        prev_x = p.x; prev_y = p.y;
+        prev_gx = pg.x; prev_gy = pg.y;
+        prev_z = v3.z;
       }
       if (double_stroke) {
         it.line(prev_gx, prev_gy, first_gx, first_gy, col_glow);
@@ -985,15 +978,13 @@ inline void render_voice_assistant_overlay(
     };
 
     if (is_speaking) {
-      // Natural syllabic speech-cadence envelope (combines 3 incommensurate frequencies)
-      float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
       float syl_env = (0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f)) * smooth_speak;
       if (syl_env < 0.15f) syl_env = 0.15f;
 
       int tick = static_cast<int>(now_ms / 35U);
       uint32_t speak_elapsed = now_ms - speak_start_ms;
 
-      // 3 Expanding Acoustic Wave Rings launched progressively from the core (fast integer midpoint circles)
+      // 3 Expanding Acoustic Wave Rings
       for (int w = 0; w < 3; w++) {
         uint32_t launch_offset = static_cast<uint32_t>(w) * 600U;
         if (speak_elapsed < launch_offset) continue;
@@ -1009,22 +1000,25 @@ inline void render_voice_assistant_overlay(
         it.circle(cx, cy, r_wave + 1, w_glow);
       }
 
-      // 4 Interweaving Inner Silk Voice Ribbons (150 short inner-core line segments total)
-      float base_r = 48.0f + 16.0f * syl_env;
+      // 4 Precessing 3D Gyroscopic Silk Voice Ribbons
+      float base_r = 52.0f + 16.0f * syl_env;
       float a2 = 6.0f + 11.0f * syl_env;
       float a3 = 4.5f + 8.0f * syl_env;
-      float a5 = 2.0f + 4.5f * syl_env;
+      float a5 = 2.5f + 5.0f * syl_env;
 
-      draw_silk_ribbon(base_r + 4.0f, a2, a3, a5, (tick) % 60, (tick * 2 + 15) % 60, (tick + 30) % 60,
-                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
-      draw_silk_ribbon(base_r, -a2 * 0.9f, a3 * 1.1f, -a5, (tick + 20) % 60, (tick + 40) % 60, (tick * 2) % 60,
-                       c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
-      draw_silk_ribbon(base_r - 2.0f, a2 * 0.8f, -a3, a5 * 1.2f, (tick * 2 + 7) % 60, (tick + 25) % 60, (tick + 12) % 60,
-                       c_elec_cyan, c_deep_azure, true);
-      draw_silk_ribbon(base_r - 5.0f, a2 * 0.5f, a3 * 0.5f, 0.0f, (tick + 35) % 60, (tick + 10) % 60, 0,
-                       c_ice_white, c_elec_cyan, false);
+      draw_silk_ribbon_3d(base_r + 4.0f, a2, a3, a5, (tick) % 60, (tick * 2 + 15) % 60, (tick + 30) % 60,
+                          0.52f * fast_sin(t_sec * 0.9f), 0.48f * fast_cos(t_sec * 0.7f), t_sec * 0.4f,
+                          c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
+      draw_silk_ribbon_3d(base_r, -a2 * 0.9f, a3 * 1.1f, -a5, (tick + 20) % 60, (tick + 40) % 60, (tick * 2) % 60,
+                          -0.55f * fast_cos(t_sec * 0.8f), 0.50f * fast_sin(t_sec * 1.1f), -t_sec * 0.35f,
+                          c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
+      draw_silk_ribbon_3d(base_r - 2.0f, a2 * 0.8f, -a3, a5 * 1.2f, (tick * 2 + 7) % 60, (tick + 25) % 60, (tick + 12) % 60,
+                          0.42f * fast_cos(t_sec * 1.2f), -0.45f * fast_sin(t_sec * 0.85f), t_sec * 0.5f,
+                          c_elec_cyan, c_deep_azure, true);
+      draw_silk_ribbon_3d(base_r - 5.0f, a2 * 0.5f, a3 * 0.5f, a5 * 0.6f, (tick + 35) % 60, (tick + 10) % 60, (tick) % 60,
+                          0.28f * fast_sin(t_sec * 1.4f), 0.28f * fast_cos(t_sec * 1.4f), -t_sec * 0.25f,
+                          c_ice_white, c_elec_cyan, false);
 
-      // Symmetrical Concentric Cognitive Core (matching Thinking aesthetic, zero offset 3D spot)
       int core_r = 22 + static_cast<int>(6.0f * syl_env);
       it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.35f + 0.20f * syl_env));
       it.filled_circle(cx, cy, core_r, c_royal_indigo);
@@ -1038,45 +1032,50 @@ inline void render_voice_assistant_overlay(
       int tick = static_cast<int>(now_ms / 25U);
       float pulse = sinf(static_cast<float>(now_ms % 700U) * (2.0f * PI_F / 700.0f));
 
-      // Smoothly contract silk ribbons from Listening radius (76px) into Thinking vortex (50px)
-      float vortex_r = 72.0f - 22.0f * smooth_think;
-      draw_silk_ribbon(vortex_r + 3.0f * pulse, 6.0f, 5.0f, 3.0f,
-                       (tick * 2) % 60, (tick * 3) % 60, (tick) % 60,
-                       c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
-      draw_silk_ribbon(vortex_r - 2.0f - 2.0f * pulse, -5.0f, 6.0f, -2.5f,
-                       (tick * 2 + 30) % 60, (tick + 15) % 60, (tick * 2) % 60,
-                       c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
-      draw_silk_ribbon(vortex_r - 4.0f, 4.0f, -4.0f, 2.0f,
-                       (tick + 45) % 60, (tick * 2 + 20) % 60, (tick * 3) % 60,
-                       c_elec_cyan, c_deep_azure, true);
+      float vortex_r = 74.0f - 20.0f * smooth_think;
+      draw_silk_ribbon_3d(vortex_r + 3.0f * pulse, 6.0f, 5.0f, 3.5f,
+                          (tick * 2) % 60, (tick * 3) % 60, (tick) % 60,
+                          0.68f * fast_sin(t_sec * 1.3f), 0.55f * fast_cos(t_sec * 1.1f), t_sec * 0.8f,
+                          c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
+      draw_silk_ribbon_3d(vortex_r - 2.0f - 2.0f * pulse, -5.0f, 6.0f, -3.0f,
+                          (tick * 2 + 30) % 60, (tick + 15) % 60, (tick * 2) % 60,
+                          -0.62f * fast_cos(t_sec * 1.2f), 0.65f * fast_sin(t_sec * 1.4f), -t_sec * 0.7f,
+                          c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
+      draw_silk_ribbon_3d(vortex_r - 4.0f, 4.0f, -4.0f, 2.5f,
+                          (tick + 45) % 60, (tick * 2 + 20) % 60, (tick * 3) % 60,
+                          0.48f * fast_cos(t_sec * 1.6f), -0.52f * fast_sin(t_sec * 1.2f), t_sec * 0.9f,
+                          c_elec_cyan, c_deep_azure, true);
 
-      // 6 Relativistic Orbital Neural Nodes with 5-Step Fading Comet Trails (LUT-driven)
+      // 6 3D Tilted Orbital Neural Nodes with 5-Step Fading Comet Trails
       const int head_idx_cw = static_cast<int>((now_ms / 18U) % 60U);
       const int head_idx_ccw = (60 - static_cast<int>((now_ms / 22U) % 60U)) % 60;
+      float orb_rx1 = 0.52f * fast_sin(t_sec * 0.9f), orb_ry1 = 0.45f * fast_cos(t_sec * 0.8f);
+      float orb_rx2 = -0.48f * fast_cos(t_sec * 0.85f), orb_ry2 = 0.52f * fast_sin(t_sec * 0.95f);
 
       for (int n = 0; n < 3; n++) {
         int base_cw = (head_idx_cw + n * 20) % 60;
         for (int tail = 4; tail >= 0; tail--) {
           int idx = (base_cw - tail * 2 + 60) % 60;
-          int nx = cx + static_cast<int>(84.0f * DIAL_SIN[idx]);
-          int ny = cy - static_cast<int>(84.0f * DIAL_COS[idx]);
+          Vec3 v_cw = rotate_3d_xyz({88.0f * DIAL_SIN[idx], -88.0f * DIAL_COS[idx], 0.0f}, orb_rx1, orb_ry1, 0.0f);
+          ProjectedPoint p_cw = project_3d(v_cw, cx, cy, 260.0f, 320.0f);
           float k = static_cast<float>(5 - tail) * 0.20f * smooth_think;
-          it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+          int rad = (tail == 0) ? (v_cw.z < 0.0f ? 4 : 3) : (tail <= 2 ? 2 : 1);
+          it.filled_circle(p_cw.x, p_cw.y, rad,
                            (tail == 0) ? scale_color(c_ice_white, smooth_think) : scale_color(c_elec_cyan, k));
         }
 
         int base_ccw = (head_idx_ccw + n * 20 + 10) % 60;
         for (int tail = 4; tail >= 0; tail--) {
           int idx = (base_ccw + tail * 2) % 60;
-          int nx = cx + static_cast<int>(114.0f * DIAL_SIN[idx]);
-          int ny = cy - static_cast<int>(114.0f * DIAL_COS[idx]);
+          Vec3 v_ccw = rotate_3d_xyz({118.0f * DIAL_SIN[idx], -118.0f * DIAL_COS[idx], 0.0f}, orb_rx2, orb_ry2, 0.0f);
+          ProjectedPoint p_ccw = project_3d(v_ccw, cx, cy, 260.0f, 320.0f);
           float k = static_cast<float>(5 - tail) * 0.20f * smooth_think;
-          it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+          int rad = (tail == 0) ? (v_ccw.z < 0.0f ? 4 : 3) : (tail <= 2 ? 2 : 1);
+          it.filled_circle(p_ccw.x, p_ccw.y, rad,
                            (tail == 0) ? scale_color(c_ice_white, smooth_think) : scale_color(c_neon_magenta, k));
         }
       }
 
-      // Cognitive Core
       int core_r = 22 + static_cast<int>(4.0f * pulse);
       it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.35f));
       it.filled_circle(cx, cy, core_r, c_royal_indigo);
@@ -1086,26 +1085,28 @@ inline void render_voice_assistant_overlay(
       return;
     }
 
-    // New Nebula Listening: Fluid Breathing Silk Aura + Smooth VAD Bloom (no outer containment circle)
+    // Nebula Listening: 4 Precessing 3D Gyroscopic Silk Ribbons + VAD Bloom
     float breath = sinf(static_cast<float>(now_ms % 2000U) * (2.0f * PI_F / 2000.0f));
     int tick = static_cast<int>(now_ms / 45U);
 
-    float base_r = 76.0f + 6.0f * breath + 22.0f * smooth_vad;
+    float base_r = 80.0f + 6.0f * breath + 22.0f * smooth_vad;
     float a2 = 5.0f + 10.0f * smooth_vad;
     float a3 = 4.0f + 8.0f * smooth_vad;
-    float a5 = 2.0f + 5.0f * smooth_vad;
+    float a5 = 2.5f + 5.5f * smooth_vad;
 
-    // 4 Fluid Silk Ribbons
-    draw_silk_ribbon(base_r + 5.0f, a2, a3, a5, (tick) % 60, (tick + 20) % 60, (tick + 40) % 60,
-                     c_royal_indigo, scale_color(c_royal_indigo, 0.35f), false);
-    draw_silk_ribbon(base_r, -a2, a3 * 0.9f, -a5, (tick + 15) % 60, (tick * 2) % 60, (tick + 10) % 60,
-                     c_neon_magenta, scale_color(c_neon_magenta, 0.35f), false);
-    draw_silk_ribbon(base_r - 4.0f, a2 * 0.8f, -a3, a5, (tick + 35) % 60, (tick + 12) % 60, (tick * 2) % 60,
-                     c_elec_cyan, c_deep_azure, true);
-    draw_silk_ribbon(base_r - 8.0f, a2 * 0.4f, a3 * 0.4f, 0.0f, (tick + 50) % 60, (tick + 30) % 60, 0,
-                     c_ice_white, c_elec_cyan, false);
+    draw_silk_ribbon_3d(base_r + 5.0f, a2, a3, a5, (tick) % 60, (tick + 20) % 60, (tick + 40) % 60,
+                        0.48f * fast_sin(t_sec * 0.65f), 0.42f * fast_cos(t_sec * 0.55f), t_sec * 0.28f,
+                        c_royal_indigo, scale_color(c_royal_indigo, 0.35f), false);
+    draw_silk_ribbon_3d(base_r, -a2, a3 * 0.9f, -a5, (tick + 15) % 60, (tick * 2) % 60, (tick + 10) % 60,
+                        -0.50f * fast_cos(t_sec * 0.60f), 0.46f * fast_sin(t_sec * 0.75f), -t_sec * 0.24f,
+                        c_neon_magenta, scale_color(c_neon_magenta, 0.35f), false);
+    draw_silk_ribbon_3d(base_r - 4.0f, a2 * 0.8f, -a3, a5, (tick + 35) % 60, (tick + 12) % 60, (tick * 2) % 60,
+                        0.38f * fast_cos(t_sec * 0.80f), -0.42f * fast_sin(t_sec * 0.62f), t_sec * 0.32f,
+                        c_elec_cyan, c_deep_azure, true);
+    draw_silk_ribbon_3d(base_r - 8.0f, a2 * 0.4f, a3 * 0.4f, a5 * 0.5f, (tick + 50) % 60, (tick + 30) % 60, (tick) % 60,
+                        0.22f * fast_sin(t_sec * 0.95f), 0.22f * fast_cos(t_sec * 0.95f), -t_sec * 0.18f,
+                        c_ice_white, c_elec_cyan, false);
 
-    // Symmetrical Concentric Cognitive Core (matching Thinking aesthetic, zero offset 3D spot)
     int core_r = 23 + static_cast<int>(4.0f * breath + 7.0f * smooth_vad);
     it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.30f + 0.25f * smooth_vad));
     it.filled_circle(cx, cy, core_r, c_royal_indigo);
@@ -1116,23 +1117,22 @@ inline void render_voice_assistant_overlay(
   }
 
   // ============================================================================
-  // C. NEW FLAGSHIP "SOLARIS" — RADIAL ACOUSTIC CORONA & SOLAR ASTROLABE
-  //    30-Ray Circular Spectrometer + Golden/Emerald Coronal Waves (LUT-driven)
+  // C. FLAGSHIP "SOLARIS" — RADIAL ACOUSTIC CORONA & 3D GIMBALED SOLAR ASTROLABE
   // ============================================================================
-  const esphome::Color c_gold = col_solaris_gold;                 // #FFDC1E
-  const esphome::Color c_amber(255, 105, 15);                     // Molten Solar Amber
-  const esphome::Color c_crimson_ember(185, 35, 10);              // Deep Corona Crimson
-  const esphome::Color c_emerald(35, 215, 115);                   // Solar Aurora Emerald
-  const esphome::Color c_warm_white(255, 248, 215);               // Photosphere White-Gold
+  const esphome::Color c_gold = col_solaris_gold;
+  const esphome::Color c_amber(255, 105, 15);
+  const esphome::Color c_crimson_ember(185, 35, 10);
+  const esphome::Color c_emerald(35, 215, 115);
+  const esphome::Color c_warm_white(255, 248, 215);
+
+  float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
 
   if (is_speaking) {
-    float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
     float syl_env = (0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f)) * smooth_speak;
     if (syl_env < 0.15f) syl_env = 0.15f;
     int tick = static_cast<int>(now_ms / 35U);
     uint32_t speak_elapsed = now_ms - speak_start_ms;
 
-    // 3 Expanding Coronal Shockwave Rings launched progressively from the core
     for (int w = 0; w < 3; w++) {
       uint32_t launch_offset = static_cast<uint32_t>(w) * 600U;
       if (speak_elapsed < launch_offset) continue;
@@ -1147,7 +1147,6 @@ inline void render_voice_assistant_overlay(
       it.circle(cx, cy, r_wave + 1, glow_c);
     }
 
-    // 30-Ray Circular Acoustic Spectrometer around the Solar Core
     const float r_inner = 42.0f;
     for (int i = 0; i < 60; i += 2) {
       float h1 = DIAL_SIN[(i * 3 + tick * 2) % 60];
@@ -1160,7 +1159,7 @@ inline void render_voice_assistant_overlay(
       int x0 = cx + static_cast<int>(r_inner * ux);
       int y0 = cy + static_cast<int>(r_inner * uy);
       int xm = cx + static_cast<int>((r_inner + bar_len * 0.65f) * ux);
-      int ym = cy + static_cast<int>((r_inner + bar_len * 0.65f) * uy);
+      int ym = cy + static_cast<int>((r_inner + bar_len * 0.65f * uy));
       int x1 = cx + static_cast<int>(r_outer * ux);
       int y1 = cy + static_cast<int>(r_outer * uy);
 
@@ -1168,7 +1167,6 @@ inline void render_voice_assistant_overlay(
       it.line(xm, ym, x1, y1, (i % 4 == 0) ? c_gold : c_emerald);
     }
 
-    // Pulsing Photosphere Core
     int core_r = 26 + static_cast<int>(6.0f * syl_env);
     it.filled_circle(cx, cy, core_r + 6, c_crimson_ember);
     it.filled_circle(cx, cy, core_r + 2, c_amber);
@@ -1178,42 +1176,54 @@ inline void render_voice_assistant_overlay(
   }
 
   if (is_thinking) {
-    // 3-Ring Counter-Rotating Solar Astrolabe with Comet Trails
+    // 3D Gimbaled Armillary Sphere / Solar Astrolabe (rotate_3d_xyz + project_3d)
     const int head_1 = static_cast<int>((now_ms / 18U) % 60U);
     const int head_2 = (60 - static_cast<int>((now_ms / 22U) % 60U)) % 60;
     const int head_3 = static_cast<int>((now_ms / 28U) % 60U);
 
-    // Subtle astrolabe meridian rings
-    it.circle(cx, cy, 62, scale_color(c_amber, 0.30f * smooth_think));
-    it.circle(cx, cy, 90, scale_color(c_gold, 0.25f * smooth_think));
-    it.circle(cx, cy, 118, scale_color(c_emerald, 0.25f * smooth_think));
+    float rx1 = 0.62f * fast_sin(t_sec * 1.1f),  ry1 = 0.52f * fast_cos(t_sec * 0.9f);
+    float rx2 = -0.58f * fast_cos(t_sec * 0.95f), ry2 = 0.60f * fast_sin(t_sec * 1.15f);
+    float rx3 = 0.42f * fast_cos(t_sec * 0.75f),  ry3 = -0.48f * fast_sin(t_sec * 0.85f);
+
+    auto draw_3d_meridian = [&](float rad, float rx, float ry, esphome::Color col) {
+      int px = 0, py = 0, fx = 0, fy = 0;
+      for (int i = 0; i < 60; i += 3) {
+        Vec3 v = rotate_3d_xyz({rad * DIAL_SIN[i], -rad * DIAL_COS[i], 0.0f}, rx, ry, 0.0f);
+        ProjectedPoint p = project_3d(v, cx, cy, 260.0f, 320.0f);
+        if (i == 0) { fx = p.x; fy = p.y; }
+        else { it.line(px, py, p.x, p.y, col); }
+        px = p.x; py = p.y;
+      }
+      it.line(px, py, fx, fy, col);
+    };
+
+    draw_3d_meridian(66.0f,  rx1, ry1, scale_color(c_amber,   0.34f * smooth_think));
+    draw_3d_meridian(94.0f,  rx2, ry2, scale_color(c_gold,    0.30f * smooth_think));
+    draw_3d_meridian(122.0f, rx3, ry3, scale_color(c_emerald, 0.30f * smooth_think));
 
     for (int n = 0; n < 3; n++) {
-      // Inner Ring (r = 62, CW, Gold)
       int b1 = (head_1 + n * 20) % 60;
       for (int tail = 5; tail >= 0; tail--) {
         int idx = (b1 - tail * 2 + 60) % 60;
-        int nx = cx + static_cast<int>(62.0f * DIAL_SIN[idx]);
-        int ny = cy - static_cast<int>(62.0f * DIAL_COS[idx]);
-        it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+        Vec3 v = rotate_3d_xyz({66.0f * DIAL_SIN[idx], -66.0f * DIAL_COS[idx], 0.0f}, rx1, ry1, 0.0f);
+        ProjectedPoint p = project_3d(v, cx, cy, 260.0f, 320.0f);
+        it.filled_circle(p.x, p.y, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
                          (tail == 0) ? scale_color(c_warm_white, smooth_think) : scale_color(c_gold, (6 - tail) * 0.16f * smooth_think));
       }
-      // Middle Ring (r = 90, CCW, Emerald)
       int b2 = (head_2 + n * 20 + 10) % 60;
       for (int tail = 5; tail >= 0; tail--) {
         int idx = (b2 + tail * 2) % 60;
-        int nx = cx + static_cast<int>(90.0f * DIAL_SIN[idx]);
-        int ny = cy - static_cast<int>(90.0f * DIAL_COS[idx]);
-        it.filled_circle(nx, ny, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
+        Vec3 v = rotate_3d_xyz({94.0f * DIAL_SIN[idx], -94.0f * DIAL_COS[idx], 0.0f}, rx2, ry2, 0.0f);
+        ProjectedPoint p = project_3d(v, cx, cy, 260.0f, 320.0f);
+        it.filled_circle(p.x, p.y, (tail == 0) ? 4 : (tail <= 2 ? 2 : 1),
                          (tail == 0) ? scale_color(c_warm_white, smooth_think) : scale_color(c_emerald, (6 - tail) * 0.16f * smooth_think));
       }
-      // Outer Ring (r = 118, CW, Amber)
       int b3 = (head_3 + n * 20 + 5) % 60;
       for (int tail = 4; tail >= 0; tail--) {
         int idx = (b3 - tail * 2 + 60) % 60;
-        int nx = cx + static_cast<int>(118.0f * DIAL_SIN[idx]);
-        int ny = cy - static_cast<int>(118.0f * DIAL_COS[idx]);
-        it.filled_circle(nx, ny, (tail == 0) ? 3 : 2,
+        Vec3 v = rotate_3d_xyz({122.0f * DIAL_SIN[idx], -122.0f * DIAL_COS[idx], 0.0f}, rx3, ry3, 0.0f);
+        ProjectedPoint p = project_3d(v, cx, cy, 260.0f, 320.0f);
+        it.filled_circle(p.x, p.y, (tail == 0) ? 3 : 2,
                          (tail == 0) ? scale_color(c_gold, smooth_think) : scale_color(c_amber, (5 - tail) * 0.18f * smooth_think));
       }
     }
@@ -1227,7 +1237,7 @@ inline void render_voice_assistant_overlay(
     return;
   }
 
-  // New Solaris Listening: Breathing 30-Ray Solar Corona + Photosphere Core (no outer green ring, no text)
+  // Solaris Listening: Breathing 30-Ray Solar Corona + Photosphere Core
   float breath = sinf(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
   int tick = static_cast<int>(now_ms / 45U);
 
@@ -1256,7 +1266,4 @@ inline void render_voice_assistant_overlay(
   it.filled_circle(cx, cy, core_r - 3, c_gold);
   it.circle(cx, cy, core_r - 5, c_warm_white);
 }
-
-// ------------------------------------------------------------------------------
-
 }  // namespace pocket_ui
