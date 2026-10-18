@@ -3946,10 +3946,20 @@ touchscreen:
                     static uint32_t last_browse_scroll = 0;
                     uint32_t now_s = millis();
                     if (now_s - last_browse_scroll > TOUCH_DEBOUNCE_SCROLL) {
-                      last_browse_scroll = now_s;
-                      id(music_browse_page) = step_wrap_1based(id(music_browse_page), (touch.y < 220) ? -1 : 1, id(music_browse_total_pages));
-                      id(fetch_music_browse).execute();
-                      id(disp1).update();
+                      int delta = (touch.y < 220) ? -1 : 1;
+                      int next_pg = id(music_browse_page);
+                      if (id(music_overlay_mode) == 3 || id(music_overlay_mode) == 7) {
+                        // Hard stop at Page 1 and Total Pages so track order & lyrics never wrap around!
+                        next_pg = std::max(1, std::min(id(music_browse_total_pages), id(music_browse_page) + delta));
+                      } else {
+                        next_pg = step_wrap_1based(id(music_browse_page), delta, id(music_browse_total_pages));
+                      }
+                      if (next_pg != id(music_browse_page)) {
+                        last_browse_scroll = now_s;
+                        id(music_browse_page) = next_pg;
+                        id(fetch_music_browse).execute();
+                        id(disp1).update();
+                      }
                     }
                   }
                   return;
@@ -4639,8 +4649,8 @@ touchscreen:
                   return;
                 }
 
-                // 2. Center Scrubber Bar & -15s / +15s Buttons (y in 186..248)
-                if (touch.y >= 186 && touch.y <= 248) {
+                // 2. Center Equator Scrubber Bar (x in 95..371) & Vector Seek Buttons (y in 200..264)
+                if (touch.y >= 200 && touch.y <= 264) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_insp_tap = now_in;
                     float dur = id(ha_media_duration).state;
@@ -4648,14 +4658,14 @@ touchscreen:
                     if (id(music_pos_sync_time) > 0) {
                       cur_pos += static_cast<float>(now_in - id(music_pos_sync_time)) * 0.001f;
                     }
-                    if (touch.x < 104) {
-                      // -15s Step
+                    if (touch.x < 84) {
+                      // Left « Button: -15s Step
                       id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
                       id(music_pos_sync_time) = now_in;
                       id(music_seek_absolute).execute();
                       id(disp1).update();
-                    } else if (touch.x > 362) {
-                      // +15s Step
+                    } else if (touch.x > 382) {
+                      // Right » Button: +15s Step
                       float new_p = cur_pos + 15.0f;
                       if (!std::isnan(dur) && dur > 0.0f) new_p = std::min(dur, new_p);
                       id(music_pos_base) = new_p;
@@ -4663,8 +4673,8 @@ touchscreen:
                       id(music_seek_absolute).execute();
                       id(disp1).update();
                     } else if (!std::isnan(dur) && dur > 0.0f) {
-                      // Direct Scrubber Bar Tap (x in 116..350)
-                      float frac = (static_cast<float>(touch.x) - 116.0f) / 234.0f;
+                      // Direct Equator Scrubber Bar Tap (x in 95..371, width = 276px)
+                      float frac = (static_cast<float>(touch.x) - 95.0f) / 276.0f;
                       frac = std::max(0.0f, std::min(1.0f, frac));
                       id(music_pos_base) = frac * dur;
                       id(music_pos_sync_time) = now_in;
@@ -4675,8 +4685,8 @@ touchscreen:
                   return;
                 }
 
-                // 3. Lower Row Badge Cards: Album Info (left x < 233) & Song Lyrics (right x >= 233), y in 278..356
-                if (touch.y >= 278 && touch.y <= 356 && touch.x >= 75 && touch.x <= 391) {
+                // 3. Lower Row Tools-Style Cards: Album Info (left x < 233) & Lyrics (right x >= 233), y in 276..370
+                if (touch.y >= 276 && touch.y <= 370 && touch.x >= 80 && touch.x <= 386) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_insp_tap = now_in;
                     bool is_lyrics = (touch.x >= 233);
@@ -4749,8 +4759,8 @@ touchscreen:
                   return;
                 }
 
-                // 2. Center Scrubber Bar & -15s / +15s Buttons (y in 186..248)
-                if (touch.y >= 186 && touch.y <= 248) {
+                // 2. Center Equator Scrubber Bar (x in 95..371) & Vector Seek Buttons (y in 200..264)
+                if (touch.y >= 200 && touch.y <= 264) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_insp_tap = now_in;
                     float dur = id(ha_media_duration).state;
@@ -4758,14 +4768,14 @@ touchscreen:
                     if (id(music_pos_sync_time) > 0) {
                       cur_pos += static_cast<float>(now_in - id(music_pos_sync_time)) * 0.001f;
                     }
-                    if (touch.x < 104) {
-                      // -15s Step
+                    if (touch.x < 84) {
+                      // Left « Button: -15s Step
                       id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
                       id(music_pos_sync_time) = now_in;
                       id(music_seek_absolute).execute();
                       id(disp1).update();
-                    } else if (touch.x > 362) {
-                      // +15s Step
+                    } else if (touch.x > 382) {
+                      // Right » Button: +15s Step
                       float new_p = cur_pos + 15.0f;
                       if (!std::isnan(dur) && dur > 0.0f) new_p = std::min(dur, new_p);
                       id(music_pos_base) = new_p;
@@ -4773,8 +4783,8 @@ touchscreen:
                       id(music_seek_absolute).execute();
                       id(disp1).update();
                     } else if (!std::isnan(dur) && dur > 0.0f) {
-                      // Direct Scrubber Bar Tap (x in 116..350)
-                      float frac = (static_cast<float>(touch.x) - 116.0f) / 234.0f;
+                      // Direct Equator Scrubber Bar Tap (x in 95..371, width = 276px)
+                      float frac = (static_cast<float>(touch.x) - 95.0f) / 276.0f;
                       frac = std::max(0.0f, std::min(1.0f, frac));
                       id(music_pos_base) = frac * dur;
                       id(music_pos_sync_time) = now_in;
@@ -4785,8 +4795,8 @@ touchscreen:
                   return;
                 }
 
-                // 3. Lower Row Badge Cards: Album Info (left x < 233) & Song Lyrics (right x >= 233), y in 278..356
-                if (touch.y >= 278 && touch.y <= 356 && touch.x >= 75 && touch.x <= 391) {
+                // 3. Lower Row Tools-Style Cards: Album Info (left x < 233) & Lyrics (right x >= 233), y in 276..370
+                if (touch.y >= 276 && touch.y <= 370 && touch.x >= 80 && touch.x <= 386) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_insp_tap = now_in;
                     bool is_lyrics = (touch.x >= 233);

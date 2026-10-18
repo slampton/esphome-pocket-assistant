@@ -1719,7 +1719,7 @@ inline void render_music_menus(
     draw_slot_card(336, slot_5_name, slot_5_type, slot_5_active);
 
     if (music_browse_total_pages > 1) {
-      draw_right_chevrons(true, true);
+      draw_right_chevrons(music_browse_page > 1, music_browse_page < music_browse_total_pages);
       char pg_buf[16];
       snprintf(pg_buf, sizeof(pg_buf), "%d / %d", music_browse_page, music_browse_total_pages);
       it.print(cx, 440, font_micro, col_slate, esphome::display::TextAlign::CENTER, pg_buf);
@@ -1750,7 +1750,7 @@ inline void render_music_menus(
       render_pill_button(it, 110, 356, 304, 18, theme_secondary, col_dark_gray, "UNJOIN / DETACH", col_white, font_small);
     }
   } else if (music_overlay_mode == 6) {
-    // LEVEL 6: NOW PLAYING TRACK & ALBUM INSPECTOR (Album Tracks + Inline Scrubber + Info/Lyrics Cards)
+    // LEVEL 6: NOW PLAYING TRACK & ALBUM INSPECTOR
     std::string disp_t = cur_title.empty() ? "NOW PLAYING" : fit_text_to_width_font(cur_title, 240, font_date);
     it.print(cx, 44, font_date, theme_primary, esphome::display::TextAlign::CENTER, disp_t.c_str());
 
@@ -1769,7 +1769,7 @@ inline void render_music_menus(
       it.filled_rectangle(332, 118 + dy, 12, 2, theme_secondary);
     }
 
-    // 2. Center Hero: Inline Track Position Scrubber & Time Readout (y = 172 .. 236)
+    // 2. Center Equator (y = 188 .. 248): Wide Track Position Scrubber (x = 95..371, y = 233)
     float cur_pos = music_pos_base;
     if (is_playing && music_pos_sync_time > 0 && now_ms >= music_pos_sync_time) {
       cur_pos += static_cast<float>(now_ms - music_pos_sync_time) * 0.001f;
@@ -1788,28 +1788,38 @@ inline void render_music_menus(
     } else {
       snprintf(time_buf, sizeof(time_buf), "%02d:%02d  /  --:--", el_s / 60, el_s % 60);
     }
-    it.print(cx, 174, font_small, col_white, esphome::display::TextAlign::CENTER, time_buf);
+    it.print(cx, 188, font_small, col_white, esphome::display::TextAlign::CENTER, time_buf);
 
-    // Flanking -15s (x=76) and +15s (x=390) step buttons + Interactive Scrubber Bar (x=116..350, y=216)
-    const int scrub_y = 216;
-    const int bar_x0  = 116;
-    const int bar_x1  = 350;
+    // Wide Equator Scrubber Bar (x = 95..371, width = 276px at y = 233) + Vector Seek Buttons (x = 50, x = 416)
+    const int scrub_y = 233;
+    const int bar_x0  = 95;
+    const int bar_x1  = 371;
     const int bar_w   = bar_x1 - bar_x0;
 
-    it.filled_circle(76, scrub_y, 17, col_dark_gray);
-    it.circle(76, scrub_y, 17, theme_secondary);
-    it.print(76, scrub_y, font_micro, col_white, esphome::display::TextAlign::CENTER, "-15s");
+    // Left -15s Seek Button (x = 50, y = 233, r = 20, subtle Tools-style border + crisp double-chevron «)
+    esphome::Color btn_bg(22, 27, 36);
+    esphome::Color btn_brd(58, 68, 84);
+    it.filled_circle(50, scrub_y, 20, btn_bg);
+    it.circle(50, scrub_y, 20, btn_brd);
+    it.line(54, scrub_y - 6, 48, scrub_y, col_white);
+    it.line(48, scrub_y,     54, scrub_y + 6, col_white);
+    it.line(48, scrub_y - 6, 42, scrub_y, theme_secondary);
+    it.line(42, scrub_y,     48, scrub_y + 6, theme_secondary);
 
-    it.filled_circle(390, scrub_y, 17, col_dark_gray);
-    it.circle(390, scrub_y, 17, theme_secondary);
-    it.print(390, scrub_y, font_micro, col_white, esphome::display::TextAlign::CENTER, "+15s");
+    // Right +15s Seek Button (x = 416, y = 233, r = 20, subtle Tools-style border + crisp double-chevron »)
+    it.filled_circle(416, scrub_y, 20, btn_bg);
+    it.circle(416, scrub_y, 20, btn_brd);
+    it.line(412, scrub_y - 6, 418, scrub_y, col_white);
+    it.line(418, scrub_y,     412, scrub_y + 6, col_white);
+    it.line(418, scrub_y - 6, 424, scrub_y, theme_secondary);
+    it.line(424, scrub_y,     418, scrub_y + 6, theme_secondary);
 
     // Scrubber Track Groove (r=5 capsule) + 25%/50%/75% ticks
     it.filled_circle(bar_x0, scrub_y, 5, col_dark_gray);
     it.filled_circle(bar_x1, scrub_y, 5, col_dark_gray);
     it.filled_rectangle(bar_x0, scrub_y - 5, bar_w, 11, col_dark_gray);
-    it.line(bar_x0, scrub_y - 5, bar_x1, scrub_y - 5, col_slate);
-    it.line(bar_x0, scrub_y + 5, bar_x1, scrub_y + 5, col_slate);
+    it.line(bar_x0, scrub_y - 5, bar_x1, scrub_y - 5, btn_brd);
+    it.line(bar_x0, scrub_y + 5, bar_x1, scrub_y + 5, btn_brd);
     for (int q = 1; q <= 3; q++) {
       int tx = bar_x0 + (bar_w * q) / 4;
       it.line(tx, scrub_y - 8, tx, scrub_y - 6, col_slate);
@@ -1827,52 +1837,53 @@ inline void render_music_menus(
     it.filled_circle(knob_x, scrub_y, 6, theme_secondary);
     it.filled_circle(knob_x, scrub_y, 2, col_black);
 
-    // 3. Lower Row (y = 316): Two Artistic Icon + Text Badge Cards (Album Info & Lyrics)
-    auto draw_badge_card = [&](int card_cx, int card_cy, bool is_lyrics, const char *lbl1, const char *lbl2) {
-      const int cw = 134, ch = 64, cr = 14;
+    // 3. Lower Row (y = 324): Two Subtle Tools-Launcher-Style Cards (Album Info & Lyrics)
+    auto draw_subtle_tool_card = [&](int card_cx, int card_cy, bool is_lyrics, const char *label) {
+      const int cw = 128, ch = 84, cr = 16;
       int x0 = card_cx - cw / 2, y0 = card_cy - ch / 2;
-      esphome::Color bg_c(22, 28, 38);
-      it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, bg_c);
-      it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, bg_c);
-      it.filled_circle(x0 + cr, y0 + cr, cr, bg_c);
-      it.filled_circle(x0 + cw - cr, y0 + cr, cr, bg_c);
-      it.filled_circle(x0 + cr, y0 + ch - cr, cr, bg_c);
-      it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, bg_c);
+      esphome::Color card_bg(22, 27, 36);
+      esphome::Color card_border(48, 56, 70);
 
-      it.line(x0 + cr, y0, x0 + cw - cr, y0, theme_secondary);
-      it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, theme_secondary);
-      it.line(x0, y0 + cr, x0, y0 + ch - cr, theme_secondary);
-      it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, theme_secondary);
+      it.filled_rectangle(x0 + cr, y0, cw - 2 * cr, ch, card_bg);
+      it.filled_rectangle(x0, y0 + cr, cw, ch - 2 * cr, card_bg);
+      it.filled_circle(x0 + cr, y0 + cr, cr, card_bg);
+      it.filled_circle(x0 + cw - cr, y0 + cr, cr, card_bg);
+      it.filled_circle(x0 + cr, y0 + ch - cr, cr, card_bg);
+      it.filled_circle(x0 + cw - cr, y0 + ch - cr, cr, card_bg);
 
-      int ix = x0 + 28;
-      int iy = card_cy;
+      it.line(x0 + cr, y0, x0 + cw - cr, y0, card_border);
+      it.line(x0 + cr, y0 + ch - 1, x0 + cw - cr, y0 + ch - 1, card_border);
+      it.line(x0, y0 + cr, x0, y0 + ch - cr, card_border);
+      it.line(x0 + cw - 1, y0 + cr, x0 + cw - 1, y0 + ch - cr, card_border);
+
+      int ix = card_cx;
+      int iy = card_cy - 15;
       if (!is_lyrics) {
-        // Album Info Icon: Vinyl/Info Medallion with serif 'i'
+        // Album Info Icon: Medallion Circle + Serif 'i'
         it.circle(ix, iy, 14, theme_primary);
-        it.circle(ix, iy, 13, theme_primary);
+        it.circle(ix, iy, 13, theme_secondary);
         it.filled_circle(ix, iy - 6, 2, col_white);
         it.filled_rectangle(ix - 1, iy - 2, 3, 9, col_white);
         it.line(ix - 3, iy - 2, ix + 1, iy - 2, col_white);
         it.line(ix - 3, iy + 7, ix + 3, iy + 7, col_white);
       } else {
-        // Lyrics Icon: Beamed Double Eighth Notes (♫) + Lyric wave
-        it.filled_circle(ix - 6, iy + 6, 4, theme_primary);
+        // Lyrics Icon: Beamed Double Eighth Notes (♫)
+        it.filled_circle(ix - 7, iy + 6, 4, theme_primary);
         it.filled_circle(ix + 5, iy + 4, 4, theme_primary);
+        it.line(ix - 4, iy + 6, ix - 4, iy - 9, col_white);
         it.line(ix - 3, iy + 6, ix - 3, iy - 9, col_white);
-        it.line(ix - 2, iy + 6, ix - 2, iy - 9, col_white);
         it.line(ix + 8, iy + 4, ix + 8, iy - 11, col_white);
         it.line(ix + 9, iy + 4, ix + 9, iy - 11, col_white);
-        it.line(ix - 3, iy - 9, ix + 9, iy - 11, col_white);
-        it.line(ix - 3, iy - 8, ix + 9, iy - 10, theme_primary);
-        it.line(ix - 3, iy - 5, ix + 9, iy - 7, theme_secondary);
+        it.line(ix - 4, iy - 9, ix + 9, iy - 11, col_white);
+        it.line(ix - 4, iy - 8, ix + 9, iy - 10, theme_primary);
+        it.line(ix - 4, iy - 5, ix + 9, iy - 7, theme_secondary);
       }
 
-      it.print(x0 + 52, card_cy - 10, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, lbl1);
-      it.print(x0 + 52, card_cy + 12, font_micro, col_slate, esphome::display::TextAlign::CENTER_LEFT, lbl2);
+      it.print(card_cx, card_cy + 20, font_small, col_white, esphome::display::TextAlign::CENTER, label);
     };
 
-    draw_badge_card(156, 316, false, "Album", "Info");
-    draw_badge_card(310, 316, true,  "Song",  "Lyrics");
+    draw_subtle_tool_card(160, 324, false, "Album Info");
+    draw_subtle_tool_card(306, 324, true,  "Lyrics");
 
   } else if (music_overlay_mode == 7) {
     // LEVEL 7: 5-LINE PAGINATED READER VIEW (Album Biography & Song Lyrics)
@@ -1888,7 +1899,7 @@ inline void render_music_menus(
     }
 
     if (music_browse_total_pages > 1) {
-      draw_right_chevrons(true, true);
+      draw_right_chevrons(music_browse_page > 1, music_browse_page < music_browse_total_pages);
       char pg_buf[16];
       snprintf(pg_buf, sizeof(pg_buf), "%d / %d", music_browse_page, music_browse_total_pages);
       it.print(cx, 366, font_micro, col_slate, esphome::display::TextAlign::CENTER, pg_buf);
