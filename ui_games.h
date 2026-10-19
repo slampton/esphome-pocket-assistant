@@ -1970,7 +1970,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
           }
           level_clear_until_ms = now_ms + 1550U;
           in_celebration = true;
-          pending_game_sfx() = 2; // Level Clear Fanfare!
+          pending_game_sfx() = 5; // Level Clear Fanfare!
 
           esphome::Color p_cols[5] = {col_gold, col_cyan, col_magenta, col_green, col_orange};
           for (int c = 0; c < 16; c++) {
@@ -1984,7 +1984,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
           }
         } else {
           // Regular treat chomped -> Play Cookie-Monster "Nom-Nom" Chomp SFX!
-          pending_game_sfx() = 1;
+          pending_game_sfx() = 1 + ((treat_score + treats[i].kind) & 3); // Vary across 4 chomp patterns!
         }
         break;
       }
