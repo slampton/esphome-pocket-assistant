@@ -787,9 +787,12 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
   int tip_y = cy + static_cast<int>(roundf(static_cast<float>(R_MID) * uy));
   it.filled_circle(tip_x, tip_y, 2, col);
 }
-// Complete Voice Assistant Visual Engine supporting 3 pure-visual profiles (zero text):
-//   - "Nebula": Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven, default)
-//   - "Solaris": Flagship Radial Acoustic Corona & Solar Astrolabe Spectrometer
+// Complete Voice Assistant Visual Engine supporting 6 pure-visual profiles (zero text):
+//   - "Nebula":   Flagship 3D Multi-Ribbon Silk Wave Orb (Siri / Gemini style, LUT-driven, default)
+//   - "Solaris":  Flagship Radial Acoustic Corona & Solar Astrolabe Spectrometer
+//   - "Jarvis":   Iron Man J.A.R.V.I.S. 3D Holographic Wireframe Globe, Tech Calipers & Radial Modulator
+//   - "Alexa":    Amazon Echo / Echo Spot Perimeter Royal-Blue & Directional Cyan Bezel Light Ring
+//   - "Google":   Minimalist Wear OS / Pixel Floating Dots-to-Capsule Wave & Orbit Equalizer
 //   - "Original": Original Nebula visual design with trig & loop optimizations
 template<typename DisplayT, typename FontT, typename StrRefT>
 inline void render_voice_assistant_overlay(
@@ -805,7 +808,10 @@ inline void render_voice_assistant_overlay(
   (void)va_status_text;
   (void)font_small;
   const bool is_original = (profile_opt == "Original" || profile_opt == "Classic Nebula");
-  const bool is_solaris = (profile_opt == "Solaris");
+  const bool is_solaris  = (profile_opt == "Solaris");
+  const bool is_alexa    = (profile_opt == "Alexa");
+  const bool is_google   = (profile_opt == "Google");
+  const bool is_jarvis   = (profile_opt == "Jarvis");
 
   // Smooth exponential envelopes (0.0f -> 1.0f) for fluid organic transitions
   // across Listening -> Thinking -> Speaking and progressive wave launch from the core
@@ -826,6 +832,274 @@ inline void render_voice_assistant_overlay(
   smooth_vad += (vad_target - smooth_vad) * 0.35f;
   smooth_think += (think_target - smooth_think) * 0.35f;
   smooth_speak += (speak_target - smooth_speak) * 0.35f;
+
+  // ============================================================================
+  // PROFILE: "ALEXA" — AMAZON ECHO / ECHO SPOT PERIMETER CYAN & ROYAL BLUE RING
+  // ============================================================================
+  if (is_alexa) {
+    const esphome::Color c_echo_blue(0, 52, 235);
+    const esphome::Color c_echo_deep(0, 22, 115);
+    const esphome::Color c_echo_cyan(0, 229, 255);
+    const esphome::Color c_echo_ice(205, 250, 255);
+
+    float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
+    float syl_env = is_speaking
+        ? ((0.55f + 0.25f * fast_sin(t_sec * 11.5f) + 0.20f * fast_cos(t_sec * 19.3f)) * smooth_speak)
+        : 0.0f;
+
+    // 1. Base Royal-Blue Perimeter Light Ring (r = 216..230) with soft inner ambient glow (r = 208..215)
+    int inner_glow_r = 210 - static_cast<int>(6.0f * smooth_vad + 8.0f * syl_env);
+    for (int r = inner_glow_r; r <= 230; r++) {
+      esphome::Color rc;
+      if (r < 216) {
+        float k = static_cast<float>(r - inner_glow_r) / static_cast<float>(216 - inner_glow_r);
+        rc = scale_color(c_echo_deep, k * k * 0.85f);
+      } else if (r <= 227) {
+        rc = c_echo_blue;
+      } else {
+        rc = c_echo_deep;
+      }
+      it.circle(cx, cy, r, rc);
+    }
+
+    // 2. State-Specific Cyan Light-Ring Choreography (60-Segment Perimeter Angular Shader)
+    //    Index 0 = 12 o'clock, Index 15 = 3 o'clock, Index 30 = 6 o'clock (bottom mic direction)
+    int spin_idx = static_cast<int>((now_ms / 18U) % 60U);
+    float breath = 0.5f + 0.5f * fast_sin(t_sec * 3.8f);
+
+    for (int i = 0; i < 60; i++) {
+      int next_i = (i + 1) % 60;
+      float cyan_w = 0.0f;
+
+      if (is_speaking) {
+        // Responding: Symmetric cyan acoustic wave sweeping from 6 o'clock (i=30) up both flanks
+        int dist_bottom = (i <= 30) ? (30 - i) : (i - 30);
+        float wave_pos = 8.0f + 18.0f * syl_env + 5.0f * fast_sin(t_sec * 14.0f + static_cast<float>(dist_bottom) * 0.25f);
+        float d = wave_pos - static_cast<float>(dist_bottom);
+        if (d > 0.0f) {
+          cyan_w = fminf(1.0f, d * 0.14f);
+        }
+      } else if (is_thinking) {
+        // Thinking: Classic Echo alternating dual-opposed chasing cyan sectors
+        int d1 = (i - spin_idx + 60) % 60;
+        int d2 = (i - ((spin_idx + 30) % 60) + 60) % 60;
+        if (d1 < 12) cyan_w = 1.0f - static_cast<float>(d1) * (1.0f / 12.0f);
+        else if (d2 < 12) cyan_w = 1.0f - static_cast<float>(d2) * (1.0f / 12.0f);
+      } else {
+        // Listening: Directional cyan pointer at 6 o'clock (i=30) that widens with VAD speech
+        int dist_bottom = (i <= 30) ? (30 - i) : (i - 30);
+        float span = 5.5f + 7.5f * smooth_vad + 1.8f * breath;
+        if (static_cast<float>(dist_bottom) < span) {
+          cyan_w = 1.0f - (static_cast<float>(dist_bottom) / span);
+        }
+      }
+
+      if (cyan_w > 0.05f) {
+        esphome::Color seg_c = (cyan_w > 0.72f)
+            ? lerp_color(c_echo_cyan, c_echo_ice, (cyan_w - 0.72f) * 3.5f)
+            : lerp_color(c_echo_blue, c_echo_cyan, cyan_w * 1.35f);
+
+        float sx0 = DIAL_SIN[i],      cy0 = -DIAL_COS[i];
+        float sx1 = DIAL_SIN[next_i], cy1 = -DIAL_COS[next_i];
+        int r_in_c = 215 - static_cast<int>(cyan_w * (4.0f + 5.0f * (smooth_vad + syl_env)));
+        for (int r = r_in_c; r <= 228; r += 2) {
+          int x0 = cx + static_cast<int>(static_cast<float>(r) * sx0);
+          int y0 = cy + static_cast<int>(static_cast<float>(r) * cy0);
+          int x1 = cx + static_cast<int>(static_cast<float>(r) * sx1);
+          int y1 = cy + static_cast<int>(static_cast<float>(r) * cy1);
+          it.line(x0, y0, x1, y1, seg_c);
+          it.line(x0, y0 + 1, x1, y1 + 1, seg_c);
+        }
+      }
+    }
+    return;
+  }
+
+  // ============================================================================
+  // PROFILE: "GOOGLE" — MINIMALIST WEAR OS / PIXEL DOTS-TO-CAPSULE WAVE & ORBIT
+  // ============================================================================
+  if (is_google) {
+    float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
+    const esphome::Color c_halo_outer(32, 58, 108);
+    const esphome::Color c_halo_inner(110, 168, 255);
+
+    auto draw_glowing_capsule = [&](int bx, int by, int r, int half_h) {
+      if (half_h <= 1) {
+        it.filled_circle(bx, by, r + 4, c_halo_outer);
+        it.filled_circle(bx, by, r + 2, c_halo_inner);
+        it.filled_circle(bx, by, r, col_white);
+      } else {
+        int y_top = by - half_h;
+        int y_bot = by + half_h;
+        int h_span = 2 * half_h;
+        // Soft blue-white ambient glow aura
+        it.filled_circle(bx, y_top, r + 3, c_halo_outer);
+        it.filled_circle(bx, y_bot, r + 3, c_halo_outer);
+        it.filled_rectangle(bx - (r + 3), y_top, 2 * (r + 3) + 1, h_span, c_halo_outer);
+        it.filled_circle(bx, y_top, r + 1, c_halo_inner);
+        it.filled_circle(bx, y_bot, r + 1, c_halo_inner);
+        it.filled_rectangle(bx - (r + 1), y_top, 2 * (r + 1) + 1, h_span, c_halo_inner);
+        // Crisp pure-white inner pill
+        it.filled_circle(bx, y_top, r, col_white);
+        it.filled_circle(bx, y_bot, r, col_white);
+        it.filled_rectangle(bx - r, y_top, 2 * r + 1, h_span, col_white);
+      }
+    };
+
+    if (is_thinking) {
+      // Thinking: 4 white dots pull into a tight circular carousel orbit (r = 42px) with fading comet tails
+      float base_ang = t_sec * 4.6f;
+      const float orbit_r = 42.0f;
+      for (int d = 0; d < 4; d++) {
+        float ang = base_ang + static_cast<float>(d) * (PI_F * 0.5f);
+        // 3 trailing afterimage dots per orbiter
+        for (int tail = 3; tail >= 1; tail--) {
+          float t_ang = ang - static_cast<float>(tail) * 0.16f;
+          float ts = 0.0f, tc = 1.0f;
+          fast_sincos(t_ang, ts, tc);
+          int tx = cx + static_cast<int>(orbit_r * tc);
+          int ty = cy + static_cast<int>(orbit_r * ts);
+          float fade = static_cast<float>(4 - tail) * 0.20f;
+          it.filled_circle(tx, ty, 10 - tail * 2, scale_color(c_halo_inner, fade));
+        }
+        float s = 0.0f, c = 1.0f;
+        fast_sincos(ang, s, c);
+        int dx = cx + static_cast<int>(orbit_r * c);
+        int dy = cy + static_cast<int>(orbit_r * s);
+        draw_glowing_capsule(dx, dy, 10, 0);
+      }
+      return;
+    }
+
+    // Listening & Speaking: 4 horizontally spaced dots/capsules centered at cx
+    static constexpr int DOT_OFF_X[4] = {-69, -23, 23, 69};
+    if (is_speaking) {
+      // Speaking: Dots stretch into vertical rounded equalizer pills modulated by harmonic speech waves
+      float syl_env = (0.50f + 0.30f * fast_sin(t_sec * 10.5f) + 0.20f * fast_cos(t_sec * 17.8f)) * smooth_speak;
+      static constexpr float BAR_FREQ[4]  = {9.5f, 13.2f, 11.4f, 8.7f};
+      static constexpr float BAR_PHASE[4] = {0.0f, 1.4f,  2.9f,  4.3f};
+      static constexpr float BAR_MAX_H[4] = {32.0f, 48.0f, 44.0f, 28.0f};
+      for (int d = 0; d < 4; d++) {
+        float w = 0.55f + 0.45f * fast_sin(t_sec * BAR_FREQ[d] + BAR_PHASE[d]);
+        int half_h = static_cast<int>(w * BAR_MAX_H[d] * (0.35f + 0.65f * syl_env));
+        draw_glowing_capsule(cx + DOT_OFF_X[d], cy, 10, half_h);
+      }
+    } else {
+      // Listening: 4 white dots in a fluid travelling sine wave (amplified when VAD is active)
+      float wave_amp = 9.0f + 22.0f * smooth_vad;
+      float wave_spd = 5.2f + 3.2f * smooth_vad;
+      for (int d = 0; d < 4; d++) {
+        float ph = t_sec * wave_spd - static_cast<float>(d) * 0.85f;
+        int dy = static_cast<int>(fast_sin(ph) * wave_amp);
+        int half_h = (smooth_vad > 0.25f) ? static_cast<int>(smooth_vad * 6.0f * std::fabs(fast_cos(ph))) : 0;
+        draw_glowing_capsule(cx + DOT_OFF_X[d], cy + dy, 10, half_h);
+      }
+    }
+    return;
+  }
+
+  // ============================================================================
+  // PROFILE: "JARVIS" — IRON MAN J.A.R.V.I.S. 3D HOLOGRAPHIC HUD & VOICE SPHERE
+  // ============================================================================
+  if (is_jarvis) {
+    const esphome::Color c_stark_gold(255, 184, 28);
+    const esphome::Color c_stark_amber(230, 95, 12);
+    const esphome::Color c_stark_dim(105, 52, 8);
+    const esphome::Color c_stark_core(255, 246, 205);
+    const esphome::Color c_hud_cyan(75, 215, 255);
+
+    float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
+    float syl_env = is_speaking
+        ? ((0.55f + 0.25f * fast_sin(t_sec * 12.0f) + 0.20f * fast_cos(t_sec * 19.5f)) * smooth_speak)
+        : 0.0f;
+
+    // 1. Outer Technical Caliper Ring (r = 166) with 4 Gapped Quadrant Arcs & Counter-Rotating Ticks
+    it.circle(cx, cy, 174, c_stark_dim);
+    int cal_rot = is_thinking ? static_cast<int>((now_ms / 22U) % 60U) : static_cast<int>((now_ms / 55U) % 60U);
+    for (int i = 0; i < 60; i++) {
+      // Leave 4 technical HUD gaps at the diagonal corners
+      int q_pos = (i + cal_rot) % 15;
+      if (q_pos >= 12) continue;
+
+      int next_i = (i + 1) % 60;
+      int x0 = cx + static_cast<int>(164.0f * DIAL_SIN[i]);
+      int y0 = cy - static_cast<int>(164.0f * DIAL_COS[i]);
+      int x1 = cx + static_cast<int>(164.0f * DIAL_SIN[next_i]);
+      int y1 = cy - static_cast<int>(164.0f * DIAL_COS[next_i]);
+      it.line(x0, y0, x1, y1, (q_pos == 0 || q_pos == 11) ? c_hud_cyan : c_stark_amber);
+
+      if (i % 3 == 0) {
+        int r_t0 = 167;
+        int r_t1 = (i % 15 == 0) ? 178 : 172;
+        it.line(cx + static_cast<int>(r_t0 * DIAL_SIN[i]), cy - static_cast<int>(r_t0 * DIAL_COS[i]),
+                cx + static_cast<int>(r_t1 * DIAL_SIN[i]), cy - static_cast<int>(r_t1 * DIAL_COS[i]),
+                (i % 15 == 0) ? c_hud_cyan : c_stark_gold);
+      }
+    }
+
+    // 2. Mid-Ring 30-Bar Radial Acoustic Modulator (r_in = 104 .. r_out = 108..146)
+    int tick_phase = static_cast<int>(now_ms / 30U);
+    for (int i = 0; i < 60; i += 2) {
+      float wave = 0.5f + 0.5f * fast_sin(static_cast<float>(i) * 0.42f + static_cast<float>(tick_phase) * 0.35f);
+      float bar_len = 8.0f;
+      if (is_speaking) {
+        bar_len = 10.0f + (28.0f * syl_env * (0.45f + 0.55f * DIAL_SIN[(i * 3 + tick_phase) % 60]));
+      } else if (is_thinking) {
+        int sweep_d = (i - ((tick_phase * 2) % 60) + 60) % 60;
+        bar_len = (sweep_d < 12) ? (26.0f - sweep_d * 1.5f) : 7.0f;
+      } else {
+        bar_len = 7.0f + 22.0f * smooth_vad * wave;
+      }
+      if (bar_len < 5.0f) bar_len = 5.0f;
+
+      float ux = DIAL_SIN[i], uy = -DIAL_COS[i];
+      int x0 = cx + static_cast<int>(102.0f * ux);
+      int y0 = cy + static_cast<int>(102.0f * uy);
+      int xm = cx + static_cast<int>((102.0f + bar_len * 0.65f) * ux);
+      int ym = cy + static_cast<int>((102.0f + bar_len * 0.65f) * uy);
+      int x1 = cx + static_cast<int>((102.0f + bar_len) * ux);
+      int y1 = cy + static_cast<int>((102.0f + bar_len) * uy);
+
+      it.line(x0, y0, xm, ym, c_stark_amber);
+      it.line(xm, ym, x1, y1, (bar_len > 20.0f && (i % 6 == 0)) ? c_hud_cyan : c_stark_gold);
+    }
+
+    // 3. Inner 3D Gyroscopic Wireframe Hologram Sphere (3 Orthogonal Tilted 3D Rings at r = 74)
+    float spd_m = is_thinking ? 2.4f : (is_speaking ? 1.5f : 0.9f);
+    float rx1 = t_sec * 0.9f * spd_m,        ry1 = t_sec * 0.7f * spd_m;
+    float rx2 = -t_sec * 0.8f * spd_m + 1.1f, ry2 = t_sec * 1.1f * spd_m;
+    float rx3 = 1.57f + 0.4f * fast_sin(t_sec * spd_m), ry3 = -t_sec * 0.95f * spd_m;
+
+    auto draw_jarvis_ring_3d = [&](float rad, float rx, float ry, float rz, esphome::Color col_front) {
+      int px = 0, py = 0, fx = 0, fy = 0;
+      float prev_z = 0.0f;
+      for (int i = 0; i < 60; i += 3) {
+        Vec3 v = rotate_3d_xyz({rad * DIAL_SIN[i], -rad * DIAL_COS[i], 0.0f}, rx, ry, rz);
+        ProjectedPoint p = project_3d(v, cx, cy, 260.0f, 320.0f);
+        if (i == 0) {
+          fx = p.x; fy = p.y;
+        } else {
+          float depth_k = (v.z + prev_z < 0.0f) ? 1.0f : 0.42f;
+          it.line(px, py, p.x, p.y, scale_color(col_front, depth_k));
+        }
+        px = p.x; py = p.y; prev_z = v.z;
+      }
+      it.line(px, py, fx, fy, scale_color(col_front, 0.75f));
+    };
+
+    float sphere_r = 72.0f + 8.0f * syl_env + 5.0f * smooth_vad;
+    draw_jarvis_ring_3d(sphere_r,        rx1, ry1, 0.2f, c_stark_gold);
+    draw_jarvis_ring_3d(sphere_r - 4.0f, rx2, ry2, -0.4f, c_stark_amber);
+    draw_jarvis_ring_3d(sphere_r - 8.0f, rx3, ry3, 0.7f, is_thinking ? c_hud_cyan : c_stark_gold);
+
+    // 4. Center Pulsing J.A.R.V.I.S. Core Nucleus
+    int core_r = 18 + static_cast<int>(7.0f * syl_env + 4.0f * smooth_vad + 2.0f * fast_sin(t_sec * 5.0f));
+    it.circle(cx, cy, core_r + 8, c_stark_dim);
+    it.filled_circle(cx, cy, core_r + 3, c_stark_amber);
+    it.filled_circle(cx, cy, core_r - 1, c_stark_gold);
+    it.filled_circle(cx, cy, std::max(3, core_r / 2), c_stark_core);
+    return;
+  }
 
   // ============================================================================
   // A. "ORIGINAL" (Original Nebula Visual Design, C++ Trig Optimized, Pure Visual)
