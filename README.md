@@ -52,6 +52,7 @@ packages:
     url: https://github.com/slampton/esphome-pocket-assistant
     ref: main
     file: pocket-assistant-1.75c.yaml
+    refresh: 0s
 
 esphome:
   name: ${name}
