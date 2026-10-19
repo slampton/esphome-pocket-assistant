@@ -94,6 +94,15 @@ esphome:
       then:
         - safe_mode.mark_successful:
         - lambda: |-
+            // Configure GPIO3 as AXP2101 active-LOW hardware IRQ input with pull-up (ADR-001)
+            gpio_config_t io_conf = {};
+            io_conf.pin_bit_mask = (1ULL << GPIO_NUM_3);
+            io_conf.mode = GPIO_MODE_INPUT;
+            io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+            io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+            io_conf.intr_type = GPIO_INTR_DISABLE;
+            gpio_config(&io_conf);
+
             // Enable AXP2101 PEK short and long press IRQs (register 0x41 = 0x0C)
             uint8_t irq_en[2] = {0x41, 0x0C};
             id(bus_internal).write(0x34, irq_en, 2);

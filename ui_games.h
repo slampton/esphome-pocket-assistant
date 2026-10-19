@@ -86,7 +86,7 @@ inline void compute_3d_game_tilt(
   float gp = std::sin(p_rad);
   float gz = std::cos(p_rad);
   if (!std::isnan(raw_ax) && !std::isnan(raw_ay) && !std::isnan(raw_az)) {
-    float g_norm = std::sqrt(raw_ax * raw_ax + raw_ay * raw_ay + raw_az * raw_az);
+    float g_norm = sqrtf(raw_ax * raw_ax + raw_ay * raw_ay + raw_az * raw_az);
     if (g_norm > 0.05f) {
       gz = raw_az / g_norm;
     }
@@ -104,7 +104,7 @@ inline void compute_3d_game_tilt(
     game_imu_retare_flag() = false;
     zero_roll = clean_roll;
     zero_pitch = clean_pitch;
-    float pz_norm = std::sqrt(gp * gp + gz * gz);
+    float pz_norm = sqrtf(gp * gp + gz * gz);
     if (pz_norm > 0.05f) {
       zero_gp = gp / pz_norm;
       zero_gz = gz / pz_norm;
@@ -1259,8 +1259,8 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
       if (std::fabs(launch_ang) < 0.14f) {
         launch_ang = (now_ms & 1) ? 0.22f : -0.22f;
       }
-      ball_vx = target_speed * std::sin(launch_ang);
-      ball_vy = -target_speed * std::cos(launch_ang);
+      ball_vx = target_speed * fast_sin(launch_ang);
+      ball_vy = -target_speed * fast_cos(launch_ang);
       ball_launched = true;
       hit_brick_since_paddle = true;
     }
@@ -1302,7 +1302,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
       static int wall_bounces = 0;
       float b_dx = ball_x - (float)cx;
       float b_dy = ball_y - (float)cy;
-      float b_dist = std::sqrt(b_dx * b_dx + b_dy * b_dy);
+      float b_dist = sqrtf(b_dx * b_dx + b_dy * b_dy);
       if (b_dist > 202.0f && ball_y < (float)(paddle_y - 4)) {
         float bnx = b_dx / b_dist;
         float bny = b_dy / b_dist;
@@ -1314,7 +1314,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
         // so the lower curve banks the ball inward toward the paddle instead of upward!
         float rnx = bnx;
         float rny = (ball_y > (float)(cy + 12)) ? 0.0f : bny;
-        float r_len = std::sqrt(rnx * rnx + rny * rny);
+        float r_len = sqrtf(rnx * rnx + rny * rny);
         if (r_len > 0.001f) {
           rnx /= r_len;
           rny /= r_len;
@@ -1336,7 +1336,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
             ball_vy = (ball_vy >= 0.0f) ? 98.0f : -98.0f;
           }
           // Re-normalize speed to target_speed
-          float spd = std::sqrt(ball_vx * ball_vx + ball_vy * ball_vy);
+          float spd = sqrtf(ball_vx * ball_vx + ball_vy * ball_vy);
           if (spd > 1.0f) {
             ball_vx = (ball_vx / spd) * target_speed;
             ball_vy = (ball_vy / spd) * target_speed;
@@ -1357,8 +1357,8 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
           float offset = std::max(-1.0f, std::min(1.0f, (ball_x - paddle_x) / (paddle_w * 0.5f)));
           // Steer bounce angle up to +/- 60 degrees (1.047 rad) while maintaining constant speed
           float bounce_ang = offset * 1.047f;
-          ball_vx = target_speed * std::sin(bounce_ang);
-          ball_vy = -target_speed * std::cos(bounce_ang);
+          ball_vx = target_speed * fast_sin(bounce_ang);
+          ball_vy = -target_speed * fast_cos(bounce_ang);
           ball_y = (float)(paddle_y - 11);
           pending_game_sfx() = 11; // Paddle Bounce Blip
         }
@@ -1416,10 +1416,10 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
           for (int s = 0; s < 6; s++) {
             float ang = (float)s * 1.047f + 0.35f;
             float f_spd = (bricks[b].hp == 0) ? 95.0f : 55.0f;
-            shrapnel[s].x = (float)bricks[b].x + std::cos(ang) * 6.0f;
-            shrapnel[s].y = (float)bricks[b].y + std::sin(ang) * 4.0f;
-            shrapnel[s].vx = std::cos(ang) * f_spd;
-            shrapnel[s].vy = std::sin(ang) * f_spd - 25.0f;
+            shrapnel[s].x = (float)bricks[b].x + fast_cos(ang) * 6.0f;
+            shrapnel[s].y = (float)bricks[b].y + fast_sin(ang) * 4.0f;
+            shrapnel[s].vx = fast_cos(ang) * f_spd;
+            shrapnel[s].vy = fast_sin(ang) * f_spd - 25.0f;
             shrapnel[s].col = (s & 1) ? row_his[bricks[b].row] : frag_c;
           }
           shrapnel_ms = now_ms;
@@ -1903,7 +1903,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
         float edy = treats[i].y - mon_y;
         float ed2 = edx * edx + edy * edy;
         if (ed2 < 6724.0f && ed2 > 1.0f) {
-          float ed = std::sqrt(ed2);
+          float ed = sqrtf(ed2);
           float evade = (1.0f - ed / 82.0f) * std::min(110.0f, static_cast<float>(level_num - 2) * 32.0f);
           treats[i].vx += (edx / ed) * evade * dt;
           treats[i].vy += (edy / ed) * evade * dt;
@@ -1912,7 +1912,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
       // Clamp treat drift speed
       float max_t_spd = std::min(78.0f, 24.0f + static_cast<float>(level_num - 2) * 14.0f);
-      float cur_spd = std::sqrt(treats[i].vx * treats[i].vx + treats[i].vy * treats[i].vy);
+      float cur_spd = sqrtf(treats[i].vx * treats[i].vx + treats[i].vy * treats[i].vy);
       if (cur_spd > max_t_spd && cur_spd > 0.1f) {
         treats[i].vx = (treats[i].vx / cur_spd) * max_t_spd;
         treats[i].vy = (treats[i].vy / cur_spd) * max_t_spd;
@@ -1924,7 +1924,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
       // Bounce treats inside the plate rim (r = 180)
       float bdx = treats[i].x - static_cast<float>(cx);
       float bdy = treats[i].y - static_cast<float>(cy);
-      float bd = std::sqrt(bdx * bdx + bdy * bdy);
+      float bd = sqrtf(bdx * bdx + bdy * bdy);
       if (bd > 180.0f && bd > 0.1f) {
         float nx = bdx / bd, ny = bdy / bd;
         treats[i].x = static_cast<float>(cx) + nx * 180.0f;
@@ -1947,7 +1947,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
     if (treats[i].eaten) continue;
     float dx = treats[i].x - mon_x;
     float dy = treats[i].y - mon_y;
-    float d = std::sqrt(dx * dx + dy * dy);
+    float d = sqrtf(dx * dx + dy * dy);
     if (d < nearest_dist) {
       nearest_dist = d;
       look_dx = dx / (d + 0.1f);
@@ -1976,7 +1976,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
     pull_y = look_dy * pull_mag;
   }
 
-  float damping = std::pow(0.925f, dt / 0.05f);
+  float damping = powf(0.925f, dt / 0.05f);
   mon_vx = (mon_vx + (ax + pull_x) * dt) * damping;
   mon_vy = (mon_vy + (ay + pull_y) * dt) * damping;
   mon_x += mon_vx * dt;
@@ -1985,7 +1985,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   // Keep Monster inside the circular play bowl (max center r = 172)
   float mdx = mon_x - static_cast<float>(cx);
   float mdy = mon_y - static_cast<float>(cy);
-  float mdist = std::sqrt(mdx * mdx + mdy * mdy);
+  float mdist = sqrtf(mdx * mdx + mdy * mdy);
   const float max_mon_r = 172.0f;
   if (mdist > max_mon_r && mdist > 0.001f) {
     float nx = mdx / mdist;
@@ -2005,7 +2005,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
       if (treats[i].eaten) continue;
       float dx = treats[i].x - mon_x;
       float dy = treats[i].y - mon_y;
-      float dist = std::sqrt(dx * dx + dy * dy);
+      float dist = sqrtf(dx * dx + dy * dy);
 
       if (dist < 36.0f) {
         treats[i].eaten = true;

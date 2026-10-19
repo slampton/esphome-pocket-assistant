@@ -498,12 +498,27 @@ interval:
             }
           }
 
-          // High-cadence 20 Hz poll for Top Crown Button (AXP2101 PEK Short/Long Press)
-          uint8_t irq_reg = 0x49;
-          uint8_t irq_val = 0;
-          if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
-            if (irq_val & 0x0C) {
-              id(handle_crown_button_press).execute();
+          // ADR-001 Hardware-Gated 20 Hz Check for Top Crown Button (AXP2101 PEK Short/Long Press):
+          // Only queries I2C register 0x49 when GPIO3 (PMU IRQ, active-low) is asserted or once per second
+          // as a safety fallback, eliminating >95% of idle 20 Hz I2C bus traffic.
+          static uint8_t fallback_div = 0;
+          const bool irq_pin_low = (gpio_get_level(GPIO_NUM_3) == 0);
+          if (irq_pin_low || (++fallback_div >= 20U && !id(va_active) && !id(va_tts_received))) {
+            if (!irq_pin_low) fallback_div = 0;
+            uint8_t irq_reg = 0x49;
+            uint8_t irq_val = 0;
+            if (id(bus_internal).write_readv(0x34, &irq_reg, 1, &irq_val, 1) == esphome::i2c::ERROR_OK) {
+              if (irq_val & 0x0C) {
+                id(handle_crown_button_press).execute();
+              } else if (irq_pin_low) {
+                // Clear any non-PEK latched status bits so GPIO3 returns HIGH cleanly
+                uint8_t clr_all[2] = {0x48, 0xFF};
+                id(bus_internal).write(0x34, clr_all, 2);
+                clr_all[0] = 0x49;
+                id(bus_internal).write(0x34, clr_all, 2);
+                clr_all[0] = 0x4A;
+                id(bus_internal).write(0x34, clr_all, 2);
+              }
             }
           }
 
