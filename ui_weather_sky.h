@@ -1582,15 +1582,15 @@ inline void render_weather_page(
       it.line(dx - 3, dy + 2, dx - 3, dy + 5, c);
       it.draw_pixel_at(dx - 2, dy + 6, c);
     };
-    int drop_x = 154;
+    int drop_x = 151;
     draw_droplet_outline(drop_x + 1, tele_y + 1, col_black);
     draw_droplet_outline(drop_x,     tele_y,     icon_c);
 
     char hum_str[16];
     if (!std::isnan(weather_humidity)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", weather_humidity);
     else snprintf(hum_str, sizeof(hum_str), "--%%");
-    it.print(drop_x + 15, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, hum_str);
-    it.print(drop_x + 14, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, hum_str);
+    it.print(drop_x + 18, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, hum_str);
+    it.print(drop_x + 17, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, hum_str);
 
     // B) Right: Enlarged 3-Line Wind Icon with 270-Deg Spiral Curls on 2 of 3 Ends (x = 248)
     auto draw_wind_glyph = [&](int wx, int wy, Color c) {
@@ -1640,8 +1640,8 @@ inline void render_weather_page(
     } else {
       snprintf(wind_str, sizeof(wind_str), "-- mph");
     }
-    it.print(w_icon_x + 19, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, wind_str);
-    it.print(w_icon_x + 18, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
+    it.print(w_icon_x + 21, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, wind_str);
+    it.print(w_icon_x + 20, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
 
     it.line(80, 310, 386, 310, col_dark_gray);
   } else if (sky_weather_subpage == 1) {

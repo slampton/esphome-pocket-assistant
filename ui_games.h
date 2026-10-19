@@ -2258,9 +2258,16 @@ inline void render_games_launcher(
     }
     if (score_y >= 140 && score_y <= 295) {
       const char *lbl_str = "HIGH SCORE:";
-      char val_str[16];
-      if (score > 0) snprintf(val_str, sizeof(val_str), "%d", score);
-      else snprintf(val_str, sizeof(val_str), "--");
+      char val_str[20];
+      if (score <= 0) {
+        snprintf(val_str, sizeof(val_str), "--");
+      } else if (score >= 1000000) {
+        snprintf(val_str, sizeof(val_str), "%d,%03d,%03d", score / 1000000, (score / 1000) % 1000, score % 1000);
+      } else if (score >= 1000) {
+        snprintf(val_str, sizeof(val_str), "%d,%03d", score / 1000, score % 1000);
+      } else {
+        snprintf(val_str, sizeof(val_str), "%d", score);
+      }
 
       int w_lbl = 0, w_val = 0, x_off = 0, base = 0, th = 0;
       font_small->measure(lbl_str, &w_lbl, &x_off, &base, &th);
@@ -2269,7 +2276,7 @@ inline void render_games_launcher(
       int start_x = text_center_x - (w_lbl + gap_px + w_val) / 2;
 
       it.print(start_x, score_y, font_small, col_gold, TextAlign::CENTER_LEFT, lbl_str);
-      it.print(start_x + w_lbl + gap_px, score_y, font_small, theme_secondary, TextAlign::CENTER_LEFT, val_str);
+      it.print(start_x + w_lbl + gap_px, score_y, font_small, col_white, TextAlign::CENTER_LEFT, val_str);
     }
   };
 
