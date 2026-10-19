@@ -272,12 +272,12 @@ inline void on_api_client_authenticated(VoiceAssistant *va,
 
 // Polls mww->get_wake_words() once per second to detect when Home Assistant updates
 // Wake Word 1 or Wake Word 2 via on_set_configuration, persisting both slots to NVS.
-inline void poll_and_persist_wake_words(VoiceAssistant *va) {
-  if (va == nullptr) return;
+inline bool poll_and_persist_wake_words(VoiceAssistant *va) {
+  if (va == nullptr) return false;
   ensure_wake_words_restored(va);
 #ifdef USE_MICRO_WAKE_WORD
   auto *mww = va->*get(VA_MicroWakeWord_Tag());
-  if (mww == nullptr) return;
+  if (mww == nullptr) return false;
 
   std::string cur_w1 = "no_wake_word";
   std::string cur_w2 = "";
@@ -299,8 +299,10 @@ inline void poll_and_persist_wake_words(VoiceAssistant *va) {
     if (mww->is_running()) {
       mww->stop();
     }
+    return true;
   }
 #endif
+  return false;
 }
 // Cleanly sends ESPHome DisconnectRequest + TCP FIN to all connected API clients
 // before the AXP2101 cuts the 3.3V power rail in Hibernate (enter_deep_sleep).

@@ -401,7 +401,7 @@ interval:
           // Automatically arms/disarms micro_wake_word based on USB dock status, user mode
           // (Docked Only / Always On / Disabled), and shared I2S bus activity, while persisting
           // any Home Assistant wake word selection changes to NVS flash.
-          esphome::voice_assistant::poll_and_persist_wake_words(id(va));
+          const bool ww_changed = esphome::voice_assistant::poll_and_persist_wake_words(id(va));
           static bool ww_model_initialized = false;
           if (!ww_model_initialized && millis() > 6000U && id(wifi_ctrl).is_connected()) {
             ww_model_initialized = true;
@@ -418,7 +418,7 @@ interval:
                                  (id(active_game) > 0) || id(is_hibernating) || id(ota_in_progress) ||
                                  !id(wifi_ctrl).is_connected();
             const bool should_ww_run = ww_allowed && !ww_busy;
-            if (should_ww_run != id(mww).is_running()) {
+            if (ww_changed || should_ww_run != id(mww).is_running()) {
               id(sync_wake_word_state).execute();
             }
           }

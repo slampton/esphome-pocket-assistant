@@ -500,16 +500,17 @@ script:
             if (opt == "Very sensitive") return high_c;
             return med_c;
           };
+          // Calibrated for Waveshare 1.75C ES7210 MEMS mic (Low ~84%, Med ~72%, High ~60%)
           id(okay_nabu).set_probability_cutoff(
-              apply_cutoffs(id(ww_sens_okay_nabu).current_option(), 217, 176, 143));
+              apply_cutoffs(id(ww_sens_okay_nabu).current_option(), 215, 176, 143));
           id(hey_luna).set_probability_cutoff(
-              apply_cutoffs(id(ww_sens_hey_luna).current_option(), 253, 242, 230));
+              apply_cutoffs(id(ww_sens_hey_luna).current_option(), 218, 188, 158));
           id(hey_jarvis).set_probability_cutoff(
-              apply_cutoffs(id(ww_sens_hey_jarvis).current_option(), 247, 235, 212));
+              apply_cutoffs(id(ww_sens_hey_jarvis).current_option(), 215, 184, 153));
           id(hey_mycroft).set_probability_cutoff(
-              apply_cutoffs(id(ww_sens_hey_mycroft).current_option(), 253, 242, 237));
+              apply_cutoffs(id(ww_sens_hey_mycroft).current_option(), 218, 188, 158));
           id(alexa).set_probability_cutoff(
-              apply_cutoffs(id(ww_sens_alexa).current_option(), 247, 235, 212));
+              apply_cutoffs(id(ww_sens_alexa).current_option(), 215, 184, 153));
 
   - id: sync_wake_word_state
     mode: restart
@@ -536,13 +537,23 @@ script:
                 then:
                   - script.execute: route_i2s_to_mic
                   - delay: 25ms
+                  - script.execute: apply_wake_word_sensitivities
                   - micro_wake_word.start:
+                  - lambda: |-
+                      ESP_LOGI("mww", "Wake word detection ARMED (ww1='%s', ww2='%s', mode='%s')",
+                               esphome::voice_assistant::last_persisted_ww1().c_str(),
+                               esphome::voice_assistant::last_persisted_ww2().c_str(),
+                               id(va_wake_word_mode).current_option().c_str());
           else:
             - if:
                 condition:
                   micro_wake_word.is_running:
                 then:
                   - micro_wake_word.stop:
+                  - lambda: |-
+                      ESP_LOGI("mww", "Wake word detection PAUSED (mode='%s', usb=%d)",
+                               id(va_wake_word_mode).current_option().c_str(),
+                               (int)id(usb_connected).state);
 
   - id: trigger_va_from_wake_word
     mode: restart
