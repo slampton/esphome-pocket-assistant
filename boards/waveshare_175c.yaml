@@ -200,3 +200,89 @@ touchscreen:
     transform:
       mirror_x: true
       mirror_y: true
+
+  - id: hal_release_deep_sleep_holds
+    mode: restart
+    then:
+      - lambda: |-
+          gpio_deep_sleep_hold_dis();
+          gpio_hold_dis(GPIO_NUM_1);
+          gpio_hold_dis(GPIO_NUM_2);
+          gpio_hold_dis(GPIO_NUM_46);
+          gpio_hold_dis(GPIO_NUM_12);
+
+  - id: hal_init_pmu_irq
+    mode: restart
+    then:
+      - lambda: |-
+          // Configure GPIO3 as AXP2101 active-LOW hardware IRQ input with pull-up (ADR-001)
+          gpio_config_t io_conf = {};
+          io_conf.pin_bit_mask = (1ULL << GPIO_NUM_3);
+          io_conf.mode = GPIO_MODE_INPUT;
+          io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+          io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+          io_conf.intr_type = GPIO_INTR_DISABLE;
+          gpio_config(&io_conf);
+
+          // Enable AXP2101 PEK short and long press IRQs (register 0x41 = 0x0C)
+          uint8_t irq_en[2] = {0x41, 0x0C};
+          id(bus_internal).write(0x34, irq_en, 2);
+
+          // Clear all pending AXP2101 IRQ flags (0x48, 0x49, 0x4A) so GPIO3 starts unasserted (HIGH)
+          uint8_t clr_all[2] = {0x48, 0xFF};
+          id(bus_internal).write(0x34, clr_all, 2);
+          clr_all[0] = 0x49;
+          id(bus_internal).write(0x34, clr_all, 2);
+          clr_all[0] = 0x4A;
+          id(bus_internal).write(0x34, clr_all, 2);
+
+  - id: hal_enter_hardware_hibernate
+    mode: restart
+    then:
+      - lambda: |-
+          // 1. Put QMI8658 6-Axis IMU into Power-Down Mode (CTRL7 = 0x00)
+          uint8_t qmi_pwr_down[2] = {0x08, 0x00};
+          id(bus_internal).write(0x6B, qmi_pwr_down, 2);
+
+          // 2. Put ES8311 Audio DAC into Standby/Power-Down Mode
+          uint8_t dac_sleep1[2] = {0x0D, 0xFF};
+          uint8_t dac_sleep2[2] = {0x00, 0x80};
+          id(bus_internal).write(0x18, dac_sleep1, 2);
+          id(bus_internal).write(0x18, dac_sleep2, 2);
+
+          // 3. Put ES7210 Audio ADC into Standby Mode
+          uint8_t es7210_pwr[2] = {0x00, 0xFF};
+          id(bus_internal).write(0x40, es7210_pwr, 2);
+
+          // 4. Force Speaker Power Amplifier Enable (GPIO46) firmly LOW and hold
+          gpio_set_direction(GPIO_NUM_46, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_46, 0);
+          gpio_hold_en(GPIO_NUM_46);
+
+          // 5. Force Display CS (GPIO12) firmly HIGH (deselected) and hold
+          gpio_set_direction(GPIO_NUM_12, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_12, 1);
+          gpio_hold_en(GPIO_NUM_12);
+
+          // 6. Put Display Controller (CO5300) into Hardware Reset (GPIO1 LOW) and hold
+          gpio_set_direction(GPIO_NUM_1, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_1, 0);
+          gpio_hold_en(GPIO_NUM_1);
+
+          // 7. Put Touch Controller (CST9220) into Hardware Reset (GPIO2 LOW) and hold
+          gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_2, 0);
+          gpio_hold_en(GPIO_NUM_2);
+
+          // Enable deep sleep pad holds across all held GPIOs
+          gpio_deep_sleep_hold_en();
+
+          // 8. Flush all dirty NVS preferences to flash BEFORE AXP2101 cuts 3.3V DCDC1 rail
+          global_preferences->sync();
+
+          // 9. Command AXP2101 PMIC to POWER OFF all system voltage rails (<40uA Hibernate)
+          uint8_t axp_pwr_off[2] = {0x10, 0x01};
+          id(bus_internal).write(0x34, axp_pwr_off, 2);
+
+          delay(100);
+          esp_deep_sleep_start();

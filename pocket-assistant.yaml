@@ -78,12 +78,8 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          // Release all deep sleep pad holds immediately so all peripherals initialize without delay
-          gpio_deep_sleep_hold_dis();
-          gpio_hold_dis(GPIO_NUM_1);
-          gpio_hold_dis(GPIO_NUM_2);
-          gpio_hold_dis(GPIO_NUM_46);
-          gpio_hold_dis(GPIO_NUM_12);
+          // Release all deep sleep pad holds immediately via board HAL
+          id(hal_release_deep_sleep_holds).execute();
 
           id(sleep_start_time) = millis();
           id(is_hibernating) = false;
@@ -93,27 +89,7 @@ esphome:
     - priority: -100
       then:
         - safe_mode.mark_successful:
-        - lambda: |-
-            // Configure GPIO3 as AXP2101 active-LOW hardware IRQ input with pull-up (ADR-001)
-            gpio_config_t io_conf = {};
-            io_conf.pin_bit_mask = (1ULL << GPIO_NUM_3);
-            io_conf.mode = GPIO_MODE_INPUT;
-            io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-            io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-            io_conf.intr_type = GPIO_INTR_DISABLE;
-            gpio_config(&io_conf);
-
-            // Enable AXP2101 PEK short and long press IRQs (register 0x41 = 0x0C)
-            uint8_t irq_en[2] = {0x41, 0x0C};
-            id(bus_internal).write(0x34, irq_en, 2);
-
-            // Clear all pending AXP2101 IRQ flags (0x48, 0x49, 0x4A) so GPIO3 starts unasserted (HIGH)
-            uint8_t clr_all[2] = {0x48, 0xFF};
-            id(bus_internal).write(0x34, clr_all, 2);
-            clr_all[0] = 0x49;
-            id(bus_internal).write(0x34, clr_all, 2);
-            clr_all[0] = 0x4A;
-            id(bus_internal).write(0x34, clr_all, 2);
+        - script.execute: hal_init_pmu_irq
         - media_player.pause: pocket_music_player
         - online_image.release: remote_album_art
         - lambda: 'id(current_loaded_art_url) = "";'
@@ -278,11 +254,7 @@ ota:
             id(ota_progress_pct) = 0;
             id(sleep_start_time) = 0; // Inhibit auto-deep sleep during OTA!
             // Ensure hardware pads are unheld and display is awake for OTA progress
-            gpio_deep_sleep_hold_dis();
-            gpio_hold_dis(GPIO_NUM_1);
-            gpio_hold_dis(GPIO_NUM_2);
-            gpio_hold_dis(GPIO_NUM_46);
-            gpio_hold_dis(GPIO_NUM_12);
+            id(hal_release_deep_sleep_holds).execute();
             id(disp1).set_brightness(230);
         - light.turn_on:
             id: display_brightness
