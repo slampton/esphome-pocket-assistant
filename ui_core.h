@@ -406,6 +406,16 @@ inline void render_scroll_chevron(DisplayT &it, int x, int y, bool is_up,
   }
 }
 
+// Universal Low-Profile Back / Home Chin Label (y = 426 default, 1px drop shadow, zero pill clutter)
+template<typename DisplayT, typename FontT>
+inline void render_back_button(DisplayT &it, int cx, FontT *font,
+                               int y_pos = 426, const char *label = "< BACK") {
+  it.print(cx + 1, y_pos + 1, font, esphome::Color(0, 0, 0),
+           esphome::display::TextAlign::CENTER, label);
+  it.print(cx, y_pos, font, esphome::Color(255, 255, 255),
+           esphome::display::TextAlign::CENTER, label);
+}
+
 template<typename DisplayT>
 inline void render_deck_chevrons(DisplayT &it, esphome::Color chevron_col,
                                  esphome::Color shadow_c, bool with_shadow = true) {

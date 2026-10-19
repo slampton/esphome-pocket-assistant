@@ -688,16 +688,19 @@ script:
                 id(disp1).update();
                 return;
               }
-              if (id(home_drilldown_active)) {
-                id(home_drilldown_active) = false;
+
+              // If on any app other than the user's configured Start Screen (Home=1 or Clock=0),
+              // Crown short press backs out to Home (Page 1)!
+              int start_pg = (id(default_start_app).current_option() == "Clock") ? 0 : 1;
+              if (id(gui_page) != 1 && !(id(gui_page) == 0 && start_pg == 0)) {
                 id(gui_page) = 1;
+                id(home_subpage) = 0;
                 id(sky_weather_subpage) = 0;
                 id(disp1).update();
                 return;
               }
 
-              // All other primary app screens (Home Page 1, Clock Page 0, Music Page 2, Games Launcher Page 3, System Page 4):
-              // Crown click puts device into Standby / turns off screen!
+              // On Home (Page 1) or Clock (when Clock is Start Screen): Crown click puts device into Standby!
               id(turn_screen_off).execute();
               return;
             }
