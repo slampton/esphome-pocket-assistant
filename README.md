@@ -106,7 +106,7 @@ After adding the configuration, reload Template Entities and Input Texts under *
 - **5-Slot Library Browser & Configurable Sorting**: Browse Music Assistant favorites, playlists, artists, albums, radio, podcasts (with series-to-episode drill-down via `mass_queue.get_podcast_episodes`), and audiobooks on-device with dual-action play (`▶`) and drill-down (`>`) cards, right-flank chevron pagination, and configurable sort orders (Alphabetical, Newest on Top, Oldest on Top).
 
 ### Voice Assistant Satellite
-- **Push-to-Talk Assist**: Side button (`GPIO0`) routes audio to the ES7210 microphone, pauses active music, and activates the Home Assistant Assist satellite pipeline with six selectable pure-visual profiles (**Nebula** default, **Solaris**, **Jarvis**, **Alexa**, **Google**, and **Original**).
+- **Push-to-Talk Assist**: Side button (`GPIO0`) routes audio to the ES7210 microphone, pauses active music, and activates the Home Assistant Assist satellite pipeline with five selectable pure-visual profiles (**Nebula** default, **Solaris**, **Jarvis**, **Alexa**, and **Google**).
 - **Dynamic Audio Ducking**: Software mixer smoothly ducks local playback during Voice Assistant speech synthesis and automatically resumes paused playback once TTS finishes draining.
 - **Hardware & Touch Dismissal**: Pressing the physical side button or tapping the glass during an active voice session immediately halts and mutes the session without leaking taps to the underlying app.
 
@@ -200,7 +200,7 @@ esphome-pocket-assistant/
 ├── pocket-assistant-1.75c.yaml            # Remote package entry point for ESPHome adoption
 ├── pocket-assistant.yaml                  # Master node configuration, substitutions & outgoing API
 ├── ui_core.h                              # Display geometry, .rodata LUTs, 3D math, blitter & 30 Hz touch
-├── ui_ambient_va.h                        # 20 FPS Docked Screensavers & 6-Profile Voice Assistant engine
+├── ui_ambient_va.h                        # 20 FPS Docked Screensavers & 5-Profile Voice Assistant engine
 ├── ui_weather_sky.h                       # Telescopic Lunar Albedo LUTs & 20 FPS Weather Motion suite
 ├── ui_games.h                             # 360-Deg IMU Tilt & 4-Game 20 FPS Arcade suite
 ├── ui_tools_apps.h                        # 8-Tool Suite, Clock, Music Player, TV Remote & System Hub

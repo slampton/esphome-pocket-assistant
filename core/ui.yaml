@@ -898,7 +898,6 @@ select:
       - "Jarvis"
       - "Alexa"
       - "Google"
-      - "Original"
     set_action:
       - lambda: |-
           id(va_visual_profile).publish_state(x);
@@ -1535,7 +1534,7 @@ interval:
             }
           }
 
-          // 20 FPS Audio-Aware Fluid Voice Assistant Loop (All 6 Profiles):
+          // 20 FPS Audio-Aware Fluid Voice Assistant Loop (All 5 Profiles):
           // - Listening & Thinking: Full 20 FPS (42ms cadence, coalesced with 50ms timer)
           // - Speaking (TTS FLAC playback): 75ms (~13.3 FPS, matching should_step_ambient_anim audio cadence)
           if (id(va_active) || !id(va_status_text).empty()) {
@@ -3292,8 +3291,6 @@ display:
       // 🎨 Centralized Standard UI & Theme Color Tokens (LUTs & Primitives in ui_toolkit.h)
       // ======================================================================
       const Color C_WHITE = id(col_white);
-      const Color C_DARK_GRAY = id(col_dark_gray);
-      const Color C_CYAN = id(col_cyan);
       const Color C_SOLARIS_GOLD = id(col_solaris_gold);
 
       // ==========================================
@@ -3368,9 +3365,7 @@ display:
         bool is_thinking = (!is_speaking && id(va_status_text) == "Thinking...");
         render_voice_assistant_overlay(
             it, cx, cy, now_ms, is_speaking, is_thinking, id(va_vad_active),
-            id(va_visual_profile).current_option(), id(va_status_text),
-            id(font_small), C_WHITE, C_DARK_GRAY, C_CYAN, id(col_light_blue),
-             id(col_purple), id(col_magenta), C_SOLARIS_GOLD);
+            id(va_visual_profile).current_option(), C_WHITE, C_SOLARIS_GOLD);
         return;
       }
 
@@ -5348,7 +5343,7 @@ touchscreen:
                     return;
                   } else if (slot == 2) {
                     auto call = id(va_visual_profile).make_call();
-                    call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Jarvis", "Alexa", "Google", "Original"}));
+                    call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Jarvis", "Alexa", "Google"}));
                     call.perform();
                     id(disp1).update();
                     return;
