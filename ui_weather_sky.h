@@ -1513,18 +1513,18 @@ inline void render_weather_page(
     font_time->measure(temp_num, &w_num, &x_off, &base, &th);
     // Apple optical centering: bias numerals 4px left of cx (~25% of degree ring visual weight)
     const int num_cx = cx - 4;
-    const int deg_cx = num_cx + (w_num / 2) + 11;
-    const int deg_cy = 134 - (th / 2) + 14;
+    const int deg_cx = num_cx + (w_num / 2) + 12;
+    const int deg_cy = 134 - (th / 2) + 16;
     const Color col_deg_silver(196, 208, 224);
 
     it.print(num_cx + 1, 135, font_time, col_black, TextAlign::CENTER, temp_num);
     it.print(num_cx,     134, font_time, col_white, TextAlign::CENTER, temp_num);
 
     // Thin 2px cool silver-white degree ring (replaces heavy font_time '°' glyph)
-    it.draw_circle(deg_cx + 1, deg_cy + 1, 7, col_black);
-    it.draw_circle(deg_cx + 1, deg_cy + 1, 6, col_black);
-    it.draw_circle(deg_cx,     deg_cy,     7, col_deg_silver);
-    it.draw_circle(deg_cx,     deg_cy,     6, col_deg_silver);
+    it.circle(deg_cx + 1, deg_cy + 1, 7, col_black);
+    it.circle(deg_cx + 1, deg_cy + 1, 6, col_black);
+    it.circle(deg_cx,     deg_cy,     7, col_deg_silver);
+    it.circle(deg_cx,     deg_cy,     6, col_deg_silver);
 
     std::string cond_title = format_weather_title(cond);
     Color cond_color = is_night ? theme_primary : Color(255, 225, 110);

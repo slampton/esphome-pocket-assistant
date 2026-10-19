@@ -633,7 +633,7 @@ font:
     id: font_time
     size: 77
     glyphs:
-      - '0123456789:.- %°'
+      - '0123456789:.- %'
   - file: "gfonts://Roboto"
     id: font_date
     size: 27
@@ -1726,10 +1726,6 @@ interval:
                 triggered = true;
                 trig_idx = 2;
                 if (id(alarm2_recurrence) == 3) id(alarm2_enabled) = false; // Once: auto-disable
-              } else if (check_alarm(id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled), id(alarm3_recurrence), 3)) {
-                triggered = true;
-                trig_idx = 3;
-                if (id(alarm3_recurrence) == 3) id(alarm3_enabled) = false; // Once: auto-disable
               } else if (check_alarm(id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled), id(alarm3_recurrence), 3)) {
                 triggered = true;
                 trig_idx = 3;
@@ -4685,121 +4681,6 @@ touchscreen:
                   if (now_sheet - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sheet;
                     id(music_overlay_mode) = 1;
-                    id(disp1).update();
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 6) {
-                // ----------------------------------------------------
-                // LEVEL 6: TRACK & ALBUM INSPECTOR TOUCH HANDLERS
-                // ----------------------------------------------------
-                static uint32_t last_insp_tap = 0;
-                uint32_t now_in = millis();
-
-                if (is_back_button(touch)) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_insp_tap = now_in;
-                    id(music_overlay_mode) = 0;
-                    id(music_hud_active) = true;
-                    id(music_hud_timer) = now_in;
-                    id(disp1).update();
-                  }
-                  return;
-                }
-
-                // 1. Row 1 Pill: Album Tracks (y in 94..144, x in 100..366)
-                if (touch.y >= 94 && touch.y <= 144 && touch.x >= 100 && touch.x <= 366) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_insp_tap = now_in;
-                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
-                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
-                                          ? id(ha_track_album).state : id(track_album).state;
-                    id(selected_category_mode) = "current_album_tracks";
-                    id(selected_category_title) = (alb.empty() || alb == "None") ? "ALBUM TRACKS" : alb;
-                    id(drilldown_album_id) = alb;
-                    id(music_browse_page) = 1;
-                    id(music_browse_total_pages) = 1;
-                    id(slot_1_name) = "Loading album tracks...";
-                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
-                    id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                }
-
-                // 2. Center Equator Scrubber Bar (x in 95..371) & Vector Seek Buttons (y in 200..264)
-                if (touch.y >= 200 && touch.y <= 264) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_insp_tap = now_in;
-                    float dur = id(ha_media_duration).state;
-                    float cur_pos = id(music_pos_base);
-                    if (id(music_pos_sync_time) > 0) {
-                      cur_pos += static_cast<float>(now_in - id(music_pos_sync_time)) * 0.001f;
-                    }
-                    if (touch.x < 84) {
-                      // Left « Button: -15s Step
-                      id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
-                      id(music_pos_sync_time) = now_in;
-                      id(music_seek_absolute).execute();
-                      id(disp1).update();
-                    } else if (touch.x > 382) {
-                      // Right » Button: +15s Step
-                      float new_p = cur_pos + 15.0f;
-                      if (!std::isnan(dur) && dur > 0.0f) new_p = std::min(dur, new_p);
-                      id(music_pos_base) = new_p;
-                      id(music_pos_sync_time) = now_in;
-                      id(music_seek_absolute).execute();
-                      id(disp1).update();
-                    } else if (!std::isnan(dur) && dur > 0.0f) {
-                      // Direct Equator Scrubber Bar Tap (x in 95..371, width = 276px)
-                      float frac = (static_cast<float>(touch.x) - 95.0f) / 276.0f;
-                      frac = std::max(0.0f, std::min(1.0f, frac));
-                      id(music_pos_base) = frac * dur;
-                      id(music_pos_sync_time) = now_in;
-                      id(music_seek_absolute).execute();
-                      id(disp1).update();
-                    }
-                  }
-                  return;
-                }
-
-                // 3. Lower Row Tools-Style Cards: Artist Discography (left x < 233) & Active Queue (right x >= 233), y in 276..370
-                if (touch.y >= 276 && touch.y <= 370 && touch.x >= 80 && touch.x <= 386) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_insp_tap = now_in;
-                    bool is_queue = (touch.x >= 233);
-                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
-                    std::string art_name = (is_rem || id(track_artist).state.empty() || id(track_artist).state == "None")
-                                               ? id(ha_track_artist).state : id(track_artist).state;
-                    id(drilldown_parent_mode) = "track_inspector";
-                    id(music_browse_page) = 1;
-                    id(music_browse_total_pages) = 1;
-                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
-                    if (!is_queue) {
-                      id(selected_category_mode) = "artist_albums";
-                      id(selected_category_title) = (art_name.empty() || art_name == "None") ? "ARTIST" : art_name;
-                      id(drilldown_artist_name) = art_name;
-                      id(slot_1_name) = "Loading artist albums...";
-                    } else {
-                      id(selected_category_mode) = "active_queue";
-                      id(selected_category_title) = "UP NEXT";
-                      id(slot_1_name) = "Loading queue...";
-                    }
-                    id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 7) {
-                // ----------------------------------------------------
-                // LEVEL 7: READER VIEW (< BACK returns to Mode 6 Inspector)
-                // ----------------------------------------------------
-                if (is_back_button(touch)) {
-                  if (millis() - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = millis();
-                    id(music_overlay_mode) = 6;
                     id(disp1).update();
                   }
                   return;
