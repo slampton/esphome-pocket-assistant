@@ -3219,6 +3219,479 @@ display:
             id(col_white), id(col_slate), id(col_gray), id(col_dark_gray),
             id(col_red), id(col_gold), id(col_green));
       } else if (id(gui_page) == 1) {
+        uint32_t now_h_ms = millis();
+        bool is_rem_h = (id(active_speaker_entity) != "${local_player_id}");
+        bool loc_play_h = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+        bool mus_play_h = pocket_ui::is_music_playing_effective(is_rem_h, loc_play_h, id(ha_target_state).state, now_h_ms);
+        std::string m_title_h = (is_rem_h || id(track_title).state.empty() || id(track_title).state == "None")
+                                    ? id(ha_track_title).state : id(track_title).state;
+        std::string m_artist_h = (is_rem_h || id(track_artist).state.empty() || id(track_artist).state == "None")
+                                     ? id(ha_track_artist).state : id(track_artist).state;
+        render_home_page(
+            it, cx, cy, now_h_ms, id(home_subpage), id(home_activity_idx),
+            now, id(is_24h_format), batt, id(batt_charging).state,
+            id(home_weather_bg_switch).state,
+            id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
+            id(home_dock_tools_switch).state, id(home_dock_games_switch).state,
+            id(weather_sim_condition).current_option(), id(ha_weather_temperature).state,
+            id(ha_weather_condition).state, id(ha_sun_state).state, id(ha_moon_phase).state,
+            id(accel_x).state, id(accel_y).state,
+            id(stopwatch_running), id(stopwatch_start_time), id(stopwatch_elapsed_ms),
+            mus_play_h, m_title_h, m_artist_h,
+            id(alarm_snooze_until),
+            id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled),
+            id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled),
+            id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
+            id(font_time), id(font_date), id(font_small),
+            id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate),
+            id(col_dark_gray), id(col_gold), id(col_green));
+      } else if (id(gui_page) == 2) {
+        uint32_t now_p2_ms = millis();
+        pocket_ui::last_page2_draw_ms() = now_p2_ms;
+        if (id(music_overlay_mode) == 0) {
+          bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
+          bool local_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+          bool is_playing = pocket_ui::is_music_playing_effective(
+              is_remote, local_playing, id(ha_target_state).state, now_p2_ms);
+          render_music_now_playing(
+              it, cx, cy, now_p2_ms,
+              id(music_fullscreen_art_mode).current_option().c_str(),
+              id(music_overlay_style).current_option().c_str(),
+              id(music_hud_active), is_remote, is_playing,
+              id(album_art), id(remote_album_art),
+              id(ha_target_art_url).state, id(current_loaded_art_url),
+              id(active_speaker_name), "${friendly_name}",
+              id(music_action_feedback), id(music_feedback_timer),
+              id(active_playback_media_type),
+              id(music_show_speaker_shortcut).state, id(music_show_library_shortcut).state,
+              id(ha_media_duration).state, id(music_pos_base), id(music_pos_sync_time),
+              id(track_title).state, id(track_artist).state, id(track_album).state,
+              id(ha_track_title).state, id(ha_track_artist).state, id(ha_track_album).state,
+              id(font_small), id(font_micro), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_black), id(col_white), id(col_gray), id(col_dark_gray));
+        } else {
+          render_music_menus(
+              it, cx, id(music_overlay_mode),
+              id(active_speaker_entity), id(active_speaker_name), "${local_player_id}",
+              id(selected_category_mode), id(selected_category_title),
+              id(music_category_page), id(music_browse_page), id(music_browse_total_pages),
+              id(menu_scroll_active), id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+              id(slot_1_name), id(slot_1_id), id(slot_1_type), id(slot_1_active),
+              id(slot_2_name), id(slot_2_id), id(slot_2_type), id(slot_2_active),
+              id(slot_3_name), id(slot_3_id), id(slot_3_type), id(slot_3_active),
+              id(slot_4_name), id(slot_4_id), id(slot_4_type), id(slot_4_active),
+              id(slot_5_name), id(slot_5_id), id(slot_5_type), id(slot_5_active),
+              id(target_speaker_id), id(target_speaker_name),
+              id(font_date), id(font_small), id(font_micro),
+              id(theme_primary), id(theme_secondary), id(col_bg), id(col_black),
+              id(col_white), id(col_slate), id(col_dark_gray),
+              now_p2_ms,
+              pocket_ui::is_music_playing_effective(
+                  id(active_speaker_entity) != "${local_player_id}",
+                  id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING,
+                  id(ha_target_state).state, now_p2_ms),
+              id(ha_media_duration).state, id(music_pos_base), id(music_pos_sync_time),
+              (id(active_speaker_entity) != "${local_player_id}" || id(track_title).state.empty() || id(track_title).state == "None") ? id(ha_track_title).state : id(track_title).state,
+              (id(active_speaker_entity) != "${local_player_id}" || id(track_artist).state.empty() || id(track_artist).state == "None") ? id(ha_track_artist).state : id(track_artist).state,
+              (id(active_speaker_entity) != "${local_player_id}" || id(track_album).state.empty() || id(track_album).state == "None") ? id(ha_track_album).state : id(track_album).state);
+        }
+
+      // ==========================================
+      // PAGE 3: GAMES SUITE (LAUNCHER & 4 GAMES)
+      // ==========================================
+      } else if (id(gui_page) == 3) {
+        static int prev_game_state = 0;
+        bool game_just_entered = false;
+        if (id(active_game) != prev_game_state) {
+          prev_game_state = id(active_game);
+          game_just_entered = true;
+        }
+
+        float roll_delta = 0.0f;
+        float pitch_delta = 0.0f;
+        compute_3d_game_tilt(
+            id(accel_x).state, id(accel_y).state, id(accel_z).state,
+            id(imu_roll).state, id(imu_pitch).state,
+            game_just_entered && (id(active_game) > 0),
+            roll_delta, pitch_delta);
+
+        if (id(active_game) == 0) {
+          render_games_launcher(
+              it, cx, id(game_carousel_idx), id(menu_scroll_active),
+              id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+              id(high_score_marbles), id(high_score_archery), id(high_score_breakout),
+              id(high_score_chomp),
+              id(font_games_title), id(font_btn_bold), id(font_small),
+              id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_black), id(col_white), id(col_silver),
+              id(col_slate), id(col_dark_gray),
+              id(col_gold), id(col_cyan), id(col_green),
+              id(col_orange), id(col_red), id(col_magenta), id(game_sound_switch).state);
+        } else if (id(active_game) == 1) {
+          render_game_marbles(
+              it, cx, cy, millis(), game_just_entered, roll_delta, pitch_delta,
+              id(marble_touch_x), id(marble_touch_y), id(game_btn_pressed), id(high_score_marbles),
+              id(font_date), id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_white), id(col_gold), id(col_cyan), id(col_green),
+              id(col_red), id(col_orange), id(col_magenta), id(col_slate), id(col_gray), id(col_dark_gray));
+        } else if (id(active_game) == 2) {
+          render_game_archery(
+              it, cx, cy, millis(), game_just_entered, roll_delta, pitch_delta,
+              id(marble_touch_x), id(game_btn_pressed), id(high_score_archery),
+              id(font_date), id(font_small), id(theme_secondary),
+              id(col_bg), id(col_white), id(col_black), id(col_gold),
+              id(col_cyan), id(col_red), id(col_slate), id(col_dark_gray));
+        } else if (id(active_game) == 3) {
+          render_game_breakout(
+              it, cx, cy, millis(), game_just_entered, roll_delta,
+              id(marble_touch_x), id(game_btn_pressed), id(high_score_breakout),
+              id(font_date), id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_white), id(col_gold), id(col_cyan),
+              id(col_orange), id(col_green), id(col_red), id(col_slate), id(col_dark_gray));
+        } else if (id(active_game) == 4) {
+          render_game_chomp(
+              it, cx, cy, millis(), game_just_entered, roll_delta, pitch_delta,
+              id(marble_touch_x), id(game_btn_pressed), id(high_score_chomp),
+              id(font_date), id(font_small), id(col_bg), id(col_white),
+              id(col_black), id(col_gold), id(col_cyan), id(col_red),
+              id(col_green), id(col_magenta), id(col_orange), id(col_dark_gray));
+        }
+        if (id(active_game) > 0) {
+          if (game_just_entered) {
+            pocket_ui::pending_game_sfx() = 0;
+            if (id(game_sound_switch).state) {
+              id(route_i2s_to_spk).execute();
+              id(speaker_enable).turn_on();
+              id(es8311_dac).set_mute_off();
+            }
+          }
+          if (pocket_ui::pending_game_sfx() > 0) {
+            int sfx = pocket_ui::pending_game_sfx();
+            pocket_ui::pending_game_sfx() = 0;
+            if (id(game_sound_switch).state) {
+              id(play_game_sfx).execute(sfx);
+            }
+          }
+        }
+      // ==========================================
+      // PAGE 4: SYSTEM SETTINGS & DIAGNOSTICS
+      // ==========================================
+      } else if (id(gui_page) == 4) {
+        int spk_vol_pct = (int)std::round(id(pocket_music_player).volume * 100.0f);
+        float a_st = id(alert_volume).state;
+        int alert_vol_pct = (std::isnan(a_st) || a_st < 20.0f) ? 70 : (int)std::round(a_st);
+        int vol_step_pct = (int)std::round(id(volume_step_size).state);
+        if (vol_step_pct < 1 || vol_step_pct > 10) vol_step_pct = 5;
+        uint32_t free_heap_kb = (uint32_t)(esp_get_free_heap_size() / 1024U);
+
+        render_system_page(
+            it, cx, millis(), "${version}",
+            id(system_menu_mode), id(system_dashboard_page),
+            id(sleep_menu_page), id(display_menu_page),
+            id(menu_scroll_active), id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+            id(update_check_state), id(update_check_timer),
+            id(ha_firmware_latest_version).state, id(ha_firmware_release_summary).state,
+            batt, id(batt_charging).state, id(batt_voltage).state,
+            id(pocket_wifi_signal).state, id(pocket_ip_address).state, id(imu_temp).state,
+            free_heap_kb, now.is_valid(), id(ble_ctrl).is_active(),
+            id(pickup_wake_mode).current_option(), id(tap_wake_mode).current_option(),
+            id(display_off_timeout).current_option(), id(docked_screensaver_switch).state,
+            id(screensaver_style_select).current_option(), id(screensaver_docked_timeout).current_option(),
+            id(hibernate_timeout_mode).current_option(), id(instant_crown_hibernate_switch).state,
+            id(prevent_deep_sleep_switch).state,
+            id(clock_face_digital), id(is_24h_format),
+            id(theme_palette_select).current_option(), id(default_start_app).current_option(),
+            id(auto_brightness_mode).current_option(), id(display_brightness_preset).current_option(),
+            (int)id(day_start_hour).state, (int)id(night_start_hour).state,
+            id(day_brightness_preset).current_option(), id(night_brightness_preset).current_option(),
+            spk_vol_pct, alert_vol_pct, vol_step_pct,
+            id(music_fullscreen_art_mode).current_option(), id(music_overlay_style).current_option(),
+            id(music_album_sort_order).current_option(), id(music_artist_album_sort_order).current_option(),
+            id(music_podcast_sort_order).current_option(),
+            id(va_wake_word_mode).current_option(), id(va_active_wake_word).current_option(),
+            id(ww_sens_okay_nabu).current_option(), id(ww_sens_hey_luna).current_option(),
+            id(ww_sens_hey_jarvis).current_option(), id(ww_sens_hey_mycroft).current_option(),
+            id(ww_sens_alexa).current_option(),
+            id(va_visual_profile).current_option(), id(va_wake_screen_switch).state,
+            id(font_date), id(font_small),
+            id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate),
+            id(col_dark_gray), id(col_gold), id(col_red), id(game_sound_switch).state);
+      } else if (id(gui_page) == 5) {
+        render_weather_page(
+            it, cx, cy, millis(), id(sky_weather_subpage), now, id(is_24h_format),
+            id(weather_sim_condition).current_option(),
+            id(ha_weather_temperature).state, id(ha_weather_high).state, id(ha_weather_low).state,
+            id(ha_weather_humidity).state, id(ha_weather_wind_speed).state, id(ha_weather_wind_bearing).state,
+            id(ha_weather_condition).state, id(ha_weather_forecast_5d).state,
+            id(ha_sun_state).state, id(ha_sun_elevation).state, id(ha_sun_azimuth).state,
+            id(ha_sun_next_rising).state, id(ha_sun_next_setting).state,
+            id(ha_moon_phase).state,
+            id(font_time), id(font_date), id(font_btn_bold), id(font_small), id(font_micro),
+            id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate),
+            id(col_gray), id(col_dark_gray), id(col_warm_gold), id(accel_x).state, id(accel_y).state);
+      } else if (id(gui_page) == 7) {
+        const std::string rem_ents[4] = {
+          "${tv_remote_entity}", "${tv_remote_entity_2}",
+          "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+        };
+        const std::string rem_names[4] = {
+          id(remote_slot_0_name), id(remote_slot_1_name),
+          id(remote_slot_2_name), id(remote_slot_3_name)
+        };
+        render_tv_remote_page(
+            it, cx, cy, millis(), id(remote_subpage), id(active_remote_slot),
+            rem_ents, rem_names, id(remote_action_feedback), id(remote_feedback_timer),
+            id(font_date), id(font_small),
+            id(theme_primary), id(theme_secondary),
+            id(col_white), id(col_slate), id(col_gray), id(col_dark_gray), id(col_red));
+      } else if (id(gui_page) == 8) {
+        if (id(stuff_subpage) == 0) {
+          render_tools_launcher(
+              it, cx, id(stuff_menu_page), id(menu_scroll_active),
+              id(menu_scroll_step), id(menu_scroll_dir), id(menu_scroll_target_page),
+              id(font_date), id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_black), id(col_white));
+        } else if (id(stuff_subpage) == 1) {
+          render_tool_timer(
+              it, cx, cy, id(timer_running), id(timer_paused),
+              id(timer_remaining_sec), id(timer_duration_sec),
+              id(font_time), id(font_date), id(font_btn_bold), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_black),
+              id(col_white), id(col_slate), id(col_dark_gray), id(col_red),
+              id(va_timer_name), id(font_chrono_time), id(col_gray));
+        } else if (id(stuff_subpage) == 2) {
+          render_tool_alarms(
+              it, cx, now, id(is_24h_format), id(alarm_edit_idx),
+              id(alarm_snooze_until), id(alarm_ringing_idx),
+              id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled), id(alarm1_recurrence),
+              id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled), id(alarm2_recurrence),
+              id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled), id(alarm3_recurrence),
+              id(font_time), id(font_chrono_time), id(font_date), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_black),
+              id(col_white), id(col_gray), id(col_dark_gray), id(col_gold));
+        } else if (id(stuff_subpage) == 3) {
+          render_tool_stopwatch(
+              it, cx, cy, millis(), id(stopwatch_running),
+              id(stopwatch_start_time), id(stopwatch_elapsed_ms), id(stopwatch_lap_ms),
+              id(font_date), id(font_small), id(col_white), id(col_silver),
+              id(col_slate), id(col_dark_gray), id(col_red));
+        } else if (id(stuff_subpage) == 4) {
+          render_tool_dice_roll(
+              it, cx, millis(), id(dice_anim_active), id(dice_anim_start_ms),
+              id(dice_val_d6), id(dice_val_d6_2), id(font_date), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_white), id(col_dark_gray));
+        } else if (id(stuff_subpage) == 5) {
+          it.filled_circle(cx, cy, 233, id(col_white));
+        } else if (id(stuff_subpage) == 6) {
+          render_tool_calculator(
+              it, cx, id(calc_history), id(calc_entry), id(calc_op), id(calc_new_entry),
+              id(font_date), id(font_btn_bold), id(font_small),
+              id(theme_primary), id(col_white), id(col_slate), id(col_dark_gray));
+        } else if (id(stuff_subpage) == 7) {
+          render_tool_bubble_level(
+              it, cx, id(accel_x).state, id(accel_y).state, id(accel_z).state,
+              id(font_date), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_white),
+              id(col_gray), id(col_slate), id(col_dark_gray), id(col_green));
+        } else if (id(stuff_subpage) == 8) {
+          render_tool_coin_flip(
+              it, cx, millis(), id(coin_anim_active), id(coin_anim_start_ms),
+              id(coin_side), id(font_date), id(font_small),
+              id(theme_primary), id(theme_secondary), id(col_white), id(col_dark_gray));
+        }
+      }
+
+      // UNIVERSAL GLOBAL BOTTOM "< BACK" BAR (Rendered at y = 426 for all top-level apps launched from Home)
+      // - Hidden on Home (Page 1, which shows Battery at y=424) and Clock (Page 0, which shows "HOME" at y=408)
+      // - On Music Player (Page 2), hidden during dormant "Art Only" mode so full-screen album art stays 100% clean
+      auto current_overlay_mode = id(music_overlay_style).current_option();
+      bool music_clean_art = (id(gui_page) == 2 && (current_overlay_mode.empty() || current_overlay_mode == "Art Only") && !id(music_hud_active));
+
+      bool show_top_level_back = !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) &&
+                                 id(va_status_text).empty() && id(display_power_state) == 0 &&
+                                 (id(gui_page) != 0) && (id(gui_page) != 1) &&
+                                 !(id(gui_page) == 4) &&
+                                 !(id(gui_page) == 3 && id(active_game) > 0) &&
+                                 !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_clean_art)) &&
+                                 !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
+                                 !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
+                                 !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
+
+      if (show_top_level_back) {
+        render_back_button(it, cx, id(font_small), 426, "< BACK");
+      }
+
+      // Stamp post-render timestamp so 20 FPS loops coalesce cleanly with disp1's 1s background timer
+      pocket_ui::record_ambient_frame_ms(millis());
+
+
+touchscreen:
+  - id: !extend touch_screen
+    on_touch:
+      then:
+        - lambda: |-
+            ESP_LOGI("touch", ">>> Touch Down: x=%d y=%d page=%d", touch.x, touch.y, id(gui_page));
+            if (id(is_hibernating)) {
+              if (id(hibernate_countdown_val) > 0) {
+                id(is_hibernating) = false;
+                id(hibernate_countdown_val) = 0;
+                id(wake_to_active_state).execute();
+              }
+              return;
+            }
+            uint32_t now_touch = millis();
+
+            if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
+              auto tw_mode = id(tap_wake_mode).current_option();
+              if (tw_mode == "Disabled") return;
+              if (tw_mode == "Docked Only" && !id(usb_connected).state) return;
+
+              id(wake_to_active_state).execute();
+              return;
+            }
+
+            if (now_touch - pocket_ui::last_screen_wake_ms() < TOUCH_DEBOUNCE_WAKE) {
+              return;
+            }
+
+            static uint32_t last_touch_activity = 0;
+            if (now_touch - last_touch_activity > 1000U) {
+              last_touch_activity = now_touch;
+              id(screen_sleep_timer).execute();
+            }
+
+            if (id(va_active) || !id(va_status_text).empty()) {
+              pocket_ui::last_screen_wake_ms() = now_touch;
+              id(cancel_voice_assistant).execute();
+              return;
+            }
+
+            if (id(alarm_ringing) || id(timer_ringing) || id(find_my_active)) {
+              if (id(find_my_active)) {
+                id(find_my_active) = false;
+                pocket_ui::last_screen_wake_ms() = now_touch;
+                id(stop_alarm_sound).execute();
+                id(sync_display_brightness).execute();
+                id(disp1).update();
+                return;
+              }
+              if (id(alarm_ringing)) {
+                if (touch.y >= 268 && touch.y <= 324 && touch.x >= 100 && touch.x <= 366) {
+                  auto now = id(ha_time).now();
+                  if (now.is_valid()) {
+                    id(alarm_snooze_until) = now.timestamp + 300;
+                  } else {
+                    id(alarm_snooze_until) = (now_touch / 1000) + 300;
+                  }
+                  id(alarm_ringing) = false;
+                  pocket_ui::last_screen_wake_ms() = now_touch;
+                  id(stop_alarm_sound).execute();
+                  id(disp1).update();
+                  return;
+                }
+                if (touch.y >= 342 && touch.y <= 398 && touch.x >= 110 && touch.x <= 356) {
+                  id(alarm_ringing) = false;
+                  pocket_ui::last_screen_wake_ms() = now_touch;
+                  id(stop_alarm_sound).execute();
+                  id(disp1).update();
+                  return;
+                }
+              } else if (id(timer_ringing)) {
+                if (touch.y >= 302 && touch.y <= 358 && touch.x >= 100 && touch.x <= 366) {
+                  id(timer_ringing) = false;
+                  pocket_ui::last_screen_wake_ms() = now_touch;
+                  id(stop_alarm_sound).execute();
+                  id(disp1).update();
+                  return;
+                }
+              }
+              return;
+            }
+
+            static uint32_t last_back_tap = 0;
+
+            // ==========================================
+            // UNIVERSAL BOTTOM CHIN "< BACK" / "HOME" TOUCH HANDLER
+            // Any top-level app (Clock=0, Music=2, Games=3, System=4, Weather=5, Remote=7, Tools=8)
+            // returns directly to Home (Page 1) when tapping the bottom chin (is_back_button).
+            // ==========================================
+            bool is_top_level_app = (id(gui_page) != 1) &&
+                                    !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
+                                    !(id(gui_page) == 3 && id(active_game) > 0) &&
+                                    !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
+                                    !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
+                                    !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
+                                    !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
+
+            if (is_top_level_app && is_back_button(touch)) {
+              if (now_touch - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
+                last_back_tap = now_touch;
+                id(gui_page) = 1;
+                id(home_subpage) = 0;
+                id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0; id(music_direct_nav) = false;
+                id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
+                id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
+                id(sky_weather_subpage) = 0;
+                id(disp1).update();
+              }
+              return;
+            }
+
+            // Edge tap support for one-handed navigation in Browse Library, Speakers & Item Browser (Right-Flank Chevrons)
+            if (id(gui_page) == 2 && (id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3) && touch.y >= 70 && touch.y <= 375) {
+              if (touch.x < 75) {
+                return;
+              } else if (is_right_chevron_zone(touch)) {
+                if (id(music_overlay_mode) == 2) {
+                  if (id(menu_scroll_active)) return;
+                  static uint32_t last_cat_scroll = 0;
+                  uint32_t now_s = millis();
+                  if (now_s - last_cat_scroll > TOUCH_DEBOUNCE_SCROLL) {
+                    last_cat_scroll = now_s;
+                    if (id(music_category_page) == 1) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = 1;
+                      id(menu_scroll_target_page) = 2;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    } else if (id(music_category_page) == 2) {
+                      id(menu_scroll_active) = true;
+                      id(menu_scroll_dir) = -1;
+                      id(menu_scroll_target_page) = 1;
+                      id(menu_scroll_step) = 0;
+                      id(menu_scroll_transition).execute();
+                    }
+                  }
+                  return;
+                } else if (id(music_overlay_mode) == 1 || id(music_overlay_mode) == 3) {
+                  if (id(music_browse_total_pages) > 1) {
+                    static uint32_t last_browse_scroll = 0;
+                    uint32_t now_s = millis();
+                    if (now_s - last_browse_scroll > TOUCH_DEBOUNCE_SCROLL) {
+                      int delta = (touch.y < 220) ? -1 : 1;
+                      int next_pg = id(music_browse_page);
+                      if (id(music_overlay_mode) == 3) {
+                        next_pg = std::max(1, std::min(id(music_browse_total_pages), id(music_browse_page) + delta));
+                      } else {
+                        next_pg = step_wrap_1based(id(music_browse_page), delta, id(music_browse_total_pages));
+                      }
+                      if (next_pg != id(music_browse_page)) {
+                        last_browse_scroll = now_s;
+                        id(music_browse_page) = next_pg;
+                        id(fetch_music_browse).execute();
+                        id(disp1).update();
+                      }
+                    }
+                  }
+                  return;
+                }
+              }
+            }
+
+            if (id(gui_page) == 1) {
               // ==============================================================================
               // PAGE 1: INTERACTIVE HOME PAGE & HOME SETTINGS TOUCH ROUTING
               // ==============================================================================
@@ -4280,8 +4753,8 @@ display:
                         id(system_menu_mode) = 9; // Music
                         id(audio_menu_parent_page) = 4;
                       } else if (item_idx == 5) {
-                        id(system_menu_mode) = 10; // App Deck
-                        id(deck_menu_page) = 1;
+                        id(gui_page) = 1;
+                        id(home_subpage) = 1;
                       } else if (item_idx == 6) {
                         id(system_menu_mode) = 8; // Info
                       } else if (item_idx == 7) {
