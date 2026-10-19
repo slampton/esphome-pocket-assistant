@@ -1426,34 +1426,37 @@ inline void render_voice_assistant_overlay(
 
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
 
-    // 1. Reusable 3D Shaded Royal-Purple Sphere Core with Pink Specular Highlights (Zero White Circle!)
+    // 1. Continuous 3D Fluid Purple-to-Magenta Gradient Sphere (Zero Specular Spots!)
     auto render_nebula_purple_orb = [&](int core_r, float energy_boost) {
-      // Outer neon-pink & violet atmospheric bloom
-      it.filled_circle(cx, cy + 2, core_r + 6, scale_color(c_deep_violet, 0.55f));
-      it.circle(cx, cy, core_r + 5, scale_color(c_neon_magenta, 0.45f + 0.35f * energy_boost));
-      it.circle(cx, cy, core_r + 4, scale_color(c_royal_purple, 0.75f));
-      it.circle(cx, cy, core_r + 3, c_neon_magenta);
+      // Soft outer atmospheric bloom rings
+      it.filled_circle(cx, cy + 2, core_r + 5, scale_color(c_deep_violet, 0.50f));
+      it.circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.40f + 0.35f * energy_boost));
+      it.circle(cx, cy, core_r + 3, scale_color(c_royal_purple, 0.75f));
+      it.circle(cx, cy, core_r + 2, c_amethyst);
 
-      // Base 3D sphere shadow body (deep cosmic violet)
-      it.filled_circle(cx, cy, core_r + 2, c_deep_violet);
+      // Slow revolving 3D light direction so the gradient gently flows inside the sphere
+      float lx = -0.22f * fast_cos(t_sec * 0.85f);
+      float ly = -0.22f * fast_sin(t_sec * 0.85f);
 
-      // Main 3D shaded purple sphere shifted (-1, -1) so lower-right retains a natural 3D shadow crescent
-      it.filled_circle(cx - 1, cy - 1, core_r, c_royal_purple);
+      const esphome::Color c_grad_edge(52, 16, 98);     // Deep cosmic violet at outer limb
+      const esphome::Color c_grad_mid(124, 38, 206);    // Rich royal purple body
+      const esphome::Color c_grad_warm(214, 58, 172);   // Velvety magenta-rose inner warmth (no white/pastel spot)
 
-      // Mid-upper-left amethyst 3D contour gradient
-      int r_mid = (core_r * 74) / 100;
-      it.filled_circle(cx - (core_r / 5), cy - (core_r / 5), r_mid, c_amethyst);
+      // Concentric 1px-stepped spherical gradient from outer limb (r = core_r + 1) to center (r = 1)
+      int max_r = core_r + 1;
+      float inv_max_r = 1.0f / static_cast<float>(max_r);
+      for (int r = max_r; r >= 1; r--) {
+        float u = 1.0f - static_cast<float>(r) * inv_max_r; // 0.0 at outer edge -> 1.0 at center
+        // Smooth cubic Hermite curve so there is never a hard ring boundary or center dot
+        float s = u * u * (3.0f - 2.0f * u);
+        esphome::Color ring_c = (s < 0.55f)
+            ? lerp_color(c_grad_edge, c_grad_mid, s * (1.0f / 0.55f))
+            : lerp_color(c_grad_mid, c_grad_warm, (s - 0.55f) * (1.0f / 0.45f));
 
-      // Soft pink 3D upper-left illumination lobe + rim highlight (no white!)
-      int r_hi = std::max(4, (core_r * 42) / 100);
-      int hx = cx - (core_r * 30) / 100;
-      int hy = cy - (core_r * 30) / 100;
-      it.filled_circle(hx, hy, r_hi, c_neon_magenta);
-      it.filled_circle(hx - 1, hy - 1, std::max(2, r_hi / 2), c_pink_hi);
-      it.filled_circle(hx - 2, hy - 2, std::max(1, r_hi / 4), c_pink_spec);
-
-      // Subtle lower-right reflected cyan/magenta rim light
-      it.circle(cx, cy, core_r + 1, c_royal_purple);
+        int ox = cx + static_cast<int>(u * static_cast<float>(core_r) * lx);
+        int oy = cy + static_cast<int>(u * static_cast<float>(core_r) * ly);
+        it.filled_circle(ox, oy, r, ring_c);
+      }
     };
 
     // 2. Volumetric Multi-Strand 3D Silk Plasma Ribbon Renderer (3px..5px thick luminous body, never skeletal!)
