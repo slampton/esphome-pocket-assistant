@@ -1411,201 +1411,286 @@ inline void render_voice_assistant_overlay(
   }
 
   // ============================================================================
-  // B. FLAGSHIP "NEBULA" — TRUE 3D GYROSCOPIC SILK WAVE ORB (rotate_3d_xyz + project_3d)
+  // B. FLAGSHIP "NEBULA" — HYBRID 3D VOLUMETRIC SILK RIBBONS, RADIATION WAVES &
+  //    3D SHADED PURPLE/PINK ORB (Zero White Center Circle!)
   // ============================================================================
   if (!is_solaris) {
     const esphome::Color c_elec_cyan(0, 229, 255);
-    const esphome::Color c_royal_indigo(115, 65, 255);
-    const esphome::Color c_neon_magenta(255, 45, 145);
-    const esphome::Color c_deep_azure(20, 95, 195);
-    const esphome::Color c_ice_white(215, 248, 255);
+    const esphome::Color c_deep_azure(28, 110, 225);
+    const esphome::Color c_royal_purple(124, 42, 208);
+    const esphome::Color c_deep_violet(54, 16, 98);
+    const esphome::Color c_amethyst(168, 72, 242);
+    const esphome::Color c_neon_magenta(255, 45, 155);
+    const esphome::Color c_pink_hi(255, 130, 205);
+    const esphome::Color c_pink_spec(255, 185, 232);
 
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
 
-    // Draws a 30-segment closed 3D harmonic silk ribbon tilted in 3D space (rx, ry, rz)
-    // with depth-sorted luminance (brighter when arcing in front of the core, dimmer behind)
+    // 1. Reusable 3D Shaded Royal-Purple Sphere Core with Pink Specular Highlights (Zero White Circle!)
+    auto render_nebula_purple_orb = [&](int core_r, float energy_boost) {
+      // Outer neon-pink & violet atmospheric bloom
+      it.filled_circle(cx, cy + 2, core_r + 6, scale_color(c_deep_violet, 0.55f));
+      it.circle(cx, cy, core_r + 5, scale_color(c_neon_magenta, 0.45f + 0.35f * energy_boost));
+      it.circle(cx, cy, core_r + 4, scale_color(c_royal_purple, 0.75f));
+      it.circle(cx, cy, core_r + 3, c_neon_magenta);
+
+      // Base 3D sphere shadow body (deep cosmic violet)
+      it.filled_circle(cx, cy, core_r + 2, c_deep_violet);
+
+      // Main 3D shaded purple sphere shifted (-1, -1) so lower-right retains a natural 3D shadow crescent
+      it.filled_circle(cx - 1, cy - 1, core_r, c_royal_purple);
+
+      // Mid-upper-left amethyst 3D contour gradient
+      int r_mid = (core_r * 74) / 100;
+      it.filled_circle(cx - (core_r / 5), cy - (core_r / 5), r_mid, c_amethyst);
+
+      // Soft pink 3D upper-left illumination lobe + rim highlight (no white!)
+      int r_hi = std::max(4, (core_r * 42) / 100);
+      int hx = cx - (core_r * 30) / 100;
+      int hy = cy - (core_r * 30) / 100;
+      it.filled_circle(hx, hy, r_hi, c_neon_magenta);
+      it.filled_circle(hx - 1, hy - 1, std::max(2, r_hi / 2), c_pink_hi);
+      it.filled_circle(hx - 2, hy - 2, std::max(1, r_hi / 4), c_pink_spec);
+
+      // Subtle lower-right reflected cyan/magenta rim light
+      it.circle(cx, cy, core_r + 1, c_royal_purple);
+    };
+
+    // 2. Volumetric Multi-Strand 3D Silk Plasma Ribbon Renderer (3px..5px thick luminous body, never skeletal!)
     auto draw_silk_ribbon_3d = [&](float base_r, float a2, float a3, float a5,
                                    int ph2, int ph3, int ph5,
                                    float rx, float ry, float rz,
-                                   esphome::Color col_main, esphome::Color col_glow,
-                                   bool double_stroke) {
+                                   esphome::Color col_core, esphome::Color col_aura,
+                                   bool with_outer_bloom) {
       int prev_x = 0, prev_y = 0, first_x = 0, first_y = 0;
-      int prev_gx = 0, prev_gy = 0, first_gx = 0, first_gy = 0;
+      int prev_ix = 0, prev_iy = 0, first_ix = 0, first_iy = 0;
+      int prev_ox = 0, prev_oy = 0, first_ox = 0, first_oy = 0;
       float prev_z = 0.0f;
+
       for (int i = 0; i < 60; i += 2) {
         float w2 = DIAL_SIN[(i * 2 + ph2) % 60];
         float w3 = DIAL_COS[(i * 3 + ph3) % 60];
         float w5 = DIAL_SIN[(i * 5 + ph5) % 60];
         float r = base_r + a2 * w2 + a3 * w3;
-        float z_local = a5 * w5 * 3.2f; // Out-of-plane 3D silk undulation
+        float z_local = a5 * w5 * 3.2f;
 
         float ux = DIAL_SIN[i];
         float uy = -DIAL_COS[i];
-        Vec3 v3 = rotate_3d_xyz({r * ux, r * uy, z_local}, rx, ry, rz);
-        ProjectedPoint p = project_3d(v3, cx, cy, 260.0f, 320.0f);
+        Vec3 v_mid = rotate_3d_xyz({r * ux, r * uy, z_local}, rx, ry, rz);
+        Vec3 v_in  = rotate_3d_xyz({(r - 2.2f) * ux, (r - 2.2f) * uy, z_local}, rx, ry, rz);
+        Vec3 v_out = rotate_3d_xyz({(r + 2.2f) * ux, (r + 2.2f) * uy, z_local}, rx, ry, rz);
 
-        Vec3 vg3 = rotate_3d_xyz({(r + 2.5f) * ux, (r + 2.5f) * uy, z_local}, rx, ry, rz);
-        ProjectedPoint pg = project_3d(vg3, cx, cy, 260.0f, 320.0f);
+        ProjectedPoint p  = project_3d(v_mid, cx, cy, 260.0f, 320.0f);
+        ProjectedPoint pi = project_3d(v_in,  cx, cy, 260.0f, 320.0f);
+        ProjectedPoint po = project_3d(v_out, cx, cy, 260.0f, 320.0f);
 
         if (i == 0) {
-          first_x = p.x; first_y = p.y;
-          first_gx = pg.x; first_gy = pg.y;
+          first_x = p.x;   first_y = p.y;
+          first_ix = pi.x; first_iy = pi.y;
+          first_ox = po.x; first_oy = po.y;
         } else {
-          // Depth shading: v3.z < 0 is closer to viewer (bright), v3.z > 0 is behind core (dimmer)
-          float z_avg = 0.5f * (v3.z + prev_z);
-          float depth_k = fmaxf(0.45f, fminf(1.12f, 0.84f - (z_avg / (base_r + 10.0f)) * 0.36f));
-          esphome::Color seg_c = scale_color(col_main, depth_k);
-          if (double_stroke && z_avg < 12.0f) {
-            it.line(prev_gx, prev_gy, pg.x, pg.y, scale_color(col_glow, depth_k));
+          // Keep rear segments rich and vibrant (0.72 .. 1.0) so ribbons never look dull or skeletal
+          float z_avg = 0.5f * (v_mid.z + prev_z);
+          float depth_k = fmaxf(0.72f, fminf(1.0f, 0.92f - (z_avg / (base_r + 15.0f)) * 0.22f));
+          esphome::Color c_main = scale_color(col_core, depth_k);
+          esphome::Color c_halo = scale_color(col_aura, depth_k * 0.78f);
+
+          if (with_outer_bloom) {
+            it.line(prev_ix, prev_iy, pi.x, pi.y, c_halo);
+            it.line(prev_ox, prev_oy, po.x, po.y, c_halo);
           }
-          it.line(prev_x, prev_y, p.x, p.y, seg_c);
+          draw_glow_line(it, prev_x, prev_y, p.x, p.y, c_main, c_halo);
         }
-        prev_x = p.x; prev_y = p.y;
-        prev_gx = pg.x; prev_gy = pg.y;
-        prev_z = v3.z;
+        prev_x = p.x;   prev_y = p.y;
+        prev_ix = pi.x; prev_iy = pi.y;
+        prev_ox = po.x; prev_oy = po.y;
+        prev_z = v_mid.z;
       }
-      if (double_stroke) {
-        it.line(prev_gx, prev_gy, first_gx, first_gy, col_glow);
+      if (with_outer_bloom) {
+        it.line(prev_ix, prev_iy, first_ix, first_iy, scale_color(col_aura, 0.75f));
+        it.line(prev_ox, prev_oy, first_ox, first_oy, scale_color(col_aura, 0.75f));
       }
-      it.line(prev_x, prev_y, first_x, first_y, col_main);
+      draw_glow_line(it, prev_x, prev_y, first_x, first_y, col_core, scale_color(col_aura, 0.80f));
     };
 
+    // ------------------------------------------------------------------------
+    // 1. SPEAKING MODE: Hybrid of Original's 5 Full-Bodied Spectral Wave Bands
+    //    + Nebula's 3D Silk Voice Ribbons + 3D Purple/Pink Core Orb!
+    // ------------------------------------------------------------------------
     if (is_speaking) {
       float syl_env = (0.55f + 0.25f * fast_sin(t_sec * 11.5f) + 0.20f * fast_cos(t_sec * 19.3f)) * smooth_speak;
-      if (syl_env < 0.15f) syl_env = 0.15f;
+      if (syl_env < 0.18f) syl_env = 0.18f;
 
-      int tick = static_cast<int>(now_ms / 35U);
+      int tick = static_cast<int>(now_ms / 30U);
       uint32_t speak_elapsed = now_ms - speak_start_ms;
 
-      // 3 Expanding Acoustic Wave Rings
-      for (int w = 0; w < 3; w++) {
-        uint32_t launch_offset = static_cast<uint32_t>(w) * 600U;
+      // A) Original's 5 Full-Bodied Multi-Pixel Spectral Radiation Wave Bands (r = 42 .. 224)
+      for (int w = 0; w < 5; w++) {
+        uint32_t launch_offset = static_cast<uint32_t>(w) * 380U;
         if (speak_elapsed < launch_offset) continue;
-        uint32_t wave_t = (speak_elapsed - launch_offset) % 1800U;
-        float prog = static_cast<float>(wave_t) * (1.0f / 1800.0f);
-        float fade = fast_sin(prog * PI_F) * (0.45f + 0.45f * syl_env) * smooth_speak;
-        int r_wave = 68 + static_cast<int>(prog * 144.0f);
+        uint32_t wave_t = (speak_elapsed - launch_offset) % 1900U;
+        float progress = static_cast<float>(wave_t) * (1.0f / 1900.0f);
+        int r_center = 42 + static_cast<int>(progress * 176.0f);
 
-        esphome::Color w_col = scale_color(get_va_radiation_color(false, prog + static_cast<float>(w) * 0.33f + t_sec * 0.25f), fade);
-        esphome::Color w_glow = scale_color(w_col, 0.45f);
-        it.circle(cx, cy, r_wave - 1, w_glow);
-        it.circle(cx, cy, r_wave, w_col);
-        it.circle(cx, cy, r_wave + 1, w_glow);
+        float width_factor = fast_sin(progress * PI_F);
+        int base_w = (w % 2 == 0) ? 6 : 4;
+        int band_w = base_w + static_cast<int>(5.0f * width_factor * (0.7f + 0.3f * syl_env));
+        if (band_w < 3) band_w = 3;
+        int half_w = band_w >> 1;
+
+        float wave_color_phase = static_cast<float>(w) * 0.20f + progress * 0.32f +
+                                 static_cast<float>(now_ms % 4000U) * 0.00025f;
+        float fade = (1.0f - (progress * 0.42f)) * smooth_speak;
+        float inv_half = 1.0f / static_cast<float>(half_w + 1);
+
+        for (int d = -half_w; d <= half_w; d++) {
+          int r_curr = r_center + d;
+          if (r_curr < 38 || r_curr > 225) continue;
+
+          float edge_dist = static_cast<float>(d < 0 ? -d : d) * inv_half;
+          esphome::Color base_col = get_va_radiation_color(false, wave_color_phase + static_cast<float>(d) * 0.02f);
+
+          // Pink-tinted inner crest highlight instead of flat white
+          esphome::Color stroke_col = (edge_dist < 0.36f)
+              ? lerp_color(scale_color(base_col, fade), scale_color(c_pink_hi, fade), 0.38f)
+              : scale_color(base_col, fade);
+          it.circle(cx, cy, r_curr, stroke_col);
+        }
       }
 
-      // 4 Precessing 3D Gyroscopic Silk Voice Ribbons
-      float base_r = 52.0f + 16.0f * syl_env;
-      float a2 = 6.0f + 11.0f * syl_env;
-      float a3 = 4.5f + 8.0f * syl_env;
-      float a5 = 2.5f + 5.0f * syl_env;
+      // B) 3 Inner Volumetric 3D Silk Ribbons Undulating Around the Core
+      float base_r = 50.0f + 14.0f * syl_env;
+      float a2 = 6.0f + 10.0f * syl_env;
+      float a3 = 4.5f + 7.5f * syl_env;
+      float a5 = 2.5f + 4.5f * syl_env;
 
-      draw_silk_ribbon_3d(base_r + 4.0f, a2, a3, a5, (tick) % 60, (tick * 2 + 15) % 60, (tick + 30) % 60,
+      draw_silk_ribbon_3d(base_r + 3.0f, a2, a3, a5, (tick) % 60, (tick * 2 + 15) % 60, (tick + 30) % 60,
                           0.52f * fast_sin(t_sec * 0.9f), 0.48f * fast_cos(t_sec * 0.7f), t_sec * 0.4f,
-                          c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
+                          c_amethyst, c_royal_purple, true);
       draw_silk_ribbon_3d(base_r, -a2 * 0.9f, a3 * 1.1f, -a5, (tick + 20) % 60, (tick + 40) % 60, (tick * 2) % 60,
                           -0.55f * fast_cos(t_sec * 0.8f), 0.50f * fast_sin(t_sec * 1.1f), -t_sec * 0.35f,
-                          c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
-      draw_silk_ribbon_3d(base_r - 2.0f, a2 * 0.8f, -a3, a5 * 1.2f, (tick * 2 + 7) % 60, (tick + 25) % 60, (tick + 12) % 60,
+                          c_pink_hi, c_neon_magenta, true);
+      draw_silk_ribbon_3d(base_r - 3.0f, a2 * 0.8f, -a3, a5 * 1.2f, (tick * 2 + 7) % 60, (tick + 25) % 60, (tick + 12) % 60,
                           0.42f * fast_cos(t_sec * 1.2f), -0.45f * fast_sin(t_sec * 0.85f), t_sec * 0.5f,
                           c_elec_cyan, c_deep_azure, true);
-      draw_silk_ribbon_3d(base_r - 5.0f, a2 * 0.5f, a3 * 0.5f, a5 * 0.6f, (tick + 35) % 60, (tick + 10) % 60, (tick) % 60,
-                          0.28f * fast_sin(t_sec * 1.4f), 0.28f * fast_cos(t_sec * 1.4f), -t_sec * 0.25f,
-                          c_ice_white, c_elec_cyan, false);
 
-      int core_r = 22 + static_cast<int>(6.0f * syl_env);
-      it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.35f + 0.20f * syl_env));
-      it.filled_circle(cx, cy, core_r, c_royal_indigo);
-      it.circle(cx, cy, core_r + 1, c_elec_cyan);
-      it.filled_circle(cx, cy, (core_r * 2) / 3, c_deep_azure);
-      it.filled_circle(cx, cy, core_r / 2, c_ice_white);
+      int core_r = 24 + static_cast<int>(5.0f * syl_env);
+      render_nebula_purple_orb(core_r, syl_env);
       return;
     }
 
+    // ------------------------------------------------------------------------
+    // 2. THINKING MODE: Hybrid of Original's Counter-Rotating Star-Flare Constellations
+    //    + Nebula's 3D Silk Vortex + 3D Purple/Pink Core Orb!
+    // ------------------------------------------------------------------------
     if (is_thinking) {
-      int tick = static_cast<int>(now_ms / 25U);
-      float pulse = fast_sin(static_cast<float>(now_ms % 700U) * (2.0f * PI_F / 700.0f));
+      int tick = static_cast<int>(now_ms / 22U);
+      float pulse = fast_sin(static_cast<float>(now_ms % 650U) * (2.0f * PI_F / 650.0f));
 
-      float vortex_r = 74.0f - 20.0f * smooth_think;
-      draw_silk_ribbon_3d(vortex_r + 3.0f * pulse, 6.0f, 5.0f, 3.5f,
+      // Subtle guide tracks from Original Thinking
+      it.circle(cx, cy, 74, esphome::Color(28, 18, 46));
+      it.circle(cx, cy, 118, esphome::Color(24, 16, 40));
+
+      // 3 Volumetric 3D Silk Vortex Ribbons
+      float vortex_r = 68.0f + 3.0f * pulse;
+      draw_silk_ribbon_3d(vortex_r + 3.0f, 6.0f, 5.0f, 3.5f,
                           (tick * 2) % 60, (tick * 3) % 60, (tick) % 60,
                           0.68f * fast_sin(t_sec * 1.3f), 0.55f * fast_cos(t_sec * 1.1f), t_sec * 0.8f,
-                          c_royal_indigo, scale_color(c_royal_indigo, 0.4f), false);
-      draw_silk_ribbon_3d(vortex_r - 2.0f - 2.0f * pulse, -5.0f, 6.0f, -3.0f,
+                          c_amethyst, c_royal_purple, true);
+      draw_silk_ribbon_3d(vortex_r, -5.0f, 6.0f, -3.0f,
                           (tick * 2 + 30) % 60, (tick + 15) % 60, (tick * 2) % 60,
                           -0.62f * fast_cos(t_sec * 1.2f), 0.65f * fast_sin(t_sec * 1.4f), -t_sec * 0.7f,
-                          c_neon_magenta, scale_color(c_neon_magenta, 0.4f), false);
-      draw_silk_ribbon_3d(vortex_r - 4.0f, 4.0f, -4.0f, 2.5f,
+                          c_pink_hi, c_neon_magenta, true);
+      draw_silk_ribbon_3d(vortex_r - 3.0f, 4.0f, -4.0f, 2.5f,
                           (tick + 45) % 60, (tick * 2 + 20) % 60, (tick * 3) % 60,
                           0.48f * fast_cos(t_sec * 1.6f), -0.52f * fast_sin(t_sec * 1.2f), t_sec * 0.9f,
-                          c_elec_cyan, c_deep_azure, true);
+                          c_elec_cyan, c_deep_azure, false);
 
-      // 6 3D Tilted Orbital Neural Nodes with 5-Step Fading Comet Trails
-      const int head_idx_cw = static_cast<int>((now_ms / 18U) % 60U);
-      const int head_idx_ccw = (60 - static_cast<int>((now_ms / 22U) % 60U)) % 60;
-      float orb_rx1 = 0.52f * fast_sin(t_sec * 0.9f), orb_ry1 = 0.45f * fast_cos(t_sec * 0.8f);
-      float orb_rx2 = -0.48f * fast_cos(t_sec * 0.85f), orb_ry2 = 0.52f * fast_sin(t_sec * 0.95f);
+      // Counter-Rotating 4-Point Star-Flare Constellations with Fading Comet Tails
+      float spin_cw = static_cast<float>(now_ms % 1150U) * (2.0f * PI_F / 1150.0f);
+      float orb_rx1 = 0.36f * fast_sin(t_sec * 0.9f),  orb_ry1 = 0.32f * fast_cos(t_sec * 0.8f);
+      float orb_rx2 = -0.34f * fast_cos(t_sec * 0.85f), orb_ry2 = 0.36f * fast_sin(t_sec * 0.95f);
 
-      for (int n = 0; n < 3; n++) {
-        int base_cw = (head_idx_cw + n * 20) % 60;
+      for (int i = 0; i < 4; i++) {
+        float ang_cw  = spin_cw + static_cast<float>(i) * (PI_F * 0.5f);
+        float ang_ccw = -spin_cw + (PI_F * 0.25f) + static_cast<float>(i) * (PI_F * 0.5f);
+
+        // Inner CW Constellation (Electric Cyan + Pink Center)
         for (int tail = 4; tail >= 0; tail--) {
-          int idx = (base_cw - tail * 2 + 60) % 60;
-          Vec3 v_cw = rotate_3d_xyz({88.0f * DIAL_SIN[idx], -88.0f * DIAL_COS[idx], 0.0f}, orb_rx1, orb_ry1, 0.0f);
+          float ta = ang_cw - static_cast<float>(tail) * 0.12f;
+          float ts, tc;
+          fast_sincos(ta, ts, tc);
+          Vec3 v_cw = rotate_3d_xyz({74.0f * tc, 74.0f * ts, 0.0f}, orb_rx1, orb_ry1, 0.0f);
           ProjectedPoint p_cw = project_3d(v_cw, cx, cy, 260.0f, 320.0f);
-          float k = static_cast<float>(5 - tail) * 0.20f * smooth_think;
-          int rad = (tail == 0) ? (v_cw.z < 0.0f ? 4 : 3) : (tail <= 2 ? 2 : 1);
-          it.filled_circle(p_cw.x, p_cw.y, rad,
-                           (tail == 0) ? scale_color(c_ice_white, smooth_think) : scale_color(c_elec_cyan, k));
+          if (tail == 0) {
+            it.line(p_cw.x - 5, p_cw.y, p_cw.x + 5, p_cw.y, c_elec_cyan);
+            it.line(p_cw.x, p_cw.y - 5, p_cw.x, p_cw.y + 5, c_elec_cyan);
+            it.filled_circle(p_cw.x, p_cw.y, 3, c_elec_cyan);
+            it.filled_circle(p_cw.x, p_cw.y, 1, c_pink_spec);
+          } else {
+            float k = static_cast<float>(5 - tail) * 0.18f;
+            it.filled_circle(p_cw.x, p_cw.y, (tail <= 2) ? 2 : 1, scale_color(c_elec_cyan, k));
+          }
         }
 
-        int base_ccw = (head_idx_ccw + n * 20 + 10) % 60;
+        // Outer CCW Constellation (Neon Magenta / Amethyst + Pink Star Flare)
         for (int tail = 4; tail >= 0; tail--) {
-          int idx = (base_ccw + tail * 2) % 60;
-          Vec3 v_ccw = rotate_3d_xyz({118.0f * DIAL_SIN[idx], -118.0f * DIAL_COS[idx], 0.0f}, orb_rx2, orb_ry2, 0.0f);
+          float ta = ang_ccw + static_cast<float>(tail) * 0.12f;
+          float ts, tc;
+          fast_sincos(ta, ts, tc);
+          Vec3 v_ccw = rotate_3d_xyz({118.0f * tc, 118.0f * ts, 0.0f}, orb_rx2, orb_ry2, 0.0f);
           ProjectedPoint p_ccw = project_3d(v_ccw, cx, cy, 260.0f, 320.0f);
-          float k = static_cast<float>(5 - tail) * 0.20f * smooth_think;
-          int rad = (tail == 0) ? (v_ccw.z < 0.0f ? 4 : 3) : (tail <= 2 ? 2 : 1);
-          it.filled_circle(p_ccw.x, p_ccw.y, rad,
-                           (tail == 0) ? scale_color(c_ice_white, smooth_think) : scale_color(c_neon_magenta, k));
+          if (tail == 0) {
+            it.line(p_ccw.x - 6, p_ccw.y, p_ccw.x + 6, p_ccw.y, c_amethyst);
+            it.line(p_ccw.x, p_ccw.y - 6, p_ccw.x, p_ccw.y + 6, c_amethyst);
+            it.filled_circle(p_ccw.x, p_ccw.y, 4, c_neon_magenta);
+            it.filled_circle(p_ccw.x, p_ccw.y, 2, c_pink_hi);
+          } else {
+            float k = static_cast<float>(5 - tail) * 0.18f;
+            it.filled_circle(p_ccw.x, p_ccw.y, (tail <= 2) ? 2 : 1, scale_color(c_neon_magenta, k));
+          }
         }
       }
 
-      int core_r = 22 + static_cast<int>(4.0f * pulse);
-      it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.35f));
-      it.filled_circle(cx, cy, core_r, c_royal_indigo);
-      it.circle(cx, cy, core_r + 1, c_elec_cyan);
-      it.filled_circle(cx, cy, (core_r * 2) / 3, c_deep_azure);
-      it.filled_circle(cx, cy, core_r / 2, c_ice_white);
+      int core_r = 25 + static_cast<int>(4.0f * pulse);
+      render_nebula_purple_orb(core_r, 0.75f);
       return;
     }
 
-    // Nebula Listening: 4 Precessing 3D Gyroscopic Silk Ribbons + VAD Bloom
+    // ------------------------------------------------------------------------
+    // 3. LISTENING MODE: Volumetric 3D Silk Plasma Ribbons + Breathing Nebula Halo
+    //    + 4 Orbiting Star Nodes + 3D Shaded Purple/Pink Orb
+    // ------------------------------------------------------------------------
     float breath = fast_sin(static_cast<float>(now_ms % 2000U) * (2.0f * PI_F / 2000.0f));
-    int tick = static_cast<int>(now_ms / 45U);
+    int tick = static_cast<int>(now_ms / 38U);
 
-    float base_r = 80.0f + 6.0f * breath + 22.0f * smooth_vad;
-    float a2 = 5.0f + 10.0f * smooth_vad;
-    float a3 = 4.0f + 8.0f * smooth_vad;
-    float a5 = 2.5f + 5.5f * smooth_vad;
+    // Outer breathing nebula halo ring (inspired by Original's presence, modernized in deep violet/magenta)
+    int outer_halo_r = 122 + static_cast<int>(7.0f * breath + 14.0f * smooth_vad);
+    it.circle(cx, cy, outer_halo_r + 1, scale_color(c_deep_violet, 0.65f));
+    it.circle(cx, cy, outer_halo_r, lerp_color(c_royal_purple, c_neon_magenta, 0.35f + 0.50f * smooth_vad));
+    it.circle(cx, cy, outer_halo_r - 1, scale_color(c_amethyst, 0.70f));
+
+    // 4 Full-Bodied Volumetric 3D Silk Plasma Ribbons
+    float base_r = 82.0f + 5.0f * breath + 18.0f * smooth_vad;
+    float a2 = 5.5f + 10.0f * smooth_vad;
+    float a3 = 4.2f + 8.0f * smooth_vad;
+    float a5 = 2.8f + 5.5f * smooth_vad;
 
     draw_silk_ribbon_3d(base_r + 5.0f, a2, a3, a5, (tick) % 60, (tick + 20) % 60, (tick + 40) % 60,
                         0.48f * fast_sin(t_sec * 0.65f), 0.42f * fast_cos(t_sec * 0.55f), t_sec * 0.28f,
-                        c_royal_indigo, scale_color(c_royal_indigo, 0.35f), false);
+                        c_amethyst, c_royal_purple, true);
     draw_silk_ribbon_3d(base_r, -a2, a3 * 0.9f, -a5, (tick + 15) % 60, (tick * 2) % 60, (tick + 10) % 60,
                         -0.50f * fast_cos(t_sec * 0.60f), 0.46f * fast_sin(t_sec * 0.75f), -t_sec * 0.24f,
-                        c_neon_magenta, scale_color(c_neon_magenta, 0.35f), false);
+                        c_pink_hi, c_neon_magenta, true);
     draw_silk_ribbon_3d(base_r - 4.0f, a2 * 0.8f, -a3, a5, (tick + 35) % 60, (tick + 12) % 60, (tick * 2) % 60,
                         0.38f * fast_cos(t_sec * 0.80f), -0.42f * fast_sin(t_sec * 0.62f), t_sec * 0.32f,
                         c_elec_cyan, c_deep_azure, true);
-    draw_silk_ribbon_3d(base_r - 8.0f, a2 * 0.4f, a3 * 0.4f, a5 * 0.5f, (tick + 50) % 60, (tick + 30) % 60, (tick) % 60,
-                        0.22f * fast_sin(t_sec * 0.95f), 0.22f * fast_cos(t_sec * 0.95f), -t_sec * 0.18f,
-                        c_ice_white, c_elec_cyan, false);
+    draw_silk_ribbon_3d(base_r - 8.0f, a2 * 0.45f, a3 * 0.45f, a5 * 0.5f, (tick + 50) % 60, (tick + 30) % 60, (tick) % 60,
+                        0.24f * fast_sin(t_sec * 0.95f), 0.24f * fast_cos(t_sec * 0.95f), -t_sec * 0.18f,
+                        c_pink_spec, c_neon_magenta, false);
 
-    int core_r = 23 + static_cast<int>(4.0f * breath + 7.0f * smooth_vad);
-    it.filled_circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.30f + 0.25f * smooth_vad));
-    it.filled_circle(cx, cy, core_r, c_royal_indigo);
-    it.circle(cx, cy, core_r + 1, c_elec_cyan);
-    it.filled_circle(cx, cy, (core_r * 2) / 3, lerp_color(c_deep_azure, c_elec_cyan, smooth_vad * 0.5f));
-    it.filled_circle(cx, cy, core_r / 2, c_ice_white);
+    int core_r = 25 + static_cast<int>(4.0f * breath + 7.0f * smooth_vad);
+    render_nebula_purple_orb(core_r, smooth_vad);
     return;
   }
 
