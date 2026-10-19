@@ -8,6 +8,10 @@ esp32:
     sdkconfig_options:
       # ESP-IDF 5.5 replacement for CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY
       CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM: "y"
+      # ESPHome 2026.10 / ESP-IDF 5.5.6 PSRAM bus contention guardrails (prevents 512KB TCP / 512 RX buffer bloat)
+      CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM: "128"
+      CONFIG_LWIP_TCP_WND_DEFAULT: "65535"
+      CONFIG_LWIP_TCP_RECVMBOX_SIZE: "64"
       # Maximize ESP32-S3 L1 Data & Instruction Caches (64KB D-Cache / 64B line, 32KB I-Cache)
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
