@@ -934,12 +934,31 @@ inline void render_voice_assistant_overlay(
   }
 
   // ============================================================================
-  // PROFILE: "GOOGLE" — MINIMALIST 3 WHITE DOTS WAVE, ORBIT & CAPSULE EQUALIZER
+  // PROFILE: "GOOGLE" — 3 WHITE DOTS GRACEFUL WAVE, SPINNING ORBIT & EQUALIZER
   // ============================================================================
   if (is_google) {
-    float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
     const esphome::Color c_halo_outer(32, 58, 108);
     const esphome::Color c_halo_inner(110, 168, 255);
+
+    static uint32_t last_g_ms = 0;
+    static float g_phase = 0.0f;
+    static float spin_blend = 0.0f;
+    static uint32_t think_hold_until_ms = 0;
+
+    float dt_g = (last_g_ms > 0 && now_ms >= last_g_ms && (now_ms - last_g_ms) <= 250U)
+                     ? (static_cast<float>(now_ms - last_g_ms) * 0.001f)
+                     : 0.045f;
+    last_g_ms = now_ms;
+
+    // Ensure Thinking spin is visible for at least 950ms even when HA local intents return in <100ms!
+    if (is_thinking) {
+      think_hold_until_ms = now_ms + 950U;
+    }
+    const bool show_thinking_spin = is_thinking || (think_hold_until_ms > 0 && now_ms < think_hold_until_ms);
+
+    // Smoothly morph between horizontal line (0.0) and spinning circle (1.0)
+    float target_spin = show_thinking_spin ? 1.0f : 0.0f;
+    spin_blend += (target_spin - spin_blend) * 0.28f;
 
     auto draw_glowing_capsule = [&](int bx, int by, int r, int half_h) {
       if (half_h <= 1) {
@@ -950,50 +969,76 @@ inline void render_voice_assistant_overlay(
         int y_top = by - half_h;
         int y_bot = by + half_h;
         int h_span = 2 * half_h;
-        // Soft blue-white ambient glow aura
         it.filled_circle(bx, y_top, r + 3, c_halo_outer);
         it.filled_circle(bx, y_bot, r + 3, c_halo_outer);
         it.filled_rectangle(bx - (r + 3), y_top, 2 * (r + 3) + 1, h_span, c_halo_outer);
         it.filled_circle(bx, y_top, r + 1, c_halo_inner);
         it.filled_circle(bx, y_bot, r + 1, c_halo_inner);
         it.filled_rectangle(bx - (r + 1), y_top, 2 * (r + 1) + 1, h_span, c_halo_inner);
-        // Crisp pure-white inner pill
         it.filled_circle(bx, y_top, r, col_white);
         it.filled_circle(bx, y_bot, r, col_white);
         it.filled_rectangle(bx - r, y_top, 2 * r + 1, h_span, col_white);
       }
     };
 
-    // 3 horizontally spaced dots/capsules centered at cx (-52, 0, +52) across all 3 states
-    static constexpr int DOT_OFF_X[3] = {-52, 0, 52};
+    // 1. THINKING MODE: 3 White Dots Spin Around the Central Point (with smooth entry/exit morph)
+    if (show_thinking_spin || spin_blend > 0.15f) {
+      g_phase = fmodf(g_phase + dt_g * 4.2f, 200.0f * PI_F);
+      const float orbit_r = 40.0f * spin_blend;
+      static constexpr float LINE_X[3] = {-50.0f, 0.0f, 50.0f};
 
-    if (is_speaking) {
-      // Speaking: 3 white dots stretch into calm, organic vertical equalizer capsules
-      float syl_env = (0.50f + 0.30f * fast_sin(t_sec * 6.4f) + 0.20f * fast_cos(t_sec * 10.2f)) * smooth_speak;
-      static constexpr float BAR_FREQ[3]  = {5.6f, 7.4f, 6.2f};
-      static constexpr float BAR_PHASE[3] = {0.0f, 1.5f, 3.1f};
-      static constexpr float BAR_MAX_H[3] = {24.0f, 36.0f, 24.0f};
       for (int d = 0; d < 3; d++) {
-        float w = 0.50f + 0.50f * fast_sin(t_sec * BAR_FREQ[d] + BAR_PHASE[d]);
+        float ang = g_phase + static_cast<float>(d) * (2.0f * PI_F / 3.0f);
+        if (spin_blend > 0.65f) {
+          for (int tail = 3; tail >= 1; tail--) {
+            float t_ang = ang - static_cast<float>(tail) * 0.18f;
+            float ts = 0.0f, tc = 1.0f;
+            fast_sincos(t_ang, ts, tc);
+            int tx = cx + static_cast<int>(orbit_r * tc);
+            int ty = cy + static_cast<int>(orbit_r * ts);
+            float fade = static_cast<float>(4 - tail) * 0.22f * spin_blend;
+            it.filled_circle(tx, ty, 11 - tail * 2, scale_color(c_halo_inner, fade));
+          }
+        }
+        float s = 0.0f, c = 1.0f;
+        fast_sincos(ang, s, c);
+        int dx = cx + static_cast<int>((1.0f - spin_blend) * LINE_X[d] + orbit_r * c);
+        int dy = cy + static_cast<int>(orbit_r * s);
+        draw_glowing_capsule(dx, dy, 12, 0);
+      }
+      return;
+    }
+
+    static constexpr int DOT_OFF_X[3] = {-50, 0, 50};
+
+    // 2. SPEAKING MODE: 3 White Dots Stretch into Vertical Equalizer Capsules
+    if (is_speaking) {
+      g_phase = fmodf(g_phase + dt_g * 5.6f, 200.0f * PI_F);
+      float syl_env = (0.50f + 0.30f * fast_sin(g_phase * 0.9f) + 0.20f * fast_cos(g_phase * 1.5f)) * smooth_speak;
+      static constexpr float BAR_MULT[3]  = {0.95f, 1.25f, 1.08f};
+      static constexpr float BAR_PHASE[3] = {0.0f,  1.4f,  2.8f};
+      static constexpr float BAR_MAX_H[3] = {22.0f, 36.0f, 22.0f};
+      for (int d = 0; d < 3; d++) {
+        float w = 0.50f + 0.50f * fast_sin(g_phase * BAR_MULT[d] + BAR_PHASE[d]);
         int half_h = static_cast<int>(w * BAR_MAX_H[d] * (0.35f + 0.65f * syl_env));
         draw_glowing_capsule(cx + DOT_OFF_X[d], cy, 12, half_h);
       }
       return;
     }
 
-    // Listening & Thinking: Sequential Left-to-Right Travelling Wave Ripple (Zero Seesaw / Teeter-Totter!)
-    // Uses a raised-cosine crest pulse (u^2) with 120-degree (2.094 rad) separation per dot so one dot
-    // rises smoothly while the other two settle near the baseline (Dot 1 -> Dot 2 -> Dot 3 -> repeat).
-    float wave_spd = is_thinking ? 4.8f : (3.2f + 1.4f * smooth_vad);
-    float wave_amp = is_thinking ? 20.0f : (9.0f + 11.0f * smooth_vad);
+    // 3. LISTENING MODE: Graceful High-and-Low Travelling Wave (Non-Collinear 120-Deg + 2nd Harmonic)
+    //    - 120-degree (2.094 rad) spacing + 2nd harmonic arch prevents the 3 dots from ever forming a
+    //      straight tilting seesaw line, while sweeping through deep, graceful highs and lows!
+    float wave_spd = 2.9f + 1.3f * smooth_vad;
+    float wave_amp = 14.0f + 12.0f * smooth_vad; // Sweeps +/-14px idle up to +/-26px when speaking!
+    g_phase = fmodf(g_phase + dt_g * wave_spd, 200.0f * PI_F);
 
     for (int d = 0; d < 3; d++) {
-      float ph = t_sec * wave_spd - static_cast<float>(d) * 2.094395f;
-      float u = 0.5f + 0.5f * fast_sin(ph);
-      float crest = u * u; // Smooth baseline dwell with a single travelling upward wave crest
-      int dy = static_cast<int>((0.35f - crest) * wave_amp);
-      int dot_r = 11 + static_cast<int>(crest * 2.5f);
-      draw_glowing_capsule(cx + DOT_OFF_X[d], cy + dy, dot_r, 0);
+      float ph = g_phase - static_cast<float>(d) * 2.094395f; // Exact 120-degree phase separation
+      // Fundamental sine + 2nd-harmonic curvature so the 3 dots trace a rolling arch, never a straight line
+      float wave_y = 0.82f * fast_sin(ph) - 0.28f * fast_cos(2.0f * ph);
+      int dy = static_cast<int>(wave_y * wave_amp);
+      draw_glowing_capsule(cx + DOT_OFF_X[d], cy + dy, 12, 0);
     }
     return;
   }
