@@ -2441,7 +2441,7 @@ inline void render_home_page(
   int b_pct = std::isnan(batt) ? 100 : static_cast<int>(roundf(batt));
   if (now.is_valid()) {
     char date_part[24];
-    now.strftime(date_part, sizeof(date_part), "%a, %b %d");
+    TimeT now_copy = now; now_copy.strftime(date_part, sizeof(date_part), "%a, %b %d");
     snprintf(top_bar, sizeof(top_bar), "%s  •  %d%%", date_part, b_pct);
   } else {
     snprintf(top_bar, sizeof(top_bar), "Pocket Assistant  •  %d%%", b_pct);
