@@ -36,13 +36,13 @@ Pocket Assistant started as a personal home lab project to explore what is possi
 
 ### 1. Flash the Firmware
 - **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v1.3 with one click and configure Wi-Fi via Improv BLE.
-- **ESPHome Device Builder**: Alternatively, adopt the device using a minimal remote package include in your ESPHome node configuration. Only override the substitutions you need:
+- **ESPHome Device Builder (Take Control / Manual Adoption)**: When you click **Take Control** on a discovered device in ESPHome Device Builder, it automatically imports the remote package (`pocket-assistant-1.75c.yaml`). Add any `substitutions:` you wish to customize at the top of your device YAML:
 ```yaml
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  weather_entity: "weather.home"                     # Primary Home Assistant weather entity
-  tv_remote_entity: "remote.shield_tv"               # Slot 1: Primary device & Master Power target
+  weather_entity: "weather.forecast_home"            # Primary Home Assistant weather entity (default Met.no entity)
+  tv_remote_entity: "remote.none"                    # Slot 1: Primary device & Master Power target (e.g. "remote.living_room_tv")
   tv_remote_entity_2: "remote.none"                  # Slot 2: Optional secondary device (remote.* or media_player.*)
   tv_remote_entity_3: "remote.none"                  # Slot 3: Optional secondary device ("remote.none" hides slot)
   tv_remote_entity_4: "remote.none"                  # Slot 4: Optional secondary device ("remote.none" hides slot)
@@ -70,7 +70,7 @@ wifi:
 ### 2. Home Assistant Companion Package Setup
 Pocket Assistant uses a single consolidated companion package (`homeassistant/packages/pocket_assistant_companion.yaml`) that defines **5 entities** (3 `input_text` helpers and 2 template sensors):
 - `input_text.pocket_assistant_active_speaker` — Tracks the active target media player (defaults to `media_player.pocket_assistant`).
-- `input_text.pocket_assistant_weather_entity` — Monitored weather entity ID (defaults to `weather.home`, with automatic fallback to your first `weather.*` entity).
+- `input_text.pocket_assistant_weather_entity` — Monitored weather entity ID (defaults to `weather.forecast_home`, with automatic fallback to your first `weather.*` entity).
 - `input_text.pocket_assistant_base_url` — Optional base URL override for custom Home Assistant ports.
 - `sensor.pocket_assistant_active_media` — Idle-guarded active media mirror (evaluates only during active playback or state changes).
 - `sensor.pocket_assistant_weather_forecast` — Hourly 5-day daily forecast serializer.
