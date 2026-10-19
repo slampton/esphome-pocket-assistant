@@ -1535,8 +1535,9 @@ interval:
             }
           }
 
-          // High-refresh fluid Voice Assistant loop
-          // Listening/Thinking: 100ms (10 FPS); Speaking: 125ms (8 FPS) for extra PSRAM/DMA headroom on long TTS streams
+          // 20 FPS Audio-Aware Fluid Voice Assistant Loop (All 6 Profiles):
+          // - Listening & Thinking: Full 20 FPS (42ms cadence, coalesced with 50ms timer)
+          // - Speaking (TTS FLAC playback): 75ms (~13.3 FPS, matching should_step_ambient_anim audio cadence)
           if (id(va_active) || !id(va_status_text).empty()) {
             static uint32_t last_va_anim_time = 0;
             static bool prev_tts_active = false;
@@ -1553,10 +1554,11 @@ interval:
               return;
             }
 
-            const uint32_t cadence = id(va_tts_received) ? 125U : 100U;
+            const uint32_t cadence = id(va_tts_received) ? 75U : 42U;
             if (now_va_ms - last_va_anim_time >= cadence) {
               last_va_anim_time = now_va_ms;
               id(disp1).update();
+              pocket_ui::record_ambient_frame_ms(millis());
             }
           }
 

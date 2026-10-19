@@ -829,9 +829,9 @@ inline void render_voice_assistant_overlay(
   const float vad_target = va_vad_active ? 1.0f : 0.0f;
   const float think_target = is_thinking ? 1.0f : 0.0f;
   const float speak_target = is_speaking ? 1.0f : 0.0f;
-  smooth_vad += (vad_target - smooth_vad) * 0.35f;
-  smooth_think += (think_target - smooth_think) * 0.35f;
-  smooth_speak += (speak_target - smooth_speak) * 0.35f;
+  smooth_vad += (vad_target - smooth_vad) * 0.22f;
+  smooth_think += (think_target - smooth_think) * 0.22f;
+  smooth_speak += (speak_target - smooth_speak) * 0.22f;
 
   // ============================================================================
   // PROFILE: "ALEXA" — AMAZON ECHO 360° SPINNING CYAN & ROYAL BLUE LIGHT RING
