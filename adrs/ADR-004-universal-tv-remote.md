@@ -35,12 +35,10 @@ On-device physical validation revealed three UX opportunities:
    * **Direct Power Toggle**: Rendered via standard `draw_pill_button` at $y = 200$ (h = 44px, r = 22px, red accent outline with zero internal graphical artifacts) for immediate power toggling without redundant confirmation prompts.
    * **Navigation**: Returns to the main remote interface via bottom `[ Back ]` pill button ($y = 356$), top header tap, or hardware crown button press.
 
-5. **Native ESPHome Select Profile Drop-Down & Dynamic Keycode Routing**:
-   * **Drop-Down Entity (`select.tv_remote_profile`)**: Exposes an interactive configuration drop-down to Home Assistant (`"Android TV / Fire TV / Bravia"`, `"Apple TV"`, `"Roku"`, `"Samsung TV"`, `"LG webOS"`, `"Custom"`) with `restore_value: true`, allowing one-click profile configuration in the HA UI without firmware reflashing.
-   * **Dynamic Command Router**: In `core/ui.yaml`, button dispatch scripts dynamically map logical D-pad and navigation actions to target device keycodes based on `id(tv_remote_profile).state`. `"Custom"` gracefully falls back to user substitution overrides (`${remote_cmd_*}`).
-   * **Heuristic On-Boot Auto-Detection**: When `ha_remote_friendly_name` reports the device name, if `remote_profile_user_set` is false, it inspects entity ID and friendly name substrings (`"apple"`, `"roku"`, `"samsung"`, `"webos"`, `"lg"`) to set the profile automatically on initial boot.
-   * **Subpage 1 Profile Badge**: Active profile is displayed at $y = 114$ (`font_micro`, `theme_secondary`) on Device Settings Subpage 1.
-   * **v2.0 Roadmap (Backend Deterministic Auto-Detection)**: Slated for the v2.0 Home Assistant companion package to query device registry integration domains (`androidtvremote`, `apple_tv`, `roku`, `webostv`) and automatically broadcast the exact remote platform over API.
+5. **Independent Per-Slot ESPHome Select Profiles & Multi-Protocol Routing**:
+   * **Per-Slot Drop-Down Entities (`select.tv_remote_profile` .. `tv_remote_profile_4`)**: Exposes 4 independent configuration drop-downs to Home Assistant (`"Remote: Slot 1 Profile"` through `"Remote: Slot 4 Profile"`) with options `"Auto-Detect"` (default), `"Android TV / Fire TV / Bravia"`, `"Denon / Marantz AVR"`, `"LG webOS"`, `"Apple TV"`, `"Roku"`, `"Samsung TV"`, and `"Custom"` (`restore_value: true`).
+   * **Non-Destructive Multi-Device Switching**: Each of the 4 configured device slots (`tv_remote_entity` .. `tv_remote_entity_4`) retains its own persistent platform profile in NVS; switching active devices on-device (`Subpage 1: SETTINGS`) never overwrites another slot's profile.
+   * **Dynamic Command & Protocol Router (`resolve_remote_dispatch`)**: Dynamically maps D-pad, navigation, volume, and power actions (including Slot-1 Master Power and Slots 2–4 per-device power overrides) to `remote.send_command`, `denonavr.get_command`, `webostv.button`, or `media_player.*` based on the target slot's resolved profile.
 
 ## Consequences
 * Out-of-the-box compatibility with Android TV, Google TV, Apple TV, Roku, Fire TV, Samsung TV (Tizen), LG webOS (via native webostv.button routing), and CEC-enabled AV receivers.
