@@ -37,7 +37,10 @@ substitutions:
   tv_remote_entity_2: "media_player.none"               # Slot 2 (Optional: remote.* or media_player.*)
   tv_remote_entity_3: "remote.none"                     # Slot 3 (Optional: "remote.none" or "media_player.none" hides slot)
   tv_remote_entity_4: "remote.none"                     # Slot 4 (Optional 4th Device)
-  tv_remote_profile: "Android TV / Fire TV / Bravia"
+  tv_remote_profile: "Auto-Detect"                      # Slot 1 Profile ("Auto-Detect", "Android TV / Fire TV / Bravia", "Denon / Marantz AVR", "LG webOS", "Apple TV", "Roku", "Samsung TV", "Custom")
+  tv_remote_profile_2: "Auto-Detect"                    # Slot 2 Profile
+  tv_remote_profile_3: "Auto-Detect"                    # Slot 3 Profile
+  tv_remote_profile_4: "Auto-Detect"                    # Slot 4 Profile
   remote_cmd_up: "DPAD_UP"
   remote_cmd_down: "DPAD_DOWN"
   remote_cmd_left: "DPAD_LEFT"
@@ -116,14 +119,6 @@ esphome:
             if (id(remote_slot_3_name).empty()) id(remote_slot_3_name) = pocket_ui::format_remote_entity_fallback(rem_ents[3]);
             int act_slot = pocket_ui::resolve_active_remote_slot(id(active_remote_slot), rem_ents);
             id(active_remote_slot) = act_slot;
-            if (!id(remote_profile_user_set)) {
-              const std::string rem_names[4] = {
-                id(remote_slot_0_name), id(remote_slot_1_name),
-                id(remote_slot_2_name), id(remote_slot_3_name)
-              };
-              id(tv_remote_profile).publish_state(
-                  pocket_ui::detect_remote_profile(rem_ents[act_slot], rem_names[act_slot], "${tv_remote_profile}"));
-            }
             // Seed AXP2101 USB/charging status immediately at boot so Frame 1 shows live battery telemetry
             uint8_t reg0 = 0x00, stat0 = 0, reg1 = 0x01, stat1 = 0;
             bool vbus = false;

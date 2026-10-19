@@ -2365,8 +2365,8 @@ struct RemoteCustomCmds {
 };
 
 inline void resolve_remote_dispatch(
-    int key_idx, int target_slot, int active_remote_slot, bool profile_user_set,
-    const std::string &user_profile, const char *default_profile,
+    int key_idx, int target_slot,
+    const std::string slot_profiles[4],
     const std::string ents[4], const std::string names[4],
     const RemoteCustomCmds &custom_cmds,
     std::string &out_ent, std::string &out_prof,
@@ -2376,22 +2376,25 @@ inline void resolve_remote_dispatch(
     "Back", "Home", "Vol +", "Vol -", "Toggle Power"
   };
   int idx = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
+  int resolved_slot = 0;
   std::string dev_name;
   if (target_slot == -1) {
-    int master_slot = resolve_active_remote_slot(0, ents);
-    out_ent = ents[master_slot];
-    dev_name = names[master_slot].empty() ? format_remote_entity_fallback(out_ent) : names[master_slot];
+    resolved_slot = resolve_active_remote_slot(0, ents);
+    out_ent = ents[resolved_slot];
+    dev_name = names[resolved_slot].empty() ? format_remote_entity_fallback(out_ent) : names[resolved_slot];
     out_feedback = "Power: " + dev_name;
   } else {
-    int s = resolve_active_remote_slot(target_slot, ents);
-    out_ent = ents[s];
-    dev_name = names[s].empty() ? format_remote_entity_fallback(out_ent) : names[s];
+    resolved_slot = resolve_active_remote_slot(target_slot, ents);
+    out_ent = ents[resolved_slot];
+    dev_name = names[resolved_slot].empty() ? format_remote_entity_fallback(out_ent) : names[resolved_slot];
     out_feedback = (idx == 9) ? ("Power: " + dev_name) : kFeedback[idx];
   }
 
-  out_prof = detect_remote_profile(out_ent, dev_name, default_profile);
-  if (target_slot >= 0 && target_slot == active_remote_slot && profile_user_set) {
-    out_prof = user_profile;
+  const std::string &cfg_prof = slot_profiles[resolved_slot];
+  if (!cfg_prof.empty() && cfg_prof != "Auto-Detect") {
+    out_prof = cfg_prof;
+  } else {
+    out_prof = detect_remote_profile(out_ent, dev_name, "Android TV / Fire TV / Bravia");
   }
 
   if (out_prof == "Denon / Marantz AVR") {

@@ -435,10 +435,6 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
-  - id: remote_profile_user_set
-    type: bool
-    restore_value: yes
-    initial_value: 'false'
   - id: audio_menu_parent_page
     type: int
     restore_value: no
@@ -755,7 +751,7 @@ light:
 
 select:
   - platform: template
-    name: "Remote: TV Platform Profile"
+    name: "Remote: Slot 1 Profile"
     id: tv_remote_profile
     icon: "mdi:television-box"
     entity_category: config
@@ -763,6 +759,7 @@ select:
     restore_value: true
     initial_option: ${tv_remote_profile}
     options:
+      - "Auto-Detect"
       - "Android TV / Fire TV / Bravia"
       - "Denon / Marantz AVR"
       - "LG webOS"
@@ -772,8 +769,73 @@ select:
       - "Custom"
     set_action:
       - lambda: |-
-          id(remote_profile_user_set) = true;
           id(tv_remote_profile).publish_state(x);
+          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+
+  - platform: template
+    name: "Remote: Slot 2 Profile"
+    id: tv_remote_profile_2
+    icon: "mdi:television-box"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: ${tv_remote_profile_2}
+    options:
+      - "Auto-Detect"
+      - "Android TV / Fire TV / Bravia"
+      - "Denon / Marantz AVR"
+      - "LG webOS"
+      - "Apple TV"
+      - "Roku"
+      - "Samsung TV"
+      - "Custom"
+    set_action:
+      - lambda: |-
+          id(tv_remote_profile_2).publish_state(x);
+          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+
+  - platform: template
+    name: "Remote: Slot 3 Profile"
+    id: tv_remote_profile_3
+    icon: "mdi:television-box"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: ${tv_remote_profile_3}
+    options:
+      - "Auto-Detect"
+      - "Android TV / Fire TV / Bravia"
+      - "Denon / Marantz AVR"
+      - "LG webOS"
+      - "Apple TV"
+      - "Roku"
+      - "Samsung TV"
+      - "Custom"
+    set_action:
+      - lambda: |-
+          id(tv_remote_profile_3).publish_state(x);
+          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+
+  - platform: template
+    name: "Remote: Slot 4 Profile"
+    id: tv_remote_profile_4
+    icon: "mdi:television-box"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: ${tv_remote_profile_4}
+    options:
+      - "Auto-Detect"
+      - "Android TV / Fire TV / Bravia"
+      - "Denon / Marantz AVR"
+      - "LG webOS"
+      - "Apple TV"
+      - "Roku"
+      - "Samsung TV"
+      - "Custom"
+    set_action:
+      - lambda: |-
+          id(tv_remote_profile_4).publish_state(x);
           if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
 
   - platform: template
@@ -3240,9 +3302,14 @@ script:
             "${remote_cmd_select}", "${remote_cmd_back}", "${remote_cmd_home}",
             "${remote_cmd_vol_up}", "${remote_cmd_vol_down}", "${remote_cmd_power}"
           };
+          const std::string profs[4] = {
+            std::string(id(tv_remote_profile).current_option()),
+            std::string(id(tv_remote_profile_2).current_option()),
+            std::string(id(tv_remote_profile_3).current_option()),
+            std::string(id(tv_remote_profile_4).current_option())
+          };
           pocket_ui::resolve_remote_dispatch(
-              key_idx, target_slot, id(active_remote_slot), id(remote_profile_user_set),
-              id(tv_remote_profile).current_option(), "${tv_remote_profile}",
+              key_idx, target_slot, profs,
               ents, names, custom_cmds,
               id(remote_target_ent), id(remote_target_prof),
               id(remote_target_cmd), id(remote_action_feedback));
@@ -5520,12 +5587,6 @@ touchscreen:
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(active_remote_slot) = s_idx;
-                        id(remote_profile_user_set) = false;
-                        std::string d_name = rem_names[s_idx].empty()
-                                                 ? pocket_ui::format_remote_entity_fallback(rem_ents[s_idx])
-                                                 : rem_names[s_idx];
-                        id(tv_remote_profile).publish_state(
-                            pocket_ui::detect_remote_profile(rem_ents[s_idx], d_name, "${tv_remote_profile}"));
                         id(remote_action_feedback) = "";
                         id(remote_subpage) = 0;
                         id(disp1).update();
