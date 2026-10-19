@@ -8,14 +8,15 @@ input_text:
   pocket_assistant_active_speaker:
     name: "Pocket Assistant Active Speaker"
     icon: mdi:speaker
+    initial: "media_player.pocket_assistant"
   pocket_assistant_base_url:
     name: "Pocket Assistant Home Assistant Base URL"
     icon: mdi:web
-    initial: "" # Optional override for custom ports (e.g. http://homeassistant.local or http://192.168.1.10). Defaults to http://homeassistant.local:8123 if blank.
+    initial: "" # Optional override for custom ports (e.g. http://192.168.1.10:8123). Defaults to http://homeassistant.local:8123 if blank.
   pocket_assistant_weather_entity:
     name: "Pocket Assistant Weather Entity"
     icon: mdi:weather-partly-cloudy
-    initial: "weather.home" # Set to your primary Home Assistant weather entity (e.g. weather.home)
+    initial: "weather.home" # Auto-falls back to your first Home Assistant weather.* entity if weather.home is not present
 
 template:
   # ----------------------------------------------------------------------------
@@ -156,7 +157,13 @@ template:
       - variables:
           target_weather: >-
             {% set w = states("input_text.pocket_assistant_weather_entity") %}
-            {{ w if w and w not in ["unknown", "unavailable", ""] else "weather.home" }}
+            {% if w and w not in ["unknown", "unavailable", ""] and states(w) not in ["unknown", "unavailable"] %}
+              {{ w }}
+            {% elif states("weather.home") not in ["unknown", "unavailable"] %}
+              weather.home
+            {% else %}
+              {{ states.weather | map(attribute='entity_id') | first | default("weather.home", true) }}
+            {% endif %}
       - action: weather.get_forecasts
         target:
           entity_id: "{{ target_weather }}"
@@ -167,7 +174,7 @@ template:
       - name: "Pocket Assistant Weather Forecast"
         unique_id: pocket_assistant_weather_forecast
         state: >-
-          {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.home", true) %}
+          {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}{% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.home", true)) %}
           {% set ns = namespace(items=[]) %}
           {% set fc_list = [] %}
           {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
@@ -189,7 +196,7 @@ template:
           {% endif %}
         attributes:
           high: >-
-            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.home", true) %}
+            {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}{% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.home", true)) %}
             {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
               {{ daily_forecast[target_weather]["forecast"][0]["temperature"] | default(70, true) }}
             {% elif state_attr(target_weather, "forecast") %}
@@ -198,7 +205,7 @@ template:
               70
             {% endif %}
           low: >-
-            {% set target_weather = states("input_text.pocket_assistant_weather_entity") | default("weather.home", true) %}
+            {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}{% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.home", true)) %}
             {% if daily_forecast is defined and target_weather in daily_forecast and daily_forecast[target_weather]["forecast"] %}
               {{ daily_forecast[target_weather]["forecast"][0]["templow"] | default(daily_forecast[target_weather]["forecast"][0]["temperature"], true) }}
             {% elif state_attr(target_weather, "forecast") %}
