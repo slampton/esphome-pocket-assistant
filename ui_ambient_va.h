@@ -834,20 +834,20 @@ inline void render_voice_assistant_overlay(
   smooth_speak += (speak_target - smooth_speak) * 0.35f;
 
   // ============================================================================
-  // PROFILE: "ALEXA" — AMAZON ECHO / ECHO SPOT PERIMETER CYAN & ROYAL BLUE RING
+  // PROFILE: "ALEXA" — AMAZON ECHO 360° SPINNING CYAN & ROYAL BLUE LIGHT RING
   // ============================================================================
   if (is_alexa) {
     const esphome::Color c_echo_blue(0, 52, 235);
     const esphome::Color c_echo_deep(0, 22, 115);
     const esphome::Color c_echo_cyan(0, 229, 255);
-    const esphome::Color c_echo_ice(205, 250, 255);
+    const esphome::Color c_echo_ice(215, 252, 255);
 
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
     float syl_env = is_speaking
-        ? ((0.55f + 0.25f * fast_sin(t_sec * 11.5f) + 0.20f * fast_cos(t_sec * 19.3f)) * smooth_speak)
+        ? ((0.55f + 0.25f * fast_sin(t_sec * 9.5f) + 0.20f * fast_cos(t_sec * 15.3f)) * smooth_speak)
         : 0.0f;
 
-    // 1. Base Royal-Blue Perimeter Light Ring (r = 216..230) with soft inner ambient glow (r = 208..215)
+    // 1. Base Royal-Blue Perimeter Light Ring (r = 216..230) with soft inner ambient glow
     int inner_glow_r = 210 - static_cast<int>(6.0f * smooth_vad + 8.0f * syl_env);
     for (int r = inner_glow_r; r <= 230; r++) {
       esphome::Color rc;
@@ -862,41 +862,59 @@ inline void render_voice_assistant_overlay(
       it.circle(cx, cy, r, rc);
     }
 
-    // 2. State-Specific Cyan Light-Ring Choreography (60-Segment Perimeter Angular Shader)
-    //    Index 0 = 12 o'clock, Index 15 = 3 o'clock, Index 30 = 6 o'clock (bottom mic direction)
-    int spin_idx = static_cast<int>((now_ms / 18U) % 60U);
-    float breath = 0.5f + 0.5f * fast_sin(t_sec * 3.8f);
+    // 2. Continuous 360° Spinning Cyan Comets & Waves Across All 3 States:
+    //    - Listening: Smooth 360° clockwise cyan comet sweep (accelerates & widens when VAD hears speech)
+    //    - Thinking: Rapid dual-opposed 360° chasing cyan arcs
+    //    - Speaking: Revolving dual-opposed cyan-and-ice energy waves that pulse in width with speech syllables
+    float head_f = 0.0f;
+    if (is_thinking) {
+      head_f = fmodf(t_sec * 52.0f, 60.0f); // Fast 1.15s revolution
+    } else if (is_speaking) {
+      head_f = fmodf(t_sec * 34.0f, 60.0f); // Smooth 1.75s revolution while speaking
+    } else {
+      head_f = fmodf(t_sec * (24.0f + 14.0f * smooth_vad), 60.0f); // Continuous orbital sweep while listening
+    }
 
     for (int i = 0; i < 60; i++) {
       int next_i = (i + 1) % 60;
       float cyan_w = 0.0f;
 
+      // Trailing distance behind primary revolving comet head (0 .. 60)
+      float d1 = head_f - static_cast<float>(i);
+      if (d1 < 0.0f) d1 += 60.0f;
+      // Trailing distance behind opposing 180-degree secondary comet head (0 .. 60)
+      float head2_f = fmodf(head_f + 30.0f, 60.0f);
+      float d2 = head2_f - static_cast<float>(i);
+      if (d2 < 0.0f) d2 += 60.0f;
+
       if (is_speaking) {
-        // Responding: Symmetric cyan acoustic wave sweeping from 6 o'clock (i=30) up both flanks
-        int dist_bottom = (i <= 30) ? (30 - i) : (i - 30);
-        float wave_pos = 8.0f + 18.0f * syl_env + 5.0f * fast_sin(t_sec * 14.0f + static_cast<float>(dist_bottom) * 0.25f);
-        float d = wave_pos - static_cast<float>(dist_bottom);
-        if (d > 0.0f) {
-          cyan_w = fminf(1.0f, d * 0.14f);
+        // Speaking: Dual-opposed revolving cyan ribbons whose tail length & core brilliance pulse with speech
+        float tail_len = 13.0f + 10.0f * syl_env;
+        if (d1 < tail_len) {
+          cyan_w = fmaxf(cyan_w, 1.0f - (d1 / tail_len));
+        }
+        if (d2 < tail_len) {
+          cyan_w = fmaxf(cyan_w, 1.0f - (d2 / tail_len));
         }
       } else if (is_thinking) {
-        // Thinking: Classic Echo alternating dual-opposed chasing cyan sectors
-        int d1 = (i - spin_idx + 60) % 60;
-        int d2 = (i - ((spin_idx + 30) % 60) + 60) % 60;
-        if (d1 < 12) cyan_w = 1.0f - static_cast<float>(d1) * (1.0f / 12.0f);
-        else if (d2 < 12) cyan_w = 1.0f - static_cast<float>(d2) * (1.0f / 12.0f);
+        // Thinking: Crisp, fast dual chasing cyan sectors
+        if (d1 < 14.0f) cyan_w = 1.0f - (d1 * (1.0f / 14.0f));
+        else if (d2 < 14.0f) cyan_w = 1.0f - (d2 * (1.0f / 14.0f));
       } else {
-        // Listening: Directional cyan pointer at 6 o'clock (i=30) that widens with VAD speech
-        int dist_bottom = (i <= 30) ? (30 - i) : (i - 30);
-        float span = 5.5f + 7.5f * smooth_vad + 1.8f * breath;
-        if (static_cast<float>(dist_bottom) < span) {
-          cyan_w = 1.0f - (static_cast<float>(dist_bottom) / span);
+        // Listening: Primary 360° orbiting cyan comet + secondary opposite echo when VAD is active
+        float tail_len = 14.0f + 10.0f * smooth_vad;
+        if (d1 < tail_len) {
+          cyan_w = 1.0f - (d1 / tail_len);
+        }
+        if (smooth_vad > 0.10f && d2 < tail_len * 0.75f) {
+          float w2 = (1.0f - (d2 / (tail_len * 0.75f))) * smooth_vad;
+          if (w2 > cyan_w) cyan_w = w2;
         }
       }
 
       if (cyan_w > 0.05f) {
-        esphome::Color seg_c = (cyan_w > 0.72f)
-            ? lerp_color(c_echo_cyan, c_echo_ice, (cyan_w - 0.72f) * 3.5f)
+        esphome::Color seg_c = (cyan_w > 0.74f)
+            ? lerp_color(c_echo_cyan, c_echo_ice, (cyan_w - 0.74f) * 3.8f)
             : lerp_color(c_echo_blue, c_echo_cyan, cyan_w * 1.35f);
 
         float sx0 = DIAL_SIN[i],      cy0 = -DIAL_COS[i];
@@ -916,7 +934,7 @@ inline void render_voice_assistant_overlay(
   }
 
   // ============================================================================
-  // PROFILE: "GOOGLE" — MINIMALIST WEAR OS / PIXEL DOTS-TO-CAPSULE WAVE & ORBIT
+  // PROFILE: "GOOGLE" — MINIMALIST 3 WHITE DOTS WAVE, ORBIT & CAPSULE EQUALIZER
   // ============================================================================
   if (is_google) {
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
@@ -947,12 +965,11 @@ inline void render_voice_assistant_overlay(
     };
 
     if (is_thinking) {
-      // Thinking: 4 white dots pull into a tight circular carousel orbit (r = 42px) with fading comet tails
-      float base_ang = t_sec * 4.6f;
-      const float orbit_r = 42.0f;
-      for (int d = 0; d < 4; d++) {
-        float ang = base_ang + static_cast<float>(d) * (PI_F * 0.5f);
-        // 3 trailing afterimage dots per orbiter
+      // Thinking: 3 white dots (120° apart) in a smooth, unhurried circular orbit (r = 38px)
+      float base_ang = t_sec * 3.2f;
+      const float orbit_r = 38.0f;
+      for (int d = 0; d < 3; d++) {
+        float ang = base_ang + static_cast<float>(d) * (2.0f * PI_F / 3.0f);
         for (int tail = 3; tail >= 1; tail--) {
           float t_ang = ang - static_cast<float>(tail) * 0.16f;
           float ts = 0.0f, tc = 1.0f;
@@ -960,39 +977,38 @@ inline void render_voice_assistant_overlay(
           int tx = cx + static_cast<int>(orbit_r * tc);
           int ty = cy + static_cast<int>(orbit_r * ts);
           float fade = static_cast<float>(4 - tail) * 0.20f;
-          it.filled_circle(tx, ty, 10 - tail * 2, scale_color(c_halo_inner, fade));
+          it.filled_circle(tx, ty, 11 - tail * 2, scale_color(c_halo_inner, fade));
         }
         float s = 0.0f, c = 1.0f;
         fast_sincos(ang, s, c);
         int dx = cx + static_cast<int>(orbit_r * c);
         int dy = cy + static_cast<int>(orbit_r * s);
-        draw_glowing_capsule(dx, dy, 10, 0);
+        draw_glowing_capsule(dx, dy, 12, 0);
       }
       return;
     }
 
-    // Listening & Speaking: 4 horizontally spaced dots/capsules centered at cx
-    static constexpr int DOT_OFF_X[4] = {-69, -23, 23, 69};
+    // Listening & Speaking: 3 horizontally spaced dots/capsules centered at cx (-52, 0, +52)
+    static constexpr int DOT_OFF_X[3] = {-52, 0, 52};
     if (is_speaking) {
-      // Speaking: Dots stretch into vertical rounded equalizer pills modulated by harmonic speech waves
-      float syl_env = (0.50f + 0.30f * fast_sin(t_sec * 10.5f) + 0.20f * fast_cos(t_sec * 17.8f)) * smooth_speak;
-      static constexpr float BAR_FREQ[4]  = {9.5f, 13.2f, 11.4f, 8.7f};
-      static constexpr float BAR_PHASE[4] = {0.0f, 1.4f,  2.9f,  4.3f};
-      static constexpr float BAR_MAX_H[4] = {32.0f, 48.0f, 44.0f, 28.0f};
-      for (int d = 0; d < 4; d++) {
-        float w = 0.55f + 0.45f * fast_sin(t_sec * BAR_FREQ[d] + BAR_PHASE[d]);
+      // Speaking: 3 white dots stretch into calm, organic vertical equalizer capsules
+      float syl_env = (0.50f + 0.30f * fast_sin(t_sec * 6.4f) + 0.20f * fast_cos(t_sec * 10.2f)) * smooth_speak;
+      static constexpr float BAR_FREQ[3]  = {5.6f, 7.4f, 6.2f};
+      static constexpr float BAR_PHASE[3] = {0.0f, 1.5f, 3.1f};
+      static constexpr float BAR_MAX_H[3] = {24.0f, 36.0f, 24.0f};
+      for (int d = 0; d < 3; d++) {
+        float w = 0.50f + 0.50f * fast_sin(t_sec * BAR_FREQ[d] + BAR_PHASE[d]);
         int half_h = static_cast<int>(w * BAR_MAX_H[d] * (0.35f + 0.65f * syl_env));
-        draw_glowing_capsule(cx + DOT_OFF_X[d], cy, 10, half_h);
+        draw_glowing_capsule(cx + DOT_OFF_X[d], cy, 12, half_h);
       }
     } else {
-      // Listening: 4 white dots in a fluid travelling sine wave (amplified when VAD is active)
-      float wave_amp = 9.0f + 22.0f * smooth_vad;
-      float wave_spd = 5.2f + 3.2f * smooth_vad;
-      for (int d = 0; d < 4; d++) {
-        float ph = t_sec * wave_spd - static_cast<float>(d) * 0.85f;
+      // Listening: 3 white dots in a gentle, unhurried travelling sine wave (5px idle -> 14px with VAD)
+      float wave_amp = 5.0f + 9.0f * smooth_vad;
+      float wave_spd = 2.8f + 1.5f * smooth_vad;
+      for (int d = 0; d < 3; d++) {
+        float ph = t_sec * wave_spd - static_cast<float>(d) * 1.05f;
         int dy = static_cast<int>(fast_sin(ph) * wave_amp);
-        int half_h = (smooth_vad > 0.25f) ? static_cast<int>(smooth_vad * 6.0f * std::fabs(fast_cos(ph))) : 0;
-        draw_glowing_capsule(cx + DOT_OFF_X[d], cy + dy, 10, half_h);
+        draw_glowing_capsule(cx + DOT_OFF_X[d], cy + dy, 12, 0);
       }
     }
     return;
