@@ -1,7 +1,7 @@
 # ADR-004: Universal Television & Media Remote via remote.send_command
 
 ## Status
-Accepted (v1.3)
+Accepted (v2.0)
 
 ## Context
 Users require remote control capabilities for smart TVs, set-top boxes (Android TV, Apple TV, Roku, Fire TV), and AV receivers (Marantz, Denon) without needing custom, device-specific firmware builds, complex individual button entities, or extra state-tracking helpers.

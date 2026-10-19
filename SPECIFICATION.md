@@ -1,4 +1,4 @@
-# Pocket Assistant — Technical Specification (v1.3)
+# Pocket Assistant — Technical Specification (v2.0)
 **Hardware Platform**: Waveshare ESP32-S3-Touch-AMOLED-1.75C  
 **Framework**: ESPHome 2026.10.0+ / ESP-IDF 5.5.6+  
 **Target Resolution**: 466 × 466 px Circular Display  

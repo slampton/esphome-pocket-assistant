@@ -1,10 +1,10 @@
 # ADR-006: Tools Suite 2-Page 8-Icon Grid Architecture & Carousel Consolidation
 
 ## Status
-Accepted (v1.3)
+Accepted (v2.0)
 
 ## Context
-As the platform grew in Release v1.3, the addition of new utility tools risked bloating the top-level horizontal App Deck carousel from 7 apps to 9+ apps, creating excessive swipe fatigue. In addition, standalone timekeeping pages (Stopwatch on Page 1, Timer & Alarm on Page 6) occupied dedicated top-level carousel slots despite being modular utilities.
+As the platform grew in Release v2.0, the addition of new utility tools risked bloating the top-level horizontal App Deck carousel from 7 apps to 9+ apps, creating excessive swipe fatigue. In addition, standalone timekeeping pages (Stopwatch on Page 1, Timer & Alarm on Page 6) occupied dedicated top-level carousel slots despite being modular utilities.
 
 ## Decision
 1. **Consolidate Carousel to 7 Core Apps**: Retire standalone top-level allocations for Stopwatch (gui_page == 1) and Timer & Alarm (gui_page == 6), re-routing them permanently into a unified **Tools Suite** on Page 8 (gui_page == 8). Streamline the primary carousel to 7 focused applications: Clock (0), Music (2), TV Remote (7), Sky & Weather (5), Games (3), Tools (8), and System Hub (4).

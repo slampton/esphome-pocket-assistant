@@ -3,7 +3,7 @@
 A local-first handheld companion, voice satellite, and universal media remote for Home Assistant and Music Assistant, built on the Waveshare 1.75" circular AMOLED ESP32-S3 development board.
 
 [![Build & Release Firmware](https://github.com/slampton/esphome-pocket-assistant/actions/workflows/build.yml/badge.svg)](https://github.com/slampton/esphome-pocket-assistant/actions/workflows/build.yml)
-[![Version](https://img.shields.io/badge/Version-v1.3-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![Version](https://img.shields.io/badge/Version-v2.0-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.10.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.10.0%2B-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10.7%2B-purple.svg)](https://music-assistant.io)
@@ -35,7 +35,7 @@ Pocket Assistant started as a personal home lab project to explore what is possi
 - **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (1.75" 466×466 round AMOLED, CO5300 80 MHz QSPI display, CST9220 capacitive touch, ES8311 DAC, ES7210 dual-mic ADC, AXP2101 PMIC, QMI8658 6-axis IMU, 32MB GigaDevice Octal Flash, 8MB Octal PSRAM).
 
 ### 1. Flash the Firmware
-- **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v1.3 with one click and configure Wi-Fi via Improv BLE.
+- **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v2.0 with one click and configure Wi-Fi via Improv BLE.
 - **ESPHome Device Builder (Take Control / Manual Adoption)**: When you click **Take Control** on a discovered device in ESPHome Device Builder, it automatically imports the remote package (`pocket-assistant-1.75c.yaml`). Add any `substitutions:` you wish to customize at the top of your device YAML:
 ```yaml
 substitutions:

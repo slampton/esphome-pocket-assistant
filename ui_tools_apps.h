@@ -2864,7 +2864,7 @@ inline void render_system_page(
     }
 
     if (has_update) {
-      snprintf(buf, sizeof(buf), "Available: v%s", ha_fw_latest.empty() ? "1.3.x" : ha_fw_latest.c_str());
+      snprintf(buf, sizeof(buf), "Available: v%s", ha_fw_latest.empty() ? "2.0.x" : ha_fw_latest.c_str());
       it.print(cx, 125, font_small, theme_secondary, esphome::display::TextAlign::CENTER, buf);
       std::string summ = ha_fw_summary;
       if (summ.empty() || summ == "unavailable" || summ == "unknown") {

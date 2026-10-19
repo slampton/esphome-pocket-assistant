@@ -1,7 +1,7 @@
 # ADR-005: Flank Chevron and Bottom Pip Navigation for Circular Displays
 
 ## Status
-Accepted (v1.3)
+Accepted (v2.0)
 
 ## Context
 Earlier designs for multi-page apps (Sky & Weather, Timer & Alarm) used 2x2 or 2x1 pill buttons across the bottom of the screen. On a 466x466 circular AMOLED display, bottom pill buttons occupy up to 80px of vertical space in the narrowest part of the round viewport, constraining content layout and breaking visual consistency with the Music and Games carousels.
