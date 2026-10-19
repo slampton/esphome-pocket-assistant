@@ -2257,10 +2257,18 @@ inline void render_games_launcher(
       it.print(text_center_x, title_y, font_btn_bold, col_white, TextAlign::CENTER, title);
     }
     if (score_y >= 140 && score_y <= 295) {
-      char sc_buf[32];
-      if (score > 0) snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: %d", score);
-      else snprintf(sc_buf, sizeof(sc_buf), "HIGH SCORE: --");
-      it.print(text_center_x, score_y, font_small, col_gold, TextAlign::CENTER, sc_buf);
+      const char *lbl_str = "HIGH SCORE: ";
+      char val_str[16];
+      if (score > 0) snprintf(val_str, sizeof(val_str), "%d", score);
+      else snprintf(val_str, sizeof(val_str), "--");
+
+      int w_lbl = 0, w_val = 0, x_off = 0, base = 0, th = 0;
+      font_small->measure(lbl_str, &w_lbl, &x_off, &base, &th);
+      font_small->measure(val_str, &w_val, &x_off, &base, &th);
+      int start_x = text_center_x - (w_lbl + w_val) / 2;
+
+      it.print(start_x, score_y, font_small, col_gold, TextAlign::CENTER_LEFT, lbl_str);
+      it.print(start_x + w_lbl, score_y, font_small, theme_secondary, TextAlign::CENTER_LEFT, val_str);
     }
   };
 

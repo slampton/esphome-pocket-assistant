@@ -1506,11 +1506,18 @@ inline void render_weather_page(
     render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
                                     cloud_spans_packed, moon_cycle, cel_cx, cel_cy, true, accel_x, accel_y);
 
-    char temp_buf[16];
-    if (!std::isnan(weather_temp)) snprintf(temp_buf, sizeof(temp_buf), "%.0f°", weather_temp);
-    else snprintf(temp_buf, sizeof(temp_buf), "--°");
-    it.print(cx + 1, 125, font_time, col_black, TextAlign::CENTER, temp_buf);
-    it.print(cx,     124, font_time, col_white, TextAlign::CENTER, temp_buf);
+    char temp_num[16];
+    if (!std::isnan(weather_temp)) snprintf(temp_num, sizeof(temp_num), "%.0f", weather_temp);
+    else snprintf(temp_num, sizeof(temp_num), "--");
+    int w_num = 0, x_off = 0, base = 0, th = 0;
+    font_time->measure(temp_num, &w_num, &x_off, &base, &th);
+    int deg_x = cx + (w_num / 2) + 2;
+
+    // Optically center the numeric digits at cx = 233 and hang '°' on the right shoulder
+    it.print(cx + 1,    125, font_time, col_black, TextAlign::CENTER,      temp_num);
+    it.print(cx,        124, font_time, col_white, TextAlign::CENTER,      temp_num);
+    it.print(deg_x + 1, 125, font_time, col_black, TextAlign::CENTER_LEFT, "°");
+    it.print(deg_x,     124, font_time, col_white, TextAlign::CENTER_LEFT, "°");
 
     std::string cond_title = format_weather_title(cond);
     Color cond_color = is_night ? theme_primary : Color(255, 225, 110);
