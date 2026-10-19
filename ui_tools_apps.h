@@ -18,92 +18,151 @@ inline void render_tool_launcher_card(DisplayT &it, int cx_card, int cy_card,
                                       int app_id, const char *label,
                                       FontSmallT *font_small,
                                       esphome::Color theme_secondary,
-                                      esphome::Color col_white, esphome::Color col_silver,
-                                      esphome::Color col_slate, esphome::Color col_gold,
-                                      esphome::Color col_cyan, esphome::Color col_green,
-                                      esphome::Color col_orange, esphome::Color col_red) {
+                                      esphome::Color col_white) {
   esphome::Color card_bg(22, 27, 36);
   esphome::Color card_border(48, 56, 70);
   render_modern_card(it, cx_card, cy_card, 124, 100, 16, card_bg, card_border, nullptr, col_white, font_small);
 
   int ix = cx_card;
-  int iy = cy_card - 16;
+  int iy = cy_card - 15;
 
   if (app_id == 1) {
-    // Timer Icon: Hourglass with golden sand
-    it.line(ix - 10, iy - 12, ix + 10, iy - 12, col_silver);
-    it.line(ix - 10, iy + 12, ix + 10, iy + 12, col_silver);
-    it.line(ix - 9, iy - 11, ix - 2, iy, col_white);
-    it.line(ix + 9, iy - 11, ix + 2, iy, col_white);
-    it.line(ix - 2, iy, ix - 9, iy + 11, col_white);
-    it.line(ix + 2, iy, ix + 9, iy + 11, col_white);
-    it.filled_triangle(ix - 5, iy - 6, ix + 5, iy - 6, ix, iy - 1, col_gold);
-    it.line(ix, iy - 1, ix, iy + 3, col_gold);
-    it.filled_triangle(ix - 6, iy + 10, ix + 6, iy + 10, ix, iy + 3, col_gold);
+    // 1. Timers: 2px-stroke hourglass with solid filled upper/lower sand bulbs (SF Symbol hourglass)
+    it.filled_rectangle(ix - 11, iy - 14, 23, 2, col_white);
+    it.filled_rectangle(ix - 11, iy + 13, 23, 2, col_white);
+    // 2px tapered glass walls
+    it.line(ix - 9, iy - 12, ix - 2, iy, col_white);
+    it.line(ix - 8, iy - 12, ix - 1, iy, col_white);
+    it.line(ix + 9, iy - 12, ix + 2, iy, col_white);
+    it.line(ix + 8, iy - 12, ix + 1, iy, col_white);
+    it.line(ix - 2, iy, ix - 9, iy + 12, col_white);
+    it.line(ix - 1, iy, ix - 8, iy + 12, col_white);
+    it.line(ix + 2, iy, ix + 9, iy + 12, col_white);
+    it.line(ix + 1, iy, ix + 8, iy + 12, col_white);
+    // Solid filled upper sand cone, falling stream & solid lower sand mound
+    it.filled_triangle(ix - 5, iy - 7, ix + 5, iy - 7, ix, iy - 2, col_white);
+    it.line(ix, iy - 2, ix, iy + 4, theme_secondary);
+    it.filled_triangle(ix - 6, iy + 11, ix + 6, iy + 11, ix, iy + 4, col_white);
+
   } else if (app_id == 2) {
-    // Alarms Icon: Twin-bell alarm clock with crimson bells & gold hands
-    it.circle(ix, iy + 1, 12, col_white);
-    it.line(ix, iy + 1, ix - 5, iy - 3, col_gold);
-    it.line(ix, iy + 1, ix + 5, iy + 1, col_cyan);
-    it.circle(ix - 10, iy - 10, 4, col_red);
-    it.circle(ix + 10, iy - 10, 4, col_red);
-    it.line(ix - 8, iy + 12, ix - 12, iy + 16, col_silver);
-    it.line(ix + 8, iy + 12, ix + 12, iy + 16, col_silver);
+    // 2. Alarms: Twin solid filled bells, 2px clock bezel, angled legs & 2px hands (alarm.fill style)
+    // Twin filled bells at upper-left & upper-right (carved cleanly by outer bezel gap)
+    it.filled_circle(ix - 10, iy - 9, 4, col_white);
+    it.filled_circle(ix + 10, iy - 9, 4, col_white);
+    it.filled_circle(ix, iy + 2, 14, card_bg);
+    // 2px clock case ring
+    it.circle(ix, iy + 2, 12, col_white);
+    it.circle(ix, iy + 2, 11, col_white);
+    // 2px bottom legs
+    it.line(ix - 8, iy + 12, ix - 11, iy + 16, col_white);
+    it.line(ix - 7, iy + 12, ix - 10, iy + 16, col_white);
+    it.line(ix + 8, iy + 12, ix + 11, iy + 16, col_white);
+    it.line(ix + 7, iy + 12, ix + 10, iy + 16, col_white);
+    // 2px hands + center cap
+    it.line(ix,     iy + 2, ix,     iy - 5, col_white);
+    it.line(ix + 1, iy + 2, ix + 1, iy - 5, col_white);
+    it.line(ix,     iy + 2, ix + 5, iy + 5, col_white);
+    it.line(ix,     iy + 3, ix + 5, iy + 6, col_white);
+    it.filled_circle(ix, iy + 2, 2, col_white);
+
   } else if (app_id == 3) {
-    // Stopwatch Icon: Chronometer with top crown and red split pusher/hand
-    it.circle(ix, iy + 2, 13, col_white);
-    it.circle(ix, iy + 2, 11, col_slate);
-    it.line(ix, iy - 11, ix, iy - 15, col_silver);
-    it.line(ix - 5, iy - 16, ix + 5, iy - 16, col_white);
-    it.line(ix + 9, iy - 7, ix + 13, iy - 11, col_red);
-    it.line(ix, iy + 2, ix + 6, iy - 5, col_red);
+    // 3. Stopwatch: 2px chronometer bezel, bold top crown, angled pusher & 2px sweep hand
+    // Top T-crown & angled 2 o'clock pusher
+    it.filled_rectangle(ix - 4, iy - 16, 9, 2, col_white);
+    it.filled_rectangle(ix - 1, iy - 14, 3, 4, col_white);
+    it.line(ix + 9,  iy - 8, ix + 13, iy - 12, col_white);
+    it.line(ix + 10, iy - 7, ix + 14, iy - 11, col_white);
+    // 2px dial ring
+    it.circle(ix, iy + 2, 12, col_white);
+    it.circle(ix, iy + 2, 11, col_white);
+    // 4 inner cardinal ticks
+    it.line(ix, iy - 8, ix, iy - 6, theme_secondary);
+    it.line(ix, iy + 10, ix, iy + 12, theme_secondary);
+    it.line(ix - 10, iy + 2, ix - 8, iy + 2, theme_secondary);
+    it.line(ix + 8, iy + 2, ix + 10, iy + 2, theme_secondary);
+    // Center arbor & 2px diagonal chrono hand
     it.filled_circle(ix, iy + 2, 2, col_white);
+    it.line(ix,     iy + 2, ix + 6, iy - 4, col_white);
+    it.line(ix + 1, iy + 2, ix + 6, iy - 3, col_white);
+
   } else if (app_id == 4) {
-    // Dice Icon: Rounded ivory die with 5 obsidian pips
-    it.filled_rectangle(ix - 13, iy - 13, 27, 27, esphome::Color(242, 240, 232));
-    it.rectangle(ix - 14, iy - 14, 29, 29, col_silver);
-    esphome::Color pip_c(25, 28, 35);
-    it.filled_circle(ix, iy, 2, pip_c);
-    it.filled_circle(ix - 7, iy - 7, 2, pip_c);
-    it.filled_circle(ix + 7, iy + 7, 2, pip_c);
-    it.filled_circle(ix + 7, iy - 7, 2, pip_c);
-    it.filled_circle(ix - 7, iy + 7, 2, pip_c);
+    // 4. Dice Roll: Solid filled rounded cube with 5 crisp negative-space pips (die.face.5.fill)
+    int d_r = 5;
+    int x0 = ix - 13, y0 = iy - 13, s = 27;
+    it.filled_rectangle(x0 + d_r, y0, s - 2 * d_r, s, col_white);
+    it.filled_rectangle(x0, y0 + d_r, s, s - 2 * d_r, col_white);
+    it.filled_circle(x0 + d_r, y0 + d_r, d_r, col_white);
+    it.filled_circle(x0 + s - 1 - d_r, y0 + d_r, d_r, col_white);
+    it.filled_circle(x0 + d_r, y0 + s - 1 - d_r, d_r, col_white);
+    it.filled_circle(x0 + s - 1 - d_r, y0 + s - 1 - d_r, d_r, col_white);
+    // 5 dark negative-space pips
+    it.filled_circle(ix,     iy,     2, card_bg);
+    it.filled_circle(ix - 7, iy - 7, 2, card_bg);
+    it.filled_circle(ix + 7, iy - 7, 2, card_bg);
+    it.filled_circle(ix - 7, iy + 7, 2, card_bg);
+    it.filled_circle(ix + 7, iy + 7, 2, card_bg);
+
   } else if (app_id == 5) {
-    // Flashlight Icon: Torch barrel, reflector head, and golden light rays
-    it.rectangle(ix - 5, iy - 1, 11, 16, col_silver);
-    it.line(ix - 9, iy - 9, ix - 5, iy - 1, col_white);
-    it.line(ix + 9, iy - 9, ix + 5, iy - 1, col_white);
-    it.line(ix - 9, iy - 9, ix + 9, iy - 9, col_white);
-    it.line(ix - 7, iy - 12, ix - 10, iy - 16, col_gold);
-    it.line(ix, iy - 12, ix, iy - 17, col_gold);
-    it.line(ix + 7, iy - 12, ix + 10, iy - 16, col_gold);
+    // 5. Flashlight: Solid filled sculpted torch body & reflector head + 3 bold 2px light beams
+    // Flared reflector head (solid filled trapezoid)
+    it.filled_triangle(ix - 9, iy - 7, ix + 9, iy - 7, ix - 5, iy - 1, col_white);
+    it.filled_triangle(ix + 9, iy - 7, ix - 5, iy - 1, ix + 5, iy - 1, col_white);
+    // Solid filled handle barrel (separated by 2px card_bg collar groove at iy)
+    it.filled_rectangle(ix - 5, iy + 1, 11, 14, col_white);
+    it.filled_circle(ix, iy + 14, 5, col_white);
+    // Negative-space power button slot on handle
+    it.filled_rectangle(ix - 1, iy + 5, 3, 5, card_bg);
+    // 3 bold 2px-thick radiating light beams
+    it.line(ix,     iy - 10, ix,     iy - 16, col_white);
+    it.line(ix + 1, iy - 10, ix + 1, iy - 16, col_white);
+    it.line(ix - 6, iy - 10, ix - 9, iy - 15, col_white);
+    it.line(ix - 5, iy - 10, ix - 8, iy - 15, col_white);
+    it.line(ix + 6, iy - 10, ix + 9, iy - 15, col_white);
+    it.line(ix + 5, iy - 10, ix + 8, iy - 15, col_white);
+
   } else if (app_id == 6) {
-    // Calculator Icon: Slate frame, cyan display, and amber operator column
-    it.rectangle(ix - 13, iy - 16, 27, 33, col_white);
-    it.rectangle(ix - 9, iy - 13, 19, 8, col_cyan);
-    it.line(ix - 7, iy - 1, ix - 2, iy - 1, col_white);
-    it.line(ix + 2, iy - 1, ix + 7, iy - 1, col_orange);
-    it.line(ix - 7, iy + 5, ix - 2, iy + 5, col_white);
-    it.line(ix + 2, iy + 5, ix + 7, iy + 5, col_orange);
-    it.line(ix - 7, iy + 10, ix + 7, iy + 10, col_orange);
+    // 6. Calculator: 2px rounded frame, solid filled display bar & 3x2 grid of solid keypad pills
+    it.rectangle(ix - 12, iy - 15, 25, 31, col_white);
+    it.rectangle(ix - 11, iy - 14, 23, 29, col_white);
+    // Solid filled LCD display bar at top
+    it.filled_rectangle(ix - 8, iy - 11, 17, 6, col_white);
+    // 3 columns x 2 rows of solid filled keypad buttons
+    for (int r = 0; r < 2; r++) {
+      int ky = iy - 1 + r * 6;
+      it.filled_rectangle(ix - 8, ky, 4, 3, col_white);
+      it.filled_rectangle(ix - 2, ky, 4, 3, col_white);
+      it.filled_rectangle(ix + 4, ky, 4, 3, col_white);
+    }
+    // Bottom row: standard key + wide [=] bar
+    it.filled_rectangle(ix - 8, iy + 10, 4, 2, col_white);
+    it.filled_rectangle(ix - 2, iy + 10, 10, 2, col_white);
+
   } else if (app_id == 7) {
-    // Level Icon: Spirit level reticle with emerald green center bubble
-    it.circle(ix, iy, 16, col_white);
-    it.circle(ix, iy, 8, col_slate);
-    it.filled_circle(ix, iy, 4, col_green);
-    it.draw_pixel_at(ix - 1, iy - 1, col_white);
-    it.line(ix - 20, iy, ix - 16, iy, theme_secondary);
-    it.line(ix + 16, iy, ix + 20, iy, theme_secondary);
-    it.line(ix, iy - 20, ix, iy - 16, theme_secondary);
-    it.line(ix, iy + 16, ix, iy + 20, theme_secondary);
+    // 7. Bubble Level: 2px outer ring, 2px cardinal crosshairs, inner ring & solid center bubble
+    it.circle(ix, iy, 14, col_white);
+    it.circle(ix, iy, 13, col_white);
+    it.circle(ix, iy, 7, theme_secondary);
+    it.filled_circle(ix, iy, 4, col_white);
+    // 4 bold 2px outer cardinal crosshair ticks
+    it.line(ix,     iy - 17, ix,     iy - 13, col_white);
+    it.line(ix + 1, iy - 17, ix + 1, iy - 13, col_white);
+    it.line(ix,     iy + 13, ix,     iy + 17, col_white);
+    it.line(ix + 1, iy + 13, ix + 1, iy + 17, col_white);
+    it.line(ix - 17, iy,     ix - 13, iy,     col_white);
+    it.line(ix - 17, iy + 1, ix - 13, iy + 1, col_white);
+    it.line(ix + 13, iy,     ix + 17, iy,     col_white);
+    it.line(ix + 13, iy + 1, ix + 17, iy + 1, col_white);
+
   } else if (app_id == 8) {
-    // Coin Icon: Silver-gold medallion rim with Home Assistant blue house
-    it.circle(ix, iy, 17, col_white);
-    it.circle(ix, iy, 14, col_gold);
-    esphome::Color ha_blue(24, 188, 242);
-    it.filled_triangle(ix - 8, iy - 1, ix + 8, iy - 1, ix, iy - 9, ha_blue);
-    it.filled_rectangle(ix - 6, iy - 1, 13, 8, ha_blue);
-    it.filled_circle(ix, iy + 2, 2, col_white);
+    // 8. Coin Flip: 2px outer medallion rim, inner struck ring & solid filled Home Assistant house
+    it.circle(ix, iy, 15, col_white);
+    it.circle(ix, iy, 14, col_white);
+    it.circle(ix, iy, 11, theme_secondary);
+    // Solid filled house emblem with negative-space center node/stem
+    it.filled_triangle(ix - 7, iy, ix + 7, iy, ix, iy - 7, col_white);
+    it.filled_rectangle(ix - 5, iy, 11, 7, col_white);
+    it.filled_circle(ix, iy + 1, 2, card_bg);
+    it.line(ix, iy + 3, ix, iy + 6, card_bg);
   }
 
   it.print(cx_card, cy_card + 26, font_small, col_white,
@@ -117,10 +176,7 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
                                   FontBigT *font_date, FontSmallT *font_small,
                                   esphome::Color theme_primary, esphome::Color theme_secondary,
                                   esphome::Color col_bg, esphome::Color col_black,
-                                  esphome::Color col_white, esphome::Color col_silver,
-                                  esphome::Color col_slate, esphome::Color col_gold,
-                                  esphome::Color col_cyan, esphome::Color col_green,
-                                  esphome::Color col_orange, esphome::Color col_red) {
+                                  esphome::Color col_white) {
   const int col_left_x = 162;
   const int col_right_x = 298;
   const int row_0_y = 159;
@@ -131,37 +187,21 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
     int y1 = row_1_y + y_shift;
     if (page_idx == 0) {
       if (y0 >= 95 && y0 <= 355) {
-        render_tool_launcher_card(it, col_left_x, y0, 1, "Timers", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
-        render_tool_launcher_card(it, col_right_x, y0, 2, "Alarms", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_left_x,  y0, 1, "Timers",     font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y0, 2, "Alarms",     font_small, theme_secondary, col_white);
       }
       if (y1 >= 95 && y1 <= 355) {
-        render_tool_launcher_card(it, col_left_x, y1, 5, "Flashlight", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
-        render_tool_launcher_card(it, col_right_x, y1, 6, "Calculator", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_left_x,  y1, 5, "Flashlight", font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y1, 6, "Calculator", font_small, theme_secondary, col_white);
       }
     } else {
       if (y0 >= 95 && y0 <= 355) {
-        render_tool_launcher_card(it, col_left_x, y0, 3, "Stopwatch", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
-        render_tool_launcher_card(it, col_right_x, y0, 4, "Dice Roll", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_left_x,  y0, 3, "Stopwatch",  font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y0, 4, "Dice Roll",  font_small, theme_secondary, col_white);
       }
       if (y1 >= 95 && y1 <= 355) {
-        render_tool_launcher_card(it, col_left_x, y1, 7, "Level", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
-        render_tool_launcher_card(it, col_right_x, y1, 8, "Coin Flip", font_small,
-                                  theme_secondary, col_white, col_silver, col_slate,
-                                  col_gold, col_cyan, col_green, col_orange, col_red);
+        render_tool_launcher_card(it, col_left_x,  y1, 7, "Level",      font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y1, 8, "Coin Flip",  font_small, theme_secondary, col_white);
       }
     }
   };
