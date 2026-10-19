@@ -115,6 +115,19 @@ audio_dac:
     use_mclk: true
 
 
+speaker:
+  - platform: i2s_audio
+    id: physical_speaker
+    i2s_audio_id: i2s_output_bus
+    i2s_dout_pin: GPIO8
+    dac_type: external
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: left
+    buffer_duration: 1000ms
+    timeout: 10s
+
+
 motion:
   - platform: qmi8658
     id: imu
@@ -287,3 +300,13 @@ script:
 
           delay(100);
           esp_deep_sleep_start();
+
+  - id: hal_set_imu_power_mode
+    mode: restart
+    parameters:
+      ctrl7_val: int
+    then:
+      - lambda: |-
+          // QMI8658 CTRL7 (0x08): 0x03 = Active (Accel+Gyro), 0x01 = Accel-only Pickup Wake, 0x00 = Power-Down
+          uint8_t qmi_ctrl7[2] = {0x08, static_cast<uint8_t>(ctrl7_val)};
+          id(bus_internal).write(0x6B, qmi_ctrl7, 2);

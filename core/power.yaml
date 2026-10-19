@@ -380,8 +380,7 @@ interval:
                   // If screen is currently off, sync QMI8658 IMU power state with new USB state
                   auto pw_mode = id(pickup_wake_mode).current_option();
                   bool pw_active = (pw_mode == "Always On") || (pw_mode == "Docked Only" && vbus);
-                  uint8_t qmi_ctrl7[2] = {0x08, static_cast<uint8_t>(pw_active ? 0x01 : 0x00)};
-                  id(bus_internal).write(0x6B, qmi_ctrl7, 2);
+                  id(hal_set_imu_power_mode).execute(pw_active ? 0x01 : 0x00);
                 }
               }
             }
@@ -722,8 +721,7 @@ script:
           auto pw_mode = id(pickup_wake_mode).current_option();
           const bool pickup_wake_active = (pw_mode == "Always On") ||
                                           (pw_mode == "Docked Only" && id(usb_connected).state);
-          uint8_t qmi_ctrl7[2] = {0x08, static_cast<uint8_t>(pickup_wake_active ? 0x01 : 0x00)};
-          id(bus_internal).write(0x6B, qmi_ctrl7, 2);
+          id(hal_set_imu_power_mode).execute(pickup_wake_active ? 0x01 : 0x00);
           // On battery power, enable Wi-Fi modem sleep while screen is off only when local audio is not playing
           if (!id(usb_connected).state && !local_audio_playing) {
             extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
@@ -763,9 +761,8 @@ script:
           if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING && !id(speaker_enable).state) {
             id(speaker_enable).turn_on();
           }
-          // Restore full QMI8658 6-Axis mode (Accelerometer + Gyroscope active)
-          uint8_t qmi_full_on[2] = {0x08, 0x03}; // CTRL7: aEN=1, gEN=1
-          id(bus_internal).write(0x6B, qmi_full_on, 2);
+          // Restore full QMI8658 6-Axis mode (Accelerometer + Gyroscope active) via HAL
+          id(hal_set_imu_power_mode).execute(0x03);
       - script.execute: sync_display_brightness
       - script.execute: screen_sleep_timer
       - component.update: disp1
