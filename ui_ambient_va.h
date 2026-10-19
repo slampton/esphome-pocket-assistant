@@ -1044,105 +1044,192 @@ inline void render_voice_assistant_overlay(
   }
 
   // ============================================================================
-  // PROFILE: "JARVIS" — IRON MAN J.A.R.V.I.S. 3D HOLOGRAPHIC HUD & VOICE SPHERE
+  // PROFILE: "JARVIS" — ELECTRIC CYAN COUNTER-ROTATING CONCENTRIC TECH HUD
   // ============================================================================
   if (is_jarvis) {
-    const esphome::Color c_stark_gold(255, 184, 28);
-    const esphome::Color c_stark_amber(230, 95, 12);
-    const esphome::Color c_stark_dim(105, 52, 8);
-    const esphome::Color c_stark_core(255, 246, 205);
-    const esphome::Color c_hud_cyan(75, 215, 255);
+    const esphome::Color c_cyan_bright(28, 214, 255);   // Primary electric cyan
+    const esphome::Color c_cyan_ice(195, 248, 255);     // High-energy ice-cyan highlight
+    const esphome::Color c_cyan_mid(16, 128, 165);      // Mid-tone structural teal
+    const esphome::Color c_cyan_dim(8, 62, 84);         // Fine hairline technical rings
+    const esphome::Color c_cyan_glow(5, 34, 48);        // Subtle ambient bloom
+
+    // Monotonic phase accumulator so speed changes across Listening/Thinking/Speaking never jump!
+    static uint32_t last_j_ms = 0;
+    static float j_angle = 0.0f;
+    float dt_j = (last_j_ms > 0 && now_ms >= last_j_ms && (now_ms - last_j_ms) <= 250U)
+                     ? (static_cast<float>(now_ms - last_j_ms) * 0.001f)
+                     : 0.045f;
+    last_j_ms = now_ms;
 
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
     float syl_env = is_speaking
-        ? ((0.55f + 0.25f * fast_sin(t_sec * 12.0f) + 0.20f * fast_cos(t_sec * 19.5f)) * smooth_speak)
+        ? ((0.50f + 0.30f * fast_sin(t_sec * 10.5f) + 0.20f * fast_cos(t_sec * 16.8f)) * smooth_speak)
         : 0.0f;
+    float energy = fminf(1.0f, smooth_vad * 0.85f + syl_env);
 
-    // 1. Outer Technical Caliper Ring (r = 166) with 4 Gapped Quadrant Arcs & Counter-Rotating Ticks
-    it.circle(cx, cy, 174, c_stark_dim);
-    int cal_rot = is_thinking ? static_cast<int>((now_ms / 22U) % 60U) : static_cast<int>((now_ms / 55U) % 60U);
-    for (int i = 0; i < 60; i++) {
-      // Leave 4 technical HUD gaps at the diagonal corners
-      int q_pos = (i + cal_rot) % 15;
-      if (q_pos >= 12) continue;
+    float rot_speed = is_thinking ? 1.85f : (is_speaking ? 0.85f : (0.48f + 0.45f * smooth_vad));
+    j_angle = fmodf(j_angle + dt_j * rot_speed, 2.0f * PI_F);
 
-      int next_i = (i + 1) % 60;
-      int x0 = cx + static_cast<int>(164.0f * DIAL_SIN[i]);
-      int y0 = cy - static_cast<int>(164.0f * DIAL_COS[i]);
-      int x1 = cx + static_cast<int>(164.0f * DIAL_SIN[next_i]);
-      int y1 = cy - static_cast<int>(164.0f * DIAL_COS[next_i]);
-      it.line(x0, y0, x1, y1, (q_pos == 0 || q_pos == 11) ? c_hud_cyan : c_stark_amber);
-
-      if (i % 3 == 0) {
-        int r_t0 = 167;
-        int r_t1 = (i % 15 == 0) ? 178 : 172;
-        it.line(cx + static_cast<int>(r_t0 * DIAL_SIN[i]), cy - static_cast<int>(r_t0 * DIAL_COS[i]),
-                cx + static_cast<int>(r_t1 * DIAL_SIN[i]), cy - static_cast<int>(r_t1 * DIAL_COS[i]),
-                (i % 15 == 0) ? c_hud_cyan : c_stark_gold);
-      }
-    }
-
-    // 2. Mid-Ring 30-Bar Radial Acoustic Modulator (r_in = 104 .. r_out = 108..146)
-    int tick_phase = static_cast<int>(now_ms / 30U);
-    for (int i = 0; i < 60; i += 2) {
-      float wave = 0.5f + 0.5f * fast_sin(static_cast<float>(i) * 0.42f + static_cast<float>(tick_phase) * 0.35f);
-      float bar_len = 8.0f;
-      if (is_speaking) {
-        bar_len = 10.0f + (28.0f * syl_env * (0.45f + 0.55f * DIAL_SIN[(i * 3 + tick_phase) % 60]));
-      } else if (is_thinking) {
-        int sweep_d = (i - ((tick_phase * 2) % 60) + 60) % 60;
-        bar_len = (sweep_d < 12) ? (26.0f - sweep_d * 1.5f) : 7.0f;
-      } else {
-        bar_len = 7.0f + 22.0f * smooth_vad * wave;
-      }
-      if (bar_len < 5.0f) bar_len = 5.0f;
-
-      float ux = DIAL_SIN[i], uy = -DIAL_COS[i];
-      int x0 = cx + static_cast<int>(102.0f * ux);
-      int y0 = cy + static_cast<int>(102.0f * uy);
-      int xm = cx + static_cast<int>((102.0f + bar_len * 0.65f) * ux);
-      int ym = cy + static_cast<int>((102.0f + bar_len * 0.65f) * uy);
-      int x1 = cx + static_cast<int>((102.0f + bar_len) * ux);
-      int y1 = cy + static_cast<int>((102.0f + bar_len) * uy);
-
-      it.line(x0, y0, xm, ym, c_stark_amber);
-      it.line(xm, ym, x1, y1, (bar_len > 20.0f && (i % 6 == 0)) ? c_hud_cyan : c_stark_gold);
-    }
-
-    // 3. Inner 3D Gyroscopic Wireframe Hologram Sphere (3 Orthogonal Tilted 3D Rings at r = 74)
-    float spd_m = is_thinking ? 2.4f : (is_speaking ? 1.5f : 0.9f);
-    float rx1 = t_sec * 0.9f * spd_m,        ry1 = t_sec * 0.7f * spd_m;
-    float rx2 = -t_sec * 0.8f * spd_m + 1.1f, ry2 = t_sec * 1.1f * spd_m;
-    float rx3 = 1.57f + 0.4f * fast_sin(t_sec * spd_m), ry3 = -t_sec * 0.95f * spd_m;
-
-    auto draw_jarvis_ring_3d = [&](float rad, float rx, float ry, float rz, esphome::Color col_front) {
-      int px = 0, py = 0, fx = 0, fy = 0;
-      float prev_z = 0.0f;
-      for (int i = 0; i < 60; i += 3) {
-        Vec3 v = rotate_3d_xyz({rad * DIAL_SIN[i], -rad * DIAL_COS[i], 0.0f}, rx, ry, rz);
-        ProjectedPoint p = project_3d(v, cx, cy, 260.0f, 320.0f);
-        if (i == 0) {
-          fx = p.x; fy = p.y;
-        } else {
-          float depth_k = (v.z + prev_z < 0.0f) ? 1.0f : 0.42f;
-          it.line(px, py, p.x, p.y, scale_color(col_front, depth_k));
+    // Helper: draws a contiguous circular arc from deg0 to deg1 (in 60-tick units or radians)
+    auto draw_hud_arc = [&](float r_in, float r_out, float ang_start, float ang_span,
+                            esphome::Color col, int step_deg = 3) {
+      int steps = std::max(2, static_cast<int>((ang_span * (180.0f / PI_F)) / static_cast<float>(step_deg)));
+      float d_ang = ang_span / static_cast<float>(steps);
+      for (int s = 0; s < steps; s++) {
+        float a0 = ang_start + static_cast<float>(s) * d_ang;
+        float a1 = a0 + d_ang;
+        float s0, c0, s1, c1;
+        fast_sincos(a0, s0, c0);
+        fast_sincos(a1, s1, c1);
+        for (float r = r_in; r <= r_out; r += 1.5f) {
+          int x0 = cx + static_cast<int>(r * s0);
+          int y0 = cy - static_cast<int>(r * c0);
+          int x1 = cx + static_cast<int>(r * s1);
+          int y1 = cy - static_cast<int>(r * c1);
+          it.line(x0, y0, x1, y1, col);
         }
-        px = p.x; py = p.y; prev_z = v.z;
       }
-      it.line(px, py, fx, fy, scale_color(col_front, 0.75f));
     };
 
-    float sphere_r = 72.0f + 8.0f * syl_env + 5.0f * smooth_vad;
-    draw_jarvis_ring_3d(sphere_r,        rx1, ry1, 0.2f, c_stark_gold);
-    draw_jarvis_ring_3d(sphere_r - 4.0f, rx2, ry2, -0.4f, c_stark_amber);
-    draw_jarvis_ring_3d(sphere_r - 8.0f, rx3, ry3, 0.7f, is_thinking ? c_hud_cyan : c_stark_gold);
+    // ------------------------------------------------------------------------
+    // RING 1 (OUTER): r = 176..196 — Rotates CLOCKWISE (+j_angle)
+    // ------------------------------------------------------------------------
+    float a_cw1 = j_angle;
+    it.circle(cx, cy, 198, c_cyan_glow);
+    it.circle(cx, cy, 188, c_cyan_mid);
+    it.circle(cx, cy, 182, c_cyan_dim);
 
-    // 4. Center Pulsing J.A.R.V.I.S. Core Nucleus
-    int core_r = 18 + static_cast<int>(7.0f * syl_env + 4.0f * smooth_vad + 2.0f * fast_sin(t_sec * 5.0f));
-    it.circle(cx, cy, core_r + 8, c_stark_dim);
-    it.filled_circle(cx, cy, core_r + 3, c_stark_amber);
-    it.filled_circle(cx, cy, core_r - 1, c_stark_gold);
-    it.filled_circle(cx, cy, std::max(3, core_r / 2), c_stark_core);
+    // Thick outer segmented callout blocks modeled after reference image
+    draw_hud_arc(189.0f, 195.0f, a_cw1 - 0.18f, 0.36f, c_cyan_bright);          // Top block
+    draw_hud_arc(189.0f, 194.0f, a_cw1 + 1.75f, 1.05f, c_cyan_bright);          // Right-lower sweeping block
+    draw_hud_arc(189.0f, 195.0f, a_cw1 + 2.92f, 0.42f, c_cyan_ice);             // Bottom block
+    draw_hud_arc(189.0f, 194.0f, a_cw1 + 5.25f, 0.32f, c_cyan_bright);          // Upper-left block
+    // 3 notched blocks at upper-right
+    for (int n = 0; n < 3; n++) {
+      draw_hud_arc(189.0f, 194.0f, a_cw1 + 0.52f + static_cast<float>(n) * 0.13f, 0.08f, c_cyan_bright, 2);
+    }
+    // Inner arc accent & dotted perimeter track at r = 175
+    draw_hud_arc(173.0f, 177.0f, a_cw1 + 3.45f, 0.85f, c_cyan_bright);
+    for (int i = 0; i < 60; i += 2) {
+      if ((i >= 8 && i <= 22) || (i >= 34 && i <= 48)) {
+        float da = a_cw1 + static_cast<float>(i) * (2.0f * PI_F / 60.0f);
+        float ds, dc;
+        fast_sincos(da, ds, dc);
+        int dx = cx + static_cast<int>(175.0f * ds);
+        int dy = cy - static_cast<int>(175.0f * dc);
+        it.filled_circle(dx, dy, (i % 6 == 0) ? 2 : 1, c_cyan_mid);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // RING 2 (MID-OUTER): r = 128..160 — Rotates COUNTER-CLOCKWISE (-j_angle * 1.15f)
+    // ------------------------------------------------------------------------
+    float a_ccw2 = -j_angle * 1.15f;
+    it.circle(cx, cy, 160, c_cyan_dim);
+    it.circle(cx, cy, 134, c_cyan_dim);
+
+    // Sweeping outer guide arcs on Ring 2
+    draw_hud_arc(155.0f, 160.0f, a_ccw2 - 0.35f, 0.55f, c_cyan_bright);
+    draw_hud_arc(146.0f, 148.0f, a_ccw2 - 0.65f, 2.25f, c_cyan_mid);
+
+    // Iconic J.A.R.V.I.S. Curved Ladder of Hollow Rectangular Telemetry Blocks (Upper-Right Sector)
+    for (int b = 0; b < 14; b++) {
+      float ba = a_ccw2 - 0.10f + static_cast<float>(b) * 0.125f;
+      float bs, bc;
+      fast_sincos(ba, bs, bc);
+      float px = bc, py = bs; // Perpendicular tangent
+      int r_in_b = 120;
+      int r_out_b = 129 + static_cast<int>(energy * 6.0f * (0.5f + 0.5f * DIAL_SIN[(b * 5 + static_cast<int>(now_ms / 40U)) % 60]));
+      int x0 = cx + static_cast<int>(r_in_b * bs - 2.5f * px);
+      int y0 = cy - static_cast<int>(r_in_b * bc - 2.5f * py);
+      int x1 = cx + static_cast<int>(r_out_b * bs - 2.5f * px);
+      int y1 = cy - static_cast<int>(r_out_b * bc - 2.5f * py);
+      int x2 = cx + static_cast<int>(r_out_b * bs + 2.5f * px);
+      int y2 = cy - static_cast<int>(r_out_b * bc + 2.5f * py);
+      int x3 = cx + static_cast<int>(r_in_b * bs + 2.5f * px);
+      int y3 = cy - static_cast<int>(r_in_b * bc + 2.5f * py);
+
+      bool active_cell = is_thinking ? (((static_cast<int>(now_ms / 45U) - b) & 3) == 0)
+                                     : (energy > 0.15f && (b % 2 == 0));
+      esphome::Color cell_c = active_cell ? c_cyan_ice : c_cyan_bright;
+      it.line(x0, y0, x1, y1, cell_c);
+      it.line(x1, y1, x2, y2, cell_c);
+      it.line(x2, y2, x3, y3, cell_c);
+      it.line(x3, y3, x0, y0, cell_c);
+    }
+
+    // Graduated Circular Dot-Array along the Right Sector of Ring 2 (r = 140 & r = 152)
+    for (int d = 0; d < 12; d++) {
+      float da = a_ccw2 + 0.55f + static_cast<float>(d) * 0.13f;
+      float ds, dc;
+      fast_sincos(da, ds, dc);
+      int dot_r = (d >= 3 && d <= 8) ? 3 : 2;
+      it.filled_circle(cx + static_cast<int>(140.0f * ds), cy - static_cast<int>(140.0f * dc),
+                       dot_r, (d % 3 == 0 && energy > 0.2f) ? c_cyan_ice : c_cyan_bright);
+      if (d >= 4 && d <= 9) {
+        it.filled_circle(cx + static_cast<int>(151.0f * ds), cy - static_cast<int>(151.0f * dc),
+                         2, c_cyan_mid);
+      }
+    }
+
+    // Lower-Left Radial Hash Ticks (r = 122..132)
+    for (int k = 0; k < 13; k++) {
+      float ka = a_ccw2 + 2.85f + static_cast<float>(k) * 0.095f;
+      float ks, kc;
+      fast_sincos(ka, ks, kc);
+      it.line(cx + static_cast<int>(122.0f * ks), cy - static_cast<int>(122.0f * kc),
+              cx + static_cast<int>(132.0f * ks), cy - static_cast<int>(132.0f * kc), c_cyan_bright);
+    }
+
+    // ------------------------------------------------------------------------
+    // RING 3 (INNER ROTATING): r = 98..112 — Rotates CLOCKWISE (+j_angle * 0.85f)
+    // ------------------------------------------------------------------------
+    float a_cw3 = j_angle * 0.85f;
+    it.circle(cx, cy, 102, c_cyan_mid);
+
+    // Fine vernacular degree ticks around Ring 3
+    for (int i = 0; i < 60; i++) {
+      float ta = a_cw3 + static_cast<float>(i) * (2.0f * PI_F / 60.0f);
+      float ts, tc;
+      fast_sincos(ta, ts, tc);
+      int r0 = 102;
+      int r1 = (i % 5 == 0) ? 108 : 105;
+      it.line(cx + static_cast<int>(r0 * ts), cy - static_cast<int>(r0 * tc),
+              cx + static_cast<int>(r1 * ts), cy - static_cast<int>(r1 * tc),
+              (i % 5 == 0) ? c_cyan_bright : c_cyan_dim);
+    }
+    draw_hud_arc(97.0f, 101.0f, a_cw3 + 0.85f, 1.10f, c_cyan_bright);
+    draw_hud_arc(97.0f, 101.0f, a_cw3 + 3.90f, 0.95f, c_cyan_bright);
+
+    // ------------------------------------------------------------------------
+    // RING 4 (STATIONARY CENTER RETICLE): r = 70..84 — Stationary with Voice Pulse
+    // ------------------------------------------------------------------------
+    int core_pulse = static_cast<int>(energy * 5.0f);
+    it.circle(cx, cy, 82, c_cyan_mid);
+    it.circle(cx, cy, 74, c_cyan_bright);
+    it.circle(cx, cy, 73, c_cyan_mid);
+    if (energy > 0.08f || is_thinking) {
+      int inner_r = 64 - core_pulse;
+      it.circle(cx, cy, inner_r, scale_color(c_cyan_bright, 0.45f + 0.55f * energy));
+    }
+
+    // Stationary thick cyan bezel arcs on the center ring (Top-Right, Bottom, Left)
+    draw_hud_arc(74.0f, 79.0f, 0.35f, 1.35f, (energy > 0.3f) ? c_cyan_ice : c_cyan_bright);
+    draw_hud_arc(74.0f, 79.0f, 2.35f, 1.15f, (energy > 0.3f) ? c_cyan_ice : c_cyan_bright);
+    draw_hud_arc(74.0f, 79.0f, 4.25f, 1.25f, c_cyan_bright);
+
+    // 4 Stationary Cardinal Crosshair Reticle Marks (12, 3, 6, 9 o'clock)
+    it.line(cx, cy - 88, cx, cy - 68, c_cyan_ice);
+    it.line(cx - 4, cy - 82, cx + 4, cy - 82, c_cyan_bright);
+
+    it.line(cx, cy + 68, cx, cy + 88, c_cyan_ice);
+    it.line(cx - 4, cy + 82, cx + 4, cy + 82, c_cyan_bright);
+
+    it.line(cx - 88, cy, cx - 68, cy, c_cyan_ice);
+    it.line(cx - 82, cy - 4, cx - 82, cy + 4, c_cyan_bright);
+
+    it.line(cx + 68, cy, cx + 88, cy, c_cyan_ice);
+    it.line(cx + 82, cy - 4, cx + 82, cy + 4, c_cyan_bright);
     return;
   }
 
