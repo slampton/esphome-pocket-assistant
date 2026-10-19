@@ -304,6 +304,45 @@ inline bool poll_and_persist_wake_words(VoiceAssistant *va) {
 #endif
   return false;
 }
+inline const char *wake_word_id_to_label(const std::string &id_str) {
+  if (id_str == "hey_luna") return "Hey Luna";
+  if (id_str == "hey_jarvis") return "Hey Jarvis";
+  if (id_str == "hey_mycroft") return "Hey Mycroft";
+  if (id_str == "alexa") return "Alexa";
+  return "Okay Nabu";
+}
+
+inline const char *wake_word_label_to_id(const std::string &label) {
+  if (label == "Hey Luna") return "hey_luna";
+  if (label == "Hey Jarvis") return "hey_jarvis";
+  if (label == "Hey Mycroft") return "hey_mycroft";
+  if (label == "Alexa") return "alexa";
+  return "okay_nabu";
+}
+
+inline void set_primary_wake_word_by_label(VoiceAssistant *va, const std::string &label) {
+  if (va == nullptr) return;
+  const std::string target_id = wake_word_label_to_id(label);
+#ifdef USE_MICRO_WAKE_WORD
+  auto *mww = va->*get(VA_MicroWakeWord_Tag());
+  if (mww == nullptr) return;
+  std::string cur_w2 = last_persisted_ww2();
+  if (cur_w2 == target_id) cur_w2 = "";
+
+  for (auto *model : mww->get_wake_words()) {
+    const std::string m_id = model->get_id();
+    if (m_id == target_id || (!cur_w2.empty() && m_id == cur_w2)) {
+      model->enable();
+    } else {
+      model->disable();
+    }
+  }
+  save_wake_words_to_nvs(target_id, cur_w2);
+  if (mww->is_running()) {
+    mww->stop();
+  }
+#endif
+}
 // Cleanly sends ESPHome DisconnectRequest + TCP FIN to all connected API clients
 // before the AXP2101 cuts the 3.3V power rail in Hibernate (enter_deep_sleep).
 // Prevents Home Assistant from staying stuck on a half-open ("zombie") TCP socket

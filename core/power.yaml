@@ -217,7 +217,7 @@ sensor:
 
 button:
   - platform: template
-    name: "Power: Enter Hibernate"
+    name: "Actions: Hibernate Now"
     id: enter_deep_sleep_btn
     icon: "mdi:sleep"
     entity_category: config
@@ -225,7 +225,7 @@ button:
       - script.execute: enter_deep_sleep
 
   - platform: template
-    name: "Power: Trigger Screensaver"
+    name: "Actions: Screensaver Now"
     id: trigger_screensaver_btn
     icon: "mdi:weather-night"
     entity_category: config
@@ -234,7 +234,7 @@ button:
 
 switch:
   - platform: template
-    name: "Power: Instant Crown Hibernate"
+    name: "Sleep & Wake: Hold Crown Hibernate"
     id: instant_crown_hibernate_switch
     entity_category: config
     icon: "mdi:lightning-bolt"
@@ -246,7 +246,7 @@ switch:
       - lambda: 'id(instant_crown_hibernate_switch).publish_state(false);'
 
   - platform: template
-    name: "Power: Docked Screensaver"
+    name: "Sleep & Wake: Docked Screensaver"
     id: docked_screensaver_switch
     icon: "mdi:power-sleep"
     entity_category: config
@@ -262,7 +262,7 @@ switch:
           }
 
   - platform: template
-    name: "Power: Prevent Hibernate"
+    name: "Sleep & Wake: Stay Awake"
     id: prevent_deep_sleep_switch
     entity_category: config
     icon: "mdi:sleep-off"
@@ -275,7 +275,7 @@ switch:
 
 select:
   - platform: template
-    name: "Display: Screen Off Timeout"
+    name: "Sleep & Wake: Screen Off Timeout"
     id: display_off_timeout
     entity_category: config
     optimistic: true
@@ -294,7 +294,7 @@ select:
           id(disp1).update();
 
   - platform: template
-    name: "Power: Screensaver Timeout"
+    name: "Sleep & Wake: Dock Inactivity Timeout"
     id: screensaver_docked_timeout
     entity_category: config
     optimistic: true
@@ -313,7 +313,7 @@ select:
           id(disp1).update();
 
   - platform: template
-    name: "Power: Hibernate Timeout"
+    name: "Sleep & Wake: Auto-Hibernate Timeout"
     id: hibernate_timeout_mode
     entity_category: config
     optimistic: true
@@ -330,7 +330,7 @@ select:
           id(disp1).update();
 
   - platform: template
-    name: "Power: Motion Pickup Wake"
+    name: "Sleep & Wake: Motion Pickup Wake"
     id: pickup_wake_mode
     entity_category: config
     optimistic: true
@@ -345,7 +345,7 @@ select:
           id(disp1).update();
 
   - platform: template
-    name: "Power: Touch Tap Wake"
+    name: "Sleep & Wake: Touch Tap Wake"
     id: tap_wake_mode
     entity_category: config
     optimistic: true
@@ -418,6 +418,7 @@ interval:
                                  (id(active_game) > 0) || id(is_hibernating) || id(ota_in_progress) ||
                                  !id(wifi_ctrl).is_connected();
             const bool should_ww_run = ww_allowed && !ww_busy;
+            if (ww_changed) { id(va_active_wake_word).publish_state(esphome::voice_assistant::wake_word_id_to_label(esphome::voice_assistant::last_persisted_ww1())); }
             if (ww_changed || should_ww_run != id(mww).is_running()) {
               id(sync_wake_word_state).execute();
             }

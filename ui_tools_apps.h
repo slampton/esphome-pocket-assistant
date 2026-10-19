@@ -2648,7 +2648,7 @@ inline void render_system_page(
     bool show_clock, bool show_music, bool show_remote,
     bool show_weather, bool show_games, bool show_tools,
     // Voice & Per-Model Wake Word Sensitivity values
-    const std::string &va_ww_mode_opt,
+    const std::string &va_ww_mode_opt, const std::string &va_ww_active_opt,
     const std::string &sens_nabu_opt, const std::string &sens_luna_opt,
     const std::string &sens_jarvis_opt, const std::string &sens_mycroft_opt,
     const std::string &sens_alexa_opt,
@@ -3027,18 +3027,21 @@ inline void render_system_page(
 
   } else if (system_menu_mode == 11) {
     // -------------------------------------------------------------------------
-    // VIEW 11: VOICE SUBMENU (4 Voice Assistant & Wake Word Settings on 1 Page)
+    // VIEW 11: VOICE SUBMENU (5 Voice Assistant & Wake Word Settings on 1 Page)
     // -------------------------------------------------------------------------
     render_menu_header(it, cx, 50, "VOICE", font_date, theme_primary);
-    snprintf(buf, sizeof(buf), "Wake Word: %s", va_ww_mode_opt.c_str());
+    snprintf(buf, sizeof(buf), "Wake Mode: %s", va_ww_mode_opt.c_str());
     draw_slot_card(0, buf, theme_secondary, col_white, col_dark_gray);
     const bool ww_en = (va_ww_mode_opt != "Disabled");
-    draw_slot_card(1, "Sensitivity (Per Model) >", ww_en ? theme_secondary : col_slate,
+    snprintf(buf, sizeof(buf), "Wake Word: %s", va_ww_active_opt.empty() ? "Okay Nabu" : va_ww_active_opt.c_str());
+    draw_slot_card(1, buf, ww_en ? theme_secondary : col_slate,
+                   ww_en ? col_white : col_slate, col_dark_gray);
+    draw_slot_card(2, "Sensitivity (Per Model) >", ww_en ? theme_secondary : col_slate,
                    ww_en ? col_white : col_slate, col_dark_gray);
     snprintf(buf, sizeof(buf), "Profile: %s", va_profile_opt.c_str());
-    draw_slot_card(2, buf, theme_secondary, col_white, col_dark_gray);
-    snprintf(buf, sizeof(buf), "Wake Screen: %s", va_wake_scr ? "ON" : "OFF");
     draw_slot_card(3, buf, theme_secondary, col_white, col_dark_gray);
+    snprintf(buf, sizeof(buf), "Wake Screen: %s", va_wake_scr ? "ON" : "OFF");
+    draw_slot_card(4, buf, theme_secondary, col_white, col_dark_gray);
     draw_back();
 
   } else if (system_menu_mode == 12) {

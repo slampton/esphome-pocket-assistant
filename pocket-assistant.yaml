@@ -142,7 +142,14 @@ esphome:
             then:
               - logger.log: "No Wi-Fi credentials configured: enabling BLE for first-time Improv setup"
               - ble.enable:
-        - lambda: 'esphome::voice_assistant::ensure_wake_words_restored(id(va), true);'
+        - lambda: |-
+            esphome::voice_assistant::ensure_wake_words_restored(id(va), true);
+            id(va_active_wake_word).publish_state(
+                esphome::voice_assistant::wake_word_id_to_label(esphome::voice_assistant::last_persisted_ww1()));
+            auto cur_vp = id(va_visual_profile).current_option();
+            if (cur_vp == "Google" || cur_vp == "Original") {
+              id(va_visual_profile).publish_state(cur_vp == "Google" ? "Gemini" : "Nebula");
+            }
         - script.execute: apply_wake_word_sensitivities
         - script.execute: sync_display_brightness
         - script.execute: screen_sleep_timer

@@ -779,7 +779,7 @@ select:
   - platform: template
     name: "Voice: Wake Word Mode"
     id: va_wake_word_mode
-    icon: "mdi:AccountTieVoice"
+    icon: "mdi:account-tie-voice"
     entity_category: config
     optimistic: true
     restore_value: true
@@ -792,6 +792,28 @@ select:
       - lambda: |-
           id(va_wake_word_mode).publish_state(x);
           id(disp1).update();
+      - script.execute: sync_wake_word_state
+
+  - platform: template
+    name: "Voice: Active Wake Word"
+    id: va_active_wake_word
+    icon: "mdi:account-voice"
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Okay Nabu"
+    options:
+      - "Okay Nabu"
+      - "Hey Luna"
+      - "Hey Jarvis"
+      - "Hey Mycroft"
+      - "Alexa"
+    set_action:
+      - lambda: |-
+          id(va_active_wake_word).publish_state(x);
+          esphome::voice_assistant::set_primary_wake_word_by_label(id(va), x);
+          id(disp1).update();
+      - script.execute: apply_wake_word_sensitivities
       - script.execute: sync_wake_word_state
 
   - platform: template
@@ -897,7 +919,7 @@ select:
       - "Solaris"
       - "Jarvis"
       - "Alexa"
-      - "Google"
+      - "Gemini"
     set_action:
       - lambda: |-
           id(va_visual_profile).publish_state(x);
@@ -936,7 +958,7 @@ select:
           pocket_ui::night_meteor_epoch_initialized() = false;
           pocket_ui::record_ambient_frame_ms(0);
   - platform: template
-    name: "Power: Screensaver Style"
+    name: "Sleep & Wake: Screensaver Style"
     id: screensaver_style_select
     icon: "mdi:weather-night"
     entity_category: config
@@ -959,7 +981,7 @@ select:
           }
 
   - platform: template
-    name: "Audio: Album Art Style"
+    name: "Music: Album Art Style"
     id: music_fullscreen_art_mode
     icon: "mdi:image-size-select-actual"
     entity_category: config
@@ -1022,7 +1044,7 @@ select:
           id(music_podcast_sort_order).publish_state(x);
 
   - platform: template
-    name: "Audio: Music Overlay Style"
+    name: "Music: Overlay Style"
     id: music_overlay_style
     icon: "mdi:television-guide"
     entity_category: config
@@ -1133,7 +1155,7 @@ select:
   # ⚙️ Application Preferences & Power Management Selectors
   # --------------------------------------------------------------------------
   - platform: template
-    name: "Clock: Face Style"
+    name: "Display: Clock Face"
     id: clock_face_style
     entity_category: config
     optimistic: true
@@ -1148,7 +1170,7 @@ select:
           if (id(display_power_state) == 0) id(disp1).update();
 
   - platform: template
-    name: "Clock: Time Format"
+    name: "Display: Time Format"
     id: time_format_select
     entity_category: config
     optimistic: true
@@ -1163,7 +1185,7 @@ select:
           if (id(display_power_state) == 0) id(disp1).update();
 
   - platform: template
-    name: "Apps: Default Start App"
+    name: "App Deck: Default Start App"
     id: default_start_app
     entity_category: config
     optimistic: true
@@ -1185,7 +1207,7 @@ button:
     internal: true
 
   - platform: template
-    name: "System: Restart Device"
+    name: "Actions: Restart Device"
     id: restart_button
     entity_category: diagnostic
     on_press:
@@ -1197,13 +1219,13 @@ button:
 
 
   - platform: template
-    name: "Voice: Trigger Session"
+    name: "Actions: Trigger Voice Assistant"
     id: trigger_va_button
     on_press:
       - script.execute: toggle_voice_assistant
 
   - platform: template
-    name: "Find My Pocket Assistant"
+    name: "Actions: Find My Device"
     id: find_my_button
     icon: "mdi:radar"
     on_press:
@@ -1228,7 +1250,7 @@ switch:
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
   - platform: template
-    name: "Apps: Visibility Clock"
+    name: "App Deck: Visibility Clock"
     id: show_clock_switch
     entity_category: config
     optimistic: true
@@ -1240,7 +1262,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Apps: Visibility Music"
+    name: "App Deck: Visibility Music"
     id: show_music_switch
     entity_category: config
     optimistic: true
@@ -1252,7 +1274,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Apps: Visibility Games"
+    name: "App Deck: Visibility Games"
     id: show_games_switch
     entity_category: config
     optimistic: true
@@ -1264,7 +1286,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Apps: Visibility System"
+    name: "App Deck: Visibility System"
     id: show_system_switch
     entity_category: config
     optimistic: true
@@ -1276,7 +1298,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Apps: Visibility Sky & Weather"
+    name: "App Deck: Visibility Sky & Weather"
     id: show_weather_switch
     entity_category: config
     optimistic: true
@@ -1288,7 +1310,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Apps: Visibility Remote"
+    name: "App Deck: Visibility Remote"
     id: show_remote_switch
     entity_category: config
     optimistic: true
@@ -1300,7 +1322,7 @@ switch:
       then:
         - script.execute: rebuild_active_deck
   - platform: template
-    name: "Apps: Visibility Tools"
+    name: "App Deck: Visibility Tools"
     id: show_stuff_switch
     entity_category: config
     optimistic: true
@@ -1313,7 +1335,7 @@ switch:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Audio: Game Sound Effects"
+    name: "Sound: Game Sound Effects"
     id: game_sound_switch
     icon: "mdi:gamepad-variant-outline"
     entity_category: config
@@ -1335,7 +1357,7 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
 
   - platform: template
-    name: "Audio: Show Speaker Shortcut"
+    name: "Music: Show Speaker Shortcut"
     id: music_show_speaker_shortcut
     icon: "mdi:speaker"
     entity_category: config
@@ -1351,7 +1373,7 @@ switch:
             if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
 
   - platform: template
-    name: "Audio: Show Library Shortcut"
+    name: "Music: Show Library Shortcut"
     id: music_show_library_shortcut
     icon: "mdi:bookshelf"
     entity_category: config
@@ -1369,7 +1391,7 @@ switch:
 
 number:
   - platform: template
-    name: "Apps: Order Clock"
+    name: "App Deck: Order Clock"
     id: app_order_clock
     entity_category: config
     optimistic: true
@@ -1383,7 +1405,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order Music"
+    name: "App Deck: Order Music"
     id: app_order_music
     entity_category: config
     optimistic: true
@@ -1397,7 +1419,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order Remote"
+    name: "App Deck: Order Remote"
     id: app_order_remote
     entity_category: config
     optimistic: true
@@ -1411,7 +1433,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order Sky & Weather"
+    name: "App Deck: Order Sky & Weather"
     id: app_order_weather
     entity_category: config
     optimistic: true
@@ -1425,7 +1447,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order Games"
+    name: "App Deck: Order Games"
     id: app_order_games
     entity_category: config
     optimistic: true
@@ -1439,7 +1461,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order Tools"
+    name: "App Deck: Order Tools"
     id: app_order_stuff
     entity_category: config
     optimistic: true
@@ -1453,7 +1475,7 @@ number:
         - script.execute: rebuild_active_deck
 
   - platform: template
-    name: "Apps: Order System"
+    name: "App Deck: Order System"
     id: app_order_system
     entity_category: config
     optimistic: true
@@ -3602,7 +3624,7 @@ display:
             id(default_start_app).current_option(),
             id(show_clock_switch).state, id(show_music_switch).state, id(show_remote_switch).state,
             id(show_weather_switch).state, id(show_games_switch).state, id(show_stuff_switch).state,
-            id(va_wake_word_mode).current_option(),
+            id(va_wake_word_mode).current_option(), id(va_active_wake_word).current_option(),
             id(ww_sens_okay_nabu).current_option(), id(ww_sens_hey_luna).current_option(),
             id(ww_sens_hey_jarvis).current_option(), id(ww_sens_hey_mycroft).current_option(),
             id(ww_sens_alexa).current_option(),
@@ -5323,9 +5345,9 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 11) {
-                // Mode 11: Voice Assistant Submenu (2 Slots)
+                // Mode 11: Voice Assistant Submenu (5 Slots: Mode, Active Wake Word, Sensitivity, Profile, Wake Screen)
                 int slot = get_5slot_index(touch, 88, 371);
-                if (slot >= 0 && slot <= 3 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_sys_action_tap = now_sys;
                   if (slot == 0) {
                     auto call = id(va_wake_word_mode).make_call();
@@ -5335,17 +5357,25 @@ touchscreen:
                     return;
                   } else if (slot == 1) {
                     if (id(va_wake_word_mode).current_option() != "Disabled") {
-                      id(system_menu_mode) = 12;
+                      auto call = id(va_active_wake_word).make_call();
+                      call.set_option(cycle_option(id(va_active_wake_word).current_option(), {"Okay Nabu", "Hey Luna", "Hey Jarvis", "Hey Mycroft", "Alexa"}));
+                      call.perform();
                       id(disp1).update();
                     }
                     return;
                   } else if (slot == 2) {
+                    if (id(va_wake_word_mode).current_option() != "Disabled") {
+                      id(system_menu_mode) = 12;
+                      id(disp1).update();
+                    }
+                    return;
+                  } else if (slot == 3) {
                     auto call = id(va_visual_profile).make_call();
-                    call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Jarvis", "Alexa", "Google"}));
+                    call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Jarvis", "Alexa", "Gemini"}));
                     call.perform();
                     id(disp1).update();
                     return;
-                  } else if (slot == 3) {
+                  } else if (slot == 4) {
                     id(va_wake_screen_switch).toggle();
                     id(disp1).update();
                     return;

@@ -792,7 +792,7 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
 //   - "Solaris": Flagship Radial Acoustic Corona & 3D Gimbaled Solar Astrolabe
 //   - "Jarvis":  Electric-Cyan Counter-Rotating 4-Ring Concentric Mechanical HUD
 //   - "Alexa":   Amazon Echo 360-Degree Spinning Cyan & Royal-Blue Perimeter Light Ring
-//   - "Google":  Minimalist 3 White Dots Graceful Wave, Spinning Orbit & Capsule Equalizer
+//   - "Gemini":  Minimalist 3 White Dots Graceful Wave, Spinning Orbit & Capsule Equalizer
 template<typename DisplayT, typename StrRefT>
 inline void render_voice_assistant_overlay(
     DisplayT &it, int cx, int cy, uint32_t now_ms,
@@ -802,7 +802,7 @@ inline void render_voice_assistant_overlay(
 
   const bool is_solaris = (profile_opt == "Solaris");
   const bool is_alexa   = (profile_opt == "Alexa");
-  const bool is_google  = (profile_opt == "Google");
+  const bool is_google  = (profile_opt == "Gemini" || profile_opt == "Google");
   const bool is_jarvis  = (profile_opt == "Jarvis");
 
   // Smooth exponential envelopes (0.0f -> 1.0f) for fluid organic transitions
@@ -926,7 +926,7 @@ inline void render_voice_assistant_overlay(
   }
 
   // ============================================================================
-  // PROFILE: "GOOGLE" — 3 WHITE DOTS GRACEFUL WAVE, SPINNING ORBIT & EQUALIZER
+  // PROFILE: "GEMINI" — 3 WHITE DOTS GRACEFUL WAVE, SPINNING ORBIT & EQUALIZER
   // ============================================================================
   if (is_google) {
     const esphome::Color c_halo_outer(32, 58, 108);
