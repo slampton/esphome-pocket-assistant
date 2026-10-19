@@ -1373,70 +1373,74 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
 template<typename DisplayT>
 inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
                                          esphome::Color col_active, esphome::Color col_inactive) {
-  // Exact 74px uniform center-to-center spacing symmetrical around cx = 233 (-111, -37, +37, +111)
-  static constexpr int ICON_XS[4] = {122, 196, 270, 344};
-  static constexpr int ICON_Y = 352; // Split the difference: 5px higher than original 357, 5px lower than 347
+  // Generous 52px-diameter (r = 26) buttons at y = 356, spaced 78px center-to-center (26px clear gap)
+  static constexpr int ICON_XS[4] = {116, 194, 272, 350};
+  static constexpr int ICON_Y = 356;
 
   auto draw_icon_glyph = [&](int idx, int bx, int by, esphome::Color c) {
     if (idx == 0) {
-      // 0. Current Weather: Thermometer with rounded dome cap, filled mercury bulb & 3 scale ticks
-      it.line(bx - 2, by - 11, bx + 2, by - 11, c);
-      it.line(bx - 1, by - 12, bx + 1, by - 12, c);
-      it.line(bx - 2, by - 11, bx - 2, by + 3, c);
-      it.line(bx + 2, by - 11, bx + 2, by + 3, c);
-      it.circle(bx, by + 7, 5, c);
-      it.filled_circle(bx, by + 7, 3, c);
-      it.line(bx, by - 4, bx, by + 7, c);
-      it.line(bx + 4, by - 8, bx + 6, by - 8, c);
-      it.line(bx + 4, by - 4, bx + 6, by - 4, c);
-      it.line(bx + 4, by,     bx + 6, by,     c);
+      // 0. Current Weather: Enlarged Thermometer (r_bulb = 6, stem h = 20)
+      it.line(bx - 3, by - 14, bx + 3, by - 14, c);
+      it.line(bx - 2, by - 15, bx + 2, by - 15, c);
+      it.line(bx - 3, by - 14, bx - 3, by + 3, c);
+      it.line(bx - 2, by - 14, bx - 2, by + 3, c);
+      it.line(bx + 3, by - 14, bx + 3, by + 3, c);
+      it.line(bx + 2, by - 14, bx + 2, by + 3, c);
+      it.circle(bx, by + 8, 6, c);
+      it.circle(bx, by + 8, 5, c);
+      it.filled_circle(bx, by + 8, 3, c);
+      it.filled_rectangle(bx - 1, by - 5, 3, 13, c);
+      it.line(bx + 5, by - 10, bx + 8, by - 10, c);
+      it.line(bx + 5, by - 5,  bx + 8, by - 5,  c);
+      it.line(bx + 5, by,      bx + 8, by,      c);
     } else if (idx == 1) {
-      // 1. Forecast: 3-day ascending solid bars + bold 2px rising trend arrow
+      // 1. Forecast: Enlarged 3-day ascending bars + bold 2px rising trend arrow
       int fy = by + 1;
-      it.line(bx - 11, fy + 9, bx + 11, fy + 9, c);
-      it.filled_rectangle(bx - 9, fy + 4, 4, 5, c);
-      it.filled_rectangle(bx - 2, fy - 1, 4, 10, c);
-      it.filled_rectangle(bx + 5, fy - 5, 4, 14, c);
-      it.line(bx - 11, fy + 2, bx + 9, fy - 10, c);
-      it.line(bx - 11, fy + 3, bx + 9, fy - 9, c);
-      it.line(bx + 10, fy - 11, bx + 4, fy - 11, c);
-      it.line(bx + 10, fy - 10, bx + 5, fy - 10, c);
-      it.line(bx + 10, fy - 11, bx + 10, fy - 5, c);
-      it.line(bx + 9,  fy - 11, bx + 9,  fy - 6, c);
+      it.line(bx - 14, fy + 11, bx + 14, fy + 11, c);
+      it.line(bx - 14, fy + 12, bx + 14, fy + 12, c);
+      it.filled_rectangle(bx - 12, fy + 4, 5, 7, c);
+      it.filled_rectangle(bx - 3,  fy - 2, 5, 13, c);
+      it.filled_rectangle(bx + 6,  fy - 7, 5, 18, c);
+      it.line(bx - 13, fy + 2, bx + 11, fy - 13, c);
+      it.line(bx - 13, fy + 3, bx + 11, fy - 12, c);
+      it.line(bx - 12, fy + 3, bx + 12, fy - 12, c);
+      it.line(bx + 12, fy - 13, bx + 5,  fy - 13, c);
+      it.line(bx + 12, fy - 12, bx + 6,  fy - 12, c);
+      it.line(bx + 12, fy - 13, bx + 12, fy - 6,  c);
+      it.line(bx + 11, fy - 13, bx + 11, fy - 7,  c);
     } else if (idx == 2) {
-      // 2. Sun: Solid filled solar disc (r = 6) + 8 symmetrical 2px-accented rays (SF Symbol sun.max.fill style)
-      it.filled_circle(bx, by, 6, c);
-      // Cardinal rays (r = 9..13)
-      it.line(bx,     by - 9, bx,     by - 13, c);
-      it.line(bx + 1, by - 9, bx + 1, by - 13, c);
-      it.line(bx,     by + 9, bx,     by + 13, c);
-      it.line(bx + 1, by + 9, bx + 1, by + 13, c);
-      it.line(bx - 9, by,     bx - 13, by,     c);
-      it.line(bx - 9, by + 1, bx - 13, by + 1, c);
-      it.line(bx + 9, by,     bx + 13, by,     c);
-      it.line(bx + 9, by + 1, bx + 13, by + 1, c);
-      // Diagonal rays (r = 9..12)
-      it.line(bx - 6, by - 6, bx - 9, by - 9, c);
-      it.line(bx - 7, by - 6, bx - 9, by - 8, c);
-      it.line(bx + 6, by - 6, bx + 9, by - 9, c);
-      it.line(bx + 7, by - 6, bx + 9, by - 8, c);
-      it.line(bx - 6, by + 6, bx - 9, by + 9, c);
-      it.line(bx - 7, by + 6, bx - 9, by + 8, c);
-      it.line(bx + 6, by + 6, bx + 9, by + 9, c);
-      it.line(bx + 7, by + 6, bx + 9, by + 8, c);
+      // 2. Sun: Enlarged solid filled solar disc (r = 8) + 8 symmetrical 2px rays (r = 11..16)
+      it.filled_circle(bx, by, 8, c);
+      // Cardinal rays (r = 11..16)
+      it.line(bx,     by - 11, bx,     by - 16, c);
+      it.line(bx + 1, by - 11, bx + 1, by - 16, c);
+      it.line(bx,     by + 11, bx,     by + 16, c);
+      it.line(bx + 1, by + 11, bx + 1, by + 16, c);
+      it.line(bx - 11, by,     bx - 16, by,     c);
+      it.line(bx - 11, by + 1, bx - 16, by + 1, c);
+      it.line(bx + 11, by,     bx + 16, by,     c);
+      it.line(bx + 11, by + 1, bx + 16, by + 1, c);
+      // Diagonal rays (r = 11..15)
+      it.line(bx - 8, by - 8, bx - 11, by - 11, c);
+      it.line(bx - 9, by - 8, bx - 11, by - 10, c);
+      it.line(bx + 8, by - 8, bx + 11, by - 11, c);
+      it.line(bx + 9, by - 8, bx + 11, by - 10, c);
+      it.line(bx - 8, by + 8, bx - 11, by + 11, c);
+      it.line(bx - 9, by + 8, bx - 11, by + 10, c);
+      it.line(bx + 8, by + 8, bx + 11, by + 11, c);
+      it.line(bx + 9, by + 8, bx + 11, by + 10, c);
     } else {
-      // 3. Moon: Exact CSG Scanline Filled Crescent (Outer sphere r=10.5 minus tilted shadow sphere r=8.8)
-      //    Eliminates trig rounding jaggies and creates razor-sharp tapered horns matching watchOS moon.fill
-      for (int dy = -11; dy <= 11; dy++) {
-        for (int dx = -11; dx <= 11; dx++) {
+      // 3. Moon: Enlarged CSG Scanline Filled Crescent (Outer r=13.5 minus tilted shadow sphere r=11.2)
+      for (int dy = -14; dy <= 14; dy++) {
+        for (int dx = -14; dx <= 14; dx++) {
           int d_out_x = dx - 2;
           int d_out_y = dy;
           int d_out_sq = d_out_x * d_out_x + d_out_y * d_out_y;
-          if (d_out_sq <= 110) {
-            int d_cut_x = dx - 7;
-            int d_cut_y = dy + 3; // Tilts crescent horns gracefully upward-right
+          if (d_out_sq <= 182) {
+            int d_cut_x = dx - 8;
+            int d_cut_y = dy + 4;
             int d_cut_sq = d_cut_x * d_cut_x + d_cut_y * d_cut_y;
-            if (d_cut_sq > 76) {
+            if (d_cut_sq > 125) {
               it.draw_pixel_at(bx + dx, by + dy, c);
             }
           }
@@ -1451,15 +1455,16 @@ inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
     int by = ICON_Y;
     bool is_act = (i == active_subpage);
     esphome::Color fg_c = is_act ? col_active : col_inactive;
-    // Transparent see-through selection ring around the currently active subpage icon
     if (is_act) {
-      it.circle(bx + 1, by + 1, 21, shadow_c);
-      it.circle(bx, by, 21, col_active);
-      it.circle(bx, by, 20, col_active);
+      it.circle(bx + 1, by + 1, 26, shadow_c);
+      it.circle(bx,     by,     26, col_active);
+      it.circle(bx,     by,     25, col_active);
+    } else {
+      it.circle(bx + 1, by + 1, 26, shadow_c);
+      it.circle(bx,     by,     26, esphome::Color(90, 112, 138));
     }
-    // 1px dark drop-shadow pass for crisp legibility over any weather canvas, then foreground icon
     draw_icon_glyph(i, bx + 1, by + 1, shadow_c);
-    draw_icon_glyph(i, bx, by, fg_c);
+    draw_icon_glyph(i, bx,     by,     fg_c);
   }
 }
 
@@ -1835,12 +1840,6 @@ inline void render_weather_page(
 
     it.line(80, 310, 386, 310, col_dark_gray);
   }
-
-  // Right-flank chevrons (transparent over Subpage 0 sky wallpaper, dark background box on Subpages 1..3)
-  const bool with_bg = (sky_weather_subpage != 0);
-  if (with_bg) it.filled_rectangle(395, 140, 71, 160, col_bg);
-  render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, !with_bg);
-  render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, !with_bg);
 
   render_weather_subpage_icons(it, sky_weather_subpage, theme_primary, col_white);
 }

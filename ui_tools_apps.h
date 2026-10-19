@@ -2345,17 +2345,17 @@ inline void get_home_dock_xs(int count, int cx, int out_xs[4]) {
   if (count == 1) {
     out_xs[0] = cx;
   } else if (count == 2) {
-    out_xs[0] = cx - 46;
-    out_xs[1] = cx + 46;
+    out_xs[0] = cx - 52;
+    out_xs[1] = cx + 52;
   } else if (count == 3) {
-    out_xs[0] = cx - 82;
+    out_xs[0] = cx - 90;
     out_xs[1] = cx;
-    out_xs[2] = cx + 82;
+    out_xs[2] = cx + 90;
   } else if (count >= 4) {
-    out_xs[0] = 122;
-    out_xs[1] = 196;
-    out_xs[2] = 270;
-    out_xs[3] = 344;
+    out_xs[0] = 116;
+    out_xs[1] = 194;
+    out_xs[2] = 272;
+    out_xs[3] = 350;
   }
 }
 
@@ -2428,8 +2428,9 @@ inline void render_home_page(
       compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
                                  moon_phase_raw, moon_cycle, nullptr, nullptr);
     }
+    // Position Sun/Moon at (362, 80) on Home so 4-digit times (e.g. 10:00 at x=136..330) have 10px+ clearance!
     render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                    moon_cycle, 341, 91, true, accel_x, accel_y);
+                                    moon_cycle, 362, 80, true, accel_x, accel_y);
   }
 
   // ZONE 1 (y = 46): Clean Centered Date Header (Tap -> HOME SETTINGS)
@@ -2516,76 +2517,97 @@ inline void render_home_page(
     }
   }
 
-  // ZONE 5 (y = 352): Auto-Centering Quick-Launch Icon Dock (1..4 Transparent Vector Icons)
+  // ZONE 5 (y = 356): Enlarged Auto-Centering Quick-Launch Icon Dock (r = 26 / 52px diameter)
   int dock_apps[4] = {0, 0, 0, 0};
   int dock_count = collect_home_dock_apps(dock_music, dock_remote, dock_tools, dock_games, dock_apps);
   if (dock_count > 0) {
     int dock_xs[4] = {0, 0, 0, 0};
     get_home_dock_xs(dock_count, cx, dock_xs);
-    const int dock_y = 352;
+    const int dock_y = 356;
 
     auto draw_dock_glyph = [&](int app_id, int bx, int by, Color c) {
       if (app_id == 2) {
-        it.filled_circle(bx - 6, by + 6, 4, c);
-        it.filled_circle(bx + 6, by + 4, 4, c);
-        it.line(bx - 2, by + 6, bx - 2, by - 9, c);
-        it.line(bx - 1, by + 6, bx - 1, by - 9, c);
-        it.line(bx + 10, by + 4, bx + 10, by - 11, c);
-        it.line(bx + 9,  by + 4, bx + 9,  by - 11, c);
-        it.line(bx - 2, by - 9, bx + 10, by - 11, c);
-        it.line(bx - 2, by - 8, bx + 10, by - 10, c);
-        it.line(bx - 2, by - 7, bx + 10, by - 9,  c);
+        // Music: Enlarged Beamed Eighth Notes
+        it.filled_circle(bx - 8, by + 8, 5, c);
+        it.filled_circle(bx + 7, by + 5, 5, c);
+        it.filled_rectangle(bx - 4, by - 11, 3, 19, c);
+        it.filled_rectangle(bx + 10, by - 14, 3, 19, c);
+        it.line(bx - 4, by - 11, bx + 12, by - 14, c);
+        it.line(bx - 4, by - 10, bx + 12, by - 13, c);
+        it.line(bx - 4, by - 9,  bx + 12, by - 12, c);
+        it.line(bx - 4, by - 8,  bx + 12, by - 11, c);
       } else if (app_id == 7) {
-        it.circle(bx, by, 12, c);
-        it.circle(bx, by, 11, c);
-        it.filled_circle(bx, by, 3, c);
-        it.filled_triangle(bx, by - 9, bx - 3, by - 6, bx + 3, by - 6, c);
-        it.filled_triangle(bx, by + 9, bx - 3, by + 6, bx + 3, by + 6, c);
-        it.filled_triangle(bx - 9, by, bx - 6, by - 3, bx - 6, by + 3, c);
-        it.filled_triangle(bx + 9, by, bx + 6, by - 3, bx + 6, by + 3, c);
+        // Remote: Enlarged Concentric D-Pad Ring + 4 Directional Arrows + Center Dot
+        it.circle(bx, by, 15, c);
+        it.circle(bx, by, 14, c);
+        it.filled_circle(bx, by, 4, c);
+        it.filled_triangle(bx, by - 12, bx - 4, by - 7, bx + 4, by - 7, c);
+        it.filled_triangle(bx, by + 12, bx - 4, by + 7, bx + 4, by + 7, c);
+        it.filled_triangle(bx - 12, by, bx - 7, by - 4, bx - 7, by + 4, c);
+        it.filled_triangle(bx + 12, by, bx + 7, by - 4, bx + 7, by + 4, c);
       } else if (app_id == 8) {
-        it.filled_rectangle(bx - 10, by - 10, 8, 8, c);
-        it.filled_rectangle(bx + 2,  by - 10, 8, 8, c);
-        it.filled_rectangle(bx - 10, by + 2,  8, 8, c);
-        it.filled_rectangle(bx + 2,  by + 2,  8, 8, c);
+        // Tools: Enlarged 2x2 Rounded Bento Grid (10x10 squares)
+        it.filled_rectangle(bx - 12, by - 12, 10, 10, c);
+        it.filled_rectangle(bx + 2,  by - 12, 10, 10, c);
+        it.filled_rectangle(bx - 12, by + 2,  10, 10, c);
+        it.filled_rectangle(bx + 2,  by + 2,  10, 10, c);
       } else if (app_id == 3) {
-        it.rectangle(bx - 12, by - 7, 25, 15, c);
-        it.rectangle(bx - 11, by - 6, 23, 13, c);
-        it.filled_rectangle(bx - 8, by - 1, 7, 3, c);
-        it.filled_rectangle(bx - 6, by - 3, 3, 7, c);
-        it.filled_circle(bx + 4, by + 2, 2, c);
-        it.filled_circle(bx + 8, by - 2, 2, c);
+        // Games: Enlarged Arcade Gamepad
+        it.rectangle(bx - 15, by - 9, 31, 19, c);
+        it.rectangle(bx - 14, by - 8, 29, 17, c);
+        it.filled_rectangle(bx - 10, by - 1, 9, 3, c);
+        it.filled_rectangle(bx - 7,  by - 4, 3, 9, c);
+        it.filled_circle(bx + 5,  by + 3, 2, c);
+        it.filled_circle(bx + 10, by - 2, 2, c);
       }
     };
 
     for (int i = 0; i < dock_count; i++) {
       int bx = dock_xs[i];
-      it.circle(bx + 1, dock_y + 1, 20, col_black);
-      it.circle(bx,     dock_y,     20, Color(120, 145, 175));
+      it.circle(bx + 1, dock_y + 1, 26, col_black);
+      it.circle(bx,     dock_y,     26, Color(95, 118, 148));
       draw_dock_glyph(dock_apps[i], bx + 1, dock_y + 1, col_black);
       draw_dock_glyph(dock_apps[i], bx,     dock_y,     col_white);
     }
   }
 
-  // ZONE 6 (y = 424): Bottom Chin Battery & Charging Status (Tap -> Opens System Hub!)
-  if (!std::isnan(batt)) {
-    char batt_str[16];
-    snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
-    int text_x = cx + 8;
-    it.print(text_x + 1, 425, font_small, col_black, TextAlign::CENTER, batt_str);
-    it.print(text_x,     424, font_small, col_white, TextAlign::CENTER, batt_str);
-    int bx = text_x - (batt >= 100.0f ? 36 : 28);
-    int by = 424;
-    if (is_charging) {
-      it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, col_gold);
-      it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 9, col_gold);
-    } else {
-      it.filled_rectangle(bx - 2, by - 9, 4, 2, col_green);
-      it.rectangle(bx - 5, by - 7, 10, 16, col_green);
-      int fill_h = static_cast<int>(std::max(1.0f, std::min(12.0f, (batt / 100.0f) * 12.0f)));
-      it.filled_rectangle(bx - 3, (by + 7) - fill_h, 6, fill_h, col_green);
-    }
+  // ZONE 6 (y = 424): Bottom Chin Battery + Compact Settings Gear Icon (Tap -> Opens System Hub!)
+  const int chin_y = 424;
+  int batt_val = std::isnan(batt) ? 100 : static_cast<int>(roundf(batt));
+  char batt_str[16];
+  snprintf(batt_str, sizeof(batt_str), "%d%%", batt_val);
+
+  // Offset battery slightly left of cx so [Battery Icon + XX%  •  Gear] is optically centered around cx = 233
+  int text_x = cx - 4;
+  it.print(text_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER, batt_str);
+  it.print(text_x,     chin_y,     font_small, col_white, TextAlign::CENTER, batt_str);
+
+  int b_icon_x = text_x - (batt_val >= 100 ? 34 : 27);
+  if (is_charging) {
+    it.filled_triangle(b_icon_x + 3, chin_y - 9, b_icon_x - 3, chin_y, b_icon_x + 1, chin_y, col_gold);
+    it.filled_triangle(b_icon_x - 1, chin_y, b_icon_x + 2, chin_y, b_icon_x - 2, chin_y + 9, col_gold);
+  } else {
+    it.filled_rectangle(b_icon_x - 2, chin_y - 9, 4, 2, col_green);
+    it.rectangle(b_icon_x - 5, chin_y - 7, 10, 16, col_green);
+    int fill_h = static_cast<int>(std::max(1.0f, std::min(12.0f, (static_cast<float>(batt_val) / 100.0f) * 12.0f)));
+    it.filled_rectangle(b_icon_x - 3, (chin_y + 7) - fill_h, 6, fill_h, col_green);
   }
+
+  // Compact Settings Gear Icon to the right of Battery % (at gx = text_x + 36, gy = 424, r_out = 8)
+  int gear_x = text_x + (batt_val >= 100 ? 38 : 34);
+  int gear_y = chin_y;
+  auto draw_gear = [&](int gx, int gy, Color c) {
+    // 8 radial gear teeth (cardinal + 45-degree diagonals)
+    it.line(gx, gy - 8, gx, gy + 8, c);
+    it.line(gx - 8, gy, gx + 8, gy, c);
+    it.line(gx - 6, gy - 6, gx + 6, gy + 6, c);
+    it.line(gx - 6, gy + 6, gx + 6, gy - 6, c);
+    it.filled_circle(gx, gy, 6, c);
+  };
+  draw_gear(gear_x + 1, gear_y + 1, col_black);
+  draw_gear(gear_x,     gear_y,     theme_secondary);
+  it.filled_circle(gear_x, gear_y, 3, col_black);
+  it.circle(gear_x, gear_y, 6, col_white);
 }
 // =============================================================================
 // SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (MULTI-DEVICE & MULTI-PROTOCOL)
