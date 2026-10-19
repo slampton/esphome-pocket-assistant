@@ -212,8 +212,12 @@ inline void render_lunar_disc(DisplayT &it, int moon_cx, int moon_cy, int moon_r
   const float phase_cos = fast_cos(static_cast<float>(cycle * 2.0 * 3.1415926535));
   const float term_sign = (cycle <= 0.5) ? 1.0f : -1.0f;
 
+  const int moon_r_sq = moon_r * moon_r;
+  int w_line = 0;
   for (int my = -moon_r; my <= moon_r; my++) {
-    int w_line = static_cast<int>(sqrtf(static_cast<float>(moon_r * moon_r - my * my)));
+    int my_sq = my * my;
+    while ((w_line + 1) * (w_line + 1) + my_sq <= moon_r_sq) w_line++;
+    while (w_line * w_line + my_sq > moon_r_sq) w_line--;
     float x_term = term_sign * static_cast<float>(w_line) * phase_cos;
 
     int ty_139 = (moon_r == 69) ? (my + 69) : ((my + moon_r) * 138 / (2 * moon_r));

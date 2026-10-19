@@ -1,68 +1,10 @@
-# Core Subsystem: Audio & Voice Assistant
+# Core Subsystem: Audio & Voice Assistant (Hardware I2S & Codecs defined in boards/*.yaml HAL)
 
-i2s_audio:
-  - id: i2s_input_bus
-    i2s_lrclk_pin:
-      number: GPIO45
-      allow_other_uses: true
-      ignore_strapping_warning: true
-    i2s_bclk_pin:
-      number: GPIO9
-      allow_other_uses: true
-    i2s_mclk_pin:
-      number: GPIO16
-      allow_other_uses: true
-
-  - id: i2s_output_bus
-    i2s_lrclk_pin:
-      number: GPIO45
-      allow_other_uses: true
-      ignore_strapping_warning: true
-    i2s_bclk_pin:
-      number: GPIO9
-      allow_other_uses: true
-    i2s_mclk_pin:
-      number: GPIO16
-      allow_other_uses: true
-
-
-audio_adc:
-  - platform: es7210
-    id: es7210_adc
-    i2c_id: bus_internal
-    address: 0x40
-    bits_per_sample: 16bit
-    sample_rate: 16000
-    mic_gain: 37.5dB
-
-
-microphone:
-  - platform: i2s_audio
-    id: pocket_mic
-    adc_type: external
-    i2s_audio_id: i2s_input_bus
-    i2s_din_pin: GPIO10
-    sample_rate: 16000
-    bits_per_sample: 16bit
-    channel: left
-    pdm: false
-
-
-# ESPHome 2026.10.0b4+ microFLAC v0.3.0 decoder with 80MHz Octal PSRAM frame buffers
+# ESPHome 2026.10.0+ microFLAC v0.3.0 decoder with 80MHz Octal PSRAM frame buffers
 audio:
   codecs:
     flac:
       buffer_memory: psram
-
-
-audio_dac:
-  - platform: es8311
-    id: es8311_dac
-    i2c_id: bus_internal
-    address: 0x18
-    bits_per_sample: 16bit
-    sample_rate: 16000
-    use_mclk: true
 
 
 speaker:
@@ -550,20 +492,14 @@ script:
           then:
             - micro_wake_word.stop:
             - delay: 20ms
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
-          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
-          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+      - script.execute: hal_route_i2s_to_spk
       - switch.turn_on: speaker_enable
 
   - id: route_i2s_to_mic
     mode: restart
     then:
       - audio_dac.mute_on: es8311_dac
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
-          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
-          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
+      - script.execute: hal_route_i2s_to_mic
       - switch.turn_off: speaker_enable
 
   - id: apply_wake_word_sensitivities
