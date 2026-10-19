@@ -1534,21 +1534,40 @@ inline void render_weather_page(
     it.print(cx + 1, 200, font_date, col_black, TextAlign::CENTER, cond_title.c_str());
     it.print(cx,     199, font_date, cond_color, TextAlign::CENTER, cond_title.c_str());
 
-    // Single-Line Icon + Value Telemetry at y = 268 (Brought inward & slightly higher)
+    // Single-Line Icon + Value Telemetry at y = 268 (Matched 2px-Stroke Outline Iconography)
     const int tele_y = 268;
-    Color icon_c = is_night ? theme_secondary : Color(165, 210, 245);
+    Color icon_c = is_night ? Color(200, 220, 242) : Color(185, 225, 255);
 
-    // A) Left: Classic Water Droplet Icon + Humidity % (shifted inward to x = 154)
-    auto draw_droplet = [&](int dx, int dy, Color c) {
-      it.filled_triangle(dx, dy - 11, dx - 7, dy + 1, dx + 7, dy + 1, c);
-      it.filled_circle(dx, dy + 3, 7, c);
+    // A) Left: 2px-Stroke Outline Water Droplet Icon (matches Wind icon 2px line weight & shading!)
+    auto draw_droplet_outline = [&](int dx, int dy, Color c) {
+      // 1. Upper 2px-thick tapered droplet walls from apex (dx, dy - 11) to lower bowl tangents (dx +/- 7, dy + 1)
+      it.line(dx,     dy - 11, dx - 7, dy + 1, c);
+      it.line(dx + 1, dy - 10, dx - 6, dy + 1, c);
+      it.line(dx,     dy - 11, dx + 7, dy + 1, c);
+      it.line(dx - 1, dy - 10, dx + 6, dy + 1, c);
+      // 2. Lower 2px-thick semicircular droplet bowl centered at (dx, dy + 3, r = 7 & r = 6)
+      //    Sweep CW from 4 o'clock (idx 18) -> 6 o'clock (30) -> 8 o'clock (42)
+      for (int i = 17; i < 43; i += 2) {
+        int i1 = std::min(43, i + 2);
+        int x0_o = dx + static_cast<int>(roundf(7.2f * DIAL_SIN[i]));
+        int y0_o = (dy + 3) - static_cast<int>(roundf(7.2f * DIAL_COS[i]));
+        int x1_o = dx + static_cast<int>(roundf(7.2f * DIAL_SIN[i1]));
+        int y1_o = (dy + 3) - static_cast<int>(roundf(7.2f * DIAL_COS[i1]));
+        it.line(x0_o, y0_o, x1_o, y1_o, c);
+
+        int x0_i = dx + static_cast<int>(roundf(6.0f * DIAL_SIN[i]));
+        int y0_i = (dy + 3) - static_cast<int>(roundf(6.0f * DIAL_COS[i]));
+        int x1_i = dx + static_cast<int>(roundf(6.0f * DIAL_SIN[i1]));
+        int y1_i = (dy + 3) - static_cast<int>(roundf(6.0f * DIAL_COS[i1]));
+        it.line(x0_i, y0_i, x1_i, y1_i, c);
+      }
+      // 3. Subtle inner-left 1px curved reflection tick inside the hollow droplet
+      it.line(dx - 3, dy + 2, dx - 3, dy + 5, c);
+      it.draw_pixel_at(dx - 2, dy + 6, c);
     };
     int drop_x = 154;
-    draw_droplet(drop_x + 1, tele_y + 1, col_black);
-    draw_droplet(drop_x,     tele_y,     icon_c);
-    it.draw_pixel_at(drop_x - 3, tele_y + 2, col_white);
-    it.draw_pixel_at(drop_x - 3, tele_y + 3, col_white);
-    it.draw_pixel_at(drop_x - 2, tele_y + 4, col_white);
+    draw_droplet_outline(drop_x + 1, tele_y + 1, col_black);
+    draw_droplet_outline(drop_x,     tele_y,     icon_c);
 
     char hum_str[16];
     if (!std::isnan(weather_humidity)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", weather_humidity);
