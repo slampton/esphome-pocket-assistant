@@ -2253,6 +2253,351 @@ inline void render_clock_page(
 }
 
 // =============================================================================
+// SECTION 16B: INTERACTIVE HOME PAGE ENGINE (PAGE 1 — 20 FPS WEATHER + SMART STACK + DOCK)
+// =============================================================================
+
+struct HomeActivityItem {
+  int kind; // 1 = Timer, 2 = Stopwatch, 3 = Music, 4 = Alarm
+  std::string label;
+};
+
+inline int collect_home_activities(
+    uint32_t now_ms, bool is_24h_format,
+    bool stopwatch_running, uint32_t stopwatch_start_time, uint32_t stopwatch_elapsed_ms,
+    bool music_playing, const std::string &music_title, const std::string &music_artist,
+    uint32_t alarm_snooze_until,
+    int alarm1_h, int alarm1_m, bool alarm1_en,
+    int alarm2_h, int alarm2_m, bool alarm2_en,
+    int alarm3_h, int alarm3_m, bool alarm3_en,
+    HomeActivityItem out_items[4]) {
+  int count = 0;
+
+  // 1. Active or Paused Countdown Timer (from 3-slot pool)
+  auto *t_slots = timer_slots();
+  int best_t = -1;
+  for (int i = 0; i < 3; i++) {
+    if (t_slots[i].running) {
+      if (best_t < 0 || t_slots[i].remaining_sec < t_slots[best_t].remaining_sec) best_t = i;
+    }
+  }
+  if (best_t < 0) {
+    for (int i = 0; i < 3; i++) {
+      if (t_slots[i].paused) { best_t = i; break; }
+    }
+  }
+  if (best_t >= 0) {
+    const auto &s = t_slots[best_t];
+    std::string t_name = s.name.empty() ? "Timer" : s.name;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s  •  %02d:%02d%s",
+             t_name.c_str(), s.remaining_sec / 60, s.remaining_sec % 60,
+             s.paused ? " (Paused)" : "");
+    out_items[count++] = {1, std::string(buf)};
+  }
+
+  // 2. Active or Paused Stopwatch
+  uint32_t sw_ms = stopwatch_running ? (now_ms - stopwatch_start_time) : stopwatch_elapsed_ms;
+  if (stopwatch_running || sw_ms > 0) {
+    int mins = (sw_ms / 60000U) % 60U;
+    int secs = (sw_ms / 1000U) % 60U;
+    int tenths = (sw_ms / 100U) % 10U;
+    char buf[48];
+    snprintf(buf, sizeof(buf), "Stopwatch  •  %02d:%02d.%d", mins, secs, tenths);
+    out_items[count++] = {2, std::string(buf)};
+  }
+
+  // 3. Now Playing Music
+  if (music_playing) {
+    std::string m_txt = music_title;
+    if (m_txt.empty() || m_txt == "None" || m_txt == "Idle") m_txt = "Now Playing";
+    else if (!music_artist.empty() && music_artist != "None") {
+      m_txt = music_artist + " • " + m_txt;
+    }
+    out_items[count++] = {3, m_txt};
+  }
+
+  // 4. Armed or Snoozed Alarm
+  if (alarm_snooze_until > 0) {
+    out_items[count++] = {4, "Alarm  •  Snoozed"};
+  } else if (alarm1_en || alarm2_en || alarm3_en) {
+    int ah = alarm1_en ? alarm1_h : (alarm2_en ? alarm2_h : alarm3_h);
+    int am = alarm1_en ? alarm1_m : (alarm2_en ? alarm2_m : alarm3_m);
+    char t_buf[16], ap_buf[8] = "";
+    format_time_hhmm(ah, am, is_24h_format, t_buf, sizeof(t_buf), ap_buf);
+    char buf[48];
+    if (!is_24h_format && ap_buf[0] != '\0') {
+      snprintf(buf, sizeof(buf), "Alarm  •  %s %s", t_buf, ap_buf);
+    } else {
+      snprintf(buf, sizeof(buf), "Alarm  •  %s", t_buf);
+    }
+    out_items[count++] = {4, std::string(buf)};
+  }
+
+  return count;
+}
+
+inline int collect_home_dock_apps(bool show_music, bool show_remote, bool show_tools, bool show_games,
+                                  int out_apps[4]) {
+  int n = 0;
+  if (show_music)  out_apps[n++] = 2; // Music
+  if (show_remote) out_apps[n++] = 7; // Remote
+  if (show_tools)  out_apps[n++] = 8; // Tools
+  if (show_games)  out_apps[n++] = 3; // Games
+  return n;
+}
+
+inline void get_home_dock_xs(int count, int cx, int out_xs[4]) {
+  if (count == 1) {
+    out_xs[0] = cx;
+  } else if (count == 2) {
+    out_xs[0] = cx - 46;
+    out_xs[1] = cx + 46;
+  } else if (count == 3) {
+    out_xs[0] = cx - 82;
+    out_xs[1] = cx;
+    out_xs[2] = cx + 82;
+  } else if (count >= 4) {
+    out_xs[0] = 122;
+    out_xs[1] = 196;
+    out_xs[2] = 270;
+    out_xs[3] = 344;
+  }
+}
+
+template <typename DisplayT, typename TimeT, typename StrT, typename FontTimeT, typename FontDateT, typename FontSmallT>
+inline void render_home_page(
+    DisplayT &it, int cx, int cy, uint32_t now_ms, int home_subpage,
+    int &home_activity_idx,
+    const TimeT &now, bool is_24h_format,
+    float batt, bool is_charging,
+    bool show_weather_bg,
+    bool dock_music, bool dock_remote, bool dock_tools, bool dock_games,
+    const StrT &weather_sim_opt, float weather_temp,
+    const std::string &weather_cond_raw, const std::string &sun_state,
+    const std::string &moon_phase_raw, float accel_x, float accel_y,
+    bool stopwatch_running, uint32_t stopwatch_start_time, uint32_t stopwatch_elapsed_ms,
+    bool music_playing, const std::string &music_title, const std::string &music_artist,
+    uint32_t alarm_snooze_until,
+    int alarm1_h, int alarm1_m, bool alarm1_en,
+    int alarm2_h, int alarm2_m, bool alarm2_en,
+    int alarm3_h, int alarm3_m, bool alarm3_en,
+    FontTimeT *font_time, FontDateT *font_date, FontSmallT *font_small,
+    esphome::Color theme_primary, esphome::Color theme_secondary,
+    esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
+    esphome::Color col_slate, esphome::Color col_dark_gray, esphome::Color col_gold) {
+  using esphome::Color;
+  using esphome::display::TextAlign;
+
+  if (home_subpage == 1) {
+    // -------------------------------------------------------------------------
+    // SUBPAGE 1: HOME SETTINGS (5-Slot On-Device Customization Menu)
+    // -------------------------------------------------------------------------
+    render_menu_header(it, cx, 50, "HOME SETTINGS", font_date, theme_primary);
+    char buf[48];
+    snprintf(buf, sizeof(buf), "Weather Sky: %s", show_weather_bg ? "On" : "Off");
+    render_pill_button(it, 110, 356, 104, 18, show_weather_bg ? theme_primary : theme_secondary,
+                       col_dark_gray, buf, col_white, font_small);
+
+    snprintf(buf, sizeof(buf), "Music Icon: %s", dock_music ? "Shown" : "Hidden");
+    render_pill_button(it, 110, 356, 162, 18, dock_music ? theme_secondary : col_slate,
+                       col_dark_gray, buf, dock_music ? col_white : col_slate, font_small);
+
+    snprintf(buf, sizeof(buf), "Remote Icon: %s", dock_remote ? "Shown" : "Hidden");
+    render_pill_button(it, 110, 356, 220, 18, dock_remote ? theme_secondary : col_slate,
+                       col_dark_gray, buf, dock_remote ? col_white : col_slate, font_small);
+
+    snprintf(buf, sizeof(buf), "Tools Icon: %s", dock_tools ? "Shown" : "Hidden");
+    render_pill_button(it, 110, 356, 278, 18, dock_tools ? theme_secondary : col_slate,
+                       col_dark_gray, buf, dock_tools ? col_white : col_slate, font_small);
+
+    snprintf(buf, sizeof(buf), "Games Icon: %s", dock_games ? "Shown" : "Hidden");
+    render_pill_button(it, 110, 356, 336, 18, dock_games ? theme_secondary : col_slate,
+                       col_dark_gray, buf, dock_games ? col_white : col_slate, font_small);
+
+    render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
+    return;
+  }
+
+  // ---------------------------------------------------------------------------
+  // SUBPAGE 0: MAIN INTERACTIVE HOME DASHBOARD
+  // ---------------------------------------------------------------------------
+  std::string cond = weather_cond_raw;
+  bool is_night = (sun_state == "below_horizon" || cond == "clear-night" ||
+                   cond == "clearnight" || (cond.find("night") != std::string::npos));
+  apply_weather_sim_override(weather_sim_opt, cond, is_night);
+
+  if (show_weather_bg) {
+    double moon_cycle = 0.5;
+    if (is_night) {
+      compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
+                                 moon_phase_raw, moon_cycle, nullptr, nullptr);
+    }
+    render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
+                                    moon_cycle, 341, 91, true, accel_x, accel_y);
+  }
+
+  // ZONE 1 (y = 46): Interactive Top Date + Battery Status Bar (Tap -> HOME SETTINGS)
+  char top_bar[48];
+  int b_pct = std::isnan(batt) ? 100 : static_cast<int>(roundf(batt));
+  if (now.is_valid()) {
+    char date_part[24];
+    now.strftime(date_part, sizeof(date_part), "%a, %b %d");
+    snprintf(top_bar, sizeof(top_bar), "%s  •  %d%%", date_part, b_pct);
+  } else {
+    snprintf(top_bar, sizeof(top_bar), "Pocket Assistant  •  %d%%", b_pct);
+  }
+  it.print(cx + 1, 47, font_small, col_black, TextAlign::CENTER, top_bar);
+  it.print(cx,     46, font_small, col_white, TextAlign::CENTER, top_bar);
+  if (is_charging) {
+    int tw = 0, x_off = 0, base = 0, th = 0;
+    font_small->measure(top_bar, &tw, &x_off, &base, &th);
+    int bx = cx + (tw / 2) + 10;
+    int by = 46;
+    it.filled_triangle(bx + 3, by - 8, bx - 3, by, bx + 1, by, col_gold);
+    it.filled_triangle(bx - 1, by, bx + 2, by, bx - 2, by + 8, col_gold);
+  }
+
+  // ZONE 2 (y = 120): Hero Digital Clock (77pt Roboto, Non-Clickable)
+  char time_str[16] = "--:--";
+  if (now.is_valid()) {
+    format_time_hhmm(now.hour, now.minute, is_24h_format, time_str, sizeof(time_str));
+  }
+  it.print(cx + 1, 121, font_time, col_black, TextAlign::CENTER, time_str);
+  it.print(cx,     120, font_time, col_white, TextAlign::CENTER, time_str);
+
+  // ZONE 3 (y = 194): Interactive Weather Summary ("72°  •  PARTLY CLOUDY" -> Opens Sky & Weather)
+  std::string cond_title = format_weather_title(cond);
+  char w_line[64];
+  if (!std::isnan(weather_temp)) {
+    snprintf(w_line, sizeof(w_line), "%.0f°  •  %s", weather_temp, cond_title.c_str());
+  } else {
+    snprintf(w_line, sizeof(w_line), "--°  •  %s", cond_title.c_str());
+  }
+  Color cond_col = (!show_weather_bg || is_night) ? theme_secondary : Color(255, 225, 110);
+  it.print(cx + 1, 195, font_small, col_black, TextAlign::CENTER, w_line);
+  it.print(cx,     194, font_small, cond_col,  TextAlign::CENTER, w_line);
+
+  // ZONE 4 (y = 262): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm)
+  HomeActivityItem act_items[4];
+  int act_count = collect_home_activities(
+      now_ms, is_24h_format,
+      stopwatch_running, stopwatch_start_time, stopwatch_elapsed_ms,
+      music_playing, music_title, music_artist,
+      alarm_snooze_until,
+      alarm1_h, alarm1_m, alarm1_en,
+      alarm2_h, alarm2_m, alarm2_en,
+      alarm3_h, alarm3_m, alarm3_en,
+      act_items);
+
+  // Auto-snap to newly added high-priority activity when active count increases
+  static int prev_act_count = 0;
+  if (act_count > prev_act_count) {
+    home_activity_idx = 0;
+  }
+  prev_act_count = act_count;
+
+  if (act_count > 0) {
+    if (home_activity_idx < 0 || home_activity_idx >= act_count) {
+      home_activity_idx = 0;
+    }
+    const auto &cur_act = act_items[home_activity_idx];
+    const int pill_y = 262;
+    render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
+                       nullptr, col_white, font_small);
+
+    // Draw compact activity glyph at x = 112
+    int gx = 112, gy = pill_y;
+    if (cur_act.kind == 1) {
+      // Timer Hourglass
+      it.line(gx - 5, gy - 7, gx + 5, gy - 7, theme_secondary);
+      it.line(gx - 5, gy + 7, gx + 5, gy + 7, theme_secondary);
+      it.line(gx - 4, gy - 6, gx + 4, gy + 6, col_white);
+      it.line(gx + 4, gy - 6, gx - 4, gy + 6, col_white);
+      it.filled_triangle(gx - 3, gy + 6, gx + 3, gy + 6, gx, gy + 2, col_gold);
+    } else if (cur_act.kind == 2) {
+      // Stopwatch Chronometer
+      it.circle(gx, gy + 1, 7, col_white);
+      it.line(gx - 2, gy - 8, gx + 2, gy - 8, theme_secondary);
+      it.line(gx, gy + 1, gx + 4, gy - 3, col_gold);
+    } else if (cur_act.kind == 3) {
+      // Music Play Triangle
+      it.filled_triangle(gx - 4, gy - 6, gx - 4, gy + 6, gx + 6, gy, theme_primary);
+    } else {
+      // Alarm Bell
+      it.filled_triangle(gx, gy - 7, gx - 6, gy + 4, gx + 6, gy + 4, col_gold);
+      it.filled_rectangle(gx - 7, gy + 4, 15, 2, col_white);
+      it.filled_circle(gx, gy + 7, 2, col_gold);
+    }
+
+    std::string fit_act = fit_text_to_width_font(cur_act.label, 226, font_small);
+    it.print(128, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
+
+    // Right-Flank Chevrons (x = 415) only when 2+ live activities are active
+    if (act_count > 1) {
+      render_scroll_chevron(it, 415, 162, true,  theme_secondary, col_black, true);
+      render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, true);
+    }
+  }
+
+  // ZONE 5 (y = 352): Auto-Centering Quick-Launch Icon Dock (1..4 Transparent Vector Icons)
+  int dock_apps[4] = {0, 0, 0, 0};
+  int dock_count = collect_home_dock_apps(dock_music, dock_remote, dock_tools, dock_games, dock_apps);
+  if (dock_count > 0) {
+    int dock_xs[4] = {0, 0, 0, 0};
+    get_home_dock_xs(dock_count, cx, dock_xs);
+    const int dock_y = 352;
+
+    auto draw_dock_glyph = [&](int app_id, int bx, int by, Color c) {
+      if (app_id == 2) {
+        // Music: Beamed Eighth Notes (SF Symbol music.note)
+        it.filled_circle(bx - 6, by + 6, 4, c);
+        it.filled_circle(bx + 6, by + 4, 4, c);
+        it.line(bx - 2, by + 6, bx - 2, by - 9, c);
+        it.line(bx - 1, by + 6, bx - 1, by - 9, c);
+        it.line(bx + 10, by + 4, bx + 10, by - 11, c);
+        it.line(bx + 9,  by + 4, bx + 9,  by - 11, c);
+        it.line(bx - 2, by - 9, bx + 10, by - 11, c);
+        it.line(bx - 2, by - 8, bx + 10, by - 10, c);
+        it.line(bx - 2, by - 7, bx + 10, by - 9,  c);
+      } else if (app_id == 7) {
+        // Remote: Concentric D-Pad Ring + 4 Directional Triangles + Center Dot
+        it.circle(bx, by, 12, c);
+        it.circle(bx, by, 11, c);
+        it.filled_circle(bx, by, 3, c);
+        it.filled_triangle(bx, by - 9, bx - 3, by - 6, bx + 3, by - 6, c);
+        it.filled_triangle(bx, by + 9, bx - 3, by + 6, bx + 3, by + 6, c);
+        it.filled_triangle(bx - 9, by, bx - 6, by - 3, bx - 6, by + 3, c);
+        it.filled_triangle(bx + 9, by, bx + 6, by - 3, bx + 6, by + 3, c);
+      } else if (app_id == 8) {
+        // Tools: 2x2 Rounded Bento Grid (SF Symbol square.grid.2x2.fill)
+        it.filled_rectangle(bx - 10, by - 10, 8, 8, c);
+        it.filled_rectangle(bx + 2,  by - 10, 8, 8, c);
+        it.filled_rectangle(bx - 10, by + 2,  8, 8, c);
+        it.filled_rectangle(bx + 2,  by + 2,  8, 8, c);
+      } else if (app_id == 3) {
+        // Games: Classic Arcade D-Pad + 2 Action Buttons (SF Symbol gamecontroller.fill)
+        it.rectangle(bx - 12, by - 7, 25, 15, c);
+        it.rectangle(bx - 11, by - 6, 23, 13, c);
+        // Left D-pad cross
+        it.filled_rectangle(bx - 8, by - 1, 7, 3, c);
+        it.filled_rectangle(bx - 6, by - 3, 3, 7, c);
+        // Right action buttons
+        it.filled_circle(bx + 4, by + 2, 2, c);
+        it.filled_circle(bx + 8, by - 2, 2, c);
+      }
+    };
+
+    for (int i = 0; i < dock_count; i++) {
+      int bx = dock_xs[i];
+      it.circle(bx + 1, dock_y + 1, 20, col_black);
+      it.circle(bx,     dock_y,     20, Color(120, 145, 175));
+      draw_dock_glyph(dock_apps[i], bx + 1, dock_y + 1, col_black);
+      draw_dock_glyph(dock_apps[i], bx,     dock_y,     col_white);
+    }
+  }
+}
+
+// =============================================================================
 // SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (MULTI-DEVICE & MULTI-PROTOCOL)
 // =============================================================================
 
@@ -2648,7 +2993,7 @@ inline void render_system_page(
     const std::string &podcast_sort_opt,
     // App Deck values
     const std::string &default_app_opt,
-    bool show_clock, bool show_music, bool show_remote,
+    bool show_home, bool show_clock, bool show_music, bool show_remote,
     bool show_weather, bool show_games, bool show_tools,
     // Voice & Per-Model Wake Word Sensitivity values
     const std::string &va_ww_mode_opt, const std::string &va_ww_active_opt,
@@ -2995,24 +3340,25 @@ inline void render_system_page(
 
   } else if (system_menu_mode == 10) {
     // -------------------------------------------------------------------------
-    // VIEW 10: APP DECK SUBMENU (8 Items across 2 Pages, Fixed 174px 3-Row Scroll)
+    // VIEW 10: APP DECK SUBMENU (9 Items across 2 Pages, 232px 4-Row Scroll)
     // -------------------------------------------------------------------------
-    int current_offset = compute_scroll_offset(deck_menu_page, SHARED_SCROLL_EASE_174, 174);
-    char deck_labels[8][36];
+    int current_offset = compute_scroll_offset(deck_menu_page, SHARED_SCROLL_EASE_232, 232);
+    char deck_labels[9][36];
     snprintf(deck_labels[0], sizeof(deck_labels[0]), "Default: %s",
-             default_app_opt.empty() ? "Clock" : default_app_opt.c_str());
-    snprintf(deck_labels[1], sizeof(deck_labels[1]), "Clock: %s", show_clock ? "Visible" : "Hidden");
-    snprintf(deck_labels[2], sizeof(deck_labels[2]), "Music: %s", show_music ? "Visible" : "Hidden");
-    snprintf(deck_labels[3], sizeof(deck_labels[3]), "Remote: %s", show_remote ? "Visible" : "Hidden");
-    snprintf(deck_labels[4], sizeof(deck_labels[4]), "Weather: %s", show_weather ? "Visible" : "Hidden");
-    snprintf(deck_labels[5], sizeof(deck_labels[5]), "Games: %s", show_games ? "Visible" : "Hidden");
-    snprintf(deck_labels[6], sizeof(deck_labels[6]), "Tools: %s", show_tools ? "Visible" : "Hidden");
-    snprintf(deck_labels[7], sizeof(deck_labels[7]), "System: Always Visible");
+             default_app_opt.empty() ? "Home" : default_app_opt.c_str());
+    snprintf(deck_labels[1], sizeof(deck_labels[1]), "Home: %s", show_home ? "Visible" : "Hidden");
+    snprintf(deck_labels[2], sizeof(deck_labels[2]), "Clock: %s", show_clock ? "Visible" : "Hidden");
+    snprintf(deck_labels[3], sizeof(deck_labels[3]), "Music: %s", show_music ? "Visible" : "Hidden");
+    snprintf(deck_labels[4], sizeof(deck_labels[4]), "Remote: %s", show_remote ? "Visible" : "Hidden");
+    snprintf(deck_labels[5], sizeof(deck_labels[5]), "Weather: %s", show_weather ? "Visible" : "Hidden");
+    snprintf(deck_labels[6], sizeof(deck_labels[6]), "Games: %s", show_games ? "Visible" : "Hidden");
+    snprintf(deck_labels[7], sizeof(deck_labels[7]), "Tools: %s", show_tools ? "Visible" : "Hidden");
+    snprintf(deck_labels[8], sizeof(deck_labels[8]), "System: Always Visible");
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
       int y = 104 + i * 58 - current_offset;
       if (y >= 50 && y <= 390) {
-        if (i == 7) {
+        if (i == 8) {
           draw_card_y(y, deck_labels[i], col_dark_gray, col_slate, col_bg);
         } else {
           draw_card_y(y, deck_labels[i], theme_secondary, col_white, col_dark_gray);

@@ -290,11 +290,23 @@ globals:
   - id: gui_page
     type: int
     restore_value: no
+    initial_value: '1'
+  - id: home_subpage
+    type: int
+    restore_value: no
     initial_value: '0'
+  - id: home_activity_idx
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: home_drilldown_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: active_deck_size
     type: int
     restore_value: no
-    initial_value: '7'
+    initial_value: '8'
   - id: current_deck_index
     type: int
     restore_value: no
@@ -302,35 +314,39 @@ globals:
   - id: deck_slot_0
     type: int
     restore_value: no
-    initial_value: '0'
+    initial_value: '1'
   - id: deck_slot_1
     type: int
     restore_value: no
-    initial_value: '2'
+    initial_value: '0'
   - id: deck_slot_2
     type: int
     restore_value: no
-    initial_value: '7'
+    initial_value: '2'
   - id: deck_slot_3
     type: int
     restore_value: no
-    initial_value: '5'
+    initial_value: '7'
   - id: deck_slot_4
     type: int
     restore_value: no
-    initial_value: '3'
+    initial_value: '5'
   - id: deck_slot_5
     type: int
     restore_value: no
+    initial_value: '3'
+  - id: deck_slot_6
+    type: int
+    restore_value: no
     initial_value: '8'
+  - id: deck_slot_7
+    type: int
+    restore_value: no
+    initial_value: '4'
   - id: sky_weather_subpage
     type: int
     restore_value: no
     initial_value: '0'
-  - id: deck_slot_6
-    type: int
-    restore_value: no
-    initial_value: '4'
   - id: remote_subpage
     type: int
     restore_value: no
@@ -1254,6 +1270,7 @@ select:
     restore_value: true
     initial_option: ${default_start_app}
     options:
+      - "Home"
       - "Clock"
       - "Music"
       - "Games"
@@ -1311,6 +1328,90 @@ switch:
   # --------------------------------------------------------------------------
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
+  - platform: template
+    name: "App Deck: Visibility Home"
+    id: show_home_switch
+    icon: "mdi:home-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - script.execute: rebuild_active_deck
+    on_turn_off:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
+    name: "Home: Weather Background"
+    id: home_weather_bg_switch
+    icon: "mdi:weather-partly-cloudy"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+    on_turn_off:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+
+  - platform: template
+    name: "Home: Shortcut Music"
+    id: home_dock_music_switch
+    icon: "mdi:music"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+    on_turn_off:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+
+  - platform: template
+    name: "Home: Shortcut Remote"
+    id: home_dock_remote_switch
+    icon: "mdi:remote-tv"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+    on_turn_off:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+
+  - platform: template
+    name: "Home: Shortcut Tools"
+    id: home_dock_tools_switch
+    icon: "mdi:toolbox-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+    on_turn_off:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+
+  - platform: template
+    name: "Home: Shortcut Games"
+    id: home_dock_games_switch
+    icon: "mdi:gamepad-variant-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+    on_turn_off:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+
   - platform: template
     name: "App Deck: Visibility Clock"
     id: show_clock_switch
@@ -1453,12 +1554,26 @@ switch:
 
 number:
   - platform: template
+    name: "App Deck: Order Home"
+    id: app_order_home
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_value: 1
+    min_value: 1
+    max_value: 10
+    step: 1
+    on_value:
+      then:
+        - script.execute: rebuild_active_deck
+
+  - platform: template
     name: "App Deck: Order Clock"
     id: app_order_clock
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 1
+    initial_value: 2
     min_value: 1
     max_value: 10
     step: 1
@@ -1472,7 +1587,7 @@ number:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 2
+    initial_value: 3
     min_value: 1
     max_value: 10
     step: 1
@@ -1486,7 +1601,7 @@ number:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 3
+    initial_value: 4
     min_value: 1
     max_value: 10
     step: 1
@@ -1500,7 +1615,7 @@ number:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 4
+    initial_value: 5
     min_value: 1
     max_value: 10
     step: 1
@@ -1514,7 +1629,7 @@ number:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 5
+    initial_value: 6
     min_value: 1
     max_value: 10
     step: 1
@@ -1528,7 +1643,7 @@ number:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 6
+    initial_value: 7
     min_value: 1
     max_value: 10
     step: 1
@@ -1542,7 +1657,7 @@ number:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_value: 7
+    initial_value: 8
     min_value: 1
     max_value: 10
     step: 1
@@ -1649,7 +1764,7 @@ interval:
           // - Unlocks full 20 FPS (50ms) when local music is idle for rain, snow, lightning, and night starfield
           // - Paces smoothly at ~13.3 FPS (75ms) when local Sendspin music is playing
           // - Static daytime weather conditions run on the default 1s display refresh with near-zero CPU load
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 5 && !id(va_active) && id(va_status_text).empty()) {
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && ((id(gui_page) == 5 && id(sky_weather_subpage) == 0) || (id(gui_page) == 1 && id(home_subpage) == 0 && id(home_weather_bg_switch).state)) && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
@@ -1664,7 +1779,7 @@ interval:
               cached_has_motion = pocket_ui::has_weather_motion(c_cond, is_night_time, now_w_ms);
             }
 
-            if (sim_just_changed || (id(sky_weather_subpage) == 0 && cached_has_motion)) {
+            if (sim_just_changed || cached_has_motion) {
               const bool local_music_playing =
                   (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
               if (sim_just_changed || pocket_ui::should_step_ambient_anim(now_w_ms, local_music_playing,
@@ -1717,7 +1832,7 @@ interval:
               ESP_LOGI("timer", "Countdown timer expired! Firing alert.");
             } else if (sec_changed) {
               if (!id(va_active) && id(va_status_text).empty()) {
-                if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
+                if (((id(gui_page) == 8 && id(stuff_subpage) == 1) || (id(gui_page) == 1 && id(home_subpage) == 0)) && id(display_power_state) == 0) {
                   id(disp1).update();
                 }
               }
@@ -2523,19 +2638,19 @@ script:
             bool enabled;
           };
 
-          AppEntry pool[7] = {
-            {0, id(app_order_clock).state, id(show_clock_switch).state},
-            {2, id(app_order_music).state, id(show_music_switch).state},
-            {3, id(app_order_games).state, id(show_games_switch).state},
+          AppEntry pool[8] = {
+            {1, id(app_order_home).state,    id(show_home_switch).state},
+            {0, id(app_order_clock).state,   id(show_clock_switch).state},
+            {2, id(app_order_music).state,   id(show_music_switch).state},
+            {7, id(app_order_remote).state,  id(show_remote_switch).state},
             {5, id(app_order_weather).state, id(show_weather_switch).state},
-            {7, id(app_order_remote).state, id(show_remote_switch).state},
-            {8, id(app_order_stuff).state, id(show_stuff_switch).state},
-            {4, id(app_order_system).state, id(show_system_switch).state}
+            {3, id(app_order_games).state,   id(show_games_switch).state},
+            {8, id(app_order_stuff).state,   id(show_stuff_switch).state},
+            {4, id(app_order_system).state,  id(show_system_switch).state}
           };
 
-          // Stable bubble sort by user-configured position rank (1..10)
-          for (int i = 0; i < 6; i++) {
-            for (int j = 0; j < 6 - i; j++) {
+          for (int i = 0; i < 7; i++) {
+            for (int j = 0; j < 7 - i; j++) {
               if (pool[j].rank > pool[j + 1].rank) {
                 AppEntry tmp = pool[j];
                 pool[j] = pool[j + 1];
@@ -2545,7 +2660,7 @@ script:
           }
 
           int count = 0;
-          for (int i = 0; i < 7; i++) {
+          for (int i = 0; i < 8; i++) {
             if (pool[i].enabled) {
               if (count == 0) id(deck_slot_0) = pool[i].page_id;
               else if (count == 1) id(deck_slot_1) = pool[i].page_id;
@@ -2554,12 +2669,13 @@ script:
               else if (count == 4) id(deck_slot_4) = pool[i].page_id;
               else if (count == 5) id(deck_slot_5) = pool[i].page_id;
               else if (count == 6) id(deck_slot_6) = pool[i].page_id;
+              else if (count == 7) id(deck_slot_7) = pool[i].page_id;
               count++;
             }
           }
 
           if (count == 0) {
-            id(deck_slot_0) = 0;
+            id(deck_slot_0) = 1;
             count = 1;
           }
           id(active_deck_size) = count;
@@ -2572,10 +2688,10 @@ script:
             if (idx == 4) return id(deck_slot_4);
             if (idx == 5) return id(deck_slot_5);
             if (idx == 6) return id(deck_slot_6);
-            return 0;
+            if (idx == 7) return id(deck_slot_7);
+            return 1;
           };
 
-          // Preserve active page if still enabled, else snap to first slot
           bool found = false;
           for (int i = 0; i < count; i++) {
             if (get_slot(i) == id(gui_page)) {
@@ -2584,7 +2700,7 @@ script:
               break;
             }
           }
-          if (!found) {
+          if (!found && !id(home_drilldown_active)) {
             id(current_deck_index) = 0;
             id(gui_page) = id(deck_slot_0);
             id(disp1).update();
@@ -2647,8 +2763,10 @@ script:
     then:
       - lambda: |-
           auto def_app = id(default_start_app).current_option();
-          int init_p = 0;
-          if (def_app == "Music") init_p = 2;
+          int init_p = 1;
+          if (def_app == "Home") init_p = 1;
+          else if (def_app == "Clock") init_p = 0;
+          else if (def_app == "Music") init_p = 2;
           else if (def_app == "Games") init_p = 3;
           else if (def_app == "System") init_p = 4;
           else if (def_app == "Sky & Weather" || def_app == "Sky and Weather") init_p = 5;
@@ -2656,6 +2774,7 @@ script:
           else if (def_app == "Tools" || def_app == "Stuff") init_p = 8;
 
           auto is_app_enabled = [](int p) -> bool {
+            if (p == 1) return id(show_home_switch).state;
             if (p == 0) return id(show_clock_switch).state;
             if (p == 2) return id(show_music_switch).state;
             if (p == 3) return id(show_games_switch).state;
@@ -2667,18 +2786,18 @@ script:
           };
 
           if (!is_app_enabled(init_p)) {
-            const int canonical_pages[7] = {0, 2, 7, 5, 3, 8, 4};
+            const int canonical_pages[8] = {1, 0, 2, 7, 5, 3, 8, 4};
             for (int p : canonical_pages) {
               if (is_app_enabled(p)) { init_p = p; break; }
             }
           }
           id(gui_page) = init_p;
-          // Sync current_deck_index with the active deck slots
-          const int slots[7] = {
-            id(deck_slot_0), id(deck_slot_1), id(deck_slot_2),
-            id(deck_slot_3), id(deck_slot_4), id(deck_slot_5), id(deck_slot_6)
+          id(home_drilldown_active) = false;
+          const int slots[8] = {
+            id(deck_slot_0), id(deck_slot_1), id(deck_slot_2), id(deck_slot_3),
+            id(deck_slot_4), id(deck_slot_5), id(deck_slot_6), id(deck_slot_7)
           };
-          for (int i = 0; i < id(active_deck_size) && i < 7; i++) {
+          for (int i = 0; i < id(active_deck_size) && i < 8; i++) {
             if (slots[i] == init_p) {
               id(current_deck_index) = i;
               break;
@@ -3487,6 +3606,34 @@ display:
             id(theme_primary), id(theme_secondary),
             id(col_white), id(col_slate), id(col_gray), id(col_dark_gray),
             id(col_red), id(col_gold), id(col_green));
+      } else if (id(gui_page) == 1) {
+        uint32_t now_h_ms = millis();
+        bool is_rem_h = (id(active_speaker_entity) != "${local_player_id}");
+        bool loc_play_h = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+        bool mus_play_h = pocket_ui::is_music_playing_effective(is_rem_h, loc_play_h, id(ha_target_state).state, now_h_ms);
+        std::string m_title_h = (is_rem_h || id(track_title).state.empty() || id(track_title).state == "None")
+                                    ? id(ha_track_title).state : id(track_title).state;
+        std::string m_artist_h = (is_rem_h || id(track_artist).state.empty() || id(track_artist).state == "None")
+                                     ? id(ha_track_artist).state : id(track_artist).state;
+        render_home_page(
+            it, cx, cy, now_h_ms, id(home_subpage), id(home_activity_idx),
+            now, id(is_24h_format), batt, id(batt_charging).state,
+            id(home_weather_bg_switch).state,
+            id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
+            id(home_dock_tools_switch).state, id(home_dock_games_switch).state,
+            id(weather_sim_condition).current_option(), id(ha_weather_temperature).state,
+            id(ha_weather_condition).state, id(ha_sun_state).state, id(ha_moon_phase).state,
+            id(accel_x).state, id(accel_y).state,
+            id(stopwatch_running), id(stopwatch_start_time), id(stopwatch_elapsed_ms),
+            mus_play_h, m_title_h, m_artist_h,
+            id(alarm_snooze_until),
+            id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled),
+            id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled),
+            id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
+            id(font_time), id(font_date), id(font_small),
+            id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate),
+            id(col_dark_gray), id(col_gold));
       } else if (id(gui_page) == 2) {
         uint32_t now_p2_ms = millis();
         pocket_ui::last_page2_draw_ms() = now_p2_ms;
@@ -3827,27 +3974,30 @@ display:
       // Chevrons are solely suppressed during dormant clean art in "Art Only" mode.
       bool music_clean_art = (id(gui_page) == 2 && (current_overlay_mode.empty() || current_overlay_mode == "Art Only") && !id(music_hud_active));
 
-      if (id(active_deck_size) > 1 && !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) && id(va_status_text).empty() && id(display_power_state) == 0 && !(id(gui_page) == 4 && id(system_menu_mode) > 0) && !(id(gui_page) == 3 && id(active_game) > 0) && !(id(gui_page) == 2 && id(music_overlay_mode) > 0) && !(id(gui_page) == 7 && id(remote_subpage) > 0) && !(id(gui_page) == 8 && id(stuff_subpage) > 0) && !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active))) {
-        Color chevron_col = id(col_white);
+      bool at_top_level_page = !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) &&
+                               id(va_status_text).empty() && id(display_power_state) == 0 &&
+                               !(id(gui_page) == 1 && id(home_subpage) > 0) &&
+                               !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
+                               !(id(gui_page) == 3 && id(active_game) > 0) &&
+                               !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
+                               !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
+                               !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
+                               !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
 
-        // Master App Deck Navigation Chevrons (< at x=165, > at x=301, y=424)
+      if (at_top_level_page && id(home_drilldown_active) && id(gui_page) != 1) {
+        // Accessed via a shortcut link on the Home Page -> Show < BACK instead of carousel chevrons!
+        render_pill_button(it, 195, 271, 410, 14, id(theme_primary), id(col_dark_gray),
+                           "< BACK", id(theme_primary), id(font_small));
+      } else if (at_top_level_page && id(active_deck_size) > 1) {
+        Color chevron_col = id(col_white);
         render_deck_chevrons(it, chevron_col, id(col_black), true);
 
         bool show_in_deck = (id(page_counter_mode).current_option() != "Never");
-
-        char pg_buf[16] = {0};
-        bool draw_pg = false;
-
         if (show_in_deck) {
-          int total = id(active_deck_size);
-          int cur = id(current_deck_index);
-          snprintf(pg_buf, sizeof(pg_buf), "%d / %d", cur + 1, total);
-          draw_pg = true;
-        }
-
-        if (draw_pg && pg_buf[0] != '\0') {
+          char pg_buf[16];
+          snprintf(pg_buf, sizeof(pg_buf), "%d / %d", id(current_deck_index) + 1, id(active_deck_size));
           it.print(cx + 1, 424 + 1, id(font_small), id(col_black), TextAlign::CENTER, pg_buf);
-          it.print(cx, 424, id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
+          it.print(cx,     424,     id(font_small), id(col_white), TextAlign::CENTER, pg_buf);
         }
       }
 
@@ -3977,17 +4127,29 @@ touchscreen:
             auto cur_music_ov = id(music_overlay_style).current_option();
             bool music_dormant_art_only = (id(gui_page) == 2 && (cur_music_ov.empty() || cur_music_ov == "Art Only") && !id(music_hud_active));
 
-            bool is_deck_nav = !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
-                               !(id(gui_page) == 3 && id(active_game) > 0) &&
-                               !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
-                               !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
-                               !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
-                               !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
+            bool is_top_page_touch = !(id(gui_page) == 1 && id(home_subpage) > 0) &&
+                                     !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
+                                     !(id(gui_page) == 3 && id(active_game) > 0) &&
+                                     !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
+                                     !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
+                                     !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
+                                     !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
 
-            if (is_deck_nav) {
+            if (is_top_page_touch && id(home_drilldown_active) && id(gui_page) != 1) {
+              if (is_back_button(touch)) {
+                if (now_touch - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_back_tap = now_touch;
+                  id(home_drilldown_active) = false;
+                  id(gui_page) = 1;
+                  id(home_subpage) = 0;
+                  id(sky_weather_subpage) = 0;
+                  id(disp1).update();
+                }
+                return;
+              }
+            } else if (is_top_page_touch) {
               int deck_y_thresh = 400;
               if (touch.y >= deck_y_thresh) {
-                // App Deck Navigation: Full-width zero-deadzone deck flip with TOUCH_DEBOUNCE_BUTTON debounce
                 static uint32_t last_deck_flip = 0;
                 uint32_t now_flip = millis();
                 if (now_flip - last_deck_flip > TOUCH_DEBOUNCE_BUTTON) {
@@ -4004,6 +4166,7 @@ touchscreen:
                       id(gui_page) = get_slot(next_idx);
                     }
                     ESP_LOGI("touch", "App Deck Flip: x=%d y=%d -> page=%d", touch.x, touch.y, id(gui_page));
+                    id(home_drilldown_active) = false; id(home_subpage) = 0;
                     id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0; id(music_direct_nav) = false;
                     id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(deck_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
                     id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
@@ -4071,7 +4234,168 @@ touchscreen:
 
 
 
-            if (id(gui_page) == 2) {
+            if (id(gui_page) == 1) {
+              // ==============================================================================
+              // PAGE 1: INTERACTIVE HOME PAGE & HOME SETTINGS TOUCH ROUTING
+              // ==============================================================================
+              static uint32_t last_home_tap = 0;
+              uint32_t now_hm = millis();
+
+              if (id(home_subpage) == 1) {
+                // Subpage 1: HOME SETTINGS (5 Slots + < BACK)
+                int slot_idx = get_5slot_index(touch, 88, 371);
+                if (slot_idx >= 0 && slot_idx <= 4 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                  last_home_tap = now_hm;
+                  if (slot_idx == 0) id(home_weather_bg_switch).toggle();
+                  else if (slot_idx == 1) id(home_dock_music_switch).toggle();
+                  else if (slot_idx == 2) id(home_dock_remote_switch).toggle();
+                  else if (slot_idx == 3) id(home_dock_tools_switch).toggle();
+                  else if (slot_idx == 4) id(home_dock_games_switch).toggle();
+                  id(disp1).update();
+                  return;
+                }
+                if (is_back_button(touch) || touch.y <= 72) {
+                  if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_home_tap = now_hm;
+                    id(home_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+                return;
+              }
+
+              // Subpage 0: Main Interactive Home Dashboard
+              // 1. Top Date / Battery Status Bar Tap (y <= 72, x in [100..366]) -> Open HOME SETTINGS
+              if (touch.y <= 72 && touch.x >= 100 && touch.x <= 366) {
+                if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_home_tap = now_hm;
+                  id(home_subpage) = 1;
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // 2. Upper-Right Sun / Moon Celestial Shortcut (x >= 280, y <= 159) -> Open Sun (2) or Moon (3)
+              if (id(home_weather_bg_switch).state && touch.x >= 280 && touch.y <= 159) {
+                if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_home_tap = now_hm;
+                  std::string s_state = id(ha_sun_state).state;
+                  std::string cond = id(ha_weather_condition).state;
+                  bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
+                  apply_weather_sim_override(id(weather_sim_condition).current_option(), cond, is_night);
+                  id(sky_weather_subpage) = is_night ? 3 : 2;
+                  id(home_drilldown_active) = true;
+                  id(gui_page) = 5;
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // 3. Weather Temperature & Condition Line Tap (y in [172..220], x in [85..380]) -> Open Sky & Weather (Current Conditions Subpage 0)
+              if (touch.y >= 172 && touch.y <= 220 && touch.x >= 85 && touch.x <= 380) {
+                if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_home_tap = now_hm;
+                  id(sky_weather_subpage) = 0;
+                  id(home_drilldown_active) = true;
+                  id(gui_page) = 5;
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // Compute active Smart Live Activity Stack items
+              pocket_ui::HomeActivityItem act_items[4];
+              bool is_rem_h = (id(active_speaker_entity) != "${local_player_id}");
+              bool loc_play_h = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+              bool mus_play_h = pocket_ui::is_music_playing_effective(is_rem_h, loc_play_h, id(ha_target_state).state, now_hm);
+              std::string m_title_h = (is_rem_h || id(track_title).state.empty() || id(track_title).state == "None")
+                                          ? id(ha_track_title).state : id(track_title).state;
+              std::string m_artist_h = (is_rem_h || id(track_artist).state.empty() || id(track_artist).state == "None")
+                                           ? id(ha_track_artist).state : id(track_artist).state;
+              int act_count = pocket_ui::collect_home_activities(
+                  now_hm, id(is_24h_format),
+                  id(stopwatch_running), id(stopwatch_start_time), id(stopwatch_elapsed_ms),
+                  mus_play_h, m_title_h, m_artist_h,
+                  id(alarm_snooze_until),
+                  id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled),
+                  id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled),
+                  id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
+                  act_items);
+
+              // 4. Right-Flank Chevrons (x >= 372, y in [70..365]): Rotate through Smart Live Activity Stack when 2+ active
+              if (act_count > 1 && is_right_chevron_zone(touch)) {
+                if (now_hm - last_home_tap > TOUCH_DEBOUNCE_RAPID) {
+                  last_home_tap = now_hm;
+                  int dir = (touch.y < 220) ? -1 : 1;
+                  id(home_activity_idx) = step_wrap(id(home_activity_idx), dir, act_count);
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // 5. Smart Live Activity Pill Tap (y in [235..290], x in [85..370]) -> Open Active Item's App/Subpage
+              if (act_count > 0 && touch.y >= 235 && touch.y <= 290 && touch.x >= 85 && touch.x < 372) {
+                if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_home_tap = now_hm;
+                  int idx = (id(home_activity_idx) >= 0 && id(home_activity_idx) < act_count) ? id(home_activity_idx) : 0;
+                  int kind = act_items[idx].kind;
+                  id(home_drilldown_active) = true;
+                  if (kind == 1) {
+                    id(gui_page) = 8;
+                    id(stuff_subpage) = 1; // Timers
+                    pocket_ui::timer_view_slot() = 0;
+                  } else if (kind == 2) {
+                    id(gui_page) = 8;
+                    id(stuff_subpage) = 3; // Stopwatch
+                  } else if (kind == 3) {
+                    id(gui_page) = 2; // Music Player
+                    id(music_overlay_mode) = 0;
+                  } else if (kind == 4) {
+                    id(gui_page) = 8;
+                    id(stuff_subpage) = 2; // Alarms
+                    id(alarm_edit_idx) = 0;
+                  }
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // 6. Bottom Quick-Launch Icon Dock Tap (y in [315..390], x < 372)
+              if (touch.y >= 315 && touch.y <= 390 && touch.x < 372) {
+                int dock_apps[4] = {0, 0, 0, 0};
+                int dock_count = pocket_ui::collect_home_dock_apps(
+                    id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
+                    id(home_dock_tools_switch).state, id(home_dock_games_switch).state,
+                    dock_apps);
+                if (dock_count > 0 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                  int dock_xs[4] = {0, 0, 0, 0};
+                  pocket_ui::get_home_dock_xs(dock_count, 233, dock_xs);
+                  int best_i = -1;
+                  int best_dist = 42; // Within 42px of icon center
+                  for (int i = 0; i < dock_count; i++) {
+                    int d = std::abs(touch.x - dock_xs[i]);
+                    if (d < best_dist) {
+                      best_dist = d;
+                      best_i = i;
+                    }
+                  }
+                  if (best_i >= 0) {
+                    last_home_tap = now_hm;
+                    int target_page = dock_apps[best_i];
+                    id(home_drilldown_active) = true;
+                    id(gui_page) = target_page;
+                    id(music_overlay_mode) = 0;
+                    id(remote_subpage) = 0;
+                    id(stuff_subpage) = 0;
+                    id(active_game) = 0;
+                    id(disp1).update();
+                  }
+                }
+                return;
+              }
+              return;
+            } else if (id(gui_page) == 2) {
               if (id(music_overlay_mode) == 0) {
                 // ----------------------------------------------------
                 // Normal Player Mode (Dedicated Radial Geometry & Clean HUD Dismissal)
@@ -5336,7 +5660,7 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 10) {
-                // Mode 10: App Deck Submenu (8 Items across 2 Pages, Fixed slot_idx + 3 on Page 2)
+                // Mode 10: App Deck Submenu (9 Items across 2 Pages, slot_idx + 4 on Page 2)
                 if (id(menu_scroll_active)) return;
                 if (is_right_chevron_zone(touch)) {
                   static uint32_t last_deck_scroll_tap = 0;
@@ -5357,31 +5681,34 @@ touchscreen:
                 if (slot_idx >= 0) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
-                    int item_idx = (id(deck_menu_page) == 1) ? slot_idx : (slot_idx + 3);
+                    int item_idx = (id(deck_menu_page) == 1) ? slot_idx : (slot_idx + 4);
                     if (item_idx == 0) {
                       auto call = id(default_start_app).make_call();
-                      call.set_option(cycle_option(id(default_start_app).current_option(), {"Clock", "Music", "Remote", "Sky & Weather", "Games", "Tools", "System"}));
+                      call.set_option(cycle_option(id(default_start_app).current_option(), {"Home", "Clock", "Music", "Remote", "Sky & Weather", "Games", "Tools", "System"}));
                       call.perform();
                     } else if (item_idx == 1) {
-                      id(show_clock_switch).toggle();
+                      id(show_home_switch).toggle();
                       id(rebuild_active_deck).execute();
                     } else if (item_idx == 2) {
-                      id(show_music_switch).toggle();
+                      id(show_clock_switch).toggle();
                       id(rebuild_active_deck).execute();
                     } else if (item_idx == 3) {
-                      id(show_remote_switch).toggle();
+                      id(show_music_switch).toggle();
                       id(rebuild_active_deck).execute();
                     } else if (item_idx == 4) {
-                      id(show_weather_switch).toggle();
+                      id(show_remote_switch).toggle();
                       id(rebuild_active_deck).execute();
                     } else if (item_idx == 5) {
-                      id(show_games_switch).toggle();
+                      id(show_weather_switch).toggle();
                       id(rebuild_active_deck).execute();
                     } else if (item_idx == 6) {
+                      id(show_games_switch).toggle();
+                      id(rebuild_active_deck).execute();
+                    } else if (item_idx == 7) {
                       id(show_stuff_switch).toggle();
                       id(rebuild_active_deck).execute();
                     }
-                    // item_idx == 7 (System) is locked to Always Visible to prevent on-device self-lockout
+                    // item_idx == 8 (System) is locked to Always Visible to prevent on-device self-lockout
                     id(disp1).update();
                   }
                   return;

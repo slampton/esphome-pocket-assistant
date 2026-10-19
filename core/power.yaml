@@ -683,7 +683,20 @@ script:
                 return;
               }
 
-              // All other primary app screens (Clock Page 0, Music Page 2, Games Launcher Page 3, System Page 4):
+              if (id(gui_page) == 1 && id(home_subpage) > 0) {
+                id(home_subpage) = 0;
+                id(disp1).update();
+                return;
+              }
+              if (id(home_drilldown_active)) {
+                id(home_drilldown_active) = false;
+                id(gui_page) = 1;
+                id(sky_weather_subpage) = 0;
+                id(disp1).update();
+                return;
+              }
+
+              // All other primary app screens (Home Page 1, Clock Page 0, Music Page 2, Games Launcher Page 3, System Page 4):
               // Crown click puts device into Standby / turns off screen!
               id(turn_screen_off).execute();
               return;
