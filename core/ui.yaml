@@ -3562,7 +3562,10 @@ display:
               id(font_date), id(font_small), id(col_bg), id(col_white),
               id(col_black), id(col_gold), id(col_cyan), id(col_red),
               id(col_green), id(col_magenta), id(col_orange), id(col_dark_gray));
+        }
+        if (id(active_game) > 0) {
           if (game_just_entered) {
+            pocket_ui::pending_game_sfx() = 0;
             id(route_i2s_to_spk).execute();
             id(speaker_enable).turn_on();
             id(es8311_dac).set_mute_off();
@@ -3572,7 +3575,6 @@ display:
             pocket_ui::pending_game_sfx() = 0;
             id(play_game_sfx).execute(sfx);
           }
-
         }
       // ==========================================
       // PAGE 4: SYSTEM SETTINGS & DIAGNOSTICS (SECTION 18 OF ui_toolkit.h)

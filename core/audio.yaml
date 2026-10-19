@@ -706,24 +706,23 @@ script:
       - rtttl.play:
           id: alarm_rtttl
           rtttl: !lambda |-
-            if (sfx_id == 5) {
-              // Upbeat Octave-6 Arcade Level-Clear Fanfare
-              return std::string("win:d=16,o=6,b=220:c,e,g,c7,p,g,8c7");
+            switch (sfx_id) {
+              case 1:  return std::string("c1:d=16,o=5,b=260:g,c6,p,a,d6");
+              case 2:  return std::string("c2:d=16,o=5,b=260:d6,g,p,c6,f");
+              case 3:  return std::string("c3:d=16,o=5,b=270:f,c6,p,d6,g");
+              case 4:  return std::string("c4:d=16,o=5,b=285:g,b,d6,p,a,c6");
+              case 5:  return std::string("win:d=16,o=6,b=220:c,e,g,c7,p,g,8c7");
+              case 6:  return std::string("sink:d=32,o=6,b=280:c,e,g,16c7");
+              case 7:  return std::string("peg:d=32,o=6,b=320:a,e7");
+              case 8:  return std::string("bow:d=32,o=5,b=320:g,d6");
+              case 9:  return std::string("bull:d=16,o=6,b=260:e,g,c7,8e7");
+              case 10: return std::string("hit:d=32,o=5,b=280:a,e6");
+              case 11: return std::string("pad:d=32,o=5,b=320:f,a");
+              case 12: return std::string("brk:d=32,o=6,b=300:c,g");
+              case 13: return std::string("arm:d=32,o=5,b=320:a,e");
+              case 14: return std::string("lose:d=16,o=5,b=180:g,e,8c");
+              default: return std::string("c1:d=16,o=5,b=260:g,c6,p,a,d6");
             }
-            if (sfx_id == 2) {
-              // High-Low, High-Low Munch
-              return std::string("c2:d=16,o=5,b=260:d6,g,p,c6,f");
-            }
-            if (sfx_id == 3) {
-              // Low-High, High-Low Munch
-              return std::string("c3:d=16,o=5,b=270:f,c6,p,d6,g");
-            }
-            if (sfx_id == 4) {
-              // Playful Triple Gobble
-              return std::string("c4:d=16,o=5,b=285:g,b,d6,p,a,c6");
-            }
-            // sfx_id == 1: Low-High, Low-High Munch
-            return std::string("c1:d=16,o=5,b=260:g,c6,p,a,d6");
   - id: stop_alarm_sound
     mode: restart
     then:

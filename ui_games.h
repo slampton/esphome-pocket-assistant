@@ -126,6 +126,14 @@ inline void compute_3d_game_tilt(
   }
 }
 
+// Shared non-blocking arcade sound effect trigger (0 = none, 1..4 = chomp, 5 = level/wave clear,
+// 6 = marble sink, 7 = bumper peg, 8 = bow release, 9 = bullseye, 10 = arrow hit,
+// 11 = paddle bounce, 12 = brick break, 13 = armor hit, 14 = ball lost / miss)
+inline int &pending_game_sfx() {
+  static int sfx = 0;
+  return sfx;
+}
+
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                 bool game_just_entered, float roll_delta, float pitch_delta,
@@ -206,7 +214,13 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (dt < 0.012f) dt = 0.012f;
   if (dt > 0.075f) dt = 0.075f;
 
-  if (!round_over) {
+  const bool in_wave_pause = (wave_clear_ms > 0U && (now_ms - wave_clear_ms < 1500U));
+  if (wave_clear_ms > 0U && (now_ms - wave_clear_ms >= 1500U)) {
+    wave_clear_ms = 0U;
+    spawn_wave_balls(wave_num);
+  }
+
+  if (!round_over && !in_wave_pause) {
     time_left_f -= dt;
     if (time_left_f <= 0.0f) {
       time_left_f = 0.0f;
@@ -329,6 +343,7 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
         popup_pts = pts;
         popup_combo = combo_streak;
         popup_ms = now_ms;
+        pending_game_sfx() = 6; // Marble Sunk Chime
         continue;
       }
 
@@ -375,6 +390,7 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
           balls[i].vy += pny * 38.0f;
           if (now_ms - peg_hit_ms[p] > 180U) {
             game_score += 15;
+            if (pending_game_sfx() == 0) pending_game_sfx() = 7; // Bumper Peg Ping
           }
           peg_hit_ms[p] = now_ms;
         }
@@ -443,9 +459,8 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
       }
     }
 
-    // Continuous Wave Progression: when all 5 marbles sink, award Wave Clear bonus + +6s & spawn next wave!
-    if (sunk_count >= 5) {
-      // Wait 240ms for the 5th marble's sink animation to complete before spawning the next wave
+    // Continuous Wave Progression with 1.5s Inter-Wave Anticipation Pause
+    if (sunk_count >= 5 && wave_clear_ms == 0U) {
       bool any_animating = false;
       for (int i = 0; i < 5; i++) {
         if (now_ms - balls[i].sink_start_ms < 240U) any_animating = true;
@@ -456,8 +471,7 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
         time_remaining = static_cast<int>(ceilf(time_left_f));
         wave_num++;
         wave_clear_ms = now_ms;
-        spawn_wave_balls(wave_num);
-        sunk_count = 0;
+        pending_game_sfx() = 5; // Wave Clear Fanfare!
         if (game_score > high_score_marbles) {
           high_score_marbles = game_score;
           is_new_high = true;
@@ -559,11 +573,16 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
     it.print(cx, py, font_small, popup_combo > 1 ? col_cyan : col_gold, esphome::display::TextAlign::CENTER, pop_buf);
   }
 
-  // Brief Wave Clear Banner ("WAVE X! +6s")
-  if (!round_over && wave_clear_ms > 0U && (now_ms - wave_clear_ms < 800U)) {
-    char w_buf[32];
-    snprintf(w_buf, sizeof(w_buf), "WAVE %d! +6s", wave_num);
-    it.print(cx, 126, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_buf);
+  // 1.5s Inter-Wave Anticipation Banner ("WAVE X CLEAR! +6s" -> "GET READY! WAVE X+1")
+  if (!round_over && in_wave_pause) {
+    char w_buf[36];
+    if (now_ms - wave_clear_ms < 850U) {
+      snprintf(w_buf, sizeof(w_buf), "WAVE %d CLEAR! +6s", wave_num - 1);
+      it.print(cx, 126, font_date, col_gold, esphome::display::TextAlign::CENTER, w_buf);
+    } else {
+      snprintf(w_buf, sizeof(w_buf), "GET READY! WAVE %d", wave_num);
+      it.print(cx, 126, font_date, col_cyan, esphome::display::TextAlign::CENTER, w_buf);
+    }
   }
 
   // Round Over Summary Modal
@@ -738,13 +757,14 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
     if (round_over) {
       reset_full_game();
       game_imu_retare_flag() = true;
-    } else if (!arrow_in_flight && arrows_left > 0) {
+    } else if (!arrow_in_flight && arrows_left > 0 && (round_banner_ms == 0U || now_ms - round_banner_ms >= 1500U)) {
       arrow_in_flight = true;
       flight_z = 0.0f;
       launch_aim_x = smooth_ax;
       launch_aim_y = smooth_ay;
       launch_wind = wind_speed;
       arrows_left--;
+      pending_game_sfx() = 8; // Bowstring Release Zip
     }
   }
 
@@ -808,18 +828,22 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
           arrows_left = std::min(9, arrows_left + 1);
           snprintf(hit_feedback, sizeof(hit_feedback), "BULLSEYE! +%d (+1 ARR)", earned);
           feedback_col = col_gold;
+          pending_game_sfx() = 9; // Bullseye Chime!
         } else if (streak_mult > 1) {
           snprintf(hit_feedback, sizeof(hit_feedback), "HIT +%d (%dx!)", earned, streak_mult);
           feedback_col = col_cyan;
+          pending_game_sfx() = 10; // Target Hit
         } else {
           snprintf(hit_feedback, sizeof(hit_feedback), "HIT +%d", earned);
           feedback_col = col_gold;
+          pending_game_sfx() = 10; // Target Hit
         }
         streak_mult = std::min(3, streak_mult + 1);
       } else {
         streak_mult = 1;
         snprintf(hit_feedback, sizeof(hit_feedback), "MISS!");
         feedback_col = col_red;
+        pending_game_sfx() = 14; // Miss Tone
       }
       feedback_timer = now_ms;
 
@@ -828,20 +852,18 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
         is_new_high = true;
       }
 
-      // Check Round Advancement or Match Over when quiver empties
+      // Check Round Advancement or Match Over when quiver empties (with 1.5s Inter-Round Pause!)
       if (arrows_left <= 0) {
         if (round_pts >= round_goal) {
-          // Advance to Next Round!
           arch_score += round_num * 25;
           if (arch_score > high_score_archery) {
             high_score_archery = arch_score;
             is_new_high = true;
           }
           round_num++;
-          arrows_left = 6;
           round_pts = 0;
-          clear_pinned();
           round_banner_ms = now_ms;
+          pending_game_sfx() = 5; // Round Clear Fanfare!
         } else {
           round_over = true;
         }
@@ -945,11 +967,23 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
             tail_y - f_py - static_cast<int>(arrow_dy * 4.0f), col_red);
   }
 
-  // 6. Hit Feedback & Round Clear Banner
-  if (!round_over && round_banner_ms > 0U && (now_ms - round_banner_ms < 900U)) {
-    char rb[32];
-    snprintf(rb, sizeof(rb), "ROUND %d! GOAL %d", round_num, round_goal);
-    it.print(cx, 225, font_date, col_cyan, esphome::display::TextAlign::CENTER, rb);
+  // Refill quiver & clear pinned arrows when 1.5s Inter-Round Pause completes
+  if (round_banner_ms > 0U && (now_ms - round_banner_ms >= 1500U)) {
+    round_banner_ms = 0U;
+    arrows_left = 6;
+    clear_pinned();
+  }
+
+  // 6. Hit Feedback & 1.5s Inter-Round Anticipation Banner
+  if (!round_over && round_banner_ms > 0U && (now_ms - round_banner_ms < 1500U)) {
+    char rb[36];
+    if (now_ms - round_banner_ms < 850U) {
+      snprintf(rb, sizeof(rb), "ROUND %d CLEAR!", round_num - 1);
+      it.print(cx, 225, font_date, col_gold, esphome::display::TextAlign::CENTER, rb);
+    } else {
+      snprintf(rb, sizeof(rb), "ROUND %d! GOAL %d", round_num, round_goal);
+      it.print(cx, 225, font_date, col_cyan, esphome::display::TextAlign::CENTER, rb);
+    }
   } else if (!round_over && hit_feedback[0] != '\0' && (now_ms - feedback_timer < 1100U)) {
     it.print(cx, 225, font_date, feedback_col, esphome::display::TextAlign::CENTER, hit_feedback);
   }
@@ -1324,6 +1358,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
           ball_vx = target_speed * std::sin(bounce_ang);
           ball_vy = -target_speed * std::cos(bounce_ang);
           ball_y = (float)(paddle_y - 11);
+          pending_game_sfx() = 11; // Paddle Bounce Blip
         }
       }
 
@@ -1347,6 +1382,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
           }
 
           bricks[b].hp--;
+          pending_game_sfx() = (bricks[b].hp == 0) ? 12 : 13;
           rally_combo++;
           wall_bounces = 0;
           hit_brick_since_paddle = true;
@@ -1394,7 +1430,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
       for (int b = 0; b < NUM_BRICKS; b++) {
         if (bricks[b].hp > 0) rem_check++;
       }
-      if (rem_check == 0) {
+      if (rem_check == 0 && banner_ms == 0U) {
         int wave_bonus = wave_num * 300;
         bo_score += wave_bonus;
         if (bo_score > high_score_breakout) {
@@ -1403,12 +1439,13 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
         }
         wave_num++;
         if (lives_left < 3) lives_left++;
-        snprintf(banner_text, sizeof(banner_text), "WAVE %d! +%d", wave_num, wave_bonus);
+        snprintf(banner_text, sizeof(banner_text), "WAVE %d CLEAR! +%d", wave_num - 1, wave_bonus);
         banner_ms = now_ms;
-        init_brick_wave(wave_num);
+        pending_game_sfx() = 5; // Wave Clear Fanfare!
         reset_ball_on_paddle();
       } else if (ball_y > 390.0f) {
         lives_left--;
+        pending_game_sfx() = 14; // Ball Lost Tone
         rally_combo = 0;
         hit_brick_since_paddle = false;
         reset_ball_on_paddle();
@@ -1481,8 +1518,18 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
     it.print(popup_x, popup_y - py_off, font_small, popup_col,
              esphome::display::TextAlign::CENTER, popup_text);
   }
-  if (banner_ms > 0 && (now_ms - banner_ms < 1300U)) {
-    it.print(cx, 212, font_date, col_cyan, esphome::display::TextAlign::CENTER, banner_text);
+  if (banner_ms > 0U) {
+    uint32_t b_el = now_ms - banner_ms;
+    if (b_el >= 1450U) {
+      banner_ms = 0U;
+      init_brick_wave(wave_num);
+    } else if (b_el < 850U) {
+      it.print(cx, 212, font_date, col_gold, esphome::display::TextAlign::CENTER, banner_text);
+    } else {
+      char rdy_buf[32];
+      snprintf(rdy_buf, sizeof(rdy_buf), "GET READY! WAVE %d", wave_num);
+      it.print(cx, 212, font_date, col_cyan, esphome::display::TextAlign::CENTER, rdy_buf);
+    }
   }
 
   // 5. Draw Capsule Paddle at y = 356
@@ -1732,12 +1779,6 @@ inline void render_chomp_monster(DisplayT &it, int mx, int my, int mr,
   }
 }
 
-// Pending sound effect trigger for arcade games: 0 = none, 1 = chomp ("nom-nom"), 2 = level clear fanfare
-inline int &pending_game_sfx() {
-  static int sfx = 0;
-  return sfx;
-}
-
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
 inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
                               bool game_just_entered, float roll_delta, float pitch_delta,
@@ -1828,10 +1869,20 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (dt < 0.012f) dt = 0.012f;
   if (dt > 0.075f) dt = 0.075f;
 
-  // Check if Level Clear Celebration just finished -> Advance to Next Level!
+  // Check if Level Clear & Center-Reset Pause (2000ms total) finished -> Spawn Next Level!
   bool in_celebration = (level_clear_until_ms > 0U && now_ms < level_clear_until_ms);
-  if (level_clear_until_ms > 0U && now_ms >= level_clear_until_ms) {
+  if (in_celebration) {
+    // Smoothly return Monster to center (cx, cy) and hold still in the center before next level starts!
+    mon_vx = 0.0f;
+    mon_vy = 0.0f;
+    mon_x += (static_cast<float>(cx) - mon_x) * 0.25f;
+    mon_y += (static_cast<float>(cy) - mon_y) * 0.25f;
+  } else if (level_clear_until_ms > 0U && now_ms >= level_clear_until_ms) {
     level_clear_until_ms = 0U;
+    mon_x = static_cast<float>(cx);
+    mon_y = static_cast<float>(cy);
+    mon_vx = 0.0f;
+    mon_vy = 0.0f;
     level_num++;
     spawn_level_platter(level_num, now_ms);
     in_celebration = false;
@@ -1968,7 +2019,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
           if (treat_score > high_score_chomp) {
             high_score_chomp = treat_score;
           }
-          level_clear_until_ms = now_ms + 1550U;
+          level_clear_until_ms = now_ms + 2050U;
           in_celebration = true;
           pending_game_sfx() = 5; // Level Clear Fanfare!
 
@@ -2031,13 +2082,19 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
 
   // 4. Level Clear Celebration Banner & Confetti vs. Chomp Word Popup
   if (in_celebration) {
-    for (int c = 0; c < 16; c++) {
-      it.filled_circle(static_cast<int>(confetti[c].x), static_cast<int>(confetti[c].y), 3, confetti[c].col);
+    uint32_t rem_cel = level_clear_until_ms - now_ms;
+    char p_msg[36];
+    if (rem_cel > 750U) {
+      for (int c = 0; c < 16; c++) {
+        it.filled_circle(static_cast<int>(confetti[c].x), static_cast<int>(confetti[c].y), 3, confetti[c].col);
+      }
+      snprintf(p_msg, sizeof(p_msg), "LEVEL %d CLEAR!", level_num);
+      it.print(cx, imy - 62, font_date, col_gold, esphome::display::TextAlign::CENTER, p_msg);
+    } else {
+      // Quiet centered anticipation beat before the new treats pop onto the plate!
+      snprintf(p_msg, sizeof(p_msg), "GET READY! LEVEL %d", level_num + 1);
+      it.print(cx, imy - 62, font_date, col_cyan, esphome::display::TextAlign::CENTER, p_msg);
     }
-    char p_msg[32];
-    snprintf(p_msg, sizeof(p_msg), "LEVEL %d CLEAR!", level_num);
-    int pop_y = (imy > 180) ? (imy - 62) : (imy + 60);
-    it.print(cx, pop_y, font_date, col_gold, esphome::display::TextAlign::CENTER, p_msg);
   } else if (is_chomping) {
     static constexpr const char *CHOMP_WORDS[5] = {
         "NOM NOM!", "YUMMY!", "COOKIE!", "CHOMP!", "DELICIOUS!"};
