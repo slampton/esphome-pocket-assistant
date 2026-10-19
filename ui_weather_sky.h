@@ -1511,20 +1511,35 @@ inline void render_weather_page(
     else snprintf(temp_num, sizeof(temp_num), "--");
     int w_num = 0, x_off = 0, base = 0, th = 0;
     font_time->measure(temp_num, &w_num, &x_off, &base, &th);
-    // Apple optical centering: bias numerals 4px left of cx (~25% of degree ring visual weight)
-    const int num_cx = cx - 4;
-    const int deg_cx = num_cx + (w_num / 2) + 12;
-    const int deg_cy = 134 - (th / 2) + 16;
-    const Color col_deg_silver(196, 208, 224);
+    // Apple optical centering: bias numerals 5px left of cx; flush cap-line degree ring with 10px gap
+    const int num_cx = cx - 5;
+    const int deg_cx = num_cx + (w_num / 2) + 18;
+    const int deg_cy = 114; // Top of r=8 ring sits at y=106, flush with 77pt numeral cap-height
+    const Color col_deg_silver(204, 214, 228);
+    const Color col_deg_aa(120, 132, 148);
 
     it.print(num_cx + 1, 135, font_time, col_black, TextAlign::CENTER, temp_num);
     it.print(num_cx,     134, font_time, col_white, TextAlign::CENTER, temp_num);
 
-    // Thin 2px cool silver-white degree ring (replaces heavy font_time '°' glyph)
-    it.circle(deg_cx + 1, deg_cy + 1, 7, col_black);
-    it.circle(deg_cx + 1, deg_cy + 1, 6, col_black);
-    it.circle(deg_cx,     deg_cy,     7, col_deg_silver);
-    it.circle(deg_cx,     deg_cy,     6, col_deg_silver);
+    // Pinhole-free 3px scanline annulus degree ring (r_in=5.2 .. r_out=8.2) with 1px drop shadow
+    for (int dy = -9; dy <= 9; dy++) {
+      for (int dx = -9; dx <= 9; dx++) {
+        int d2 = dx * dx + dy * dy;
+        if (d2 >= 27 && d2 <= 68) {
+          it.draw_pixel_at(deg_cx + dx + 1, deg_cy + dy + 1, col_black);
+        }
+      }
+    }
+    for (int dy = -9; dy <= 9; dy++) {
+      for (int dx = -9; dx <= 9; dx++) {
+        int d2 = dx * dx + dy * dy;
+        if (d2 >= 30 && d2 <= 64) {
+          it.draw_pixel_at(deg_cx + dx, deg_cy + dy, col_deg_silver);
+        } else if ((d2 >= 25 && d2 < 30) || (d2 > 64 && d2 <= 70)) {
+          it.draw_pixel_at(deg_cx + dx, deg_cy + dy, col_deg_aa);
+        }
+      }
+    }
 
     std::string cond_title = format_weather_title(cond);
     Color cond_color = is_night ? theme_primary : Color(255, 225, 110);
