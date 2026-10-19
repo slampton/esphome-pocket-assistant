@@ -793,10 +793,9 @@ inline void draw_tumbling_leaf_3d(DisplayT &it, Vec3 center_3d, float rx, float 
 
 // Modular 3D Volumetric Atmospheric & Weather Motion Wallpaper Engine:
 // Uses Vec3, rotate_3d_xyz, and project_3d across depth layers with live IMU wrist-tilt parallax.
-template<typename DisplayT, typename SpanRangeT>
+template<typename DisplayT>
 inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32_t now_ms,
                                             const std::string &cond, bool is_night,
-                                            const SpanRangeT &cloud_spans,
                                             double moon_cycle = 0.5,
                                             int cel_cx = 341, int cel_cy = 91,
                                             bool mask_hero_temp = true,
@@ -966,7 +965,6 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
   }
 
   // LAYER 1E: SCULPTED 3D CUMULUS (Partly Cloudy) & HYBRID CUMULUS + WISPY VEIL OVERCAST (Cloudy / Overcast)
-  (void)cloud_spans;
   if (cond.find("cloud") != std::string::npos || cond.find("overcast") != std::string::npos) {
     if (is_partly) {
       float t_cld = now_ms * 0.0008f;
@@ -1452,11 +1450,10 @@ inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
 // ==============================================================================
 
 template<typename DisplayT, typename TimeT, typename FontTimeT, typename FontDateT,
-         typename FontBoldT, typename FontSmallT, typename FontMicroT, typename CloudTableT, typename StrT>
+         typename FontBoldT, typename FontSmallT, typename FontMicroT, typename StrT>
 inline void render_weather_page(
     DisplayT &it, int cx, int cy, uint32_t now_ms, int sky_weather_subpage,
     const TimeT &now, bool is_24h_format,
-    const CloudTableT &cloud_spans_packed,
     const StrT &weather_sim_opt,
     float weather_temp, float weather_high, float weather_low,
     float weather_humidity, float weather_wind_speed, float weather_wind_bearing,
@@ -1491,7 +1488,7 @@ inline void render_weather_page(
                                  moon_phase_raw, moon_cycle, nullptr, nullptr);
     }
     render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                    cloud_spans_packed, moon_cycle, cel_cx, cel_cy, true, accel_x, accel_y);
+                                    moon_cycle, cel_cx, cel_cy, true, accel_x, accel_y);
 
     char temp_num[16];
     if (!std::isnan(weather_temp)) snprintf(temp_num, sizeof(temp_num), "%.0f", weather_temp);

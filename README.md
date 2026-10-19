@@ -137,7 +137,7 @@ After adding the configuration, reload Template Entities and Input Texts under *
 
 | Resource / Power Tier | Specification / Measured Budget | Engineering Implementation |
 | :--- | :--- | :--- |
-| **Quad-SPI Frame Render** | `~12–42 ms` (`<45 ms` budget @ 10 FPS) | 80 MHz QSPI bus (`CO5300`), RLE cloud spans (`cloud_spans.h`), and `.rodata` `constexpr CIRCLE_HW[466]` chord clipping (`ui_toolkit.h`) |
+| **Quad-SPI Frame Render** | `~12–42 ms` (`<45 ms` budget @ 10 FPS) | 80 MHz QSPI bus (`CO5300`), `.rodata` `constexpr CIRCLE_HW[466]` chord clipping (`ui_toolkit.h`) |
 | **Internal SRAM & IRAM** | `+15.9 KB` reclaimed in v1.3 | `nvs_cache_in_psram: true` (`+10 KB` SRAM), `flash_chip: gd` (`+5 KB` IRAM/Flash), and `.rodata` LUT migration (`+932 B` SRAM) |
 | **Octal PSRAM (8 MB @ 80 MHz)** | FLAC decode, NVS cache & FreeRTOS stacks | `decode_memory: psram`, `buffer_memory: psram`, `task_stack_in_psram: true`, and `nvs_cache_in_psram: true` |
 | **Tier 1: Active Mode** | `110 – 160 mA` | 80 MHz QSPI display active, 30 Hz CST9220 touch polling, 6-axis QMI8658 IMU (`CTRL7 = 0x03`), and Wi-Fi `NONE` power save |
@@ -164,7 +164,7 @@ After adding the configuration, reload Template Entities and Input Texts under *
 
 ---
 
-## Repository Structure (29 Canonical Files)
+## Repository Structure (28 Canonical Files)
 
 ```text
 esphome-pocket-assistant/
@@ -195,7 +195,6 @@ esphome-pocket-assistant/
 ├── LICENSE                                # Apache 2.0 open-source license
 ├── README.md                              # Project documentation & setup guide
 ├── SPECIFICATION.md                       # Canonical hardware, pinout, memory & software specification
-├── cloud_spans.h                          # Pre-rasterized RLE cumulus cloud span tables (.rodata)
 ├── index.html                             # GitHub Pages Web Installer interface
 ├── manifest.json                          # Web Installer firmware manifest
 ├── pocket-assistant-1.75c.yaml            # Remote package entry point for ESPHome adoption
@@ -216,7 +215,7 @@ esphome-pocket-assistant/
 AI tools were used during the development and documentation of this project.
 
 - **Human-Directed & Hardware-Verified**: Every schematic, bus architecture, GPIO matrix route, and register map is validated directly on physical Waveshare ESP32-S3-Touch-AMOLED-1.75C hardware. No unverified code is committed.
-- **How AI Was Utilized**: AI assistance was used for rapid prototyping, mathematical modeling (such as trigonometric LUTs, RLE cloud span compression, and 3D lunar raytracing in `ui_toolkit.h`), automated schema validation, and technical documentation.
+- **How AI Was Utilized**: AI assistance was used for rapid prototyping, mathematical modeling (such as trigonometric LUTs, procedural 3D cloud & weather shaders, and 3D lunar raytracing in `ui_toolkit.h`), automated schema validation, and technical documentation.
 - **Local-First & Open Standards**: All firmware architecture adheres strictly to native ESPHome 2026.10+ standards, local-first principles, and official Home Assistant and Music Assistant design patterns.
 
 Feedback, peer review, and pull requests from the community are always welcome.

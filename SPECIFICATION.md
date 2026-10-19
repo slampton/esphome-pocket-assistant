@@ -11,7 +11,7 @@
 * **MCU**: Espressif ESP32-S3 (Dual-core Xtensa LX7 @ 240 MHz).
 * **Flash**: 32MB GigaDevice Octal SPI (`flash_size: 32MB`, `flash_chip: gd` under `esp32: framework: advanced:` trimming unused vendor tables to save ~5 KB of internal IRAM and Flash).
 * **PSRAM**: 8MB Octal SPI @ 80 MHz (`mode: octal`, `speed: 80MHz`, `ignore_not_found: false`, `nvs_cache_in_psram: true` freeing ~10 KB of internal SRAM heap).
-* **Read-Only Data Placement (`.rodata`)**: Precomputed trigonometric LUTs (`DIAL_SIN[60]`, `DIAL_COS[60]`), circular chord clipping table (`constexpr CIRCLE_HW[466]`, saving 932 B of `.bss` RAM), RLE cloud spans (`CLOUD_SPANS_PACKED`), weather/screensaver particle tables (`ui_toolkit.h`), and parameterized TV remote command tables (`remote_send_key`) reside in Flash (`.rodata`).
+* **Read-Only Data Placement (`.rodata`)**: Precomputed trigonometric LUTs (`DIAL_SIN[60]`, `DIAL_COS[60]`), circular chord clipping table (`constexpr CIRCLE_HW[466]`, saving 932 B of `.bss` RAM), weather/screensaver particle tables (`ui_toolkit.h`), and parameterized TV remote command tables (`remote_send_key`) reside in Flash (`.rodata`).
 
 ### 1.2 Display Subsystem
 * **Controller**: CO5300 QSPI Controller (`mipi_spi`).
