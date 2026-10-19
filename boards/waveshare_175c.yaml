@@ -53,6 +53,7 @@ spi:
       - GPIO6
       - GPIO7
 
+
 # Dual Master I2S Buses (Multiplexed via ESP32-S3 GPIO Matrix to Shared Clock Pins)
 i2s_audio:
   - id: i2s_input_bus
@@ -112,25 +113,6 @@ audio_dac:
     bits_per_sample: 16bit
     sample_rate: 16000
     use_mclk: true
-
-
-# Board-Level I2S Clock Multiplexing Helper Scripts (Waveshare 1.75C Shared Clock Routing)
-script:
-  - id: hal_route_i2s_to_spk
-    mode: restart
-    then:
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
-          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
-          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
-
-  - id: hal_route_i2s_to_mic
-    mode: restart
-    then:
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
-          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
-          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
 
 
 motion:
@@ -200,6 +182,25 @@ touchscreen:
     transform:
       mirror_x: true
       mirror_y: true
+
+
+# Board-Level Hardware Abstraction Scripts (I2S Clock Mux, Pad Holds, PMU IRQ & Hibernate)
+script:
+  - id: hal_route_i2s_to_spk
+    mode: restart
+    then:
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
+          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
+          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+
+  - id: hal_route_i2s_to_mic
+    mode: restart
+    then:
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
+          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
+          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
 
   - id: hal_release_deep_sleep_holds
     mode: restart
