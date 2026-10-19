@@ -885,7 +885,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       if (!is_inside_bezel(sx, sy, cy, 6)) continue;
 
       // Tight mask strictly around the digits of the hero temperature so top-center sky stays starry
-      if (mask_hero_temp && sx >= 188 && sx <= 278 && sy >= 86 && sy <= 126) continue;
+      if (mask_hero_temp && sx >= 188 && sx <= 278 && sy >= 96 && sy <= 136) continue;
       if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
       float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.85f);
@@ -1514,15 +1514,15 @@ inline void render_weather_page(
     int deg_x = cx + (w_num / 2) + 2;
 
     // Optically center the numeric digits at cx = 233 and hang '°' on the right shoulder
-    it.print(cx + 1,    125, font_time, col_black, TextAlign::CENTER,      temp_num);
-    it.print(cx,        124, font_time, col_white, TextAlign::CENTER,      temp_num);
-    it.print(deg_x + 1, 125, font_time, col_black, TextAlign::CENTER_LEFT, "°");
-    it.print(deg_x,     124, font_time, col_white, TextAlign::CENTER_LEFT, "°");
+    it.print(cx + 1,    135, font_time, col_black, TextAlign::CENTER,      temp_num);
+    it.print(cx,        134, font_time, col_white, TextAlign::CENTER,      temp_num);
+    it.print(deg_x + 1, 135, font_time, col_black, TextAlign::CENTER_LEFT, "°");
+    it.print(deg_x,     134, font_time, col_white, TextAlign::CENTER_LEFT, "°");
 
     std::string cond_title = format_weather_title(cond);
     Color cond_color = is_night ? theme_primary : Color(255, 225, 110);
-    it.print(cx + 1, 195, font_date, col_black, TextAlign::CENTER, cond_title.c_str());
-    it.print(cx,     194, font_date, cond_color, TextAlign::CENTER, cond_title.c_str());
+    it.print(cx + 1, 200, font_date, col_black, TextAlign::CENTER, cond_title.c_str());
+    it.print(cx,     199, font_date, cond_color, TextAlign::CENTER, cond_title.c_str());
 
     // Single-Line Icon + Value Telemetry at y = 268 (Brought inward & slightly higher)
     const int tele_y = 268;
