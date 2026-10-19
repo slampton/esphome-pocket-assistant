@@ -1222,13 +1222,6 @@ button:
 
 
 switch:
-  - platform: gpio
-    name: "Speaker Enable"
-    id: speaker_enable
-    pin:
-      number: GPIO46
-      ignore_strapping_warning: true
-    restore_mode: ALWAYS_ON
   # --------------------------------------------------------------------------
   # 📱 Active App Deck Switches (Dynamic Skip-Routing)
   # --------------------------------------------------------------------------
@@ -1957,14 +1950,7 @@ binary_sensor:
     lambda: 'return id(alarm_ringing) || id(timer_ringing);'
     entity_category: diagnostic
     icon: "mdi:alarm-bell"
-  - platform: gpio
-    pin:
-      number: GPIO0
-      mode: INPUT_PULLUP
-      inverted: true
-      ignore_strapping_warning: true
-    name: "Boot Button"
-    id: boot_button
+  - id: !extend boot_button
     on_press:
       then:
         - lambda: |-
@@ -3293,21 +3279,7 @@ script:
                               command: !lambda 'return id(remote_target_cmd);'
 
 display:
-  - platform: mipi_spi
-    id: disp1
-    model: CO5300
-    spi_id: display_qspi
-    bus_mode: quad
-    data_rate: 80MHz
-    reset_pin: GPIO1
-    cs_pin: GPIO12
-    dimensions:
-      height: 466
-      width: 466
-      offset_width: 6
-      offset_height: 0
-    brightness: 200
-    update_interval: 1s
+  - id: !extend disp1
     lambda: |-
       const int cx = pocket_ui::SCREEN_CX;
       const int cy = pocket_ui::SCREEN_CY;
@@ -3814,20 +3786,7 @@ display:
 
 
 touchscreen:
-  - platform: cst9220
-    id: touch_screen
-    display: disp1
-    i2c_id: bus_internal
-    address: 0x5A
-    interrupt_pin:
-      number: GPIO11
-      mode: INPUT_PULLUP
-    reset_pin: GPIO2
-    touch_timeout: 50ms
-    update_interval: 33ms
-    transform:
-      mirror_x: true
-      mirror_y: true
+  - id: !extend touch_screen
     on_touch:
       then:
         - lambda: |-

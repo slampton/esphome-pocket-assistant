@@ -63,3 +63,63 @@ motion:
     accelerometer_range: 4G
     gyroscope_range: 2048DPS
     update_interval: 100ms
+
+
+# On-Board Speaker Power Amplifier Enable (PA_EN: GPIO46)
+switch:
+  - platform: gpio
+    name: "Speaker Enable"
+    id: speaker_enable
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
+    restore_mode: ALWAYS_ON
+
+
+# Physical Side Push-to-Talk / Action Button (GPIO0)
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+      ignore_strapping_warning: true
+    name: "Boot Button"
+    id: boot_button
+
+
+# 1.75" 466x466 Circular AMOLED Display (CO5300 over 80MHz Quad-SPI)
+display:
+  - platform: mipi_spi
+    id: disp1
+    model: CO5300
+    spi_id: display_qspi
+    bus_mode: quad
+    data_rate: 80MHz
+    reset_pin: GPIO1
+    cs_pin: GPIO12
+    dimensions:
+      height: 466
+      width: 466
+      offset_width: 6
+      offset_height: 0
+    brightness: 200
+    update_interval: 1s
+
+
+# Capacitive Touch Controller (CST9220 @ 30Hz over I2C bus_internal)
+touchscreen:
+  - platform: cst9220
+    id: touch_screen
+    display: disp1
+    i2c_id: bus_internal
+    address: 0x5A
+    interrupt_pin:
+      number: GPIO11
+      mode: INPUT_PULLUP
+    reset_pin: GPIO2
+    touch_timeout: 50ms
+    update_interval: 33ms
+    transform:
+      mirror_x: true
+      mirror_y: true

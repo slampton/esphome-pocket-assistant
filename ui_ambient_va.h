@@ -698,13 +698,27 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
     }
   };
 
+  int cur_dx_in = 0;
+  int cur_dx_brd = 0;
   for (int dy = -R_OUT; dy <= R_OUT; dy++) {
     int y = cy + dy;
     if (y < 0 || y >= SCREEN_H) continue;
     int dy2 = dy * dy;
     int dx_out = static_cast<int>(CIRCLE_HW[y]);
-    int dx_in  = (dy2 < R_IN_SQ) ? static_cast<int>(sqrtf(static_cast<float>(R_IN_SQ - dy2))) : 0;
-    int dx_brd = (dy2 < R_BORDER_SQ) ? static_cast<int>(sqrtf(static_cast<float>(R_BORDER_SQ - dy2))) : 0;
+    if (dy2 < R_IN_SQ) {
+      while ((cur_dx_in + 1) * (cur_dx_in + 1) + dy2 <= R_IN_SQ) cur_dx_in++;
+      while (cur_dx_in * cur_dx_in + dy2 > R_IN_SQ) cur_dx_in--;
+    } else {
+      cur_dx_in = 0;
+    }
+    if (dy2 < R_BORDER_SQ) {
+      while ((cur_dx_brd + 1) * (cur_dx_brd + 1) + dy2 <= R_BORDER_SQ) cur_dx_brd++;
+      while (cur_dx_brd * cur_dx_brd + dy2 > R_BORDER_SQ) cur_dx_brd--;
+    } else {
+      cur_dx_brd = 0;
+    }
+    int dx_in  = cur_dx_in;
+    int dx_brd = cur_dx_brd;
 
     // 1. Right semicircle chord: dx in [dx_in .. dx_out]
     if (past_half) {

@@ -16,9 +16,15 @@
 
 namespace pocket_ui {
 
-// Canonical Display Geometry Constants (466x466 Circular AMOLED)
-static constexpr int SCREEN_W = 466;
-static constexpr int SCREEN_H = 466;
+// Canonical Display Geometry Constants (Overridable via POCKET_UI_SCREEN_W / POCKET_UI_SCREEN_H)
+#ifndef POCKET_UI_SCREEN_W
+#define POCKET_UI_SCREEN_W 466
+#endif
+#ifndef POCKET_UI_SCREEN_H
+#define POCKET_UI_SCREEN_H 466
+#endif
+static constexpr int SCREEN_W = POCKET_UI_SCREEN_W;
+static constexpr int SCREEN_H = POCKET_UI_SCREEN_H;
 static constexpr int SCREEN_CX = SCREEN_W / 2;
 static constexpr int SCREEN_CY = SCREEN_H / 2;
 static constexpr int SCREEN_R = SCREEN_W / 2;
