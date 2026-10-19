@@ -67,25 +67,33 @@ wifi:
   password: !secret wifi_password
 ```
 
-### 2. Home Assistant Companion Package Setup
-Pocket Assistant uses a single consolidated companion package (`homeassistant/packages/pocket_assistant_companion.yaml`) that defines **5 entities** (3 `input_text` helpers and 2 template sensors):
-- `input_text.pocket_assistant_active_speaker` — Tracks the active target media player (defaults to `media_player.pocket_assistant`).
-- `input_text.pocket_assistant_weather_entity` — Monitored weather entity ID (defaults to `weather.forecast_home`, with automatic fallback to your first `weather.*` entity).
-- `input_text.pocket_assistant_base_url` — Optional base URL override for custom Home Assistant ports.
-- `sensor.pocket_assistant_active_media` — Idle-guarded active media mirror (evaluates only during active playback or state changes).
-- `sensor.pocket_assistant_weather_forecast` — Hourly 5-day daily forecast serializer.
+### 2. Home Assistant Companion Package Setup (Single Drop-In File, Zero Blueprints)
+Pocket Assistant uses a single consolidated companion package (`homeassistant/packages/pocket_assistant_companion.yaml`) that installs **all 6 backend entities** in one step (3 `input_text` helpers, 2 `template` sensors, and 1 Music Assistant browse `script`—no separate Blueprint import required):
+1. `input_text.pocket_assistant_active_speaker` — Tracks the active target media player entity ID (defaults to `media_player.pocket_assistant`).
+2. `input_text.pocket_assistant_weather_entity` — Monitored weather entity ID (defaults to `weather.forecast_home`, with automatic fallback to your first `weather.*` entity).
+3. `input_text.pocket_assistant_base_url` — Optional base URL override for custom Home Assistant ports (defaults to `http://homeassistant.local:8123` if blank).
+4. `sensor.pocket_assistant_active_media` — Idle-guarded active media mirror sensor (`title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `supported_features`, `art_url`).
+5. `sensor.pocket_assistant_weather_forecast` — Hourly 5-day daily forecast serializer (`DAY:HIGH:LOW:COND` string + `high` and `low` attributes).
+6. `script.pocket_assistant_music_browse` — Built-in Music Assistant 5-slot discovery & pagination engine (speakers, favorites, playlists, artists, albums, radio, podcasts, audiobooks, tracks, and queues).
 
-**Installation**:
-1. Ensure your Home Assistant `configuration.yaml` enables packages:
-   ```yaml
-   homeassistant:
-     packages: !include_dir_named packages
-   ```
-2. Copy `homeassistant/packages/pocket_assistant_companion.yaml` into your Home Assistant `/config/packages/` directory, then reload Template Entities and Input Texts under **Developer Tools -> YAML** (or restart Home Assistant).
+Choose whichever installation method matches your Home Assistant setup:
 
-### 3. Music Assistant Setup
-1. Adopt the discovered `pocket-assistant` device under **Settings -> Devices & Services**.
-2. **Library Browsing Blueprint**: Import `homeassistant/blueprints/script/music_assistant_browse.yaml` under **Settings -> Automations & Scenes -> Blueprints**, create a script from it using the default name (**`Music Assistant Browse & Discovery for ESPHome Devices`**, which creates `script.music_assistant_browse_discovery_for_esphome_devices`), and save.
+- **Option A: `packages/` Directory (Recommended — Works With Existing `templates.yaml` & `scripts.yaml`)**:
+  > **Note**: Home Assistant's `packages:` loader merges entities cleanly alongside existing `template: !include templates.yaml` and `script: !include scripts.yaml` lines in `configuration.yaml` without conflict.
+  1. Ensure your Home Assistant `configuration.yaml` enables packages under the `homeassistant:` block:
+     ```yaml
+     homeassistant:
+       packages: !include_dir_named packages
+     ```
+  2. Copy `homeassistant/packages/pocket_assistant_companion.yaml` into your Home Assistant `/config/packages/` directory.
+  3. Reload **Template Entities**, **Input Texts**, and **Scripts** under **Developer Tools -> YAML** (or restart Home Assistant), and adopt the discovered `pocket-assistant` device under **Settings -> Devices & Services**.
+
+- **Option B: Manual Split Files (Without Enabling `packages:`)**:
+  If you prefer not to use a `/config/packages/` directory:
+  1. Copy the contents of the `template:` block from `homeassistant/packages/pocket_assistant_companion.yaml` into your `/config/templates.yaml`.
+  2. Copy the `pocket_assistant_music_browse:` entry under `script:` into your `/config/scripts.yaml`.
+  3. Copy the `input_text:` block into your `/config/configuration.yaml` (or create the 3 `input_text` helpers in the UI under **Settings -> Devices & Services -> Helpers**).
+  4. Reload **Template Entities**, **Input Texts**, and **Scripts** under **Developer Tools -> YAML**.
 
 ---
 
@@ -158,7 +166,7 @@ Pocket Assistant uses a single consolidated companion package (`homeassistant/pa
 
 ---
 
-## Repository Structure (28 Canonical Files)
+## Repository Structure (27 Canonical Files)
 
 ```text
 esphome-pocket-assistant/
@@ -179,11 +187,8 @@ esphome-pocket-assistant/
 │   ├── power.yaml                         # 3-Tier power state machine, GPIO3 IRQ gate & battery fuel gauge
 │   └── ui.yaml                            # 20 FPS display dispatcher, 7 apps, 8 tools & touch router
 ├── homeassistant/
-│   ├── blueprints/
-│   │   └── script/
-│   │       └── music_assistant_browse.yaml    # Server-side pagination blueprint for Music Assistant
 │   └── packages/
-│       └── pocket_assistant_companion.yaml    # Consolidated HA helpers & idle-guarded template sensors
+│       └── pocket_assistant_companion.yaml    # All-in-one HA helpers, sensors & Music Assistant browse script
 ├── .gitignore                             # Git ignore rules
 ├── .nojekyll                              # GitHub Pages static asset flag
 ├── LICENSE                                # Apache 2.0 open-source license
