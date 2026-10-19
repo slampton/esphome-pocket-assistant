@@ -275,10 +275,6 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
-  - id: high_score_asteroids
-    type: int
-    restore_value: yes
-    initial_value: '0'
   - id: clock_face_digital
     type: bool
     restore_value: yes
@@ -1893,6 +1889,12 @@ sensor:
     update_interval: 200ms
     internal: true
     lambda: |-
+      if (id(display_power_state) != 0) {
+        auto pw_mode = id(pickup_wake_mode).current_option();
+        if (pw_mode == "Disabled" || (pw_mode == "Docked Only" && !id(usb_connected).state)) {
+          return 0.0f;
+        }
+      }
       float x = id(accel_x).state;
       float y = id(accel_y).state;
       float z = id(accel_z).state;
@@ -3983,7 +3985,7 @@ touchscreen:
             }
 
             // Edge tap support for one-handed navigation in Browse Library, Speakers & Item Browser (Right-Flank Chevrons)
-            if (id(gui_page) == 2 && ((id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3) || id(music_overlay_mode) == 7) && touch.y >= 70 && touch.y <= 375) {
+            if (id(gui_page) == 2 && (id(music_overlay_mode) >= 1 && id(music_overlay_mode) <= 3) && touch.y >= 70 && touch.y <= 375) {
               if (touch.x < 75) {
                 return; // Left flank has no chevrons in vertical navigation
               } else if (is_right_chevron_zone(touch)) {
@@ -4010,14 +4012,14 @@ touchscreen:
                     }
                   }
                   return;
-                } else if (id(music_overlay_mode) == 1 || id(music_overlay_mode) == 3 || id(music_overlay_mode) == 7) {
+                } else if (id(music_overlay_mode) == 1 || id(music_overlay_mode) == 3) {
                   if (id(music_browse_total_pages) > 1) {
                     static uint32_t last_browse_scroll = 0;
                     uint32_t now_s = millis();
                     if (now_s - last_browse_scroll > TOUCH_DEBOUNCE_SCROLL) {
                       int delta = (touch.y < 220) ? -1 : 1;
                       int next_pg = id(music_browse_page);
-                      if (id(music_overlay_mode) == 3 || id(music_overlay_mode) == 7) {
+                      if (id(music_overlay_mode) == 3) {
                         // Hard stop at Page 1 and Total Pages so track order & lyrics never wrap around!
                         next_pg = std::max(1, std::min(id(music_browse_total_pages), id(music_browse_page) + delta));
                       } else {
@@ -4784,18 +4786,6 @@ touchscreen:
                     }
                     id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
-                    id(disp1).update();
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 7) {
-                // ----------------------------------------------------
-                // LEVEL 7: READER VIEW (< BACK returns to Mode 6 Inspector)
-                // ----------------------------------------------------
-                if (is_back_button(touch)) {
-                  if (millis() - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = millis();
-                    id(music_overlay_mode) = 6;
                     id(disp1).update();
                   }
                   return;

@@ -406,19 +406,6 @@ inline std::string format_iso_time(const std::string &iso_str, bool is_24h) {
   return std::string(buf);
 }
 
-inline const char *get_cardinal(float deg) {
-  if (std::isnan(deg)) return "";
-  deg = fmodf(deg, 360.0f);
-  if (deg < 0) deg += 360.0f;
-  if (deg >= 337.5f || deg < 22.5f) return "N";
-  if (deg < 67.5f) return "NE";
-  if (deg < 112.5f) return "E";
-  if (deg < 157.5f) return "SE";
-  if (deg < 202.5f) return "S";
-  if (deg < 247.5f) return "SW";
-  if (deg < 292.5f) return "W";
-  return "NW";
-}
 
 template<typename CurT>
 inline void apply_weather_sim_override(const CurT &sim_opt, std::string &cond, bool &is_night) {

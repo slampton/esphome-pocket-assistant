@@ -104,16 +104,34 @@ static constexpr int16_t CIRCLE_HW[466] = {
 // 1B. Universal Fast-Math, Circular Clipping, 3D Projection & Shader Primitives
 // ------------------------------------------------------------------------------
 
-// O(1) Circular AMOLED Bezel Half-Span Lookup (returns half-chord width/height at row/col `c`)
+// Display Shape Portability Trait:
+//   1 = Circular AMOLED (uses O(1) .rodata CIRCLE_HW chord table)
+//   0 = Rectangular / Square Display (uses full [inset .. SCREEN_W-inset] bounds)
+#ifndef POCKET_UI_ROUND_DISPLAY
+#define POCKET_UI_ROUND_DISPLAY 1
+#endif
+
+// O(1) Bezel Half-Span Lookup (returns half-chord width/height at row/col `c`)
 inline int circle_half_span(int c, int inset = 5) {
+#if POCKET_UI_ROUND_DISPLAY
   if (c < 0 || c >= SCREEN_W) return 0;
   int span = static_cast<int>(CIRCLE_HW[c]) - inset;
   return (span > 0) ? span : 0;
+#else
+  if (c < inset || c >= SCREEN_W - inset) return 0;
+  int span = (SCREEN_H / 2) - inset;
+  return (span > 0) ? span : 0;
+#endif
 }
 
 inline bool is_inside_bezel(int x, int y, int cy = SCREEN_CY, int inset = 5) {
+#if POCKET_UI_ROUND_DISPLAY
   int h = circle_half_span(x, inset);
   return (h > 0) && (y >= cy - h) && (y <= cy + h);
+#else
+  (void)cy;
+  return (x >= inset && x < SCREEN_W - inset && y >= inset && y < SCREEN_H - inset);
+#endif
 }
 
 // Fast interpolated sine/cosine backed by .rodata DIAL_SIN[60] (0 hardware FPU trig stalls)

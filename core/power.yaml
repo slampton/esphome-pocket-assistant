@@ -115,6 +115,11 @@ sensor:
     accuracy_decimals: 0
     update_interval: 5s
     lambda: |-
+      static float filtered_pct = -1.0f;
+      if (id(va_active) || id(va_tts_received)) {
+        if (filtered_pct >= 0.0f) return filtered_pct;
+        return {};
+      }
       uint8_t reg = 0xA4;
       uint8_t pct = 0;
       if (id(bus_internal).write_readv(0x34, &reg, 1, &pct, 1) == esphome::i2c::ERROR_OK) {
@@ -137,7 +142,6 @@ sensor:
                              ? 100.0f
                              : std::roundf((static_cast<float>(pct) * 100.0f) / 99.0f);
 
-          static float filtered_pct = -1.0f;
           static uint32_t last_step_ms = 0;
           static uint32_t below_since_ms = 0;
           uint32_t now_ms = millis();
@@ -197,11 +201,17 @@ sensor:
     accuracy_decimals: 3
     update_interval: 5s
     lambda: |-
+      static float last_v = NAN;
+      if (id(va_active) || id(va_tts_received)) {
+        if (!std::isnan(last_v)) return last_v;
+        return {};
+      }
       uint8_t reg = 0x34;
       uint8_t buf[2] = {0, 0};
       if (id(bus_internal).write_readv(0x34, &reg, 1, buf, 2) == esphome::i2c::ERROR_OK) {
         uint16_t mv = ((buf[0] & 0x3F) << 8) | buf[1];
-        return (float)mv / 1000.0f;
+        last_v = (float)mv / 1000.0f;
+        return last_v;
       }
       return {};
 

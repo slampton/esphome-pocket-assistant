@@ -702,7 +702,7 @@ inline void render_progress_arc_r224(DisplayT &it, int cx, int cy, float prog, e
     int y = cy + dy;
     if (y < 0 || y >= SCREEN_H) continue;
     int dy2 = dy * dy;
-    int dx_out = static_cast<int>(sqrtf(static_cast<float>(R_OUT_SQ - dy2)));
+    int dx_out = static_cast<int>(CIRCLE_HW[y]);
     int dx_in  = (dy2 < R_IN_SQ) ? static_cast<int>(sqrtf(static_cast<float>(R_IN_SQ - dy2))) : 0;
     int dx_brd = (dy2 < R_BORDER_SQ) ? static_cast<int>(sqrtf(static_cast<float>(R_BORDER_SQ - dy2))) : 0;
 
@@ -826,7 +826,7 @@ inline void render_voice_assistant_overlay(
         float progress = static_cast<float>(wave_t) * 0.0005f;
         int r_center = 36 + static_cast<int>(progress * 180.0f);
 
-        float width_factor = sinf(progress * PI_F);
+        float width_factor = fast_sin(progress * PI_F);
         int base_w = (w % 2 == 0) ? 7 : 4;
         int band_w = base_w + static_cast<int>(5.0f * width_factor);
         if (band_w < 3) band_w = 3;
@@ -856,7 +856,7 @@ inline void render_voice_assistant_overlay(
         }
       }
 
-      float core_pulse = sinf(static_cast<float>(now_ms % 800U) * (2.0f * PI_F / 800.0f));
+      float core_pulse = fast_sin(static_cast<float>(now_ms % 800U) * (2.0f * PI_F / 800.0f));
       int core_r = 22 + static_cast<int>(4.0f * core_pulse);
 
       float color_t = static_cast<float>(now_ms % 3000U) * (1.0f / 3000.0f);
@@ -884,7 +884,7 @@ inline void render_voice_assistant_overlay(
       it.circle(cx, cy, 114, col_dark_gray);
 
       float spin_cw = static_cast<float>(now_ms % 1100U) * (2.0f * PI_F / 1100.0f);
-      float s0 = sinf(spin_cw), c0 = cosf(spin_cw);
+      float s0 = fast_sin(spin_cw), c0 = fast_cos(spin_cw);
 
       esphome::Color inner_star_col = is_solaris ? col_solaris_gold : col_cyan;
       esphome::Color outer_star_col = is_solaris ? esphome::Color(35, 210, 110) : col_purple;
@@ -918,7 +918,7 @@ inline void render_voice_assistant_overlay(
         it.filled_circle(nx, ny, 1, col_white);
       }
 
-      float pulse = sinf(static_cast<float>(now_ms % 600U) * (2.0f * PI_F / 600.0f));
+      float pulse = fast_sin(static_cast<float>(now_ms % 600U) * (2.0f * PI_F / 600.0f));
       int core_r = 24 + static_cast<int>(5.0f * pulse);
       esphome::Color core_ring_col = is_solaris ? col_solaris_gold : col_purple;
       esphome::Color core_fill_col = is_solaris ? esphome::Color(250, 100, 15) : col_cyan;
@@ -937,7 +937,7 @@ inline void render_voice_assistant_overlay(
 
     // Classic Listening
     float vad_boost = va_vad_active ? 6.0f : 0.0f;
-    float pulse = sinf(static_cast<float>(now_ms % 1600U) * (2.0f * PI_F / 1600.0f));
+    float pulse = fast_sin(static_cast<float>(now_ms % 1600U) * (2.0f * PI_F / 1600.0f));
 
     esphome::Color outer_halo_col = is_solaris ? esphome::Color(35, 210, 110) : col_purple;
     esphome::Color mid_ring_col = is_solaris ? col_solaris_gold : col_light_blue;
@@ -959,7 +959,7 @@ inline void render_voice_assistant_overlay(
     it.circle(cx, cy, mid_ring_r - 1, mid_ring_inner);
 
     float orbit_ang = static_cast<float>(now_ms % 3200U) * (2.0f * PI_F / 3200.0f);
-    float s0 = sinf(orbit_ang), c0 = cosf(orbit_ang);
+    float s0 = fast_sin(orbit_ang), c0 = fast_cos(orbit_ang);
     const float rot_c[4] = {c0, -s0, -c0, s0};
     const float rot_s[4] = {s0,  c0, -s0, -c0};
     for (int i = 0; i < 4; i++) {
@@ -1051,7 +1051,7 @@ inline void render_voice_assistant_overlay(
     };
 
     if (is_speaking) {
-      float syl_env = (0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f)) * smooth_speak;
+      float syl_env = (0.55f + 0.25f * fast_sin(t_sec * 11.5f) + 0.20f * fast_cos(t_sec * 19.3f)) * smooth_speak;
       if (syl_env < 0.15f) syl_env = 0.15f;
 
       int tick = static_cast<int>(now_ms / 35U);
@@ -1063,7 +1063,7 @@ inline void render_voice_assistant_overlay(
         if (speak_elapsed < launch_offset) continue;
         uint32_t wave_t = (speak_elapsed - launch_offset) % 1800U;
         float prog = static_cast<float>(wave_t) * (1.0f / 1800.0f);
-        float fade = sinf(prog * PI_F) * (0.45f + 0.45f * syl_env) * smooth_speak;
+        float fade = fast_sin(prog * PI_F) * (0.45f + 0.45f * syl_env) * smooth_speak;
         int r_wave = 68 + static_cast<int>(prog * 144.0f);
 
         esphome::Color w_col = scale_color(get_va_radiation_color(false, prog + static_cast<float>(w) * 0.33f + t_sec * 0.25f), fade);
@@ -1103,7 +1103,7 @@ inline void render_voice_assistant_overlay(
 
     if (is_thinking) {
       int tick = static_cast<int>(now_ms / 25U);
-      float pulse = sinf(static_cast<float>(now_ms % 700U) * (2.0f * PI_F / 700.0f));
+      float pulse = fast_sin(static_cast<float>(now_ms % 700U) * (2.0f * PI_F / 700.0f));
 
       float vortex_r = 74.0f - 20.0f * smooth_think;
       draw_silk_ribbon_3d(vortex_r + 3.0f * pulse, 6.0f, 5.0f, 3.5f,
@@ -1159,7 +1159,7 @@ inline void render_voice_assistant_overlay(
     }
 
     // Nebula Listening: 4 Precessing 3D Gyroscopic Silk Ribbons + VAD Bloom
-    float breath = sinf(static_cast<float>(now_ms % 2000U) * (2.0f * PI_F / 2000.0f));
+    float breath = fast_sin(static_cast<float>(now_ms % 2000U) * (2.0f * PI_F / 2000.0f));
     int tick = static_cast<int>(now_ms / 45U);
 
     float base_r = 80.0f + 6.0f * breath + 22.0f * smooth_vad;
@@ -1201,9 +1201,9 @@ inline void render_voice_assistant_overlay(
   float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
 
   if (is_speaking) {
-    float syl_env = (0.55f + 0.25f * sinf(t_sec * 11.5f) + 0.20f * cosf(t_sec * 19.3f)) * smooth_speak;
+    float syl_env = (0.55f + 0.25f * fast_sin(t_sec * 11.5f) + 0.20f * fast_cos(t_sec * 19.3f)) * smooth_speak;
     if (syl_env < 0.15f) syl_env = 0.15f;
-    float breath = sinf(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
+    float breath = fast_sin(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
     int tick = static_cast<int>(now_ms / 35U);
     uint32_t speak_elapsed = now_ms - speak_start_ms;
 
@@ -1213,7 +1213,7 @@ inline void render_voice_assistant_overlay(
       if (speak_elapsed < launch_offset) continue;
       uint32_t wave_t = (speak_elapsed - launch_offset) % 1800U;
       float prog = static_cast<float>(wave_t) * (1.0f / 1800.0f);
-      float fade = sinf(prog * PI_F) * (0.45f + 0.45f * syl_env) * smooth_speak;
+      float fade = fast_sin(prog * PI_F) * (0.45f + 0.45f * syl_env) * smooth_speak;
       int r_wave = 82 + static_cast<int>(prog * 132.0f);
       esphome::Color ring_c = scale_color(get_va_radiation_color(true, prog + static_cast<float>(w) * 0.33f), fade);
       esphome::Color glow_c = scale_color(ring_c, 0.45f);
@@ -1302,7 +1302,7 @@ inline void render_voice_assistant_overlay(
       }
     }
 
-    float pulse = sinf(static_cast<float>(now_ms % 600U) * (2.0f * PI_F / 600.0f));
+    float pulse = fast_sin(static_cast<float>(now_ms % 600U) * (2.0f * PI_F / 600.0f));
     int core_r = 25 + static_cast<int>(4.0f * pulse);
     it.filled_circle(cx, cy, core_r + 5, c_crimson_ember);
     it.filled_circle(cx, cy, core_r + 1, c_amber);
@@ -1312,7 +1312,7 @@ inline void render_voice_assistant_overlay(
   }
 
   // Solaris Listening: Breathing 30-Ray Solar Corona + Photosphere Core
-  float breath = sinf(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
+  float breath = fast_sin(static_cast<float>(now_ms % 1800U) * (2.0f * PI_F / 1800.0f));
   int tick = static_cast<int>(now_ms / 45U);
 
   const float r_inner = 42.0f + 3.0f * breath;

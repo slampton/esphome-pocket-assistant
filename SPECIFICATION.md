@@ -139,9 +139,8 @@ The Tools Suite operates as a modular, high-efficiency utility hub organized acr
 
 ## 6. Games Suite Architecture (Page 3)
 
-The Games Suite features a vertical reel carousel launcher with high-contrast vector symbols and high-score retention:
-1. **Breakout**: Classic paddle-and-brick arcade game with ball acceleration and paddle deflection physics.
-2. **Marble Maze**: Precision 2D IMU tilt labyrinth with rolling ball momentum, hole hazards, and goal flag.
-3. **Archery Target**: Timed precision bow-and-arrow targeting with oscillating reticle and bullseye scoring.
-4. **Treat Catcher**: Moving basket arcade game catching falling treats with progressive difficulty and lives system.
-5. **Asteroids**: 360° circular vector space arena with ship heading steered via QMI8658 IMU gyroscope orientation, photon cannon firing via screen tap or side button, and procedural drifting asteroid fields.
+The Games Suite features a vertical reel carousel launcher with high-contrast vector symbols, game audio mute/unmute control, and NVS high-score retention across 4 20 FPS arcade games:
+1. **Marbles**: Precision 3D IMU tilt arena with 5 Cat's-Eye glass marbles, center capture hole, and progressive diamond bumper pegs.
+2. **Archery**: Timed multi-round recurve bow range with swaying 5-ring target, crosswind ballistics, and pinned arrows.
+3. **Breakout**: Circular dome brick-breaker with multi-hit armored bricks, shattering shrapnel, and angle-steered capsule paddle.
+4. **Chomp for Kids**: Kid-friendly tilt game where a hungry furry monster rolls around the play bowl gobbling up scattered cookies and treats with party milestones.

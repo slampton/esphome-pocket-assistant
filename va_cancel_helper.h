@@ -18,8 +18,7 @@ static_assert(ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 10, 0),
 // micro_wake_word configuration + NVS flash persistence:
 //   1. disarm_va_speaker_timeout(va)
 //   2. reset_va_session_state(va)
-//   3. prewarm_va_tts_mixer(va, mixer_in)
-//   4. abort_voice_assistant(va)
+// //   4. abort_voice_assistant(va)
 //   5. ensure_wake_words_restored(va) & poll_and_persist_wake_words(va)
 //   6. on_api_client_authenticated(va, client_info, client_address)
 // ==============================================================================
@@ -142,21 +141,6 @@ inline void reset_va_session_state(VoiceAssistant *va) {
   }
 }
 
-// Pre-warms the announcement SourceSpeaker into SPEAKER_STATE_RUNNING during Thinking
-// (after microphone capture ends and while the ES8311 DAC is hardware-muted) so its
-// 15s (480 KB) PSRAM ring_buffer_ is open before sub-20ms local-intent TTS bursts arrive.
-template<typename SpeakerT>
-inline void prewarm_va_tts_mixer(VoiceAssistant *va, SpeakerT *mixer_in) {
-  disarm_va_speaker_timeout(va);
-  if (mixer_in != nullptr) {
-    if (!mixer_in->is_running()) {
-      mixer_in->start();
-    } else {
-      const int16_t silence_pcm = 0;
-      mixer_in->play(reinterpret_cast<const uint8_t *>(&silence_pcm), sizeof(silence_pcm));
-    }
-  }
-}
 
 // Performs a complete, synchronous client + server VoiceAssistant session abort.
 inline void abort_voice_assistant(VoiceAssistant *va) {
