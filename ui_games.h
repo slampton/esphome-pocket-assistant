@@ -214,8 +214,8 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (dt < 0.012f) dt = 0.012f;
   if (dt > 0.075f) dt = 0.075f;
 
-  const bool in_wave_pause = (wave_clear_ms > 0U && (now_ms - wave_clear_ms < 1500U));
-  if (wave_clear_ms > 0U && (now_ms - wave_clear_ms >= 1500U)) {
+  const bool in_wave_pause = (wave_clear_ms > 0U && (now_ms - wave_clear_ms < 3000U));
+  if (wave_clear_ms > 0U && (now_ms - wave_clear_ms >= 3000U)) {
     wave_clear_ms = 0U;
     spawn_wave_balls(wave_num);
   }
@@ -576,7 +576,7 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
   // 1.5s Inter-Wave Anticipation Banner ("WAVE X CLEAR! +6s" -> "GET READY! WAVE X+1")
   if (!round_over && in_wave_pause) {
     char w_buf[36];
-    if (now_ms - wave_clear_ms < 850U) {
+    if (now_ms - wave_clear_ms < 1100U) {
       snprintf(w_buf, sizeof(w_buf), "WAVE %d CLEAR! +6s", wave_num - 1);
       it.print(cx, 126, font_date, col_gold, esphome::display::TextAlign::CENTER, w_buf);
     } else {
@@ -757,7 +757,7 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
     if (round_over) {
       reset_full_game();
       game_imu_retare_flag() = true;
-    } else if (!arrow_in_flight && arrows_left > 0 && (round_banner_ms == 0U || now_ms - round_banner_ms >= 1500U)) {
+    } else if (!arrow_in_flight && arrows_left > 0 && (round_banner_ms == 0U || now_ms - round_banner_ms >= 3000U)) {
       arrow_in_flight = true;
       flight_z = 0.0f;
       launch_aim_x = smooth_ax;
@@ -967,17 +967,19 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
             tail_y - f_py - static_cast<int>(arrow_dy * 4.0f), col_red);
   }
 
-  // Refill quiver & clear pinned arrows when 1.5s Inter-Round Pause completes
-  if (round_banner_ms > 0U && (now_ms - round_banner_ms >= 1500U)) {
-    round_banner_ms = 0U;
-    arrows_left = 6;
+  // Clear pinned arrows at 1.1s for Get Ready phase, and unlock quiver at 3.0s
+  if (round_banner_ms > 0U && (now_ms - round_banner_ms >= 1100U) && pinned_count > 0) {
     clear_pinned();
   }
+  if (round_banner_ms > 0U && (now_ms - round_banner_ms >= 3000U)) {
+    round_banner_ms = 0U;
+    arrows_left = 6;
+  }
 
-  // 6. Hit Feedback & 1.5s Inter-Round Anticipation Banner
-  if (!round_over && round_banner_ms > 0U && (now_ms - round_banner_ms < 1500U)) {
+  // 6. Hit Feedback & 3.0s Inter-Round Anticipation Banner
+  if (!round_over && round_banner_ms > 0U && (now_ms - round_banner_ms < 3000U)) {
     char rb[36];
-    if (now_ms - round_banner_ms < 850U) {
+    if (now_ms - round_banner_ms < 1100U) {
       snprintf(rb, sizeof(rb), "ROUND %d CLEAR!", round_num - 1);
       it.print(cx, 225, font_date, col_gold, esphome::display::TextAlign::CENTER, rb);
     } else {
@@ -1252,7 +1254,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
       init_brick_wave(1);
       reset_ball_on_paddle();
       game_imu_retare_flag() = true;
-    } else if (!ball_launched) {
+    } else if (!ball_launched && (banner_ms == 0U || now_ms - banner_ms >= 3000U)) {
       float launch_ang = std::max(-0.52f, std::min(0.52f, roll_delta * 0.025f));
       if (std::fabs(launch_ang) < 0.14f) {
         launch_ang = (now_ms & 1) ? 0.22f : -0.22f;
@@ -1520,10 +1522,12 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
   }
   if (banner_ms > 0U) {
     uint32_t b_el = now_ms - banner_ms;
-    if (b_el >= 1450U) {
-      banner_ms = 0U;
+    if (b_el >= 1100U && bricks_remaining == 0) {
       init_brick_wave(wave_num);
-    } else if (b_el < 850U) {
+    }
+    if (b_el >= 3000U) {
+      banner_ms = 0U;
+    } else if (b_el < 1100U) {
       it.print(cx, 212, font_date, col_gold, esphome::display::TextAlign::CENTER, banner_text);
     } else {
       char rdy_buf[32];
@@ -2019,7 +2023,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
           if (treat_score > high_score_chomp) {
             high_score_chomp = treat_score;
           }
-          level_clear_until_ms = now_ms + 2050U;
+          level_clear_until_ms = now_ms + 3000U;
           in_celebration = true;
           pending_game_sfx() = 5; // Level Clear Fanfare!
 
@@ -2084,7 +2088,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (in_celebration) {
     uint32_t rem_cel = level_clear_until_ms - now_ms;
     char p_msg[36];
-    if (rem_cel > 750U) {
+    if (rem_cel > 1900U) {
       for (int c = 0; c < 16; c++) {
         it.filled_circle(static_cast<int>(confetti[c].x), static_cast<int>(confetti[c].y), 3, confetti[c].col);
       }
@@ -2122,7 +2126,7 @@ inline void render_games_launcher(
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
     esphome::Color col_silver, esphome::Color col_slate, esphome::Color col_dark_gray,
     esphome::Color col_gold, esphome::Color col_cyan, esphome::Color col_green,
-    esphome::Color col_orange, esphome::Color col_red, esphome::Color col_magenta) {
+    esphome::Color col_orange, esphome::Color col_red, esphome::Color col_magenta, bool game_sound_on = true) {
   (void)col_silver;
   using esphome::Color;
   using esphome::display::TextAlign;
@@ -2286,6 +2290,31 @@ inline void render_games_launcher(
 
   // Action Button: PLAY at y = 349 (r = 22, height = 44px)
   render_pill_button(it, cx - 55, cx + 55, 349, 22, theme_primary, col_dark_gray, "PLAY", col_white, font_btn_bold);
+
+  // Game Sound Mute / Unmute Button to the left of PLAY at (106, 349, r = 22)
+  const int spk_x = 106, spk_y = 349;
+  it.filled_circle(spk_x, spk_y, 22, col_dark_gray);
+  it.circle(spk_x, spk_y, 22, game_sound_on ? theme_secondary : col_slate);
+  it.circle(spk_x, spk_y, 21, game_sound_on ? theme_secondary : col_slate);
+  Color spk_c = game_sound_on ? col_white : col_slate;
+  // Speaker body & cone
+  it.filled_rectangle(spk_x - 9, spk_y - 4, 5, 9, spk_c);
+  it.filled_triangle(spk_x - 4, spk_y - 4, spk_x - 4, spk_y + 4, spk_x + 2, spk_y + 9, spk_c);
+  it.filled_triangle(spk_x - 4, spk_y - 4, spk_x + 2, spk_y + 9, spk_x + 2, spk_y - 9, spk_c);
+  if (game_sound_on) {
+    // Sound wave arcs
+    it.line(spk_x + 5, spk_y - 4, spk_x + 7, spk_y - 2, theme_primary);
+    it.line(spk_x + 7, spk_y - 2, spk_x + 7, spk_y + 2, theme_primary);
+    it.line(spk_x + 7, spk_y + 2, spk_x + 5, spk_y + 4, theme_primary);
+    it.line(spk_x + 8, spk_y - 7, spk_x + 11, spk_y - 3, theme_secondary);
+    it.line(spk_x + 11, spk_y - 3, spk_x + 11, spk_y + 3, theme_secondary);
+    it.line(spk_x + 11, spk_y + 3, spk_x + 8, spk_y + 7, theme_secondary);
+  } else {
+    // Bold crimson diagonal mute slash across speaker
+    it.line(spk_x - 11, spk_y - 10, spk_x + 10, spk_y + 11, col_red);
+    it.line(spk_x - 10, spk_y - 10, spk_x + 11, spk_y + 11, col_red);
+    it.line(spk_x - 11, spk_y - 9,  spk_x + 10, spk_y + 12, col_red);
+  }
 
   // Right-Flank Continuous Carousel Chevrons
   it.filled_rectangle(395, 140, 71, 160, col_bg);

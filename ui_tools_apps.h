@@ -2622,7 +2622,7 @@ inline void render_system_page(
     const esphome::Color &col_bg, const esphome::Color &col_black,
     const esphome::Color &col_white, const esphome::Color &col_slate,
     const esphome::Color &col_dark_gray, const esphome::Color &col_gold,
-    const esphome::Color &col_red) {
+    const esphome::Color &col_red, bool game_sound_on = true) {
   char buf[64];
   auto draw_back = [&]() {
     render_pill_button(it, 195, 271, 410, 14, theme_primary, col_dark_gray, "< BACK", theme_primary, font_small);
@@ -2870,6 +2870,9 @@ inline void render_system_page(
     draw_slot_card(1, buf, theme_secondary, col_white, col_dark_gray);
     snprintf(buf, sizeof(buf), "Vol Step: %d%%", vol_step_pct);
     draw_slot_card(2, buf, theme_secondary, col_white, col_dark_gray);
+    snprintf(buf, sizeof(buf), "Game Sound: %s", game_sound_on ? "On" : "Muted");
+    draw_slot_card(3, buf, game_sound_on ? theme_secondary : col_slate,
+                   game_sound_on ? col_white : col_slate, col_dark_gray);
     draw_back();
 
   } else if (system_menu_mode == 8) {
