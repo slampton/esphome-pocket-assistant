@@ -1379,51 +1379,68 @@ inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
 
   auto draw_icon_glyph = [&](int idx, int bx, int by, esphome::Color c) {
     if (idx == 0) {
-      // Current Weather: Thermometer with stem & bulb centered at bx and ticks trimmed 1px to bx+5
-      // so the overall bounding box is [bx-5..bx+5] (splitting the 1px difference by 0.5px!)
-      it.line(bx - 2, by - 12, bx + 2, by - 12, c);
-      it.line(bx - 2, by - 12, bx - 2, by + 4, c);
-      it.line(bx + 2, by - 12, bx + 2, by + 4, c);
+      // 0. Current Weather: Thermometer with rounded dome cap, filled mercury bulb & 3 scale ticks
+      it.line(bx - 2, by - 11, bx + 2, by - 11, c);
+      it.line(bx - 1, by - 12, bx + 1, by - 12, c);
+      it.line(bx - 2, by - 11, bx - 2, by + 3, c);
+      it.line(bx + 2, by - 11, bx + 2, by + 3, c);
       it.circle(bx, by + 7, 5, c);
-      it.line(bx + 3, by - 7, bx + 5, by - 7, c);
-      it.line(bx + 3, by - 2, bx + 5, by - 2, c);
-      it.line(bx + 3, by + 3, bx + 5, by + 3, c);
       it.filled_circle(bx, by + 7, 3, c);
       it.line(bx, by - 4, bx, by + 7, c);
+      it.line(bx + 4, by - 8, bx + 6, by - 8, c);
+      it.line(bx + 4, by - 4, bx + 6, by - 4, c);
+      it.line(bx + 4, by,     bx + 6, by,     c);
     } else if (idx == 1) {
-      // Forecast: 3-day ascending bar chart + rising trend arrow (centered horizontally [bx-11..bx+11] & vertically [by-10..by+10])
+      // 1. Forecast: 3-day ascending solid bars + bold 2px rising trend arrow
       int fy = by + 1;
       it.line(bx - 11, fy + 9, bx + 11, fy + 9, c);
       it.filled_rectangle(bx - 9, fy + 4, 4, 5, c);
       it.filled_rectangle(bx - 2, fy - 1, 4, 10, c);
       it.filled_rectangle(bx + 5, fy - 5, 4, 14, c);
-      it.line(bx - 11, fy + 2, bx + 10, fy - 11, c);
-      it.line(bx - 11, fy + 3, bx + 10, fy - 10, c);
-      it.line(bx + 10, fy - 11, bx + 5, fy - 11, c);
-      it.line(bx + 10, fy - 11, bx + 10, fy - 6, c);
+      it.line(bx - 11, fy + 2, bx + 9, fy - 10, c);
+      it.line(bx - 11, fy + 3, bx + 9, fy - 9, c);
+      it.line(bx + 10, fy - 11, bx + 4, fy - 11, c);
+      it.line(bx + 10, fy - 10, bx + 5, fy - 10, c);
+      it.line(bx + 10, fy - 11, bx + 10, fy - 5, c);
+      it.line(bx + 9,  fy - 11, bx + 9,  fy - 6, c);
     } else if (idx == 2) {
-      // Sun: Center circle with 8 radiating dashes (symmetrical [bx-14..bx+14], [by-14..by+14])
-      it.circle(bx, by, 7, c);
-      it.line(bx, by - 10, bx, by - 14, c);
-      it.line(bx, by + 10, bx, by + 14, c);
-      it.line(bx - 10, by, bx - 14, by, c);
-      it.line(bx + 10, by, bx + 14, by, c);
-      it.line(bx - 7, by - 7, bx - 10, by - 10, c);
-      it.line(bx + 7, by - 7, bx + 10, by - 10, c);
-      it.line(bx - 7, by + 7, bx - 10, by + 10, c);
-      it.line(bx + 7, by + 7, bx + 10, by + 10, c);
+      // 2. Sun: Solid filled solar disc (r = 6) + 8 symmetrical 2px-accented rays (SF Symbol sun.max.fill style)
+      it.filled_circle(bx, by, 6, c);
+      // Cardinal rays (r = 9..13)
+      it.line(bx,     by - 9, bx,     by - 13, c);
+      it.line(bx + 1, by - 9, bx + 1, by - 13, c);
+      it.line(bx,     by + 9, bx,     by + 13, c);
+      it.line(bx + 1, by + 9, bx + 1, by + 13, c);
+      it.line(bx - 9, by,     bx - 13, by,     c);
+      it.line(bx - 9, by + 1, bx - 13, by + 1, c);
+      it.line(bx + 9, by,     bx + 13, by,     c);
+      it.line(bx + 9, by + 1, bx + 13, by + 1, c);
+      // Diagonal rays (r = 9..12)
+      it.line(bx - 6, by - 6, bx - 9, by - 9, c);
+      it.line(bx - 7, by - 6, bx - 9, by - 8, c);
+      it.line(bx + 6, by - 6, bx + 9, by - 9, c);
+      it.line(bx + 7, by - 6, bx + 9, by - 8, c);
+      it.line(bx - 6, by + 6, bx - 9, by + 9, c);
+      it.line(bx - 7, by + 6, bx - 9, by + 8, c);
+      it.line(bx + 6, by + 6, bx + 9, by + 9, c);
+      it.line(bx + 7, by + 6, bx + 9, by + 8, c);
     } else {
-      // Moon: Crescent outline centered on the crescent body itself ([bx-5..bx+5], [by-11..by+11])
-      // rather than the invisible full lunar circle (shifted +5px right from bx+1/bx+5 to bx+6/bx+10)
-      for (int a = 95; a <= 265; a += 4) {
-        float rad = static_cast<float>(a) * 0.0174532925f;
-        it.draw_pixel_at(bx + 6 + static_cast<int>(roundf(11.0f * fast_cos(rad))),
-                         by + static_cast<int>(roundf(11.0f * fast_sin(rad))), c);
-      }
-      for (int a = 112; a <= 248; a += 4) {
-        float rad = static_cast<float>(a) * 0.0174532925f;
-        it.draw_pixel_at(bx + 10 + static_cast<int>(roundf(9.5f * fast_cos(rad))),
-                         by + static_cast<int>(roundf(10.5f * fast_sin(rad))), c);
+      // 3. Moon: Exact CSG Scanline Filled Crescent (Outer sphere r=10.5 minus tilted shadow sphere r=8.8)
+      //    Eliminates trig rounding jaggies and creates razor-sharp tapered horns matching watchOS moon.fill
+      for (int dy = -11; dy <= 11; dy++) {
+        for (int dx = -11; dx <= 11; dx++) {
+          int d_out_x = dx - 2;
+          int d_out_y = dy;
+          int d_out_sq = d_out_x * d_out_x + d_out_y * d_out_y;
+          if (d_out_sq <= 110) {
+            int d_cut_x = dx - 7;
+            int d_cut_y = dy + 3; // Tilts crescent horns gracefully upward-right
+            int d_cut_sq = d_cut_x * d_cut_x + d_cut_y * d_cut_y;
+            if (d_cut_sq > 76) {
+              it.draw_pixel_at(bx + dx, by + dy, c);
+            }
+          }
+        }
       }
     }
   };
