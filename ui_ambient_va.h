@@ -964,32 +964,9 @@ inline void render_voice_assistant_overlay(
       }
     };
 
-    if (is_thinking) {
-      // Thinking: 3 white dots (120° apart) in a smooth, unhurried circular orbit (r = 38px)
-      float base_ang = t_sec * 3.2f;
-      const float orbit_r = 38.0f;
-      for (int d = 0; d < 3; d++) {
-        float ang = base_ang + static_cast<float>(d) * (2.0f * PI_F / 3.0f);
-        for (int tail = 3; tail >= 1; tail--) {
-          float t_ang = ang - static_cast<float>(tail) * 0.16f;
-          float ts = 0.0f, tc = 1.0f;
-          fast_sincos(t_ang, ts, tc);
-          int tx = cx + static_cast<int>(orbit_r * tc);
-          int ty = cy + static_cast<int>(orbit_r * ts);
-          float fade = static_cast<float>(4 - tail) * 0.20f;
-          it.filled_circle(tx, ty, 11 - tail * 2, scale_color(c_halo_inner, fade));
-        }
-        float s = 0.0f, c = 1.0f;
-        fast_sincos(ang, s, c);
-        int dx = cx + static_cast<int>(orbit_r * c);
-        int dy = cy + static_cast<int>(orbit_r * s);
-        draw_glowing_capsule(dx, dy, 12, 0);
-      }
-      return;
-    }
-
-    // Listening & Speaking: 3 horizontally spaced dots/capsules centered at cx (-52, 0, +52)
+    // 3 horizontally spaced dots/capsules centered at cx (-52, 0, +52) across all 3 states
     static constexpr int DOT_OFF_X[3] = {-52, 0, 52};
+
     if (is_speaking) {
       // Speaking: 3 white dots stretch into calm, organic vertical equalizer capsules
       float syl_env = (0.50f + 0.30f * fast_sin(t_sec * 6.4f) + 0.20f * fast_cos(t_sec * 10.2f)) * smooth_speak;
@@ -1001,15 +978,22 @@ inline void render_voice_assistant_overlay(
         int half_h = static_cast<int>(w * BAR_MAX_H[d] * (0.35f + 0.65f * syl_env));
         draw_glowing_capsule(cx + DOT_OFF_X[d], cy, 12, half_h);
       }
-    } else {
-      // Listening: 3 white dots in a gentle, unhurried travelling sine wave (5px idle -> 14px with VAD)
-      float wave_amp = 5.0f + 9.0f * smooth_vad;
-      float wave_spd = 2.8f + 1.5f * smooth_vad;
-      for (int d = 0; d < 3; d++) {
-        float ph = t_sec * wave_spd - static_cast<float>(d) * 1.05f;
-        int dy = static_cast<int>(fast_sin(ph) * wave_amp);
-        draw_glowing_capsule(cx + DOT_OFF_X[d], cy + dy, 12, 0);
-      }
+      return;
+    }
+
+    // Listening & Thinking: Sequential Left-to-Right Travelling Wave Ripple (Zero Seesaw / Teeter-Totter!)
+    // Uses a raised-cosine crest pulse (u^2) with 120-degree (2.094 rad) separation per dot so one dot
+    // rises smoothly while the other two settle near the baseline (Dot 1 -> Dot 2 -> Dot 3 -> repeat).
+    float wave_spd = is_thinking ? 4.8f : (3.2f + 1.4f * smooth_vad);
+    float wave_amp = is_thinking ? 20.0f : (9.0f + 11.0f * smooth_vad);
+
+    for (int d = 0; d < 3; d++) {
+      float ph = t_sec * wave_spd - static_cast<float>(d) * 2.094395f;
+      float u = 0.5f + 0.5f * fast_sin(ph);
+      float crest = u * u; // Smooth baseline dwell with a single travelling upward wave crest
+      int dy = static_cast<int>((0.35f - crest) * wave_amp);
+      int dot_r = 11 + static_cast<int>(crest * 2.5f);
+      draw_glowing_capsule(cx + DOT_OFF_X[d], cy + dy, dot_r, 0);
     }
     return;
   }
