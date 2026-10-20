@@ -2393,29 +2393,43 @@ inline void render_home_page(
 
   if (home_subpage == 1) {
     // -------------------------------------------------------------------------
-    // SUBPAGE 1: HOME SETTINGS (5-Slot On-Device Customization Menu)
+    // SUBPAGE 1: HOME SETTINGS (Modern Squared-Off Cards + 21pt Header Testbed)
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "HOME SETTINGS", font_date, theme_primary);
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "HOME SETTINGS");
+
+    const Color card_bg_on(22, 27, 36);
+    const Color card_bg_off(15, 18, 24);
+    const Color card_brd_on(52, 62, 78);
+    const Color card_brd_off(34, 40, 50);
+
+    auto draw_setting_card = [&](int y_mid, const char *label, bool is_on) {
+      Color bg_c  = is_on ? card_bg_on  : card_bg_off;
+      Color brd_c = is_on ? card_brd_on : card_brd_off;
+      Color txt_c = is_on ? col_white   : col_slate;
+      Color chv_c = is_on ? theme_secondary : col_slate;
+      render_modern_card(it, cx, y_mid, 276, 46, 12, bg_c, brd_c, label, txt_c, font_small);
+      // Subtle Edit-Alarm-style left/right cycle chevrons inside card flanks
+      it.line(112, y_mid, 117, y_mid - 5, chv_c);
+      it.line(112, y_mid, 117, y_mid + 5, chv_c);
+      it.line(354, y_mid, 349, y_mid - 5, chv_c);
+      it.line(354, y_mid, 349, y_mid + 5, chv_c);
+    };
+
     char buf[48];
     snprintf(buf, sizeof(buf), "Weather Sky: %s", show_weather_bg ? "On" : "Off");
-    render_pill_button(it, 110, 356, 104, 18, show_weather_bg ? theme_primary : theme_secondary,
-                       col_dark_gray, buf, col_white, font_small);
+    draw_setting_card(98, buf, show_weather_bg);
 
     snprintf(buf, sizeof(buf), "Music Icon: %s", dock_music ? "Shown" : "Hidden");
-    render_pill_button(it, 110, 356, 162, 18, dock_music ? theme_secondary : col_slate,
-                       col_dark_gray, buf, dock_music ? col_white : col_slate, font_small);
+    draw_setting_card(160, buf, dock_music);
 
     snprintf(buf, sizeof(buf), "Remote Icon: %s", dock_remote ? "Shown" : "Hidden");
-    render_pill_button(it, 110, 356, 220, 18, dock_remote ? theme_secondary : col_slate,
-                       col_dark_gray, buf, dock_remote ? col_white : col_slate, font_small);
+    draw_setting_card(222, buf, dock_remote);
 
     snprintf(buf, sizeof(buf), "Tools Icon: %s", dock_tools ? "Shown" : "Hidden");
-    render_pill_button(it, 110, 356, 278, 18, dock_tools ? theme_secondary : col_slate,
-                       col_dark_gray, buf, dock_tools ? col_white : col_slate, font_small);
+    draw_setting_card(284, buf, dock_tools);
 
     snprintf(buf, sizeof(buf), "Games Icon: %s", dock_games ? "Shown" : "Hidden");
-    render_pill_button(it, 110, 356, 336, 18, dock_games ? theme_secondary : col_slate,
-                       col_dark_gray, buf, dock_games ? col_white : col_slate, font_small);
+    draw_setting_card(346, buf, dock_games);
 
     render_back_button(it, cx, font_small, 426, "< BACK");
     return;
@@ -2569,19 +2583,18 @@ inline void render_home_page(
           it.filled_circle(bx - 10, by + 10, 2, col_black);
         }
       } else if (app_id == 3) {
-        // Games: Sleek Sony PS5 DualSense Wireless Controller (Scanline CSG Silhouette — Zero 'M' Look!)
-        // Exact per-row outer half-width & inner arch cutout so the shoulders sweep smoothly into
-        // rounded outer palms and taper down to slim DualSense grip tips.
-        static constexpr int8_t DS_OUTER[22] = {
-          11, 13, 14, 15, 16, 17, 17, 17, 17, 17, 17, 16, 16, 16, 15, 15, 14, 14, 13, 13, 12, 11
+        // Games: Xbox Wireless Controller (Sides flare OUTWARD from top shoulders ±10px to lower palms ±18px!)
+        // 1. Narrower top LB/RB shoulder bumpers (±10px) flaring outward down to ±18px palm swells
+        static constexpr int8_t XB_OUTER[22] = {
+           9, 11, 12, 13, 14, 15, 15, 16, 16, 17, 17, 18, 18, 18, 18, 18, 17, 17, 16, 15, 14, 12
         };
-        static constexpr int8_t DS_INNER[22] = {
-           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  6,  7,  7,  8,  8,  9,  9,  9, 10
+        static constexpr int8_t XB_INNER[22] = {
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  5,  7,  8,  9,  9, 10, 10, 11, 11
         };
         for (int row = 0; row < 22; row++) {
           int dy = row - 10; // spans by - 10 .. by + 11
-          int ox = DS_OUTER[row];
-          int ix = DS_INNER[row];
+          int ox = XB_OUTER[row];
+          int ix = XB_INNER[row];
           if (ix == 0) {
             it.horizontal_line(bx - ox, by + dy, 2 * ox + 1, c);
           } else {
@@ -2589,27 +2602,28 @@ inline void render_home_page(
             it.horizontal_line(bx + ix, by + dy, ox - ix + 1, c);
           }
         }
+        // Rounded bulbous lower-outer palm ends at (bx ± 13, by + 7, r = 5)
+        it.filled_circle(bx - 13, by + 7, 5, c);
+        it.filled_circle(bx + 13, by + 7, 5, c);
+
         if (!is_shadow) {
-          // 1. DualSense two-tone lower-inner grip seam & thumbstick wells
-          it.line(bx - 9, by + 1, bx - 6, by - 2, col_black);
-          it.line(bx + 9, by + 1, bx + 6, by - 2, col_black);
-          it.horizontal_line(bx - 5, by - 2, 11, col_black);
-          it.filled_circle(bx - 5, by + 1, 2, col_black);
-          it.filled_circle(bx + 5, by + 1, 2, col_black);
-          it.draw_pixel_at(bx - 5, by + 1, c);
-          it.draw_pixel_at(bx + 5, by + 1, c);
-          // 2. Top touchpad accent line
-          it.horizontal_line(bx - 5, by - 8, 11, col_black);
-          it.line(bx - 6, by - 9, bx - 5, by - 8, col_black);
-          it.line(bx + 6, by - 9, bx + 5, by - 8, col_black);
-          // 3. Left D-pad cross (+)
-          it.horizontal_line(bx - 13, by - 4, 5, col_black);
-          it.vertical_line(bx - 11, by - 6, 5, col_black);
-          // 4. Right 4-button PlayStation diamond (triangle, circle, cross, square)
-          it.draw_pixel_at(bx + 11, by - 6, col_black);
-          it.draw_pixel_at(bx + 11, by - 2, col_black);
-          it.draw_pixel_at(bx + 9,  by - 4, col_black);
-          it.draw_pixel_at(bx + 13, by - 4, col_black);
+          // 1. Top-center Xbox Nexus Guide button
+          it.filled_circle(bx, by - 6, 2, col_black);
+          it.draw_pixel_at(bx, by - 6, c);
+          // 2. Asymmetrical Left Stick (upper-left at bx - 9, by - 3)
+          it.filled_circle(bx - 9, by - 3, 3, col_black);
+          it.filled_circle(bx - 9, by - 3, 1, c);
+          // 3. Lower-Left D-Pad cross (+) at (bx - 5, by + 1)
+          it.horizontal_line(bx - 7, by + 1, 5, col_black);
+          it.vertical_line(bx - 5, by - 1, 5, col_black);
+          // 4. Upper-Right 4-button ABXY Diamond at (bx + 9, by - 3)
+          it.draw_pixel_at(bx + 9,  by - 5, col_black);
+          it.draw_pixel_at(bx + 9,  by - 1, col_black);
+          it.draw_pixel_at(bx + 7,  by - 3, col_black);
+          it.draw_pixel_at(bx + 11, by - 3, col_black);
+          // 5. Asymmetrical Right Stick (lower-right at bx + 5, by + 1)
+          it.filled_circle(bx + 5, by + 1, 3, col_black);
+          it.filled_circle(bx + 5, by + 1, 1, c);
         }
       }
     };
@@ -2898,10 +2912,10 @@ inline void render_tv_remote_page(
     if (is_fb) {
       std::string fb_str = remote_action_feedback;
       for (char &c : fb_str) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
-      std::string fit_fb = fit_text_to_width_font(fb_str, 246, font_date);
-      it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
+      std::string fit_fb = fit_text_to_width_font(fb_str, 280, font_small);
+      it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
     } else {
-      it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "SETTINGS");
+      it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "SETTINGS");
     }
 
     // Slot 0 (y = 104): Master System Power Button (Always targets tv_remote_power_entity)
@@ -2961,13 +2975,13 @@ inline void render_tv_remote_page(
   if (is_fb) {
     std::string fb_str = remote_action_feedback;
     for (char &c : fb_str) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
-    std::string fit_fb = fit_text_to_width_font(fb_str, 246, font_date);
-    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
+    std::string fit_fb = fit_text_to_width_font(fb_str, 280, font_small);
+    it.print(cx, 50, font_small, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
   } else {
     std::string upper_name = rem_name;
     for (char &c : upper_name) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
-    std::string disp_title = fit_text_to_width_font(upper_name, 246, font_date);
-    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, disp_title.c_str());
+    std::string disp_title = fit_text_to_width_font(upper_name, 280, font_small);
+    it.print(cx, 50, font_small, theme_primary, esphome::display::TextAlign::CENTER, disp_title.c_str());
   }
 
   // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
