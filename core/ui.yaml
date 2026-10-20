@@ -4491,25 +4491,11 @@ touchscreen:
                 if (touch.x < 75 && touch.y >= 70 && touch.y <= 365) return;
 
                 if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  if (touch.y >= 65 && touch.y <= 94 && touch.x >= 100 && touch.x <= 366 &&
-                      pocket_ui::is_newer_semver(id(ha_firmware_latest_version).state, "${version}")) {
+                  int slot = get_5slot_index(touch, 100, 366);
+                  if (slot >= 0) {
                     last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 5;
-                    id(disp1).update();
-                    return;
-                  }
-
-                  if (touch.x >= 100 && touch.x <= 366) {
-                    int slot = -1;
-                    if (touch.y >= 105 && touch.y < 161) slot = 0;
-                    else if (touch.y >= 161 && touch.y < 219) slot = 1;
-                    else if (touch.y >= 219 && touch.y < 277) slot = 2;
-                    else if (touch.y >= 277 && touch.y <= 340) slot = 3;
-
-                    if (slot >= 0) {
-                      last_sys_action_tap = now_sys;
-                      int item_idx = (id(system_dashboard_page) == 1) ? slot : (slot + 4);
-                      id(menu_scroll_active) = false;
+                    int item_idx = (id(system_dashboard_page) == 1) ? slot : (slot + 3);
+                    id(menu_scroll_active) = false;
                       if (item_idx == 0) {
                         id(system_menu_mode) = 2;
                         id(display_menu_page) = 1;
@@ -4531,9 +4517,8 @@ touchscreen:
                       } else if (item_idx == 7) {
                         id(system_menu_mode) = 3;
                       }
-                      id(disp1).update();
-                      return;
-                    }
+                    id(disp1).update();
+                    return;
                   }
                 }
               } else if (id(system_menu_mode) == 1) {
@@ -5139,21 +5124,21 @@ touchscreen:
                 if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
 
                 int target_subpage = 0;
-                if (id(stuff_menu_page) == 0) {
-                  if (touch.y >= 85 && touch.y < 221) {
-                    if (touch.x <= 230) target_subpage = 1;
-                    else if (touch.x > 230 && touch.x < 370) target_subpage = 2;
-                  } else if (touch.y >= 221 && touch.y <= 385) {
-                    if (touch.x <= 230) target_subpage = 5;
-                    else if (touch.x > 230 && touch.x < 370) target_subpage = 6;
-                  }
-                } else {
-                  if (touch.y >= 85 && touch.y < 221) {
-                    if (touch.x <= 230) target_subpage = 3;
-                    else if (touch.x > 230 && touch.x < 370) target_subpage = 4;
-                  } else if (touch.y >= 221 && touch.y <= 385) {
-                    if (touch.x <= 230) target_subpage = 7;
-                    else if (touch.x > 230 && touch.x < 370) target_subpage = 8;
+                int row = -1;
+                if (touch.y >= 84 && touch.y < 184) row = 0;
+                else if (touch.y >= 184 && touch.y < 289) row = 1;
+                else if (touch.y >= 289 && touch.y < 385) row = 2;
+
+                int col = -1;
+                if (touch.x >= 95 && touch.x <= 230) col = 0;
+                else if (touch.x > 230 && touch.x < 370) col = 1;
+
+                if (row >= 0 && col >= 0) {
+                  if (id(stuff_menu_page) == 0) {
+                    static constexpr int P0_MAP[3][2] = {{1, 2}, {3, 5}, {6, 7}};
+                    target_subpage = P0_MAP[row][col];
+                  } else if (row == 0) {
+                    target_subpage = (col == 0) ? 4 : 8;
                   }
                 }
 

@@ -21,10 +21,11 @@ inline void render_tool_launcher_card(DisplayT &it, int cx_card, int cy_card,
                                       esphome::Color col_white) {
   esphome::Color card_bg(22, 27, 36);
   esphome::Color card_border(48, 56, 70);
-  render_modern_card(it, cx_card, cy_card, 124, 100, 16, card_bg, card_border, nullptr, col_white, font_small);
+  // Sized for 2x3 (6-card) grid: w = 122, h = 86, r = 14 (19px vertical gap across y = 88..384!)
+  render_modern_card(it, cx_card, cy_card, 122, 86, 14, card_bg, card_border, nullptr, col_white, font_small);
 
   int ix = cx_card;
-  int iy = cy_card - 15;
+  int iy = cy_card - 13;
 
   if (app_id == 1) {
     // 1. Timers: 2px-stroke hourglass with solid filled upper/lower sand bulbs (SF Symbol hourglass)
@@ -165,7 +166,7 @@ inline void render_tool_launcher_card(DisplayT &it, int cx_card, int cy_card,
     it.line(ix, iy + 3, ix, iy + 6, card_bg);
   }
 
-  it.print(cx_card, cy_card + 26, font_small, col_white,
+  it.print(cx_card, cy_card + 22, font_small, col_white,
            esphome::display::TextAlign::CENTER, label);
 }
 
@@ -177,51 +178,61 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
                                   esphome::Color theme_primary, esphome::Color theme_secondary,
                                   esphome::Color col_bg, esphome::Color col_black,
                                   esphome::Color col_white) {
-  const int col_left_x = 162;
+  (void)font_date;
+  // 2x3 Grid (6 cards per page):
+  //   - Row 0: y_mid = 131 (y = 88..174, 30px below title at y=58)
+  //   - Row 1: y_mid = 236 (y = 193..279, 19px vertical gap)
+  //   - Row 2: y_mid = 341 (y = 298..384, 19px vertical gap, 31px above < Back at y=415)
+  const int col_left_x  = 162;
   const int col_right_x = 298;
-  const int row_0_y = 159;
-  const int row_1_y = 283;
+  const int row_0_y = 131;
+  const int row_1_y = 236;
+  const int row_2_y = 341;
 
   auto draw_page_cards = [&](int page_idx, int y_shift) {
     int y0 = row_0_y + y_shift;
     int y1 = row_1_y + y_shift;
+    int y2 = row_2_y + y_shift;
     if (page_idx == 0) {
-      if (y0 >= 95 && y0 <= 355) {
+      if (y0 >= 75 && y0 <= 390) {
         render_tool_launcher_card(it, col_left_x,  y0, 1, "Timers",     font_small, theme_secondary, col_white);
         render_tool_launcher_card(it, col_right_x, y0, 2, "Alarms",     font_small, theme_secondary, col_white);
       }
-      if (y1 >= 95 && y1 <= 355) {
-        render_tool_launcher_card(it, col_left_x,  y1, 5, "Flashlight", font_small, theme_secondary, col_white);
-        render_tool_launcher_card(it, col_right_x, y1, 6, "Calculator", font_small, theme_secondary, col_white);
+      if (y1 >= 75 && y1 <= 390) {
+        render_tool_launcher_card(it, col_left_x,  y1, 3, "Stopwatch",  font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y1, 5, "Flashlight", font_small, theme_secondary, col_white);
+      }
+      if (y2 >= 75 && y2 <= 390) {
+        render_tool_launcher_card(it, col_left_x,  y2, 6, "Calculator", font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y2, 7, "Level",      font_small, theme_secondary, col_white);
       }
     } else {
-      if (y0 >= 95 && y0 <= 355) {
-        render_tool_launcher_card(it, col_left_x,  y0, 3, "Stopwatch",  font_small, theme_secondary, col_white);
-        render_tool_launcher_card(it, col_right_x, y0, 4, "Dice Roll",  font_small, theme_secondary, col_white);
-      }
-      if (y1 >= 95 && y1 <= 355) {
-        render_tool_launcher_card(it, col_left_x,  y1, 7, "Level",      font_small, theme_secondary, col_white);
-        render_tool_launcher_card(it, col_right_x, y1, 8, "Coin Flip",  font_small, theme_secondary, col_white);
+      if (y0 >= 75 && y0 <= 390) {
+        render_tool_launcher_card(it, col_left_x,  y0, 4, "Dice Roll",  font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y0, 8, "Coin Flip",  font_small, theme_secondary, col_white);
       }
     }
   };
 
   if (menu_scroll_active) {
     int step = std::min(4, menu_scroll_step);
-    int offset = SHARED_SCROLL_EASE_232[step];
+    int offset = SHARED_SCROLL_EASE_252[step];
     draw_page_cards(stuff_menu_page, -menu_scroll_dir * offset);
-    draw_page_cards(menu_scroll_target_page, menu_scroll_dir * (232 - offset));
+    draw_page_cards(menu_scroll_target_page, menu_scroll_dir * (252 - offset));
   } else {
     draw_page_cards(stuff_menu_page, 0);
   }
 
-  // Header & Right-Flank Scroll Chevrons
+  // Viewport Masks, Header & Right-Flank Scroll Chevrons
+  it.filled_rectangle(0, 0, 466, 82, col_bg);
+  it.filled_rectangle(0, 388, 466, 78, col_bg);
   it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "TOOLS");
   it.filled_rectangle(395, 140, 71, 160, col_bg);
-  if (stuff_menu_page == 1) {
+  int active_page = menu_scroll_active ? menu_scroll_target_page : stuff_menu_page;
+  if (active_page == 1) {
     render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, false);
   }
-  if (stuff_menu_page == 0) {
+  if (active_page == 0) {
     render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, false);
   }
 }
@@ -3166,49 +3177,26 @@ inline void render_system_page(
 
   if (system_menu_mode == 0) {
     // -------------------------------------------------------------------------
-    // VIEW 0: MAIN SYSTEM DASHBOARD (2 Pages x 4 Compact 202px Modern Cards)
-    // Page 1: Display, Sleep & Wake, Sound, Voice
-    // Page 2: Music, Home, Info, Actions
+    // VIEW 0: MAIN SYSTEM DASHBOARD (5-Slot Standard: y_mid = 110, 173, 236, 299, 362)
+    // Page 1 (Slots 0..4): Display, Sleep & Wake, Sound, Voice, Music
+    // Page 2 (Slots 0..4, scrolled by 3 rows / 189px): Voice, Music, Home, Info, Actions
     // -------------------------------------------------------------------------
-    int current_offset = compute_scroll_offset(system_dashboard_page, SHARED_SCROLL_EASE_232, 232);
+    static constexpr int16_t SCROLL_EASE_189[5] = {0, 41, 102, 161, 189};
+    int current_offset = compute_scroll_offset(system_dashboard_page, SCROLL_EASE_189, 189);
     static constexpr const char *kSysLabels[8] = {
       "Display", "Sleep & Wake", "Sound", "Voice",
       "Music",   "Home",         "Info",  "Actions"
     };
     for (int i = 0; i < 8; i++) {
-      int y = 132 + i * 58 - current_offset;
-      if (y >= 40 && y <= 390) {
+      int y = 110 + i * 63 - current_offset;
+      if (y >= 60 && y <= 395) {
         render_modern_card(it, cx, y, 202, 44, 12, card_bg_on, card_brd_on, kSysLabels[i], col_white, font_small);
       }
     }
 
-    it.filled_rectangle(0, 0, 466, 106, col_bg);
-    it.filled_rectangle(0, 332, 466, 134, col_bg);
-
+    it.filled_rectangle(0, 0, 466, 82, col_bg);
+    it.filled_rectangle(0, 388, 466, 78, col_bg);
     it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "SYSTEM");
-
-    bool has_update = is_newer_semver(ha_fw_latest, version_str);
-    if (has_update) {
-      snprintf(buf, sizeof(buf), "Update Ready: v%s >", ha_fw_latest.c_str());
-      it.print(cx, 78, font_small, col_gold, esphome::display::TextAlign::CENTER, buf);
-    } else {
-      snprintf(buf, sizeof(buf), "Pocket Assistant v%s", version_str);
-      it.print(cx, 78, font_small, col_white, esphome::display::TextAlign::CENTER, buf);
-    }
-
-    char b_main[32];
-    snprintf(b_main, sizeof(b_main), "Battery: %.0f%%", std::isnan(batt) ? 100.0f : batt);
-    if (is_charging) {
-      const char *chg_str = " • Charging";
-      int w_main = 0, w_chg = 0, x_off = 0, base = 0, text_h = 0;
-      font_small->measure(b_main, &w_main, &x_off, &base, &text_h);
-      font_small->measure(chg_str, &w_chg, &x_off, &base, &text_h);
-      int start_x = cx - (w_main + w_chg) / 2;
-      it.print(start_x, 370, font_small, theme_primary, esphome::display::TextAlign::CENTER_LEFT, b_main);
-      it.print(start_x + w_main, 370, font_small, theme_secondary, esphome::display::TextAlign::CENTER_LEFT, chg_str);
-    } else {
-      it.print(cx, 370, font_small, theme_primary, esphome::display::TextAlign::CENTER, b_main);
-    }
 
     draw_back();
     int active_page = menu_scroll_active ? menu_scroll_target_page : system_dashboard_page;
