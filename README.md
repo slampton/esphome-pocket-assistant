@@ -115,8 +115,7 @@ Pocket Assistant v2.0 uses a fast hub-and-spoke layout centered on the **Home Hu
 | **Top Crown (Short Click)** | Alarm / Timer / Find My Ringing | Snoozes alarm (+5 min) or dismisses Timer / Find My alert. |
 | **Top Crown (Short Click)** | Voice Assistant Active | Cancels Voice Assistant and mutes TTS audio. |
 | **Top Crown (Short Click)** | Stopwatch (`Tools -> Stopwatch`) | Tactile **Start / Stop** chronograph pusher (with 200ms dwell compensation). |
-| **Top Crown (Short Click)** | Any App, Submenu, Game, or Tool | Backs out to the parent menu or returns to **Home**. |
-| **Top Crown (Short Click)** | Home Hub (or Start Screen) | Turns the screen off and enters **Tier 2 Standby**. |
+| **Top Crown (Short Click)** | Any Screen (except Stopwatch) | Turns the screen off and enters **Tier 2 Standby**. |
 | **Top Crown (Long Press >1.5s)** | Any Screen | Initiates **Tier 3 Hardware Hibernate** (`<40 µA`, instant or 5s countdown). |
 | **Side Button (`GPIO0` Click)** | Normal / Standby / Games | Triggers **Voice Assistant** (push-to-talk), dismisses alerts, or fires in games. |
 

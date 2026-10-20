@@ -603,58 +603,9 @@ script:
                 return;
               }
 
-              id(screen_sleep_timer).execute();
-
-              // Priority 2: In-App Sub-Modals / Overlays / Active Games (Contextual Back/Exit)
-              if (id(gui_page) == 3 && id(active_game) > 0) {
-                // In active game -> exit game back to Games Menu
-                id(active_game) = 0;
-                id(stop_alarm_sound).execute();
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 2 && id(music_overlay_mode) > 0) {
-                // In Music Menu overlay -> close overlay back to Now Playing player
-                id(music_overlay_mode) = 0;
-                id(music_hud_active) = true;
-                id(music_hud_timer) = millis();
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 2 && id(music_hud_active)) {
-                // In Full Screen / Letterbox Music HUD -> dismiss HUD back to clean art
-                id(music_hud_active) = false;
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 4 && id(system_menu_mode) > 0) {
-                // In System Submenu -> back out 1 level (or to Music Hub when opened from Page 2)
-                if (id(system_menu_mode) == 12) {
-                  id(system_menu_mode) = 11;
-                } else if (id(system_menu_mode) == 5) {
-                  id(system_menu_mode) = 3;
-                } else if (id(audio_menu_parent_page) == 2 && id(system_menu_mode) == 9) {
-                  id(gui_page) = 2;
-                  id(music_overlay_mode) = 5;
-                  id(audio_menu_parent_page) = 4;
-                } else {
-                  id(system_menu_mode) = 0;
-                }
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 7 && id(remote_subpage) > 0) {
-                // In Remote Subpage -> back out to main Remote interface
-                id(remote_subpage) = 0;
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 8 && id(stuff_subpage) == 1 && pocket_ui::timer_view_slot() > 0) {
-                pocket_ui::timer_view_slot() = 0;
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 8 && id(stuff_subpage) == 2 && id(alarm_edit_idx) > 0) {
-                // In Alarm Editor -> back out to Alarm List
-                id(alarm_edit_idx) = 0;
-                id(disp1).update();
-                return;
-              } else if (id(gui_page) == 8 && id(stuff_subpage) == 3) {
-                // Stopwatch (Tools Subpage 3): Physical tactile start/stop pusher with dwell latency compensation
+              // Priority 2: Stopwatch Exception (Tools Subpage 3) — Physical tactile start/stop chronograph pusher
+              if (id(gui_page) == 8 && id(stuff_subpage) == 3) {
+                id(screen_sleep_timer).execute();
                 if (!id(stopwatch_running)) {
                   id(stopwatch_running) = true;
                   id(stopwatch_start_time) = millis() - id(stopwatch_elapsed_ms);
@@ -672,35 +623,9 @@ script:
                 }
                 id(disp1).update();
                 return;
-              } else if (id(gui_page) == 8 && id(stuff_subpage) > 0) {
-                // In Tools Micro-App (Timer, Alarms, Flashlight, Level, etc.) -> exit back to Tools Launcher Menu
-                // If exiting Flashlight (subpage 5) or Alarms (subpage 2), restore normal scheduled brightness
-                if (id(stuff_subpage) == 5 || id(stuff_subpage) == 2) {
-                  id(sync_display_brightness).execute();
-                }
-                id(stuff_subpage) = 0;
-                id(disp1).update();
-                return;
               }
 
-              if (id(gui_page) == 1 && id(home_subpage) > 0) {
-                id(home_subpage) = 0;
-                id(disp1).update();
-                return;
-              }
-
-              // If on any app other than the user's configured Start Screen (Home=1 or Clock=0),
-              // Crown short press backs out to Home (Page 1)!
-              int start_pg = (id(default_start_app).current_option() == "Clock") ? 0 : 1;
-              if (id(gui_page) != 1 && !(id(gui_page) == 0 && start_pg == 0)) {
-                id(gui_page) = 1;
-                id(home_subpage) = 0;
-                id(sky_weather_subpage) = 0;
-                id(disp1).update();
-                return;
-              }
-
-              // On Home (Page 1) or Clock (when Clock is Start Screen): Crown click puts device into Standby!
+              // Everywhere else: Top Crown short click predictably turns the screen off (Standby)!
               id(turn_screen_off).execute();
               return;
             }

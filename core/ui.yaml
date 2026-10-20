@@ -1497,7 +1497,7 @@ interval:
           // - Unlocks full 20 FPS (50ms) when local music is idle for rain, snow, lightning, and night starfield
           // - Paces smoothly at ~13.3 FPS (75ms) when local Sendspin music is playing
           // - Static daytime weather conditions run on the default 1s display refresh with near-zero CPU load
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && ((id(gui_page) == 5 && id(sky_weather_subpage) == 0) || (id(gui_page) == 1 && id(home_subpage) == 0 && id(home_weather_bg_switch).state)) && !id(va_active) && id(va_status_text).empty()) {
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && (id(gui_page) == 1 && id(home_subpage) == 0 && id(home_weather_bg_switch).state) && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
@@ -1717,6 +1717,18 @@ sensor:
     id: ha_weather_wind_bearing
     entity_id: ${weather_entity}
     attribute: wind_bearing
+    internal: true
+
+  - platform: homeassistant
+    id: ha_weather_uv_index
+    entity_id: ${weather_entity}
+    attribute: uv_index
+    internal: true
+
+  - platform: homeassistant
+    id: ha_weather_pressure
+    entity_id: ${weather_entity}
+    attribute: pressure
     internal: true
 
   - platform: homeassistant
@@ -3434,7 +3446,8 @@ display:
             id(font_time), id(font_date), id(font_btn_bold), id(font_small), id(font_micro),
             id(theme_primary), id(theme_secondary),
             id(col_bg), id(col_black), id(col_white), id(col_slate),
-            id(col_gray), id(col_dark_gray), id(col_warm_gold), id(accel_x).state, id(accel_y).state);
+            id(col_gray), id(col_dark_gray), id(col_warm_gold), id(accel_x).state, id(accel_y).state,
+            id(ha_weather_uv_index).state, id(ha_weather_pressure).state);
 
       // ==========================================
       // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL
@@ -4977,22 +4990,6 @@ touchscreen:
                   if (id(sky_weather_subpage) != target) {
                     id(sky_weather_subpage) = target;
                     ESP_LOGI("touch", "Page 5 Icon Tap: x=%d target=%d", touch.x, target);
-                    id(disp1).update();
-                  }
-                }
-                return;
-              }
-
-              if (id(sky_weather_subpage) == 0 && touch.x >= 280 && touch.y <= 159) {
-                if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
-                  last_weather_touch = now_w_touch;
-                  std::string s_state = id(ha_sun_state).state;
-                  std::string cond = id(ha_weather_condition).state;
-                  bool is_night = (s_state == "below_horizon" || cond == "clear-night" || cond == "clearnight" || (cond.find("night") != std::string::npos));
-                  apply_weather_sim_override(id(weather_sim_condition).current_option(), cond, is_night);
-                  int target = is_night ? 3 : 2;
-                  if (id(sky_weather_subpage) != target) {
-                    id(sky_weather_subpage) = target;
                     id(disp1).update();
                   }
                 }

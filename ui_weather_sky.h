@@ -434,26 +434,45 @@ inline void apply_weather_sim_override(const CurT &sim_opt, std::string &cond, b
 
 inline std::string format_weather_title(const std::string &c_in) {
   if (c_in.empty() || c_in == "unknown" || c_in == "unavailable") return "Unavailable";
-  if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "PARTLY CLOUDY";
-  if (c_in == "mostlycloudy" || c_in == "mostly-cloudy") return "MOSTLY CLOUDY";
-  if (c_in == "mostlysunny" || c_in == "mostly-sunny") return "MOSTLY SUNNY";
-  if (c_in == "partlysunny" || c_in == "partly-sunny") return "PARTLY SUNNY";
-  if (c_in == "clear-night" || c_in == "clearnight") return "CLEAR NIGHT";
-  if (c_in == "clear-day" || c_in == "clearday" || c_in == "sunny") return "SUNNY";
-  if (c_in == "fog" || c_in == "foggy") return "FOG & MIST";
-  if (c_in == "mist" || c_in == "misty" || c_in == "haze") return "MIST & HAZE";
-  if (c_in == "lightning-rainy" || c_in == "thunderstorm") return "THUNDERSTORM";
-  if (c_in == "lightning") return "LIGHTNING";
-  if (c_in == "snowy-rainy" || c_in == "sleet") return "SLEET / MIX";
-  if (c_in == "windy-variant" || c_in == "windy" || c_in == "breezy") return "WINDY";
-  if (c_in == "pouring" || c_in == "heavy-rain") return "HEAVY RAIN";
-  if (c_in == "exceptional") return "SEVERE ALERT";
+  if (c_in == "partlycloudy" || c_in == "partly-cloudy") return "Partly Cloudy";
+  if (c_in == "mostlycloudy" || c_in == "mostly-cloudy") return "Mostly Cloudy";
+  if (c_in == "mostlysunny" || c_in == "mostly-sunny") return "Mostly Sunny";
+  if (c_in == "partlysunny" || c_in == "partly-sunny") return "Partly Sunny";
+  if (c_in == "clear-night" || c_in == "clearnight") return "Clear Night";
+  if (c_in == "clear-day" || c_in == "clearday" || c_in == "sunny") return "Sunny";
+  if (c_in == "cloudy" || c_in == "overcast") return "Cloudy";
+  if (c_in == "rainy" || c_in == "drizzle") return "Rainy";
+  if (c_in == "snowy") return "Snowy";
+  if (c_in == "fog" || c_in == "foggy") return "Fog & Mist";
+  if (c_in == "mist" || c_in == "misty" || c_in == "haze") return "Mist & Haze";
+  if (c_in == "lightning-rainy" || c_in == "thunderstorm") return "Thunderstorm";
+  if (c_in == "lightning") return "Lightning";
+  if (c_in == "snowy-rainy" || c_in == "sleet") return "Sleet & Mix";
+  if (c_in == "windy-variant" || c_in == "windy" || c_in == "breezy") return "Windy";
+  if (c_in == "pouring" || c_in == "heavy-rain") return "Heavy Rain";
+  if (c_in == "exceptional") return "Severe Alert";
   std::string s = c_in;
+  bool cap_next = true;
   for (char &c : s) {
-    if (c == '-' || c == '_') c = ' ';
-    else c = toupper(c);
+    if (c == '-' || c == '_') {
+      c = ' ';
+      cap_next = true;
+    } else if (cap_next) {
+      c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
+      cap_next = false;
+    } else {
+      c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+    }
   }
   return s;
+}
+
+inline const char *wind_bearing_to_cardinal(float deg) {
+  if (std::isnan(deg)) return "";
+  static constexpr const char *DIRS[8] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+  float norm = fmodf(deg + 360.0f, 360.0f);
+  int idx = static_cast<int>(floorf((norm + 22.5f) / 45.0f)) & 7;
+  return DIRS[idx];
 }
 
 inline std::string format_forecast_short_name(const std::string &c) {
@@ -1492,54 +1511,38 @@ inline void render_weather_page(
     esphome::Color theme_primary, esphome::Color theme_secondary,
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
     esphome::Color col_slate, esphome::Color col_gray, esphome::Color col_dark_gray,
-    esphome::Color col_warm_gold, float accel_x = 0.0f, float accel_y = 0.0f) {
+    esphome::Color col_warm_gold, float accel_x = 0.0f, float accel_y = 0.0f,
+    float weather_uv_index = NAN, float weather_pressure = NAN) {
+  (void)cy; (void)now_ms; (void)col_bg; (void)col_black; (void)accel_x; (void)accel_y;
   using esphome::Color;
   using esphome::display::TextAlign;
 
   if (sky_weather_subpage == 0) {
     // ----------------------------------------------------------------------
-    // SUBPAGE 0: CURRENT CONDITIONS (20 FPS ATMOSPHERIC MOTION WALLPAPER)
+    // SUBPAGE 0: CURRENT CONDITIONS (CLEAN DATA-FOCUSED DASHBOARD)
     // ----------------------------------------------------------------------
     std::string cond = weather_cond_raw;
     bool is_night = (sun_state == "below_horizon" || cond == "clear-night" ||
                      cond == "clearnight" || (cond.find("night") != std::string::npos));
     apply_weather_sim_override(weather_sim_opt, cond, is_night);
 
-    const int cel_cx = 341;
-    const int cel_cy = 91;
+    // 1. Standard Top Header ("CURRENT" at y = 50, matching FORECAST / SUN / MOON)
+    it.print(cx, 50, font_date, theme_primary, TextAlign::CENTER, "CURRENT");
 
-    double moon_cycle = 0.5;
-    if (is_night) {
-      compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
-                                 moon_phase_raw, moon_cycle, nullptr, nullptr);
-    }
-    render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                    moon_cycle, cel_cx, cel_cy, true, accel_x, accel_y);
-
+    // 2. Hero Temperature moved up to y = 104 (-5px optical centering + 3px degree ring at y = 84)
     char temp_num[16];
     if (!std::isnan(weather_temp)) snprintf(temp_num, sizeof(temp_num), "%.0f", weather_temp);
     else snprintf(temp_num, sizeof(temp_num), "--");
     int w_num = 0, x_off = 0, base = 0, th = 0;
     font_time->measure(temp_num, &w_num, &x_off, &base, &th);
-    // Apple optical centering: bias numerals 5px left of cx; flush cap-line degree ring with 10px gap
     const int num_cx = cx - 5;
     const int deg_cx = num_cx + (w_num / 2) + 18;
-    const int deg_cy = 114; // Top of r=8 ring sits at y=106, flush with 77pt numeral cap-height
+    const int deg_cy = 84;
     const Color col_deg_silver(204, 214, 228);
     const Color col_deg_aa(120, 132, 148);
 
-    it.print(num_cx + 1, 135, font_time, col_black, TextAlign::CENTER, temp_num);
-    it.print(num_cx,     134, font_time, col_white, TextAlign::CENTER, temp_num);
+    it.print(num_cx, 104, font_time, col_white, TextAlign::CENTER, temp_num);
 
-    // Pinhole-free 3px scanline annulus degree ring (r_in=5.2 .. r_out=8.2) with 1px drop shadow
-    for (int dy = -9; dy <= 9; dy++) {
-      for (int dx = -9; dx <= 9; dx++) {
-        int d2 = dx * dx + dy * dy;
-        if (d2 >= 27 && d2 <= 68) {
-          it.draw_pixel_at(deg_cx + dx + 1, deg_cy + dy + 1, col_black);
-        }
-      }
-    }
     for (int dy = -9; dy <= 9; dy++) {
       for (int dx = -9; dx <= 9; dx++) {
         int d2 = dx * dx + dy * dy;
@@ -1551,24 +1554,42 @@ inline void render_weather_page(
       }
     }
 
+    // 3. Title-Case Condition + Today's High / Low Line at y = 160
+    float hi_val = weather_high;
+    float lo_val = weather_low;
+    if ((std::isnan(hi_val) || std::isnan(lo_val)) &&
+        !weather_forecast_5d.empty() && weather_forecast_5d.find(':') != std::string::npos) {
+      int p_hi = 0, p_lo = 0;
+      if (sscanf(weather_forecast_5d.c_str(), "%*[^:]:%d:%d", &p_hi, &p_lo) == 2) {
+        if (std::isnan(hi_val)) hi_val = static_cast<float>(p_hi);
+        if (std::isnan(lo_val)) lo_val = static_cast<float>(p_lo);
+      }
+    }
     std::string cond_title = format_weather_title(cond);
-    Color cond_color = is_night ? theme_primary : Color(255, 225, 110);
-    it.print(cx + 1, 200, font_date, col_black, TextAlign::CENTER, cond_title.c_str());
-    it.print(cx,     199, font_date, cond_color, TextAlign::CENTER, cond_title.c_str());
+    char sub_line[64];
+    if (!std::isnan(hi_val) && !std::isnan(lo_val)) {
+      snprintf(sub_line, sizeof(sub_line), "%s  •  H:%.0f° L:%.0f°", cond_title.c_str(), hi_val, lo_val);
+    } else {
+      snprintf(sub_line, sizeof(sub_line), "%s", cond_title.c_str());
+    }
+    std::string fit_sub = fit_text_to_width_font(std::string(sub_line), 350, font_small);
+    it.print(cx, 160, font_small, theme_secondary, TextAlign::CENTER, fit_sub.c_str());
 
-    // Single-Line Icon + Value Telemetry at y = 268 (Matched 2px-Stroke Outline Iconography)
-    const int tele_y = 268;
-    Color icon_c = is_night ? Color(200, 220, 242) : Color(185, 225, 255);
+    it.line(80, 184, 386, 184, col_dark_gray);
 
-    // A) Left: 2px-Stroke Outline Water Droplet Icon (matches Wind icon 2px line weight & shading!)
+    // 4. 2x2 Sensor Telemetry Grid (Row 1 at y = 216, Row 2 at y = 276, Divider at y = 246)
+    const int row1_y = 216;
+    const int row2_y = 276;
+    const int col1_icon_x = 96;
+    const int col2_icon_x = 238;
+    const Color icon_c(185, 225, 255);
+
+    // Cell 1 (Top-Left): Humidity (2px outline water droplet + %)
     auto draw_droplet_outline = [&](int dx, int dy, Color c) {
-      // 1. Upper 2px-thick tapered droplet walls from apex (dx, dy - 11) to lower bowl tangents (dx +/- 7, dy + 1)
       it.line(dx,     dy - 11, dx - 7, dy + 1, c);
       it.line(dx + 1, dy - 10, dx - 6, dy + 1, c);
       it.line(dx,     dy - 11, dx + 7, dy + 1, c);
       it.line(dx - 1, dy - 10, dx + 6, dy + 1, c);
-      // 2. Lower 2px-thick semicircular droplet bowl centered at (dx, dy + 3, r = 7 & r = 6)
-      //    Sweep CW from 4 o'clock (idx 18) -> 6 o'clock (30) -> 8 o'clock (42)
       for (int i = 17; i < 43; i += 2) {
         int i1 = std::min(43, i + 2);
         int x0_o = dx + static_cast<int>(roundf(7.2f * DIAL_SIN[i]));
@@ -1583,27 +1604,20 @@ inline void render_weather_page(
         int y1_i = (dy + 3) - static_cast<int>(roundf(6.0f * DIAL_COS[i1]));
         it.line(x0_i, y0_i, x1_i, y1_i, c);
       }
-      // 3. Subtle inner-left 1px curved reflection tick inside the hollow droplet
       it.line(dx - 3, dy + 2, dx - 3, dy + 5, c);
       it.draw_pixel_at(dx - 2, dy + 6, c);
     };
-    int drop_x = 148;
-    draw_droplet_outline(drop_x + 1, tele_y + 1, col_black);
-    draw_droplet_outline(drop_x,     tele_y,     icon_c);
-
-    char hum_str[16];
+    draw_droplet_outline(col1_icon_x, row1_y, icon_c);
+    char hum_str[20];
     if (!std::isnan(weather_humidity)) snprintf(hum_str, sizeof(hum_str), "%.0f%%", weather_humidity);
     else snprintf(hum_str, sizeof(hum_str), "--%%");
-    it.print(drop_x + 21, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, hum_str);
-    it.print(drop_x + 20, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, hum_str);
+    it.print(col1_icon_x + 18, row1_y, font_small, col_white, TextAlign::CENTER_LEFT, hum_str);
 
-    // B) Right: Enlarged 3-Line Wind Icon with 270-Deg Spiral Curls on 2 of 3 Ends (x = 248)
+    // Cell 2 (Top-Right): Wind Speed + Cardinal Direction
     auto draw_wind_glyph = [&](int wx, int wy, Color c) {
-      // 1. Top streamline (y = wy - 4) + 270-deg upward spiral curl centered at (wx + 3, wy - 8)
       it.horizontal_line(wx - 12, wy - 4, 16, c);
       it.horizontal_line(wx - 12, wy - 3, 16, c);
       int tc_x = wx + 3, tc_y = wy - 8;
-      // Sweep CCW from 6 o'clock (30) -> 3 o'clock (15) -> 12 o'clock (0/60) -> 9 o'clock (45)
       static constexpr uint8_t TOP_ARC[10] = {30, 25, 20, 15, 10, 5, 0, 55, 50, 46};
       for (int k = 0; k < 9; k++) {
         int i0 = TOP_ARC[k], i1 = TOP_ARC[k + 1];
@@ -1614,16 +1628,11 @@ inline void render_weather_page(
         it.line(x0, y0, x1, y1, c);
         it.line(x0, y0 + 1, x1, y1 + 1, c);
       }
-
-      // 2. Middle longest streamline (shoots straight through to wx + 12)
       it.horizontal_line(wx - 14, wy + 1, 26, c);
       it.horizontal_line(wx - 14, wy + 2, 26, c);
-
-      // 3. Bottom streamline (y = wy + 6) + 270-deg downward spiral curl centered at (wx + 5, wy + 10)
       it.horizontal_line(wx - 9, wy + 6, 15, c);
       it.horizontal_line(wx - 9, wy + 7, 15, c);
       int bc_x = wx + 5, bc_y = wy + 10;
-      // Sweep CW from 12 o'clock (0) -> 3 o'clock (15) -> 6 o'clock (30) -> 9 o'clock (44)
       static constexpr uint8_t BOT_ARC[10] = {0, 5, 10, 15, 20, 25, 30, 35, 40, 44};
       for (int k = 0; k < 9; k++) {
         int i0 = BOT_ARC[k], i1 = BOT_ARC[k + 1];
@@ -1635,18 +1644,69 @@ inline void render_weather_page(
         it.line(x0, y0 - 1, x1, y1 - 1, c);
       }
     };
-    int w_icon_x = 246;
-    draw_wind_glyph(w_icon_x + 1, tele_y + 1, col_black);
-    draw_wind_glyph(w_icon_x,     tele_y,     icon_c);
-
-    char wind_str[24];
+    draw_wind_glyph(col2_icon_x, row1_y, icon_c);
+    char wind_str[28];
+    const char *w_dir = wind_bearing_to_cardinal(weather_wind_bearing);
     if (!std::isnan(weather_wind_speed)) {
-      snprintf(wind_str, sizeof(wind_str), "%.0f mph", std::roundf(weather_wind_speed));
+      if (w_dir[0] != '\0') {
+        snprintf(wind_str, sizeof(wind_str), "%.0f mph %s", std::roundf(weather_wind_speed), w_dir);
+      } else {
+        snprintf(wind_str, sizeof(wind_str), "%.0f mph", std::roundf(weather_wind_speed));
+      }
     } else {
       snprintf(wind_str, sizeof(wind_str), "-- mph");
     }
-    it.print(w_icon_x + 24, tele_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, wind_str);
-    it.print(w_icon_x + 23, tele_y,     font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
+    it.print(col2_icon_x + 20, row1_y, font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
+
+    // Subtle mid-grid dividers
+    it.line(76, 246, 390, 246, col_dark_gray);
+    it.line(214, 192, 214, 300, col_dark_gray);
+
+    // Cell 3 (Bottom-Left): UV Index (2px outline sun ring + rays + "UV X")
+    auto draw_uv_glyph = [&](int ux, int uy, Color c) {
+      it.circle(ux, uy, 6, c);
+      it.circle(ux, uy, 5, c);
+      it.line(ux, uy - 11, ux, uy - 8, c);
+      it.line(ux, uy + 8,  ux, uy + 11, c);
+      it.line(ux - 11, uy, ux - 8, uy, c);
+      it.line(ux + 8,  uy, ux + 11, uy, c);
+      it.line(ux - 8, uy - 8, ux - 6, uy - 6, c);
+      it.line(ux + 6, uy - 6, ux + 8, uy - 8, c);
+      it.line(ux - 8, uy + 8, ux - 6, uy + 6, c);
+      it.line(ux + 6, uy + 6, ux + 8, uy + 8, c);
+    };
+    draw_uv_glyph(col1_icon_x, row2_y, col_warm_gold);
+    char uv_str[20];
+    if (!std::isnan(weather_uv_index) && weather_uv_index >= 0.0f) {
+      snprintf(uv_str, sizeof(uv_str), "UV %.0f", std::roundf(weather_uv_index));
+    } else {
+      snprintf(uv_str, sizeof(uv_str), "UV --");
+    }
+    it.print(col1_icon_x + 18, row2_y, font_small, col_white, TextAlign::CENTER_LEFT, uv_str);
+
+    // Cell 4 (Bottom-Right): Barometric Pressure (2px outline barometer dial + needle)
+    auto draw_barometer_glyph = [&](int bx, int by, Color c) {
+      it.circle(bx, by, 10, c);
+      it.circle(bx, by, 9, c);
+      it.line(bx, by - 8, bx, by - 6, c);
+      it.line(bx - 8, by, bx - 6, by, c);
+      it.line(bx + 6, by, bx + 8, by, c);
+      it.line(bx, by, bx + 5, by - 5, col_warm_gold);
+      it.line(bx + 1, by, bx + 5, by - 4, col_warm_gold);
+      it.filled_circle(bx, by, 2, c);
+    };
+    draw_barometer_glyph(col2_icon_x, row2_y, icon_c);
+    char pres_str[28];
+    if (!std::isnan(weather_pressure) && weather_pressure > 0.0f) {
+      if (weather_pressure < 100.0f) {
+        snprintf(pres_str, sizeof(pres_str), "%.2f inHg", weather_pressure);
+      } else {
+        snprintf(pres_str, sizeof(pres_str), "%.0f hPa", std::roundf(weather_pressure));
+      }
+    } else {
+      snprintf(pres_str, sizeof(pres_str), "-- hPa");
+    }
+    it.print(col2_icon_x + 20, row2_y, font_small, col_white, TextAlign::CENTER_LEFT, pres_str);
 
     it.line(80, 310, 386, 310, col_dark_gray);
   } else if (sky_weather_subpage == 1) {

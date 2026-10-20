@@ -2560,13 +2560,41 @@ inline void render_home_page(
           it.filled_circle(bx - 9, by + 9, 2, col_black);
         }
       } else if (app_id == 3) {
-        // Games: Enlarged Arcade Gamepad
-        it.rectangle(bx - 15, by - 9, 31, 19, c);
-        it.rectangle(bx - 14, by - 8, 29, 17, c);
-        it.filled_rectangle(bx - 10, by - 1, 9, 3, c);
-        it.filled_rectangle(bx - 7,  by - 4, 3, 9, c);
-        it.filled_circle(bx + 5,  by + 3, 2, c);
-        it.filled_circle(bx + 10, by - 2, 2, c);
+        // Games: Sony PlayStation DualShock / DualSense Controller Silhouette
+        // 1. Shoulder L1/R1 bumpers + central bridge body
+        it.filled_rectangle(bx - 12, by - 9, 7, 2, c);
+        it.filled_rectangle(bx + 6,  by - 9, 7, 2, c);
+        it.filled_rectangle(bx - 11, by - 7, 23, 10, c);
+        // 2. Sculpted left & right ergonomic handgrips angling outward & down
+        it.filled_circle(bx - 11, by - 2, 5, c);
+        it.filled_circle(bx + 11, by - 2, 5, c);
+        it.filled_triangle(bx - 16, by - 2, bx - 6, by - 1, bx - 14, by + 10, c);
+        it.filled_triangle(bx - 6,  by - 1, bx - 10, by + 10, bx - 14, by + 10, c);
+        it.filled_circle(bx - 12, by + 9, 3, c);
+        it.filled_triangle(bx + 16, by - 2, bx + 6, by - 1, bx + 14, by + 10, c);
+        it.filled_triangle(bx + 6,  by - 1, bx + 10, by + 10, bx + 14, by + 10, c);
+        it.filled_circle(bx + 12, by + 9, 3, c);
+        // 3. Symmetrical inner analog thumbstick domes near lower bridge arch
+        it.filled_circle(bx - 4, by + 4, 3, c);
+        it.filled_circle(bx + 4, by + 4, 3, c);
+        if (!is_shadow) {
+          // Top touchpad bar cutout
+          it.horizontal_line(bx - 4, by - 6, 9, col_black);
+          it.horizontal_line(bx - 4, by - 5, 9, col_black);
+          // Left D-pad cross cutout
+          it.horizontal_line(bx - 12, by - 2, 5, col_black);
+          it.vertical_line(bx - 10, by - 4, 5, col_black);
+          // Right PlayStation 4-button diamond cluster (triangle, circle, cross, square pips)
+          it.draw_pixel_at(bx + 10, by - 4, col_black);
+          it.draw_pixel_at(bx + 10, by,     col_black);
+          it.draw_pixel_at(bx + 8,  by - 2, col_black);
+          it.draw_pixel_at(bx + 12, by - 2, col_black);
+          // Thumbstick ring separation & concave stick caps
+          it.circle(bx - 4, by + 4, 3, col_black);
+          it.circle(bx + 4, by + 4, 3, col_black);
+          it.draw_pixel_at(bx - 4, by + 4, c);
+          it.draw_pixel_at(bx + 4, by + 4, c);
+        }
       }
     };
 
