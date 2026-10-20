@@ -5055,6 +5055,7 @@ touchscreen:
               int dy = touch.y - 233;
               int dist_sq = dx * dx + dy * dy;
 
+              // 1. Center OK Button (r <= 52px, dist_sq <= 2704)
               if (dist_sq <= 2704) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
@@ -5064,17 +5065,11 @@ touchscreen:
                 return;
               }
 
-              if (dist_sq > 2704 && dist_sq <= 21316) {
-                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
-                  last_remote_btn_tap = now_rem;
-                  int k_dir = (abs(dy) >= abs(dx)) ? ((dy < 0) ? 0 : 1) : ((dx < 0) ? 2 : 3);
-                  id(remote_send_key).execute(k_dir, act_slot);
-                  id(disp1).update();
-                }
-                return;
-              }
-
-              if (touch.x <= 135 && touch.y >= 80 && touch.y <= 195) {
+              // 2. Priority Corner Flank Buttons (r <= 38px around (64, 134), (402, 134), (64, 332), (402, 332)):
+              //    Checked BEFORE the outer D-pad ring so pressing in the general area of Home, Back, Vol+, or Vol-
+              //    always triggers that corner button, while the entire equatorial band (y in [172..294]) belongs to Left/Right!
+              int d_tl = (touch.x - 64) * (touch.x - 64) + (touch.y - 134) * (touch.y - 134);
+              if (d_tl <= 1444 || (touch.x <= 102 && touch.y >= 88 && touch.y <= 172 && dist_sq > 16900)) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(6, act_slot);
@@ -5083,7 +5078,8 @@ touchscreen:
                 return;
               }
 
-              if (touch.x >= 331 && touch.y >= 80 && touch.y <= 195) {
+              int d_tr = (touch.x - 402) * (touch.x - 402) + (touch.y - 134) * (touch.y - 134);
+              if (d_tr <= 1444 || (touch.x >= 364 && touch.y >= 88 && touch.y <= 172 && dist_sq > 16900)) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(7, act_slot);
@@ -5092,7 +5088,8 @@ touchscreen:
                 return;
               }
 
-              if (touch.x <= 135 && touch.y >= 271 && touch.y <= 386) {
+              int d_bl = (touch.x - 64) * (touch.x - 64) + (touch.y - 332) * (touch.y - 332);
+              if (d_bl <= 1444 || (touch.x <= 102 && touch.y >= 294 && touch.y <= 378 && dist_sq > 16900)) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(5, act_slot);
@@ -5101,10 +5098,22 @@ touchscreen:
                 return;
               }
 
-              if (touch.x >= 331 && touch.y >= 271 && touch.y <= 386) {
+              int d_br = (touch.x - 402) * (touch.x - 402) + (touch.y - 332) * (touch.y - 332);
+              if (d_br <= 1444 || (touch.x >= 364 && touch.y >= 294 && touch.y <= 378 && dist_sq > 16900)) {
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(8, act_slot);
+                  id(disp1).update();
+                }
+                return;
+              }
+
+              // 3. Enlarged Directional D-Pad Ring (52px < r <= 158px, dist_sq <= 24964)
+              if (dist_sq > 2704 && dist_sq <= 24964) {
+                if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
+                  last_remote_btn_tap = now_rem;
+                  int k_dir = (abs(dy) >= abs(dx)) ? ((dy < 0) ? 0 : 1) : ((dx < 0) ? 2 : 3);
+                  id(remote_send_key).execute(k_dir, act_slot);
                   id(disp1).update();
                 }
                 return;
@@ -5438,9 +5447,9 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.x >= 78 && touch.x <= 388 && touch.y >= 112 && touch.y <= 384) {
-                  int c = (touch.x < 157) ? 0 : ((touch.x < 233) ? 1 : ((touch.x < 309) ? 2 : 3));
-                  int r = (touch.y < 165) ? 0 : ((touch.y < 219) ? 1 : ((touch.y < 273) ? 2 : ((touch.y < 327) ? 3 : 4)));
+                if (touch.x >= 70 && touch.x <= 396 && touch.y >= 104 && touch.y <= 382) {
+                  int c = (touch.x < 151) ? 0 : ((touch.x < 233) ? 1 : ((touch.x < 315) ? 2 : 3));
+                  int r = (touch.y < 159) ? 0 : ((touch.y < 215) ? 1 : ((touch.y < 271) ? 2 : ((touch.y < 327) ? 3 : 4)));
 
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_stuff_tap = now_stuff;

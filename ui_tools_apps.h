@@ -599,22 +599,22 @@ inline void render_tool_bubble_level(DisplayT &it, int cx, float ax, float ay, f
   bool is_level = (total_tilt <= 0.5f);
   esphome::Color ring_c = is_level ? col_green : col_slate;
 
-  // 1. Top Total-Tilt Degree Readout at y = 44 (replaces bottom 2-line readout)
+  // 1. Top Total-Tilt Degree Readout at y = 40
   char deg_buf[16];
   snprintf(deg_buf, sizeof(deg_buf), "%.1f°", total_tilt);
-  it.print(cx, 44, font_date, is_level ? col_green : col_white,
+  it.print(cx, 40, font_date, is_level ? col_green : col_white,
            esphome::display::TextAlign::CENTER, deg_buf);
 
-  // 2. Maximized 300px-Diameter Bulls-Eye Spirit Vial (outer_r = 150 at level_cy = 226)
-  //    Spans y = 76..376 with a clean 20px buffer below top degree text (y = 56)
-  //    and a 20px buffer above the bottom < BACK button (y = 396..424).
-  const int level_cy = 226;
-  const int outer_r = 150;
+  // 2. Enlarged 324px-Diameter Bulls-Eye Spirit Vial (outer_r = 162 at level_cy = 232)
+  //    Spans y = 70..394 with a clean 17px buffer below top degree text (y = 53)
+  //    and a 21px buffer above the bottom < Back button (y = 415).
+  const int level_cy = 232;
+  const int outer_r = 162;
 
   // 12-point 30-degree radial bezel ticks via .rodata DIAL_SIN / DIAL_COS
   for (int i = 0; i < 60; i += 5) {
-    int x1 = cx + (int)(DIAL_SIN[i] * (float)(outer_r - 7));
-    int y1 = level_cy - (int)(DIAL_COS[i] * (float)(outer_r - 7));
+    int x1 = cx + (int)(DIAL_SIN[i] * (float)(outer_r - 8));
+    int y1 = level_cy - (int)(DIAL_COS[i] * (float)(outer_r - 8));
     int x2 = cx + (int)(DIAL_SIN[i] * (float)outer_r);
     int y2 = level_cy - (int)(DIAL_COS[i] * (float)outer_r);
     it.line(x1, y1, x2, y2, col_gray);
@@ -622,27 +622,27 @@ inline void render_tool_bubble_level(DisplayT &it, int cx, float ax, float ay, f
 
   it.circle(cx, level_cy, outer_r, col_slate);
   it.circle(cx, level_cy, outer_r - 1, col_dark_gray);
-  it.circle(cx, level_cy, 76, col_gray);
+  it.circle(cx, level_cy, 82, col_gray);
+  it.circle(cx, level_cy, 30, ring_c);
   it.circle(cx, level_cy, 29, ring_c);
-  it.circle(cx, level_cy, 28, ring_c);
 
   // Cardinal Crosshairs
-  it.line(cx - 156, level_cy, cx - 35, level_cy, ring_c);
-  it.line(cx + 35, level_cy, cx + 156, level_cy, ring_c);
-  it.line(cx, level_cy - 156, cx, level_cy - 35, ring_c);
-  it.line(cx, level_cy + 35, cx, level_cy + 156, ring_c);
+  it.line(cx - 168, level_cy, cx - 36, level_cy, ring_c);
+  it.line(cx + 36, level_cy, cx + 168, level_cy, ring_c);
+  it.line(cx, level_cy - 168, cx, level_cy - 36, ring_c);
+  it.line(cx, level_cy + 36, cx, level_cy + 168, ring_c);
   it.filled_circle(cx, level_cy, 2, ring_c);
 
-  // Spirit Level Bubble Position (clamped inside outer vial r = 126)
-  float fbx = (float)cx - smooth_r_deg * 14.0f;
-  float fby = (float)level_cy - smooth_p_deg * 14.0f;
+  // Spirit Level Bubble Position (clamped inside outer vial r = 138)
+  float fbx = (float)cx - smooth_r_deg * 15.0f;
+  float fby = (float)level_cy - smooth_p_deg * 15.0f;
   float bdx = fbx - (float)cx;
   float bdy = fby - (float)level_cy;
   float b_dist_sq = bdx * bdx + bdy * bdy;
-  if (b_dist_sq > 126.0f * 126.0f) {
+  if (b_dist_sq > 138.0f * 138.0f) {
     float b_dist = std::sqrt(b_dist_sq);
-    fbx = (float)cx + (bdx / b_dist) * 126.0f;
-    fby = (float)level_cy + (bdy / b_dist) * 126.0f;
+    fbx = (float)cx + (bdx / b_dist) * 138.0f;
+    fby = (float)level_cy + (bdy / b_dist) * 138.0f;
   }
   int bx = (int)fbx;
   int by = (int)fby;
@@ -1428,18 +1428,23 @@ inline void render_tool_calculator(DisplayT &it, int cx, const std::string &calc
                                    FontSmallT *font_small,
                                    esphome::Color theme_primary, esphome::Color col_white,
                                    esphome::Color col_slate, esphome::Color col_dark_gray) {
-  // Bezel-safe right margins (x = 348 at y = 54, x = 364 at y = 86) so text never clips on the round screen
+  (void)theme_primary; (void)col_dark_gray;
+  // Raised display readout: History at y = 42, Entry at y = 74 (bottom at y = 87),
+  // Divider at y = 98, and Row 0 top at y = 110 -> 23px clear buffer below output!
   if (!calc_history.empty()) {
-    it.print(348, 54, font_small, col_slate, esphome::display::TextAlign::RIGHT, calc_history.c_str());
+    it.print(336, 42, font_small, col_slate, esphome::display::TextAlign::RIGHT, calc_history.c_str());
   }
   if (!calc_entry.empty()) {
-    it.print(364, 86, font_date, col_white, esphome::display::TextAlign::RIGHT, calc_entry.c_str());
+    it.print(362, 74, font_date, col_white, esphome::display::TextAlign::RIGHT, calc_entry.c_str());
   }
 
-  it.line(80, 112, 386, 112, esphome::Color(50, 58, 72));
+  it.line(82, 98, 384, 98, esphome::Color(50, 58, 72));
 
-  static constexpr int ROWS_Y[5] = {138, 192, 246, 300, 354};
-  static constexpr int COLS_X[4] = {119, 195, 271, 347};
+  // Expanded 5x4 keypad grid:
+  //   - 56px vertical stride (kh = 42 -> 14px vertical gap between rows, y = 110..376)
+  //   - 82px horizontal stride (kw = 68 -> 14px horizontal gap between columns, x = 76..390)
+  static constexpr int ROWS_Y[5] = {131, 187, 243, 299, 355};
+  static constexpr int COLS_X[4] = {110, 192, 274, 356};
   static constexpr const char *KEY_LABELS[5][4] = {
       {"C", "±", "%", "/"},
       {"7", "8", "9", "x"},
@@ -1450,8 +1455,8 @@ inline void render_tool_calculator(DisplayT &it, int cx, const std::string &calc
   auto draw_calc_key = [&](int kx, int ky, const char *label,
                            esphome::Color bg_c, esphome::Color text_c, esphome::Color border_c) {
     const int kw = 68;
-    const int kh = 44;
-    const int kr = 8;
+    const int kh = 42;
+    const int kr = 9;
     int x0 = kx - kw / 2;
     int y0 = ky - kh / 2;
     it.filled_rectangle(x0 + kr, y0, kw - 2 * kr, kh, bg_c);
@@ -3014,27 +3019,28 @@ inline void render_tv_remote_page(
     it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, disp_title.c_str());
   }
 
-  // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
-  const int left_fx = 71;
-  const int right_fx = 395;
-  const int top_fy = 140;
-  const int btm_fy = 326;
-  const int f_r = 18;
+  // Flank Buttons Symmetrical Coordinates (x = 64 / 402, y = 134 / 332, r_dist = 196px from center)
+  // Positioned cleanly outside the enlarged r_out = 144 D-pad ring!
+  const int left_fx = 64;
+  const int right_fx = 402;
+  const int top_fy = 134;
+  const int btm_fy = 332;
+  const int f_r = 19;
 
-  // 1. HOME: Top-Left (71, 140)
+  // 1. HOME: Top-Left (64, 134)
   it.filled_circle(left_fx, top_fy, f_r, col_dark_gray);
   it.circle(left_fx, top_fy, f_r, col_gray);
   it.filled_triangle(left_fx, top_fy - 8, left_fx - 9, top_fy - 1, left_fx + 9, top_fy - 1, col_white);
   it.filled_rectangle(left_fx - 6, top_fy - 1, 13, 8, col_white);
   it.filled_rectangle(left_fx - 2, top_fy + 2, 5, 5, col_dark_gray);
 
-  // 2. VOL UP: Top-Right (395, 140)
+  // 2. VOL UP: Top-Right (402, 134)
   it.filled_circle(right_fx, top_fy, f_r, col_dark_gray);
   it.circle(right_fx, top_fy, f_r, col_gray);
   it.filled_rectangle(right_fx - 7, top_fy - 1, 15, 3, col_white);
   it.filled_rectangle(right_fx - 1, top_fy - 7, 3, 15, col_white);
 
-  // 3. BACK: Bottom-Left (71, 326)
+  // 3. BACK: Bottom-Left (64, 332)
   it.filled_circle(left_fx, btm_fy, f_r, col_dark_gray);
   it.circle(left_fx, btm_fy, f_r, col_gray);
   it.line(left_fx + 3, btm_fy - 7, left_fx - 4, btm_fy, col_white);
@@ -3042,34 +3048,34 @@ inline void render_tv_remote_page(
   it.line(left_fx - 4, btm_fy, left_fx + 3, btm_fy + 7, col_white);
   it.line(left_fx - 3, btm_fy, left_fx + 4, btm_fy + 7, col_white);
 
-  // 4. VOL DOWN: Bottom-Right (395, 326)
+  // 4. VOL DOWN: Bottom-Right (402, 332)
   it.filled_circle(right_fx, btm_fy, f_r, col_dark_gray);
   it.circle(right_fx, btm_fy, f_r, col_gray);
   it.filled_rectangle(right_fx - 7, btm_fy - 1, 15, 3, col_white);
 
-  // Concentric D-Pad with Expanded Outer Radius (r_out = 132)
-  const int dpad_r_in = 48;
-  const int dpad_r_out = 132;
+  // Enlarged Concentric D-Pad (r_out = 144 -> 288px diameter, r_in = 50)
+  const int dpad_r_in = 50;
+  const int dpad_r_out = 144;
   it.circle(cx, cy, dpad_r_out, col_gray);
   it.circle(cx, cy, dpad_r_in, col_gray);
 
-  // 45-degree sector dividers
-  const int d_in = 34;
-  const int d_out = 93;
+  // 45-degree sector dividers (35px .. 102px)
+  const int d_in = 35;
+  const int d_out = 102;
   it.line(cx + d_in, cy + d_in, cx + d_out, cy + d_out, col_gray);
   it.line(cx - d_in, cy + d_in, cx - d_out, cy + d_out, col_gray);
   it.line(cx + d_in, cy - d_in, cx + d_out, cy - d_out, col_gray);
   it.line(cx - d_in, cy - d_in, cx - d_out, cy - d_out, col_gray);
 
-  // Directional Arrows
-  it.filled_triangle(cx, cy - 97, cx - 10, cy - 82, cx + 10, cy - 82, col_white);
-  it.filled_triangle(cx, cy + 97, cx - 10, cy + 82, cx + 10, cy + 82, col_white);
-  it.filled_triangle(cx - 97, cy, cx - 82, cy - 10, cx - 82, cy + 10, col_white);
-  it.filled_triangle(cx + 97, cy, cx + 82, cy - 10, cx + 82, cy + 10, col_white);
+  // Directional Arrows (shifted out to +/- 105px)
+  it.filled_triangle(cx, cy - 105, cx - 11, cy - 89, cx + 11, cy - 89, col_white);
+  it.filled_triangle(cx, cy + 105, cx - 11, cy + 89, cx + 11, cy + 89, col_white);
+  it.filled_triangle(cx - 105, cy, cx - 89, cy - 11, cx - 89, cy + 11, col_white);
+  it.filled_triangle(cx + 105, cy, cx + 89, cy - 11, cx + 89, cy + 11, col_white);
 
-  // Center OK Button (Radius 40)
-  it.filled_circle(cx, cy, 40, col_dark_gray);
-  it.circle(cx, cy, 40, theme_primary);
+  // Center OK Button (Radius 42)
+  it.filled_circle(cx, cy, 42, col_dark_gray);
+  it.circle(cx, cy, 42, theme_primary);
   it.print(cx, cy, font_date, col_white, esphome::display::TextAlign::CENTER, "OK");
 }
 
