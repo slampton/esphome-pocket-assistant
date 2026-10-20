@@ -2002,13 +2002,13 @@ inline void render_music_menus(
       it.print(cx, 76, font_small, col_slate, esphome::display::TextAlign::CENTER, sub_meta.c_str());
     }
 
-    // 1. Top Modern Card: Album Tracks (y = 120) with 3-bar tracklist icon
-    render_modern_card(it, cx, 120, 266, 44, 12, card_bg, theme_primary, "Album Tracks", col_white, font_small);
+    // 1. Top Modern Card: Album Tracks dropped to y_mid = 132 (y = 110..154 -> 24px buffer below artist/album!)
+    render_modern_card(it, cx, 132, 276, 44, 12, card_bg, card_brd, "Album Tracks", col_white, font_small);
     for (int dy : {-4, 0, 4}) {
-      it.filled_rectangle(336, 120 + dy, 12, 2, theme_secondary);
+      it.filled_rectangle(342, 132 + dy, 13, 2, theme_secondary);
     }
 
-    // 2. Center Equator (y = 188 .. 248): Wide Track Position Scrubber (x = 95..371, y = 233)
+    // 2. Track Position Scrubber dropped just below center line (Time at y = 196, Scrubber at y = 242)
     float cur_pos = music_pos_base;
     if (is_playing && music_pos_sync_time > 0 && now_ms >= music_pos_sync_time) {
       cur_pos += static_cast<float>(now_ms - music_pos_sync_time) * 0.001f;
@@ -2027,15 +2027,15 @@ inline void render_music_menus(
     } else {
       snprintf(time_buf, sizeof(time_buf), "%02d:%02d  /  --:--", el_s / 60, el_s % 60);
     }
-    it.print(cx, 188, font_small, col_white, esphome::display::TextAlign::CENTER, time_buf);
+    it.print(cx, 196, font_small, col_white, esphome::display::TextAlign::CENTER, time_buf);
 
-    // Wide Equator Scrubber Bar (x = 95..371, width = 276px at y = 233) + Vector Seek Buttons (x = 50, x = 416)
-    const int scrub_y = 233;
+    // Wide Scrubber Bar (x = 95..371, width = 276px at y = 242) + Vector Seek Buttons (x = 50, x = 416)
+    const int scrub_y = 242;
     const int bar_x0  = 95;
     const int bar_x1  = 371;
     const int bar_w   = bar_x1 - bar_x0;
 
-    // Left -15s Seek Button (x = 50, y = 233, r = 20, subtle Tools-style border + crisp double-chevron «)
+    // Left -15s Seek Button (x = 50, y = 242, r = 20)
     esphome::Color btn_bg(22, 27, 36);
     esphome::Color btn_brd(58, 68, 84);
     it.filled_circle(50, scrub_y, 20, btn_bg);
@@ -2045,7 +2045,7 @@ inline void render_music_menus(
     it.line(48, scrub_y - 6, 42, scrub_y, theme_secondary);
     it.line(42, scrub_y,     48, scrub_y + 6, theme_secondary);
 
-    // Right +15s Seek Button (x = 416, y = 233, r = 20, subtle Tools-style border + crisp double-chevron »)
+    // Right +15s Seek Button (x = 416, y = 242, r = 20)
     it.filled_circle(416, scrub_y, 20, btn_bg);
     it.circle(416, scrub_y, 20, btn_brd);
     it.line(412, scrub_y - 6, 418, scrub_y, col_white);
@@ -2076,33 +2076,35 @@ inline void render_music_menus(
     it.filled_circle(knob_x, scrub_y, 6, theme_secondary);
     it.filled_circle(knob_x, scrub_y, 2, col_black);
 
-    // 3. Lower Row (y = 324): Two Subtle Tools-Launcher-Style Cards (Artist Discography & Up Next Queue)
-    auto draw_subtle_tool_card = [&](int card_cx, int card_cy, bool is_queue, const char *label) {
-      esphome::Color card_bg(22, 27, 36);
-      esphome::Color card_border(48, 56, 70);
-      render_modern_card(it, card_cx, card_cy, 128, 84, 16, card_bg, card_border, nullptr, col_white, font_small);
+    // 3. Lower Row (y_mid = 341, x = 162 / 298): Standardized Tools-Suite Shape, Size (122x86, r=14) & Monochromatic Icons!
+    auto draw_inspector_tool_card = [&](int card_cx, int card_cy, bool is_queue, const char *label) {
+      esphome::Color t_bg(22, 27, 36);
+      esphome::Color t_brd(48, 56, 70);
+      render_modern_card(it, card_cx, card_cy, 122, 86, 14, t_bg, t_brd, nullptr, col_white, font_small);
 
       int ix = card_cx;
-      int iy = card_cy - 15;
+      int iy = card_cy - 13;
       if (!is_queue) {
-        // Artist Discography Icon: Vinyl Record with grooves & center label
+        // Artist Discography Icon: Monochromatic 2px Vinyl Record + Filled White Label + Negative-Space Spindle
         it.circle(ix, iy, 14, col_white);
-        it.circle(ix, iy, 10, col_slate);
-        it.filled_circle(ix, iy, 5, theme_primary);
-        it.filled_circle(ix, iy, 2, col_bg);
+        it.circle(ix, iy, 13, col_white);
+        it.circle(ix, iy, 9,  theme_secondary);
+        it.filled_circle(ix, iy, 5, col_white);
+        it.filled_circle(ix, iy, 2, t_bg);
       } else {
-        // Active Play Queue Icon: Play triangle (▶) + 3 stacked queue bars (≡)
-        it.filled_triangle(ix - 13, iy - 8, ix - 13, iy + 2, ix - 4, iy - 3, theme_primary);
-        it.filled_rectangle(ix, iy - 7, 13, 2, col_white);
-        it.filled_rectangle(ix, iy - 1, 13, 2, col_white);
-        it.filled_rectangle(ix - 13, iy + 5, 26, 2, theme_secondary);
+        // Active Play Queue Icon: Monochromatic Filled White Play Triangle (▶) + 3 Stacked 2px Queue Bars (≡)
+        it.filled_triangle(ix - 13, iy - 9, ix - 13, iy + 3, ix - 3, iy - 3, col_white);
+        it.filled_rectangle(ix + 1,  iy - 8, 13, 2, col_white);
+        it.filled_rectangle(ix + 1,  iy - 2, 13, 2, col_white);
+        it.filled_rectangle(ix - 13, iy + 5, 27, 2, col_white);
+        it.filled_rectangle(ix - 13, iy + 10, 27, 2, theme_secondary);
       }
 
-      it.print(card_cx, card_cy + 20, font_small, col_white, esphome::display::TextAlign::CENTER, label);
+      it.print(card_cx, card_cy + 22, font_small, col_white, esphome::display::TextAlign::CENTER, label);
     };
 
-    draw_subtle_tool_card(160, 324, false, "Artist");
-    draw_subtle_tool_card(306, 324, true,  "Queue");
+    draw_inspector_tool_card(162, 341, false, "Artist");
+    draw_inspector_tool_card(298, 341, true,  "Queue");
   }
 
   render_back_button(it, cx, font_small, 426, "< BACK");

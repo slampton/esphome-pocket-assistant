@@ -802,7 +802,9 @@ inline uint32_t &last_screen_wake_ms() {
 
 template<typename TouchT>
 inline bool is_back_button(const TouchT &t) {
-  return (t.y >= 385 && t.y <= 465 && t.x >= 50 && t.x <= 416);
+  // Focused 156x63px hit-zone centered around "< Back" at (233, 426) so low taps on
+  // bottom-row buttons (e.g. Calculator '=', Tools Row 2, Slot 5) never false-trigger Back!
+  return (t.y >= 402 && t.y <= 465 && t.x >= 155 && t.x <= 311);
 }
 
 template<typename TouchT>
