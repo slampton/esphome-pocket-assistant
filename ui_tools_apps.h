@@ -2363,6 +2363,55 @@ inline int &home_dock_page() {
   return pg;
 }
 
+// ==============================================================================
+// MODULAR WAKE GREETING ENGINE (Displayed for 8s after Boot / Hibernate Wake)
+// Easy to customize: edit or add phrases below by weather condition or hour!
+// ==============================================================================
+inline const char *resolve_wake_greeting(int hour, int minute, int day_of_year,
+                                         const std::string &cond, float temp_f) {
+  int pick = (day_of_year + hour * 3 + (minute / 10)) % 3;
+
+  // 1. Helpful / Playful Weather-Aware Overrides (when weather condition is known)
+  if (!cond.empty() && cond != "unknown" && cond != "unavailable") {
+    if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) {
+      return "Stay dry out there";
+    }
+    if (cond.find("rain") != std::string::npos || cond.find("pouring") != std::string::npos ||
+        cond.find("drizzle") != std::string::npos) {
+      return (pick == 0) ? "Rainy out there today" : "Don't forget an umbrella";
+    }
+    if (cond.find("snow") != std::string::npos || cond.find("sleet") != std::string::npos) {
+      return "Bundle up out there";
+    }
+    if (cond.find("wind") != std::string::npos || cond.find("breez") != std::string::npos) {
+      return (pick == 0) ? "Breezy out there today" : "Hold onto your hat today";
+    }
+    if ((cond == "sunny" || cond == "clear-day" || cond == "clearday") &&
+        hour >= 9 && hour < 17 && !std::isnan(temp_f) && temp_f >= 64.0f && temp_f <= 85.0f && pick == 0) {
+      return "It's a beautiful day";
+    }
+  }
+
+  // 2. Time-of-Day Personality Greetings
+  if (hour >= 5 && hour < 12) {
+    if (pick == 1) return "Rise and shine";
+    if (pick == 2) return "Have a great day";
+    return "Good morning";
+  }
+  if (hour >= 12 && hour < 17) {
+    if (pick == 1) return "Hope your day is going well";
+    return "Good afternoon";
+  }
+  if (hour >= 17 && hour < 22) {
+    if (pick == 1) return "Time to unwind";
+    return "Good evening";
+  }
+  // Late Night (10 PM .. 4:59 AM)
+  if (pick == 1) return "Up late tonight?";
+  if (pick == 2) return "Rest easy tonight";
+  return "Sleep well";
+}
+
 // Canonical Dock Order: Music (2), Remote (7), Games (3) visible on Page 0; Tools (8) off-screen on Page 1
 inline int collect_home_dock_apps(bool show_music, bool show_remote, bool show_tools, bool show_games,
                                   int out_apps[4]) {
@@ -2432,7 +2481,8 @@ inline void render_home_page(
     esphome::Color theme_primary, esphome::Color theme_secondary,
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
     esphome::Color col_slate, esphome::Color col_dark_gray,
-    esphome::Color col_gold, esphome::Color col_green) {
+    esphome::Color col_gold, esphome::Color col_green,
+    bool show_wake_greeting = true) {
   using esphome::Color;
   using esphome::display::TextAlign;
 
@@ -2496,16 +2546,16 @@ inline void render_home_page(
                                     moon_cycle, 360, 86, true, accel_x, accel_y);
   }
 
-  // ZONE 1 (y = 52): Larger Centered Date Header in font_date (27pt, Tap -> HOME SETTINGS)
-  char date_bar[32] = "Pocket Assistant";
+  // ZONE 1 (y = 52): Centered Date Header in font_date (27pt, blank until HA time syncs!)
   if (now.is_valid()) {
+    char date_bar[32];
     TimeT now_copy = now;
     now_copy.strftime(date_bar, sizeof(date_bar), "%a, %b %d");
+    it.print(cx + 1, 53, font_date, col_black, TextAlign::CENTER, date_bar);
+    it.print(cx,     52, font_date, col_white, TextAlign::CENTER, date_bar);
   }
-  it.print(cx + 1, 53, font_date, col_black, TextAlign::CENTER, date_bar);
-  it.print(cx,     52, font_date, col_white, TextAlign::CENTER, date_bar);
 
-  // ZONE 2 (y = 128): Hero Digital Clock (77pt Roboto, Tap -> Opens Full Clock Face)
+  // ZONE 2 (y = 128): Hero Digital Clock (77pt Roboto, "--:--" until time syncs, Tap -> Clock)
   char time_str[16] = "--:--";
   if (now.is_valid()) {
     format_time_hhmm(now.hour, now.minute, is_24h_format, time_str, sizeof(time_str));
@@ -2513,20 +2563,29 @@ inline void render_home_page(
   it.print(cx + 1, 129, font_time, col_black, TextAlign::CENTER, time_str);
   it.print(cx,     128, font_time, col_white, TextAlign::CENTER, time_str);
 
-  // ZONE 3 (y = 200): Stepped-Up Weather Summary in font_date (27pt, Tap -> Opens Sky & Weather)
+  // ZONE 3 (y = 200): Stepped-Up Weather Summary in font_date (27pt, blank until weather arrives!)
   std::string cond_title = format_weather_title(cond);
-  char w_line[64];
-  if (!std::isnan(weather_temp)) {
+  const bool weather_ready = !std::isnan(weather_temp) && (cond_title != "Unavailable");
+  if (weather_ready) {
+    char w_line[64];
     snprintf(w_line, sizeof(w_line), "%.0f° • %s", weather_temp, cond_title.c_str());
-  } else {
-    snprintf(w_line, sizeof(w_line), "--° • %s", cond_title.c_str());
+    std::string fit_w = fit_text_to_width_font(std::string(w_line), 340, font_date);
+    Color cond_col = (!show_weather_bg || is_night) ? theme_secondary : Color(255, 225, 110);
+    it.print(cx + 1, 201, font_date, col_black, TextAlign::CENTER, fit_w.c_str());
+    it.print(cx,     200, font_date, cond_col,  TextAlign::CENTER, fit_w.c_str());
   }
-  std::string fit_w = fit_text_to_width_font(std::string(w_line), 340, font_date);
-  Color cond_col = (!show_weather_bg || is_night) ? theme_secondary : Color(255, 225, 110);
-  it.print(cx + 1, 201, font_date, col_black, TextAlign::CENTER, fit_w.c_str());
-  it.print(cx,     200, font_date, cond_col,  TextAlign::CENTER, fit_w.c_str());
 
-  // ZONE 4 (y = 264): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm)
+  // TRANSIENT WAKE GREETING LATCH (Displays for 8.0s after Cold Boot / Hibernate Wake once time syncs)
+  static uint32_t greeting_start_ms = 0;
+  static bool greeting_latched = false;
+  if (!greeting_latched && now.is_valid() && now_ms < 25000U) {
+    greeting_start_ms = now_ms;
+    greeting_latched = true;
+  }
+  const bool greeting_active = show_wake_greeting && greeting_latched &&
+                               now.is_valid() && (now_ms - greeting_start_ms < 8000U);
+
+  // ZONE 4 (y = 264 / 252): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm) + Wake Greeting
   HomeActivityItem act_items[4];
   int act_count = collect_home_activities(
       now_ms, is_24h_format,
@@ -2549,7 +2608,8 @@ inline void render_home_page(
       home_activity_idx = 0;
     }
     const auto &cur_act = act_items[home_activity_idx];
-    const int pill_y = 264;
+    // Shift pill up slightly to y = 252 while the 8s Wake Greeting is visible underneath at y = 296!
+    const int pill_y = greeting_active ? 252 : 264;
     render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
                        nullptr, col_white, font_small);
 
@@ -2579,6 +2639,14 @@ inline void render_home_page(
       render_scroll_chevron(it, 415, 162, true,  theme_secondary, col_black, true);
       render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, true);
     }
+  }
+
+  if (greeting_active) {
+    const char *greet_msg = resolve_wake_greeting(
+        now.hour, now.minute, now.day_of_year, cond, weather_temp);
+    int greet_y = (act_count > 0) ? 296 : 268;
+    it.print(cx + 1, greet_y + 1, font_small, col_black, TextAlign::CENTER, greet_msg);
+    it.print(cx,     greet_y,     font_small, col_white, TextAlign::CENTER, greet_msg);
   }
 
   // ZONE 5 (y = 352): 3-Icon Sliding Window Quick-Launch Dock (r = 29 / 58px diameter + '>' / '<' chevron)
