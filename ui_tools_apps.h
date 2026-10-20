@@ -2278,7 +2278,9 @@ inline void render_clock_page(
 // =============================================================================
 
 struct HomeActivityItem {
-  int kind; // 1 = Timer, 2 = Stopwatch, 3 = Music, 4 = Alarm
+  int kind;       // 1 = Timer, 2 = Stopwatch, 3 = Music, 4 = Alarm
+  int slot_idx;   // Timer slot (0..2) or Alarm slot (0 = Snoozed, 1..3 = Alarm 1..3)
+  bool is_active; // true = running / playing / snoozed, false = paused / armed
   std::string label;
 };
 
@@ -2310,10 +2312,9 @@ inline int collect_home_activities(
     const auto &s = t_slots[best_t];
     std::string t_name = s.name.empty() ? "Timer" : s.name;
     char buf[64];
-    snprintf(buf, sizeof(buf), "%s  •  %02d:%02d%s",
-             t_name.c_str(), s.remaining_sec / 60, s.remaining_sec % 60,
-             s.paused ? " (Paused)" : "");
-    out_items[count++] = {1, std::string(buf)};
+    snprintf(buf, sizeof(buf), "%s • %02d:%02d",
+             t_name.c_str(), s.remaining_sec / 60, s.remaining_sec % 60);
+    out_items[count++] = {1, best_t, s.running, std::string(buf)};
   }
 
   // 2. Active or Paused Stopwatch
@@ -2323,8 +2324,8 @@ inline int collect_home_activities(
     int secs = (sw_ms / 1000U) % 60U;
     int tenths = (sw_ms / 100U) % 10U;
     char buf[48];
-    snprintf(buf, sizeof(buf), "Stopwatch  •  %02d:%02d.%d", mins, secs, tenths);
-    out_items[count++] = {2, std::string(buf)};
+    snprintf(buf, sizeof(buf), "Stopwatch • %02d:%02d.%d", mins, secs, tenths);
+    out_items[count++] = {2, 0, stopwatch_running, std::string(buf)};
   }
 
   // 3. Now Playing Music
@@ -2334,24 +2335,25 @@ inline int collect_home_activities(
     else if (!music_artist.empty() && music_artist != "None") {
       m_txt = music_artist + " • " + m_txt;
     }
-    out_items[count++] = {3, m_txt};
+    out_items[count++] = {3, 0, true, m_txt};
   }
 
   // 4. Armed or Snoozed Alarm
   if (alarm_snooze_until > 0) {
-    out_items[count++] = {4, "Alarm  •  Snoozed"};
+    out_items[count++] = {4, 0, true, "Alarm • Snoozed"};
   } else if (alarm1_en || alarm2_en || alarm3_en) {
-    int ah = alarm1_en ? alarm1_h : (alarm2_en ? alarm2_h : alarm3_h);
-    int am = alarm1_en ? alarm1_m : (alarm2_en ? alarm2_m : alarm3_m);
+    int a_slot = alarm1_en ? 1 : (alarm2_en ? 2 : 3);
+    int ah = (a_slot == 1) ? alarm1_h : ((a_slot == 2) ? alarm2_h : alarm3_h);
+    int am = (a_slot == 1) ? alarm1_m : ((a_slot == 2) ? alarm2_m : alarm3_m);
     char t_buf[16], ap_buf[8] = "";
     format_time_hhmm(ah, am, is_24h_format, t_buf, sizeof(t_buf), ap_buf);
     char buf[48];
     if (!is_24h_format && ap_buf[0] != '\0') {
-      snprintf(buf, sizeof(buf), "Alarm  •  %s %s", t_buf, ap_buf);
+      snprintf(buf, sizeof(buf), "Alarm • %s %s", t_buf, ap_buf);
     } else {
-      snprintf(buf, sizeof(buf), "Alarm  •  %s", t_buf);
+      snprintf(buf, sizeof(buf), "Alarm • %s", t_buf);
     }
-    out_items[count++] = {4, std::string(buf)};
+    out_items[count++] = {4, a_slot, false, std::string(buf)};
   }
 
   return count;
@@ -2631,7 +2633,7 @@ inline void render_home_page(
     render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
                        nullptr, col_white, font_small);
 
-    int gx = 112, gy = pill_y;
+    int gx = 108, gy = pill_y;
     if (cur_act.kind == 1) {
       it.line(gx - 5, gy - 7, gx + 5, gy - 7, theme_secondary);
       it.line(gx - 5, gy + 7, gx + 5, gy + 7, theme_secondary);
@@ -2643,15 +2645,44 @@ inline void render_home_page(
       it.line(gx - 2, gy - 8, gx + 2, gy - 8, theme_secondary);
       it.line(gx, gy + 1, gx + 4, gy - 3, col_gold);
     } else if (cur_act.kind == 3) {
-      it.filled_triangle(gx - 4, gy - 6, gx - 4, gy + 6, gx + 6, gy, theme_primary);
+      // Beamed eighth note glyph on left for Now Playing Music
+      it.filled_circle(gx - 4, gy + 4, 3, theme_primary);
+      it.filled_circle(gx + 4, gy + 2, 3, theme_primary);
+      it.line(gx - 2, gy + 4, gx - 2, gy - 6, col_white);
+      it.line(gx + 6, gy + 2, gx + 6, gy - 8, col_white);
+      it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
+      it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
     } else {
       it.filled_triangle(gx, gy - 7, gx - 6, gy + 4, gx + 6, gy + 4, col_gold);
       it.filled_rectangle(gx - 7, gy + 4, 15, 2, col_white);
       it.filled_circle(gx, gy + 7, 2, col_gold);
     }
 
-    std::string fit_act = fit_text_to_width_font(cur_act.label, 226, font_small);
-    it.print(128, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
+    std::string fit_act = fit_text_to_width_font(cur_act.label, 198, font_small);
+    it.print(124, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
+
+    // Right-Side Inline Action Zone (x = 330..379, button center at bx = 355):
+    //   - Timer / Stopwatch / Music: 1-tap Play (▶) or Pause (||)
+    //   - Alarm: 1-tap Cancel Snooze / Disarm ('X')
+    it.line(330, pill_y - 14, 330, pill_y + 14, Color(42, 54, 70));
+    const int act_bx = 355;
+    it.filled_circle(act_bx, pill_y, 14, Color(26, 34, 48));
+    it.circle(act_bx, pill_y, 14, theme_secondary);
+
+    if (cur_act.kind == 4) {
+      // Alarm: Crisp 'X' to cancel snooze or disarm alarm directly from Home
+      for (int w = -1; w <= 0; w++) {
+        it.line(act_bx - 4 + w, pill_y - 4, act_bx + 4 + w, pill_y + 4, col_white);
+        it.line(act_bx - 4 + w, pill_y + 4, act_bx + 4 + w, pill_y - 4, col_white);
+      }
+    } else if (cur_act.is_active) {
+      // Running Timer / Running Stopwatch / Playing Music -> Pause (||) bars
+      it.filled_rectangle(act_bx - 4, pill_y - 5, 3, 11, col_white);
+      it.filled_rectangle(act_bx + 2, pill_y - 5, 3, 11, col_white);
+    } else {
+      // Paused Timer / Paused Stopwatch -> Play (▶) triangle
+      it.filled_triangle(act_bx - 3, pill_y - 5, act_bx - 3, pill_y + 5, act_bx + 5, pill_y, theme_primary);
+    }
 
     if (act_count > 1) {
       render_scroll_chevron(it, 415, 162, true,  theme_secondary, col_black, true);
