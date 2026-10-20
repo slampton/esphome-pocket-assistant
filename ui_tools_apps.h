@@ -200,11 +200,11 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
       }
       if (y1 >= 75 && y1 <= 390) {
         render_tool_launcher_card(it, col_left_x,  y1, 3, "Stopwatch",  font_small, theme_secondary, col_white);
-        render_tool_launcher_card(it, col_right_x, y1, 5, "Flashlight", font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y1, 7, "Level",      font_small, theme_secondary, col_white);
       }
       if (y2 >= 75 && y2 <= 390) {
-        render_tool_launcher_card(it, col_left_x,  y2, 6, "Calculator", font_small, theme_secondary, col_white);
-        render_tool_launcher_card(it, col_right_x, y2, 7, "Level",      font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_left_x,  y2, 5, "Flashlight", font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y2, 6, "Calculator", font_small, theme_secondary, col_white);
       }
     } else {
       if (y0 >= 75 && y0 <= 390) {
@@ -1866,7 +1866,7 @@ inline void render_music_menus(
     draw_speaker_card(362, slot_5_name, slot_5_id, slot_5_active);
 
     if (music_browse_total_pages > 1) {
-      draw_right_chevrons(true, true);
+      draw_right_chevrons(music_browse_page > 1, music_browse_page < music_browse_total_pages);
     }
 
   } else if (music_overlay_mode == 2) {
@@ -3184,8 +3184,8 @@ inline void render_system_page(
     static constexpr int16_t SCROLL_EASE_189[5] = {0, 41, 102, 161, 189};
     int current_offset = compute_scroll_offset(system_dashboard_page, SCROLL_EASE_189, 189);
     static constexpr const char *kSysLabels[8] = {
-      "Display", "Sleep & Wake", "Sound", "Voice",
-      "Music",   "Home",         "Info",  "Actions"
+      "Display", "Sleep & Wake", "Sound",   "Voice",
+      "Music",   "Home",         "Actions", "Info"
     };
     for (int i = 0; i < 8; i++) {
       int y = 110 + i * 63 - current_offset;
@@ -3386,54 +3386,58 @@ inline void render_system_page(
 
   } else if (system_menu_mode == 8) {
     // -------------------------------------------------------------------------
-    // VIEW 8: SYSTEM INFO & OS DIAGNOSTICS
+    // VIEW 8: SYSTEM INFO & OS DIAGNOSTICS (Two-Tone: Slate Labels + White Values)
     // -------------------------------------------------------------------------
     render_menu_header(it, cx, 48, "SYSTEM INFO", font_small, theme_primary);
     const int info_x = 88;
-    bool has_update = is_newer_semver(ha_fw_latest, version_str);
+    auto print_info_row = [&](int y, const char *lbl, const char *val, esphome::Color val_col) {
+      int w_lbl = 0, x_off = 0, base = 0, th = 0;
+      font_small->measure(lbl, &w_lbl, &x_off, &base, &th);
+      it.print(info_x, y, font_small, col_slate, esphome::display::TextAlign::LEFT, lbl);
+      it.print(info_x + w_lbl + 6, y, font_small, val_col, esphome::display::TextAlign::LEFT, val);
+    };
 
+    bool has_update = is_newer_semver(ha_fw_latest, version_str);
     if (has_update) {
-      snprintf(buf, sizeof(buf), "Version: v%s (Update: v%s)", version_str, ha_fw_latest.c_str());
-      it.print(info_x, 86, font_small, col_gold, esphome::display::TextAlign::LEFT, buf);
+      snprintf(buf, sizeof(buf), "v%s (Update: v%s)", version_str, ha_fw_latest.c_str());
+      print_info_row(86, "Version:", buf, col_gold);
     } else {
-      snprintf(buf, sizeof(buf), "Version: v%s (Up to date)", version_str);
-      it.print(info_x, 86, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+      snprintf(buf, sizeof(buf), "v%s (Up to date)", version_str);
+      print_info_row(86, "Version:", buf, col_white);
     }
 
     uint32_t up_sec = now_ms / 1000U;
     uint32_t up_d = up_sec / 86400U;
     uint32_t up_h = (up_sec % 86400U) / 3600U;
     uint32_t up_m = (up_sec % 3600U) / 60U;
-    snprintf(buf, sizeof(buf), "Uptime: %lud %02luh %02lum",
+    snprintf(buf, sizeof(buf), "%lud %02luh %02lum",
              (unsigned long)up_d, (unsigned long)up_h, (unsigned long)up_m);
-    it.print(info_x, 122, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+    print_info_row(122, "Uptime:", buf, col_white);
 
-    snprintf(buf, sizeof(buf), "Home Assistant: %s", ha_time_valid ? "Connected" : "Syncing...");
-    it.print(info_x, 158, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+    print_info_row(158, "Home Assistant:", ha_time_valid ? "Connected" : "Syncing...", col_white);
 
     if (std::isnan(wifi_sig)) {
-      snprintf(buf, sizeof(buf), "Wi-Fi: -- dBm  •  BLE: %s", ble_active ? "Active" : "Off");
+      snprintf(buf, sizeof(buf), "-- dBm  •  BLE: %s", ble_active ? "Active" : "Off");
     } else {
-      snprintf(buf, sizeof(buf), "Wi-Fi: %.0f dBm  •  BLE: %s", wifi_sig, ble_active ? "Active" : "Off");
+      snprintf(buf, sizeof(buf), "%.0f dBm  •  BLE: %s", wifi_sig, ble_active ? "Active" : "Off");
     }
-    it.print(info_x, 194, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+    print_info_row(194, "Wi-Fi:", buf, col_white);
 
-    snprintf(buf, sizeof(buf), "IP: %s", ip_str.empty() ? "Connecting..." : ip_str.c_str());
-    it.print(info_x, 230, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+    print_info_row(230, "IP:", ip_str.empty() ? "Connecting..." : ip_str.c_str(), col_white);
 
-    snprintf(buf, sizeof(buf), "Battery: %.0f%% (%.2fV)%s",
+    snprintf(buf, sizeof(buf), "%.0f%% (%.2fV)%s",
              std::isnan(batt) ? 100.0f : batt,
              std::isnan(batt_v) ? 4.15f : batt_v,
              is_charging ? " • Chg" : "");
-    it.print(info_x, 266, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+    print_info_row(266, "Battery:", buf, col_white);
 
     float temp_c = std::isnan(imu_temp_c) ? 30.0f : imu_temp_c;
     float temp_f = temp_c * 1.8f + 32.0f;
-    snprintf(buf, sizeof(buf), "Temp: %.1fC  (%.1fF)", temp_c, temp_f);
-    it.print(info_x, 302, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+    snprintf(buf, sizeof(buf), "%.1fC  (%.1fF)", temp_c, temp_f);
+    print_info_row(302, "Temp:", buf, col_white);
 
-    snprintf(buf, sizeof(buf), "ESP32-S3  |  %lu KB Free SRAM", (unsigned long)free_heap_kb);
-    it.print(info_x, 338, font_small, col_white, esphome::display::TextAlign::LEFT, buf);
+    snprintf(buf, sizeof(buf), "%lu KB Free SRAM", (unsigned long)free_heap_kb);
+    print_info_row(338, "Memory:", buf, col_white);
 
     draw_back();
 

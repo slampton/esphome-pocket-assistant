@@ -3675,12 +3675,13 @@ touchscreen:
                     if (now_s - last_browse_scroll > TOUCH_DEBOUNCE_SCROLL) {
                       int delta = (touch.y < 220) ? -1 : 1;
                       int next_pg = id(music_browse_page);
-                      if (id(music_overlay_mode) == 3 &&
-                          id(selected_category_mode) != "artist" &&
-                          id(selected_category_mode) != "album") {
-                        next_pg = std::max(1, std::min(id(music_browse_total_pages), id(music_browse_page) + delta));
-                      } else {
+                      bool wrap_list = (id(music_overlay_mode) == 3) &&
+                                       (id(selected_category_mode) == "artist" ||
+                                        id(selected_category_mode) == "album");
+                      if (wrap_list) {
                         next_pg = step_wrap_1based(id(music_browse_page), delta, id(music_browse_total_pages));
+                      } else {
+                        next_pg = std::max(1, std::min(id(music_browse_total_pages), id(music_browse_page) + delta));
                       }
                       if (next_pg != id(music_browse_page)) {
                         last_browse_scroll = now_s;
@@ -3825,6 +3826,8 @@ touchscreen:
                   } else if (kind == 3) {
                     id(gui_page) = 2;
                     id(music_overlay_mode) = 0;
+                    id(music_hud_active) = true;
+                    id(music_hud_timer) = now_hm;
                   } else if (kind == 4) {
                     id(gui_page) = 8;
                     id(stuff_subpage) = 2;
@@ -3858,6 +3861,10 @@ touchscreen:
                     last_home_tap = now_hm;
                     id(gui_page) = dock_apps[best_i];
                     id(music_overlay_mode) = 0;
+                    if (id(gui_page) == 2) {
+                      id(music_hud_active) = true;
+                      id(music_hud_timer) = now_hm;
+                    }
                     id(remote_subpage) = 0;
                     id(stuff_subpage) = 0;
                     id(active_game) = 0;
@@ -4513,9 +4520,9 @@ touchscreen:
                         id(gui_page) = 1;
                         id(home_subpage) = 1;
                       } else if (item_idx == 6) {
-                        id(system_menu_mode) = 8;
-                      } else if (item_idx == 7) {
                         id(system_menu_mode) = 3;
+                      } else if (item_idx == 7) {
+                        id(system_menu_mode) = 8;
                       }
                     id(disp1).update();
                     return;
@@ -5135,7 +5142,7 @@ touchscreen:
 
                 if (row >= 0 && col >= 0) {
                   if (id(stuff_menu_page) == 0) {
-                    static constexpr int P0_MAP[3][2] = {{1, 2}, {3, 5}, {6, 7}};
+                    static constexpr int P0_MAP[3][2] = {{1, 2}, {3, 7}, {5, 6}};
                     target_subpage = P0_MAP[row][col];
                   } else if (row == 0) {
                     target_subpage = (col == 0) ? 4 : 8;
