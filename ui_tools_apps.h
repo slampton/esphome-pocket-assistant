@@ -2732,49 +2732,43 @@ inline void render_home_page(
         it.filled_triangle(bx - 13, by, bx - 8, by - 4, bx - 8, by + 4, c);
         it.filled_triangle(bx + 13, by, bx + 8, by - 4, bx + 8, by + 4, c);
       } else if (app_id == 8) {
-        // Tools: Reference-Matched Single-Head 45-Degree Outline Open-End Wrench
-        // Dedicates the entire icon to 1 large upper-right C-head (r_out = 10.5px) + rounded
-        // lower-left handle shaft in a crisp 2.6px hollow outline (100% transparent interior!)
-        auto in_wrench_shape = [](float u, float v, float shrink) -> bool {
-          // 1. Exclude Upper-Right Open U-Jaw Slot (expands by +shrink when computing inner cutout!)
-          float jaw_r = 3.6f + shrink;
-          float jaw_u0 = 4.5f;
-          if (u >= jaw_u0 && std::fabs(v) <= jaw_r) return false;
-          float du_j = u - jaw_u0;
-          if ((du_j * du_j + v * v) <= (jaw_r * jaw_r)) return false;
-
-          // 2. Upper-Right Circular Wrench Head (centered at u = +6.2, v = 0, r = 10.6 - shrink)
-          float head_r = 10.6f - shrink;
-          float du_h = u - 6.2f;
-          if (head_r > 0.0f && (du_h * du_h + v * v) <= (head_r * head_r) && u <= (14.4f - shrink * 0.5f)) {
-            return true;
-          }
-
-          // 3. Diagonal Handle Capsule (from u = -12.0 to u = +2.5, half-width = 4.8 - shrink)
-          float shaft_r = 4.8f - shrink;
-          if (shaft_r <= 0.0f) return false;
-          if (u >= -12.0f && u <= 2.5f && std::fabs(v) <= shaft_r) return true;
-          float du_cap = u + 12.0f;
-          if ((du_cap * du_cap + v * v) <= (shaft_r * shaft_r)) return true;
-
-          return false;
-        };
-
-        auto is_wrench_outline = [&](int dx, int dy) -> bool {
+        // Tools: Solid Filled Single-Head 45-Degree Wrench (Compact r=8.2px Head + Long Rounded Handle)
+        // Matches the solid filled visual weight of the Music icon!
+        auto is_wrench_filled = [](int dx, int dy) -> bool {
           static constexpr float INV_SQRT2 = 0.70710678f;
           float fx = static_cast<float>(dx);
           float fy = static_cast<float>(dy);
           float u = (fx - fy) * INV_SQRT2;
           float v = (fx + fy) * INV_SQRT2;
-          // 2.6px thick outline wall = inside outer shape (shrink=0) AND outside inner hollow cavity (shrink=2.6)
-          return in_wrench_shape(u, v, 0.0f) && !in_wrench_shape(u, v, 2.55f);
+
+          // 1. Transparent Upper-Right Open U-Jaw Slot (u >= 6.8, |v| <= 3.15px)
+          const float jaw_r  = 3.15f;
+          const float jaw_u0 = 6.8f;
+          if (u >= jaw_u0 && std::fabs(v) <= jaw_r) return false;
+          float du_j = u - jaw_u0;
+          if ((du_j * du_j + v * v) <= (jaw_r * jaw_r)) return false;
+
+          // 2. Compact Upper-Right Wrench Head (centered at u = +8.5, v = 0, r = 8.2px)
+          const float head_r = 8.2f;
+          float du_h = u - 8.5f;
+          if ((du_h * du_h + v * v) <= (head_r * head_r) && u <= 15.0f) {
+            return true;
+          }
+
+          // 3. Long Diagonal Handle Capsule (from u = -14.2 to u = +4.5, half-width = 3.25px)
+          const float shaft_r = 3.25f;
+          if (u >= -14.2f && u <= 4.5f && std::fabs(v) <= shaft_r) return true;
+          float du_cap = u + 14.2f;
+          if ((du_cap * du_cap + v * v) <= (shaft_r * shaft_r)) return true;
+
+          return false;
         };
 
         if (!is_shadow) {
           for (int dy = -18; dy <= 18; dy++) {
             for (int dx = -18; dx <= 18; dx++) {
-              if (is_wrench_outline(dx, dy)) {
-                if (!is_wrench_outline(dx + 1, dy + 1)) {
+              if (is_wrench_filled(dx, dy)) {
+                if (!is_wrench_filled(dx + 1, dy + 1)) {
                   it.draw_pixel_at(bx + dx + 1, by + dy + 1, col_black);
                 }
                 it.draw_pixel_at(bx + dx, by + dy, c);
@@ -2783,37 +2777,50 @@ inline void render_home_page(
           }
         }
       } else if (app_id == 3) {
-        // Games: Pure-Outline Gamepad (Zero interior clutter, narrower top bridge, taller 26px height,
-        // and longer outward-flaring lower handgrips extending from dy = +1 down to dy = +12!)
-        // dy spans -13 .. +12 (26 rows total)
+        // Games: Solid Filled Gamepad (26px tall, deeper 18px main body with lowered center bridge at dy=+4,
+        // shorter 8px outward-flaring lower grip wings, and transparent negative-space D-pad '+' & 4-dot diamond!)
+        // dy spans -13 .. +12 (26 rows total: rows 0..17 = solid upper/mid body; rows 18..25 = lower grip wings)
         static constexpr int8_t GP_OUT_MAX[26] = {
-           9, 11, 12, 12, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 17, 17, 16, 16, 15, 14, 12
+           9, 11, 12, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 17, 17, 16, 15, 13
         };
         static constexpr int8_t GP_OUT_MIN[26] = {
-           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  6,  7,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11
-        };
-        static constexpr int8_t GP_IN_MAX[26] = {
-          -1, -1, -1,  9, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 14, 14, 14, 13, 13, -1, -1, -1
-        };
-        static constexpr int8_t GP_IN_MIN[26] = {
-           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  8,  9,  9, 10, 11, 11, 12, 12, 12, 12, 12,  0,  0,  0
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  8,  9, 10, 10, 11, 11, 12
         };
 
-        auto is_gamepad_outline = [](int dx, int dy) -> bool {
+        auto is_gamepad_filled = [](int dx, int dy) -> bool {
           if (dy < -13 || dy > 12) return false;
           int row = dy + 13;
           int ax = std::abs(dx);
-          bool in_outer = (ax >= GP_OUT_MIN[row] && ax <= GP_OUT_MAX[row]);
-          if (!in_outer) return false;
-          bool in_inner = (GP_IN_MAX[row] >= 0) && (ax >= GP_IN_MIN[row] && ax <= GP_IN_MAX[row]);
-          return !in_inner; // Pure 3px outline wall with 100% open interior!
+          if (ax < GP_OUT_MIN[row] || ax > GP_OUT_MAX[row]) return false;
+
+          // Transparent Negative-Space Cutout 1: Left D-Pad Cross (+) centered at (dx = -7, dy = -3)
+          int dpx = dx + 7;
+          int dpy = dy + 3;
+          if ((std::abs(dpx) <= 1 && std::abs(dpy) <= 4) ||
+              (std::abs(dpy) <= 1 && std::abs(dpx) <= 4)) {
+            return false;
+          }
+
+          // Transparent Negative-Space Cutout 2: Right 4-Dot Action Diamond centered at (dx = +7, dy = -3)
+          int abx = dx - 7;
+          int aby = dy + 3;
+          auto is_dot = [](int x, int y, int cx_d, int cy_d) -> bool {
+            int rx = x - cx_d, ry = y - cy_d;
+            return (rx * rx + ry * ry) <= 1;
+          };
+          if (is_dot(abx, aby, 0, -3) || is_dot(abx, aby, 0, 3) ||
+              is_dot(abx, aby, -3, 0) || is_dot(abx, aby, 3, 0)) {
+            return false;
+          }
+
+          return true;
         };
 
         if (!is_shadow) {
           for (int dy = -13; dy <= 12; dy++) {
-            for (int dx = -18; dx <= 18; dx++) {
-              if (is_gamepad_outline(dx, dy)) {
-                if (!is_gamepad_outline(dx + 1, dy + 1)) {
+            for (int dx = -19; dx <= 19; dx++) {
+              if (is_gamepad_filled(dx, dy)) {
+                if (!is_gamepad_filled(dx + 1, dy + 1)) {
                   it.draw_pixel_at(bx + dx + 1, by + dy + 1, col_black);
                 }
                 it.draw_pixel_at(bx + dx, by + dy, c);
@@ -2892,37 +2899,38 @@ inline void render_home_page(
   it.print(text_left_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, batt_str);
   it.print(text_left_x,     chin_y,     font_small, col_slate, TextAlign::CENTER_LEFT, batt_str);
 
-  // 2. Right Group: 6-Tooth Reference-Matched CSG Gear at x = cx + 48 (281, y = 422)
-  //    - 100% transparent center hole (r = 3.5px -> sky shows through cleanly, zero black plug!)
-  //    - Thick solid body ring (r = 3.5 .. 7.5px)
-  //    - 6 prominent rounded-tip cogs at 0, 60, 120, 180, 240, 300 deg extending to r = 11.6px
+  // 2. Right Group: 8-Sprocket CSG Gear at x = cx + 48 (281, y = 422)
+  //    - 100% transparent center hole (r = 3.8px -> r2 <= 14, sky shows through cleanly!)
+  //    - Larger solid wheel body ring (r = 3.8 .. 8.4px -> r2 <= 71)
+  //    - 8 stubby, flat-topped trapezoidal sprockets (protruding only 2.6px to r = 11.0px)
+  //      so it reads immediately as an 8-tooth gear rather than a ship's helm!
   int gear_x = cx + 48;
   int gear_y = chin_y;
   auto is_gear_pixel = [](int dx, int dy) -> bool {
     int r2 = dx * dx + dy * dy;
-    // 1. Transparent center hole (r <= 3.5px -> r2 <= 12) and outer bound (r > 11.6px -> r2 > 136)
-    if (r2 <= 12 || r2 > 136) return false;
-    // 2. Solid inner gear wheel body (3.5px < r <= 7.5px -> r2 <= 57)
-    if (r2 <= 57) return true;
-    // 3. 6 Chunky Rounded-Tip Cogs at 0/180 deg, 60/240 deg, and 120/300 deg
+    // 1. Transparent center hole (r <= 3.8px -> r2 <= 14) and outer bound (r > 11.2px -> r2 > 125)
+    if (r2 <= 14 || r2 > 125) return false;
+    // 2. Solid inner gear wheel body (3.8px < r <= 8.4px -> r2 <= 71)
+    if (r2 <= 71) return true;
+    // 3. 8 Stubby Trapezoidal Sprockets at 0, 45, 90, 135, 180, 225, 270, 315 deg
     float fx = static_cast<float>(dx);
     float fy = static_cast<float>(dy);
-    static constexpr float COS30 = 0.8660254f;
-    static constexpr float SIN30 = 0.5000000f;
-    // Axis 0: Vertical (12 & 6 o'clock) -> |perp| = |fx|, |proj| = |fy|
-    // Axis 1: +60 deg (2 & 8 o'clock)   -> |perp| = |-0.5*fx + 0.866*fy|, |proj| = |0.866*fx + 0.5*fy|
-    // Axis 2: -60 deg (10 & 4 o'clock)  -> |perp| = | 0.5*fx + 0.866*fy|, |proj| = |0.866*fx - 0.5*fy|
-    float p0 = std::fabs(fx),                      along0 = std::fabs(fy);
-    float p1 = std::fabs(-SIN30 * fx + COS30 * fy), along1 = std::fabs(COS30 * fx + SIN30 * fy);
-    float p2 = std::fabs( SIN30 * fx + COS30 * fy), along2 = std::fabs(COS30 * fx - SIN30 * fy);
+    static constexpr float INV_SQRT2 = 0.70710678f;
 
-    auto in_tooth = [](float perp, float along) -> bool {
-      if (perp > 2.45f || along > 11.5f) return false;
-      // Rounded corner bevel at the outer tip of each tooth (along > 10.2)
-      if (along > 10.2f && perp > 1.85f) return false;
-      return true;
+    // 4 symmetry axes (Vertical, Horizontal, +45 deg, -45 deg)
+    float p_v  = std::fabs(fx),                      a_v  = std::fabs(fy);
+    float p_h  = std::fabs(fy),                      a_h  = std::fabs(fx);
+    float p_d1 = std::fabs((fx - fy) * INV_SQRT2),   a_d1 = std::fabs((fx + fy) * INV_SQRT2);
+    float p_d2 = std::fabs((fx + fy) * INV_SQRT2),   a_d2 = std::fabs((fx - fy) * INV_SQRT2);
+
+    auto in_sprocket = [](float perp, float along) -> bool {
+      if (along > 11.0f) return false;
+      // Trapezoidal involute gear tooth taper: half-width 1.85px at root (along=8) -> 1.35px at tip (along=11)
+      float max_w = 1.90f - (along - 8.0f) * 0.18f;
+      return (perp <= max_w);
     };
-    return in_tooth(p0, along0) || in_tooth(p1, along1) || in_tooth(p2, along2);
+    return in_sprocket(p_v, a_v) || in_sprocket(p_h, a_h) ||
+           in_sprocket(p_d1, a_d1) || in_sprocket(p_d2, a_d2);
   };
 
   for (int dy = -12; dy <= 12; dy++) {
