@@ -574,8 +574,17 @@ inline bool &clear_day_epoch_initialized() {
 }
 
 // Origami-Inspired High-Altitude V-Flock of Migrating Birds:
-// Glides across at a calm, unhurried pace for 9.5 seconds out of every 12.0-second cycle
-// (leaving a 2.5-second pause between passes so a flock is almost always in view when checking Clear Day).
+// Uses a 24.0-second window with a 9.0-second flight and randomized launch offsets,
+// creating a natural, unhurried 11..22 second pause between passes!
+static constexpr uint32_t BIRD_WINDOW_MS = 24000U;
+static constexpr uint32_t BIRD_FLIGHT_MS = 9000U;
+
+inline uint32_t get_bird_flock_launch_ms(uint32_t slot_idx) {
+  if (slot_idx == 0U) return 1500U; // First pass appears 1.5s after entering Clear/Partly Sunny sky
+  int seed = static_cast<int>(slot_idx * 53U + 19U);
+  return 1000U + static_cast<uint32_t>(hash2d_01(seed, 11) * 11500.0f);
+}
+
 inline bool is_clear_day_flock_active(uint32_t now_ms, bool touch_seen = false) {
   if (!clear_day_epoch_initialized() || (now_ms - clear_day_last_seen_ms() > 2500U)) {
     if (touch_seen) {
@@ -589,7 +598,10 @@ inline bool is_clear_day_flock_active(uint32_t now_ms, bool touch_seen = false) 
     clear_day_last_seen_ms() = now_ms;
   }
   uint32_t rel_ms = now_ms - clear_day_flock_epoch_ms();
-  return (rel_ms % 12000U) < 9500U;
+  uint32_t slot_idx = rel_ms / BIRD_WINDOW_MS;
+  uint32_t slot_ms  = rel_ms % BIRD_WINDOW_MS;
+  uint32_t launch_ms = get_bird_flock_launch_ms(slot_idx);
+  return (slot_ms >= launch_ms && slot_ms < launch_ms + BIRD_FLIGHT_MS);
 }
 
 // Tracks the epoch offset for the Night Shooting Star so entering Clear Night / Partly Cloudy Night
@@ -923,7 +935,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       }
     }
   }
-  // LAYER 1B: CELESTIAL CORNER POCKET ICON (SUN / MOON)
+  // LAYER 1B: CELESTIAL CORNER POCKET ICON (3D GRADIENT SUN ORB / LUNAR DISC)
   if (cel_cx > 0 && cel_cy > 0) {
     if (is_night) {
       render_lunar_disc(it, cel_cx, cel_cy, 22, moon_cycle, false);
@@ -933,15 +945,36 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       }
     } else {
       bool show_sun = (is_clear_day || is_partly || is_windy);
-      if (show_sun) {
-        it.filled_circle(cel_cx, cel_cy, 20, esphome::Color(245, 165, 25));
-        it.filled_circle(cel_cx, cel_cy, 12, esphome::Color(255, 225, 90));
-        it.circle(cel_cx, cel_cy, 26, esphome::Color(140, 85, 15));
-      } else if (is_fog_mist) {
-        it.filled_circle(cel_cx, cel_cy, 19, esphome::Color(135, 125, 92));
-        it.filled_circle(cel_cx, cel_cy, 11, esphome::Color(188, 178, 135));
-        it.circle(cel_cx, cel_cy, 24, esphome::Color(92, 106, 122));
-        it.circle(cel_cx, cel_cy, 28, esphome::Color(68, 84, 102));
+      if (show_sun || is_fog_mist) {
+        // Continuous 3D Spherical Gradient Solar Orb (Zero detached button ring or flat inner dot!)
+        const esphome::Color sky_c = is_fog_mist ? esphome::Color(32, 46, 60) : esphome::Color(28, 54, 84);
+        const esphome::Color c_corona_out = is_fog_mist ? esphome::Color(78, 84, 78)   : esphome::Color(92, 74, 58);
+        const esphome::Color c_corona_in  = is_fog_mist ? esphome::Color(122, 114, 86) : esphome::Color(186, 102, 24);
+        const esphome::Color c_limb       = is_fog_mist ? esphome::Color(142, 128, 92) : esphome::Color(232, 118, 16);
+        const esphome::Color c_mid        = is_fog_mist ? esphome::Color(172, 158, 114): esphome::Color(252, 178, 36);
+        const esphome::Color c_core       = is_fog_mist ? esphome::Color(204, 194, 152): esphome::Color(255, 244, 150);
+
+        // 1. Soft 5-step outer atmospheric corona bloom (r = 26 .. 22) blending into the sky
+        for (int r = 26; r >= 22; r--) {
+          float k = static_cast<float>(26 - r) * 0.25f; // 0.0 at r=26 -> 1.0 at r=22
+          esphome::Color glow_c = lerp_color(lerp_color(sky_c, c_corona_out, 0.55f), c_corona_in, k * k);
+          it.filled_circle(cel_cx, cel_cy, r, glow_c);
+        }
+
+        // 2. Continuous 21-step 3D spherical gradient body (r = 21 .. 1) with subtle upper-left 3D light offset
+        const int max_r = 21;
+        const float inv_max_r = 1.0f / static_cast<float>(max_r);
+        for (int r = max_r; r >= 1; r--) {
+          float u = 1.0f - static_cast<float>(r) * inv_max_r; // 0.0 at limb -> 1.0 at core
+          float s = u * u * (3.0f - 2.0f * u);               // Smooth cubic Hermite blend
+          esphome::Color ring_c = (s < 0.52f)
+              ? lerp_color(c_limb, c_mid,  s * (1.0f / 0.52f))
+              : lerp_color(c_mid,  c_core, (s - 0.52f) * (1.0f / 0.48f));
+          // Shift inner highlight circles slightly upper-left (-3.5px at core) for 3D spherical volume
+          int ox = cel_cx - static_cast<int>(u * 3.5f);
+          int oy = cel_cy - static_cast<int>(u * 3.5f);
+          it.filled_circle(ox, oy, r, ring_c);
+        }
       }
     }
   }
@@ -971,15 +1004,17 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
                             c_cir_crest, c_cir_body, c_cir_base, cy);
   }
 
-  // LAYER 1D: CLEAR DAY & PARTLY CLOUDY DAY V-FLOCK OF MIGRATING BIRDS
+  // LAYER 1D: CLEAR DAY & PARTLY CLOUDY DAY V-FLOCK OF MIGRATING BIRDS (Randomized 11..22s pause between passes!)
   if (is_clear_day || (!is_night && is_partly)) {
     if (is_clear_day_flock_active(now_ms, true)) {
       uint32_t rel_ms = now_ms - clear_day_flock_epoch_ms();
-      uint32_t cycle_idx = rel_ms / 12000U;
-      uint32_t flight_ms = rel_ms % 12000U;
-      float prog = static_cast<float>(flight_ms) * (1.0f / 9500.0f);
+      uint32_t cycle_idx = rel_ms / BIRD_WINDOW_MS;
+      uint32_t slot_ms   = rel_ms % BIRD_WINDOW_MS;
+      uint32_t launch_ms = get_bird_flock_launch_ms(cycle_idx);
+      uint32_t flight_ms = (slot_ms >= launch_ms) ? (slot_ms - launch_ms) : 0U;
+      float prog = static_cast<float>(flight_ms) * (1.0f / static_cast<float>(BIRD_FLIGHT_MS));
 
-      int dir = ((cycle_idx & 1U) == 0U) ? 1 : -1;
+      int dir = (hash2d_01(static_cast<int>(cycle_idx * 37U + 13U), 29) < 0.5f) ? 1 : -1;
       float r_alt = hash2d_01(static_cast<int>(cycle_idx * 31U + 7U), 19);
       int base_y = 72 + static_cast<int>(r_alt * 62.0f);
 
