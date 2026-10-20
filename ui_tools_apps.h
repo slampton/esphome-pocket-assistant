@@ -1840,9 +1840,9 @@ inline void render_music_menus(
     std::string spk_sub = fit_text_to_width_font(active_speaker_name, 260, font_small);
     it.print(cx, 76, font_small, col_white, esphome::display::TextAlign::CENTER, spk_sub.c_str());
 
-    render_modern_card(it, cx, 140, 202, 44, 12, card_bg, theme_primary, "Speakers", col_white, font_small);
-    render_modern_card(it, cx, 203, 202, 44, 12, card_bg, theme_primary, "Library",  col_white, font_small);
-    render_modern_card(it, cx, 290, 202, 44, 12, card_bg, card_brd,      "Settings", col_white, font_small);
+    render_modern_card(it, cx, 140, 276, 44, 12, card_bg, theme_primary, "Speakers", col_white, font_small);
+    render_modern_card(it, cx, 203, 276, 44, 12, card_bg, theme_primary, "Library",  col_white, font_small);
+    render_modern_card(it, cx, 290, 276, 44, 12, card_bg, card_brd,      "Settings", col_white, font_small);
 
   } else if (music_overlay_mode == 1) {
     // LEVEL 1: SPEAKERS BROWSER (5-Slot Speaker Inventory — 63px Stride Modern Cards)
@@ -1891,7 +1891,7 @@ inline void render_music_menus(
     for (int i = 0; i < 7; i++) {
       int y = 110 + i * 63 - current_offset;
       if (y >= 60 && y <= 395) {
-        render_modern_card(it, cx, y, 202, 44, 12, card_bg, card_brd,
+        render_modern_card(it, cx, y, 276, 44, 12, card_bg, card_brd,
                            CAT_LABELS[i], col_white, font_small);
       }
     }
@@ -3361,7 +3361,7 @@ inline void render_system_page(
     for (int i = 0; i < 8; i++) {
       int y = 110 + i * 63 - current_offset;
       if (y >= 60 && y <= 395) {
-        render_modern_card(it, cx, y, 202, 44, 12, card_bg_on, card_brd_on, kSysLabels[i], col_white, font_small);
+        render_modern_card(it, cx, y, 276, 44, 12, card_bg_on, card_brd_on, kSysLabels[i], col_white, font_small);
       }
     }
 
