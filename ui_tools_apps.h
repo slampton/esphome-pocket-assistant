@@ -2858,31 +2858,50 @@ inline void render_home_page(
   it.print(text_left_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, batt_str);
   it.print(text_left_x,     chin_y,     font_small, col_slate, TextAlign::CENTER_LEFT, batt_str);
 
-  // 2. Right Group: 6-Tooth Heavy Machined Settings Cog at x = cx + 48 (281, y = 422)
-  //    Uses 6 wide, flat-topped 5px square cogs (at 0, 60, 120, 180, 240, 300 deg)
-  //    around an r=9 wheel with a large r=5 hollow center bore so it reads as a gear, never a sun!
+  // 2. Right Group: 6-Tooth Reference-Matched CSG Gear at x = cx + 48 (281, y = 422)
+  //    - 100% transparent center hole (r = 3.5px -> sky shows through cleanly, zero black plug!)
+  //    - Thick solid body ring (r = 3.5 .. 7.5px)
+  //    - 6 prominent rounded-tip cogs at 0, 60, 120, 180, 240, 300 deg extending to r = 11.6px
   int gear_x = cx + 48;
   int gear_y = chin_y;
-  auto draw_gear_cog = [&](int gx, int gy, Color c) {
-    // 1. Top & Bottom 5px-wide flat-topped square cogs (0 & 180 deg)
-    it.filled_rectangle(gx - 2, gy - 12, 5, 25, c);
-    // 2. 4 Wide 60-degree diagonal square cogs (60, 120, 240, 300 deg)
-    //    Unit vector u = (0.866, 0.500), perp p = (-0.500, 0.866)
-    for (int dir_y = -1; dir_y <= 1; dir_y += 2) {
-      int x0 = gx - 10, y0 = gy - 6 * dir_y;
-      int x1 = gx + 10, y1 = gy + 6 * dir_y;
-      for (int w = -2; w <= 2; w++) {
-        it.line(x0 - w, y0 + w * dir_y, x1 - w, y1 + w * dir_y, c);
-        it.line(x0,     y0 + w,         x1,     y1 + w,         c);
+  auto is_gear_pixel = [](int dx, int dy) -> bool {
+    int r2 = dx * dx + dy * dy;
+    // 1. Transparent center hole (r <= 3.5px -> r2 <= 12) and outer bound (r > 11.6px -> r2 > 136)
+    if (r2 <= 12 || r2 > 136) return false;
+    // 2. Solid inner gear wheel body (3.5px < r <= 7.5px -> r2 <= 57)
+    if (r2 <= 57) return true;
+    // 3. 6 Chunky Rounded-Tip Cogs at 0/180 deg, 60/240 deg, and 120/300 deg
+    float fx = static_cast<float>(dx);
+    float fy = static_cast<float>(dy);
+    static constexpr float COS30 = 0.8660254f;
+    static constexpr float SIN30 = 0.5000000f;
+    // Axis 0: Vertical (12 & 6 o'clock) -> |perp| = |fx|, |proj| = |fy|
+    // Axis 1: +60 deg (2 & 8 o'clock)   -> |perp| = |-0.5*fx + 0.866*fy|, |proj| = |0.866*fx + 0.5*fy|
+    // Axis 2: -60 deg (10 & 4 o'clock)  -> |perp| = | 0.5*fx + 0.866*fy|, |proj| = |0.866*fx - 0.5*fy|
+    float p0 = std::fabs(fx),                      along0 = std::fabs(fy);
+    float p1 = std::fabs(-SIN30 * fx + COS30 * fy), along1 = std::fabs(COS30 * fx + SIN30 * fy);
+    float p2 = std::fabs( SIN30 * fx + COS30 * fy), along2 = std::fabs(COS30 * fx - SIN30 * fy);
+
+    auto in_tooth = [](float perp, float along) -> bool {
+      if (perp > 2.45f || along > 11.5f) return false;
+      // Rounded corner bevel at the outer tip of each tooth (along > 10.2)
+      if (along > 10.2f && perp > 1.85f) return false;
+      return true;
+    };
+    return in_tooth(p0, along0) || in_tooth(p1, along1) || in_tooth(p2, along2);
+  };
+
+  for (int dy = -12; dy <= 12; dy++) {
+    for (int dx = -12; dx <= 12; dx++) {
+      if (is_gear_pixel(dx, dy)) {
+        // Draw 1px drop shadow only where the main gear won't overwrite it (preserves transparent hole!)
+        if (!is_gear_pixel(dx + 1, dy + 1)) {
+          it.draw_pixel_at(gear_x + dx + 1, gear_y + dy + 1, col_black);
+        }
+        it.draw_pixel_at(gear_x + dx, gear_y + dy, col_slate);
       }
     }
-    // 3. Solid gear wheel rim (r = 9)
-    it.filled_circle(gx, gy, 9, c);
-  };
-  draw_gear_cog(gear_x + 1, gear_y + 1, col_black);
-  draw_gear_cog(gear_x,     gear_y,     col_slate);
-  it.circle(gear_x, gear_y, 6, col_dark_gray);
-  it.filled_circle(gear_x, gear_y, 5, col_black);
+  }
 }
 // =============================================================================
 // SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (MULTI-DEVICE & MULTI-PROTOCOL)
