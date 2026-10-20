@@ -3847,8 +3847,8 @@ touchscreen:
               }
 
               // 7. Smart Live Activity Pill Tap (y in [224..290], x in [85..382]):
-              //    - Right Action Button (x >= 328): Direct Inline Play/Pause/Disarm right on Home!
-              //    - Left Body (x < 328): Open Active Item's App/Subpage
+              //    - Right Action Button (x >= 322): Direct Inline Play/Pause/Disarm right on Home!
+              //    - Left Body (x < 322): Open Active Item's App/Subpage
               if (act_count > 0 && touch.y >= 224 && touch.y <= 290 && touch.x >= 85 && touch.x <= 382) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
@@ -3856,7 +3856,7 @@ touchscreen:
                   int kind = act_items[idx].kind;
                   int s_idx = act_items[idx].slot_idx;
 
-                  if (touch.x >= 328) {
+                  if (touch.x >= 322) {
                     // Direct Inline Action on Home Screen!
                     if (kind == 1) {
                       auto *t_slots = pocket_ui::timer_slots();

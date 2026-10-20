@@ -370,7 +370,7 @@ inline void render_tool_stopwatch(DisplayT &it, int cx, int cy, uint32_t now_ms,
   it.filled_circle(cx, cy, 6, col_dark_gray);
   it.filled_circle(cx, cy, 2, col_white);
 
-  it.print(cx, 408, font_small, col_white, esphome::display::TextAlign::CENTER, "< Back");
+  it.print(cx, 408, font_small, col_slate, esphome::display::TextAlign::CENTER, "< Back");
 }
 
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
@@ -2328,14 +2328,23 @@ inline int collect_home_activities(
     out_items[count++] = {2, 0, stopwatch_running, std::string(buf)};
   }
 
-  // 3. Now Playing Music
+  // 3. Active or Paused Music Session (stays visible when paused so you can tap ▶ to resume!)
+  static bool music_latched = false;
+  bool has_valid_track = (!music_title.empty() && music_title != "None" &&
+                          music_title != "Idle" && music_title != "unknown" &&
+                          music_title != "unavailable");
   if (music_playing) {
+    music_latched = true;
+  } else if (!has_valid_track) {
+    music_latched = false;
+  }
+  if (music_playing || (music_latched && has_valid_track)) {
     std::string m_txt = music_title;
-    if (m_txt.empty() || m_txt == "None" || m_txt == "Idle") m_txt = "Now Playing";
-    else if (!music_artist.empty() && music_artist != "None") {
+    if (!has_valid_track) m_txt = "Now Playing";
+    else if (!music_artist.empty() && music_artist != "None" && music_artist != "unknown") {
       m_txt = music_artist + " • " + m_txt;
     }
-    out_items[count++] = {3, 0, true, m_txt};
+    out_items[count++] = {3, 0, music_playing, m_txt};
   }
 
   // 4. Armed or Snoozed Alarm
@@ -2630,58 +2639,76 @@ inline void render_home_page(
     // When the 27pt Wake Greeting is visible at y = 296, position the Activity Pill at y = 247 (y = 225..269)
     // so there is a balanced 12px buffer below Weather (213) and 14px buffer above the 27pt Greeting (283..309)!
     const int pill_y = greeting_active ? 247 : 264;
-    render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
+    // System-Menu Modern Card Standard: w = 276 (x = 95..371), h = 44, r = 12, Color(22, 27, 36) bg, Color(52, 62, 78) border!
+    const Color card_bg(22, 27, 36);
+    const Color card_brd(52, 62, 78);
+    render_modern_card(it, cx, pill_y, 276, 44, 12, card_bg, card_brd,
                        nullptr, col_white, font_small);
 
-    int gx = 108, gy = pill_y;
+    // Monochromatic Tools-Style Activity Icons at gx = 113 (zero color, matching Tools Launcher!)
+    int gx = 113, gy = pill_y;
     if (cur_act.kind == 1) {
-      it.line(gx - 5, gy - 7, gx + 5, gy - 7, theme_secondary);
-      it.line(gx - 5, gy + 7, gx + 5, gy + 7, theme_secondary);
-      it.line(gx - 4, gy - 6, gx + 4, gy + 6, col_white);
-      it.line(gx + 4, gy - 6, gx - 4, gy + 6, col_white);
-      it.filled_triangle(gx - 3, gy + 6, gx + 3, gy + 6, gx, gy + 2, col_gold);
+      // 1. Timer: Monochromatic Tools Hourglass (2px top/bottom caps, tapered walls, filled white sand bulbs)
+      it.filled_rectangle(gx - 6, gy - 8, 13, 2, col_white);
+      it.filled_rectangle(gx - 6, gy + 7, 13, 2, col_white);
+      it.line(gx - 5, gy - 6, gx - 1, gy, col_white);
+      it.line(gx + 5, gy - 6, gx + 1, gy, col_white);
+      it.line(gx - 1, gy, gx - 5, gy + 6, col_white);
+      it.line(gx + 1, gy, gx + 5, gy + 6, col_white);
+      it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, col_white);
+      it.filled_triangle(gx - 4, gy + 6, gx + 4, gy + 6, gx, gy + 2, col_white);
     } else if (cur_act.kind == 2) {
+      // 2. Stopwatch: Monochromatic Tools Chronometer (top T-crown, angled pusher, 2px dial ring, sweep hand)
+      it.filled_rectangle(gx - 2, gy - 9, 5, 2, col_white);
+      it.line(gx + 5, gy - 5, gx + 7, gy - 7, col_white);
       it.circle(gx, gy + 1, 7, col_white);
-      it.line(gx - 2, gy - 8, gx + 2, gy - 8, theme_secondary);
-      it.line(gx, gy + 1, gx + 4, gy - 3, col_gold);
+      it.circle(gx, gy + 1, 6, theme_secondary);
+      it.line(gx, gy + 1, gx + 4, gy - 3, col_white);
+      it.draw_pixel_at(gx, gy + 1, col_white);
     } else if (cur_act.kind == 3) {
-      // Beamed eighth note glyph on left for Now Playing Music
-      it.filled_circle(gx - 4, gy + 4, 3, theme_primary);
-      it.filled_circle(gx + 4, gy + 2, 3, theme_primary);
-      it.line(gx - 2, gy + 4, gx - 2, gy - 6, col_white);
-      it.line(gx + 6, gy + 2, gx + 6, gy - 8, col_white);
+      // 3. Music: Monochromatic Filled White Beamed Eighth Notes (matching Home Dock Music icon)
+      it.filled_circle(gx - 4, gy + 4, 3, col_white);
+      it.filled_circle(gx + 4, gy + 2, 3, col_white);
+      it.filled_rectangle(gx - 2, gy - 6, 2, 10, col_white);
+      it.filled_rectangle(gx + 5, gy - 8, 2, 10, col_white);
       it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
       it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
     } else {
-      it.filled_triangle(gx, gy - 7, gx - 6, gy + 4, gx + 6, gy + 4, col_gold);
-      it.filled_rectangle(gx - 7, gy + 4, 15, 2, col_white);
-      it.filled_circle(gx, gy + 7, 2, col_gold);
+      // 4. Alarm: Monochromatic Tools Twin-Bell Alarm Clock (twin filled bells, case ring, legs & hands)
+      it.filled_circle(gx - 6, gy - 5, 2, col_white);
+      it.filled_circle(gx + 6, gy - 5, 2, col_white);
+      it.filled_circle(gx, gy + 1, 8, card_bg);
+      it.circle(gx, gy + 1, 7, col_white);
+      it.line(gx - 5, gy + 7, gx - 7, gy + 9, col_white);
+      it.line(gx + 5, gy + 7, gx + 7, gy + 9, col_white);
+      it.line(gx, gy + 1, gx,     gy - 3, col_white);
+      it.line(gx, gy + 1, gx + 3, gy + 3, col_white);
     }
 
-    std::string fit_act = fit_text_to_width_font(cur_act.label, 198, font_small);
-    it.print(124, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
+    std::string fit_act = fit_text_to_width_font(cur_act.label, 188, font_small);
+    it.print(128, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
 
-    // Right-Side Inline Action Zone (x = 330..379, button center at bx = 355):
+    // Right-Side Inline Action Zone (x = 324..371, button center at act_bx = 348):
     //   - Timer / Stopwatch / Music: 1-tap Play (▶) or Pause (||)
     //   - Alarm: 1-tap Cancel Snooze / Disarm ('X')
-    it.line(330, pill_y - 14, 330, pill_y + 14, Color(42, 54, 70));
-    const int act_bx = 355;
-    it.filled_circle(act_bx, pill_y, 14, Color(26, 34, 48));
-    it.circle(act_bx, pill_y, 14, theme_secondary);
+    it.line(324, pill_y - 14, 324, pill_y + 14, card_brd);
+    const int act_bx = 348;
+    it.filled_circle(act_bx, pill_y, 13, Color(30, 37, 48));
+    it.circle(act_bx, pill_y, 13, theme_secondary);
 
     if (cur_act.kind == 4) {
-      // Alarm: Crisp 'X' to cancel snooze or disarm alarm directly from Home
+      // Alarm: Crisp white 'X' to cancel snooze or disarm alarm directly from Home
       for (int w = -1; w <= 0; w++) {
         it.line(act_bx - 4 + w, pill_y - 4, act_bx + 4 + w, pill_y + 4, col_white);
         it.line(act_bx - 4 + w, pill_y + 4, act_bx + 4 + w, pill_y - 4, col_white);
       }
     } else if (cur_act.is_active) {
-      // Running Timer / Running Stopwatch / Playing Music -> Pause (||) bars
+      // Running Timer / Running Stopwatch / Playing Music -> White Pause (||) bars
       it.filled_rectangle(act_bx - 4, pill_y - 5, 3, 11, col_white);
       it.filled_rectangle(act_bx + 2, pill_y - 5, 3, 11, col_white);
     } else {
-      // Paused Timer / Paused Stopwatch -> Play (▶) triangle
-      it.filled_triangle(act_bx - 3, pill_y - 5, act_bx - 3, pill_y + 5, act_bx + 5, pill_y, theme_primary);
+      // Paused Timer / Paused Stopwatch / Paused Music -> White Play (▶) triangle
+      it.filled_triangle(act_bx - 3, pill_y - 5, act_bx - 3, pill_y + 5, act_bx + 5, pill_y, col_white);
     }
 
     if (act_count > 1) {
@@ -2952,7 +2979,7 @@ inline void render_home_page(
   }
 
   it.print(text_left_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, batt_str);
-  it.print(text_left_x,     chin_y,     font_small, col_slate, TextAlign::CENTER_LEFT, batt_str);
+  it.print(text_left_x,     chin_y,     font_small, Color(178, 184, 192), TextAlign::CENTER_LEFT, batt_str);
 
   // 2. Right Group: 8-Sprocket CSG Gear at x = cx + 48 (281, y = 422)
   //    - 100% transparent center hole (r = 3.8px -> r2 <= 14, sky shows through cleanly!)

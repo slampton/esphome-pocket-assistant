@@ -407,14 +407,14 @@ inline void render_scroll_chevron(DisplayT &it, int x, int y, bool is_up,
   }
 }
 
-// Universal Low-Profile Back / Home Chin Label (y = 426 default, Title-Case "< Back" with 1px drop shadow)
+// Universal Low-Profile Back / Home Chin Label (y = 426 default, Light Gray #9E9E9E with 1px drop shadow)
 template<typename DisplayT, typename FontT>
 inline void render_back_button(DisplayT &it, int cx, FontT *font,
                                int y_pos = 426, const char *label = "< Back") {
   const char *eff_label = (label != nullptr && std::strcmp(label, "< BACK") == 0) ? "< Back" : label;
   it.print(cx + 1, y_pos + 1, font, esphome::Color(0, 0, 0),
            esphome::display::TextAlign::CENTER, eff_label);
-  it.print(cx, y_pos, font, esphome::Color(255, 255, 255),
+  it.print(cx, y_pos, font, esphome::Color(158, 158, 158),
            esphome::display::TextAlign::CENTER, eff_label);
 }
 
