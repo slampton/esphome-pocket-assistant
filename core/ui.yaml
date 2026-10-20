@@ -3650,10 +3650,15 @@ touchscreen:
 
             static uint32_t last_back_tap = 0;
 
+            auto cur_ov_style = id(music_overlay_style).current_option();
+            bool music_clean_art_touch = (id(gui_page) == 2 && id(music_overlay_mode) == 0 &&
+                                          (cur_ov_style.empty() || cur_ov_style == "Art Only") &&
+                                          !id(music_hud_active));
+
             bool is_top_level_app = (id(gui_page) != 1) &&
                                     !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                     !(id(gui_page) == 3 && id(active_game) > 0) &&
-                                    !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
+                                    !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_clean_art_touch)) &&
                                     !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                     !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
                                     !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
@@ -4135,7 +4140,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 112 && touch.y <= 170 && touch.x >= 100 && touch.x <= 366) {
+                if (touch.y >= 114 && touch.y <= 168 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_spk = 0;
                   if (now_hub - last_hub_spk > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_spk = now_hub;
@@ -4149,7 +4154,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 171 && touch.y <= 232 && touch.x >= 100 && touch.x <= 366) {
+                if (touch.y >= 176 && touch.y <= 232 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_lib = 0;
                   if (now_hub - last_hub_lib > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_lib = now_hub;
@@ -4162,7 +4167,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 260 && touch.y <= 320 && touch.x >= 100 && touch.x <= 366) {
+                if (touch.y >= 262 && touch.y <= 318 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_set = 0;
                   if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_set = now_hub;
@@ -4344,23 +4349,25 @@ touchscreen:
                 uint32_t now_sheet = millis();
                 bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
                 if (!is_current) {
-                  if (touch.y >= 100 && touch.y <= 159 && touch.x >= 85 && touch.x <= 370) {
+                  // 4 cards at y = 130, 190, 250, 310 (h = 44)
+                  if (touch.y >= 104 && touch.y < 160 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_transfer_to_target).execute(); }
                     return;
-                  } else if (touch.y >= 160 && touch.y <= 217 && touch.x >= 85 && touch.x <= 370) {
+                  } else if (touch.y >= 160 && touch.y < 220 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_control_target).execute(); }
                     return;
-                  } else if (touch.y >= 218 && touch.y <= 275 && touch.x >= 85 && touch.x <= 370) {
+                  } else if (touch.y >= 220 && touch.y < 280 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_join_target).execute(); }
                     return;
-                  } else if (touch.y >= 276 && touch.y <= 350 && touch.x >= 85 && touch.x <= 370) {
+                  } else if (touch.y >= 280 && touch.y <= 345 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
                     return;
                   }
                 } else {
                   bool is_remote = (id(target_speaker_id) != "${local_player_id}");
                   if (is_remote) {
-                    if (touch.y >= 110 && touch.y <= 170 && touch.x >= 85 && touch.x <= 370) {
+                    // 3 cards at y = 142, 205, 268 (h = 44)
+                    if (touch.y >= 114 && touch.y < 174 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_sheet_tap = now_sheet;
                         id(target_speaker_id) = "${local_player_id}";
@@ -4368,18 +4375,19 @@ touchscreen:
                         id(speaker_transfer_to_target).execute();
                       }
                       return;
-                    } else if (touch.y >= 171 && touch.y <= 228 && touch.x >= 85 && touch.x <= 370) {
+                    } else if (touch.y >= 174 && touch.y < 236 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
                       return;
-                    } else if (touch.y >= 229 && touch.y <= 295 && touch.x >= 85 && touch.x <= 370) {
+                    } else if (touch.y >= 236 && touch.y <= 300 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(stop_ha_music).execute(); }
                       return;
                     }
                   } else {
-                    if (touch.y >= 120 && touch.y <= 194 && touch.x >= 85 && touch.x <= 370) {
+                    // 2 cards at y = 160, 230 (h = 44)
+                    if (touch.y >= 130 && touch.y < 195 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
                       return;
-                    } else if (touch.y >= 195 && touch.y <= 275 && touch.x >= 85 && touch.x <= 370) {
+                    } else if (touch.y >= 195 && touch.y <= 265 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(stop_ha_music).execute(); }
                       return;
                     }

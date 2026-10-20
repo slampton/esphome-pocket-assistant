@@ -27,7 +27,7 @@
 * **Controller**: Hynitron CST9220 (`id: touch_screen` in `boards/waveshare_175c.yaml`, extended via `!extend touch_screen` in `core/ui.yaml`).
 * **Bus**: I2C `bus_internal` (`SDA: GPIO15`, `SCL: GPIO14` @ 400 kHz).
 * **Interrupt & Reset**: `INT: GPIO11` (`INPUT_PULLUP`), `RST: GPIO2` (Active Low).
-* **Sampling Rate**: 30 Hz (33ms cycle) with standardized debounce constants (`TOUCH_DEBOUNCE_RAPID = 100ms`, `TOUCH_DEBOUNCE_BUTTON = 150ms`, `TOUCH_DEBOUNCE_SCROLL = 250ms` in `ui_core.h`) and full-chin `< BACK` hit zone (`y in [385..465]`, `x in [50..416]`).
+* **Sampling Rate**: 30 Hz (33ms cycle) with standardized debounce constants (`TOUCH_DEBOUNCE_RAPID = 100ms`, `TOUCH_DEBOUNCE_BUTTON = 150ms`, `TOUCH_DEBOUNCE_SCROLL = 250ms` in `ui_core.h`) and focused chin `"Home"` / `"< Back"` hit zone (`y in [402..465]`, `x in [155..311]`).
 
 ### 1.4 Power Management (PMIC) & Battery Fuel Gauge
 * **Controller**: X-Powers AXP2101 PMIC (`Address: 0x34` on `bus_internal`).
@@ -110,7 +110,7 @@ Pocket Assistant v2.0 uses a hub-and-spoke navigation model anchored on the **In
 | **7** | **TV Remote** | Universal 4-device media remote (`tv_remote_entity`..`4`) with independent per-slot platform profiles (`Remote: Slot 1..4 Profile`, defaulting to `"Auto-Detect"`), Slot-1 Master Power, per-device power overrides, radial `r <= 146 px` D-pad, and 7 native protocol engines (Android TV/Shield, Denon/Marantz AVR, LG webOS, Apple TV, Roku, Samsung TV, Custom). |
 | **5** | **Sky & Weather** | 20 FPS meteorological & astronomical suite (`render_weather_page`) with live weather motion wallpaper, `-5px` optical hero temp + 3px degree ring, 5-day forecast, Sun arc, `.rodata` telescopic Lunar Albedo LUTs (`LUNAR_ALBEDO_139` & `LUNAR_ALBEDO_45`), and `r = 26` filled-core subpage buttons. |
 | **3** | **Games Suite** | Vertical slot-machine reel launcher (`render_games_launcher`) with audio mute toggle and 4 continuous-wave 20 FPS arcade games: Marbles, Archery, Breakout, and Chomp for Kids. |
-| **8** | **Tools Suite** | 2-page $2 \times 2$ micro-app launcher hosting 8 utilities with monochromatic filled-core iconography. |
+| **8** | **Tools Suite** | 2-page $2 \times 3$ (6-per-page) micro-app launcher hosting 8 utilities with monochromatic filled-core iconography. |
 | **4** | **System Hub** | 2-page vertical menu (`render_system_page`): Page 1 (`Display`, `Sleep & Wake`, `Sound`, `Voice`) and Page 2 (`Music`, `Home`, `Info`, `Actions`), mirrored 1:1 with Home Assistant configuration categories. |
 
 ---

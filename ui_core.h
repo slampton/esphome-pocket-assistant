@@ -418,30 +418,7 @@ inline void render_back_button(DisplayT &it, int cx, FontT *font,
            esphome::display::TextAlign::CENTER, eff_label);
 }
 
-template<typename DisplayT>
-inline void render_deck_chevrons(DisplayT &it, esphome::Color chevron_col,
-                                 esphome::Color shadow_c, bool with_shadow = true) {
-  if (with_shadow) {
-    it.line(165 + 4, 424 - 7 + 1, 165 - 4, 424 + 1, shadow_c);
-    it.line(165 + 5, 424 - 7 + 1, 165 - 3, 424 + 1, shadow_c);
-    it.line(165 + 4, 424 + 7 + 1, 165 - 4, 424 + 1, shadow_c);
-    it.line(165 + 5, 424 + 7 + 1, 165 - 3, 424 + 1, shadow_c);
 
-    it.line(301 - 4, 424 - 7 + 1, 301 + 4, 424 + 1, shadow_c);
-    it.line(301 - 5, 424 - 7 + 1, 301 + 3, 424 + 1, shadow_c);
-    it.line(301 - 4, 424 + 7 + 1, 301 + 4, 424 + 1, shadow_c);
-    it.line(301 - 5, 424 + 7 + 1, 301 + 3, 424 + 1, shadow_c);
-  }
-  it.line(165 + 4, 424 - 7, 165 - 4, 424, chevron_col);
-  it.line(165 + 5, 424 - 7, 165 - 3, 424, chevron_col);
-  it.line(165 + 4, 424 + 7, 165 - 4, 424, chevron_col);
-  it.line(165 + 5, 424 + 7, 165 - 3, 424, chevron_col);
-
-  it.line(301 - 4, 424 - 7, 301 + 4, 424, chevron_col);
-  it.line(301 - 5, 424 - 7, 301 + 3, 424, chevron_col);
-  it.line(301 - 4, 424 + 7, 301 + 4, 424, chevron_col);
-  it.line(301 - 5, 424 + 7, 301 + 3, 424, chevron_col);
-}
 
 
 // Zero-overdraw album art blitter with fused 2x-stride checkerboard scrim
