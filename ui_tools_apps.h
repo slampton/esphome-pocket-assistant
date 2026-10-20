@@ -2293,34 +2293,28 @@ inline int collect_home_activities(
     int alarm1_h, int alarm1_m, bool alarm1_en,
     int alarm2_h, int alarm2_m, bool alarm2_en,
     int alarm3_h, int alarm3_m, bool alarm3_en,
-    HomeActivityItem out_items[4]) {
+    HomeActivityItem out_items[5]) {
   int count = 0;
 
-  // 1. Active or Paused Countdown Timer (from 3-slot pool)
+  // 1. Active or Paused Countdown Timers (collects all running/paused slots so multiple timers show in dropdown!)
   auto *t_slots = timer_slots();
-  int best_t = -1;
-  for (int i = 0; i < 3; i++) {
-    if (t_slots[i].running) {
-      if (best_t < 0 || t_slots[i].remaining_sec < t_slots[best_t].remaining_sec) best_t = i;
+  for (int pass = 0; pass < 2; pass++) {
+    for (int i = 0; i < 3 && count < 5; i++) {
+      bool match = (pass == 0) ? t_slots[i].running : (!t_slots[i].running && t_slots[i].paused);
+      if (match) {
+        const auto &s = t_slots[i];
+        std::string t_name = s.name.empty() ? ("Timer " + std::to_string(i + 1)) : s.name;
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%s • %02d:%02d",
+                 t_name.c_str(), s.remaining_sec / 60, s.remaining_sec % 60);
+        out_items[count++] = {1, i, s.running, std::string(buf)};
+      }
     }
-  }
-  if (best_t < 0) {
-    for (int i = 0; i < 3; i++) {
-      if (t_slots[i].paused) { best_t = i; break; }
-    }
-  }
-  if (best_t >= 0) {
-    const auto &s = t_slots[best_t];
-    std::string t_name = s.name.empty() ? "Timer" : s.name;
-    char buf[64];
-    snprintf(buf, sizeof(buf), "%s • %02d:%02d",
-             t_name.c_str(), s.remaining_sec / 60, s.remaining_sec % 60);
-    out_items[count++] = {1, best_t, s.running, std::string(buf)};
   }
 
   // 2. Active or Paused Stopwatch
   uint32_t sw_ms = stopwatch_running ? (now_ms - stopwatch_start_time) : stopwatch_elapsed_ms;
-  if (stopwatch_running || sw_ms > 0) {
+  if ((stopwatch_running || sw_ms > 0) && count < 5) {
     int mins = (sw_ms / 60000U) % 60U;
     int secs = (sw_ms / 1000U) % 60U;
     int tenths = (sw_ms / 100U) % 10U;
@@ -2339,7 +2333,7 @@ inline int collect_home_activities(
   } else if (!has_valid_track) {
     music_latched = false;
   }
-  if (music_playing || (music_latched && has_valid_track)) {
+  if ((music_playing || (music_latched && has_valid_track)) && count < 5) {
     std::string m_txt = music_title;
     if (!has_valid_track) m_txt = "Now Playing";
     else if (!music_artist.empty() && music_artist != "None" && music_artist != "unknown") {
@@ -2348,25 +2342,124 @@ inline int collect_home_activities(
     out_items[count++] = {3, 0, music_playing, m_txt};
   }
 
-  // 4. Armed or Snoozed Alarm
-  if (alarm_snooze_until > 0) {
+  // 4. Armed or Snoozed Alarms
+  if (alarm_snooze_until > 0 && count < 5) {
     out_items[count++] = {4, 0, true, "Alarm • Snoozed"};
-  } else if (alarm1_en || alarm2_en || alarm3_en) {
-    int a_slot = alarm1_en ? 1 : (alarm2_en ? 2 : 3);
-    int ah = (a_slot == 1) ? alarm1_h : ((a_slot == 2) ? alarm2_h : alarm3_h);
-    int am = (a_slot == 1) ? alarm1_m : ((a_slot == 2) ? alarm2_m : alarm3_m);
-    char t_buf[16], ap_buf[8] = "";
-    format_time_hhmm(ah, am, is_24h_format, t_buf, sizeof(t_buf), ap_buf);
-    char buf[48];
-    if (!is_24h_format && ap_buf[0] != '\0') {
-      snprintf(buf, sizeof(buf), "Alarm • %s %s", t_buf, ap_buf);
-    } else {
-      snprintf(buf, sizeof(buf), "Alarm • %s", t_buf);
+  } else {
+    int a_hrs[3] = {alarm1_h, alarm2_h, alarm3_h};
+    int a_mns[3] = {alarm1_m, alarm2_m, alarm3_m};
+    bool a_ens[3] = {alarm1_en, alarm2_en, alarm3_en};
+    for (int i = 0; i < 3 && count < 5; i++) {
+      if (!a_ens[i]) continue;
+      char t_buf[16], ap_buf[8] = "";
+      format_time_hhmm(a_hrs[i], a_mns[i], is_24h_format, t_buf, sizeof(t_buf), ap_buf);
+      char buf[48];
+      if (!is_24h_format && ap_buf[0] != '\0') {
+        snprintf(buf, sizeof(buf), "Alarm • %s %s", t_buf, ap_buf);
+      } else {
+        snprintf(buf, sizeof(buf), "Alarm • %s", t_buf);
+      }
+      out_items[count++] = {4, i + 1, false, std::string(buf)};
     }
-    out_items[count++] = {4, a_slot, false, std::string(buf)};
   }
 
   return count;
+}
+
+template <typename DisplayT, typename FontSmallT>
+inline void render_home_activity_card_row(
+    DisplayT &it, int cx, int pill_y, const HomeActivityItem &cur_act,
+    bool has_dropdown_ext, FontSmallT *font_small,
+    esphome::Color theme_secondary, esphome::Color col_white) {
+  using esphome::Color;
+  using esphome::display::TextAlign;
+
+  const Color card_bg(22, 27, 36);
+  const Color card_brd(52, 62, 78);
+
+  // When 2+ items are active on Home, extend the card to the right (w = 312, x = 77..389)
+  // to integrate a dedicated right-end dropdown button ('▼')!
+  // When 1 item is active (or inside the ACTIVE NOW dropdown list), use the standard 276px width (x = 95..371).
+  const int card_w   = has_dropdown_ext ? 312 : 276;
+  const int gx       = has_dropdown_ext ?  96 : 113;
+  const int txt_x    = has_dropdown_ext ? 111 : 128;
+  const int max_txt  = has_dropdown_ext ? 186 : 188;
+  const int div1_x   = has_dropdown_ext ? 305 : 324;
+  const int act_bx   = has_dropdown_ext ? 328 : 348;
+  const int div2_x   = 351;
+  const int drop_bx  = 370;
+
+  render_modern_card(it, cx, pill_y, card_w, 44, 12, card_bg, card_brd,
+                     nullptr, col_white, font_small);
+
+  int gy = pill_y;
+  if (cur_act.kind == 1) {
+    // 1. Timer: Monochromatic Tools Hourglass
+    it.filled_rectangle(gx - 6, gy - 8, 13, 2, col_white);
+    it.filled_rectangle(gx - 6, gy + 7, 13, 2, col_white);
+    it.line(gx - 5, gy - 6, gx - 1, gy, col_white);
+    it.line(gx + 5, gy - 6, gx + 1, gy, col_white);
+    it.line(gx - 1, gy, gx - 5, gy + 6, col_white);
+    it.line(gx + 1, gy, gx + 5, gy + 6, col_white);
+    it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, col_white);
+    it.filled_triangle(gx - 4, gy + 6, gx + 4, gy + 6, gx, gy + 2, col_white);
+  } else if (cur_act.kind == 2) {
+    // 2. Stopwatch: Monochromatic Tools Chronometer
+    it.filled_rectangle(gx - 2, gy - 9, 5, 2, col_white);
+    it.line(gx + 5, gy - 5, gx + 7, gy - 7, col_white);
+    it.circle(gx, gy + 1, 7, col_white);
+    it.circle(gx, gy + 1, 6, theme_secondary);
+    it.line(gx, gy + 1, gx + 4, gy - 3, col_white);
+    it.draw_pixel_at(gx, gy + 1, col_white);
+  } else if (cur_act.kind == 3) {
+    // 3. Music: Monochromatic Filled White Beamed Eighth Notes
+    it.filled_circle(gx - 4, gy + 4, 3, col_white);
+    it.filled_circle(gx + 4, gy + 2, 3, col_white);
+    it.filled_rectangle(gx - 2, gy - 6, 2, 10, col_white);
+    it.filled_rectangle(gx + 5, gy - 8, 2, 10, col_white);
+    it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
+    it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
+  } else {
+    // 4. Alarm: Monochromatic Tools Twin-Bell Alarm Clock
+    it.filled_circle(gx - 6, gy - 5, 2, col_white);
+    it.filled_circle(gx + 6, gy - 5, 2, col_white);
+    it.filled_circle(gx, gy + 1, 8, card_bg);
+    it.circle(gx, gy + 1, 7, col_white);
+    it.line(gx - 5, gy + 7, gx - 7, gy + 9, col_white);
+    it.line(gx + 5, gy + 7, gx + 7, gy + 9, col_white);
+    it.line(gx, gy + 1, gx,     gy - 3, col_white);
+    it.line(gx, gy + 1, gx + 3, gy + 3, col_white);
+  }
+
+  std::string fit_act = fit_text_to_width_font(cur_act.label, max_txt, font_small);
+  it.print(txt_x, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
+
+  // Inline Action Button (Play / Pause / Disarm)
+  it.line(div1_x, pill_y - 14, div1_x, pill_y + 14, card_brd);
+  it.filled_circle(act_bx, pill_y, 13, Color(30, 37, 48));
+  it.circle(act_bx, pill_y, 13, theme_secondary);
+
+  if (cur_act.kind == 4) {
+    for (int w = -1; w <= 0; w++) {
+      it.line(act_bx - 4 + w, pill_y - 4, act_bx + 4 + w, pill_y + 4, col_white);
+      it.line(act_bx - 4 + w, pill_y + 4, act_bx + 4 + w, pill_y - 4, col_white);
+    }
+  } else if (cur_act.is_active) {
+    it.filled_rectangle(act_bx - 4, pill_y - 5, 3, 11, col_white);
+    it.filled_rectangle(act_bx + 2, pill_y - 5, 3, 11, col_white);
+  } else {
+    it.filled_triangle(act_bx - 3, pill_y - 5, act_bx - 3, pill_y + 5, act_bx + 5, pill_y, col_white);
+  }
+
+  // Integrated Right-End Dropdown Compartment ('▼') when 2+ activities are active!
+  if (has_dropdown_ext) {
+    it.line(div2_x, pill_y - 14, div2_x, pill_y + 14, card_brd);
+    // Crisp 2px downward chevron at (drop_bx = 370, pill_y)
+    for (int w = 0; w <= 1; w++) {
+      it.line(drop_bx - 6, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
+      it.line(drop_bx + 6, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
+    }
+  }
 }
 
 // Tracks the horizontal sliding-window offset of the Home Quick-Launch Dock (0 = first 3 icons: Music, Remote, Games)
@@ -2551,7 +2644,36 @@ inline void render_home_page(
     snprintf(buf, sizeof(buf), "Tools Icon: %s", dock_tools ? "Shown" : "Hidden");
     draw_setting_card(362, buf, dock_tools);
 
-    render_back_button(it, cx, font_small, 426, "< BACK");
+    render_back_button(it, cx, font_small, 426, "< Back");
+    return;
+  }
+
+  HomeActivityItem act_items[5];
+  int act_count = collect_home_activities(
+      now_ms, is_24h_format,
+      stopwatch_running, stopwatch_start_time, stopwatch_elapsed_ms,
+      music_playing, music_title, music_artist,
+      alarm_snooze_until,
+      alarm1_h, alarm1_m, alarm1_en,
+      alarm2_h, alarm2_m, alarm2_en,
+      alarm3_h, alarm3_m, alarm3_en,
+      act_items);
+
+  if (home_subpage == 2) {
+    // -------------------------------------------------------------------------
+    // SUBPAGE 2: "ACTIVE NOW" MULTI-LINE DROPDOWN LIST (Shows all running items at once!)
+    // -------------------------------------------------------------------------
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "ACTIVE NOW");
+    if (act_count == 0) {
+      it.print(cx, 220, font_small, col_slate, TextAlign::CENTER, "No active activities");
+    } else {
+      for (int i = 0; i < act_count && i < 5; i++) {
+        int y_mid = 110 + i * 63;
+        render_home_activity_card_row(
+            it, cx, y_mid, act_items[i], false, font_small, theme_secondary, col_white);
+      }
+    }
+    render_back_button(it, cx, font_small, 426, "< Back");
     return;
   }
 
@@ -2614,108 +2736,12 @@ inline void render_home_page(
   const bool greeting_active = show_wake_greeting && wake_greeting_latched() &&
                                now.is_valid() && (greet_el < 10500U);
 
-  // ZONE 4 (y = 264 / 247): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm) + 27pt Wake Greeting
-  HomeActivityItem act_items[4];
-  int act_count = collect_home_activities(
-      now_ms, is_24h_format,
-      stopwatch_running, stopwatch_start_time, stopwatch_elapsed_ms,
-      music_playing, music_title, music_artist,
-      alarm_snooze_until,
-      alarm1_h, alarm1_m, alarm1_en,
-      alarm2_h, alarm2_m, alarm2_en,
-      alarm3_h, alarm3_m, alarm3_en,
-      act_items);
-
-  static int prev_act_count = 0;
-  if (act_count > prev_act_count) {
-    home_activity_idx = 0;
-  }
-  prev_act_count = act_count;
-
+  // ZONE 4 (y = 264 / 247): Smart Live Activity Card (with integrated right dropdown '▼' when 2+ active!)
+  (void)home_activity_idx;
   if (act_count > 0) {
-    if (home_activity_idx < 0 || home_activity_idx >= act_count) {
-      home_activity_idx = 0;
-    }
-    const auto &cur_act = act_items[home_activity_idx];
-    // When the 27pt Wake Greeting is visible at y = 296, position the Activity Pill at y = 247 (y = 225..269)
-    // so there is a balanced 12px buffer below Weather (213) and 14px buffer above the 27pt Greeting (283..309)!
     const int pill_y = greeting_active ? 247 : 264;
-    // System-Menu Modern Card Standard: w = 276 (x = 95..371), h = 44, r = 12, Color(22, 27, 36) bg, Color(52, 62, 78) border!
-    const Color card_bg(22, 27, 36);
-    const Color card_brd(52, 62, 78);
-    render_modern_card(it, cx, pill_y, 276, 44, 12, card_bg, card_brd,
-                       nullptr, col_white, font_small);
-
-    // Monochromatic Tools-Style Activity Icons at gx = 113 (zero color, matching Tools Launcher!)
-    int gx = 113, gy = pill_y;
-    if (cur_act.kind == 1) {
-      // 1. Timer: Monochromatic Tools Hourglass (2px top/bottom caps, tapered walls, filled white sand bulbs)
-      it.filled_rectangle(gx - 6, gy - 8, 13, 2, col_white);
-      it.filled_rectangle(gx - 6, gy + 7, 13, 2, col_white);
-      it.line(gx - 5, gy - 6, gx - 1, gy, col_white);
-      it.line(gx + 5, gy - 6, gx + 1, gy, col_white);
-      it.line(gx - 1, gy, gx - 5, gy + 6, col_white);
-      it.line(gx + 1, gy, gx + 5, gy + 6, col_white);
-      it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, col_white);
-      it.filled_triangle(gx - 4, gy + 6, gx + 4, gy + 6, gx, gy + 2, col_white);
-    } else if (cur_act.kind == 2) {
-      // 2. Stopwatch: Monochromatic Tools Chronometer (top T-crown, angled pusher, 2px dial ring, sweep hand)
-      it.filled_rectangle(gx - 2, gy - 9, 5, 2, col_white);
-      it.line(gx + 5, gy - 5, gx + 7, gy - 7, col_white);
-      it.circle(gx, gy + 1, 7, col_white);
-      it.circle(gx, gy + 1, 6, theme_secondary);
-      it.line(gx, gy + 1, gx + 4, gy - 3, col_white);
-      it.draw_pixel_at(gx, gy + 1, col_white);
-    } else if (cur_act.kind == 3) {
-      // 3. Music: Monochromatic Filled White Beamed Eighth Notes (matching Home Dock Music icon)
-      it.filled_circle(gx - 4, gy + 4, 3, col_white);
-      it.filled_circle(gx + 4, gy + 2, 3, col_white);
-      it.filled_rectangle(gx - 2, gy - 6, 2, 10, col_white);
-      it.filled_rectangle(gx + 5, gy - 8, 2, 10, col_white);
-      it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
-      it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
-    } else {
-      // 4. Alarm: Monochromatic Tools Twin-Bell Alarm Clock (twin filled bells, case ring, legs & hands)
-      it.filled_circle(gx - 6, gy - 5, 2, col_white);
-      it.filled_circle(gx + 6, gy - 5, 2, col_white);
-      it.filled_circle(gx, gy + 1, 8, card_bg);
-      it.circle(gx, gy + 1, 7, col_white);
-      it.line(gx - 5, gy + 7, gx - 7, gy + 9, col_white);
-      it.line(gx + 5, gy + 7, gx + 7, gy + 9, col_white);
-      it.line(gx, gy + 1, gx,     gy - 3, col_white);
-      it.line(gx, gy + 1, gx + 3, gy + 3, col_white);
-    }
-
-    std::string fit_act = fit_text_to_width_font(cur_act.label, 188, font_small);
-    it.print(128, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
-
-    // Right-Side Inline Action Zone (x = 324..371, button center at act_bx = 348):
-    //   - Timer / Stopwatch / Music: 1-tap Play (▶) or Pause (||)
-    //   - Alarm: 1-tap Cancel Snooze / Disarm ('X')
-    it.line(324, pill_y - 14, 324, pill_y + 14, card_brd);
-    const int act_bx = 348;
-    it.filled_circle(act_bx, pill_y, 13, Color(30, 37, 48));
-    it.circle(act_bx, pill_y, 13, theme_secondary);
-
-    if (cur_act.kind == 4) {
-      // Alarm: Crisp white 'X' to cancel snooze or disarm alarm directly from Home
-      for (int w = -1; w <= 0; w++) {
-        it.line(act_bx - 4 + w, pill_y - 4, act_bx + 4 + w, pill_y + 4, col_white);
-        it.line(act_bx - 4 + w, pill_y + 4, act_bx + 4 + w, pill_y - 4, col_white);
-      }
-    } else if (cur_act.is_active) {
-      // Running Timer / Running Stopwatch / Playing Music -> White Pause (||) bars
-      it.filled_rectangle(act_bx - 4, pill_y - 5, 3, 11, col_white);
-      it.filled_rectangle(act_bx + 2, pill_y - 5, 3, 11, col_white);
-    } else {
-      // Paused Timer / Paused Stopwatch / Paused Music -> White Play (▶) triangle
-      it.filled_triangle(act_bx - 3, pill_y - 5, act_bx - 3, pill_y + 5, act_bx + 5, pill_y, col_white);
-    }
-
-    if (act_count > 1) {
-      render_scroll_chevron(it, 415, 162, true,  theme_secondary, col_black, true);
-      render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, true);
-    }
+    render_home_activity_card_row(
+        it, cx, pill_y, act_items[0], (act_count > 1), font_small, theme_secondary, col_white);
   }
 
   if (greeting_active) {

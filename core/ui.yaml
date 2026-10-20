@@ -1580,7 +1580,7 @@ interval:
               ESP_LOGI("timer", "Countdown timer expired! Firing alert.");
             } else if (sec_changed) {
               if (!id(va_active) && id(va_status_text).empty()) {
-                if (((id(gui_page) == 8 && id(stuff_subpage) == 1) || (id(gui_page) == 1 && id(home_subpage) == 0)) && id(display_power_state) == 0) {
+                if (((id(gui_page) == 8 && id(stuff_subpage) == 1) || (id(gui_page) == 1 && (id(home_subpage) == 0 || id(home_subpage) == 2))) && id(display_power_state) == 0) {
                   id(disp1).update();
                 }
               }
@@ -3760,6 +3760,7 @@ touchscreen:
               }
 
               // 1. Top Centered Date Bar Tap (y <= 72, x in [100..366]) -> Open HOME SETTINGS
+              if (id(home_subpage) == 0) {
               if (touch.y <= 72 && touch.x >= 100 && touch.x <= 366) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
@@ -3817,7 +3818,9 @@ touchscreen:
                 return;
               }
 
-              pocket_ui::HomeActivityItem act_items[4];
+              }
+
+              pocket_ui::HomeActivityItem act_items[5];
               bool is_rem_h = (id(active_speaker_entity) != "${local_player_id}");
               bool loc_play_h = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
               bool mus_play_h = pocket_ui::is_music_playing_effective(is_rem_h, loc_play_h, id(ha_target_state).state, now_hm);
@@ -3835,91 +3838,128 @@ touchscreen:
                   id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
                   act_items);
 
-              // 6. Right-Flank Chevrons (x >= 372, y in [70..365]): Rotate through Smart Live Activity Stack when 2+ active
-              if (act_count > 1 && is_right_chevron_zone(touch)) {
-                if (now_hm - last_home_tap > TOUCH_DEBOUNCE_RAPID) {
-                  last_home_tap = now_hm;
-                  int dir = (touch.y < 220) ? -1 : 1;
-                  id(home_activity_idx) = step_wrap(id(home_activity_idx), dir, act_count);
+              auto handle_activity_item_action = [&](int item_i, bool is_inline_btn) {
+                int kind = act_items[item_i].kind;
+                int s_idx = act_items[item_i].slot_idx;
+                if (is_inline_btn) {
+                  if (kind == 1) {
+                    auto *t_slots = pocket_ui::timer_slots();
+                    int ti = (s_idx >= 0 && s_idx < 3) ? s_idx : 0;
+                    auto &s = t_slots[ti];
+                    if (s.running) {
+                      s.running = false;
+                      s.paused = true;
+                      s.remaining_sec = (s.target_ms > now_hm) ? static_cast<int>((s.target_ms - now_hm + 999U) / 1000U) : 0;
+                    } else {
+                      s.running = true;
+                      s.paused = false;
+                      s.target_ms = now_hm + static_cast<uint32_t>(s.remaining_sec) * 1000U;
+                    }
+                    pocket_ui::sync_multi_timer_globals(
+                        id(timer_running), id(timer_paused), id(timer_remaining_sec),
+                        id(timer_duration_sec), id(timer_target_ms));
+                  } else if (kind == 2) {
+                    if (!id(stopwatch_running)) {
+                      id(stopwatch_running) = true;
+                      id(stopwatch_start_time) = now_hm - id(stopwatch_elapsed_ms);
+                      id(sleep_start_time) = 0;
+                    } else {
+                      id(stopwatch_running) = false;
+                      id(stopwatch_elapsed_ms) = now_hm - id(stopwatch_start_time);
+                    }
+                  } else if (kind == 3) {
+                    id(toggle_ha_music).execute();
+                  } else if (kind == 4) {
+                    if (s_idx == 0 && id(alarm_snooze_until) > 0) {
+                      id(alarm_snooze_until) = 0;
+                    } else if (s_idx == 1) {
+                      id(alarm1_enabled) = false;
+                    } else if (s_idx == 2) {
+                      id(alarm2_enabled) = false;
+                    } else if (s_idx == 3) {
+                      id(alarm3_enabled) = false;
+                    }
+                  }
+                  // If we're in the ACTIVE NOW dropdown (home_subpage == 2) and fewer than 2 items remain, return to Home!
+                  if (id(home_subpage) == 2) {
+                    pocket_ui::HomeActivityItem rem_items[5];
+                    int rem_cnt = pocket_ui::collect_home_activities(
+                        now_hm, id(is_24h_format),
+                        id(stopwatch_running), id(stopwatch_start_time), id(stopwatch_elapsed_ms),
+                        mus_play_h, m_title_h, m_artist_h,
+                        id(alarm_snooze_until),
+                        id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled),
+                        id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled),
+                        id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
+                        rem_items);
+                    if (rem_cnt == 0) id(home_subpage) = 0;
+                  }
                   id(disp1).update();
+                  return;
+                }
+
+                // Left Body Tap -> Open App/Subpage
+                id(home_subpage) = 0;
+                pocket_ui::home_dock_page() = 0;
+                if (kind == 1) {
+                  id(gui_page) = 8;
+                  id(stuff_subpage) = 1;
+                  pocket_ui::timer_view_slot() = (s_idx >= 0 && s_idx < 3) ? (s_idx + 1) : 0;
+                } else if (kind == 2) {
+                  id(gui_page) = 8;
+                  id(stuff_subpage) = 3;
+                } else if (kind == 3) {
+                  id(gui_page) = 2;
+                  id(music_overlay_mode) = 0;
+                  id(music_hud_active) = true;
+                  id(music_hud_timer) = now_hm;
+                } else if (kind == 4) {
+                  id(gui_page) = 8;
+                  id(stuff_subpage) = 2;
+                  id(alarm_edit_idx) = 0;
+                }
+                id(disp1).update();
+              };
+
+              // SUBPAGE 2: "ACTIVE NOW" MULTI-LINE DROPDOWN TOUCH ROUTING
+              if (id(home_subpage) == 2) {
+                if (is_back_button(touch) || touch.y <= 72) {
+                  if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_home_tap = now_hm;
+                    id(home_subpage) = 0;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+                int slot_idx = get_5slot_index(touch, 90, 376);
+                if (slot_idx >= 0 && slot_idx < act_count && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                  last_home_tap = now_hm;
+                  handle_activity_item_action(slot_idx, (touch.x >= 322));
                 }
                 return;
               }
 
-              // 7. Smart Live Activity Pill Tap (y in [224..290], x in [85..382]):
-              //    - Right Action Button (x >= 322): Direct Inline Play/Pause/Disarm right on Home!
-              //    - Left Body (x < 322): Open Active Item's App/Subpage
-              if (act_count > 0 && touch.y >= 224 && touch.y <= 290 && touch.x >= 85 && touch.x <= 382) {
+              // 7. Smart Live Activity Card Tap on Home (y in [224..290]):
+              //    - When 2+ active (extended card x in [75..392]):
+              //      * x >= 351: Tap Integrated Dropdown ('▼') -> Open "ACTIVE NOW" (home_subpage = 2)
+              //      * x in [305..350]: Tap Inline Play/Pause/Disarm
+              //      * x < 305: Open App
+              //    - When 1 active (standard 276px card x in [90..376]):
+              //      * x >= 322: Tap Inline Play/Pause/Disarm
+              //      * x < 322: Open App
+              if (act_count > 0 && touch.y >= 224 && touch.y <= 290 && touch.x >= 75 && touch.x <= 394) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
-                  int idx = (id(home_activity_idx) >= 0 && id(home_activity_idx) < act_count) ? id(home_activity_idx) : 0;
-                  int kind = act_items[idx].kind;
-                  int s_idx = act_items[idx].slot_idx;
-
-                  if (touch.x >= 322) {
-                    // Direct Inline Action on Home Screen!
-                    if (kind == 1) {
-                      auto *t_slots = pocket_ui::timer_slots();
-                      int ti = (s_idx >= 0 && s_idx < 3) ? s_idx : 0;
-                      auto &s = t_slots[ti];
-                      if (s.running) {
-                        s.running = false;
-                        s.paused = true;
-                        s.remaining_sec = (s.target_ms > now_hm) ? static_cast<int>((s.target_ms - now_hm + 999U) / 1000U) : 0;
-                      } else {
-                        s.running = true;
-                        s.paused = false;
-                        s.target_ms = now_hm + static_cast<uint32_t>(s.remaining_sec) * 1000U;
-                      }
-                      pocket_ui::sync_multi_timer_globals(
-                          id(timer_running), id(timer_paused), id(timer_remaining_sec),
-                          id(timer_duration_sec), id(timer_target_ms));
-                    } else if (kind == 2) {
-                      if (!id(stopwatch_running)) {
-                        id(stopwatch_running) = true;
-                        id(stopwatch_start_time) = now_hm - id(stopwatch_elapsed_ms);
-                        id(sleep_start_time) = 0;
-                      } else {
-                        id(stopwatch_running) = false;
-                        id(stopwatch_elapsed_ms) = now_hm - id(stopwatch_start_time);
-                      }
-                    } else if (kind == 3) {
-                      id(toggle_ha_music).execute();
-                    } else if (kind == 4) {
-                      if (s_idx == 0 && id(alarm_snooze_until) > 0) {
-                        id(alarm_snooze_until) = 0;
-                      } else if (s_idx == 1) {
-                        id(alarm1_enabled) = false;
-                      } else if (s_idx == 2) {
-                        id(alarm2_enabled) = false;
-                      } else if (s_idx == 3) {
-                        id(alarm3_enabled) = false;
-                      }
+                  if (act_count > 1) {
+                    if (touch.x >= 351) {
+                      id(home_subpage) = 2;
+                      id(disp1).update();
+                      return;
                     }
-                    id(disp1).update();
-                    return;
+                    handle_activity_item_action(0, (touch.x >= 305));
+                  } else if (touch.x >= 90 && touch.x <= 376) {
+                    handle_activity_item_action(0, (touch.x >= 322));
                   }
-
-                  // Left Body Tap -> Open App/Subpage
-                  pocket_ui::home_dock_page() = 0;
-                  if (kind == 1) {
-                    id(gui_page) = 8;
-                    id(stuff_subpage) = 1;
-                    pocket_ui::timer_view_slot() = 0;
-                  } else if (kind == 2) {
-                    id(gui_page) = 8;
-                    id(stuff_subpage) = 3;
-                  } else if (kind == 3) {
-                    id(gui_page) = 2;
-                    id(music_overlay_mode) = 0;
-                    id(music_hud_active) = true;
-                    id(music_hud_timer) = now_hm;
-                  } else if (kind == 4) {
-                    id(gui_page) = 8;
-                    id(stuff_subpage) = 2;
-                    id(alarm_edit_idx) = 0;
-                  }
-                  id(disp1).update();
                 }
                 return;
               }
