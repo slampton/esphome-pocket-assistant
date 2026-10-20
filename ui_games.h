@@ -396,6 +396,15 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
         }
       }
 
+      // Horizontal bottom cushion wall at y = 374 (protects scorekeeper at y = 392 & < Back at y = 426!)
+      float max_bot_y = 374.0f - balls[i].r;
+      if (balls[i].y > max_bot_y) {
+        balls[i].y = max_bot_y;
+        if (balls[i].vy > 0.0f) {
+          balls[i].vy = -balls[i].vy * bounce;
+        }
+      }
+
       // Outer circular arena boundary reflection (arena_r = 208) with light 7% tangential scrub
       float cur_dx = balls[i].x - static_cast<float>(cx);
       float cur_dy = balls[i].y - static_cast<float>(cy);
@@ -488,9 +497,13 @@ inline void render_game_marbles(DisplayT &it, int cx, int cy, uint32_t now_ms,
   // RENDERING PIPELINE (Bottom Scorekeeper & Center Hole drawn first so marbles roll over)
   // ==========================================================================
   (void)theme_primary; (void)col_gray;
+  // Subtle horizontal bottom cushion wall at y = 374 + Score at y = 392 + "< Back" at y = 426
+  it.line(82, 374, 384, 374, col_slate * 0.45f);
+  it.line(84, 375, 382, 375, col_dark_gray);
   char hud_buf[56];
   snprintf(hud_buf, sizeof(hud_buf), "W%d  •  %d/5  •  %ds  •  %d", wave_num, sunk_count, time_remaining, game_score);
-  it.print(cx, 408, font_small, time_remaining < 10 ? col_red : col_gold, esphome::display::TextAlign::CENTER, hud_buf);
+  it.print(cx, 392, font_small, time_remaining < 10 ? col_red : col_gold, esphome::display::TextAlign::CENTER, hud_buf);
+  render_back_button(it, cx, font_small, 426, "< Back");
 
   // Center Hole Target with Swirling Event Horizon
   it.circle(cx, cy, 34, col_dark_gray);
@@ -731,7 +744,7 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
   target_phase += sway_spd * dt;
 
   const float target_base_y = 112.0f;
-  const float bow_y = 356.0f;
+  const float bow_y = 346.0f;
   float target_x = static_cast<float>(cx) + fast_sin(target_phase) * 102.0f;
   float target_y = target_base_y + fast_cos(target_phase * 1.4f) * 24.0f;
 
@@ -1001,7 +1014,8 @@ inline void render_game_archery(DisplayT &it, int cx, int cy, uint32_t now_ms,
   }
   char hud_buf[56];
   snprintf(hud_buf, sizeof(hud_buf), "R%d  •  %d Arr  •  %s  •  %d", round_num, arrows_left, wind_buf, arch_score);
-  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, hud_buf);
+  it.print(cx, 392, font_small, col_gold, esphome::display::TextAlign::CENTER, hud_buf);
+  render_back_button(it, cx, font_small, 426, "< Back");
 
   // 8. Round Over Summary Modal
   if (round_over) {
@@ -1222,7 +1236,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
   if (dt > 0.075f) dt = 0.075f;
 
   // Paddle geometry & circular chord clamping at y = 356
-  const int paddle_y = 356;
+  const int paddle_y = 350;
   const int paddle_w = 58;
   const int paddle_h = 10;
   // At y = 356 (dy = 123 from cy = 233), r = 208 arena chord half-width is 167px.
@@ -1445,7 +1459,7 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
         banner_ms = now_ms;
         pending_game_sfx() = 5; // Wave Clear Fanfare!
         reset_ball_on_paddle();
-      } else if (ball_y > 390.0f) {
+      } else if (ball_y > 376.0f) {
         lives_left--;
         pending_game_sfx() = 14; // Ball Lost Tone
         rally_combo = 0;
@@ -1491,7 +1505,8 @@ inline void render_game_breakout(DisplayT &it, int cx, int cy, uint32_t now_ms,
   } else {
     snprintf(bo_hud, sizeof(bo_hud), "W%d  •  Balls:%d  •  Brk:%d  •  %d", wave_num, lives_left, bricks_remaining, bo_score);
   }
-  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, bo_hud);
+  it.print(cx, 392, font_small, col_gold, esphome::display::TextAlign::CENTER, bo_hud);
+  render_back_button(it, cx, font_small, 426, "< Back");
 
   // 3. Draw 18-Brick Dome Formation (with Multi-Hit Armor & Crack States)
   for (int b = 0; b < NUM_BRICKS; b++) {
@@ -1832,7 +1847,7 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
                   (hash2d_01(s, 11) - 0.5f) * 0.35f;
       float rad = 76.0f + (static_cast<float>((i * 3) % 4) * 26.0f) + hash2d_01(s, 29) * 18.0f;
       float tx = static_cast<float>(cx) + fast_cos(ang) * rad;
-      float ty = static_cast<float>(cy) + fast_sin(ang) * rad;
+      float ty = std::min(352.0f, static_cast<float>(cy) + fast_sin(ang) * rad);
 
       // Push away if too close to current monster position
       float dmx = tx - mon_x, dmy = ty - mon_y;
@@ -1921,6 +1936,11 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
       treats[i].x += treats[i].vx * dt;
       treats[i].y += treats[i].vy * dt;
 
+      // Bounce treats off the horizontal bottom wall (y = 358)
+      if (treats[i].y > 358.0f) {
+        treats[i].y = 358.0f;
+        if (treats[i].vy > 0.0f) treats[i].vy = -treats[i].vy * 0.9f;
+      }
       // Bounce treats inside the plate rim (r = 180)
       float bdx = treats[i].x - static_cast<float>(cx);
       float bdy = treats[i].y - static_cast<float>(cy);
@@ -1982,6 +2002,11 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   mon_x += mon_vx * dt;
   mon_y += mon_vy * dt;
 
+  // Keep Monster above the y = 374 bottom wall (mon_r = 34 -> max mon_y = 340)
+  if (mon_y > 340.0f) {
+    mon_y = 340.0f;
+    if (mon_vy > 0.0f) mon_vy = -mon_vy * 0.6f;
+  }
   // Keep Monster inside the circular play bowl (max center r = 172)
   float mdx = mon_x - static_cast<float>(cx);
   float mdy = mon_y - static_cast<float>(cy);
@@ -2061,12 +2086,14 @@ inline void render_game_chomp(DisplayT &it, int cx, int cy, uint32_t now_ms,
   // RENDERING PIPELINE
   // ==========================================================================
 
-  // 1. Play Bowl Rim & Bottom Scorekeeper HUD (y = 408)
+  // 1. Play Bowl Rim, Bottom Wall (y = 374), Scorekeeper HUD (y = 392) & "< Back" (y = 426)
   it.circle(cx, cy, 208, col_dark_gray);
+  it.line(82, 374, 384, 374, col_dark_gray);
   char t_buf[56];
   snprintf(t_buf, sizeof(t_buf), "Lv %d  •  Left:%d/7  •  Score:%d  •  Best:%d",
            level_num, treats_left, treat_score, high_score_chomp);
-  it.print(cx, 408, font_small, col_gold, esphome::display::TextAlign::CENTER, t_buf);
+  it.print(cx, 392, font_small, col_gold, esphome::display::TextAlign::CENTER, t_buf);
+  render_back_button(it, cx, font_small, 426, "< Back");
 
   // 2. Render Remaining Uneaten Treats on the Plate
   float t_bob = now_ms * 0.0045f;
