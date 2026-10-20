@@ -267,6 +267,9 @@ script:
       podcast_sort:
         description: "Preferred sort order for podcast episodes (newest, oldest)"
         default: "newest"
+      mass_queue_entry:
+        description: "Optional mass_queue Config Entry ID (passed from mass_queue_config_entry substitution)"
+        default: ""
     sequence:
       - variables:
           dev_input: '{{ target_device if (target_device | default("") != "") else "pocket-assistant" }}'
@@ -275,8 +278,12 @@ script:
           artist_album_sort_order: '{{ artist_album_sort if (artist_album_sort | default("") != "") else "year" }}'
           podcast_sort_order: '{{ podcast_sort if (podcast_sort | default("") != "") else "newest" }}'
           resolved_mass_queue_entry: >-
-            {% set mq_ents = integration_entities("mass_queue") %}
-            {{ config_entry_id(mq_ents | first) if mq_ents | length > 0 else (mass_queue_entry | default("01KWT5KHS9J3CXG4PYGN26EYKS", true)) }}
+            {% if mass_queue_entry is defined and (mass_queue_entry | default("", true) | trim) != "" %}
+              {{ mass_queue_entry | trim }}
+            {% else %}
+              {% set mq_ents = integration_entities("mass_queue") %}
+              {{ config_entry_id(mq_ents | first) if mq_ents | length > 0 else "" }}
+            {% endif %}
       - choose:
           - conditions:
               - condition: template
@@ -601,12 +608,16 @@ script:
               - condition: template
                 value_template: '{{ mode == "podcast_episodes" }}'
             sequence:
-              - action: mass_queue.get_podcast_episodes
-                continue_on_error: true
-                data:
-                  config_entry_id: '{{ resolved_mass_queue_entry }}'
-                  uri: '{{ search }}'
-                response_variable: pod_ep_resp
+              - if:
+                  - condition: template
+                    value_template: '{{ resolved_mass_queue_entry != "" }}'
+                then:
+                  - action: mass_queue.get_podcast_episodes
+                    continue_on_error: true
+                    data:
+                      config_entry_id: '{{ resolved_mass_queue_entry }}'
+                      uri: '{{ search }}'
+                    response_variable: pod_ep_resp
               - variables:
                   raw_items: >-
                     {% set episodes = (pod_ep_resp.episodes if pod_ep_resp is defined and pod_ep_resp is mapping and 'episodes' in pod_ep_resp else []) %}
@@ -622,7 +633,8 @@ script:
                       }] %}
                     {% endfor %}
                     {% if ns.items | length == 0 %}
-                      {% set ns.items = [{"name": "No episodes found", "id": "", "type": "text", "active": false}] %}
+                      {% set msg = "Set mass_queue_config_entry" if resolved_mass_queue_entry == "" else "No episodes found" %}
+                      {% set ns.items = [{"name": msg, "id": "", "type": "text", "active": false}] %}
                     {% endif %}
                     {{ ns.items | to_json }}
           - conditions:

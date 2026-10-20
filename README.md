@@ -57,6 +57,7 @@ substitutions:
   tv_remote_entity_2: "media_player.none"            # Slot 2: Optional 2nd device (remote.* or media_player.*)
   tv_remote_entity_3: "remote.none"                  # Slot 3: Optional 3rd device ("remote.none" hides slot)
   tv_remote_entity_4: "remote.none"                  # Slot 4: Optional 4th device ("remote.none" hides slot)
+  mass_queue_config_entry: ""                        # Optional: mass_queue Config Entry ID for Podcasts & Queue
 
 packages:
   slampton.pocket-assistant-175c:

@@ -1,4 +1,4 @@
-# Build-Stamp: 2026-10-20 00:34:14
+# Build-Stamp: 2026-10-20 01:05:16
 # ==============================================================================
 # 🧭 Pocket Assistant (v2.0 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
@@ -18,6 +18,7 @@ substitutions:
   default_podcast_sort: "Newest on Top"
   browse_script: "script.pocket_assistant_music_browse"
   active_speaker_helper: "input_text.pocket_assistant_active_speaker"
+  mass_queue_config_entry: ""                           # Optional: mass_queue Config Entry ID for Podcast Episodes & Up Next Queue
   # Unified Companion Package Entities
   active_media_sensor: "sensor.pocket_assistant_active_media"
   weather_forecast_sensor: "sensor.pocket_assistant_weather_forecast"
@@ -82,7 +83,7 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          // Release all deep sleep pad holds immediately via board HAL (2026-10-20 00:34:14)
+          // Release all deep sleep pad holds immediately via board HAL (2026-10-20 01:05:16)
           id(hal_release_deep_sleep_holds).execute();
 
           id(sleep_start_time) = millis();
