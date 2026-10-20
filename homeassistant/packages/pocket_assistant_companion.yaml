@@ -610,8 +610,8 @@ script:
                     {% set ns = namespace(items=[]) %}
                     {% for ep in sorted_eps %}
                       {% set ns.items = ns.items + [{
-                        "name": ep.media_title | default(ep.name | default("Episode", true), true),
-                        "id": ep.media_content_id | default(ep.uri | default("", true), true),
+                        "name": ep.media_title,
+                        "id": ep.media_content_id,
                         "type": "podcast_episode",
                         "active": false
                       }] %}
