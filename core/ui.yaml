@@ -3634,6 +3634,7 @@ touchscreen:
                 last_back_tap = now_touch;
                 id(gui_page) = 1;
                 id(home_subpage) = 0;
+                pocket_ui::home_dock_page() = 0;
                 id(music_overlay_mode) = 0; id(system_menu_mode) = 0; id(active_game) = 0; id(music_direct_nav) = false;
                 id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
                 id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
@@ -3707,8 +3708,9 @@ touchscreen:
                   if (slot_idx == 0) id(home_weather_bg_switch).toggle();
                   else if (slot_idx == 1) id(home_dock_music_switch).toggle();
                   else if (slot_idx == 2) id(home_dock_remote_switch).toggle();
-                  else if (slot_idx == 3) id(home_dock_tools_switch).toggle();
-                  else if (slot_idx == 4) id(home_dock_games_switch).toggle();
+                  else if (slot_idx == 3) id(home_dock_games_switch).toggle();
+                  else if (slot_idx == 4) id(home_dock_tools_switch).toggle();
+                  pocket_ui::home_dock_page() = 0;
                   id(disp1).update();
                   return;
                 }
@@ -3810,10 +3812,11 @@ touchscreen:
                 return;
               }
 
-              // 7. Smart Live Activity Pill Tap (y in [234..284], x in [85..370]) -> Open Active Item's App/Subpage
-              if (act_count > 0 && touch.y >= 234 && touch.y <= 284 && touch.x >= 85 && touch.x < 372) {
+              // 7. Smart Live Activity Pill Tap (y in [238..290], x in [85..370]) -> Open Active Item's App/Subpage
+              if (act_count > 0 && touch.y >= 238 && touch.y <= 290 && touch.x >= 85 && touch.x < 372) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
+                  pocket_ui::home_dock_page() = 0;
                   int idx = (id(home_activity_idx) >= 0 && id(home_activity_idx) < act_count) ? id(home_activity_idx) : 0;
                   int kind = act_items[idx].kind;
                   if (kind == 1) {
@@ -3838,20 +3841,40 @@ touchscreen:
                 return;
               }
 
-              // 8. Bottom Quick-Launch Icon Dock Tap (y in [298..368], r = 29 at y = 332)
-              if (touch.y >= 298 && touch.y <= 368) {
+              // 8. Bottom 3-Icon Sliding Window Quick-Launch Dock Tap (y in [316..388] at y = 352)
+              if (touch.y >= 316 && touch.y <= 388) {
                 int dock_apps[4] = {0, 0, 0, 0};
                 int dock_count = pocket_ui::collect_home_dock_apps(
                     id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
                     id(home_dock_tools_switch).state, id(home_dock_games_switch).state,
                     dock_apps);
                 if (dock_count > 0 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
-                  int dock_xs[5] = {0, 0, 0, 0, 0};
-                  pocket_ui::get_home_dock_xs(dock_count, 233, dock_xs);
+                  int win_xs[3] = {0, 0, 0};
+                  bool has_left_arr = false, has_right_arr = false;
+                  pocket_ui::get_home_dock_window_xs(
+                      dock_count, pocket_ui::home_dock_page(), 233, win_xs, has_left_arr, has_right_arr);
+
+                  // Check Right '>' Arrow tap (x >= 332 when has_right_arr)
+                  if (has_right_arr && touch.x >= 332) {
+                    last_home_tap = now_hm;
+                    pocket_ui::home_dock_page()++;
+                    id(disp1).update();
+                    return;
+                  }
+                  // Check Left '<' Arrow tap (x <= 134 when has_left_arr)
+                  if (has_left_arr && touch.x <= 134) {
+                    last_home_tap = now_hm;
+                    pocket_ui::home_dock_page()--;
+                    id(disp1).update();
+                    return;
+                  }
+
+                  int vis_count = (dock_count > 3) ? 3 : dock_count;
+                  int start_idx = (dock_count > 3) ? pocket_ui::home_dock_page() : 0;
                   int best_i = -1;
-                  int best_dist = 46;
-                  for (int i = 0; i < dock_count; i++) {
-                    int d = std::abs(touch.x - dock_xs[i]);
+                  int best_dist = 42;
+                  for (int i = 0; i < vis_count; i++) {
+                    int d = std::abs(touch.x - win_xs[i]);
                     if (d < best_dist) {
                       best_dist = d;
                       best_i = i;
@@ -3859,7 +3882,8 @@ touchscreen:
                   }
                   if (best_i >= 0) {
                     last_home_tap = now_hm;
-                    id(gui_page) = dock_apps[best_i];
+                    id(gui_page) = dock_apps[start_idx + best_i];
+                    pocket_ui::home_dock_page() = 0; // Always reset dock to Page 0 when launching an app!
                     id(music_overlay_mode) = 0;
                     if (id(gui_page) == 2) {
                       id(music_hud_active) = true;
@@ -4439,7 +4463,7 @@ touchscreen:
                   return;
                 }
                 if (touch.x < 75) return;
-                if (touch.x >= 108 && touch.x <= 180 && touch.y >= 298 && touch.y <= 368) {
+                if (touch.x >= 108 && touch.x <= 180 && touch.y >= 316 && touch.y <= 388) {
                   static uint32_t last_g_mute_tap = 0;
                   uint32_t now_gm = millis();
                   if (now_gm - last_g_mute_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -4955,17 +4979,17 @@ touchscreen:
                 }
               }
             } else if (id(gui_page) == 5) {
-              // Page 5: Sky & Weather 4-View Suite Touch Routing (4 Enlarged r=29 Buttons at x={104, 190, 276, 362}, y=332)
+              // Page 5: Sky & Weather 4-View Suite Touch Routing (4 Buttons at x={112, 193, 274, 355}, y=352)
               static uint32_t last_weather_touch = 0;
               uint32_t now_w_touch = millis();
 
-              if (touch.y >= 298 && touch.y <= 368) {
+              if (touch.y >= 316 && touch.y <= 388) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   int target = 0;
-                  if (touch.x < 147) target = 0;
+                  if (touch.x < 152) target = 0;
                   else if (touch.x < 233) target = 1;
-                  else if (touch.x < 319) target = 2;
+                  else if (touch.x < 314) target = 2;
                   else target = 3;
 
                   if (id(sky_weather_subpage) != target) {

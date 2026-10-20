@@ -2357,38 +2357,57 @@ inline int collect_home_activities(
   return count;
 }
 
+// Tracks the horizontal sliding-window offset of the Home Quick-Launch Dock (0 = first 3 icons: Music, Remote, Games)
+inline int &home_dock_page() {
+  static int pg = 0;
+  return pg;
+}
+
+// Canonical Dock Order: Music (2), Remote (7), Games (3) visible on Page 0; Tools (8) off-screen on Page 1
 inline int collect_home_dock_apps(bool show_music, bool show_remote, bool show_tools, bool show_games,
                                   int out_apps[4]) {
   int n = 0;
   if (show_music)  out_apps[n++] = 2; // Music
   if (show_remote) out_apps[n++] = 7; // Remote
-  if (show_tools)  out_apps[n++] = 8; // Tools
   if (show_games)  out_apps[n++] = 3; // Games
+  if (show_tools)  out_apps[n++] = 8; // Tools
   return n;
 }
 
-// Supports 1..5 dock icons at y = 332 (r = 29 / 58px diameter; 5-icon v2.1 Room Control ready!)
-inline void get_home_dock_xs(int count, int cx, int out_xs[5]) {
-  if (count == 1) {
+// Computes the x-centers for up to 3 visible r=29 (58px) dock icons at y = 352:
+//   - If total_count <= 3: auto-centers 1, 2, or 3 icons with no arrows
+//   - If total_count > 3 & page == 0: 3 icons at {120, 206, 292} + right '>' arrow at x = 358
+//   - If total_count > 3 & page  > 0: left '<' arrow at x = 108 + 3 icons at {174, 260, 346}
+inline void get_home_dock_window_xs(int total_count, int page, int cx, int out_xs[3],
+                                    bool &out_has_left_arrow, bool &out_has_right_arrow) {
+  out_has_left_arrow = false;
+  out_has_right_arrow = false;
+  if (total_count <= 0) return;
+  if (total_count == 1) {
     out_xs[0] = cx;
-  } else if (count == 2) {
-    out_xs[0] = cx - 56;
-    out_xs[1] = cx + 56;
-  } else if (count == 3) {
-    out_xs[0] = cx - 96;
+  } else if (total_count == 2) {
+    out_xs[0] = cx - 52;
+    out_xs[1] = cx + 52;
+  } else if (total_count == 3) {
+    out_xs[0] = cx - 88;
     out_xs[1] = cx;
-    out_xs[2] = cx + 96;
-  } else if (count == 4) {
-    out_xs[0] = 104;
-    out_xs[1] = 190;
-    out_xs[2] = 276;
-    out_xs[3] = 362;
-  } else if (count >= 5) {
-    out_xs[0] = 93;
-    out_xs[1] = 163;
-    out_xs[2] = 233;
-    out_xs[3] = 303;
-    out_xs[4] = 373;
+    out_xs[2] = cx + 88;
+  } else {
+    int max_page = total_count - 3;
+    int eff_page = (page < 0) ? 0 : ((page > max_page) ? max_page : page);
+    out_has_left_arrow  = (eff_page > 0);
+    out_has_right_arrow = (eff_page < max_page);
+    if (!out_has_left_arrow) {
+      // Page 0: 3 icons shifted slightly left so [Icon 1..3 + '>' arrow at 358] is optically centered!
+      out_xs[0] = 120;
+      out_xs[1] = 206;
+      out_xs[2] = 292;
+    } else {
+      // Scrolled Right: '<' arrow at 108 + 3 icons at {174, 260, 346}
+      out_xs[0] = 174;
+      out_xs[1] = 260;
+      out_xs[2] = 346;
+    }
   }
 }
 
@@ -2448,11 +2467,11 @@ inline void render_home_page(
     snprintf(buf, sizeof(buf), "Remote Icon: %s", dock_remote ? "Shown" : "Hidden");
     draw_setting_card(236, buf, dock_remote);
 
-    snprintf(buf, sizeof(buf), "Tools Icon: %s", dock_tools ? "Shown" : "Hidden");
-    draw_setting_card(299, buf, dock_tools);
-
     snprintf(buf, sizeof(buf), "Games Icon: %s", dock_games ? "Shown" : "Hidden");
-    draw_setting_card(362, buf, dock_games);
+    draw_setting_card(299, buf, dock_games);
+
+    snprintf(buf, sizeof(buf), "Tools Icon: %s", dock_tools ? "Shown" : "Hidden");
+    draw_setting_card(362, buf, dock_tools);
 
     render_back_button(it, cx, font_small, 426, "< BACK");
     return;
@@ -2530,8 +2549,7 @@ inline void render_home_page(
       home_activity_idx = 0;
     }
     const auto &cur_act = act_items[home_activity_idx];
-    // Centered at y = 258 (y = 236..280): exact 23px buffer below weather line (213) and 23px above dock (303)!
-    const int pill_y = 258;
+    const int pill_y = 264;
     render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
                        nullptr, col_white, font_small);
 
@@ -2563,13 +2581,20 @@ inline void render_home_page(
     }
   }
 
-  // ZONE 5 (y = 332): Enlarged Auto-Centering Quick-Launch Icon Dock (r = 29 / 58px diameter, 5-icon ready)
+  // ZONE 5 (y = 352): 3-Icon Sliding Window Quick-Launch Dock (r = 29 / 58px diameter + '>' / '<' chevron)
   int dock_apps[4] = {0, 0, 0, 0};
   int dock_count = collect_home_dock_apps(dock_music, dock_remote, dock_tools, dock_games, dock_apps);
   if (dock_count > 0) {
-    int dock_xs[5] = {0, 0, 0, 0, 0};
-    get_home_dock_xs(dock_count, cx, dock_xs);
-    const int dock_y = 332;
+    int max_dock_pg = (dock_count > 3) ? (dock_count - 3) : 0;
+    if (home_dock_page() < 0 || home_dock_page() > max_dock_pg) {
+      home_dock_page() = 0;
+    }
+    int win_xs[3] = {0, 0, 0};
+    bool has_left_arr = false, has_right_arr = false;
+    get_home_dock_window_xs(dock_count, home_dock_page(), cx, win_xs, has_left_arr, has_right_arr);
+    int vis_count = (dock_count > 3) ? 3 : dock_count;
+    int start_idx = (dock_count > 3) ? home_dock_page() : 0;
+    const int dock_y = 352;
     const int dock_r = 29;
 
     auto draw_dock_glyph = [&](int app_id, int bx, int by, Color c, bool is_shadow) {
@@ -2651,70 +2676,92 @@ inline void render_home_page(
       }
     };
 
-    for (int i = 0; i < dock_count; i++) {
-      int bx = dock_xs[i];
+    for (int i = 0; i < vis_count; i++) {
+      int bx = win_xs[i];
+      int app_id = dock_apps[start_idx + i];
       it.circle(bx + 1, dock_y + 1, dock_r, col_black);
       it.circle(bx,     dock_y,     dock_r, Color(95, 118, 148));
-      draw_dock_glyph(dock_apps[i], bx + 1, dock_y + 1, col_black, true);
-      draw_dock_glyph(dock_apps[i], bx,     dock_y,     col_white, false);
+      draw_dock_glyph(app_id, bx + 1, dock_y + 1, col_black, true);
+      draw_dock_glyph(app_id, bx,     dock_y,     col_white, false);
+    }
+
+    // Horizontal Dock Pagination Chevron ('>' at x = 358 on Page 0; '<' at x = 108 on Page 1)
+    auto draw_horiz_dock_chevron = [&](int ax, int ay, bool point_right) {
+      int dx = point_right ? 6 : -6;
+      // 1px black drop shadow
+      for (int w = 0; w <= 1; w++) {
+        it.line(ax - dx / 2 + w + 1, ay - 9 + 1, ax + dx / 2 + w + 1, ay + 1, col_black);
+        it.line(ax - dx / 2 + w + 1, ay + 9 + 1, ax + dx / 2 + w + 1, ay + 1, col_black);
+      }
+      // 2px crisp silver-white chevron
+      for (int w = 0; w <= 1; w++) {
+        it.line(ax - dx / 2 + w, ay - 9, ax + dx / 2 + w, ay, theme_secondary);
+        it.line(ax - dx / 2 + w, ay + 9, ax + dx / 2 + w, ay, theme_secondary);
+      }
+    };
+    if (has_right_arr) {
+      draw_horiz_dock_chevron(358, dock_y, true);
+    }
+    if (has_left_arr) {
+      draw_horiz_dock_chevron(108, dock_y, false);
     }
   }
 
-  // ZONE 6 (y = 420): Enlarged Battery Readout (12px icon-to-text gap) & Settings Gear (r = 13px)
-  const int chin_y = 420;
+  // ZONE 6 (y = 422): Clock-Sized Battery Readout (font_small 21pt + 12x18px Dual-Wall Battery) & Middle-Ground Gear (r = 12)
+  const int chin_y = 422;
   int batt_val = std::isnan(batt) ? 100 : static_cast<int>(roundf(batt));
   char batt_str[16];
   snprintf(batt_str, sizeof(batt_str), "%d%%", batt_val);
 
   int w_batt = 0, x_off_b = 0, base_b = 0, th_b = 0;
-  font_date->measure(batt_str, &w_batt, &x_off_b, &base_b, &th_b);
+  font_small->measure(batt_str, &w_batt, &x_off_b, &base_b, &th_b);
 
-  // Center [Battery Icon (15px) + 12px gap + Percentage Text] around x = cx - 26 (207)
-  const int icon_w = 15;
-  const int icon_gap = 12;
-  const int group_cx = cx - 26;
+  // Center [Battery Icon (13px) + 10px gap + 21pt Percentage Text] around x = cx - 22 (211)
+  const int icon_w = 13;
+  const int icon_gap = 10;
+  const int group_cx = cx - 22;
   const int group_left = group_cx - (icon_w + icon_gap + w_batt) / 2;
   const int b_icon_x = group_left + (icon_w / 2);
   const int text_left_x = group_left + icon_w + icon_gap;
 
   if (is_charging) {
-    // Enlarged 24px-tall golden charging lightning bolt with 1px black drop shadow
-    it.filled_triangle(b_icon_x + 5, chin_y - 11, b_icon_x - 4, chin_y + 2, b_icon_x + 2, chin_y + 2, col_black);
-    it.filled_triangle(b_icon_x - 1, chin_y,      b_icon_x + 4, chin_y,     b_icon_x - 3, chin_y + 13, col_black);
-    it.filled_triangle(b_icon_x + 4, chin_y - 12, b_icon_x - 5, chin_y + 1, b_icon_x + 1, chin_y + 1, col_gold);
-    it.filled_triangle(b_icon_x - 2, chin_y - 1,  b_icon_x + 3, chin_y - 1, b_icon_x - 4, chin_y + 12, col_gold);
+    // 20px-tall golden charging lightning bolt with 1px black drop shadow
+    it.filled_triangle(b_icon_x + 4, chin_y - 9, b_icon_x - 3, chin_y + 1, b_icon_x + 1, chin_y + 1, col_black);
+    it.filled_triangle(b_icon_x - 1, chin_y,     b_icon_x + 3, chin_y,     b_icon_x - 2, chin_y + 10, col_black);
+    it.filled_triangle(b_icon_x + 3, chin_y - 10, b_icon_x - 4, chin_y,    b_icon_x,     chin_y,      col_gold);
+    it.filled_triangle(b_icon_x - 2, chin_y - 1,  b_icon_x + 2, chin_y - 1, b_icon_x - 3, chin_y + 9, col_gold);
   } else {
-    // Enlarged 15x21px 2px-walled battery icon + 7x3px top terminal cap
-    it.filled_rectangle(b_icon_x - 3, chin_y - 12, 7, 3, col_green);
-    it.rectangle(b_icon_x - 7, chin_y - 9, 15, 21, col_green);
-    it.rectangle(b_icon_x - 6, chin_y - 8, 13, 19, col_green);
-    int fill_h = static_cast<int>(std::max(2.0f, std::min(15.0f, (static_cast<float>(batt_val) / 100.0f) * 15.0f)));
-    it.filled_rectangle(b_icon_x - 4, (chin_y + 9) - fill_h, 9, fill_h, col_green);
+    // Crisp 13x17px 2px-walled battery icon + 5x2px top terminal cap (matches 21pt font height!)
+    it.filled_rectangle(b_icon_x - 2, chin_y - 10, 5, 2, col_green);
+    it.rectangle(b_icon_x - 6, chin_y - 8, 13, 17, col_green);
+    it.rectangle(b_icon_x - 5, chin_y - 7, 11, 15, col_green);
+    int fill_h = static_cast<int>(std::max(1.0f, std::min(11.0f, (static_cast<float>(batt_val) / 100.0f) * 11.0f)));
+    it.filled_rectangle(b_icon_x - 3, (chin_y + 6) - fill_h, 7, fill_h, col_green);
   }
 
-  it.print(text_left_x + 1, chin_y + 1, font_date, col_black, TextAlign::CENTER_LEFT, batt_str);
-  it.print(text_left_x,     chin_y,     font_date, col_slate, TextAlign::CENTER_LEFT, batt_str);
+  it.print(text_left_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, batt_str);
+  it.print(text_left_x,     chin_y,     font_small, col_slate, TextAlign::CENTER_LEFT, batt_str);
 
-  // 2. Right Group: Enlarged 8-Tooth Settings Gear at x = cx + 56 (289, y = 420, r_outer = 13px)
-  int gear_x = cx + 56;
+  // 2. Right Group: Middle-Ground 8-Tooth Settings Gear at x = cx + 48 (281, y = 422, r_outer = 12px)
+  int gear_x = cx + 48;
   int gear_y = chin_y;
-  auto draw_gear_large = [&](int gx, int gy, Color c) {
-    // 4 Cardinal 3px-wide teeth (r = 13)
-    it.filled_rectangle(gx - 1, gy - 13, 3, 27, c);
-    it.filled_rectangle(gx - 13, gy - 1, 27, 3, c);
-    // 4 Diagonal 3px-thick teeth (at +/- 9px)
+  auto draw_gear_mid = [&](int gx, int gy, Color c) {
+    // 4 Cardinal 3px-wide teeth (r = 12)
+    it.filled_rectangle(gx - 1, gy - 12, 3, 25, c);
+    it.filled_rectangle(gx - 12, gy - 1, 25, 3, c);
+    // 4 Diagonal 3px-thick teeth (at +/- 8px)
     for (int d = -1; d <= 1; d++) {
-      it.line(gx - 9 + d, gy - 9, gx + 9 + d, gy + 9, c);
-      it.line(gx - 9, gy - 9 + d, gx + 9, gy + 9 + d, c);
-      it.line(gx - 9 + d, gy + 9, gx + 9 + d, gy - 9, c);
-      it.line(gx - 9, gy + 9 + d, gx + 9, gy - 9 + d, c);
+      it.line(gx - 8 + d, gy - 8, gx + 8 + d, gy + 8, c);
+      it.line(gx - 8, gy - 8 + d, gx + 8, gy + 8 + d, c);
+      it.line(gx - 8 + d, gy + 8, gx + 8 + d, gy - 8, c);
+      it.line(gx - 8, gy + 8 + d, gx + 8, gy - 8 + d, c);
     }
-    // Solid gear wheel body (r = 9)
-    it.filled_circle(gx, gy, 9, c);
+    // Solid gear wheel body (r = 8)
+    it.filled_circle(gx, gy, 8, c);
   };
-  draw_gear_large(gear_x + 1, gear_y + 1, col_black);
-  draw_gear_large(gear_x,     gear_y,     col_slate);
-  it.circle(gear_x, gear_y, 6, col_dark_gray);
+  draw_gear_mid(gear_x + 1, gear_y + 1, col_black);
+  draw_gear_mid(gear_x,     gear_y,     col_slate);
+  it.circle(gear_x, gear_y, 5, col_dark_gray);
   it.filled_circle(gear_x, gear_y, 4, col_black);
 }
 // =============================================================================

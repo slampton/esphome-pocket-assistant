@@ -1392,9 +1392,9 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
 template<typename DisplayT>
 inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
                                          esphome::Color col_active, esphome::Color col_inactive) {
-  // Enlarged 58px-diameter (r = 29) buttons at y = 332, matching the Home Page Quick-Launch Dock!
-  static constexpr int ICON_XS[4] = {104, 190, 276, 362};
-  static constexpr int ICON_Y = 332;
+  // Aligned with the lowered y = 352 Home Quick-Launch Dock (x = {112, 193, 274, 355}, r = 27)
+  static constexpr int ICON_XS[4] = {112, 193, 274, 355};
+  static constexpr int ICON_Y = 352;
 
   auto draw_icon_glyph = [&](int idx, int bx, int by, esphome::Color c) {
     if (idx == 0) {
@@ -1475,12 +1475,12 @@ inline void render_weather_subpage_icons(DisplayT &it, int active_subpage,
     bool is_act = (i == active_subpage);
     esphome::Color fg_c = is_act ? col_active : col_inactive;
     if (is_act) {
-      it.circle(bx + 1, by + 1, 29, shadow_c);
-      it.circle(bx,     by,     29, col_active);
-      it.circle(bx,     by,     28, col_active);
+      it.circle(bx + 1, by + 1, 27, shadow_c);
+      it.circle(bx,     by,     27, col_active);
+      it.circle(bx,     by,     26, col_active);
     } else {
-      it.circle(bx + 1, by + 1, 29, shadow_c);
-      it.circle(bx,     by,     29, esphome::Color(90, 112, 138));
+      it.circle(bx + 1, by + 1, 27, shadow_c);
+      it.circle(bx,     by,     27, esphome::Color(90, 112, 138));
     }
     draw_icon_glyph(i, bx + 1, by + 1, shadow_c);
     draw_icon_glyph(i, bx,     by,     fg_c);
@@ -1529,7 +1529,7 @@ inline void render_weather_page(
     it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "CURRENT");
     it.line(80, 62, 386, 62, col_dark_gray);
 
-    // 2. Hero Temperature at y = 116 (top of 77pt numerals & degree ring at y = 88 -> 26px buffer below y = 62!)
+    // 2. Hero Temperature at y = 120 (top of 77pt numerals & degree ring at y = 92 -> 30px buffer below y = 62!)
     char temp_num[16];
     if (!std::isnan(weather_temp)) snprintf(temp_num, sizeof(temp_num), "%.0f", weather_temp);
     else snprintf(temp_num, sizeof(temp_num), "--");
@@ -1537,11 +1537,11 @@ inline void render_weather_page(
     font_time->measure(temp_num, &w_num, &x_off, &base, &th);
     const int num_cx = cx - 5;
     const int deg_cx = num_cx + (w_num / 2) + 18;
-    const int deg_cy = 96; // Top of r=8 ring sits at y = 88, flush with 77pt numeral cap-height
+    const int deg_cy = 100; // Top of r=8 ring sits at y = 92, flush with 77pt numeral cap-height
     const Color col_deg_silver(204, 214, 228);
     const Color col_deg_aa(120, 132, 148);
 
-    it.print(num_cx, 116, font_time, col_white, TextAlign::CENTER, temp_num);
+    it.print(num_cx, 120, font_time, col_white, TextAlign::CENTER, temp_num);
 
     for (int dy = -9; dy <= 9; dy++) {
       for (int dx = -9; dx <= 9; dx++) {
@@ -1554,7 +1554,7 @@ inline void render_weather_page(
       }
     }
 
-    // 3. Stepped-Up Condition (y = 174) & Today's High / Low (y = 212) in font_date (27pt)
+    // 3. Stepped-Up Condition (y = 182) & Today's High / Low (y = 224) in font_date (27pt)
     float hi_val = weather_high;
     float lo_val = weather_low;
     if ((std::isnan(hi_val) || std::isnan(lo_val)) &&
@@ -1567,7 +1567,7 @@ inline void render_weather_page(
     }
 
     std::string cond_title = fit_text_to_width_font(format_weather_title(cond), 340, font_date);
-    it.print(cx, 174, font_date, theme_secondary, TextAlign::CENTER, cond_title.c_str());
+    it.print(cx, 182, font_date, theme_secondary, TextAlign::CENTER, cond_title.c_str());
 
     char hilo_buf[36];
     if (!std::isnan(hi_val) && !std::isnan(lo_val)) {
@@ -1575,10 +1575,10 @@ inline void render_weather_page(
     } else {
       snprintf(hilo_buf, sizeof(hilo_buf), "H: --°   L: --°");
     }
-    it.print(cx, 212, font_date, col_white, TextAlign::CENTER, hilo_buf);
+    it.print(cx, 224, font_date, col_white, TextAlign::CENTER, hilo_buf);
 
-    // 4. Single-Line Humidity + Wind Speed & Cardinal Direction at y = 258
-    const int tele_y = 258;
+    // 4. Single-Line Humidity + Wind Speed & Cardinal Direction at y = 272 (above y = 308 divider!)
+    const int tele_y = 272;
     const Color icon_c(185, 225, 255);
 
     auto draw_droplet_outline = [&](int dx, int dy, Color c) {
@@ -1655,7 +1655,7 @@ inline void render_weather_page(
     }
     it.print(w_icon_x + 20, tele_y, font_small, col_white, TextAlign::CENTER_LEFT, wind_str);
 
-    it.line(80, 290, 386, 290, col_dark_gray);
+    it.line(80, 308, 386, 308, col_dark_gray);
 
   } else if (sky_weather_subpage == 1) {
     // ----------------------------------------------------------------------
@@ -1736,7 +1736,7 @@ inline void render_weather_page(
       apply_weather_sim_override(weather_sim_opt, fc_days[0].cond, dummy_night);
     }
 
-    const int row_ys[5] = {92, 134, 176, 218, 260};
+    const int row_ys[5] = {100, 146, 192, 238, 284};
     for (int i = 0; i < fc_count && i < 5; i++) {
       int ry = row_ys[i];
       const auto &d = fc_days[i];
@@ -1756,10 +1756,10 @@ inline void render_weather_page(
       it.print(335, ry_data, font_small, col_slate, TextAlign::CENTER_LEFT, lo_str.c_str());
 
       if (i < 4) {
-        it.line(70, ry + 21, 365, ry + 21, col_dark_gray);
+        it.line(70, ry + 22, 365, ry + 22, col_dark_gray);
       }
     }
-    it.line(70, 290, 365, 290, col_dark_gray);
+    it.line(70, 308, 365, 308, col_dark_gray);
 
   } else if (sky_weather_subpage == 2) {
     // ----------------------------------------------------------------------
@@ -1822,7 +1822,7 @@ inline void render_weather_page(
     it.print(312, 246, font_small, col_slate, TextAlign::CENTER, "SUNSET");
     it.print(312, 274, font_date,  col_warm_gold, TextAlign::CENTER, s_set.c_str());
 
-    it.line(80, 290, 386, 290, col_dark_gray);
+    it.line(80, 308, 386, 308, col_dark_gray);
 
   } else if (sky_weather_subpage == 3) {
     // ----------------------------------------------------------------------
@@ -1846,7 +1846,7 @@ inline void render_weather_page(
     snprintf(illum_buf, sizeof(illum_buf), "%d%% Illumination", illum_pct);
     it.print(cx, 274, font_small, col_white, TextAlign::CENTER, illum_buf);
 
-    it.line(80, 290, 386, 290, col_dark_gray);
+    it.line(80, 308, 386, 308, col_dark_gray);
   }
 
   render_weather_subpage_icons(it, sky_weather_subpage, theme_primary, col_white);
