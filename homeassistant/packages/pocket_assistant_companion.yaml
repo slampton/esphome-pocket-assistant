@@ -276,7 +276,7 @@ script:
           podcast_sort_order: '{{ podcast_sort if (podcast_sort | default("") != "") else "newest" }}'
           resolved_mass_queue_entry: >-
             {% set mq_ents = integration_entities("mass_queue") %}
-            {{ config_entry_id(mq_ents | first) if mq_ents | length > 0 else "" }}
+            {{ config_entry_id(mq_ents | first) if mq_ents | length > 0 else (mass_queue_entry | default("01KWT5KHS9J3CXG4PYGN26EYKS", true)) }}
       - choose:
           - conditions:
               - condition: template
@@ -601,58 +601,26 @@ script:
               - condition: template
                 value_template: '{{ mode == "podcast_episodes" }}'
             sequence:
-              - if:
-                  - condition: template
-                    value_template: '{{ resolved_mass_queue_entry != "" }}'
-                then:
-                  - action: mass_queue.get_podcast_episodes
-                    continue_on_error: true
-                    data:
-                      config_entry_id: '{{ resolved_mass_queue_entry }}'
-                      uri: '{{ search }}'
-                    response_variable: pod_ep_resp
-              - if:
-                  - condition: template
-                    value_template: >-
-                      {% set eps = (pod_ep_resp.episodes if pod_ep_resp is defined and pod_ep_resp is mapping and 'episodes' in pod_ep_resp else []) %}
-                      {{ eps | length == 0 }}
-                then:
-                  - action: media_player.browse_media
-                    continue_on_error: true
-                    target:
-                      entity_id: '{{ integration_entities("music_assistant") | select("match", "^media_player") | first }}'
-                    data:
-                      media_content_type: "podcast"
-                      media_content_id: '{{ search }}'
-                    response_variable: pod_browse_resp
+              - action: mass_queue.get_podcast_episodes
+                continue_on_error: true
+                data:
+                  config_entry_id: '{{ resolved_mass_queue_entry }}'
+                  uri: '{{ search }}'
+                response_variable: pod_ep_resp
               - variables:
                   raw_items: >-
                     {% set episodes = (pod_ep_resp.episodes if pod_ep_resp is defined and pod_ep_resp is mapping and 'episodes' in pod_ep_resp else []) %}
-                    {% set p_resp = (pod_browse_resp.values() | list | first) if pod_browse_resp is defined and pod_browse_resp is mapping and (pod_browse_resp.values() | list | length > 0) else {} %}
-                    {% set children = p_resp.children | default([]) %}
                     {% set p_sort = podcast_sort_order | default("newest") %}
+                    {% set sorted_eps = episodes if p_sort == "newest" else (episodes | reverse | list) %}
                     {% set ns = namespace(items=[]) %}
-                    {% if episodes | length > 0 %}
-                      {% set sorted_eps = episodes if p_sort == "newest" else (episodes | reverse | list) %}
-                      {% for ep in sorted_eps %}
-                        {% set ns.items = ns.items + [{
-                          "name": ep["media_title"],
-                          "id": ep["media_content_id"],
-                          "type": "podcast_episode",
-                          "active": false
-                        }] %}
-                      {% endfor %}
-                    {% elif children | length > 0 %}
-                      {% set sorted_ch = children if p_sort == "newest" else (children | reverse | list) %}
-                      {% for item in sorted_ch %}
-                        {% set ns.items = ns.items + [{
-                          "name": item["title"],
-                          "id": item["media_content_id"],
-                          "type": "podcast_episode",
-                          "active": false
-                        }] %}
-                      {% endfor %}
-                    {% endif %}
+                    {% for ep in sorted_eps %}
+                      {% set ns.items = ns.items + [{
+                        "name": ep.media_title,
+                        "id": ep.media_content_id,
+                        "type": "podcast_episode",
+                        "active": false
+                      }] %}
+                    {% endfor %}
                     {% if ns.items | length == 0 %}
                       {% set ns.items = [{"name": "No episodes found", "id": "", "type": "text", "active": false}] %}
                     {% endif %}
