@@ -43,6 +43,7 @@ Pocket Assistant pairs a 466×466 circular AMOLED touchscreen, dual microphones,
 * **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (466×466 CO5300 QSPI AMOLED, CST9220 touch, ES8311 DAC, ES7210 dual-mic ADC, AXP2101 PMIC, QMI8658 6-axis IMU, 32MB Octal Flash, 8MB Octal PSRAM).
 * **Home Assistant Core `2026.10.0+`** & **ESPHome `2026.10.0+`**.
 * **Music Assistant `2.10.7+`** *(optional, for local Sendspin streaming and library browsing)*.
+* **[Actions for Music Assistant (`mass_queue`)](https://github.com/droans/mass_queue)** *(optional HACS integration, required for browsing individual podcast episodes and full Up Next play queues)*.
 
 ### 1. Flash the Firmware
 * **Web Installer (Recommended)**: Connect your board via USB-C in Chrome or Edge and open the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to flash v2.0 and connect to Wi-Fi via Improv BLE.

@@ -509,17 +509,13 @@ script:
                     {% else %}
                       {{ all_mass_players | first | default(local_spk, true) }}
                     {% endif %}
-              - if:
-                  - condition: template
-                    value_template: '{{ resolved_mass_queue_entry != "" }}'
-                then:
-                  - action: mass_queue.get_queue_items
-                    continue_on_error: true
-                    data:
-                      entity: '{{ target_spk }}'
-                      limit_before: 1
-                      limit_after: 50
-                    response_variable: mq_items_resp
+              - action: mass_queue.get_queue_items
+                continue_on_error: true
+                data:
+                  entity: '{{ target_spk }}'
+                  limit_before: 1
+                  limit_after: 50
+                response_variable: mq_items_resp
               - action: music_assistant.get_queue
                 continue_on_error: true
                 target:
@@ -601,60 +597,25 @@ script:
               - condition: template
                 value_template: '{{ mode == "podcast_episodes" }}'
             sequence:
-              - variables:
-                  mass_player: '{{ integration_entities("music_assistant") | select("match", "^media_player") | first | default("", true) }}'
-              - if:
-                  - condition: template
-                    value_template: '{{ resolved_mass_queue_entry != "" }}'
-                then:
-                  - action: mass_queue.get_podcast_episodes
-                    continue_on_error: true
-                    data:
-                      config_entry_id: '{{ resolved_mass_queue_entry }}'
-                      uri: '{{ search }}'
-                    response_variable: pod_ep_resp
-              - if:
-                  - condition: template
-                    value_template: >-
-                      {% set eps = (pod_ep_resp.episodes if pod_ep_resp is defined and pod_ep_resp is mapping and 'episodes' in pod_ep_resp else []) %}
-                      {{ (eps | length == 0) and (mass_player != "") }}
-                then:
-                  - action: media_player.browse_media
-                    continue_on_error: true
-                    target:
-                      entity_id: '{{ mass_player }}'
-                    data:
-                      media_content_type: "music"
-                      media_content_id: '{{ search }}'
-                    response_variable: pod_browse_resp
+              - action: mass_queue.get_podcast_episodes
+                continue_on_error: true
+                data:
+                  uri: '{{ search }}'
+                response_variable: pod_ep_resp
               - variables:
                   raw_items: >-
                     {% set episodes = (pod_ep_resp.episodes if pod_ep_resp is defined and pod_ep_resp is mapping and 'episodes' in pod_ep_resp else []) %}
-                    {% set p_resp = (pod_browse_resp.values() | list | first) if pod_browse_resp is defined and pod_browse_resp is mapping and (pod_browse_resp.values() | list | length > 0) else {} %}
-                    {% set browse_children = p_resp.children | default([]) %}
                     {% set p_sort = podcast_sort_order | default("newest") %}
+                    {% set sorted_eps = episodes if p_sort == "newest" else (episodes | reverse | list) %}
                     {% set ns = namespace(items=[]) %}
-                    {% if episodes | length > 0 %}
-                      {% set sorted_eps = episodes if p_sort == "newest" else (episodes | reverse | list) %}
-                      {% for ep in sorted_eps %}
-                        {% set ns.items = ns.items + [{
-                          "name": ep.media_title | default(ep.name | default("Episode", true), true),
-                          "id": ep.media_content_id | default(ep.uri | default("", true), true),
-                          "type": "podcast_episode",
-                          "active": false
-                        }] %}
-                      {% endfor %}
-                    {% elif browse_children | length > 0 %}
-                      {% set sorted_children = browse_children if p_sort == "newest" else (browse_children | reverse | list) %}
-                      {% for item in sorted_children %}
-                        {% set ns.items = ns.items + [{
-                          "name": item.title,
-                          "id": item.media_content_id,
-                          "type": "podcast_episode",
-                          "active": false
-                        }] %}
-                      {% endfor %}
-                    {% endif %}
+                    {% for ep in sorted_eps %}
+                      {% set ns.items = ns.items + [{
+                        "name": ep.media_title | default(ep.name | default("Episode", true), true),
+                        "id": ep.media_content_id | default(ep.uri | default("", true), true),
+                        "type": "podcast_episode",
+                        "active": false
+                      }] %}
+                    {% endfor %}
                     {% if ns.items | length == 0 %}
                       {% set ns.items = [{"name": "No episodes found", "id": "", "type": "text", "active": false}] %}
                     {% endif %}
