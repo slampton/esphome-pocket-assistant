@@ -3530,7 +3530,7 @@ display:
                                  !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
 
       if (show_top_level_back) {
-        render_back_button(it, cx, id(font_small), 426, "< BACK");
+        render_back_button(it, cx, id(font_small), 426, "< Back");
       }
 
       pocket_ui::record_ambient_frame_ms(millis());
@@ -3675,7 +3675,9 @@ touchscreen:
                     if (now_s - last_browse_scroll > TOUCH_DEBOUNCE_SCROLL) {
                       int delta = (touch.y < 220) ? -1 : 1;
                       int next_pg = id(music_browse_page);
-                      if (id(music_overlay_mode) == 3) {
+                      if (id(music_overlay_mode) == 3 &&
+                          id(selected_category_mode) != "artist" &&
+                          id(selected_category_mode) != "album") {
                         next_pg = std::max(1, std::min(id(music_browse_total_pages), id(music_browse_page) + delta));
                       } else {
                         next_pg = step_wrap_1based(id(music_browse_page), delta, id(music_browse_total_pages));
@@ -5010,7 +5012,8 @@ touchscreen:
                   int y_mid = 173 + row * 63;
                   if (touch.y >= y_mid - 28 && touch.y <= y_mid + 28) {
                     int s_idx = valid_slots[row];
-                    if (touch.x >= 90 && touch.x <= 326) {
+                    int max_sel_x = (row == 0) ? 376 : 326;
+                    if (touch.x >= 90 && touch.x <= max_sel_x) {
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(active_remote_slot) = s_idx;
