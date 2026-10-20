@@ -2686,7 +2686,7 @@ inline void render_home_page(
   }
 
   it.print(text_left_x + 1, chin_y + 1, font_date, col_black, TextAlign::CENTER_LEFT, batt_str);
-  it.print(text_left_x,     chin_y,     font_date, col_white, TextAlign::CENTER_LEFT, batt_str);
+  it.print(text_left_x,     chin_y,     font_date, col_slate, TextAlign::CENTER_LEFT, batt_str);
 
   // 2. Right Group: Enlarged 8-Tooth Settings Gear at x = cx + 56 (289, y = 420, r_outer = 13px)
   int gear_x = cx + 56;

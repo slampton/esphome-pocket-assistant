@@ -2207,13 +2207,16 @@ inline void render_games_launcher(
           render_breakout_brick(it, bx, by, b_w, b_h, bc, hc, hp, hp, col_white);
         }
       }
-      int pad_x = icon_x - 4, pad_y = icon_y + 26, pad_w = 42, pad_h = 8;
+      // Drop paddle to icon_y + 42 (bottom at +46, matching Archery/Chomp/Marbles bottom alignment!)
+      int pad_x = icon_x - 6, pad_y = icon_y + 42, pad_w = 44, pad_h = 8;
       render_breakout_paddle(it, pad_x, pad_y, pad_w, pad_h, theme_primary, col_white);
 
-      int ball_x = icon_x + 9, ball_y = icon_y + 5;
-      it.filled_circle(pad_x + 2, pad_y - 6, 2, Color(65, 52, 18));
-      it.filled_circle(pad_x + 6, pad_y - 11, 3, Color(120, 95, 25));
-      it.filled_circle(ball_x - 3, ball_y + 5, 4, Color(185, 145, 35));
+      // 5-stage ascending comet trail from the lowered paddle up toward the shattering brick
+      int ball_x = icon_x + 10, ball_y = icon_y + 7;
+      it.filled_circle(pad_x + 3,  pad_y - 7,  2, Color(50, 40, 14));
+      it.filled_circle(pad_x + 6,  pad_y - 14, 2, Color(85, 68, 20));
+      it.filled_circle(pad_x + 9,  pad_y - 21, 3, Color(130, 102, 28));
+      it.filled_circle(ball_x - 3, ball_y + 7, 4, Color(185, 145, 35));
       it.filled_circle(ball_x, ball_y, 5, col_gold);
       it.circle(ball_x, ball_y, 5, col_white);
       it.filled_circle(ball_x - 2, ball_y - 2, 1, col_white);
@@ -2299,14 +2302,13 @@ inline void render_games_launcher(
     draw_game_card(game_carousel_idx, icon_cx, card_cy, text_cx, base_title_y, base_score_y);
   }
 
-  (void)font_games_title;
-  // Top & Bottom Viewport Masks + Standard 21pt Title at y = 48
+  // Top & Bottom Viewport Masks
   it.filled_rectangle(0, 0, 466, 158, col_bg);
-  it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "GAMES");
+  it.print(cx, 96, font_games_title, theme_primary, TextAlign::CENTER, "GAMES");
   it.filled_rectangle(0, 282, 466, 184, col_bg);
 
-  // Combined [Speaker (44px at x=142) + 28px gap + PLAY Modern Card (154px at cx=269, x=192..346) = 226px]
-  render_modern_card(it, 269, 349, 154, 44, 12, Color(22, 27, 36), theme_primary, "Play", col_white, font_btn_bold);
+  // Combined [Speaker (44px) + 28px gap + PLAY (154px) = 226px] centered at cx = 233 (x = 120..346)
+  render_pill_button(it, 214, 324, 349, 22, theme_primary, col_dark_gray, "PLAY", col_white, font_btn_bold);
 
   // Game Sound Mute / Unmute Button at (142, 349, r = 22 -> outer left edge = 120)
   const int spk_x = 142, spk_y = 349;
