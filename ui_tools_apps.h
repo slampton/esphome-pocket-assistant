@@ -2723,14 +2723,36 @@ inline void render_home_page(
         it.line(bx - 5, by - 10, bx + 13, by - 13, c);
         it.line(bx - 5, by - 9,  bx + 13, by - 12, c);
       } else if (app_id == 7) {
-        // Remote: Enlarged Concentric D-Pad Ring + 4 Directional Arrows + Center Dot (scaled for r = 29)
-        it.circle(bx, by, 17, c);
-        it.circle(bx, by, 16, c);
-        it.filled_circle(bx, by, 4, c);
-        it.filled_triangle(bx, by - 13, bx - 4, by - 8, bx + 4, by - 8, c);
-        it.filled_triangle(bx, by + 13, bx - 4, by + 8, bx + 4, by + 8, c);
-        it.filled_triangle(bx - 13, by, bx - 8, by - 4, bx - 8, by + 4, c);
-        it.filled_triangle(bx + 13, by, bx + 8, by - 4, bx + 8, by + 4, c);
+        // Remote: Solid Filled 4-Segment Circular D-Pad + Center OK Button (Apple TV / Shield Remote Style)
+        // Gives Remote the same solid filled visual weight as Music, Games, and Tools!
+        auto is_remote_dpad = [](int dx, int dy) -> bool {
+          int r2 = dx * dx + dy * dy;
+          // 1. Solid filled center OK button (r <= 4.6px -> r2 <= 21)
+          if (r2 <= 21) return true;
+          // 2. Transparent gap ring around center OK button (4.6px < r < 7.5px -> r2 < 56) or outside D-pad (r > 16.5px -> r2 > 272)
+          if (r2 < 56 || r2 > 272) return false;
+          // 3. 45-degree X-shaped diagonal sector gaps (|dx - dy| <= 2 or |dx + dy| <= 2) splitting the ring into Up, Down, Left, Right pads
+          static constexpr float INV_SQRT2 = 0.70710678f;
+          float fx = static_cast<float>(dx);
+          float fy = static_cast<float>(dy);
+          float d1 = std::fabs((fx - fy) * INV_SQRT2);
+          float d2 = std::fabs((fx + fy) * INV_SQRT2);
+          if (d1 <= 1.55f || d2 <= 1.55f) return false;
+          return true;
+        };
+
+        if (!is_shadow) {
+          for (int dy = -17; dy <= 17; dy++) {
+            for (int dx = -17; dx <= 17; dx++) {
+              if (is_remote_dpad(dx, dy)) {
+                if (!is_remote_dpad(dx + 1, dy + 1)) {
+                  it.draw_pixel_at(bx + dx + 1, by + dy + 1, col_black);
+                }
+                it.draw_pixel_at(bx + dx, by + dy, c);
+              }
+            }
+          }
+        }
       } else if (app_id == 8) {
         // Tools: Solid Filled Single-Head 45-Degree Wrench (Compact r=8.2px Head + Long Rounded Handle)
         // Matches the solid filled visual weight of the Music icon!
@@ -2777,39 +2799,40 @@ inline void render_home_page(
           }
         }
       } else if (app_id == 3) {
-        // Games: Solid Filled Gamepad (26px tall, deeper 18px main body with lowered center bridge at dy=+4,
-        // shorter 8px outward-flaring lower grip wings, and transparent negative-space D-pad '+' & 4-dot diamond!)
-        // dy spans -13 .. +12 (26 rows total: rows 0..17 = solid upper/mid body; rows 18..25 = lower grip wings)
-        static constexpr int8_t GP_OUT_MAX[26] = {
-           9, 11, 12, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 17, 17, 16, 15, 13
+        // Games: Solid Filled Gamepad (Center bridge raised 2px to dy=+2 + larger negative-space
+        // 11x11px D-pad '+' and 3x3px 4-dot diamond cutouts to strip away excess white bulk!)
+        // dy spans -12 .. +12 (25 rows total: rows 0..14 = main body; rows 15..24 = lower grip wings)
+        static constexpr int8_t GP_OUT_MAX[25] = {
+           9, 11, 12, 13, 13, 14, 14, 15, 15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 18, 17, 17, 16, 15, 13
         };
-        static constexpr int8_t GP_OUT_MIN[26] = {
-           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  8,  9, 10, 10, 11, 11, 12
+        static constexpr int8_t GP_OUT_MIN[25] = {
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  6,  8,  9,  9, 10, 10, 11, 11, 12, 12
         };
 
         auto is_gamepad_filled = [](int dx, int dy) -> bool {
-          if (dy < -13 || dy > 12) return false;
-          int row = dy + 13;
+          if (dy < -12 || dy > 12) return false;
+          int row = dy + 12;
           int ax = std::abs(dx);
           if (ax < GP_OUT_MIN[row] || ax > GP_OUT_MAX[row]) return false;
 
-          // Transparent Negative-Space Cutout 1: Left D-Pad Cross (+) centered at (dx = -7, dy = -3)
+          // Enlarged Negative-Space Cutout 1: 11x11px Left D-Pad Cross (+) centered at (dx = -7, dy = -4)
           int dpx = dx + 7;
-          int dpy = dy + 3;
-          if ((std::abs(dpx) <= 1 && std::abs(dpy) <= 4) ||
-              (std::abs(dpy) <= 1 && std::abs(dpx) <= 4)) {
+          int dpy = dy + 4;
+          if ((std::abs(dpx) <= 1 && std::abs(dpy) <= 5) ||
+              (std::abs(dpy) <= 1 && std::abs(dpx) <= 5)) {
             return false;
           }
 
-          // Transparent Negative-Space Cutout 2: Right 4-Dot Action Diamond centered at (dx = +7, dy = -3)
+          // Enlarged Negative-Space Cutout 2: Right 4-Dot Action Diamond centered at (dx = +7, dy = -4)
+          // Each button dot is r^2 <= 2 (a crisp 5-pixel / 3x3 cross pip) spaced at ±4px!
           int abx = dx - 7;
-          int aby = dy + 3;
+          int aby = dy + 4;
           auto is_dot = [](int x, int y, int cx_d, int cy_d) -> bool {
             int rx = x - cx_d, ry = y - cy_d;
-            return (rx * rx + ry * ry) <= 1;
+            return (rx * rx + ry * ry) <= 2;
           };
-          if (is_dot(abx, aby, 0, -3) || is_dot(abx, aby, 0, 3) ||
-              is_dot(abx, aby, -3, 0) || is_dot(abx, aby, 3, 0)) {
+          if (is_dot(abx, aby, 0, -4) || is_dot(abx, aby, 0, 4) ||
+              is_dot(abx, aby, -4, 0) || is_dot(abx, aby, 4, 0)) {
             return false;
           }
 
@@ -2817,7 +2840,7 @@ inline void render_home_page(
         };
 
         if (!is_shadow) {
-          for (int dy = -13; dy <= 12; dy++) {
+          for (int dy = -12; dy <= 12; dy++) {
             for (int dx = -19; dx <= 19; dx++) {
               if (is_gamepad_filled(dx, dy)) {
                 if (!is_gamepad_filled(dx + 1, dy + 1)) {
