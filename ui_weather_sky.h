@@ -948,10 +948,10 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       if (show_sun || is_fog_mist) {
         // Dominant Sunshine-Yellow 3D Solar Orb (Goldenrod rim -> Bright Yellow body -> Lemon-White 3D highlight)
         const esphome::Color sky_c        = is_fog_mist ? esphome::Color(32, 46, 60)   : esphome::Color(28, 54, 84);
-        const esphome::Color c_haze       = is_fog_mist ? esphome::Color(118, 120, 96) : esphome::Color(175, 162, 68);
-        const esphome::Color c_limb       = is_fog_mist ? esphome::Color(156, 146, 98) : esphome::Color(246, 196, 38);
-        const esphome::Color c_body       = is_fog_mist ? esphome::Color(186, 176, 126): esphome::Color(255, 228, 66);
-        const esphome::Color c_core       = is_fog_mist ? esphome::Color(212, 204, 162): esphome::Color(255, 248, 168);
+        const esphome::Color c_haze       = is_fog_mist ? esphome::Color(108, 108, 78) : esphome::Color(158, 134, 34);
+        const esphome::Color c_limb       = is_fog_mist ? esphome::Color(144, 132, 82) : esphome::Color(232, 168, 14);
+        const esphome::Color c_body       = is_fog_mist ? esphome::Color(174, 160, 102): esphome::Color(250, 204, 24);
+        const esphome::Color c_core       = is_fog_mist ? esphome::Color(198, 186, 128): esphome::Color(255, 228, 72);
 
         // 1. Subtle 3-px golden-yellow atmospheric feather at the outer edge (r = 24 .. 22)
         for (int r = 24; r >= 22; r--) {
