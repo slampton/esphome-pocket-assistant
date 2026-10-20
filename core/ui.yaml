@@ -2705,45 +2705,6 @@ script:
               if (sort == "Oldest on Top") return "oldest";
               return "newest";
             mass_queue_entry: "${mass_queue_config_entry}"
-      - delay: 1800ms
-      - if:
-          condition:
-            lambda: |-
-              return (id(gui_page) == 2) &&
-                     (id(music_overlay_mode) == 1 || id(music_overlay_mode) == 3) &&
-                     (id(slot_1_name).rfind("Loading", 0) == 0);
-          then:
-            - homeassistant.action:
-                action: ${browse_script}
-                data:
-                  target_device: "${name}"
-                  mode: !lambda 'return id(selected_category_mode).c_str();'
-                  page: !lambda 'return to_string(id(music_browse_page));'
-                  page_size: "5"
-                  search: !lambda |-
-                    if (id(selected_category_mode) == "artist_albums") {
-                      return id(drilldown_artist_name).c_str();
-                    } else if (id(selected_category_mode) == "current_album_tracks" || id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
-                      return id(drilldown_album_id).c_str();
-                    }
-                    return "";
-                  speaker: !lambda 'return id(active_speaker_entity).c_str();'
-                  last_speaker: !lambda 'return id(last_speaker_entity).c_str();'
-                  album_sort: !lambda |-
-                    auto sort = id(music_album_sort_order).current_option();
-                    if (sort == "Newest on Top") return "year_desc";
-                    if (sort == "Oldest on Top") return "year";
-                    return "name";
-                  artist_album_sort: !lambda |-
-                    auto sort = id(music_artist_album_sort_order).current_option();
-                    if (sort == "Alphabetical") return "name";
-                    if (sort == "Newest on Top") return "year_desc";
-                    return "year";
-                  podcast_sort: !lambda |-
-                    auto sort = id(music_podcast_sort_order).current_option();
-                    if (sort == "Oldest on Top") return "oldest";
-                    return "newest";
-                  mass_queue_entry: "${mass_queue_config_entry}"
 
   - id: activate_selected_speaker
     mode: restart
