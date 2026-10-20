@@ -2732,47 +2732,49 @@ inline void render_home_page(
         it.filled_triangle(bx - 13, by, bx - 8, by - 4, bx - 8, by + 4, c);
         it.filled_triangle(bx + 13, by, bx + 8, by - 4, bx + 8, by + 4, c);
       } else if (app_id == 8) {
-        // Tools: Reference-Matched 45-Degree Combination Wrench (Open-End Jaw + Hex Box-End)
-        // Rendered via CSG scanline evaluation so the open jaw and hex hole are 100% transparent!
-        auto is_wrench_pixel = [](int dx, int dy) -> bool {
-          static constexpr float INV_SQRT2 = 0.70710678f;
-          float fx = static_cast<float>(dx);
-          float fy = static_cast<float>(dy);
-          // Along-axis u (+ toward upper-right jaw, - toward lower-left box ring) & perpendicular v
-          float u = (fx - fy) * INV_SQRT2;
-          float v = (fx + fy) * INV_SQRT2;
+        // Tools: Reference-Matched Single-Head 45-Degree Outline Open-End Wrench
+        // Dedicates the entire icon to 1 large upper-right C-head (r_out = 10.5px) + rounded
+        // lower-left handle shaft in a crisp 2.6px hollow outline (100% transparent interior!)
+        auto in_wrench_shape = [](float u, float v, float shrink) -> bool {
+          // 1. Exclude Upper-Right Open U-Jaw Slot (expands by +shrink when computing inner cutout!)
+          float jaw_r = 3.6f + shrink;
+          float jaw_u0 = 4.5f;
+          if (u >= jaw_u0 && std::fabs(v) <= jaw_r) return false;
+          float du_j = u - jaw_u0;
+          if ((du_j * du_j + v * v) <= (jaw_r * jaw_r)) return false;
 
-          // 1. Transparent Upper-Right Open-End U-Jaw Cutout (centered along u >= 6.2, |v| <= 3.1)
-          if (u >= 6.2f && std::fabs(v) <= 3.15f) return false;
-          float du_jaw = u - 6.2f;
-          if ((du_jaw * du_jaw + v * v) <= 9.9f) return false;
+          // 2. Upper-Right Circular Wrench Head (centered at u = +6.2, v = 0, r = 10.6 - shrink)
+          float head_r = 10.6f - shrink;
+          float du_h = u - 6.2f;
+          if (head_r > 0.0f && (du_h * du_h + v * v) <= (head_r * head_r) && u <= (14.4f - shrink * 0.5f)) {
+            return true;
+          }
 
-          // 2. Transparent Lower-Left Hexagonal Box-End Cutout at (-9.5, +9.5) -> u_box = -13.4
-          float du_box = u + 11.8f;
-          float dv_box = v;
-          // 6-sided regular hexagon metric: max(|du|, 0.5*|du| + 0.866*|dv|) <= 3.35
-          float au = std::fabs(du_box);
-          float av = std::fabs(dv_box);
-          if (au <= 3.35f && (0.5f * au + 0.8660254f * av) <= 3.35f) return false;
-
-          // 3. Upper-Right Open-End Head (centered at u = +10.2, v = 0, r = 7.6px)
-          float du_hi = u - 10.2f;
-          if ((du_hi * du_hi + v * v) <= 58.0f && u <= 16.2f) return true;
-
-          // 4. Lower-Left Box-End Ring (centered at u = -11.8, v = 0, r = 6.6px)
-          if ((du_box * du_box + dv_box * dv_box) <= 43.5f) return true;
-
-          // 5. Central 45-Degree Handle Shaft (u in [-9.5 .. +8.0], |v| <= 3.1px)
-          if (u >= -9.5f && u <= 8.0f && std::fabs(v) <= 3.1f) return true;
+          // 3. Diagonal Handle Capsule (from u = -12.0 to u = +2.5, half-width = 4.8 - shrink)
+          float shaft_r = 4.8f - shrink;
+          if (shaft_r <= 0.0f) return false;
+          if (u >= -12.0f && u <= 2.5f && std::fabs(v) <= shaft_r) return true;
+          float du_cap = u + 12.0f;
+          if ((du_cap * du_cap + v * v) <= (shaft_r * shaft_r)) return true;
 
           return false;
         };
 
+        auto is_wrench_outline = [&](int dx, int dy) -> bool {
+          static constexpr float INV_SQRT2 = 0.70710678f;
+          float fx = static_cast<float>(dx);
+          float fy = static_cast<float>(dy);
+          float u = (fx - fy) * INV_SQRT2;
+          float v = (fx + fy) * INV_SQRT2;
+          // 2.6px thick outline wall = inside outer shape (shrink=0) AND outside inner hollow cavity (shrink=2.6)
+          return in_wrench_shape(u, v, 0.0f) && !in_wrench_shape(u, v, 2.55f);
+        };
+
         if (!is_shadow) {
-          for (int dy = -17; dy <= 17; dy++) {
-            for (int dx = -17; dx <= 17; dx++) {
-              if (is_wrench_pixel(dx, dy)) {
-                if (!is_wrench_pixel(dx + 1, dy + 1)) {
+          for (int dy = -18; dy <= 18; dy++) {
+            for (int dx = -18; dx <= 18; dx++) {
+              if (is_wrench_outline(dx, dy)) {
+                if (!is_wrench_outline(dx + 1, dy + 1)) {
                   it.draw_pixel_at(bx + dx + 1, by + dy + 1, col_black);
                 }
                 it.draw_pixel_at(bx + dx, by + dy, c);
@@ -2781,64 +2783,37 @@ inline void render_home_page(
           }
         }
       } else if (app_id == 3) {
-        // Games: Reference-Matched Thick-Outline Gamepad (Flared side grips + D-Pad '+' + 4-Dot Diamond)
-        // Uses 21-row outer & inner boundary tables so the interior is 100% transparent!
-        // dy spans -10 .. +10 (21 rows)
-        static constexpr int8_t GP_OUT_MAX[21] = {
-          11, 13, 14, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 17, 17, 16, 14
+        // Games: Pure-Outline Gamepad (Zero interior clutter, narrower top bridge, taller 26px height,
+        // and longer outward-flaring lower handgrips extending from dy = +1 down to dy = +12!)
+        // dy spans -13 .. +12 (26 rows total)
+        static constexpr int8_t GP_OUT_MAX[26] = {
+           9, 11, 12, 12, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 17, 17, 16, 16, 15, 14, 12
         };
-        static constexpr int8_t GP_OUT_MIN[21] = {
-           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  8,  9,  9, 10, 10, 11, 12
+        static constexpr int8_t GP_OUT_MIN[26] = {
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  6,  7,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11
         };
-        static constexpr int8_t GP_IN_MAX[21] = {
-          -1, -1, -1, 11, 12, 12, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 14, 13, -1, -1
+        static constexpr int8_t GP_IN_MAX[26] = {
+          -1, -1, -1,  9, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 14, 14, 14, 13, 13, -1, -1, -1
         };
-        static constexpr int8_t GP_IN_MIN[21] = {
-           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9, 10, 10, 10, 11, 11, 12, 12, 12,  0,  0
+        static constexpr int8_t GP_IN_MIN[26] = {
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  8,  9,  9, 10, 11, 11, 12, 12, 12, 12, 12,  0,  0,  0
         };
 
-        auto is_gamepad_pixel = [](int dx, int dy) -> bool {
-          if (dy < -10 || dy > 10) return false;
-          int row = dy + 10;
+        auto is_gamepad_outline = [](int dx, int dy) -> bool {
+          if (dy < -13 || dy > 12) return false;
+          int row = dy + 13;
           int ax = std::abs(dx);
-
-          // 1. Check if inside outer gamepad silhouette
           bool in_outer = (ax >= GP_OUT_MIN[row] && ax <= GP_OUT_MAX[row]);
           if (!in_outer) return false;
-
-          // 2. Check if inside hollow interior (transparent!)
           bool in_inner = (GP_IN_MAX[row] >= 0) && (ax >= GP_IN_MIN[row] && ax <= GP_IN_MAX[row]);
-          if (!in_inner) return true; // Part of the 3px thick outer shell wall!
-
-          // 3. Inside hollow interior: draw Left D-Pad Cross (+) centered at (dx = -8, dy = -2)
-          int dpx = dx + 8;
-          int dpy = dy + 2;
-          if ((std::abs(dpx) <= 1 && std::abs(dpy) <= 4) ||
-              (std::abs(dpy) <= 1 && std::abs(dpx) <= 4)) {
-            return true;
-          }
-
-          // 4. Inside hollow interior: draw Right 4-Dot Action Diamond centered at (dx = +8, dy = -2)
-          int abx = dx - 8;
-          int aby = dy + 2;
-          // Top (0, -3), Bottom (0, +3), Left (-3, 0), Right (+3, 0) — each dot is a 2x2 / r=1 pip
-          auto is_dot = [](int x, int y, int cx_d, int cy_d) -> bool {
-            int rx = x - cx_d, ry = y - cy_d;
-            return (rx * rx + ry * ry) <= 1;
-          };
-          if (is_dot(abx, aby, 0, -3) || is_dot(abx, aby, 0, 3) ||
-              is_dot(abx, aby, -3, 0) || is_dot(abx, aby, 3, 0)) {
-            return true;
-          }
-
-          return false;
+          return !in_inner; // Pure 3px outline wall with 100% open interior!
         };
 
         if (!is_shadow) {
-          for (int dy = -11; dy <= 11; dy++) {
-            for (int dx = -19; dx <= 19; dx++) {
-              if (is_gamepad_pixel(dx, dy)) {
-                if (!is_gamepad_pixel(dx + 1, dy + 1)) {
+          for (int dy = -13; dy <= 12; dy++) {
+            for (int dx = -18; dx <= 18; dx++) {
+              if (is_gamepad_outline(dx, dy)) {
+                if (!is_gamepad_outline(dx + 1, dy + 1)) {
                   it.draw_pixel_at(bx + dx + 1, by + dy + 1, col_black);
                 }
                 it.draw_pixel_at(bx + dx, by + dy, c);
