@@ -811,11 +811,11 @@ inline bool is_right_chevron_zone(const TouchT &t) {
 template<typename TouchT>
 inline int get_5slot_index(const TouchT &t, int x_min, int x_max) {
   if (t.x < x_min || t.x > x_max) return -1;
-  if (t.y >= 75  && t.y <= 133) return 0;
-  if (t.y >= 134 && t.y <= 191) return 1;
-  if (t.y >= 192 && t.y <= 249) return 2;
-  if (t.y >= 250 && t.y <= 307) return 3;
-  if (t.y >= 308 && t.y <= 374) return 4;
+  if (t.y >= 80  && t.y < 141) return 0;
+  if (t.y >= 141 && t.y < 204) return 1;
+  if (t.y >= 204 && t.y < 267) return 2;
+  if (t.y >= 267 && t.y < 330) return 3;
+  if (t.y >= 330 && t.y < 385) return 4;
   return -1;
 }
 

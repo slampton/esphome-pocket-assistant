@@ -216,7 +216,7 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
   }
 
   // Header & Right-Flank Scroll Chevrons
-  it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "TOOLS");
+  it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "TOOLS");
   it.filled_rectangle(395, 140, 71, 160, col_bg);
   if (stuff_menu_page == 1) {
     render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, false);
@@ -1184,9 +1184,9 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
 
   if (view_idx == 0) {
     // -------------------------------------------------------------------------
-    // TIMERS LANDING PAGE (3 Modern Rounded Timer Cards at y = 122, 210, 298)
+    // TIMERS LANDING PAGE (3 Modern Rounded Timer Cards at y = 122, 222, 322)
     // -------------------------------------------------------------------------
-    it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "TIMERS");
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "TIMERS");
 
     static constexpr int CARD_YS[3] = {122, 222, 322};
     for (int i = 0; i < 3; i++) {
@@ -1253,9 +1253,9 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
     render_progress_arc_r224(it, cx, cy, frac, s.paused ? theme_secondary : theme_primary);
   }
 
-  // 2. Dynamic Uppercase Timer Title ("CHICKEN", "PASTA", or "TIMER 1") at y = 50
-  std::string hdr = fit_text_to_width_font(format_timer_header_upper(s_idx), 230, font_date);
-  it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, hdr.c_str());
+  // 2. Dynamic Uppercase Timer Title ("CHICKEN", "PASTA", or "TIMER 1") in 21pt font_small at y = 48
+  std::string hdr = fit_text_to_width_font(format_timer_header_upper(s_idx), 280, font_small);
+  it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, hdr.c_str());
 
   int disp_sec = (s.running || s.paused) ? s.remaining_sec : s.duration_sec;
   char t_str[16];
@@ -1270,10 +1270,12 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
     it.print(cx, 192, font_small, col_slate, esphome::display::TextAlign::CENTER, s.name.empty() ? "Ready" : "Saved Preset");
   }
 
-  // 3. Hero START / PAUSE / RESUME Pill at y = 248
+  // 3. Hero START / PAUSE / RESUME Modern Card at y = 248 (matches Edit Alarm / Stepper card aesthetic!)
   const char *hero_lbl = (!s.running && !s.paused) ? "START" : (s.running ? "PAUSE" : "RESUME");
-  render_pill_button(it, 143, 323, 248, 22, theme_secondary, theme_secondary,
-                     hero_lbl, col_black, font_btn_bold);
+  render_modern_card(it, cx, 248, 188, 44, 12,
+                     s.running ? esphome::Color(28, 36, 48) : esphome::Color(22, 27, 36),
+                     s.running ? theme_secondary : theme_primary,
+                     hero_lbl, col_white, font_btn_bold);
 
   // 4. Modern Stepper Cards (-5m, -1m, +1m, +5m) or RESET Card at y = 324
   esphome::Color card_bg(22, 27, 36);
@@ -1312,7 +1314,7 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
     // -------------------------------------------------------------------------
     // ALARMS LANDING PAGE (3 Modern Rounded Alarm Cards at y = 122, 210, 298)
     // -------------------------------------------------------------------------
-    it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "ALARMS");
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "ALARMS");
 
     static constexpr const char *REC_LABELS[4] = {"Daily", "Weekdays", "Weekends", "Once"};
 
@@ -1325,8 +1327,8 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
       render_modern_card(it, cx, y_mid, 316, 74, 16, card_bg, border_c, nullptr, col_white, font_small);
 
       if (is_snoozed) {
-        render_pill_button(it, 114, 352, y_mid, 18, theme_secondary, theme_secondary,
-                           "DISMISS SNOOZE", col_black, font_small);
+        render_modern_card(it, cx, y_mid, 264, 44, 12, esphome::Color(28, 36, 48), theme_secondary,
+                           "DISMISS SNOOZE", col_white, font_small);
         return;
       }
 
@@ -1369,7 +1371,7 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
     draw_modern_alarm_card(222, alarm2_hour, alarm2_minute, alarm2_enabled, alarm2_recurrence, 2);
     draw_modern_alarm_card(322, alarm3_hour, alarm3_minute, alarm3_enabled, alarm3_recurrence, 3);
   } else {
-    it.print(cx, 50, font_date, theme_primary, esphome::display::TextAlign::CENTER, "EDIT ALARM");
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "EDIT ALARM");
 
     int cur_h = (alarm_edit_idx == 3) ? alarm3_hour : ((alarm_edit_idx == 2) ? alarm2_hour : alarm1_hour);
     int cur_m = (alarm_edit_idx == 3) ? alarm3_minute : ((alarm_edit_idx == 2) ? alarm2_minute : alarm1_minute);
@@ -1535,18 +1537,13 @@ inline bool is_music_playing_effective(bool is_remote, bool local_playing,
   return (ha_state == "playing");
 }
 
-template<typename DisplayT, typename FontDateT>
+template<typename DisplayT, typename FontHeaderT>
 inline void render_menu_header(DisplayT &it, int cx, int y_pos, const std::string &title,
-                               FontDateT *font_date, esphome::Color theme_primary) {
-  if (title.empty()) return;
-  int w = 0, x_off = 0, base = 0, text_h = 0;
-  font_date->measure(title.c_str(), &w, &x_off, &base, &text_h);
-  if (w <= 220) {
-    it.print(cx, y_pos, font_date, theme_primary, esphome::display::TextAlign::CENTER, title.c_str());
-  } else {
-    std::string disp_title = fit_text_to_width_font(title, 246, font_date);
-    it.print(110, y_pos, font_date, theme_primary, esphome::display::TextAlign::CENTER_LEFT, disp_title.c_str());
-  }
+                               FontHeaderT *font_hdr, esphome::Color theme_primary) {
+  if (title.empty() || font_hdr == nullptr) return;
+  int eff_y = (y_pos == 50 || y_pos == 46) ? 48 : y_pos;
+  std::string disp_title = fit_text_to_width_font(title, 280, font_hdr);
+  it.print(cx, eff_y, font_hdr, theme_primary, esphome::display::TextAlign::CENTER, disp_title.c_str());
 }
 
 template<typename DisplayT, typename LocalImageT, typename RemoteImageT,
@@ -1811,27 +1808,31 @@ inline void render_music_menus(
     if (show_down) render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, false);
   };
 
+  (void)font_date;
+  const esphome::Color card_bg(22, 27, 36);
+  const esphome::Color card_brd(52, 62, 78);
+
   if (music_overlay_mode == 5) {
     // SUBPAGE 5: MUSIC MENU (SPEAKERS, LIBRARY, SETTINGS)
-    it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "MUSIC");
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "MUSIC");
     std::string spk_sub = fit_text_to_width_font(active_speaker_name, 260, font_small);
-    it.print(cx, 78, font_small, col_white, esphome::display::TextAlign::CENTER, spk_sub.c_str());
+    it.print(cx, 76, font_small, col_white, esphome::display::TextAlign::CENTER, spk_sub.c_str());
 
-    render_pill_button(it, 150, 316, 140, 18, theme_primary, col_dark_gray, "Speakers", col_white, font_small);
-    render_pill_button(it, 150, 316, 200, 18, theme_primary, col_dark_gray, "Library", col_white, font_small);
-    render_pill_button(it, 150, 316, 290, 18, theme_secondary, col_dark_gray, "Settings", col_white, font_small);
+    render_modern_card(it, cx, 140, 202, 44, 12, card_bg, theme_primary, "Speakers", col_white, font_small);
+    render_modern_card(it, cx, 203, 202, 44, 12, card_bg, theme_primary, "Library",  col_white, font_small);
+    render_modern_card(it, cx, 290, 202, 44, 12, card_bg, card_brd,      "Settings", col_white, font_small);
 
   } else if (music_overlay_mode == 1) {
-    // LEVEL 1: SPEAKERS BROWSER (5-Slot Speaker Inventory)
-    render_menu_header(it, cx, 50, "SPEAKERS", font_date, theme_primary);
+    // LEVEL 1: SPEAKERS BROWSER (5-Slot Speaker Inventory — 63px Stride Modern Cards)
+    render_menu_header(it, cx, 48, "SPEAKERS", font_small, theme_primary);
 
     auto draw_speaker_card = [&](int y_mid, const std::string &name, const std::string &id_str, bool is_act) {
       if (name.empty()) return;
       bool is_current = (is_act || id_str == active_speaker_entity);
-      esphome::Color border_c = is_current ? theme_primary : theme_secondary;
+      esphome::Color border_c = is_current ? theme_primary : card_brd;
       esphome::Color txt_c = is_current ? theme_primary : col_white;
 
-      render_pill_button(it, 110, 356, y_mid, 18, border_c, col_dark_gray, "", txt_c, font_small);
+      render_modern_card(it, cx, y_mid, 276, 44, 12, card_bg, border_c, nullptr, txt_c, font_small);
       if (is_current) {
         it.filled_circle(114, y_mid, 6, theme_primary);
       } else {
@@ -1841,51 +1842,52 @@ inline void render_music_menus(
       it.print(130, y_mid, font_small, txt_c, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
     };
 
-    draw_speaker_card(104, slot_1_name, slot_1_id, slot_1_active);
-    draw_speaker_card(162, slot_2_name, slot_2_id, slot_2_active);
-    draw_speaker_card(220, slot_3_name, slot_3_id, slot_3_active);
-    draw_speaker_card(278, slot_4_name, slot_4_id, slot_4_active);
-    draw_speaker_card(336, slot_5_name, slot_5_id, slot_5_active);
+    draw_speaker_card(110, slot_1_name, slot_1_id, slot_1_active);
+    draw_speaker_card(173, slot_2_name, slot_2_id, slot_2_active);
+    draw_speaker_card(236, slot_3_name, slot_3_id, slot_3_active);
+    draw_speaker_card(299, slot_4_name, slot_4_id, slot_4_active);
+    draw_speaker_card(362, slot_5_name, slot_5_id, slot_5_active);
 
     if (music_browse_total_pages > 1) {
       draw_right_chevrons(true, true);
     }
 
   } else if (music_overlay_mode == 2) {
-    // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Continuous 7-Item Eased Scroll)
+    // LEVEL 2: LIBRARY CATEGORIES SUBMENU (Compact 202px Width Modern Cards, 63px Stride, 126px 2-Row Scroll)
+    static constexpr int16_t SCROLL_EASE_126[5] = {0, 27, 68, 108, 126};
     int current_offset = 0;
     if (menu_scroll_active) {
       int cur_step = std::max(0, std::min(4, menu_scroll_step));
-      int shift = SHARED_SCROLL_EASE_116[cur_step];
-      current_offset = (menu_scroll_dir == 1) ? shift : (116 - shift);
+      int shift = SCROLL_EASE_126[cur_step];
+      current_offset = (menu_scroll_dir == 1) ? shift : (126 - shift);
     } else {
-      current_offset = (music_category_page == 2) ? 116 : 0;
+      current_offset = (music_category_page == 2) ? 126 : 0;
     }
 
     static constexpr const char *CAT_LABELS[7] = {
         "FAVORITES", "PLAYLISTS", "ARTISTS", "ALBUMS", "PODCASTS", "RADIO", "AUDIOBOOKS"};
     for (int i = 0; i < 7; i++) {
-      int y = 104 + i * 58 - current_offset;
-      if (y >= 50 && y <= 390) {
-        render_pill_button(it, 150, 316, y, 18, theme_secondary, col_dark_gray,
+      int y = 110 + i * 63 - current_offset;
+      if (y >= 60 && y <= 395) {
+        render_modern_card(it, cx, y, 202, 44, 12, card_bg, card_brd,
                            CAT_LABELS[i], col_white, font_small);
       }
     }
 
-    it.filled_rectangle(0, 0, 466, 75, col_bg);
-    it.filled_rectangle(0, 370, 466, 96, col_bg);
-    render_menu_header(it, cx, 50, "LIBRARY", font_date, theme_primary);
+    it.filled_rectangle(0, 0, 466, 82, col_bg);
+    it.filled_rectangle(0, 388, 466, 78, col_bg);
+    render_menu_header(it, cx, 48, "LIBRARY", font_small, theme_primary);
     int cur_dot_page = menu_scroll_active ? menu_scroll_target_page : music_category_page;
 
     draw_right_chevrons(cur_dot_page == 2, cur_dot_page == 1);
 
   } else if (music_overlay_mode == 3) {
-    // LEVEL 3: ITEM BROWSER (Dual Inline Play/Browse Cards - 5 Slots)
+    // LEVEL 3: ITEM BROWSER (5 Slots at 63px Stride: Preserves Left Play Circle, Left Play Triangle & Right Hamburger)
     bool is_podcast_list = (selected_category_mode == "podcast");
     bool is_drill = (selected_category_mode == "artist" || selected_category_mode == "album" ||
                      selected_category_mode == "artist_albums");
 
-    render_menu_header(it, cx, 50, selected_category_title, font_date, theme_primary);
+    render_menu_header(it, cx, 48, selected_category_title, font_small, theme_primary);
 
     auto draw_drilldown_icon = [&](int x_pos, int y_mid) {
       for (int dy : {-4, 0, 4}) it.filled_rectangle(x_pos, y_mid + dy, 13, 2, theme_secondary);
@@ -1894,47 +1896,44 @@ inline void render_music_menus(
     auto draw_slot_card = [&](int y_mid, const std::string &name, const std::string &mtype, bool is_act) {
       if (name.empty()) return;
       if (is_drill) {
-        it.filled_circle(82, y_mid, 18, col_dark_gray);
+        // Left Play Circle (r = 18 at x = 82) stays exactly as before!
+        it.filled_circle(82, y_mid, 18, card_bg);
         it.circle(82, y_mid, 18, theme_primary);
         it.filled_triangle(79, y_mid - 6, 79, y_mid + 6, 88, y_mid, theme_primary);
 
-        it.filled_circle(138, y_mid, 18, theme_secondary);
-        it.filled_circle(357, y_mid, 18, theme_secondary);
-        it.filled_rectangle(138, y_mid - 18, 219, 37, theme_secondary);
+        // Right Drill-Down Modern Card (x = 120..372, cx_card = 246, w = 252, h = 44, r = 12)
+        render_modern_card(it, 246, y_mid, 252, 44, 12, card_bg, card_brd, nullptr, col_white, font_small);
 
-        it.filled_circle(138, y_mid, 16, col_dark_gray);
-        it.filled_circle(357, y_mid, 16, col_dark_gray);
-        it.filled_rectangle(138, y_mid - 16, 219, 33, col_dark_gray);
-
-        std::string disp_name = fit_text_to_width_font(name, 196, font_small);
-        it.print(144, y_mid, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
-        draw_drilldown_icon(350, y_mid);
+        std::string disp_name = fit_text_to_width_font(name, 204, font_small);
+        it.print(136, y_mid, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
+        draw_drilldown_icon(346, y_mid);
       } else if (is_podcast_list) {
-        render_pill_button(it, 110, 356, y_mid, 18, theme_secondary, col_dark_gray, "", col_white, font_small);
-        std::string disp_name = fit_text_to_width_font(name, 196, font_small);
-        it.print(126, y_mid, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
-        draw_drilldown_icon(336, y_mid);
+        render_modern_card(it, cx, y_mid, 276, 44, 12, card_bg, card_brd, nullptr, col_white, font_small);
+        std::string disp_name = fit_text_to_width_font(name, 212, font_small);
+        it.print(114, y_mid, font_small, col_white, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
+        draw_drilldown_icon(342, y_mid);
       } else if (mtype == "text") {
-        std::string disp_name = fit_text_to_width_font(name, 236, font_small);
-        render_pill_button(it, 110, 356, y_mid, 18, col_dark_gray, col_dark_gray, disp_name.c_str(), col_slate, font_small);
+        std::string disp_name = fit_text_to_width_font(name, 248, font_small);
+        render_modern_card(it, cx, y_mid, 276, 44, 12, esphome::Color(15, 18, 24), esphome::Color(34, 40, 50),
+                           disp_name.c_str(), col_slate, font_small);
       } else {
-        esphome::Color border_c = is_act ? theme_primary : theme_secondary;
+        esphome::Color border_c = is_act ? theme_primary : card_brd;
         esphome::Color txt_c = is_act ? theme_primary : col_white;
-        render_pill_button(it, 110, 356, y_mid, 18, border_c, col_dark_gray, "", txt_c, font_small);
+        render_modern_card(it, cx, y_mid, 276, 44, 12, card_bg, border_c, nullptr, txt_c, font_small);
 
         esphome::Color icon_c = (mtype == "radio") ? theme_secondary : theme_primary;
-        it.filled_triangle(108, y_mid - 6, 108, y_mid + 6, 118, y_mid, icon_c);
+        it.filled_triangle(110, y_mid - 6, 110, y_mid + 6, 120, y_mid, icon_c);
 
-        std::string disp_name = fit_text_to_width_font(name, 218, font_small);
+        std::string disp_name = fit_text_to_width_font(name, 224, font_small);
         it.print(130, y_mid, font_small, txt_c, esphome::display::TextAlign::CENTER_LEFT, disp_name.c_str());
       }
     };
 
-    draw_slot_card(104, slot_1_name, slot_1_type, slot_1_active);
-    draw_slot_card(162, slot_2_name, slot_2_type, slot_2_active);
-    draw_slot_card(220, slot_3_name, slot_3_type, slot_3_active);
-    draw_slot_card(278, slot_4_name, slot_4_type, slot_4_active);
-    draw_slot_card(336, slot_5_name, slot_5_type, slot_5_active);
+    draw_slot_card(110, slot_1_name, slot_1_type, slot_1_active);
+    draw_slot_card(173, slot_2_name, slot_2_type, slot_2_active);
+    draw_slot_card(236, slot_3_name, slot_3_type, slot_3_active);
+    draw_slot_card(299, slot_4_name, slot_4_type, slot_4_active);
+    draw_slot_card(362, slot_5_name, slot_5_type, slot_5_active);
 
     if (music_browse_total_pages > 1) {
       draw_right_chevrons(music_browse_page > 1, music_browse_page < music_browse_total_pages);
@@ -1943,31 +1942,31 @@ inline void render_music_menus(
   } else if (music_overlay_mode == 4) {
     // LEVEL 4: SPEAKER ACTION SHEET
     std::string spk_title = target_speaker_name.empty() ? "SPEAKER" : target_speaker_name;
-    render_menu_header(it, cx, 50, spk_title, font_date, theme_primary);
+    render_menu_header(it, cx, 48, spk_title, font_small, theme_primary);
 
     bool is_current = (target_speaker_id == active_speaker_entity);
     if (is_current) {
       it.print(cx, 76, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "CURRENTLY CONTROLLING");
       bool is_remote_target = (target_speaker_id != local_player_id);
       if (is_remote_target) {
-        render_pill_button(it, 110, 356, 142, 18, theme_secondary, col_dark_gray, "TRANSFER TO LOCAL", col_white, font_small);
-        render_pill_button(it, 110, 356, 200, 18, theme_secondary, col_dark_gray, "UNJOIN AUDIO", col_white, font_small);
-        render_pill_button(it, 110, 356, 258, 18, theme_secondary, col_dark_gray, "STOP PLAYBACK", col_white, font_small);
+        render_modern_card(it, cx, 142, 276, 44, 12, card_bg, card_brd, "TRANSFER TO LOCAL", col_white, font_small);
+        render_modern_card(it, cx, 205, 276, 44, 12, card_bg, card_brd, "UNJOIN AUDIO",      col_white, font_small);
+        render_modern_card(it, cx, 268, 276, 44, 12, card_bg, card_brd, "STOP PLAYBACK",     col_white, font_small);
       } else {
-        render_pill_button(it, 110, 356, 160, 18, theme_secondary, col_dark_gray, "UNJOIN AUDIO", col_white, font_small);
-        render_pill_button(it, 110, 356, 230, 18, theme_secondary, col_dark_gray, "STOP PLAYBACK", col_white, font_small);
+        render_modern_card(it, cx, 160, 276, 44, 12, card_bg, card_brd, "UNJOIN AUDIO",  col_white, font_small);
+        render_modern_card(it, cx, 230, 276, 44, 12, card_bg, card_brd, "STOP PLAYBACK", col_white, font_small);
       }
     } else {
       it.print(cx, 76, font_small, col_slate, esphome::display::TextAlign::CENTER, "SPEAKER ACTIONS");
-      render_pill_button(it, 110, 356, 130, 18, theme_secondary, col_dark_gray, "TRANSFER QUEUE", col_white, font_small);
-      render_pill_button(it, 110, 356, 188, 18, theme_secondary, col_dark_gray, "CONTROL ONLY", col_white, font_small);
-      render_pill_button(it, 110, 356, 246, 18, theme_secondary, col_dark_gray, "JOIN AUDIO", col_white, font_small);
-      render_pill_button(it, 110, 356, 304, 18, theme_secondary, col_dark_gray, "UNJOIN / DETACH", col_white, font_small);
+      render_modern_card(it, cx, 130, 276, 44, 12, card_bg, card_brd, "TRANSFER QUEUE",  col_white, font_small);
+      render_modern_card(it, cx, 190, 276, 44, 12, card_bg, card_brd, "CONTROL ONLY",    col_white, font_small);
+      render_modern_card(it, cx, 250, 276, 44, 12, card_bg, card_brd, "JOIN AUDIO",      col_white, font_small);
+      render_modern_card(it, cx, 310, 276, 44, 12, card_bg, card_brd, "UNJOIN / DETACH", col_white, font_small);
     }
   } else if (music_overlay_mode == 6) {
     // LEVEL 6: NOW PLAYING TRACK & ALBUM INSPECTOR
-    std::string disp_t = cur_title.empty() ? "NOW PLAYING" : fit_text_to_width_font(cur_title, 240, font_date);
-    it.print(cx, 44, font_date, theme_primary, esphome::display::TextAlign::CENTER, disp_t.c_str());
+    std::string disp_t = cur_title.empty() ? "NOW PLAYING" : fit_text_to_width_font(cur_title, 280, font_small);
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, disp_t.c_str());
 
     std::string sub_meta = cur_artist;
     if (!cur_album.empty() && cur_album != "None") {
@@ -1975,13 +1974,13 @@ inline void render_music_menus(
     }
     if (!sub_meta.empty() && sub_meta != "None") {
       sub_meta = fit_text_to_width_font(sub_meta, 275, font_small);
-      it.print(cx, 74, font_small, col_slate, esphome::display::TextAlign::CENTER, sub_meta.c_str());
+      it.print(cx, 76, font_small, col_slate, esphome::display::TextAlign::CENTER, sub_meta.c_str());
     }
 
-    // 1. Top Pill: Album Tracks (y = 118) with 3-bar tracklist icon
-    render_pill_button(it, 118, 348, 118, 18, theme_primary, col_dark_gray, "Album Tracks", col_white, font_small);
+    // 1. Top Modern Card: Album Tracks (y = 120) with 3-bar tracklist icon
+    render_modern_card(it, cx, 120, 266, 44, 12, card_bg, theme_primary, "Album Tracks", col_white, font_small);
     for (int dy : {-4, 0, 4}) {
-      it.filled_rectangle(332, 118 + dy, 12, 2, theme_secondary);
+      it.filled_rectangle(336, 120 + dy, 12, 2, theme_secondary);
     }
 
     // 2. Center Equator (y = 188 .. 248): Wide Track Position Scrubber (x = 95..371, y = 233)
@@ -2915,26 +2914,29 @@ inline void render_tv_remote_page(
       it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "SETTINGS");
     }
 
-    // Slot 0 (y = 104): Master System Power Button (Always targets tv_remote_power_entity)
-    render_pill_button(it, 110, 356, 104, 18, col_red, col_dark_gray, "Toggle Power", col_white, font_small);
+    const esphome::Color card_bg(22, 27, 36);
+    const esphome::Color card_brd(52, 62, 78);
 
-    // Slots 1..4 (y = 162, 220, 278, 336): Preconfigured Devices + Per-Device Power Override Circle
+    // Slot 0 (y = 110): Master System Power Card (w = 276, h = 44, r = 12 -> outer edges x = 95..371)
+    render_modern_card(it, cx, 110, 276, 44, 12, esphome::Color(28, 18, 22), col_red,
+                       "Toggle Power", col_white, font_small);
+
+    // Slots 1..4 (y = 173, 236, 299, 362): Preconfigured Devices + Per-Device Power Override Circle
     int valid_slots[4] = {0, 0, 0, 0};
     int valid_count = collect_configured_remote_slots(ents, valid_slots);
     for (int row = 0; row < valid_count; row++) {
       int s_idx = valid_slots[row];
-      int y_mid = 162 + row * 58;
+      int y_mid = 173 + row * 63;
       bool is_sel = (s_idx == slot);
 
       std::string d_name = names[s_idx];
       if (d_name.empty()) d_name = format_remote_entity_fallback(ents[s_idx]);
 
-      esphome::Color border_c = is_sel ? theme_primary : theme_secondary;
+      esphome::Color border_c = is_sel ? theme_primary : card_brd;
       esphome::Color text_c = is_sel ? theme_primary : col_white;
 
-      // Uniform pill width across all 4 slots (x1 = 110, x2 = 306 -> outer edges 92..324)
-      // Styled identically to Speakers menu: left indicator dot at x = 114, left-aligned label at x = 130
-      render_pill_button(it, 110, 306, y_mid, 18, border_c, col_dark_gray, "", text_c, font_small);
+      // Uniform modern card width across all 4 slots (cx_card = 208, w = 226 -> outer edges x = 95..321)
+      render_modern_card(it, 208, y_mid, 226, 44, 12, card_bg, border_c, nullptr, text_c, font_small);
       if (is_sel) {
         it.filled_circle(114, y_mid, 6, theme_primary);
       } else {
@@ -2945,10 +2947,9 @@ inline void render_tv_remote_page(
 
       if (row > 0) {
         // Secondary Devices (Slots 2..4): Individual Override Power Button right-aligned with Toggle Power
-        // Top Toggle Power has x2 = 356 (right outer edge = 374); p_cx = 356 aligns right outer edge at 374
-        // and leaves a clean 14px gap (324..338) between the device pill and the power button.
-        const int p_cx = 356;
-        it.filled_circle(p_cx, y_mid, 18, col_dark_gray);
+        // Top Toggle Power right edge = 371; p_cx = 353 (r = 18) aligns right outer edge at 371 with a 14px gap!
+        const int p_cx = 353;
+        it.filled_circle(p_cx, y_mid, 18, card_bg);
         it.circle(p_cx, y_mid, 18, col_red);
         for (int i = 6; i < 54; i += 2) {
           int x1 = p_cx + static_cast<int>(7.0f * DIAL_SIN[i]);
@@ -3133,7 +3134,7 @@ inline void render_system_page(
     it.filled_rectangle(0, 0, 466, 106, col_bg);
     it.filled_rectangle(0, 332, 466, 134, col_bg);
 
-    it.print(cx, 46, font_date, theme_primary, esphome::display::TextAlign::CENTER, "SYSTEM");
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "SYSTEM");
 
     bool has_update = is_newer_semver(ha_fw_latest, version_str);
     if (has_update) {
@@ -3189,7 +3190,7 @@ inline void render_system_page(
 
     it.filled_rectangle(0, 0, 466, 75, col_bg);
     it.filled_rectangle(0, 370, 466, 96, col_bg);
-    render_menu_header(it, cx, 50, "SLEEP & WAKE", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "SLEEP & WAKE", font_small, theme_primary);
     draw_back();
     int active_page = menu_scroll_active ? menu_scroll_target_page : sleep_menu_page;
     draw_right_chevrons(active_page == 2, active_page == 1);
@@ -3234,7 +3235,7 @@ inline void render_system_page(
 
     it.filled_rectangle(0, 0, 466, 75, col_bg);
     it.filled_rectangle(0, 370, 466, 96, col_bg);
-    render_menu_header(it, cx, 50, "DISPLAY", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "DISPLAY", font_small, theme_primary);
     draw_back();
     int active_page = menu_scroll_active ? menu_scroll_target_page : display_menu_page;
     draw_right_chevrons(active_page == 2, active_page == 1);
@@ -3243,7 +3244,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 3: ACTIONS SUBMENU (5 One-Shot / On-Demand System Controls)
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "ACTIONS", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "ACTIONS", font_small, theme_primary);
     draw_slot_card(0, "Screensaver Now", theme_secondary, col_white, col_dark_gray);
     draw_slot_card(1, "Hibernate Now", theme_secondary, col_white, col_dark_gray);
     draw_slot_card(2, "Software Update >", theme_secondary, col_white, col_dark_gray);
@@ -3257,7 +3258,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 4: RESTART CONFIRMATION DIALOG
     // -------------------------------------------------------------------------
-    it.print(cx, 130, font_date, theme_primary, esphome::display::TextAlign::CENTER, "RESTART?");
+    it.print(cx, 130, font_small, theme_primary, esphome::display::TextAlign::CENTER, "RESTART?");
     render_pill_button(it, 125, 195, 230, 20, col_slate, col_dark_gray, "Cancel", col_white, font_small);
     render_pill_button(it, 271, 341, 230, 20, col_red, col_dark_gray, "Restart", col_white, font_small);
 
@@ -3265,7 +3266,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 5: SOFTWARE UPDATE SCREEN
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "UPDATE", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "UPDATE", font_small, theme_primary);
     snprintf(buf, sizeof(buf), "Installed: v%s", version_str);
     it.print(cx, 95, font_small, col_slate, esphome::display::TextAlign::CENTER, buf);
 
@@ -3311,7 +3312,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 6: UPDATE CONFIRMATION DIALOG
     // -------------------------------------------------------------------------
-    it.print(cx, 100, font_date, theme_primary, esphome::display::TextAlign::CENTER, "INSTALL UPDATE?");
+    it.print(cx, 100, font_small, theme_primary, esphome::display::TextAlign::CENTER, "INSTALL UPDATE?");
     it.print(cx, 145, font_small, col_white, esphome::display::TextAlign::CENTER, "Download & flash firmware");
     it.print(cx, 175, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "Keep device powered on");
     render_pill_button(it, 125, 195, 240, 20, col_slate, col_dark_gray, "Cancel", col_white, font_small);
@@ -3321,7 +3322,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 7: SOUND SUBMENU (4 Items on 1 Page)
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "SOUND", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "SOUND", font_small, theme_primary);
     snprintf(buf, sizeof(buf), "Speaker Vol: %d%%", spk_vol_pct);
     draw_slot_card(0, buf, theme_secondary, col_white, col_dark_gray);
     snprintf(buf, sizeof(buf), "Alert Vol: %d%%", alert_vol_pct);
@@ -3337,7 +3338,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 8: SYSTEM INFO & OS DIAGNOSTICS
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "SYSTEM INFO", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "SYSTEM INFO", font_small, theme_primary);
     const int info_x = 88;
     bool has_update = is_newer_semver(ha_fw_latest, version_str);
 
@@ -3390,7 +3391,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 9: MUSIC SETTINGS SUBMENU
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "MUSIC", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "MUSIC", font_small, theme_primary);
     snprintf(buf, sizeof(buf), "Art: %s", art_mode_opt.c_str());
     draw_slot_card(0, buf, theme_secondary, col_white, col_dark_gray);
     snprintf(buf, sizeof(buf), "Overlay: %s", overlay_style_opt.c_str());
@@ -3407,7 +3408,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 11: VOICE SUBMENU (5 Voice Assistant & Wake Word Settings on 1 Page)
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "VOICE", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "VOICE", font_small, theme_primary);
     snprintf(buf, sizeof(buf), "Wake Mode: %s", va_ww_mode_opt.c_str());
     draw_slot_card(0, buf, theme_secondary, col_white, col_dark_gray);
     const bool ww_en = (va_ww_mode_opt != "Disabled");
@@ -3426,7 +3427,7 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     // VIEW 12: PER-MODEL WAKE WORD SENSITIVITY SUBMENU
     // -------------------------------------------------------------------------
-    render_menu_header(it, cx, 50, "SENSITIVITY", font_date, theme_primary);
+    render_menu_header(it, cx, 48, "SENSITIVITY", font_small, theme_primary);
     auto short_sens = [](const std::string &s) -> const char * {
       if (s == "Slightly sensitive") return "Low";
       if (s == "Very sensitive") return "High";

@@ -3698,14 +3698,7 @@ touchscreen:
               uint32_t now_hm = millis();
 
               if (id(home_subpage) == 1) {
-                int slot_idx = -1;
-                if (touch.x >= 90 && touch.x <= 376) {
-                  if (touch.y >= 84  && touch.y < 141) slot_idx = 0;
-                  else if (touch.y >= 141 && touch.y < 204) slot_idx = 1;
-                  else if (touch.y >= 204 && touch.y < 267) slot_idx = 2;
-                  else if (touch.y >= 267 && touch.y < 330) slot_idx = 3;
-                  else if (touch.y >= 330 && touch.y < 385) slot_idx = 4;
-                }
+                int slot_idx = get_5slot_index(touch, 90, 376);
                 if (slot_idx >= 0 && slot_idx <= 4 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   last_home_tap = now_hm;
                   if (slot_idx == 0) id(home_weather_bg_switch).toggle();
@@ -5002,7 +4995,7 @@ touchscreen:
               };
 
               if (id(remote_subpage) == 1) {
-                if (touch.x >= 100 && touch.x <= 366 && touch.y >= 80 && touch.y <= 130) {
+                if (touch.x >= 95 && touch.x <= 371 && touch.y >= 84 && touch.y < 141) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
                     id(remote_send_key).execute(9, -1);
@@ -5014,10 +5007,10 @@ touchscreen:
                 int valid_slots[4] = {0, 0, 0, 0};
                 int valid_count = pocket_ui::collect_configured_remote_slots(rem_ents, valid_slots);
                 for (int row = 0; row < valid_count; row++) {
-                  int y_mid = 162 + row * 58;
-                  if (touch.y >= y_mid - 24 && touch.y <= y_mid + 24) {
+                  int y_mid = 173 + row * 63;
+                  if (touch.y >= y_mid - 28 && touch.y <= y_mid + 28) {
                     int s_idx = valid_slots[row];
-                    if (touch.x >= 90 && touch.x <= 328) {
+                    if (touch.x >= 90 && touch.x <= 326) {
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(active_remote_slot) = s_idx;
@@ -5027,7 +5020,7 @@ touchscreen:
                       }
                       return;
                     }
-                    if (row > 0 && touch.x >= 332 && touch.x <= 384) {
+                    if (row > 0 && touch.x >= 330 && touch.x <= 384) {
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(remote_send_key).execute(9, s_idx);

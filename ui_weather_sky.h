@@ -1526,7 +1526,7 @@ inline void render_weather_page(
     apply_weather_sim_override(weather_sim_opt, cond, is_night);
 
     // 1. Standard Top Header ("CURRENT" at y = 50 + divider at y = 62, matching FORECAST)
-    it.print(cx, 50, font_date, theme_primary, TextAlign::CENTER, "CURRENT");
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "CURRENT");
     it.line(80, 62, 386, 62, col_dark_gray);
 
     // 2. Hero Temperature at y = 116 (top of 77pt numerals & degree ring at y = 88 -> 26px buffer below y = 62!)
@@ -1661,7 +1661,7 @@ inline void render_weather_page(
     // ----------------------------------------------------------------------
     // SUBPAGE 1: FORECAST (5-DAY FORECAST: TODAY + 4 MORE DAYS)
     // ----------------------------------------------------------------------
-    it.print(cx, 50, font_date, theme_primary, TextAlign::CENTER, "FORECAST");
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "FORECAST");
     it.line(80, 62, 386, 62, col_dark_gray);
 
     struct DayForecast {
@@ -1765,7 +1765,7 @@ inline void render_weather_page(
     // ----------------------------------------------------------------------
     // SUBPAGE 2: SUN (SOLAR ARC, HORIZON & SUNRISE/SUNSET TELEMETRY)
     // ----------------------------------------------------------------------
-    it.print(cx, 50, font_date, theme_primary, TextAlign::CENTER, "SUN");
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "SUN");
 
     const int arc_cy = 198;
     const int arc_r = 112;
@@ -1834,7 +1834,7 @@ inline void render_weather_page(
     compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
                                moon_phase_raw, cycle, &illum_pct, &mp_label);
 
-    it.print(cx, 50, font_date, theme_primary, TextAlign::CENTER, "MOON");
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "MOON");
 
     render_lunar_disc(it, cx, 146, 69, cycle, true);
 
