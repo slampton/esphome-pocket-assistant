@@ -946,33 +946,38 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     } else {
       bool show_sun = (is_clear_day || is_partly || is_windy);
       if (show_sun || is_fog_mist) {
-        // Continuous 3D Spherical Gradient Solar Orb (Zero detached button ring or flat inner dot!)
-        const esphome::Color sky_c = is_fog_mist ? esphome::Color(32, 46, 60) : esphome::Color(28, 54, 84);
-        const esphome::Color c_corona_out = is_fog_mist ? esphome::Color(78, 84, 78)   : esphome::Color(92, 74, 58);
-        const esphome::Color c_corona_in  = is_fog_mist ? esphome::Color(122, 114, 86) : esphome::Color(186, 102, 24);
-        const esphome::Color c_limb       = is_fog_mist ? esphome::Color(142, 128, 92) : esphome::Color(232, 118, 16);
-        const esphome::Color c_mid        = is_fog_mist ? esphome::Color(172, 158, 114): esphome::Color(252, 178, 36);
-        const esphome::Color c_core       = is_fog_mist ? esphome::Color(204, 194, 152): esphome::Color(255, 244, 150);
+        // Dominant Sunshine-Yellow 3D Solar Orb (Goldenrod rim -> Bright Yellow body -> Lemon-White 3D highlight)
+        const esphome::Color sky_c        = is_fog_mist ? esphome::Color(32, 46, 60)   : esphome::Color(28, 54, 84);
+        const esphome::Color c_haze       = is_fog_mist ? esphome::Color(118, 120, 96) : esphome::Color(175, 162, 68);
+        const esphome::Color c_limb       = is_fog_mist ? esphome::Color(156, 146, 98) : esphome::Color(246, 196, 38);
+        const esphome::Color c_body       = is_fog_mist ? esphome::Color(186, 176, 126): esphome::Color(255, 228, 66);
+        const esphome::Color c_core       = is_fog_mist ? esphome::Color(212, 204, 162): esphome::Color(255, 248, 168);
 
-        // 1. Soft 5-step outer atmospheric corona bloom (r = 26 .. 22) blending into the sky
-        for (int r = 26; r >= 22; r--) {
-          float k = static_cast<float>(26 - r) * 0.25f; // 0.0 at r=26 -> 1.0 at r=22
-          esphome::Color glow_c = lerp_color(lerp_color(sky_c, c_corona_out, 0.55f), c_corona_in, k * k);
+        // 1. Subtle 3-px golden-yellow atmospheric feather at the outer edge (r = 24 .. 22)
+        for (int r = 24; r >= 22; r--) {
+          float k = static_cast<float>(25 - r) * 0.28f; // Softly bridges sky_c -> golden rim
+          esphome::Color glow_c = lerp_color(sky_c, c_haze, k);
           it.filled_circle(cel_cx, cel_cy, r, glow_c);
         }
 
-        // 2. Continuous 21-step 3D spherical gradient body (r = 21 .. 1) with subtle upper-left 3D light offset
+        // 2. Dominant Yellow 3D Sphere (r = 21 .. 1):
+        //    - Outer 25% of radius (u < 0.25): transitions quickly from Goldenrod (246,196,38) to Bright Yellow (255,228,66)
+        //    - Inner 75% of radius (u >= 0.25): overwhelmingly bright sunshine yellow into a soft lemon-white 3D sheen
         const int max_r = 21;
         const float inv_max_r = 1.0f / static_cast<float>(max_r);
         for (int r = max_r; r >= 1; r--) {
           float u = 1.0f - static_cast<float>(r) * inv_max_r; // 0.0 at limb -> 1.0 at core
-          float s = u * u * (3.0f - 2.0f * u);               // Smooth cubic Hermite blend
-          esphome::Color ring_c = (s < 0.52f)
-              ? lerp_color(c_limb, c_mid,  s * (1.0f / 0.52f))
-              : lerp_color(c_mid,  c_core, (s - 0.52f) * (1.0f / 0.48f));
-          // Shift inner highlight circles slightly upper-left (-3.5px at core) for 3D spherical volume
-          int ox = cel_cx - static_cast<int>(u * 3.5f);
-          int oy = cel_cy - static_cast<int>(u * 3.5f);
+          esphome::Color ring_c;
+          if (u < 0.26f) {
+            float k = u * (1.0f / 0.26f);
+            ring_c = lerp_color(c_limb, c_body, k);
+          } else {
+            float k = (u - 0.26f) * (1.0f / 0.74f);
+            ring_c = lerp_color(c_body, c_core, k * k);
+          }
+          // Subtle upper-left 3D spherical light offset (-2.5px at core)
+          int ox = cel_cx - static_cast<int>(u * 2.5f);
+          int oy = cel_cy - static_cast<int>(u * 2.5f);
           it.filled_circle(ox, oy, r, ring_c);
         }
       }
