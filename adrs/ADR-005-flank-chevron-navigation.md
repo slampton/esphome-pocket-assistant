@@ -1,16 +1,16 @@
-# ADR-005: Flank Chevron and Bottom Pip Navigation for Circular Displays
+# ADR-005: Flank Chevron and Low-Profile Chin Back Navigation for Circular Displays
 
 ## Status
 Accepted (v2.0)
 
 ## Context
-Earlier designs for multi-page apps (Sky & Weather, Timer & Alarm) used 2x2 or 2x1 pill buttons across the bottom of the screen. On a 466x466 circular AMOLED display, bottom pill buttons occupy up to 80px of vertical space in the narrowest part of the round viewport, constraining content layout and breaking visual consistency with the Music and Games carousels.
+Earlier designs for multi-page apps and submenus used stacked pill buttons or pagination dots across the bottom of the screen. On a 466×466 circular AMOLED display, bottom pill buttons and page indicators occupy up to 80px of vertical space in the narrowest part of the round viewport, constraining content layout.
 
 ## Decision
-Adopt a uniform UI navigation pattern across all multi-page apps:
-1. Primary navigation: Right-flank vertical chevrons (▲ Up / ▼ Down) at x=415, utilizing the wider horizontal diameter.
-2. Subpage indication: Discrete pagination dots/pips along the bottom curve (y=440), doubling as optional tap targets.
+Adopt a uniform, high-density navigation pattern across all multi-page apps and submenus:
+1. **Vertical Pagination**: Right-flank vertical chevrons (`▲` Up / `▼` Down) at `x = 415` (`y = 162` and `y = 278`), utilizing the wider horizontal chord of the circular display.
+2. **Universal Low-Profile `< BACK` (`y = 426`)**: Render `< BACK` at `y = 426` in crisp white typography with a 1px black drop shadow (zero pill border, zero pagination dots/numbers), with full-chin touch hit-testing (`y in [385..465]`, `x in [50..416]`).
 
 ## Consequences
-* Reclaims ~80px of vertical display height for primary telemetry and controls.
-* Delivers a unified, consistent navigation language across the entire operating system.
+* Reclaims ~80px of vertical display height for primary telemetry, cards, and controls.
+* Delivers a clean, uncluttered navigation language across the entire operating system.
