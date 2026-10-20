@@ -2723,21 +2723,22 @@ inline void render_home_page(
         it.line(bx - 5, by - 10, bx + 13, by - 13, c);
         it.line(bx - 5, by - 9,  bx + 13, by - 12, c);
       } else if (app_id == 7) {
-        // Remote: Solid Filled 4-Segment Circular D-Pad + Center OK Button (Apple TV / Shield Remote Style)
-        // Gives Remote the same solid filled visual weight as Music, Games, and Tools!
+        // Remote: Balanced 4-Segment Circular D-Pad + Center OK Dot (Slimmer 6px ring + wider moat & diagonal gaps)
+        // Matches the open/filled visual weight of Music, Games, and Tools!
         auto is_remote_dpad = [](int dx, int dy) -> bool {
           int r2 = dx * dx + dy * dy;
-          // 1. Solid filled center OK button (r <= 4.6px -> r2 <= 21)
-          if (r2 <= 21) return true;
-          // 2. Transparent gap ring around center OK button (4.6px < r < 7.5px -> r2 < 56) or outside D-pad (r > 16.5px -> r2 > 272)
-          if (r2 < 56 || r2 > 272) return false;
-          // 3. 45-degree X-shaped diagonal sector gaps (|dx - dy| <= 2 or |dx + dy| <= 2) splitting the ring into Up, Down, Left, Right pads
+          // 1. Solid filled center OK dot (r <= 3.8px -> r2 <= 15)
+          if (r2 <= 15) return true;
+          // 2. Generous 5.2px transparent moat around center OK dot (3.8px < r < 9.0px -> r2 < 81)
+          //    and slimmer outer D-pad radius (r <= 15.2px -> r2 <= 232)
+          if (r2 < 81 || r2 > 232) return false;
+          // 3. Wider 45-degree X-shaped diagonal sector gaps (±2.25px -> 4.5px gap) splitting Up, Down, Left, Right arcs
           static constexpr float INV_SQRT2 = 0.70710678f;
           float fx = static_cast<float>(dx);
           float fy = static_cast<float>(dy);
           float d1 = std::fabs((fx - fy) * INV_SQRT2);
           float d2 = std::fabs((fx + fy) * INV_SQRT2);
-          if (d1 <= 1.55f || d2 <= 1.55f) return false;
+          if (d1 <= 2.25f || d2 <= 2.25f) return false;
           return true;
         };
 
