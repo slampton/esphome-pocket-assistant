@@ -2376,8 +2376,8 @@ inline int collect_home_dock_apps(bool show_music, bool show_remote, bool show_t
 
 // Computes the x-centers for up to 3 visible r=29 (58px) dock icons at y = 352:
 //   - If total_count <= 3: auto-centers 1, 2, or 3 icons with no arrows
-//   - If total_count > 3 & page == 0: 3 icons at {120, 206, 292} + right '>' arrow at x = 358
-//   - If total_count > 3 & page  > 0: left '<' arrow at x = 108 + 3 icons at {174, 260, 346}
+//   - If total_count > 3 & page == 0: 3 icons at {120, 206, 292} + right '>' arrow at x = 370
+//   - If total_count > 3 & page  > 0: left '<' arrow at x = 96  + 3 icons at {174, 260, 346}
 inline void get_home_dock_window_xs(int total_count, int page, int cx, int out_xs[3],
                                     bool &out_has_left_arrow, bool &out_has_right_arrow) {
   out_has_left_arrow = false;
@@ -2685,25 +2685,27 @@ inline void render_home_page(
       draw_dock_glyph(app_id, bx,     dock_y,     col_white, false);
     }
 
-    // Horizontal Dock Pagination Chevron ('>' at x = 358 on Page 0; '<' at x = 108 on Page 1)
+    // Pointier, Outward-Shifted Horizontal Dock Chevron ('>' at x = 370 on Page 0; '<' at x = 96 on Page 1)
     auto draw_horiz_dock_chevron = [&](int ax, int ay, bool point_right) {
-      int dx = point_right ? 6 : -6;
+      int x_tail = point_right ? (ax - 5) : (ax + 5);
+      int x_tip  = point_right ? (ax + 6) : (ax - 6);
       // 1px black drop shadow
-      for (int w = 0; w <= 1; w++) {
-        it.line(ax - dx / 2 + w + 1, ay - 9 + 1, ax + dx / 2 + w + 1, ay + 1, col_black);
-        it.line(ax - dx / 2 + w + 1, ay + 9 + 1, ax + dx / 2 + w + 1, ay + 1, col_black);
+      for (int w = -1; w <= 1; w++) {
+        it.line(x_tail + w + 1, ay - 8 + 1, x_tip + w + 1, ay + 1, col_black);
+        it.line(x_tail + w + 1, ay + 8 + 1, x_tip + w + 1, ay + 1, col_black);
       }
-      // 2px crisp silver-white chevron
-      for (int w = 0; w <= 1; w++) {
-        it.line(ax - dx / 2 + w, ay - 9, ax + dx / 2 + w, ay, theme_secondary);
-        it.line(ax - dx / 2 + w, ay + 9, ax + dx / 2 + w, ay, theme_secondary);
+      // Bold, sharp white chevron with acute 11px-run x 8px-rise point
+      for (int w = -1; w <= 1; w++) {
+        Color c = (w == 0) ? col_white : theme_secondary;
+        it.line(x_tail + w, ay - 8, x_tip + w, ay, c);
+        it.line(x_tail + w, ay + 8, x_tip + w, ay, c);
       }
     };
     if (has_right_arr) {
-      draw_horiz_dock_chevron(358, dock_y, true);
+      draw_horiz_dock_chevron(370, dock_y, true);
     }
     if (has_left_arr) {
-      draw_horiz_dock_chevron(108, dock_y, false);
+      draw_horiz_dock_chevron(96, dock_y, false);
     }
   }
 
