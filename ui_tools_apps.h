@@ -2364,9 +2364,25 @@ inline int &home_dock_page() {
 }
 
 // ==============================================================================
-// MODULAR WAKE GREETING ENGINE (Displayed for 8s after Boot / Hibernate Wake)
+// MODULAR WAKE GREETING ENGINE (8.0s Hold + 2.5s Smooth Fade after Boot / Wake)
 // Easy to customize: edit or add phrases below by weather condition or hour!
 // ==============================================================================
+inline uint32_t &wake_greeting_start_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
+inline bool &wake_greeting_latched() {
+  static bool latched = false;
+  return latched;
+}
+
+inline bool is_wake_greeting_fading(uint32_t now_ms, bool enabled) {
+  if (!enabled || !wake_greeting_latched()) return false;
+  uint32_t el = now_ms - wake_greeting_start_ms();
+  return (el >= 7900U && el <= 10700U);
+}
+
 inline const char *resolve_wake_greeting(int hour, int minute, int day_of_year,
                                          const std::string &cond, float temp_f) {
   int pick = (day_of_year + hour * 3 + (minute / 10)) % 3;
@@ -2575,17 +2591,18 @@ inline void render_home_page(
     it.print(cx,     200, font_date, cond_col,  TextAlign::CENTER, fit_w.c_str());
   }
 
-  // TRANSIENT WAKE GREETING LATCH (Displays for 8.0s after Cold Boot / Hibernate Wake once time syncs)
-  static uint32_t greeting_start_ms = 0;
-  static bool greeting_latched = false;
-  if (!greeting_latched && now.is_valid() && now_ms < 25000U) {
-    greeting_start_ms = now_ms;
-    greeting_latched = true;
+  // TRANSIENT WAKE GREETING LATCH (8.0s Full Brightness + 2.5s Smooth Fade-Out = 10.5s Total)
+  if (!wake_greeting_latched() && now.is_valid() && now_ms < 25000U) {
+    wake_greeting_start_ms() = now_ms;
+    wake_greeting_latched() = true;
   }
-  const bool greeting_active = show_wake_greeting && greeting_latched &&
-                               now.is_valid() && (now_ms - greeting_start_ms < 8000U);
+  uint32_t greet_el = (wake_greeting_latched() && now_ms >= wake_greeting_start_ms())
+                          ? (now_ms - wake_greeting_start_ms())
+                          : 999999U;
+  const bool greeting_active = show_wake_greeting && wake_greeting_latched() &&
+                               now.is_valid() && (greet_el < 10500U);
 
-  // ZONE 4 (y = 264 / 252): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm) + Wake Greeting
+  // ZONE 4 (y = 264 / 247): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm) + 27pt Wake Greeting
   HomeActivityItem act_items[4];
   int act_count = collect_home_activities(
       now_ms, is_24h_format,
@@ -2608,8 +2625,9 @@ inline void render_home_page(
       home_activity_idx = 0;
     }
     const auto &cur_act = act_items[home_activity_idx];
-    // Shift pill up slightly to y = 252 while the 8s Wake Greeting is visible underneath at y = 296!
-    const int pill_y = greeting_active ? 252 : 264;
+    // When the 27pt Wake Greeting is visible at y = 296, position the Activity Pill at y = 247 (y = 225..269)
+    // so there is a balanced 12px buffer below Weather (213) and 14px buffer above the 27pt Greeting (283..309)!
+    const int pill_y = greeting_active ? 247 : 264;
     render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
                        nullptr, col_white, font_small);
 
@@ -2642,11 +2660,39 @@ inline void render_home_page(
   }
 
   if (greeting_active) {
-    const char *greet_msg = resolve_wake_greeting(
+    const char *raw_greet = resolve_wake_greeting(
         now.hour, now.minute, now.day_of_year, cond, weather_temp);
+    std::string fit_greet = fit_text_to_width_font(std::string(raw_greet), 340, font_date);
     int greet_y = (act_count > 0) ? 296 : 268;
-    it.print(cx + 1, greet_y + 1, font_small, col_black, TextAlign::CENTER, greet_msg);
-    it.print(cx,     greet_y,     font_small, col_white, TextAlign::CENTER, greet_msg);
+
+    // 0..8000ms = 1.0f full brightness; 8000..10500ms = smooth 2.5s Hermite fade into background sky color
+    float alpha = 1.0f;
+    if (greet_el > 8000U) {
+      float u = 1.0f - static_cast<float>(greet_el - 8000U) * (1.0f / 2500.0f);
+      if (u < 0.0f) u = 0.0f;
+      alpha = u * u * (3.0f - 2.0f * u);
+    }
+
+    // Target background color so the text dissolves seamlessly into the daytime or nighttime sky
+    Color bg_target(0, 0, 0);
+    if (show_weather_bg && !is_night) {
+      bg_target = Color(28, 54, 84);
+      if (cond.find("fog") != std::string::npos || cond.find("mist") != std::string::npos) {
+        bg_target = Color(32, 46, 60);
+      } else if (cond.find("cloud") != std::string::npos && cond.find("partly") == std::string::npos) {
+        bg_target = Color(22, 38, 56);
+      } else if (cond.find("rain") != std::string::npos || cond.find("thunder") != std::string::npos ||
+                 cond.find("lightning") != std::string::npos) {
+        bg_target = Color(18, 30, 46);
+      }
+    }
+
+    Color fg_c = lerp_color(bg_target, col_white, alpha);
+    if (alpha > 0.35f) {
+      Color sh_c = lerp_color(bg_target, col_black, alpha);
+      it.print(cx + 1, greet_y + 1, font_date, sh_c, TextAlign::CENTER, fit_greet.c_str());
+    }
+    it.print(cx, greet_y, font_date, fg_c, TextAlign::CENTER, fit_greet.c_str());
   }
 
   // ZONE 5 (y = 352): 3-Icon Sliding Window Quick-Launch Dock (r = 29 / 58px diameter + '>' / '<' chevron)

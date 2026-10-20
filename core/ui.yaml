@@ -1511,11 +1511,12 @@ interval:
           // - Unlocks full 20 FPS (50ms) when local music is idle for rain, snow, lightning, and night starfield
           // - Paces smoothly at ~13.3 FPS (75ms) when local Sendspin music is playing
           // - Static daytime weather conditions run on the default 1s display refresh with near-zero CPU load
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && (id(gui_page) == 1 && id(home_subpage) == 0 && id(home_weather_bg_switch).state) && !id(va_active) && id(va_status_text).empty()) {
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && (id(gui_page) == 1 && id(home_subpage) == 0 && (id(home_weather_bg_switch).state || pocket_ui::is_wake_greeting_fading(millis(), id(home_wake_greeting_switch).state))) && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
-            const bool sim_just_changed = (pocket_ui::last_ambient_anim_ms() == 0U);
+            const bool sim_just_changed = (pocket_ui::last_ambient_anim_ms() == 0U) ||
+                                          pocket_ui::is_wake_greeting_fading(now_w_ms, id(home_wake_greeting_switch).state);
 
             if (sim_just_changed || (now_w_ms - last_cond_eval_time >= 250U)) {
               last_cond_eval_time = now_w_ms;
@@ -3839,8 +3840,8 @@ touchscreen:
                 return;
               }
 
-              // 7. Smart Live Activity Pill Tap (y in [238..290], x in [85..370]) -> Open Active Item's App/Subpage
-              if (act_count > 0 && touch.y >= 238 && touch.y <= 290 && touch.x >= 85 && touch.x < 372) {
+              // 7. Smart Live Activity Pill Tap (y in [224..290], x in [85..370]) -> Open Active Item's App/Subpage
+              if (act_count > 0 && touch.y >= 224 && touch.y <= 290 && touch.x >= 85 && touch.x < 372) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   pocket_ui::home_dock_page() = 0;
