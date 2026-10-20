@@ -2706,8 +2706,8 @@ inline void render_home_page(
     it.filled_circle(gx, gy, 9, c);
   };
   draw_gear_large(gear_x + 1, gear_y + 1, col_black);
-  draw_gear_large(gear_x,     gear_y,     col_white);
-  it.circle(gear_x, gear_y, 6, theme_secondary);
+  draw_gear_large(gear_x,     gear_y,     col_slate);
+  it.circle(gear_x, gear_y, 6, col_dark_gray);
   it.filled_circle(gear_x, gear_y, 4, col_black);
 }
 // =============================================================================

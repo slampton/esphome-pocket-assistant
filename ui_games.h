@@ -2307,11 +2307,11 @@ inline void render_games_launcher(
   it.print(cx, 96, font_games_title, theme_primary, TextAlign::CENTER, "GAMES");
   it.filled_rectangle(0, 282, 466, 184, col_bg);
 
-  // Combined [Speaker (44px) + 28px gap + PLAY (154px) = 226px] centered at cx = 233 (x = 120..346)
-  render_pill_button(it, 214, 324, 349, 22, theme_primary, col_dark_gray, "PLAY", col_white, font_btn_bold);
+  // Combined [Speaker (44px) + 28px gap + PLAY (154px) = 226px] centered at cx = 233, y = 332 (aligned with Home Dock!)
+  render_pill_button(it, 214, 324, 332, 22, theme_primary, col_dark_gray, "PLAY", col_white, font_btn_bold);
 
-  // Game Sound Mute / Unmute Button at (142, 349, r = 22 -> outer left edge = 120)
-  const int spk_x = 142, spk_y = 349;
+  // Game Sound Mute / Unmute Button at (142, 332, r = 22 -> outer left edge = 120)
+  const int spk_x = 142, spk_y = 332;
   it.filled_circle(spk_x, spk_y, 22, col_dark_gray);
   it.circle(spk_x, spk_y, 22, game_sound_on ? theme_secondary : col_slate);
   it.circle(spk_x, spk_y, 21, game_sound_on ? theme_secondary : col_slate);
