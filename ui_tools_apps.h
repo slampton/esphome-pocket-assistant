@@ -2341,21 +2341,28 @@ inline int collect_home_dock_apps(bool show_music, bool show_remote, bool show_t
   return n;
 }
 
-inline void get_home_dock_xs(int count, int cx, int out_xs[4]) {
+// Supports 1..5 dock icons at y = 332 (r = 29 / 58px diameter; 5-icon v2.1 Room Control ready!)
+inline void get_home_dock_xs(int count, int cx, int out_xs[5]) {
   if (count == 1) {
     out_xs[0] = cx;
   } else if (count == 2) {
-    out_xs[0] = cx - 52;
-    out_xs[1] = cx + 52;
+    out_xs[0] = cx - 56;
+    out_xs[1] = cx + 56;
   } else if (count == 3) {
-    out_xs[0] = cx - 90;
+    out_xs[0] = cx - 96;
     out_xs[1] = cx;
-    out_xs[2] = cx + 90;
-  } else if (count >= 4) {
-    out_xs[0] = 116;
-    out_xs[1] = 194;
-    out_xs[2] = 272;
-    out_xs[3] = 350;
+    out_xs[2] = cx + 96;
+  } else if (count == 4) {
+    out_xs[0] = 104;
+    out_xs[1] = 190;
+    out_xs[2] = 276;
+    out_xs[3] = 362;
+  } else if (count >= 5) {
+    out_xs[0] = 93;
+    out_xs[1] = 163;
+    out_xs[2] = 233;
+    out_xs[3] = 303;
+    out_xs[4] = 373;
   }
 }
 
@@ -2486,7 +2493,8 @@ inline void render_home_page(
       home_activity_idx = 0;
     }
     const auto &cur_act = act_items[home_activity_idx];
-    const int pill_y = 264;
+    // Centered at y = 258 (y = 236..280): exact 23px buffer below weather line (213) and 23px above dock (303)!
+    const int pill_y = 258;
     render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
                        nullptr, col_white, font_small);
 
@@ -2518,90 +2526,98 @@ inline void render_home_page(
     }
   }
 
-  // ZONE 5 (y = 356): Enlarged Auto-Centering Quick-Launch Icon Dock (r = 26 / 52px diameter)
+  // ZONE 5 (y = 332): Enlarged Auto-Centering Quick-Launch Icon Dock (r = 29 / 58px diameter, 5-icon ready)
   int dock_apps[4] = {0, 0, 0, 0};
   int dock_count = collect_home_dock_apps(dock_music, dock_remote, dock_tools, dock_games, dock_apps);
   if (dock_count > 0) {
-    int dock_xs[4] = {0, 0, 0, 0};
+    int dock_xs[5] = {0, 0, 0, 0, 0};
     get_home_dock_xs(dock_count, cx, dock_xs);
-    const int dock_y = 356;
+    const int dock_y = 332;
+    const int dock_r = 29;
 
     auto draw_dock_glyph = [&](int app_id, int bx, int by, Color c, bool is_shadow) {
       if (app_id == 2) {
-        // Music: Enlarged Beamed Eighth Notes
-        it.filled_circle(bx - 8, by + 8, 5, c);
-        it.filled_circle(bx + 7, by + 5, 5, c);
-        it.filled_rectangle(bx - 4, by - 11, 3, 19, c);
-        it.filled_rectangle(bx + 10, by - 14, 3, 19, c);
-        it.line(bx - 4, by - 11, bx + 12, by - 14, c);
-        it.line(bx - 4, by - 10, bx + 12, by - 13, c);
-        it.line(bx - 4, by - 9,  bx + 12, by - 12, c);
-        it.line(bx - 4, by - 8,  bx + 12, by - 11, c);
-      } else if (app_id == 7) {
-        // Remote: Enlarged Concentric D-Pad Ring + 4 Directional Arrows + Center Dot
-        it.circle(bx, by, 15, c);
-        it.circle(bx, by, 14, c);
-        it.filled_circle(bx, by, 4, c);
-        it.filled_triangle(bx, by - 12, bx - 4, by - 7, bx + 4, by - 7, c);
-        it.filled_triangle(bx, by + 12, bx - 4, by + 7, bx + 4, by + 7, c);
-        it.filled_triangle(bx - 12, by, bx - 7, by - 4, bx - 7, by + 4, c);
-        it.filled_triangle(bx + 12, by, bx + 7, by - 4, bx + 7, by + 4, c);
-      } else if (app_id == 8) {
-        // Tools: Sleek 45-Degree Machined Open-End Wrench (SF Symbol wrench.fill)
-        for (int w = -3; w <= 3; w++) {
-          it.line(bx - 9 + w, by + 9, bx + 5 + w, by - 5, c);
-          it.line(bx - 9, by + 9 + w, bx + 5, by - 5 + w, c);
-        }
+        // Music: Enlarged Beamed Eighth Notes (scaled for r = 29)
         it.filled_circle(bx - 9, by + 9, 5, c);
-        it.filled_circle(bx + 7, by - 7, 8, c);
+        it.filled_circle(bx + 8, by + 6, 5, c);
+        it.filled_rectangle(bx - 5, by - 12, 3, 21, c);
+        it.filled_rectangle(bx + 11, by - 15, 3, 21, c);
+        it.line(bx - 5, by - 12, bx + 13, by - 15, c);
+        it.line(bx - 5, by - 11, bx + 13, by - 14, c);
+        it.line(bx - 5, by - 10, bx + 13, by - 13, c);
+        it.line(bx - 5, by - 9,  bx + 13, by - 12, c);
+      } else if (app_id == 7) {
+        // Remote: Enlarged Concentric D-Pad Ring + 4 Directional Arrows + Center Dot (scaled for r = 29)
+        it.circle(bx, by, 17, c);
+        it.circle(bx, by, 16, c);
+        it.filled_circle(bx, by, 4, c);
+        it.filled_triangle(bx, by - 13, bx - 4, by - 8, bx + 4, by - 8, c);
+        it.filled_triangle(bx, by + 13, bx - 4, by + 8, bx + 4, by + 8, c);
+        it.filled_triangle(bx - 13, by, bx - 8, by - 4, bx - 8, by + 4, c);
+        it.filled_triangle(bx + 13, by, bx + 8, by - 4, bx + 8, by + 4, c);
+      } else if (app_id == 8) {
+        // Tools: Sleek 45-Degree Machined Open-End Wrench (scaled for r = 29)
+        for (int w = -3; w <= 3; w++) {
+          it.line(bx - 10 + w, by + 10, bx + 6 + w, by - 6, c);
+          it.line(bx - 10, by + 10 + w, bx + 6, by - 6 + w, c);
+        }
+        it.filled_circle(bx - 10, by + 10, 5, c);
+        it.filled_circle(bx + 8, by - 8, 9, c);
         if (!is_shadow) {
-          it.filled_circle(bx + 11, by - 11, 5, col_black);
-          it.filled_triangle(bx + 5, by - 5, bx + 14, by - 8, bx + 8, by - 14, col_black);
-          it.filled_circle(bx - 9, by + 9, 2, col_black);
+          it.filled_circle(bx + 12, by - 12, 5, col_black);
+          it.filled_triangle(bx + 6, by - 6, bx + 15, by - 9, bx + 9, by - 15, col_black);
+          it.filled_circle(bx - 10, by + 10, 2, col_black);
         }
       } else if (app_id == 3) {
-        // Games: Sony PlayStation DualShock / DualSense Controller Silhouette
-        // 1. Shoulder L1/R1 bumpers + central bridge body
-        it.filled_rectangle(bx - 12, by - 9, 7, 2, c);
-        it.filled_rectangle(bx + 6,  by - 9, 7, 2, c);
-        it.filled_rectangle(bx - 11, by - 7, 23, 10, c);
-        // 2. Sculpted left & right ergonomic handgrips angling outward & down
-        it.filled_circle(bx - 11, by - 2, 5, c);
-        it.filled_circle(bx + 11, by - 2, 5, c);
-        it.filled_triangle(bx - 16, by - 2, bx - 6, by - 1, bx - 14, by + 10, c);
-        it.filled_triangle(bx - 6,  by - 1, bx - 10, by + 10, bx - 14, by + 10, c);
-        it.filled_circle(bx - 12, by + 9, 3, c);
-        it.filled_triangle(bx + 16, by - 2, bx + 6, by - 1, bx + 14, by + 10, c);
-        it.filled_triangle(bx + 6,  by - 1, bx + 10, by + 10, bx + 14, by + 10, c);
-        it.filled_circle(bx + 12, by + 9, 3, c);
-        // 3. Symmetrical inner analog thumbstick domes near lower bridge arch
-        it.filled_circle(bx - 4, by + 4, 3, c);
-        it.filled_circle(bx + 4, by + 4, 3, c);
+        // Games: Sleek Sony PS5 DualSense Wireless Controller (Scanline CSG Silhouette — Zero 'M' Look!)
+        // Exact per-row outer half-width & inner arch cutout so the shoulders sweep smoothly into
+        // rounded outer palms and taper down to slim DualSense grip tips.
+        static constexpr int8_t DS_OUTER[22] = {
+          11, 13, 14, 15, 16, 17, 17, 17, 17, 17, 17, 16, 16, 16, 15, 15, 14, 14, 13, 13, 12, 11
+        };
+        static constexpr int8_t DS_INNER[22] = {
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  6,  7,  7,  8,  8,  9,  9,  9, 10
+        };
+        for (int row = 0; row < 22; row++) {
+          int dy = row - 10; // spans by - 10 .. by + 11
+          int ox = DS_OUTER[row];
+          int ix = DS_INNER[row];
+          if (ix == 0) {
+            it.horizontal_line(bx - ox, by + dy, 2 * ox + 1, c);
+          } else {
+            it.horizontal_line(bx - ox, by + dy, ox - ix + 1, c);
+            it.horizontal_line(bx + ix, by + dy, ox - ix + 1, c);
+          }
+        }
         if (!is_shadow) {
-          // Top touchpad bar cutout
-          it.horizontal_line(bx - 4, by - 6, 9, col_black);
-          it.horizontal_line(bx - 4, by - 5, 9, col_black);
-          // Left D-pad cross cutout
-          it.horizontal_line(bx - 12, by - 2, 5, col_black);
-          it.vertical_line(bx - 10, by - 4, 5, col_black);
-          // Right PlayStation 4-button diamond cluster (triangle, circle, cross, square pips)
-          it.draw_pixel_at(bx + 10, by - 4, col_black);
-          it.draw_pixel_at(bx + 10, by,     col_black);
-          it.draw_pixel_at(bx + 8,  by - 2, col_black);
-          it.draw_pixel_at(bx + 12, by - 2, col_black);
-          // Thumbstick ring separation & concave stick caps
-          it.circle(bx - 4, by + 4, 3, col_black);
-          it.circle(bx + 4, by + 4, 3, col_black);
-          it.draw_pixel_at(bx - 4, by + 4, c);
-          it.draw_pixel_at(bx + 4, by + 4, c);
+          // 1. DualSense two-tone lower-inner grip seam & thumbstick wells
+          it.line(bx - 9, by + 1, bx - 6, by - 2, col_black);
+          it.line(bx + 9, by + 1, bx + 6, by - 2, col_black);
+          it.horizontal_line(bx - 5, by - 2, 11, col_black);
+          it.filled_circle(bx - 5, by + 1, 2, col_black);
+          it.filled_circle(bx + 5, by + 1, 2, col_black);
+          it.draw_pixel_at(bx - 5, by + 1, c);
+          it.draw_pixel_at(bx + 5, by + 1, c);
+          // 2. Top touchpad accent line
+          it.horizontal_line(bx - 5, by - 8, 11, col_black);
+          it.line(bx - 6, by - 9, bx - 5, by - 8, col_black);
+          it.line(bx + 6, by - 9, bx + 5, by - 8, col_black);
+          // 3. Left D-pad cross (+)
+          it.horizontal_line(bx - 13, by - 4, 5, col_black);
+          it.vertical_line(bx - 11, by - 6, 5, col_black);
+          // 4. Right 4-button PlayStation diamond (triangle, circle, cross, square)
+          it.draw_pixel_at(bx + 11, by - 6, col_black);
+          it.draw_pixel_at(bx + 11, by - 2, col_black);
+          it.draw_pixel_at(bx + 9,  by - 4, col_black);
+          it.draw_pixel_at(bx + 13, by - 4, col_black);
         }
       }
     };
 
     for (int i = 0; i < dock_count; i++) {
       int bx = dock_xs[i];
-      it.circle(bx + 1, dock_y + 1, 26, col_black);
-      it.circle(bx,     dock_y,     26, Color(95, 118, 148));
+      it.circle(bx + 1, dock_y + 1, dock_r, col_black);
+      it.circle(bx,     dock_y,     dock_r, Color(95, 118, 148));
       draw_dock_glyph(dock_apps[i], bx + 1, dock_y + 1, col_black, true);
       draw_dock_glyph(dock_apps[i], bx,     dock_y,     col_white, false);
     }

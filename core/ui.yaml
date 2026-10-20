@@ -1720,18 +1720,6 @@ sensor:
     internal: true
 
   - platform: homeassistant
-    id: ha_weather_uv_index
-    entity_id: ${weather_entity}
-    attribute: uv_index
-    internal: true
-
-  - platform: homeassistant
-    id: ha_weather_pressure
-    entity_id: ${weather_entity}
-    attribute: pressure
-    internal: true
-
-  - platform: homeassistant
     id: ha_weather_high
     entity_id: ${weather_forecast_sensor}
     attribute: high
@@ -3446,8 +3434,7 @@ display:
             id(font_time), id(font_date), id(font_btn_bold), id(font_small), id(font_micro),
             id(theme_primary), id(theme_secondary),
             id(col_bg), id(col_black), id(col_white), id(col_slate),
-            id(col_gray), id(col_dark_gray), id(col_warm_gold), id(accel_x).state, id(accel_y).state,
-            id(ha_weather_uv_index).state, id(ha_weather_pressure).state);
+            id(col_gray), id(col_dark_gray), id(col_warm_gold), id(accel_x).state, id(accel_y).state);
 
       // ==========================================
       // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL
@@ -3820,8 +3807,8 @@ touchscreen:
                 return;
               }
 
-              // 7. Smart Live Activity Pill Tap (y in [235..290], x in [85..370]) -> Open Active Item's App/Subpage
-              if (act_count > 0 && touch.y >= 235 && touch.y <= 290 && touch.x >= 85 && touch.x < 372) {
+              // 7. Smart Live Activity Pill Tap (y in [234..284], x in [85..370]) -> Open Active Item's App/Subpage
+              if (act_count > 0 && touch.y >= 234 && touch.y <= 284 && touch.x >= 85 && touch.x < 372) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   int idx = (id(home_activity_idx) >= 0 && id(home_activity_idx) < act_count) ? id(home_activity_idx) : 0;
@@ -3846,18 +3833,18 @@ touchscreen:
                 return;
               }
 
-              // 8. Bottom Quick-Launch Icon Dock Tap (y in [322..392])
-              if (touch.y >= 322 && touch.y <= 392) {
+              // 8. Bottom Quick-Launch Icon Dock Tap (y in [298..368], r = 29 at y = 332)
+              if (touch.y >= 298 && touch.y <= 368) {
                 int dock_apps[4] = {0, 0, 0, 0};
                 int dock_count = pocket_ui::collect_home_dock_apps(
                     id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
                     id(home_dock_tools_switch).state, id(home_dock_games_switch).state,
                     dock_apps);
                 if (dock_count > 0 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
-                  int dock_xs[4] = {0, 0, 0, 0};
+                  int dock_xs[5] = {0, 0, 0, 0, 0};
                   pocket_ui::get_home_dock_xs(dock_count, 233, dock_xs);
                   int best_i = -1;
-                  int best_dist = 44;
+                  int best_dist = 46;
                   for (int i = 0; i < dock_count; i++) {
                     int d = std::abs(touch.x - dock_xs[i]);
                     if (d < best_dist) {
@@ -4974,17 +4961,17 @@ touchscreen:
                 }
               }
             } else if (id(gui_page) == 5) {
-              // Page 5: Sky & Weather 4-View Suite Touch Routing (4 Enlarged Bottom Buttons at x={116, 194, 272, 350}, y=356)
+              // Page 5: Sky & Weather 4-View Suite Touch Routing (4 Enlarged r=29 Buttons at x={104, 190, 276, 362}, y=332)
               static uint32_t last_weather_touch = 0;
               uint32_t now_w_touch = millis();
 
-              if (touch.y >= 320 && touch.y <= 390) {
+              if (touch.y >= 298 && touch.y <= 368) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   int target = 0;
-                  if (touch.x < 155) target = 0;
+                  if (touch.x < 147) target = 0;
                   else if (touch.x < 233) target = 1;
-                  else if (touch.x < 311) target = 2;
+                  else if (touch.x < 319) target = 2;
                   else target = 3;
 
                   if (id(sky_weather_subpage) != target) {
