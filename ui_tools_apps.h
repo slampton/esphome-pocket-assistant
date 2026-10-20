@@ -2123,7 +2123,8 @@ inline void render_battery_indicator(
   char batt_str[16];
   snprintf(batt_str, sizeof(batt_str), "%.0f%%", batt);
   int text_x = cx + 8;
-  it.print(text_x, by, font_small, theme_primary, esphome::display::TextAlign::CENTER, batt_str);
+  it.print(text_x,     by, font_small, theme_primary, esphome::display::TextAlign::CENTER, batt_str);
+  it.print(text_x + 1, by, font_small, theme_primary, esphome::display::TextAlign::CENTER, batt_str);
   int bx = text_x - (batt >= 100.0f ? 36 : 28);
   if (is_charging) {
     it.filled_triangle(bx + 3, by - 9, bx - 3, by, bx + 1, by, col_gold);
@@ -2978,8 +2979,10 @@ inline void render_home_page(
     it.filled_rectangle(b_icon_x - 3, (chin_y + 6) - fill_h, 7, fill_h, col_green);
   }
 
-  it.print(text_left_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER_LEFT, batt_str);
-  it.print(text_left_x,     chin_y,     font_small, Color(178, 184, 192), TextAlign::CENTER_LEFT, batt_str);
+  // 1px horizontal bold double-pass in crisp silver-gray (no black shadow pinching the 21pt strokes!)
+  const Color batt_txt_col(192, 198, 206);
+  it.print(text_left_x,     chin_y, font_small, batt_txt_col, TextAlign::CENTER_LEFT, batt_str);
+  it.print(text_left_x + 1, chin_y, font_small, batt_txt_col, TextAlign::CENTER_LEFT, batt_str);
 
   // 2. Right Group: 8-Sprocket CSG Gear at x = cx + 48 (281, y = 422)
   //    - 100% transparent center hole (r = 3.8px -> r2 <= 14, sky shows through cleanly!)
