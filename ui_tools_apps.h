@@ -1609,10 +1609,7 @@ inline void render_music_now_playing(
   if (is_feedback) {
     spk_title = music_action_feedback;
   } else if (now_ms < 4000U) {
-    spk_title = "CONNECTING...";
-  }
-  for (char &c : spk_title) {
-    c = (char)toupper((unsigned char)c);
+    spk_title = "Connecting...";
   }
   spk_title = fit_text_to_width_font(spk_title, 280, font_small);
 
@@ -1690,20 +1687,29 @@ inline void render_music_now_playing(
     it.filled_rectangle(right_flank_x - 6, 326, 15, 3, col_black);
     it.filled_rectangle(right_flank_x - 7, 325, 15, 3, col_white);
 
-    // Optional Left Flank Shortcuts
+    // Optional Left Flank Shortcuts (Enlarged 26x22px Speaker + 2px Sound Waves to match Library/Vol icons)
     if (show_spk_shortcut) {
       auto draw_spk = [&](int ox, int oy, esphome::Color c) {
         int sx = left_flank_x + ox;
         int sy = 140 + oy;
-        it.filled_triangle(sx - 2, sy - 3, sx - 2, sy + 3, sx + 3, sy + 7, c);
-        it.filled_triangle(sx - 2, sy - 3, sx + 3, sy + 7, sx + 3, sy - 7, c);
-        it.filled_rectangle(sx - 6, sy - 3, 5, 7, c);
-        it.line(sx + 5, sy - 3, sx + 7, sy - 1, c);
-        it.line(sx + 7, sy - 1, sx + 7, sy + 1, c);
-        it.line(sx + 7, sy + 1, sx + 5, sy + 3, c);
-        it.line(sx + 8, sy - 6, sx + 11, sy - 3, c);
-        it.line(sx + 11, sy - 3, sx + 11, sy + 3, c);
-        it.line(sx + 11, sy + 3, sx + 8, sy + 6, c);
+        // Bold rear speaker box (6x10px) + flared cone (width 7px, height 22px)
+        it.filled_rectangle(sx - 11, sy - 5, 6, 11, c);
+        it.filled_triangle(sx - 5, sy - 5, sx - 5, sy + 5, sx + 2, sy + 11, c);
+        it.filled_triangle(sx - 5, sy - 5, sx + 2, sy + 11, sx + 2, sy - 11, c);
+        // Inner 2px-thick acoustic wave arc
+        it.line(sx + 5, sy - 5, sx + 8, sy - 2, c);
+        it.line(sx + 6, sy - 5, sx + 9, sy - 2, c);
+        it.line(sx + 8, sy - 2, sx + 8, sy + 2, c);
+        it.line(sx + 9, sy - 2, sx + 9, sy + 2, c);
+        it.line(sx + 8, sy + 2, sx + 5, sy + 5, c);
+        it.line(sx + 9, sy + 2, sx + 6, sy + 5, c);
+        // Outer 2px-thick acoustic wave arc
+        it.line(sx + 9,  sy - 9, sx + 13, sy - 4, c);
+        it.line(sx + 10, sy - 9, sx + 14, sy - 4, c);
+        it.line(sx + 13, sy - 4, sx + 13, sy + 4, c);
+        it.line(sx + 14, sy - 4, sx + 14, sy + 4, c);
+        it.line(sx + 13, sy + 4, sx + 9,  sy + 9, c);
+        it.line(sx + 14, sy + 4, sx + 10, sy + 9, c);
       };
       draw_spk(1, 1, col_black);
       draw_spk(0, 0, col_white);
@@ -1865,7 +1871,7 @@ inline void render_music_menus(
     }
 
     static constexpr const char *CAT_LABELS[7] = {
-        "FAVORITES", "PLAYLISTS", "ARTISTS", "ALBUMS", "PODCASTS", "RADIO", "AUDIOBOOKS"};
+        "Favorites", "Playlists", "Artists", "Albums", "Podcasts", "Radio", "Audiobooks"};
     for (int i = 0; i < 7; i++) {
       int y = 110 + i * 63 - current_offset;
       if (y >= 60 && y <= 395) {
@@ -1940,28 +1946,29 @@ inline void render_music_menus(
     }
 
   } else if (music_overlay_mode == 4) {
-    // LEVEL 4: SPEAKER ACTION SHEET
+    // LEVEL 4: SPEAKER ACTION SHEET (Uppercase Page Title + Title-Case Subtitle & Actions)
     std::string spk_title = target_speaker_name.empty() ? "SPEAKER" : target_speaker_name;
+    for (char &c : spk_title) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
     render_menu_header(it, cx, 48, spk_title, font_small, theme_primary);
 
     bool is_current = (target_speaker_id == active_speaker_entity);
     if (is_current) {
-      it.print(cx, 76, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "CURRENTLY CONTROLLING");
+      it.print(cx, 76, font_small, theme_secondary, esphome::display::TextAlign::CENTER, "Currently Controlling");
       bool is_remote_target = (target_speaker_id != local_player_id);
       if (is_remote_target) {
-        render_modern_card(it, cx, 142, 276, 44, 12, card_bg, card_brd, "TRANSFER TO LOCAL", col_white, font_small);
-        render_modern_card(it, cx, 205, 276, 44, 12, card_bg, card_brd, "UNJOIN AUDIO",      col_white, font_small);
-        render_modern_card(it, cx, 268, 276, 44, 12, card_bg, card_brd, "STOP PLAYBACK",     col_white, font_small);
+        render_modern_card(it, cx, 142, 276, 44, 12, card_bg, card_brd, "Transfer to Local", col_white, font_small);
+        render_modern_card(it, cx, 205, 276, 44, 12, card_bg, card_brd, "Unjoin Audio",      col_white, font_small);
+        render_modern_card(it, cx, 268, 276, 44, 12, card_bg, card_brd, "Stop Playback",     col_white, font_small);
       } else {
-        render_modern_card(it, cx, 160, 276, 44, 12, card_bg, card_brd, "UNJOIN AUDIO",  col_white, font_small);
-        render_modern_card(it, cx, 230, 276, 44, 12, card_bg, card_brd, "STOP PLAYBACK", col_white, font_small);
+        render_modern_card(it, cx, 160, 276, 44, 12, card_bg, card_brd, "Unjoin Audio",  col_white, font_small);
+        render_modern_card(it, cx, 230, 276, 44, 12, card_bg, card_brd, "Stop Playback", col_white, font_small);
       }
     } else {
-      it.print(cx, 76, font_small, col_slate, esphome::display::TextAlign::CENTER, "SPEAKER ACTIONS");
-      render_modern_card(it, cx, 130, 276, 44, 12, card_bg, card_brd, "TRANSFER QUEUE",  col_white, font_small);
-      render_modern_card(it, cx, 190, 276, 44, 12, card_bg, card_brd, "CONTROL ONLY",    col_white, font_small);
-      render_modern_card(it, cx, 250, 276, 44, 12, card_bg, card_brd, "JOIN AUDIO",      col_white, font_small);
-      render_modern_card(it, cx, 310, 276, 44, 12, card_bg, card_brd, "UNJOIN / DETACH", col_white, font_small);
+      it.print(cx, 76, font_small, col_slate, esphome::display::TextAlign::CENTER, "Speaker Actions");
+      render_modern_card(it, cx, 130, 276, 44, 12, card_bg, card_brd, "Transfer Queue",  col_white, font_small);
+      render_modern_card(it, cx, 190, 276, 44, 12, card_bg, card_brd, "Control Only",    col_white, font_small);
+      render_modern_card(it, cx, 250, 276, 44, 12, card_bg, card_brd, "Join Audio",      col_white, font_small);
+      render_modern_card(it, cx, 310, 276, 44, 12, card_bg, card_brd, "Unjoin / Detach", col_white, font_small);
     }
   } else if (music_overlay_mode == 6) {
     // LEVEL 6: NOW PLAYING TRACK & ALBUM INSPECTOR
@@ -2633,48 +2640,53 @@ inline void render_home_page(
     }
   }
 
-  // ZONE 6 (y = 424): Visually Separated Battery Readout (Left) & Enlarged 8-Tooth Settings Gear (Right)
-  const int chin_y = 424;
+  // ZONE 6 (y = 420): Enlarged Battery Readout (font_date 27pt + 14x22px Battery) & Settings Gear (r = 13px)
+  const int chin_y = 420;
   int batt_val = std::isnan(batt) ? 100 : static_cast<int>(roundf(batt));
   char batt_str[16];
   snprintf(batt_str, sizeof(batt_str), "%d%%", batt_val);
 
-  // 1. Left Group: Battery Icon + Percentage (centered around x = 211)
-  int text_x = cx - 22;
-  it.print(text_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER, batt_str);
-  it.print(text_x,     chin_y,     font_small, col_white, TextAlign::CENTER, batt_str);
+  // 1. Left Group: Enlarged Battery/Bolt Icon + 27pt Percentage (centered around x = 207)
+  int text_x = cx - 26;
+  it.print(text_x + 1, chin_y + 1, font_date, col_black, TextAlign::CENTER, batt_str);
+  it.print(text_x,     chin_y,     font_date, col_white, TextAlign::CENTER, batt_str);
 
-  int b_icon_x = text_x - (batt_val >= 100 ? 34 : 27);
+  int b_icon_x = text_x - (batt_val >= 100 ? 44 : 36);
   if (is_charging) {
-    it.filled_triangle(b_icon_x + 3, chin_y - 9, b_icon_x - 3, chin_y, b_icon_x + 1, chin_y, col_gold);
-    it.filled_triangle(b_icon_x - 1, chin_y, b_icon_x + 2, chin_y, b_icon_x - 2, chin_y + 9, col_gold);
+    // Enlarged 24px-tall golden charging lightning bolt with 1px black drop shadow
+    it.filled_triangle(b_icon_x + 5, chin_y - 11, b_icon_x - 4, chin_y + 2, b_icon_x + 2, chin_y + 2, col_black);
+    it.filled_triangle(b_icon_x - 1, chin_y,      b_icon_x + 4, chin_y,     b_icon_x - 3, chin_y + 13, col_black);
+    it.filled_triangle(b_icon_x + 4, chin_y - 12, b_icon_x - 5, chin_y + 1, b_icon_x + 1, chin_y + 1, col_gold);
+    it.filled_triangle(b_icon_x - 2, chin_y - 1,  b_icon_x + 3, chin_y - 1, b_icon_x - 4, chin_y + 12, col_gold);
   } else {
-    it.filled_rectangle(b_icon_x - 2, chin_y - 9, 4, 2, col_green);
-    it.rectangle(b_icon_x - 5, chin_y - 7, 10, 16, col_green);
-    int fill_h = static_cast<int>(std::max(1.0f, std::min(12.0f, (static_cast<float>(batt_val) / 100.0f) * 12.0f)));
-    it.filled_rectangle(b_icon_x - 3, (chin_y + 7) - fill_h, 6, fill_h, col_green);
+    // Enlarged 14x22px 2px-walled battery icon + 6x3px top terminal cap
+    it.filled_rectangle(b_icon_x - 3, chin_y - 12, 7, 3, col_green);
+    it.rectangle(b_icon_x - 7, chin_y - 9, 15, 21, col_green);
+    it.rectangle(b_icon_x - 6, chin_y - 8, 13, 19, col_green);
+    int fill_h = static_cast<int>(std::max(2.0f, std::min(15.0f, (static_cast<float>(batt_val) / 100.0f) * 15.0f)));
+    it.filled_rectangle(b_icon_x - 4, (chin_y + 9) - fill_h, 9, fill_h, col_green);
   }
 
-  // 2. Right Group: Enlarged, Crisp 8-Tooth Settings Gear at x = cx + 44 (277, y = 424, r_outer = 11px)
-  int gear_x = cx + 44;
+  // 2. Right Group: Enlarged 8-Tooth Settings Gear at x = cx + 52 (285, y = 420, r_outer = 13px)
+  int gear_x = cx + 52;
   int gear_y = chin_y;
   auto draw_gear_large = [&](int gx, int gy, Color c) {
-    // 4 Cardinal 3px-wide teeth (r = 11)
-    it.filled_rectangle(gx - 1, gy - 11, 3, 23, c);
-    it.filled_rectangle(gx - 11, gy - 1, 23, 3, c);
-    // 4 Diagonal 3px-thick teeth (at +/- 8px)
+    // 4 Cardinal 3px-wide teeth (r = 13)
+    it.filled_rectangle(gx - 1, gy - 13, 3, 27, c);
+    it.filled_rectangle(gx - 13, gy - 1, 27, 3, c);
+    // 4 Diagonal 3px-thick teeth (at +/- 9px)
     for (int d = -1; d <= 1; d++) {
-      it.line(gx - 8 + d, gy - 8, gx + 8 + d, gy + 8, c);
-      it.line(gx - 8, gy - 8 + d, gx + 8, gy + 8 + d, c);
-      it.line(gx - 8 + d, gy + 8, gx + 8 + d, gy - 8, c);
-      it.line(gx - 8, gy + 8 + d, gx + 8, gy - 8 + d, c);
+      it.line(gx - 9 + d, gy - 9, gx + 9 + d, gy + 9, c);
+      it.line(gx - 9, gy - 9 + d, gx + 9, gy + 9 + d, c);
+      it.line(gx - 9 + d, gy + 9, gx + 9 + d, gy - 9, c);
+      it.line(gx - 9, gy + 9 + d, gx + 9, gy - 9 + d, c);
     }
-    // Solid gear wheel body (r = 8)
-    it.filled_circle(gx, gy, 8, c);
+    // Solid gear wheel body (r = 9)
+    it.filled_circle(gx, gy, 9, c);
   };
   draw_gear_large(gear_x + 1, gear_y + 1, col_black);
   draw_gear_large(gear_x,     gear_y,     col_white);
-  it.circle(gear_x, gear_y, 5, theme_secondary);
+  it.circle(gear_x, gear_y, 6, theme_secondary);
   it.filled_circle(gear_x, gear_y, 4, col_black);
 }
 // =============================================================================
@@ -2906,9 +2918,7 @@ inline void render_tv_remote_page(
     // SUBPAGE 1: SETTINGS (SYSTEM POWER + UP TO 4 PRECONFIGURED DEVICES)
     // -------------------------------------------------------------------------
     if (is_fb) {
-      std::string fb_str = remote_action_feedback;
-      for (char &c : fb_str) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
-      std::string fit_fb = fit_text_to_width_font(fb_str, 280, font_small);
+      std::string fit_fb = fit_text_to_width_font(remote_action_feedback, 280, font_small);
       it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
     } else {
       it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "SETTINGS");
@@ -2968,18 +2978,14 @@ inline void render_tv_remote_page(
   }
 
   // ---------------------------------------------------------------------------
-  // SUBPAGE 0: MAIN REMOTE CONTROL INTERFACE
+  // SUBPAGE 0: MAIN REMOTE CONTROL INTERFACE (Title-Case Device Name & Feedback)
   // ---------------------------------------------------------------------------
   if (is_fb) {
-    std::string fb_str = remote_action_feedback;
-    for (char &c : fb_str) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
-    std::string fit_fb = fit_text_to_width_font(fb_str, 280, font_small);
-    it.print(cx, 50, font_small, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
+    std::string fit_fb = fit_text_to_width_font(remote_action_feedback, 280, font_small);
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, fit_fb.c_str());
   } else {
-    std::string upper_name = rem_name;
-    for (char &c : upper_name) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
-    std::string disp_title = fit_text_to_width_font(upper_name, 280, font_small);
-    it.print(cx, 50, font_small, theme_primary, esphome::display::TextAlign::CENTER, disp_title.c_str());
+    std::string disp_title = fit_text_to_width_font(rem_name, 280, font_small);
+    it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, disp_title.c_str());
   }
 
   // Flank Buttons Symmetrical Coordinates (dy = +/- 93 from cy = 233)
