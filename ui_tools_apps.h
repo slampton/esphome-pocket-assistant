@@ -2428,41 +2428,42 @@ inline void render_home_page(
       compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
                                  moon_phase_raw, moon_cycle, nullptr, nullptr);
     }
-    // Position Sun/Moon at (362, 80) on Home so 4-digit times (e.g. 10:00 at x=136..330) have 10px+ clearance!
+    // Sweet-spot celestial coordinates (351, 86): 28px inside bezel edge + clear of 4-digit time at y=128
     render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                    moon_cycle, 362, 80, true, accel_x, accel_y);
+                                    moon_cycle, 351, 86, true, accel_x, accel_y);
   }
 
-  // ZONE 1 (y = 46): Clean Centered Date Header (Tap -> HOME SETTINGS)
+  // ZONE 1 (y = 52): Larger Centered Date Header in font_date (27pt, Tap -> HOME SETTINGS)
   char date_bar[32] = "Pocket Assistant";
   if (now.is_valid()) {
     TimeT now_copy = now;
     now_copy.strftime(date_bar, sizeof(date_bar), "%a, %b %d");
   }
-  it.print(cx + 1, 47, font_small, col_black, TextAlign::CENTER, date_bar);
-  it.print(cx,     46, font_small, col_white, TextAlign::CENTER, date_bar);
+  it.print(cx + 1, 53, font_date, col_black, TextAlign::CENTER, date_bar);
+  it.print(cx,     52, font_date, col_white, TextAlign::CENTER, date_bar);
 
-  // ZONE 2 (y = 120): Hero Digital Clock (77pt Roboto, Tap -> Opens Full Clock Face)
+  // ZONE 2 (y = 128): Hero Digital Clock (77pt Roboto, Tap -> Opens Full Clock Face)
   char time_str[16] = "--:--";
   if (now.is_valid()) {
     format_time_hhmm(now.hour, now.minute, is_24h_format, time_str, sizeof(time_str));
   }
-  it.print(cx + 1, 121, font_time, col_black, TextAlign::CENTER, time_str);
-  it.print(cx,     120, font_time, col_white, TextAlign::CENTER, time_str);
+  it.print(cx + 1, 129, font_time, col_black, TextAlign::CENTER, time_str);
+  it.print(cx,     128, font_time, col_white, TextAlign::CENTER, time_str);
 
-  // ZONE 3 (y = 194): Interactive Weather Summary ("72°  •  PARTLY CLOUDY" -> Opens Sky & Weather)
+  // ZONE 3 (y = 200): Stepped-Up Weather Summary in font_date (27pt, Tap -> Opens Sky & Weather)
   std::string cond_title = format_weather_title(cond);
   char w_line[64];
   if (!std::isnan(weather_temp)) {
-    snprintf(w_line, sizeof(w_line), "%.0f°  •  %s", weather_temp, cond_title.c_str());
+    snprintf(w_line, sizeof(w_line), "%.0f° • %s", weather_temp, cond_title.c_str());
   } else {
-    snprintf(w_line, sizeof(w_line), "--°  •  %s", cond_title.c_str());
+    snprintf(w_line, sizeof(w_line), "--° • %s", cond_title.c_str());
   }
+  std::string fit_w = fit_text_to_width_font(std::string(w_line), 340, font_date);
   Color cond_col = (!show_weather_bg || is_night) ? theme_secondary : Color(255, 225, 110);
-  it.print(cx + 1, 195, font_small, col_black, TextAlign::CENTER, w_line);
-  it.print(cx,     194, font_small, cond_col,  TextAlign::CENTER, w_line);
+  it.print(cx + 1, 201, font_date, col_black, TextAlign::CENTER, fit_w.c_str());
+  it.print(cx,     200, font_date, cond_col,  TextAlign::CENTER, fit_w.c_str());
 
-  // ZONE 4 (y = 262): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm)
+  // ZONE 4 (y = 264): Smart Live Activity Stack (Timer, Stopwatch, Music, Alarm)
   HomeActivityItem act_items[4];
   int act_count = collect_home_activities(
       now_ms, is_24h_format,
@@ -2485,7 +2486,7 @@ inline void render_home_page(
       home_activity_idx = 0;
     }
     const auto &cur_act = act_items[home_activity_idx];
-    const int pill_y = 262;
+    const int pill_y = 264;
     render_modern_card(it, cx, pill_y, 292, 44, 22, Color(16, 22, 32), theme_primary,
                        nullptr, col_white, font_small);
 
@@ -2525,7 +2526,7 @@ inline void render_home_page(
     get_home_dock_xs(dock_count, cx, dock_xs);
     const int dock_y = 356;
 
-    auto draw_dock_glyph = [&](int app_id, int bx, int by, Color c) {
+    auto draw_dock_glyph = [&](int app_id, int bx, int by, Color c, bool is_shadow) {
       if (app_id == 2) {
         // Music: Enlarged Beamed Eighth Notes
         it.filled_circle(bx - 8, by + 8, 5, c);
@@ -2546,11 +2547,18 @@ inline void render_home_page(
         it.filled_triangle(bx - 12, by, bx - 7, by - 4, bx - 7, by + 4, c);
         it.filled_triangle(bx + 12, by, bx + 7, by - 4, bx + 7, by + 4, c);
       } else if (app_id == 8) {
-        // Tools: Enlarged 2x2 Rounded Bento Grid (10x10 squares)
-        it.filled_rectangle(bx - 12, by - 12, 10, 10, c);
-        it.filled_rectangle(bx + 2,  by - 12, 10, 10, c);
-        it.filled_rectangle(bx - 12, by + 2,  10, 10, c);
-        it.filled_rectangle(bx + 2,  by + 2,  10, 10, c);
+        // Tools: Sleek 45-Degree Machined Open-End Wrench (SF Symbol wrench.fill)
+        for (int w = -3; w <= 3; w++) {
+          it.line(bx - 9 + w, by + 9, bx + 5 + w, by - 5, c);
+          it.line(bx - 9, by + 9 + w, bx + 5, by - 5 + w, c);
+        }
+        it.filled_circle(bx - 9, by + 9, 5, c);
+        it.filled_circle(bx + 7, by - 7, 8, c);
+        if (!is_shadow) {
+          it.filled_circle(bx + 11, by - 11, 5, col_black);
+          it.filled_triangle(bx + 5, by - 5, bx + 14, by - 8, bx + 8, by - 14, col_black);
+          it.filled_circle(bx - 9, by + 9, 2, col_black);
+        }
       } else if (app_id == 3) {
         // Games: Enlarged Arcade Gamepad
         it.rectangle(bx - 15, by - 9, 31, 19, c);
@@ -2566,19 +2574,19 @@ inline void render_home_page(
       int bx = dock_xs[i];
       it.circle(bx + 1, dock_y + 1, 26, col_black);
       it.circle(bx,     dock_y,     26, Color(95, 118, 148));
-      draw_dock_glyph(dock_apps[i], bx + 1, dock_y + 1, col_black);
-      draw_dock_glyph(dock_apps[i], bx,     dock_y,     col_white);
+      draw_dock_glyph(dock_apps[i], bx + 1, dock_y + 1, col_black, true);
+      draw_dock_glyph(dock_apps[i], bx,     dock_y,     col_white, false);
     }
   }
 
-  // ZONE 6 (y = 424): Bottom Chin Battery + Compact Settings Gear Icon (Tap -> Opens System Hub!)
+  // ZONE 6 (y = 424): Visually Separated Battery Readout (Left) & Enlarged 8-Tooth Settings Gear (Right)
   const int chin_y = 424;
   int batt_val = std::isnan(batt) ? 100 : static_cast<int>(roundf(batt));
   char batt_str[16];
   snprintf(batt_str, sizeof(batt_str), "%d%%", batt_val);
 
-  // Offset battery slightly left of cx so [Battery Icon + XX%  •  Gear] is optically centered around cx = 233
-  int text_x = cx - 4;
+  // 1. Left Group: Battery Icon + Percentage (centered around x = 211)
+  int text_x = cx - 22;
   it.print(text_x + 1, chin_y + 1, font_small, col_black, TextAlign::CENTER, batt_str);
   it.print(text_x,     chin_y,     font_small, col_white, TextAlign::CENTER, batt_str);
 
@@ -2593,21 +2601,27 @@ inline void render_home_page(
     it.filled_rectangle(b_icon_x - 3, (chin_y + 7) - fill_h, 6, fill_h, col_green);
   }
 
-  // Compact Settings Gear Icon to the right of Battery % (at gx = text_x + 36, gy = 424, r_out = 8)
-  int gear_x = text_x + (batt_val >= 100 ? 38 : 34);
+  // 2. Right Group: Enlarged, Crisp 8-Tooth Settings Gear at x = cx + 44 (277, y = 424, r_outer = 11px)
+  int gear_x = cx + 44;
   int gear_y = chin_y;
-  auto draw_gear = [&](int gx, int gy, Color c) {
-    // 8 radial gear teeth (cardinal + 45-degree diagonals)
-    it.line(gx, gy - 8, gx, gy + 8, c);
-    it.line(gx - 8, gy, gx + 8, gy, c);
-    it.line(gx - 6, gy - 6, gx + 6, gy + 6, c);
-    it.line(gx - 6, gy + 6, gx + 6, gy - 6, c);
-    it.filled_circle(gx, gy, 6, c);
+  auto draw_gear_large = [&](int gx, int gy, Color c) {
+    // 4 Cardinal 3px-wide teeth (r = 11)
+    it.filled_rectangle(gx - 1, gy - 11, 3, 23, c);
+    it.filled_rectangle(gx - 11, gy - 1, 23, 3, c);
+    // 4 Diagonal 3px-thick teeth (at +/- 8px)
+    for (int d = -1; d <= 1; d++) {
+      it.line(gx - 8 + d, gy - 8, gx + 8 + d, gy + 8, c);
+      it.line(gx - 8, gy - 8 + d, gx + 8, gy + 8 + d, c);
+      it.line(gx - 8 + d, gy + 8, gx + 8 + d, gy - 8, c);
+      it.line(gx - 8, gy + 8 + d, gx + 8, gy - 8 + d, c);
+    }
+    // Solid gear wheel body (r = 8)
+    it.filled_circle(gx, gy, 8, c);
   };
-  draw_gear(gear_x + 1, gear_y + 1, col_black);
-  draw_gear(gear_x,     gear_y,     theme_secondary);
-  it.filled_circle(gear_x, gear_y, 3, col_black);
-  it.circle(gear_x, gear_y, 6, col_white);
+  draw_gear_large(gear_x + 1, gear_y + 1, col_black);
+  draw_gear_large(gear_x,     gear_y,     col_white);
+  it.circle(gear_x, gear_y, 5, theme_secondary);
+  it.filled_circle(gear_x, gear_y, 4, col_black);
 }
 // =============================================================================
 // SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (MULTI-DEVICE & MULTI-PROTOCOL)
