@@ -2393,7 +2393,10 @@ inline void render_home_page(
 
   if (home_subpage == 1) {
     // -------------------------------------------------------------------------
-    // SUBPAGE 1: HOME SETTINGS (Modern Squared-Off Cards + 21pt Header Testbed)
+    // SUBPAGE 1: HOME SETTINGS (Canonical 5-Card Template: 30px Top/Bottom Buffer, 19px Gap)
+    //   - Title at y = 48 (bottom at y = 58)
+    //   - 5 cards (w = 276, h = 44, r = 12) at y_mid = {110, 173, 236, 299, 362} (63px stride)
+    //   - Top of Slot 0 = y 88 (30px below title); Bottom of Slot 4 = y 384 (31px above < BACK)
     // -------------------------------------------------------------------------
     it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "HOME SETTINGS");
 
@@ -2406,30 +2409,24 @@ inline void render_home_page(
       Color bg_c  = is_on ? card_bg_on  : card_bg_off;
       Color brd_c = is_on ? card_brd_on : card_brd_off;
       Color txt_c = is_on ? col_white   : col_slate;
-      Color chv_c = is_on ? theme_secondary : col_slate;
-      render_modern_card(it, cx, y_mid, 276, 46, 12, bg_c, brd_c, label, txt_c, font_small);
-      // Subtle Edit-Alarm-style left/right cycle chevrons inside card flanks
-      it.line(112, y_mid, 117, y_mid - 5, chv_c);
-      it.line(112, y_mid, 117, y_mid + 5, chv_c);
-      it.line(354, y_mid, 349, y_mid - 5, chv_c);
-      it.line(354, y_mid, 349, y_mid + 5, chv_c);
+      render_modern_card(it, cx, y_mid, 276, 44, 12, bg_c, brd_c, label, txt_c, font_small);
     };
 
     char buf[48];
     snprintf(buf, sizeof(buf), "Weather Sky: %s", show_weather_bg ? "On" : "Off");
-    draw_setting_card(98, buf, show_weather_bg);
+    draw_setting_card(110, buf, show_weather_bg);
 
     snprintf(buf, sizeof(buf), "Music Icon: %s", dock_music ? "Shown" : "Hidden");
-    draw_setting_card(160, buf, dock_music);
+    draw_setting_card(173, buf, dock_music);
 
     snprintf(buf, sizeof(buf), "Remote Icon: %s", dock_remote ? "Shown" : "Hidden");
-    draw_setting_card(222, buf, dock_remote);
+    draw_setting_card(236, buf, dock_remote);
 
     snprintf(buf, sizeof(buf), "Tools Icon: %s", dock_tools ? "Shown" : "Hidden");
-    draw_setting_card(284, buf, dock_tools);
+    draw_setting_card(299, buf, dock_tools);
 
     snprintf(buf, sizeof(buf), "Games Icon: %s", dock_games ? "Shown" : "Hidden");
-    draw_setting_card(346, buf, dock_games);
+    draw_setting_card(362, buf, dock_games);
 
     render_back_button(it, cx, font_small, 426, "< BACK");
     return;
