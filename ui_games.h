@@ -2299,13 +2299,14 @@ inline void render_games_launcher(
     draw_game_card(game_carousel_idx, icon_cx, card_cy, text_cx, base_title_y, base_score_y);
   }
 
-  // Top & Bottom Viewport Masks
+  (void)font_games_title;
+  // Top & Bottom Viewport Masks + Standard 21pt Title at y = 48
   it.filled_rectangle(0, 0, 466, 158, col_bg);
-  it.print(cx, 96, font_games_title, theme_primary, TextAlign::CENTER, "GAMES");
+  it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "GAMES");
   it.filled_rectangle(0, 282, 466, 184, col_bg);
 
-  // Combined [Speaker (44px) + 28px gap + PLAY (154px) = 226px] centered at cx = 233 (x = 120..346)
-  render_pill_button(it, 214, 324, 349, 22, theme_primary, col_dark_gray, "PLAY", col_white, font_btn_bold);
+  // Combined [Speaker (44px at x=142) + 28px gap + PLAY Modern Card (154px at cx=269, x=192..346) = 226px]
+  render_modern_card(it, 269, 349, 154, 44, 12, Color(22, 27, 36), theme_primary, "Play", col_white, font_btn_bold);
 
   // Game Sound Mute / Unmute Button at (142, 349, r = 22 -> outer left edge = 120)
   const int spk_x = 142, spk_y = 349;

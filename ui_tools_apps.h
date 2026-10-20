@@ -992,8 +992,8 @@ inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t 
     it.print(cx, 244, font_small, theme_secondary,
              esphome::display::TextAlign::CENTER, "Acoustic Beacon Active");
 
-    render_pill_button(it, 123, 343, 330, 22, theme_primary, theme_primary,
-                       "TAP TO DISMISS", col_white, font_small);
+    render_modern_card(it, cx, 330, 240, 44, 12, esphome::Color(22, 27, 36), theme_primary,
+                       "Tap to Dismiss", col_white, font_small);
     it.print(cx, 372, font_micro, col_gray,
              esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
   } else if (alarm_ringing) {
@@ -1012,27 +1012,27 @@ inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t 
     }
 
     int r_idx = (alarm_ringing_idx == 2) ? alarm2_recurrence : alarm1_recurrence;
-    static constexpr const char *REC_NAMES[4] = {"DAILY", "WEEKDAYS", "WEEKENDS", "ONCE"};
+    static constexpr const char *REC_NAMES[4] = {"Daily", "Weekdays", "Weekends", "Once"};
     it.print(cx, 225, font_small, theme_primary,
              esphome::display::TextAlign::CENTER, REC_NAMES[r_idx & 3]);
 
-    render_pill_button(it, 133, 333, 295, 20, theme_secondary, theme_secondary,
-                       "SNOOZE (+5m)", col_black, font_small);
-    it.print(cx, 326, font_micro, col_gray,
+    render_modern_card(it, cx, 295, 224, 44, 12, esphome::Color(22, 27, 36), theme_secondary,
+                       "Snooze (+5m)", col_white, font_small);
+    it.print(cx, 328, font_micro, col_gray,
              esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
 
-    render_pill_button(it, 143, 323, 370, 18, col_red, col_red,
-                       "DISMISS", col_white, font_small);
+    render_modern_card(it, cx, 370, 204, 42, 12, esphome::Color(28, 18, 22), col_red,
+                       "Dismiss", col_white, font_small);
   } else {
     it.print(cx, 75, font_small, pulse ? theme_secondary : col_white,
              esphome::display::TextAlign::CENTER, "TIMER EXPIRED");
     it.print(cx, 170, font_time, col_white, esphome::display::TextAlign::CENTER, "00:00");
-    std::string t_lbl = va_timer_name.empty() ? "TIME IS UP!" : fit_text_to_width_font(va_timer_name, 260, font_small);
+    std::string t_lbl = va_timer_name.empty() ? "Time is up!" : fit_text_to_width_font(va_timer_name, 260, font_small);
     it.print(cx, 230, font_small, theme_secondary,
              esphome::display::TextAlign::CENTER, t_lbl.c_str());
 
-    render_pill_button(it, 133, 333, 330, 22, theme_primary, theme_primary,
-                       "DISMISS", col_white, font_small);
+    render_modern_card(it, cx, 330, 224, 44, 12, esphome::Color(22, 27, 36), theme_primary,
+                       "Dismiss", col_white, font_small);
     it.print(cx, 372, font_micro, col_gray,
              esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
   }
@@ -2465,9 +2465,9 @@ inline void render_home_page(
       compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
                                  moon_phase_raw, moon_cycle, nullptr, nullptr);
     }
-    // Sweet-spot celestial coordinates (351, 86): 28px inside bezel edge + clear of 4-digit time at y=128
+    // Sweet-spot celestial coordinates (360, 86): splits the gap between 4-digit time (10:15) and the right bezel
     render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                    moon_cycle, 351, 86, true, accel_x, accel_y);
+                                    moon_cycle, 360, 86, true, accel_x, accel_y);
   }
 
   // ZONE 1 (y = 52): Larger Centered Date Header in font_date (27pt, Tap -> HOME SETTINGS)
@@ -3393,7 +3393,7 @@ inline void render_system_page(
     auto print_info_row = [&](int y, const char *lbl, const char *val, esphome::Color val_col) {
       int w_lbl = 0, x_off = 0, base = 0, th = 0;
       font_small->measure(lbl, &w_lbl, &x_off, &base, &th);
-      it.print(info_x, y, font_small, col_slate, esphome::display::TextAlign::LEFT, lbl);
+      it.print(info_x, y, font_small, col_white, esphome::display::TextAlign::LEFT, lbl);
       it.print(info_x + w_lbl + 6, y, font_small, val_col, esphome::display::TextAlign::LEFT, val);
     };
 
@@ -3403,7 +3403,7 @@ inline void render_system_page(
       print_info_row(86, "Version:", buf, col_gold);
     } else {
       snprintf(buf, sizeof(buf), "v%s (Up to date)", version_str);
-      print_info_row(86, "Version:", buf, col_white);
+      print_info_row(86, "Version:", buf, col_slate);
     }
 
     uint32_t up_sec = now_ms / 1000U;
@@ -3412,32 +3412,32 @@ inline void render_system_page(
     uint32_t up_m = (up_sec % 3600U) / 60U;
     snprintf(buf, sizeof(buf), "%lud %02luh %02lum",
              (unsigned long)up_d, (unsigned long)up_h, (unsigned long)up_m);
-    print_info_row(122, "Uptime:", buf, col_white);
+    print_info_row(122, "Uptime:", buf, col_slate);
 
-    print_info_row(158, "Home Assistant:", ha_time_valid ? "Connected" : "Syncing...", col_white);
+    print_info_row(158, "Home Assistant:", ha_time_valid ? "Connected" : "Syncing...", col_slate);
 
     if (std::isnan(wifi_sig)) {
       snprintf(buf, sizeof(buf), "-- dBm  •  BLE: %s", ble_active ? "Active" : "Off");
     } else {
       snprintf(buf, sizeof(buf), "%.0f dBm  •  BLE: %s", wifi_sig, ble_active ? "Active" : "Off");
     }
-    print_info_row(194, "Wi-Fi:", buf, col_white);
+    print_info_row(194, "Wi-Fi:", buf, col_slate);
 
-    print_info_row(230, "IP:", ip_str.empty() ? "Connecting..." : ip_str.c_str(), col_white);
+    print_info_row(230, "IP:", ip_str.empty() ? "Connecting..." : ip_str.c_str(), col_slate);
 
     snprintf(buf, sizeof(buf), "%.0f%% (%.2fV)%s",
              std::isnan(batt) ? 100.0f : batt,
              std::isnan(batt_v) ? 4.15f : batt_v,
              is_charging ? " • Chg" : "");
-    print_info_row(266, "Battery:", buf, col_white);
+    print_info_row(266, "Battery:", buf, col_slate);
 
     float temp_c = std::isnan(imu_temp_c) ? 30.0f : imu_temp_c;
     float temp_f = temp_c * 1.8f + 32.0f;
     snprintf(buf, sizeof(buf), "%.1fC  (%.1fF)", temp_c, temp_f);
-    print_info_row(302, "Temp:", buf, col_white);
+    print_info_row(302, "Temp:", buf, col_slate);
 
     snprintf(buf, sizeof(buf), "%lu KB Free SRAM", (unsigned long)free_heap_kb);
-    print_info_row(338, "Memory:", buf, col_white);
+    print_info_row(338, "Memory:", buf, col_slate);
 
     draw_back();
 
