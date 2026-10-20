@@ -370,7 +370,7 @@ inline void render_tool_stopwatch(DisplayT &it, int cx, int cy, uint32_t now_ms,
   it.filled_circle(cx, cy, 6, col_dark_gray);
   it.filled_circle(cx, cy, 2, col_white);
 
-  it.print(cx, 408, font_small, col_slate, esphome::display::TextAlign::CENTER, "< Back");
+  it.print(cx, 408, font_small, col_slate, esphome::display::TextAlign::CENTER, tools_direct_home() ? "Home" : "< Back");
 }
 
 template<typename DisplayT, typename FontBigT, typename FontSmallT>
@@ -1066,6 +1066,13 @@ inline int &timer_view_slot() {
   return idx;
 }
 
+// True when Timer, Stopwatch, or Alarms was opened directly from the Home Live Activity Card
+// so the bottom chin displays "Home" and returns to Home in 1 tap!
+inline bool &tools_direct_home() {
+  static bool direct = false;
+  return direct;
+}
+
 inline std::string format_timer_slot_label(int slot_idx) {
   const auto &s = timer_slots()[slot_idx];
   if (!s.name.empty()) return s.name;
@@ -1246,7 +1253,7 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
       }
     }
 
-    render_back_button(it, cx, font_small, 426, "< BACK");
+    render_back_button(it, cx, font_small, 426, tools_direct_home() ? "Home" : "< Back");
     return;
   }
 
@@ -1303,7 +1310,7 @@ inline void render_tool_timer(DisplayT &it, int cx, int cy,
                        "RESET", col_red, font_small);
   }
 
-  render_back_button(it, cx, font_small, 426, "< BACK");
+  render_back_button(it, cx, font_small, 426, tools_direct_home() ? "Home" : "< Back");
 }
 
 template<typename DisplayT, typename TimeT, typename FontTimeT, typename FontChronoT,
@@ -1418,7 +1425,7 @@ inline void render_tool_alarms(DisplayT &it, int cx, const TimeT &now, bool is_2
     it.line(348, 316, 342, 322, theme_secondary);
   }
 
-  render_back_button(it, cx, font_small, 426, "< BACK");
+  render_back_button(it, cx, font_small, 426, tools_direct_home() ? "Home" : "< Back");
 }
 template<typename DisplayT, typename FontDateT, typename FontBoldT, typename FontSmallT>
 inline void render_tool_calculator(DisplayT &it, int cx, const std::string &calc_history,
@@ -2377,87 +2384,92 @@ inline void render_home_activity_card_row(
   const Color card_bg(22, 27, 36);
   const Color card_brd(52, 62, 78);
 
-  // When 2+ items are active on Home, extend the card to the right (w = 312, x = 77..389)
-  // to integrate a dedicated right-end dropdown button ('▼')!
-  // When 1 item is active (or inside the ACTIVE NOW dropdown list), use the standard 276px width (x = 95..371).
-  const int card_w   = has_dropdown_ext ? 312 : 276;
-  const int gx       = has_dropdown_ext ?  96 : 113;
-  const int txt_x    = has_dropdown_ext ? 111 : 128;
-  const int max_txt  = has_dropdown_ext ? 186 : 188;
-  const int div1_x   = has_dropdown_ext ? 305 : 324;
-  const int act_bx   = has_dropdown_ext ? 328 : 348;
-  const int div2_x   = 351;
-  const int drop_bx  = 370;
+  // Taller 54px Live Activity Card (r = 14) with generous 57px-wide action compartments:
+  //   - When 2+ items active on Home: w = 340 (x = 63..403):
+  //     * Left Body: x = 63..287 (icon at 84, text at 101, max_w = 180)
+  //     * Play/Pause Compartment: x = 288..345 (57px wide, centered at act_bx = 316, r = 16)
+  //     * Dropdown '▼' Compartment: x = 346..403 (57px wide, centered at drop_bx = 374) -> 58px center separation!
+  //   - When 1 item active (or inside ACTIVE NOW list): w = 296 (x = 85..381):
+  //     * Left Body: x = 85..323 (icon at 106, text at 123, max_w = 194)
+  //     * Play/Pause Compartment: x = 324..381 (57px wide, centered at act_bx = 352, r = 16)
+  const int card_w   = has_dropdown_ext ? 340 : 296;
+  const int card_h   = 54;
+  const int gx       = has_dropdown_ext ?  84 : 106;
+  const int txt_x    = has_dropdown_ext ? 101 : 123;
+  const int max_txt  = has_dropdown_ext ? 180 : 194;
+  const int div1_x   = has_dropdown_ext ? 288 : 324;
+  const int act_bx   = has_dropdown_ext ? 316 : 352;
+  const int div2_x   = 346;
+  const int drop_bx  = 374;
 
-  render_modern_card(it, cx, pill_y, card_w, 44, 12, card_bg, card_brd,
+  render_modern_card(it, cx, pill_y, card_w, card_h, 14, card_bg, card_brd,
                      nullptr, col_white, font_small);
 
   int gy = pill_y;
   if (cur_act.kind == 1) {
     // 1. Timer: Monochromatic Tools Hourglass
-    it.filled_rectangle(gx - 6, gy - 8, 13, 2, col_white);
-    it.filled_rectangle(gx - 6, gy + 7, 13, 2, col_white);
-    it.line(gx - 5, gy - 6, gx - 1, gy, col_white);
-    it.line(gx + 5, gy - 6, gx + 1, gy, col_white);
-    it.line(gx - 1, gy, gx - 5, gy + 6, col_white);
-    it.line(gx + 1, gy, gx + 5, gy + 6, col_white);
+    it.filled_rectangle(gx - 6, gy - 9, 13, 2, col_white);
+    it.filled_rectangle(gx - 6, gy + 8, 13, 2, col_white);
+    it.line(gx - 5, gy - 7, gx - 1, gy, col_white);
+    it.line(gx + 5, gy - 7, gx + 1, gy, col_white);
+    it.line(gx - 1, gy, gx - 5, gy + 7, col_white);
+    it.line(gx + 1, gy, gx + 5, gy + 7, col_white);
     it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, col_white);
-    it.filled_triangle(gx - 4, gy + 6, gx + 4, gy + 6, gx, gy + 2, col_white);
+    it.filled_triangle(gx - 4, gy + 7, gx + 4, gy + 7, gx, gy + 2, col_white);
   } else if (cur_act.kind == 2) {
     // 2. Stopwatch: Monochromatic Tools Chronometer
-    it.filled_rectangle(gx - 2, gy - 9, 5, 2, col_white);
-    it.line(gx + 5, gy - 5, gx + 7, gy - 7, col_white);
-    it.circle(gx, gy + 1, 7, col_white);
-    it.circle(gx, gy + 1, 6, theme_secondary);
+    it.filled_rectangle(gx - 2, gy - 10, 5, 2, col_white);
+    it.line(gx + 5, gy - 6, gx + 7, gy - 8, col_white);
+    it.circle(gx, gy + 1, 8, col_white);
+    it.circle(gx, gy + 1, 7, theme_secondary);
     it.line(gx, gy + 1, gx + 4, gy - 3, col_white);
     it.draw_pixel_at(gx, gy + 1, col_white);
   } else if (cur_act.kind == 3) {
     // 3. Music: Monochromatic Filled White Beamed Eighth Notes
-    it.filled_circle(gx - 4, gy + 4, 3, col_white);
-    it.filled_circle(gx + 4, gy + 2, 3, col_white);
-    it.filled_rectangle(gx - 2, gy - 6, 2, 10, col_white);
-    it.filled_rectangle(gx + 5, gy - 8, 2, 10, col_white);
+    it.filled_circle(gx - 4, gy + 5, 3, col_white);
+    it.filled_circle(gx + 4, gy + 3, 3, col_white);
+    it.filled_rectangle(gx - 2, gy - 6, 2, 11, col_white);
+    it.filled_rectangle(gx + 5, gy - 8, 2, 11, col_white);
     it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
     it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
   } else {
     // 4. Alarm: Monochromatic Tools Twin-Bell Alarm Clock
-    it.filled_circle(gx - 6, gy - 5, 2, col_white);
-    it.filled_circle(gx + 6, gy - 5, 2, col_white);
-    it.filled_circle(gx, gy + 1, 8, card_bg);
-    it.circle(gx, gy + 1, 7, col_white);
-    it.line(gx - 5, gy + 7, gx - 7, gy + 9, col_white);
-    it.line(gx + 5, gy + 7, gx + 7, gy + 9, col_white);
-    it.line(gx, gy + 1, gx,     gy - 3, col_white);
-    it.line(gx, gy + 1, gx + 3, gy + 3, col_white);
+    it.filled_circle(gx - 6, gy - 6, 2, col_white);
+    it.filled_circle(gx + 6, gy - 6, 2, col_white);
+    it.filled_circle(gx, gy + 1, 9, card_bg);
+    it.circle(gx, gy + 1, 8, col_white);
+    it.line(gx - 5, gy + 8, gx - 7, gy + 10, col_white);
+    it.line(gx + 5, gy + 8, gx + 7, gy + 10, col_white);
+    it.line(gx, gy + 1, gx,     gy - 4, col_white);
+    it.line(gx, gy + 1, gx + 4, gy + 3, col_white);
   }
 
   std::string fit_act = fit_text_to_width_font(cur_act.label, max_txt, font_small);
   it.print(txt_x, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
 
-  // Inline Action Button (Play / Pause / Disarm)
-  it.line(div1_x, pill_y - 14, div1_x, pill_y + 14, card_brd);
-  it.filled_circle(act_bx, pill_y, 13, Color(30, 37, 48));
-  it.circle(act_bx, pill_y, 13, theme_secondary);
+  // Enlarged Inline Action Button (Play / Pause / Disarm, r = 16 at act_bx)
+  it.line(div1_x, pill_y - 18, div1_x, pill_y + 18, card_brd);
+  it.filled_circle(act_bx, pill_y, 16, Color(30, 37, 48));
+  it.circle(act_bx, pill_y, 16, theme_secondary);
 
   if (cur_act.kind == 4) {
     for (int w = -1; w <= 0; w++) {
-      it.line(act_bx - 4 + w, pill_y - 4, act_bx + 4 + w, pill_y + 4, col_white);
-      it.line(act_bx - 4 + w, pill_y + 4, act_bx + 4 + w, pill_y - 4, col_white);
+      it.line(act_bx - 5 + w, pill_y - 5, act_bx + 5 + w, pill_y + 5, col_white);
+      it.line(act_bx - 5 + w, pill_y + 5, act_bx + 5 + w, pill_y - 5, col_white);
     }
   } else if (cur_act.is_active) {
-    it.filled_rectangle(act_bx - 4, pill_y - 5, 3, 11, col_white);
-    it.filled_rectangle(act_bx + 2, pill_y - 5, 3, 11, col_white);
+    it.filled_rectangle(act_bx - 5, pill_y - 6, 3, 13, col_white);
+    it.filled_rectangle(act_bx + 2, pill_y - 6, 3, 13, col_white);
   } else {
-    it.filled_triangle(act_bx - 3, pill_y - 5, act_bx - 3, pill_y + 5, act_bx + 5, pill_y, col_white);
+    it.filled_triangle(act_bx - 4, pill_y - 6, act_bx - 4, pill_y + 6, act_bx + 6, pill_y, col_white);
   }
 
-  // Integrated Right-End Dropdown Compartment ('▼') when 2+ activities are active!
+  // Integrated Right-End Dropdown Compartment ('▼' centered at drop_bx = 374, 57px wide!)
   if (has_dropdown_ext) {
-    it.line(div2_x, pill_y - 14, div2_x, pill_y + 14, card_brd);
-    // Crisp 2px downward chevron at (drop_bx = 370, pill_y)
-    for (int w = 0; w <= 1; w++) {
-      it.line(drop_bx - 6, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
-      it.line(drop_bx + 6, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
+    it.line(div2_x, pill_y - 18, div2_x, pill_y + 18, card_brd);
+    for (int w = -1; w <= 1; w++) {
+      it.line(drop_bx - 7, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
+      it.line(drop_bx + 7, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
     }
   }
 }
@@ -2736,19 +2748,19 @@ inline void render_home_page(
   const bool greeting_active = show_wake_greeting && wake_greeting_latched() &&
                                now.is_valid() && (greet_el < 10500U);
 
-  // ZONE 4 (y = 264 / 247): Smart Live Activity Card (with integrated right dropdown '▼' when 2+ active!)
+  // ZONE 4 (y = 264): Wake Greeting (first 10.5s after Cold Boot / Hibernate wake) OR Live Activity Card
+  // Never stacked together: the Greeting displays and fades out first, then the Live Activity Card takes over!
   (void)home_activity_idx;
-  if (act_count > 0) {
-    const int pill_y = greeting_active ? 247 : 264;
+  if (!greeting_active && act_count > 0) {
     render_home_activity_card_row(
-        it, cx, pill_y, act_items[0], (act_count > 1), font_small, theme_secondary, col_white);
+        it, cx, 264, act_items[0], (act_count > 1), font_small, theme_secondary, col_white);
   }
 
   if (greeting_active) {
     const char *raw_greet = resolve_wake_greeting(
         now.hour, now.minute, now.day_of_year, cond, weather_temp);
     std::string fit_greet = fit_text_to_width_font(std::string(raw_greet), 340, font_date);
-    int greet_y = (act_count > 0) ? 296 : 268;
+    int greet_y = 264;
 
     // 0..8000ms = 1.0f full brightness; 8000..10500ms = smooth 2.5s Hermite fade into background sky color
     float alpha = 1.0f;
@@ -2990,19 +3002,23 @@ inline void render_home_page(
   const int b_icon_x = group_left + (icon_w / 2);
   const int text_left_x = group_left + icon_w + icon_gap;
 
+  // Optical cap-height center of '0' in 21pt font_small printed at chin_y (422) sits at chin_y - 2 (420)
+  // because font_small's bounding box includes 4px of bottom descender space below the baseline!
+  const int icon_cy = chin_y - 2;
+
   if (is_charging) {
-    // 20px-tall golden charging lightning bolt with 1px black drop shadow
-    it.filled_triangle(b_icon_x + 4, chin_y - 9, b_icon_x - 3, chin_y + 1, b_icon_x + 1, chin_y + 1, col_black);
-    it.filled_triangle(b_icon_x - 1, chin_y,     b_icon_x + 3, chin_y,     b_icon_x - 2, chin_y + 10, col_black);
-    it.filled_triangle(b_icon_x + 3, chin_y - 10, b_icon_x - 4, chin_y,    b_icon_x,     chin_y,      col_gold);
-    it.filled_triangle(b_icon_x - 2, chin_y - 1,  b_icon_x + 2, chin_y - 1, b_icon_x - 3, chin_y + 9, col_gold);
+    // 20px-tall golden charging lightning bolt centered at icon_cy
+    it.filled_triangle(b_icon_x + 4, icon_cy - 9, b_icon_x - 3, icon_cy + 1, b_icon_x + 1, icon_cy + 1, col_black);
+    it.filled_triangle(b_icon_x - 1, icon_cy,     b_icon_x + 3, icon_cy,     b_icon_x - 2, icon_cy + 10, col_black);
+    it.filled_triangle(b_icon_x + 3, icon_cy - 10, b_icon_x - 4, icon_cy,    b_icon_x,     icon_cy,      col_gold);
+    it.filled_triangle(b_icon_x - 2, icon_cy - 1,  b_icon_x + 2, icon_cy - 1, b_icon_x - 3, icon_cy + 9, col_gold);
   } else {
-    // Crisp 13x17px 2px-walled battery icon + 5x2px top terminal cap (matches 21pt font height!)
-    it.filled_rectangle(b_icon_x - 2, chin_y - 10, 5, 2, col_green);
-    it.rectangle(b_icon_x - 6, chin_y - 8, 13, 17, col_green);
-    it.rectangle(b_icon_x - 5, chin_y - 7, 11, 15, col_green);
+    // Crisp 13x17px 2px-walled battery icon + 5x2px top terminal cap centered at icon_cy
+    it.filled_rectangle(b_icon_x - 2, icon_cy - 10, 5, 2, col_green);
+    it.rectangle(b_icon_x - 6, icon_cy - 8, 13, 17, col_green);
+    it.rectangle(b_icon_x - 5, icon_cy - 7, 11, 15, col_green);
     int fill_h = static_cast<int>(std::max(1.0f, std::min(11.0f, (static_cast<float>(batt_val) / 100.0f) * 11.0f)));
-    it.filled_rectangle(b_icon_x - 3, (chin_y + 6) - fill_h, 7, fill_h, col_green);
+    it.filled_rectangle(b_icon_x - 3, (icon_cy + 6) - fill_h, 7, fill_h, col_green);
   }
 
   // 1px horizontal bold double-pass in crisp silver-gray (no black shadow pinching the 21pt strokes!)
@@ -3010,13 +3026,10 @@ inline void render_home_page(
   it.print(text_left_x,     chin_y, font_small, batt_txt_col, TextAlign::CENTER_LEFT, batt_str);
   it.print(text_left_x + 1, chin_y, font_small, batt_txt_col, TextAlign::CENTER_LEFT, batt_str);
 
-  // 2. Right Group: 8-Sprocket CSG Gear at x = cx + 48 (281, y = 422)
-  //    - 100% transparent center hole (r = 3.8px -> r2 <= 14, sky shows through cleanly!)
-  //    - Larger solid wheel body ring (r = 3.8 .. 8.4px -> r2 <= 71)
-  //    - 8 stubby, flat-topped trapezoidal sprockets (protruding only 2.6px to r = 11.0px)
-  //      so it reads immediately as an 8-tooth gear rather than a ship's helm!
+  // 2. Right Group: 8-Sprocket CSG Gear at x = cx + 48 (281), optically centered at icon_cy (420)
+  //    so the center bore of the gear aligns horizontally with the center of the '0' in 100%!
   int gear_x = cx + 48;
-  int gear_y = chin_y;
+  int gear_y = icon_cy;
   auto is_gear_pixel = [](int dx, int dy) -> bool {
     int r2 = dx * dx + dy * dy;
     // 1. Transparent center hole (r <= 3.8px -> r2 <= 14) and outer bound (r > 11.2px -> r2 > 125)

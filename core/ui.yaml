@@ -3898,25 +3898,29 @@ touchscreen:
                   return;
                 }
 
-                // Left Body Tap -> Open App/Subpage
+                // Left Body Tap -> Open App/Subpage (with tools_direct_home() = true so bottom chin says "Home"!)
                 id(home_subpage) = 0;
                 pocket_ui::home_dock_page() = 0;
                 if (kind == 1) {
+                  pocket_ui::tools_direct_home() = true;
                   id(gui_page) = 8;
                   id(stuff_subpage) = 1;
                   pocket_ui::timer_view_slot() = (s_idx >= 0 && s_idx < 3) ? (s_idx + 1) : 0;
                 } else if (kind == 2) {
+                  pocket_ui::tools_direct_home() = true;
                   id(gui_page) = 8;
                   id(stuff_subpage) = 3;
                 } else if (kind == 3) {
+                  pocket_ui::tools_direct_home() = false;
                   id(gui_page) = 2;
                   id(music_overlay_mode) = 0;
                   id(music_hud_active) = true;
                   id(music_hud_timer) = now_hm;
                 } else if (kind == 4) {
+                  pocket_ui::tools_direct_home() = true;
                   id(gui_page) = 8;
                   id(stuff_subpage) = 2;
-                  id(alarm_edit_idx) = 0;
+                  id(alarm_edit_idx) = (s_idx >= 1 && s_idx <= 3) ? s_idx : 0;
                 }
                 id(disp1).update();
               };
@@ -3931,34 +3935,38 @@ touchscreen:
                   }
                   return;
                 }
-                int slot_idx = get_5slot_index(touch, 90, 376);
+                int slot_idx = get_5slot_index(touch, 80, 386);
                 if (slot_idx >= 0 && slot_idx < act_count && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   last_home_tap = now_hm;
-                  handle_activity_item_action(slot_idx, (touch.x >= 322));
+                  handle_activity_item_action(slot_idx, (touch.x >= 324));
                 }
                 return;
               }
 
-              // 7. Smart Live Activity Card Tap on Home (y in [224..290]):
-              //    - When 2+ active (extended card x in [75..392]):
-              //      * x >= 351: Tap Integrated Dropdown ('▼') -> Open "ACTIVE NOW" (home_subpage = 2)
-              //      * x in [305..350]: Tap Inline Play/Pause/Disarm
-              //      * x < 305: Open App
-              //    - When 1 active (standard 276px card x in [90..376]):
-              //      * x >= 322: Tap Inline Play/Pause/Disarm
-              //      * x < 322: Open App
-              if (act_count > 0 && touch.y >= 224 && touch.y <= 290 && touch.x >= 75 && touch.x <= 394) {
+              // 7. Live Activity Card Tap on Home (y in [232..296], only active once Wake Greeting has finished):
+              //    - When 2+ active (w = 340, x in [63..403]):
+              //      * x >= 346: Tap Integrated Dropdown ('▼', 57px wide) -> Open "ACTIVE NOW" (home_subpage = 2)
+              //      * x in [288..345]: Tap Inline Play/Pause/Disarm (57px wide)
+              //      * x < 288: Open App (with direct "Home" return!)
+              //    - When 1 active (w = 296, x in [85..381]):
+              //      * x >= 324: Tap Inline Play/Pause/Disarm (57px wide)
+              //      * x < 324: Open App (with direct "Home" return!)
+              const bool greet_blocking = id(home_wake_greeting_switch).state &&
+                                          pocket_ui::wake_greeting_latched() &&
+                                          (now_hm >= pocket_ui::wake_greeting_start_ms()) &&
+                                          (now_hm - pocket_ui::wake_greeting_start_ms() < 10500U);
+              if (!greet_blocking && act_count > 0 && touch.y >= 232 && touch.y <= 296 && touch.x >= 60 && touch.x <= 406) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   if (act_count > 1) {
-                    if (touch.x >= 351) {
+                    if (touch.x >= 346) {
                       id(home_subpage) = 2;
                       id(disp1).update();
                       return;
                     }
-                    handle_activity_item_action(0, (touch.x >= 305));
-                  } else if (touch.x >= 90 && touch.x <= 376) {
-                    handle_activity_item_action(0, (touch.x >= 322));
+                    handle_activity_item_action(0, (touch.x >= 288));
+                  } else if (touch.x >= 82 && touch.x <= 384) {
+                    handle_activity_item_action(0, (touch.x >= 324));
                   }
                 }
                 return;
@@ -4006,7 +4014,7 @@ touchscreen:
                   if (best_i >= 0) {
                     last_home_tap = now_hm;
                     id(gui_page) = dock_apps[start_idx + best_i];
-                    pocket_ui::home_dock_page() = 0; // Always reset dock to Page 0 when launching an app!
+                    pocket_ui::home_dock_page() = 0; pocket_ui::tools_direct_home() = false;
                     id(music_overlay_mode) = 0;
                     if (id(gui_page) == 2) {
                       id(music_hud_active) = true;
@@ -5352,8 +5360,17 @@ touchscreen:
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
-                    if (view_idx > 0) view_idx = 0;
-                    else id(stuff_subpage) = 0;
+                    if (pocket_ui::tools_direct_home()) {
+                      pocket_ui::tools_direct_home() = false;
+                      view_idx = 0;
+                      id(stuff_subpage) = 0;
+                      id(gui_page) = 1;
+                      id(home_subpage) = 0;
+                    } else if (view_idx > 0) {
+                      view_idx = 0;
+                    } else {
+                      id(stuff_subpage) = 0;
+                    }
                     id(disp1).update();
                   }
                   return;
@@ -5462,8 +5479,17 @@ touchscreen:
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
-                    if (id(alarm_edit_idx) > 0) id(alarm_edit_idx) = 0;
-                    else id(stuff_subpage) = 0;
+                    if (pocket_ui::tools_direct_home()) {
+                      pocket_ui::tools_direct_home() = false;
+                      id(alarm_edit_idx) = 0;
+                      id(stuff_subpage) = 0;
+                      id(gui_page) = 1;
+                      id(home_subpage) = 0;
+                    } else if (id(alarm_edit_idx) > 0) {
+                      id(alarm_edit_idx) = 0;
+                    } else {
+                      id(stuff_subpage) = 0;
+                    }
                     id(disp1).update();
                   }
                   return;
@@ -5530,7 +5556,14 @@ touchscreen:
                 if (is_back_button(touch)) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
-                    id(stuff_subpage) = 0;
+                    if (pocket_ui::tools_direct_home()) {
+                      pocket_ui::tools_direct_home() = false;
+                      id(stuff_subpage) = 0;
+                      id(gui_page) = 1;
+                      id(home_subpage) = 0;
+                    } else {
+                      id(stuff_subpage) = 0;
+                    }
                     id(disp1).update();
                   }
                   return;
