@@ -9,6 +9,13 @@
 
 namespace pocket_ui {
 
+// True when Timer, Stopwatch, or Alarms was opened directly from the Home Live Activity Card
+// so the bottom chin displays "Home" and returns to Home in 1 tap!
+inline bool &tools_direct_home() {
+  static bool direct = false;
+  return direct;
+}
+
 // ============================================================================
 // SECTION 13: TOOLS SUITE PART 1 — LAUNCHER, STOPWATCH, DICE, LEVEL & COIN FLIP
 // ============================================================================
@@ -1066,12 +1073,7 @@ inline int &timer_view_slot() {
   return idx;
 }
 
-// True when Timer, Stopwatch, or Alarms was opened directly from the Home Live Activity Card
-// so the bottom chin displays "Home" and returns to Home in 1 tap!
-inline bool &tools_direct_home() {
-  static bool direct = false;
-  return direct;
-}
+
 
 inline std::string format_timer_slot_label(int slot_idx) {
   const auto &s = timer_slots()[slot_idx];
