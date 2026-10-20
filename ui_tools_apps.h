@@ -2165,7 +2165,7 @@ inline void render_clock_page(
 
   render_battery_indicator(it, cx, 348, batt, is_charging, font_small,
                            theme_primary, col_gold, col_green);
-  render_back_button(it, cx, font_small, 408, "Home");
+  it.print(cx, 408, font_small, col_slate, esphome::display::TextAlign::CENTER, "Home");
 
   // 2. Pre-sync state: minimalist "--:--" placeholder without text clutter until HA time syncs
   if (!now.is_valid()) {
