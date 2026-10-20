@@ -3369,7 +3369,7 @@ inline void render_system_page(
     it.filled_rectangle(0, 388, 466, 78, col_bg);
     it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "SYSTEM");
 
-    draw_back();
+    render_back_button(it, cx, font_small, 426, "Home");
     int active_page = menu_scroll_active ? menu_scroll_target_page : system_dashboard_page;
     draw_right_chevrons(active_page == 2, active_page == 1);
 
