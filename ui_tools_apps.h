@@ -2732,60 +2732,119 @@ inline void render_home_page(
         it.filled_triangle(bx - 13, by, bx - 8, by - 4, bx - 8, by + 4, c);
         it.filled_triangle(bx + 13, by, bx + 8, by - 4, bx + 8, by + 4, c);
       } else if (app_id == 8) {
-        // Tools: Sleek 45-Degree Machined Open-End Wrench (scaled for r = 29)
-        for (int w = -3; w <= 3; w++) {
-          it.line(bx - 10 + w, by + 10, bx + 6 + w, by - 6, c);
-          it.line(bx - 10, by + 10 + w, bx + 6, by - 6 + w, c);
-        }
-        it.filled_circle(bx - 10, by + 10, 5, c);
-        it.filled_circle(bx + 8, by - 8, 9, c);
-        if (!is_shadow) {
-          it.filled_circle(bx + 12, by - 12, 5, col_black);
-          it.filled_triangle(bx + 6, by - 6, bx + 15, by - 9, bx + 9, by - 15, col_black);
-          it.filled_circle(bx - 10, by + 10, 2, col_black);
-        }
-      } else if (app_id == 3) {
-        // Games: Xbox Wireless Controller (Sides flare OUTWARD from top shoulders ±10px to lower palms ±18px!)
-        // 1. Narrower top LB/RB shoulder bumpers (±10px) flaring outward down to ±18px palm swells
-        static constexpr int8_t XB_OUTER[22] = {
-           9, 11, 12, 13, 14, 15, 15, 16, 16, 17, 17, 18, 18, 18, 18, 18, 17, 17, 16, 15, 14, 12
+        // Tools: Reference-Matched 45-Degree Combination Wrench (Open-End Jaw + Hex Box-End)
+        // Rendered via CSG scanline evaluation so the open jaw and hex hole are 100% transparent!
+        auto is_wrench_pixel = [](int dx, int dy) -> bool {
+          static constexpr float INV_SQRT2 = 0.70710678f;
+          float fx = static_cast<float>(dx);
+          float fy = static_cast<float>(dy);
+          // Along-axis u (+ toward upper-right jaw, - toward lower-left box ring) & perpendicular v
+          float u = (fx - fy) * INV_SQRT2;
+          float v = (fx + fy) * INV_SQRT2;
+
+          // 1. Transparent Upper-Right Open-End U-Jaw Cutout (centered along u >= 6.2, |v| <= 3.1)
+          if (u >= 6.2f && std::fabs(v) <= 3.15f) return false;
+          float du_jaw = u - 6.2f;
+          if ((du_jaw * du_jaw + v * v) <= 9.9f) return false;
+
+          // 2. Transparent Lower-Left Hexagonal Box-End Cutout at (-9.5, +9.5) -> u_box = -13.4
+          float du_box = u + 11.8f;
+          float dv_box = v;
+          // 6-sided regular hexagon metric: max(|du|, 0.5*|du| + 0.866*|dv|) <= 3.35
+          float au = std::fabs(du_box);
+          float av = std::fabs(dv_box);
+          if (au <= 3.35f && (0.5f * au + 0.8660254f * av) <= 3.35f) return false;
+
+          // 3. Upper-Right Open-End Head (centered at u = +10.2, v = 0, r = 7.6px)
+          float du_hi = u - 10.2f;
+          if ((du_hi * du_hi + v * v) <= 58.0f && u <= 16.2f) return true;
+
+          // 4. Lower-Left Box-End Ring (centered at u = -11.8, v = 0, r = 6.6px)
+          if ((du_box * du_box + dv_box * dv_box) <= 43.5f) return true;
+
+          // 5. Central 45-Degree Handle Shaft (u in [-9.5 .. +8.0], |v| <= 3.1px)
+          if (u >= -9.5f && u <= 8.0f && std::fabs(v) <= 3.1f) return true;
+
+          return false;
         };
-        static constexpr int8_t XB_INNER[22] = {
-           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  5,  7,  8,  9,  9, 10, 10, 11, 11
-        };
-        for (int row = 0; row < 22; row++) {
-          int dy = row - 10; // spans by - 10 .. by + 11
-          int ox = XB_OUTER[row];
-          int ix = XB_INNER[row];
-          if (ix == 0) {
-            it.horizontal_line(bx - ox, by + dy, 2 * ox + 1, c);
-          } else {
-            it.horizontal_line(bx - ox, by + dy, ox - ix + 1, c);
-            it.horizontal_line(bx + ix, by + dy, ox - ix + 1, c);
-          }
-        }
-        // Rounded bulbous lower-outer palm ends at (bx ± 13, by + 7, r = 5)
-        it.filled_circle(bx - 13, by + 7, 5, c);
-        it.filled_circle(bx + 13, by + 7, 5, c);
 
         if (!is_shadow) {
-          // 1. Top-center Xbox Nexus Guide button
-          it.filled_circle(bx, by - 6, 2, col_black);
-          it.draw_pixel_at(bx, by - 6, c);
-          // 2. Asymmetrical Left Stick (upper-left at bx - 9, by - 3)
-          it.filled_circle(bx - 9, by - 3, 3, col_black);
-          it.filled_circle(bx - 9, by - 3, 1, c);
-          // 3. Lower-Left D-Pad cross (+) at (bx - 5, by + 1)
-          it.horizontal_line(bx - 7, by + 1, 5, col_black);
-          it.vertical_line(bx - 5, by - 1, 5, col_black);
-          // 4. Upper-Right 4-button ABXY Diamond at (bx + 9, by - 3)
-          it.draw_pixel_at(bx + 9,  by - 5, col_black);
-          it.draw_pixel_at(bx + 9,  by - 1, col_black);
-          it.draw_pixel_at(bx + 7,  by - 3, col_black);
-          it.draw_pixel_at(bx + 11, by - 3, col_black);
-          // 5. Asymmetrical Right Stick (lower-right at bx + 5, by + 1)
-          it.filled_circle(bx + 5, by + 1, 3, col_black);
-          it.filled_circle(bx + 5, by + 1, 1, c);
+          for (int dy = -17; dy <= 17; dy++) {
+            for (int dx = -17; dx <= 17; dx++) {
+              if (is_wrench_pixel(dx, dy)) {
+                if (!is_wrench_pixel(dx + 1, dy + 1)) {
+                  it.draw_pixel_at(bx + dx + 1, by + dy + 1, col_black);
+                }
+                it.draw_pixel_at(bx + dx, by + dy, c);
+              }
+            }
+          }
+        }
+      } else if (app_id == 3) {
+        // Games: Reference-Matched Thick-Outline Gamepad (Flared side grips + D-Pad '+' + 4-Dot Diamond)
+        // Uses 21-row outer & inner boundary tables so the interior is 100% transparent!
+        // dy spans -10 .. +10 (21 rows)
+        static constexpr int8_t GP_OUT_MAX[21] = {
+          11, 13, 14, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 17, 17, 16, 14
+        };
+        static constexpr int8_t GP_OUT_MIN[21] = {
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  8,  9,  9, 10, 10, 11, 12
+        };
+        static constexpr int8_t GP_IN_MAX[21] = {
+          -1, -1, -1, 11, 12, 12, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 14, 13, -1, -1
+        };
+        static constexpr int8_t GP_IN_MIN[21] = {
+           0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9, 10, 10, 10, 11, 11, 12, 12, 12,  0,  0
+        };
+
+        auto is_gamepad_pixel = [](int dx, int dy) -> bool {
+          if (dy < -10 || dy > 10) return false;
+          int row = dy + 10;
+          int ax = std::abs(dx);
+
+          // 1. Check if inside outer gamepad silhouette
+          bool in_outer = (ax >= GP_OUT_MIN[row] && ax <= GP_OUT_MAX[row]);
+          if (!in_outer) return false;
+
+          // 2. Check if inside hollow interior (transparent!)
+          bool in_inner = (GP_IN_MAX[row] >= 0) && (ax >= GP_IN_MIN[row] && ax <= GP_IN_MAX[row]);
+          if (!in_inner) return true; // Part of the 3px thick outer shell wall!
+
+          // 3. Inside hollow interior: draw Left D-Pad Cross (+) centered at (dx = -8, dy = -2)
+          int dpx = dx + 8;
+          int dpy = dy + 2;
+          if ((std::abs(dpx) <= 1 && std::abs(dpy) <= 4) ||
+              (std::abs(dpy) <= 1 && std::abs(dpx) <= 4)) {
+            return true;
+          }
+
+          // 4. Inside hollow interior: draw Right 4-Dot Action Diamond centered at (dx = +8, dy = -2)
+          int abx = dx - 8;
+          int aby = dy + 2;
+          // Top (0, -3), Bottom (0, +3), Left (-3, 0), Right (+3, 0) — each dot is a 2x2 / r=1 pip
+          auto is_dot = [](int x, int y, int cx_d, int cy_d) -> bool {
+            int rx = x - cx_d, ry = y - cy_d;
+            return (rx * rx + ry * ry) <= 1;
+          };
+          if (is_dot(abx, aby, 0, -3) || is_dot(abx, aby, 0, 3) ||
+              is_dot(abx, aby, -3, 0) || is_dot(abx, aby, 3, 0)) {
+            return true;
+          }
+
+          return false;
+        };
+
+        if (!is_shadow) {
+          for (int dy = -11; dy <= 11; dy++) {
+            for (int dx = -19; dx <= 19; dx++) {
+              if (is_gamepad_pixel(dx, dy)) {
+                if (!is_gamepad_pixel(dx + 1, dy + 1)) {
+                  it.draw_pixel_at(bx + dx + 1, by + dy + 1, col_black);
+                }
+                it.draw_pixel_at(bx + dx, by + dy, c);
+              }
+            }
+          }
         }
       }
     };
