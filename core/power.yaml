@@ -65,9 +65,9 @@ binary_sensor:
       if (isnan(dyn)) return false;
 
       // Dual-Threshold In-Hand Detection:
-      // While screen is active, 0.040g maintains active hold so screen never sleeps in your hand.
+      // While screen is active, 0.068g maintains active hold in your hand without false-triggering on desk/USB noise.
       // While screen is sleeping/standby, 0.15g requires a deliberate pickup motion to wake.
-      float thresh = (id(display_power_state) == 0) ? 0.040f : 0.15f;
+      float thresh = (id(display_power_state) == 0) ? 0.068f : 0.15f;
       const uint32_t active_ms = (id(display_power_state) == 0) ? 3000 : 2000;
       uint32_t now_ms = millis();
 
@@ -299,7 +299,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "5 min"
+    initial_option: "15s"
     options:
       - "10s"
       - "15s"
@@ -372,6 +372,9 @@ interval:
               vbus = (stat0 & 0x20) != 0;
               if (!id(usb_connected).has_state() || id(usb_connected).state != vbus) {
                 id(usb_connected).publish_state(vbus);
+                if (id(display_power_state) == 0) {
+                  id(screen_sleep_timer).execute();
+                }
                 // If unplugged while Docked Screensaver is running, transition immediately to Screen Off
                 // so the 10 FPS screensaver never stays awake draining the battery.
                 if (!vbus && id(display_power_state) == 1) {
@@ -838,7 +841,7 @@ script:
             if (ss_to == "1 min") return 60000;
             if (ss_to == "5 min") return 300000;
             if (ss_to == "Never") return 86400000; // 24 hours
-            return 300000; // default 5m
+            return 15000; // default 15s
           }
           // When on battery: use screen_off_timeout
           auto opt = id(display_off_timeout).current_option();
@@ -860,10 +863,9 @@ script:
               // Keep display awake while Flashlight (subpage 5) or Bubble Level (subpage 7) is actively in use
               const bool active_tool_awake =
                   (id(gui_page) == 8 && (id(stuff_subpage) == 5 || id(stuff_subpage) == 7));
-              // On battery power, screen sleep strictly honors display_off_timeout (default 15s)
-              // regardless of remote playback status, protecting OLED panel and battery.
-              // Local playback only inhibits Tier 3 deep sleep hibernation in the 1s watchdog loop.
+              const bool in_hand_hold = !id(usb_connected).state && id(pickup_detected).state;
               return !id(ota_in_progress) &&
+                     !id(va_active) &&
                      !id(va).is_running() &&
                      !id(va_tts_received) &&
                      !id(announcement_mixing_input).is_running() &&
@@ -871,7 +873,7 @@ script:
                      !id(timer_ringing) &&
                      !id(alarm_ringing) &&
                      !id(find_my_active) &&
-                     !id(pickup_detected).state &&
+                     !in_hand_hold &&
                      !active_tool_awake &&
                      (id(active_game) == 0);
           then:
@@ -880,17 +882,12 @@ script:
             - if:
                 condition:
                   lambda: |-
-                    const bool active_tool_awake =
-                        (id(gui_page) == 8 && (id(stuff_subpage) == 5 || id(stuff_subpage) == 7));
-                    return (id(display_power_state) == 0) &&
-                           !id(ota_in_progress) &&
-                           !id(va).is_running() &&
-                           !id(stopwatch_running) &&
-                           !id(timer_ringing) &&
-                           !id(alarm_ringing) &&
-                           !id(find_my_active) &&
-                           !active_tool_awake &&
-                           (id(active_game) == 0);
+                    if (id(usb_connected).state) {
+                      if (id(screensaver_docked_timeout).current_option() == "Never") return false;
+                    } else {
+                      if (id(display_off_timeout).current_option() == "Never") return false;
+                    }
+                    return (id(display_power_state) == 0);
                 then:
                   - delay: 2s
                   - script.execute: screen_sleep_timer

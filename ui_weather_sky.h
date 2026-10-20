@@ -951,6 +951,26 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     render_night_shooting_star(it, now_ms, cy);
   }
 
+  // LAYER 1D_0: CLEAR DAY SUBTLE HIGH-ALTITUDE CIRRUS WISPS (Mild atmospheric texture on Sunny days)
+  if (is_clear_day) {
+    float t_cir = now_ms * 0.00025f;
+    // Very mild, translucent sky-blue palette just above day_bg (28, 54, 84)
+    esphome::Color c_cir_crest(56, 90, 128);
+    esphome::Color c_cir_body(42,  70, 104);
+    esphome::Color c_cir_base(33,  58,  88);
+
+    int w0_x = 148 + static_cast<int>(fast_sin(t_cir * 0.9f) * 24.0f + par_x * 0.32f);
+    int w1_x = 308 + static_cast<int>(fast_cos(t_cir * 0.8f + 1.6f) * 26.0f + par_x * 0.45f);
+    int w2_x = 196 + static_cast<int>(fast_sin(t_cir * 1.05f + 3.1f) * 22.0f + par_x * 0.58f);
+
+    render_wispy_cloud_veil(it, w0_x, 102 + static_cast<int>(par_y * 0.32f), 118,  t_cir * 1.1f,        11,
+                            c_cir_crest, c_cir_body, c_cir_base, cy);
+    render_wispy_cloud_veil(it, w1_x, 174 + static_cast<int>(par_y * 0.45f), 126, -t_cir * 1.2f + 1.4f, 12,
+                            c_cir_crest, c_cir_body, c_cir_base, cy);
+    render_wispy_cloud_veil(it, w2_x, 248 + static_cast<int>(par_y * 0.58f), 112,  t_cir * 1.0f + 2.8f, 13,
+                            c_cir_crest, c_cir_body, c_cir_base, cy);
+  }
+
   // LAYER 1D: CLEAR DAY & PARTLY CLOUDY DAY V-FLOCK OF MIGRATING BIRDS
   if (is_clear_day || (!is_night && is_partly)) {
     if (is_clear_day_flock_active(now_ms, true)) {
