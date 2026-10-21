@@ -2367,14 +2367,18 @@ script:
                 else:
                   - script.execute: route_i2s_to_spk
                   - switch.turn_on: speaker_enable
-                  - mixer_speaker.apply_ducking:
-                      id: media_mixing_input
-                      decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
-                      duration: 0.5s
-                  - mixer_speaker.apply_ducking:
-                      id: announcement_mixing_input
-                      decibel_reduction: 50
-                      duration: 0.1s
+                  - if:
+                      condition:
+                        lambda: 'return !id(alarm_ringing) && !id(timer_ringing) && !id(find_my_active);'
+                      then:
+                        - mixer_speaker.apply_ducking:
+                            id: media_mixing_input
+                            decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
+                            duration: 0.5s
+                        - mixer_speaker.apply_ducking:
+                            id: announcement_mixing_input
+                            decibel_reduction: 50
+                            duration: 0.1s
                   # Dispatch media_play immediately so Home Assistant / Sendspin reconnects in parallel
                   - if:
                       condition:

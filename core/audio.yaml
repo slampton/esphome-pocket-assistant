@@ -111,19 +111,25 @@ media_player:
             then:
               - lambda: |-
                   id(music_pos_sync_time) = millis();
-                  id(gui_page) = 2; // Auto-switch to Music Player screen on music playback start
+                  if (!id(alarm_ringing) && !id(timer_ringing) && !id(find_my_active)) {
+                    id(gui_page) = 2; // Auto-switch to Music Player screen on music playback start
+                  }
                   id(sleep_start_time) = 0;
                   id(active_game) = 0;
               - script.stop: mp_idle_debounce
               - script.stop: screen_sleep_timer
-              - mixer_speaker.apply_ducking:
-                  id: media_mixing_input
-                  decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
-                  duration: 0.4s
-              - mixer_speaker.apply_ducking:
-                  id: announcement_mixing_input
-                  decibel_reduction: 50
-                  duration: 0.1s
+              - if:
+                  condition:
+                    lambda: 'return !id(alarm_ringing) && !id(timer_ringing) && !id(find_my_active);'
+                  then:
+                    - mixer_speaker.apply_ducking:
+                        id: media_mixing_input
+                        decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
+                        duration: 0.4s
+                    - mixer_speaker.apply_ducking:
+                        id: announcement_mixing_input
+                        decibel_reduction: 50
+                        duration: 0.1s
               - script.execute: route_i2s_to_spk
               - switch.turn_on: speaker_enable
               - audio_dac.mute_off: es8311_dac
@@ -601,18 +607,23 @@ script:
           condition:
             lambda: "return id(alarm_ringing) || id(timer_ringing) || id(find_my_active);"
           then:
-            - rtttl.play:
-                id: alarm_rtttl
-                rtttl: !lambda |-
-                  if (id(find_my_active)) {
-                    return std::string("findmy:d=16,o=6,b=180:e,a,e7,a7,p,e,a,e7,a7,p,e,a,e7,a7");
-                  }
-                  return std::string("alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7");
+            - if:
+                condition:
+                  not:
+                    rtttl.is_playing:
+                then:
+                  - rtttl.play:
+                      id: alarm_rtttl
+                      rtttl: !lambda |-
+                        if (id(find_my_active)) {
+                          return std::string("findmy:d=16,o=6,b=180:e,a,e7,a7,p,e,a,e7,a7,p,e,a,e7,a7");
+                        }
+                        return std::string("alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7");
             - wait_until:
                 condition:
                   not:
                     rtttl.is_playing:
-                timeout: 5s
+                timeout: 8s
             - delay: 800ms
 
   - id: play_game_sfx
