@@ -465,21 +465,24 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
       while (x <= end_x) {
         uint16_t p = src_row[x];
         if ((p & 0xF7DE) == 0) {
-          x += 2;
+          x++;
           continue;
         }
         uint16_t p_masked = p & 0xF7DE;
-        int run_start = x;
-        x += 2;
+        int run_start = x++;
         while (x <= end_x && ((src_row[x] & 0xF7DE) == p_masked)) {
-          x += 2;
+          x++;
         }
-        if (x > end_x + 1) x = end_x + 1;
         esphome::Color col(
             static_cast<uint8_t>((p & 0xF800) >> 8),
             static_cast<uint8_t>((p & 0x07E0) >> 3),
             static_cast<uint8_t>((p & 0x001F) << 3));
-        it.horizontal_line(run_start, y, x - run_start, col);
+        int run_len = x - run_start;
+        if (run_len == 1) {
+          it.draw_pixel_at(run_start, y, col);
+        } else {
+          it.horizontal_line(run_start, y, run_len, col);
+        }
       }
     }
     return true;
@@ -878,7 +881,11 @@ struct DisplayUpdateScheduler : public esphome::Component {
       auto *comp = static_cast<esphome::Component *>(disp);
       static_cast<DisplayUpdateScheduler *>(comp)->set_timeout(
           "async_draw", delay_ms, [disp]() {
-            if (esphome::millis() - last_disp_update_ms() < 35U) return;
+            uint32_t el = esphome::millis() - last_disp_update_ms();
+            if (el < 35U) {
+              request_ptr(disp);
+              return;
+            }
             disp->update();
           });
     }

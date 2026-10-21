@@ -197,6 +197,13 @@ voice_assistant:
       - script.execute: sync_wake_word_state
   on_listening:
     then:
+      - lambda: |-
+          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+          esp_wifi_set_ps(0); // Ensure full-performance Wi-Fi during voice streaming
+          if (!id(va_active)) {
+            id(return_page) = id(gui_page);
+            id(va_active) = true;
+          }
       - if:
           condition:
             lambda: |-
@@ -214,12 +221,6 @@ voice_assistant:
           decibel_reduction: 0
           duration: 0.1s
       - lambda: |-
-          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
-          esp_wifi_set_ps(0); // Ensure full-performance Wi-Fi during voice streaming
-          if (!id(va_active)) {
-            id(return_page) = id(gui_page);
-            id(va_active) = true;
-          }
           if (id(display_power_state) != 0 && id(va_wake_screen_switch).state) {
             id(display_power_state) = 0;
             id(sync_display_brightness).execute();

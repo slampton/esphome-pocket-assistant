@@ -2396,6 +2396,7 @@ script:
             - lambda: 'id(va_was_cancelled) = false;'
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
+            - script.execute: sync_wake_word_state
   - id: fetch_remote_art_debounced
     mode: restart
     then:
@@ -2405,6 +2406,7 @@ script:
             lambda: |-
               return (id(gui_page) == 2) &&
                      (id(display_power_state) == 0) &&
+                     !id(va_active) && id(va_status_text).empty() &&
                      (id(active_speaker_entity) != "${local_player_id}") &&
                      !id(ha_target_art_url).state.empty() &&
                      (id(ha_target_art_url).state != "none") &&
@@ -3019,6 +3021,7 @@ script:
             - audio_dac.mute_on: es8311_dac
             - switch.turn_off: speaker_enable
             - script.execute: route_i2s_to_mic
+            - script.execute: sync_wake_word_state
 
   - id: toggle_voice_assistant
     mode: restart
@@ -3029,6 +3032,14 @@ script:
           then:
             - script.execute: cancel_voice_assistant
           else:
+            - if:
+                condition:
+                  lambda: 'return id(va).get_api_connection() == nullptr;'
+                then:
+                  - logger.log:
+                      level: WARN
+                      format: "Assist pipeline not connected to Home Assistant yet; ignoring PTT press"
+                  - script.stop: toggle_voice_assistant
             - lambda: |-
                 // If waking from screen-off or standby, honor Assist Screen Wake preference
                 if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
