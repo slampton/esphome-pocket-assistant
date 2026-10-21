@@ -1729,8 +1729,8 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            if (id(display_power_state) == 0 && (id(gui_page) == 1 || id(gui_page) == 5) && !id(is_hibernating)) {
-              id(disp1).update();
+            if (id(display_power_state) == 0 && !id(is_hibernating)) {
+              pocket_ui::record_ambient_frame_ms(0);
             }
 
   - platform: homeassistant
@@ -1975,8 +1975,8 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
-            if (id(display_power_state) == 0 && (id(gui_page) == 1 || id(gui_page) == 5) && !id(is_hibernating)) {
-              id(disp1).update();
+            if (id(display_power_state) == 0 && !id(is_hibernating)) {
+              pocket_ui::record_ambient_frame_ms(0);
             }
 
   - platform: homeassistant

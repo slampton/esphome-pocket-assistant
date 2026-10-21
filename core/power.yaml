@@ -703,6 +703,7 @@ script:
           if (screensaver_allowed) {
             id(display_power_state) = 1; // SCREENSAVER
             id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
+            pocket_ui::record_ambient_frame_ms(millis());
             id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
             if (s_style == "Ambient Clock") {
               id(disp1).update();
