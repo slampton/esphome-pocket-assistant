@@ -382,13 +382,16 @@ voice_assistant:
             }
           }
           pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+          const bool was_ringing = id(timer_ringing);
           id(timer_ringing) = false;
+          if (was_ringing) {
+            id(stop_alarm_sound).execute();
+          }
           if (!id(va_active) && id(va_status_text).empty()) {
             if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
               id(disp1).update();
             }
           }
-      - script.execute: stop_alarm_sound
   on_timer_finished:
     then:
       - lambda: |-
@@ -678,9 +681,15 @@ script:
                 decibel_reduction: 10
                 duration: 0.5s
           else:
-            - audio_dac.mute_on: es8311_dac
-            - script.execute: route_i2s_to_mic
-            - script.execute: sync_wake_word_state
+            - if:
+                condition:
+                  lambda: |-
+                    return !id(va_active) && !id(va_tts_received) &&
+                           !id(va).is_running() && !id(announcement_mixing_input).is_running();
+                then:
+                  - audio_dac.mute_on: es8311_dac
+                  - script.execute: route_i2s_to_mic
+                  - script.execute: sync_wake_word_state
 
 number:
   - platform: template

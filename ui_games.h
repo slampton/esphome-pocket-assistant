@@ -2329,10 +2329,12 @@ inline void render_games_launcher(
     draw_game_card(game_carousel_idx, icon_cx, card_cy, text_cx, base_title_y, base_score_y);
   }
 
-  // Top & Bottom Viewport Masks
-  it.filled_rectangle(0, 0, 466, 158, col_bg);
+  // Top & Bottom Viewport Masks (only needed during active 2-frame scroll transition!)
+  if (menu_scroll_active) {
+    it.filled_rectangle(0, 0, 466, 158, col_bg);
+    it.filled_rectangle(0, 282, 466, 184, col_bg);
+  }
   it.print(cx, 96, font_games_title, theme_primary, TextAlign::CENTER, "GAMES");
-  it.filled_rectangle(0, 282, 466, 184, col_bg);
 
   // Combined [Speaker (44px) + 28px gap + PLAY (154px) = 226px] centered at cx = 233, y = 352 (aligned with Home Dock!)
   render_pill_button(it, 214, 324, 352, 22, theme_primary, col_dark_gray, "PLAY", col_white, font_btn_bold);

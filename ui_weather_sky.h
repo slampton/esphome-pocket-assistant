@@ -324,19 +324,18 @@ inline void render_cumulus_cloud(DisplayT &it, int bx, int by, float scale, bool
     bool sunlit_slope = (u > -0.45f && dome > 0.32f);
     esphome::Color top_c = sunlit_slope ? col_rim : col_crest;
 
-    for (int ox = 0; ox < 2; ox++) {
-      int px = x + ox;
-      if (px < 6 || px >= 460) continue;
-      it.line(px, y_top, px, y_c1,  top_c);
-      it.line(px, y_c1,  px, y_c2,  col_crest);
-      it.line(px, y_c2,  px, y_c3,  col_high);
-      it.line(px, y_c3,  px, y_bot, (ox == 0) ? col_body : col_shadow);
+    if (x >= 6 && x + 1 < 460) {
+      it.filled_rectangle(x, y_top, 2, y_c1 - y_top, top_c);
+      it.filled_rectangle(x, y_c1,  2, y_c2 - y_c1,  col_crest);
+      it.filled_rectangle(x, y_c2,  2, y_c3 - y_c2,  col_high);
+      it.vertical_line(x,     y_c3, y_bot - y_c3 + 1, col_body);
+      it.vertical_line(x + 1, y_c3, y_bot - y_c3 + 1, col_shadow);
     }
   }
 }
 
 // Reusable Undulating Wispy Cloud Veil / Tendril Primitive:
-// Shared by both Cloudy/Overcast (interleaved between sculpted cumulus masses) and Fog & Mist.
+// Shared by Clear Day, Cloudy/Overcast, and Fog & Mist (uses fast vertical_line spans).
 template<typename DisplayT>
 inline void render_wispy_cloud_veil(DisplayT &it, int center_x, int base_y, int half_w,
                                     float phase, int seed_id,
@@ -361,7 +360,6 @@ inline void render_wispy_cloud_veil(DisplayT &it, int center_x, int base_y, int 
     float wave_bot = fast_sin(xf * 0.036f - phase * 1.3f + 1.2f) * 7.5f +
                      fast_cos(xf * 0.085f + phase * 2.0f) * 4.0f;
 
-    // Pinch and break edges into separated, feathered wisp strands
     float wisp_mod = 0.55f + 0.45f * fast_sin(xf * 0.052f + phase * 1.8f + static_cast<float>(seed_id));
     float eff_taper = taper * (0.65f + 0.35f * wisp_mod);
     if (eff_taper < 0.14f) continue;
@@ -375,11 +373,11 @@ inline void render_wispy_cloud_veil(DisplayT &it, int center_x, int base_y, int 
     int y_mid1 = y_top + ((y_bot - y_top) / 3);
     int y_mid2 = y_top + (((y_bot - y_top) * 2) / 3);
 
-    it.line(x, y_top,  x, y_mid1, c_crest);
-    it.line(x, y_mid1, x, y_mid2, c_body);
-    it.line(x, y_mid2, x, y_bot,  c_base);
+    it.vertical_line(x, y_top,  y_mid1 - y_top + 1,  c_crest);
+    it.vertical_line(x, y_mid1, y_mid2 - y_mid1 + 1, c_body);
+    it.vertical_line(x, y_mid2, y_bot - y_mid2 + 1,  c_base);
     if (eff_taper > 0.32f && x + 1 < SCREEN_CX + max_dy) {
-      it.line(x + 1, y_top + 1, x + 1, y_mid2, c_body);
+      it.vertical_line(x + 1, y_top + 1, y_mid2 - y_top, c_body);
     }
   }
 }
@@ -953,32 +951,32 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
         const esphome::Color c_body       = is_fog_mist ? esphome::Color(174, 160, 102): esphome::Color(250, 204, 24);
         const esphome::Color c_core       = is_fog_mist ? esphome::Color(198, 186, 128): esphome::Color(255, 228, 72);
 
-        // 1. Subtle 3-px golden-yellow atmospheric feather at the outer edge (r = 24 .. 22)
-        for (int r = 24; r >= 22; r--) {
-          float k = static_cast<float>(25 - r) * 0.28f; // Softly bridges sky_c -> golden rim
-          esphome::Color glow_c = lerp_color(sky_c, c_haze, k);
-          it.filled_circle(cel_cx, cel_cy, r, glow_c);
-        }
-
-        // 2. Dominant Yellow 3D Sphere (r = 21 .. 1):
-        //    - Outer 25% of radius (u < 0.25): transitions quickly from Goldenrod (246,196,38) to Bright Yellow (255,228,66)
-        //    - Inner 75% of radius (u >= 0.25): overwhelmingly bright sunshine yellow into a soft lemon-white 3D sheen
-        const int max_r = 21;
-        const float inv_max_r = 1.0f / static_cast<float>(max_r);
-        for (int r = max_r; r >= 1; r--) {
-          float u = 1.0f - static_cast<float>(r) * inv_max_r; // 0.0 at limb -> 1.0 at core
-          esphome::Color ring_c;
-          if (u < 0.26f) {
-            float k = u * (1.0f / 0.26f);
-            ring_c = lerp_color(c_limb, c_body, k);
-          } else {
-            float k = (u - 0.26f) * (1.0f / 0.74f);
-            ring_c = lerp_color(c_body, c_core, k * k);
+        // Single-Pass Zero-Overdraw 3D Scanline Solar Orb (writes ~1,800 pixels instead of 18,000!)
+        for (int dy = -24; dy <= 24; dy++) {
+          int dy2 = dy * dy;
+          for (int dx = -24; dx <= 24; dx++) {
+            int r2 = dx * dx + dy2;
+            if (r2 > 576) continue; // Outside r = 24
+            if (r2 > 441) {
+              // Outer 3px atmospheric feather (21 < r <= 24 -> r2 in 442..576)
+              float k = static_cast<float>(576 - r2) * (0.84f / 135.0f);
+              it.draw_pixel_at(cel_cx + dx, cel_cy + dy, lerp_color(sky_c, c_haze, k));
+            } else {
+              // Inner 3D Solar Disc (r <= 21) with upper-left (-2.5, -2.5) highlight offset
+              float ldx = static_cast<float>(dx) + 2.5f;
+              float ldy = static_cast<float>(dy) + 2.5f;
+              float d_norm = sqrtf(ldx * ldx + ldy * ldy) * (1.0f / 21.5f);
+              float u = 1.0f - (d_norm > 1.0f ? 1.0f : d_norm);
+              esphome::Color pix_c;
+              if (u < 0.26f) {
+                pix_c = lerp_color(c_limb, c_body, u * (1.0f / 0.26f));
+              } else {
+                float k = (u - 0.26f) * (1.0f / 0.74f);
+                pix_c = lerp_color(c_body, c_core, k * k);
+              }
+              it.draw_pixel_at(cel_cx + dx, cel_cy + dy, pix_c);
+            }
           }
-          // Subtle upper-left 3D spherical light offset (-2.5px at core)
-          int ox = cel_cx - static_cast<int>(u * 2.5f);
-          int oy = cel_cy - static_cast<int>(u * 2.5f);
-          it.filled_circle(ox, oy, r, ring_c);
         }
       }
     }
