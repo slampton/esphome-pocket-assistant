@@ -3828,6 +3828,7 @@ touchscreen:
                                           ? id(ha_track_title).state : id(track_title).state;
               std::string m_artist_h = (is_rem_h || id(track_artist).state.empty() || id(track_artist).state == "None")
                                            ? id(ha_track_artist).state : id(track_artist).state;
+              auto now_t_hm = id(ha_time).now();
               int act_count = pocket_ui::collect_home_activities(
                   now_hm, id(is_24h_format),
                   id(stopwatch_running), id(stopwatch_start_time), id(stopwatch_elapsed_ms),
@@ -3836,7 +3837,9 @@ touchscreen:
                   id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled),
                   id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled),
                   id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
-                  act_items);
+                  act_items,
+                  now_t_hm.is_valid() ? now_t_hm.hour : -1,
+                  now_t_hm.is_valid() ? now_t_hm.minute : -1);
 
               auto handle_activity_item_action = [&](int item_i, bool is_inline_btn) {
                 int kind = act_items[item_i].kind;
@@ -3935,22 +3938,16 @@ touchscreen:
                   }
                   return;
                 }
-                int slot_idx = get_5slot_index(touch, 80, 386);
+                int slot_idx = get_5slot_index(touch, 90, 376);
                 if (slot_idx >= 0 && slot_idx < act_count && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   last_home_tap = now_hm;
-                  handle_activity_item_action(slot_idx, (touch.x >= 324));
+                  handle_activity_item_action(slot_idx, (touch.x >= 320));
                 }
                 return;
               }
 
               // 7. Live Activity Card Tap on Home (y in [232..296], only active once Wake Greeting has finished):
-              //    - When 2+ active (w = 340, x in [63..403]):
-              //      * x >= 346: Tap Integrated Dropdown ('▼', 57px wide) -> Open "ACTIVE NOW" (home_subpage = 2)
-              //      * x in [288..345]: Tap Inline Play/Pause/Disarm (57px wide)
-              //      * x < 288: Open App (with direct "Home" return!)
-              //    - When 1 active (w = 296, x in [85..381]):
-              //      * x >= 324: Tap Inline Play/Pause/Disarm (57px wide)
-              //      * x < 324: Open App (with direct "Home" return!)
+              //    Acts on feat_idx (the currently rotated or urgency-pinned item shown on the card!)
               const bool greet_blocking = id(home_wake_greeting_switch).state &&
                                           pocket_ui::wake_greeting_latched() &&
                                           (now_hm >= pocket_ui::wake_greeting_start_ms()) &&
@@ -3958,13 +3955,14 @@ touchscreen:
               if (!greet_blocking && act_count > 0 && touch.y >= 232 && touch.y <= 296 && touch.x >= 60 && touch.x <= 406) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
+                  int feat_idx = pocket_ui::resolve_home_featured_activity_idx(act_items, act_count, now_hm);
                   if (act_count > 1) {
                     if (touch.x >= 346) {
                       id(home_subpage) = 2;
                       id(disp1).update();
                       return;
                     }
-                    handle_activity_item_action(0, (touch.x >= 288));
+                    handle_activity_item_action(feat_idx, (touch.x >= 288));
                   } else if (touch.x >= 82 && touch.x <= 384) {
                     handle_activity_item_action(0, (touch.x >= 324));
                   }

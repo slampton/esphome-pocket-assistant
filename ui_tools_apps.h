@@ -2288,9 +2288,10 @@ inline void render_clock_page(
 // =============================================================================
 
 struct HomeActivityItem {
-  int kind;       // 1 = Timer, 2 = Stopwatch, 3 = Music, 4 = Alarm
-  int slot_idx;   // Timer slot (0..2) or Alarm slot (0 = Snoozed, 1..3 = Alarm 1..3)
-  bool is_active; // true = running / playing / snoozed, false = paused / armed
+  int kind;        // 1 = Timer, 2 = Stopwatch, 3 = Music, 4 = Alarm
+  int slot_idx;    // Timer slot (0..2) or Alarm slot (0 = Snoozed, 1..3 = Alarm 1..3)
+  bool is_active;  // true = running / playing / snoozed, false = paused / armed
+  bool urgent_pin; // true = pins to top of Home card & pauses rotation (Stopwatch running, Timer <= 60s, Alarm <= 10m / Snoozed)
   std::string label;
 };
 
@@ -2302,10 +2303,11 @@ inline int collect_home_activities(
     int alarm1_h, int alarm1_m, bool alarm1_en,
     int alarm2_h, int alarm2_m, bool alarm2_en,
     int alarm3_h, int alarm3_m, bool alarm3_en,
-    HomeActivityItem out_items[5]) {
+    HomeActivityItem out_items[5],
+    int cur_hour = -1, int cur_min = -1) {
   int count = 0;
 
-  // 1. Active or Paused Countdown Timers (collects all running/paused slots so multiple timers show in dropdown!)
+  // 1. Active or Paused Countdown Timers (pins to top if running with <= 60 seconds left!)
   auto *t_slots = timer_slots();
   for (int pass = 0; pass < 2; pass++) {
     for (int i = 0; i < 3 && count < 5; i++) {
@@ -2316,12 +2318,13 @@ inline int collect_home_activities(
         char buf[64];
         snprintf(buf, sizeof(buf), "%s • %02d:%02d",
                  t_name.c_str(), s.remaining_sec / 60, s.remaining_sec % 60);
-        out_items[count++] = {1, i, s.running, std::string(buf)};
+        bool is_urgent = s.running && (s.remaining_sec <= 60);
+        out_items[count++] = {1, i, s.running, is_urgent, std::string(buf)};
       }
     }
   }
 
-  // 2. Active or Paused Stopwatch
+  // 2. Active or Paused Stopwatch (pins to top whenever actively running!)
   uint32_t sw_ms = stopwatch_running ? (now_ms - stopwatch_start_time) : stopwatch_elapsed_ms;
   if ((stopwatch_running || sw_ms > 0) && count < 5) {
     int mins = (sw_ms / 60000U) % 60U;
@@ -2329,7 +2332,7 @@ inline int collect_home_activities(
     int tenths = (sw_ms / 100U) % 10U;
     char buf[48];
     snprintf(buf, sizeof(buf), "Stopwatch • %02d:%02d.%d", mins, secs, tenths);
-    out_items[count++] = {2, 0, stopwatch_running, std::string(buf)};
+    out_items[count++] = {2, 0, stopwatch_running, stopwatch_running, std::string(buf)};
   }
 
   // 3. Active or Paused Music Session (stays visible when paused so you can tap ▶ to resume!)
@@ -2348,16 +2351,17 @@ inline int collect_home_activities(
     else if (!music_artist.empty() && music_artist != "None" && music_artist != "unknown") {
       m_txt = music_artist + " • " + m_txt;
     }
-    out_items[count++] = {3, 0, music_playing, m_txt};
+    out_items[count++] = {3, 0, music_playing, false, m_txt};
   }
 
-  // 4. Armed or Snoozed Alarms
+  // 4. Armed or Snoozed Alarms (pins to top if Snoozed or within <= 10 minutes of going off!)
   if (alarm_snooze_until > 0 && count < 5) {
-    out_items[count++] = {4, 0, true, "Alarm • Snoozed"};
+    out_items[count++] = {4, 0, true, true, "Alarm • Snoozed"};
   } else {
     int a_hrs[3] = {alarm1_h, alarm2_h, alarm3_h};
     int a_mns[3] = {alarm1_m, alarm2_m, alarm3_m};
     bool a_ens[3] = {alarm1_en, alarm2_en, alarm3_en};
+    int now_total_m = (cur_hour >= 0 && cur_min >= 0) ? (cur_hour * 60 + cur_min) : -1;
     for (int i = 0; i < 3 && count < 5; i++) {
       if (!a_ens[i]) continue;
       char t_buf[16], ap_buf[8] = "";
@@ -2368,43 +2372,72 @@ inline int collect_home_activities(
       } else {
         snprintf(buf, sizeof(buf), "Alarm • %s", t_buf);
       }
-      out_items[count++] = {4, i + 1, false, std::string(buf)};
+      bool alarm_imminent = false;
+      if (now_total_m >= 0) {
+        int a_total_m = a_hrs[i] * 60 + a_mns[i];
+        int diff_m = (a_total_m - now_total_m + 1440) % 1440;
+        if (diff_m > 0 && diff_m <= 10) {
+          alarm_imminent = true;
+        }
+      }
+      out_items[count++] = {4, i + 1, false, alarm_imminent, std::string(buf)};
     }
   }
 
   return count;
 }
 
+// Selects which activity item is featured on the single Home Live Activity Card:
+//   1. Priority 1 (Urgent Stopwatch): Running Stopwatch pins to top & pauses rotation
+//   2. Priority 2 (Urgent Timer): Running Timer with <= 60s remaining pins to top & pauses rotation
+//   3. Priority 3 (Urgent Alarm): Snoozed Alarm or Alarm within <= 10 min of firing pins to top
+//   4. Otherwise: Smoothly auto-rotates across all active items every 4.0 seconds!
+inline int resolve_home_featured_activity_idx(const HomeActivityItem items[5], int count, uint32_t now_ms) {
+  if (count <= 1) return 0;
+  // Check Priority 1: Running Stopwatch
+  for (int i = 0; i < count; i++) {
+    if (items[i].kind == 2 && items[i].urgent_pin) return i;
+  }
+  // Check Priority 2: Timer <= 60s
+  for (int i = 0; i < count; i++) {
+    if (items[i].kind == 1 && items[i].urgent_pin) return i;
+  }
+  // Check Priority 3: Imminent (<= 10m) or Snoozed Alarm
+  for (int i = 0; i < count; i++) {
+    if (items[i].kind == 4 && items[i].urgent_pin) return i;
+  }
+  // Normal 4.0-second auto-rotation across all active items
+  return static_cast<int>((now_ms / 4000U) % static_cast<uint32_t>(count));
+}
+
 template <typename DisplayT, typename FontSmallT>
 inline void render_home_activity_card_row(
     DisplayT &it, int cx, int pill_y, const HomeActivityItem &cur_act,
     bool has_dropdown_ext, FontSmallT *font_small,
-    esphome::Color theme_secondary, esphome::Color col_white) {
+    esphome::Color theme_secondary, esphome::Color col_white,
+    bool is_list_row = false) {
   using esphome::Color;
   using esphome::display::TextAlign;
 
   const Color card_bg(22, 27, 36);
   const Color card_brd(52, 62, 78);
 
-  // Taller 54px Live Activity Card (r = 14) with generous 57px-wide action compartments:
-  //   - When 2+ items active on Home: w = 340 (x = 63..403):
-  //     * Left Body: x = 63..287 (icon at 84, text at 101, max_w = 180)
-  //     * Play/Pause Compartment: x = 288..345 (57px wide, centered at act_bx = 316, r = 16)
-  //     * Dropdown '▼' Compartment: x = 346..403 (57px wide, centered at drop_bx = 374) -> 58px center separation!
-  //   - When 1 item active (or inside ACTIVE NOW list): w = 296 (x = 85..381):
-  //     * Left Body: x = 85..323 (icon at 106, text at 123, max_w = 194)
-  //     * Play/Pause Compartment: x = 324..381 (57px wide, centered at act_bx = 352, r = 16)
-  const int card_w   = has_dropdown_ext ? 340 : 296;
-  const int card_h   = 54;
-  const int gx       = has_dropdown_ext ?  84 : 106;
-  const int txt_x    = has_dropdown_ext ? 101 : 123;
-  const int max_txt  = has_dropdown_ext ? 180 : 194;
-  const int div1_x   = has_dropdown_ext ? 288 : 324;
-  const int act_bx   = has_dropdown_ext ? 316 : 352;
+  // - On ACTIVE NOW list (is_list_row == true): Standard 5-slot geometry (w = 276, h = 44, r = 12 -> 19px gap!)
+  // - On Home screen (is_list_row == false): Taller h = 54, r = 14 card (w = 340 when 2+ active, w = 296 when 1 active)
+  const int card_w   = is_list_row ? 276 : (has_dropdown_ext ? 340 : 296);
+  const int card_h   = is_list_row ?  44 : 54;
+  const int card_r   = is_list_row ?  12 : 14;
+  const int gx       = is_list_row ? 113 : (has_dropdown_ext ?  84 : 106);
+  const int txt_x    = is_list_row ? 128 : (has_dropdown_ext ? 101 : 123);
+  const int max_txt  = is_list_row ? 186 : (has_dropdown_ext ? 180 : 194);
+  const int div1_x   = is_list_row ? 320 : (has_dropdown_ext ? 288 : 324);
+  const int act_bx   = is_list_row ? 346 : (has_dropdown_ext ? 316 : 352);
+  const int btn_r    = is_list_row ?  13 : 16;
+  const int div_h    = is_list_row ?  14 : 18;
   const int div2_x   = 346;
   const int drop_bx  = 374;
 
-  render_modern_card(it, cx, pill_y, card_w, card_h, 14, card_bg, card_brd,
+  render_modern_card(it, cx, pill_y, card_w, card_h, card_r, card_bg, card_brd,
                      nullptr, col_white, font_small);
 
   int gy = pill_y;
@@ -2449,10 +2482,10 @@ inline void render_home_activity_card_row(
   std::string fit_act = fit_text_to_width_font(cur_act.label, max_txt, font_small);
   it.print(txt_x, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
 
-  // Enlarged Inline Action Button (Play / Pause / Disarm, r = 16 at act_bx)
-  it.line(div1_x, pill_y - 18, div1_x, pill_y + 18, card_brd);
-  it.filled_circle(act_bx, pill_y, 16, Color(30, 37, 48));
-  it.circle(act_bx, pill_y, 16, theme_secondary);
+  // Inline Action Button (Play / Pause / Disarm, r = btn_r at act_bx)
+  it.line(div1_x, pill_y - div_h, div1_x, pill_y + div_h, card_brd);
+  it.filled_circle(act_bx, pill_y, btn_r, Color(30, 37, 48));
+  it.circle(act_bx, pill_y, btn_r, theme_secondary);
 
   if (cur_act.kind == 4) {
     for (int w = -1; w <= 0; w++) {
@@ -2671,11 +2704,13 @@ inline void render_home_page(
       alarm1_h, alarm1_m, alarm1_en,
       alarm2_h, alarm2_m, alarm2_en,
       alarm3_h, alarm3_m, alarm3_en,
-      act_items);
+      act_items,
+      now.is_valid() ? now.hour : -1,
+      now.is_valid() ? now.minute : -1);
 
   if (home_subpage == 2) {
     // -------------------------------------------------------------------------
-    // SUBPAGE 2: "ACTIVE NOW" MULTI-LINE DROPDOWN LIST (Shows all running items at once!)
+    // SUBPAGE 2: "ACTIVE NOW" MULTI-LINE DROPDOWN LIST (Standard 276x44px cards, 63px stride, 19px gap!)
     // -------------------------------------------------------------------------
     it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "ACTIVE NOW");
     if (act_count == 0) {
@@ -2684,7 +2719,7 @@ inline void render_home_page(
       for (int i = 0; i < act_count && i < 5; i++) {
         int y_mid = 110 + i * 63;
         render_home_activity_card_row(
-            it, cx, y_mid, act_items[i], false, font_small, theme_secondary, col_white);
+            it, cx, y_mid, act_items[i], false, font_small, theme_secondary, col_white, true);
       }
     }
     render_back_button(it, cx, font_small, 426, "< Back");
@@ -2751,11 +2786,13 @@ inline void render_home_page(
                                now.is_valid() && (greet_el < 10500U);
 
   // ZONE 4 (y = 264): Wake Greeting (first 10.5s after Cold Boot / Hibernate wake) OR Live Activity Card
-  // Never stacked together: the Greeting displays and fades out first, then the Live Activity Card takes over!
-  (void)home_activity_idx;
+  // When 2+ activities are active, automatically rotates every 4.0s OR pins urgent items (running Stopwatch,
+  // Timer <= 60s, or Alarm <= 10m / Snoozed) to the top!
   if (!greeting_active && act_count > 0) {
+    int feat_idx = resolve_home_featured_activity_idx(act_items, act_count, now_ms);
+    home_activity_idx = feat_idx;
     render_home_activity_card_row(
-        it, cx, 264, act_items[0], (act_count > 1), font_small, theme_secondary, col_white);
+        it, cx, 264, act_items[feat_idx], (act_count > 1), font_small, theme_secondary, col_white, false);
   }
 
   if (greeting_active) {
