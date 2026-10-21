@@ -458,6 +458,7 @@ script:
       #    so the QSPI display flush completes with zero audio/network contention
       - lambda: |-
           esphome::voice_assistant::reset_va_session_state(id(va));
+          esphome::voice_assistant::finish_va_session_cleanly(id(va));
           id(va_vad_active) = false;
           id(va_status_text) = "";
           id(va_tts_received) = false;

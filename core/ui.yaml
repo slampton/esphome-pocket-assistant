@@ -1497,7 +1497,11 @@ interval:
             static bool prev_tts_active = false;
             uint32_t now_va_ms = millis();
 
-            if (id(va_active) && id(va_tts_received)) {
+            const bool tts_audio_active =
+                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
+                id(announcement_mixing_input).is_running();
+            if (id(va_active) && id(va_tts_received) && tts_audio_active) {
               esphome::voice_assistant::disarm_va_speaker_timeout(id(va));
             }
 
