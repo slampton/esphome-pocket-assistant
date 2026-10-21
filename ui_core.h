@@ -814,10 +814,8 @@ inline uint32_t &last_screen_wake_ms() {
 
 template<typename TouchT>
 inline bool is_back_button(const TouchT &t) {
-  // Deliberate Chin Hit-Zone (y = 412..465, x = 160..306):
-  // "< Back" / "Home" is printed at y = 426 (top of text at y = 415). Starting at y = 412
-  // reserves the entire y = 384..411 buffer above it for slightly low thumb taps on bottom-row buttons!
-  return (t.y >= 412 && t.y <= 465 && t.x >= 160 && t.x <= 306);
+  // Chin Hit-Zone (y = 405..465, x = 140..326) centered around "< Back" / "Home" at (233, 426)
+  return (t.y >= 405 && t.y <= 465 && t.x >= 140 && t.x <= 326);
 }
 
 template<typename TouchT>
@@ -835,7 +833,7 @@ inline int get_5slot_index(const TouchT &t, int x_min, int x_max) {
   if (t.y >= 146 && t.y < 209) return 1;
   if (t.y >= 209 && t.y < 272) return 2;
   if (t.y >= 272 && t.y < 335) return 3;
-  if (t.y >= 335 && t.y < 412) return 4;
+  if (t.y >= 335 && t.y < 405) return 4;
   return -1;
 }
 

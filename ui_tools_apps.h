@@ -1845,14 +1845,15 @@ inline void render_music_menus(
   const esphome::Color card_brd(52, 62, 78);
 
   if (music_overlay_mode == 5) {
-    // SUBPAGE 5: MUSIC MENU (SPEAKERS, LIBRARY, SETTINGS)
+    // SUBPAGE 5: MUSIC MENU (SPEAKERS, LIBRARY, CLEAR QUEUE, SETTINGS)
     it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "MUSIC");
     std::string spk_sub = fit_text_to_width_font(active_speaker_name, 260, font_small);
     it.print(cx, 76, font_small, col_white, esphome::display::TextAlign::CENTER, spk_sub.c_str());
 
-    render_modern_card(it, cx, 140, 276, 44, 12, card_bg, theme_primary, "Speakers", col_white, font_small);
-    render_modern_card(it, cx, 203, 276, 44, 12, card_bg, theme_primary, "Library",  col_white, font_small);
-    render_modern_card(it, cx, 290, 276, 44, 12, card_bg, card_brd,      "Settings", col_white, font_small);
+    render_modern_card(it, cx, 122, 276, 44, 12, card_bg, theme_primary, "Speakers",    col_white, font_small);
+    render_modern_card(it, cx, 185, 276, 44, 12, card_bg, theme_primary, "Library",     col_white, font_small);
+    render_modern_card(it, cx, 248, 276, 44, 12, card_bg, card_brd,      "Clear Queue", col_white, font_small);
+    render_modern_card(it, cx, 311, 276, 44, 12, card_bg, card_brd,      "Settings",    col_white, font_small);
 
   } else if (music_overlay_mode == 1) {
     // LEVEL 1: SPEAKERS BROWSER (5-Slot Speaker Inventory — 63px Stride Modern Cards)
@@ -2290,6 +2291,11 @@ inline void render_clock_page(
 // SECTION 16B: INTERACTIVE HOME PAGE ENGINE (PAGE 1 — 20 FPS WEATHER + SMART STACK + DOCK)
 // =============================================================================
 
+inline bool &music_queue_cleared() {
+  static bool cleared = false;
+  return cleared;
+}
+
 struct HomeActivityItem {
   int kind;        // 1 = Timer, 2 = Stopwatch, 3 = Music, 4 = Alarm
   int slot_idx;    // Timer slot (0..2) or Alarm slot (0 = Snoozed, 1..3 = Alarm 1..3)
@@ -2338,17 +2344,15 @@ inline int collect_home_activities(
     out_items[count++] = {2, 0, stopwatch_running, stopwatch_running, std::string(buf)};
   }
 
-  // 3. Active or Paused Music Session (stays visible when paused so you can tap ▶ to resume!)
-  static bool music_latched = false;
+  // 3. Active or Paused Music Queue (automatically displays on Hibernate wake / boot whenever
+  //    the active speaker has a track or podcast in its queue, until Clear Queue is pressed!)
   bool has_valid_track = (!music_title.empty() && music_title != "None" &&
                           music_title != "Idle" && music_title != "unknown" &&
                           music_title != "unavailable");
   if (music_playing) {
-    music_latched = true;
-  } else if (!has_valid_track) {
-    music_latched = false;
+    music_queue_cleared() = false;
   }
-  if ((music_playing || (music_latched && has_valid_track)) && count < 5) {
+  if ((music_playing || (has_valid_track && !music_queue_cleared())) && count < 5) {
     std::string m_txt = music_title;
     if (!has_valid_track) m_txt = "Now Playing";
     else if (!music_artist.empty() && music_artist != "None" && music_artist != "unknown") {

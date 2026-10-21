@@ -2148,6 +2148,9 @@ text_sensor:
             id(music_action_feedback) = "";
             if (x != prev_title) {
               prev_title = x;
+              if (!x.empty() && x != "Idle" && x != "None" && x != "unknown" && x != "unavailable") {
+                pocket_ui::music_queue_cleared() = false;
+              }
               id(throttled_disp_update).execute();
             }
 
@@ -2234,6 +2237,9 @@ text_sensor:
             static std::string prev_s_title = "";
             if (x != prev_s_title) {
               prev_s_title = x;
+              if (!x.empty() && x != "Idle" && x != "None") {
+                pocket_ui::music_queue_cleared() = false;
+              }
               if (id(active_speaker_entity) == "${local_player_id}") {
                 id(throttled_disp_update).execute();
               }
@@ -2586,6 +2592,42 @@ script:
             - media_player.pause: pocket_music_player
       - homeassistant.action:
           action: media_player.media_pause
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - component.update: disp1
+
+  - id: clear_ha_music_queue
+    mode: restart
+    then:
+      - lambda: |-
+          pocket_ui::set_remote_play_override(false, millis());
+          pocket_ui::music_queue_cleared() = true;
+          id(track_title).publish_state("");
+          id(track_artist).publish_state("");
+          id(track_album).publish_state("");
+          id(ha_track_title).publish_state("Idle");
+          id(ha_track_artist).publish_state("None");
+          id(ha_track_album).publish_state("None");
+          id(music_pos_base) = 0.0f;
+          id(music_pos_sync_time) = 0;
+          id(current_loaded_art_url) = "";
+          id(music_action_feedback) = "Queue Cleared";
+          id(music_feedback_timer) = millis();
+          id(music_overlay_mode) = 0;
+          id(music_hud_active) = true;
+          id(music_hud_timer) = millis();
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
+          then:
+            - media_player.stop: pocket_music_player
+      - online_image.release: remote_album_art
+      - homeassistant.action:
+          action: media_player.clear_playlist
+          data:
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+      - homeassistant.action:
+          action: media_player.media_stop
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
       - component.update: disp1
@@ -3671,15 +3713,10 @@ touchscreen:
 
             static uint32_t last_back_tap = 0;
 
-            auto cur_ov_style = id(music_overlay_style).current_option();
-            bool music_clean_art_touch = (id(gui_page) == 2 && id(music_overlay_mode) == 0 &&
-                                          (cur_ov_style.empty() || cur_ov_style == "Art Only") &&
-                                          !id(music_hud_active));
-
             bool is_top_level_app = (id(gui_page) != 1) &&
                                     !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                     !(id(gui_page) == 3 && id(active_game) > 0) &&
-                                    !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_clean_art_touch)) &&
+                                    !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
                                     !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                     !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
                                     !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
@@ -4254,7 +4291,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 114 && touch.y <= 168 && touch.x >= 90 && touch.x <= 376) {
+                if (touch.y >= 96 && touch.y < 153 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_spk = 0;
                   if (now_hub - last_hub_spk > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_spk = now_hub;
@@ -4268,7 +4305,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 176 && touch.y <= 232 && touch.x >= 90 && touch.x <= 376) {
+                if (touch.y >= 153 && touch.y < 216 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_lib = 0;
                   if (now_hub - last_hub_lib > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_lib = now_hub;
@@ -4281,7 +4318,15 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 262 && touch.y <= 318 && touch.x >= 90 && touch.x <= 376) {
+                if (touch.y >= 216 && touch.y < 279 && touch.x >= 90 && touch.x <= 376) {
+                  static uint32_t last_hub_clr = 0;
+                  if (now_hub - last_hub_clr > TOUCH_DEBOUNCE_BUTTON) {
+                    last_hub_clr = now_hub;
+                    id(clear_ha_music_queue).execute();
+                  }
+                  return;
+                }
+                if (touch.y >= 279 && touch.y <= 345 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_set = 0;
                   if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_set = now_hub;
