@@ -2387,10 +2387,10 @@ inline int collect_home_activities(
   return count;
 }
 
-// Tracks the 360ms vertical carousel reel transition when the Home Live Activity Card rotates
-inline uint32_t &home_act_anim_start_ms() {
-  static uint32_t ts = 0;
-  return ts;
+// Deterministic 3-step upward carousel reel state for the Home Live Activity Card
+inline int &home_act_anim_step() {
+  static int step = 0; // 0 = settled, 1..3 = upward reel transition frames
+  return step;
 }
 
 inline int &home_act_prev_idx() {
@@ -2403,9 +2403,70 @@ inline int &home_act_cur_idx() {
   return idx;
 }
 
-inline bool is_home_activity_carousel_animating(uint32_t now_ms) {
-  return (home_act_anim_start_ms() > 0U && now_ms >= home_act_anim_start_ms() &&
-          (now_ms - home_act_anim_start_ms() <= 400U));
+inline bool is_home_activity_carousel_animating(uint32_t /*now_ms*/) {
+  return (home_act_anim_step() > 0);
+}
+
+// Computes an adaptive, slightly lighter 3D card palette that complements whichever
+// weather sky background is currently active on the Home screen!
+inline void resolve_home_card_palette(
+    bool show_weather_bg, bool is_night, const std::string &cond,
+    esphome::Color &out_card_bg, esphome::Color &out_card_brd, esphome::Color &out_btn_bg) {
+  using esphome::Color;
+  if (!show_weather_bg) {
+    out_card_bg  = Color(22, 27, 36);
+    out_card_brd = Color(52, 62, 78);
+    out_btn_bg   = Color(32, 39, 52);
+    return;
+  }
+  const bool is_fog = (cond.find("fog") != std::string::npos ||
+                       cond.find("mist") != std::string::npos ||
+                       cond.find("haze") != std::string::npos);
+  if (is_night) {
+    if (is_fog) {
+      // Night Fog sky is (10, 15, 22)
+      out_card_bg  = Color(28, 36, 48);
+      out_card_brd = Color(58, 70, 88);
+      out_btn_bg   = Color(38, 48, 62);
+    } else {
+      // Clear / Cloudy / Rainy Night sky is (0, 0, 0)
+      out_card_bg  = Color(22, 27, 36);
+      out_card_brd = Color(52, 62, 78);
+      out_btn_bg   = Color(32, 39, 52);
+    }
+    return;
+  }
+
+  // Daytime Sky Palettes:
+  const bool is_partly = (cond.find("partly") != std::string::npos ||
+                          cond.find("mostlysunny") != std::string::npos ||
+                          cond.find("partlysunny") != std::string::npos);
+  const bool is_storm_or_rain = (cond.find("rain") != std::string::npos ||
+                                 cond.find("pouring") != std::string::npos ||
+                                 cond.find("drizzle") != std::string::npos ||
+                                 cond.find("lightning") != std::string::npos ||
+                                 cond.find("thunder") != std::string::npos);
+  if (is_fog) {
+    // Daytime Fog sky is (32, 46, 60) -> Misty Slate Blue 3D Card
+    out_card_bg  = Color(50, 68, 88);
+    out_card_brd = Color(84, 106, 132);
+    out_btn_bg   = Color(62, 82, 104);
+  } else if (is_storm_or_rain) {
+    // Daytime Rain / Storm sky is (18, 30, 46) -> Storm Slate 3D Card
+    out_card_bg  = Color(34, 50, 74);
+    out_card_brd = Color(64, 86, 116);
+    out_btn_bg   = Color(44, 62, 90);
+  } else if (cond.find("cloud") != std::string::npos && !is_partly) {
+    // Daytime Overcast sky is (22, 38, 56) -> Overcast Steel 3D Card
+    out_card_bg  = Color(38, 58, 84);
+    out_card_brd = Color(70, 96, 128);
+    out_btn_bg   = Color(48, 72, 100);
+  } else {
+    // Clear / Sunny / Partly Cloudy / Windy Daytime sky is (28, 54, 84) -> Rich Steel Azure 3D Card
+    out_card_bg  = Color(44, 76, 114);
+    out_card_brd = Color(78, 116, 160);
+    out_btn_bg   = Color(56, 92, 134);
+  }
 }
 
 // Selects which activity item is featured on the single Home Live Activity Card:
@@ -2431,9 +2492,15 @@ template <typename DisplayT, typename FontSmallT>
 inline void draw_home_activity_row_contents(
     DisplayT &it, int row_y, const HomeActivityItem &cur_act,
     bool has_dropdown_ext, bool is_list_row, FontSmallT *font_small,
-    esphome::Color card_bg, esphome::Color theme_secondary, esphome::Color col_white) {
+    esphome::Color card_bg, esphome::Color btn_bg,
+    esphome::Color theme_secondary, esphome::Color col_white,
+    float alpha = 1.0f) {
   using esphome::Color;
   using esphome::display::TextAlign;
+
+  const Color fg_w   = (alpha >= 0.99f) ? col_white       : lerp_color(card_bg, col_white, alpha);
+  const Color fg_sec = (alpha >= 0.99f) ? theme_secondary : lerp_color(card_bg, theme_secondary, alpha);
+  const Color fg_btn = (alpha >= 0.99f) ? btn_bg          : lerp_color(card_bg, btn_bg, alpha);
 
   const int gx      = is_list_row ? 113 : (has_dropdown_ext ?  88 : 110);
   const int txt_x   = is_list_row ? 128 : (has_dropdown_ext ? 108 : 130);
@@ -2443,111 +2510,106 @@ inline void draw_home_activity_row_contents(
 
   int gy = row_y;
   if (is_list_row) {
-    // Compact 44px row icons for ACTIVE NOW list
     if (cur_act.kind == 1) {
-      it.filled_rectangle(gx - 6, gy - 9, 13, 2, col_white);
-      it.filled_rectangle(gx - 6, gy + 8, 13, 2, col_white);
-      it.line(gx - 5, gy - 7, gx - 1, gy, col_white);
-      it.line(gx + 5, gy - 7, gx + 1, gy, col_white);
-      it.line(gx - 1, gy, gx - 5, gy + 7, col_white);
-      it.line(gx + 1, gy, gx + 5, gy + 7, col_white);
-      it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, col_white);
-      it.filled_triangle(gx - 4, gy + 7, gx + 4, gy + 7, gx, gy + 2, col_white);
+      it.filled_rectangle(gx - 6, gy - 9, 13, 2, fg_w);
+      it.filled_rectangle(gx - 6, gy + 8, 13, 2, fg_w);
+      it.line(gx - 5, gy - 7, gx - 1, gy, fg_w);
+      it.line(gx + 5, gy - 7, gx + 1, gy, fg_w);
+      it.line(gx - 1, gy, gx - 5, gy + 7, fg_w);
+      it.line(gx + 1, gy, gx + 5, gy + 7, fg_w);
+      it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, fg_w);
+      it.filled_triangle(gx - 4, gy + 7, gx + 4, gy + 7, gx, gy + 2, fg_w);
     } else if (cur_act.kind == 2) {
-      it.filled_rectangle(gx - 2, gy - 10, 5, 2, col_white);
-      it.line(gx + 5, gy - 6, gx + 7, gy - 8, col_white);
-      it.circle(gx, gy + 1, 8, col_white);
-      it.circle(gx, gy + 1, 7, theme_secondary);
-      it.line(gx, gy + 1, gx + 4, gy - 3, col_white);
-      it.draw_pixel_at(gx, gy + 1, col_white);
+      it.filled_rectangle(gx - 2, gy - 10, 5, 2, fg_w);
+      it.line(gx + 5, gy - 6, gx + 7, gy - 8, fg_w);
+      it.circle(gx, gy + 1, 8, fg_w);
+      it.circle(gx, gy + 1, 7, fg_sec);
+      it.line(gx, gy + 1, gx + 4, gy - 3, fg_w);
+      it.draw_pixel_at(gx, gy + 1, fg_w);
     } else if (cur_act.kind == 3) {
-      it.filled_circle(gx - 4, gy + 5, 3, col_white);
-      it.filled_circle(gx + 4, gy + 3, 3, col_white);
-      it.filled_rectangle(gx - 2, gy - 6, 2, 11, col_white);
-      it.filled_rectangle(gx + 5, gy - 8, 2, 11, col_white);
-      it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
-      it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
+      it.filled_circle(gx - 4, gy + 5, 3, fg_w);
+      it.filled_circle(gx + 4, gy + 3, 3, fg_w);
+      it.filled_rectangle(gx - 2, gy - 6, 2, 11, fg_w);
+      it.filled_rectangle(gx + 5, gy - 8, 2, 11, fg_w);
+      it.line(gx - 2, gy - 6, gx + 6, gy - 8, fg_w);
+      it.line(gx - 2, gy - 5, gx + 6, gy - 7, fg_w);
     } else {
-      it.filled_circle(gx - 6, gy - 6, 2, col_white);
-      it.filled_circle(gx + 6, gy - 6, 2, col_white);
+      it.filled_circle(gx - 6, gy - 6, 2, fg_w);
+      it.filled_circle(gx + 6, gy - 6, 2, fg_w);
       it.filled_circle(gx, gy + 1, 9, card_bg);
-      it.circle(gx, gy + 1, 8, col_white);
-      it.line(gx - 5, gy + 8, gx - 7, gy + 10, col_white);
-      it.line(gx + 5, gy + 8, gx + 7, gy + 10, col_white);
-      it.line(gx, gy + 1, gx,     gy - 4, col_white);
-      it.line(gx, gy + 1, gx + 4, gy + 3, col_white);
+      it.circle(gx, gy + 1, 8, fg_w);
+      it.line(gx - 5, gy + 8, gx - 7, gy + 10, fg_w);
+      it.line(gx + 5, gy + 8, gx + 7, gy + 10, fg_w);
+      it.line(gx, gy + 1, gx,     gy - 4, fg_w);
+      it.line(gx, gy + 1, gx + 4, gy + 3, fg_w);
     }
   } else {
     // Enlarged (+35%, ~22x24px) Monochromatic Tools-Style Icons for the 68px-tall Home Live Activity Card!
     if (cur_act.kind == 1) {
-      // 1. Timer: Enlarged 2px-stroke Hourglass with solid filled sand bulbs
-      it.filled_rectangle(gx - 9, gy - 12, 19, 2, col_white);
-      it.filled_rectangle(gx - 9, gy + 11, 19, 2, col_white);
-      it.line(gx - 7, gy - 10, gx - 1, gy, col_white);
-      it.line(gx - 6, gy - 10, gx,     gy, col_white);
-      it.line(gx + 7, gy - 10, gx + 1, gy, col_white);
-      it.line(gx + 6, gy - 10, gx,     gy, col_white);
-      it.line(gx - 1, gy, gx - 7, gy + 10, col_white);
-      it.line(gx,     gy, gx - 6, gy + 10, col_white);
-      it.line(gx + 1, gy, gx + 7, gy + 10, col_white);
-      it.line(gx,     gy, gx + 6, gy + 10, col_white);
-      it.filled_triangle(gx - 4, gy - 6, gx + 4, gy - 6, gx, gy - 1, col_white);
-      it.filled_triangle(gx - 5, gy + 9, gx + 5, gy + 9, gx, gy + 3, col_white);
+      it.filled_rectangle(gx - 9, gy - 12, 19, 2, fg_w);
+      it.filled_rectangle(gx - 9, gy + 11, 19, 2, fg_w);
+      it.line(gx - 7, gy - 10, gx - 1, gy, fg_w);
+      it.line(gx - 6, gy - 10, gx,     gy, fg_w);
+      it.line(gx + 7, gy - 10, gx + 1, gy, fg_w);
+      it.line(gx + 6, gy - 10, gx,     gy, fg_w);
+      it.line(gx - 1, gy, gx - 7, gy + 10, fg_w);
+      it.line(gx,     gy, gx - 6, gy + 10, fg_w);
+      it.line(gx + 1, gy, gx + 7, gy + 10, fg_w);
+      it.line(gx,     gy, gx + 6, gy + 10, fg_w);
+      it.filled_triangle(gx - 4, gy - 6, gx + 4, gy - 6, gx, gy - 1, fg_w);
+      it.filled_triangle(gx - 5, gy + 9, gx + 5, gy + 9, gx, gy + 3, fg_w);
     } else if (cur_act.kind == 2) {
-      // 2. Stopwatch: Enlarged 2px-bezel Chronometer (r = 10, top T-crown, angled pusher, 2px sweep hand)
-      it.filled_rectangle(gx - 3, gy - 13, 7, 2, col_white);
-      it.filled_rectangle(gx - 1, gy - 11, 3, 2, col_white);
-      it.line(gx + 7, gy - 7, gx + 10, gy - 10, col_white);
-      it.line(gx + 8, gy - 6, gx + 11, gy - 9,  col_white);
-      it.circle(gx, gy + 2, 10, col_white);
-      it.circle(gx, gy + 2, 9,  col_white);
-      it.line(gx,     gy + 2, gx + 5, gy - 3, col_white);
-      it.line(gx + 1, gy + 2, gx + 5, gy - 2, col_white);
-      it.filled_circle(gx, gy + 2, 2, col_white);
+      it.filled_rectangle(gx - 3, gy - 13, 7, 2, fg_w);
+      it.filled_rectangle(gx - 1, gy - 11, 3, 2, fg_w);
+      it.line(gx + 7, gy - 7, gx + 10, gy - 10, fg_w);
+      it.line(gx + 8, gy - 6, gx + 11, gy - 9,  fg_w);
+      it.circle(gx, gy + 2, 10, fg_w);
+      it.circle(gx, gy + 2, 9,  fg_w);
+      it.line(gx,     gy + 2, gx + 5, gy - 3, fg_w);
+      it.line(gx + 1, gy + 2, gx + 5, gy - 2, fg_w);
+      it.filled_circle(gx, gy + 2, 2, fg_w);
     } else if (cur_act.kind == 3) {
-      // 3. Music: Enlarged Beamed Eighth Notes (22x24px)
-      it.filled_circle(gx - 6, gy + 6, 4, col_white);
-      it.filled_circle(gx + 5, gy + 4, 4, col_white);
-      it.filled_rectangle(gx - 3, gy - 9,  2, 15, col_white);
-      it.filled_rectangle(gx + 8, gy - 11, 2, 15, col_white);
-      it.line(gx - 3, gy - 9, gx + 9, gy - 11, col_white);
-      it.line(gx - 3, gy - 8, gx + 9, gy - 10, col_white);
-      it.line(gx - 3, gy - 7, gx + 9, gy - 9,  col_white);
+      it.filled_circle(gx - 6, gy + 6, 4, fg_w);
+      it.filled_circle(gx + 5, gy + 4, 4, fg_w);
+      it.filled_rectangle(gx - 3, gy - 9,  2, 15, fg_w);
+      it.filled_rectangle(gx + 8, gy - 11, 2, 15, fg_w);
+      it.line(gx - 3, gy - 9, gx + 9, gy - 11, fg_w);
+      it.line(gx - 3, gy - 8, gx + 9, gy - 10, fg_w);
+      it.line(gx - 3, gy - 7, gx + 9, gy - 9,  fg_w);
     } else {
-      // 4. Alarm: Enlarged Twin-Bell Alarm Clock (r = 10, 2px bezel, twin bells, legs & hands)
-      it.filled_circle(gx - 8, gy - 7, 3, col_white);
-      it.filled_circle(gx + 8, gy - 7, 3, col_white);
+      it.filled_circle(gx - 8, gy - 7, 3, fg_w);
+      it.filled_circle(gx + 8, gy - 7, 3, fg_w);
       it.filled_circle(gx, gy + 2, 12, card_bg);
-      it.circle(gx, gy + 2, 10, col_white);
-      it.circle(gx, gy + 2, 9,  col_white);
-      it.line(gx - 6, gy + 10, gx - 9, gy + 13, col_white);
-      it.line(gx - 5, gy + 10, gx - 8, gy + 13, col_white);
-      it.line(gx + 6, gy + 10, gx + 9, gy + 13, col_white);
-      it.line(gx + 5, gy + 10, gx + 8, gy + 13, col_white);
-      it.line(gx, gy + 2, gx,     gy - 4, col_white);
-      it.line(gx, gy + 2, gx + 4, gy + 4, col_white);
-      it.filled_circle(gx, gy + 2, 2, col_white);
+      it.circle(gx, gy + 2, 10, fg_w);
+      it.circle(gx, gy + 2, 9,  fg_w);
+      it.line(gx - 6, gy + 10, gx - 9, gy + 13, fg_w);
+      it.line(gx - 5, gy + 10, gx - 8, gy + 13, fg_w);
+      it.line(gx + 6, gy + 10, gx + 9, gy + 13, fg_w);
+      it.line(gx + 5, gy + 10, gx + 8, gy + 13, fg_w);
+      it.line(gx, gy + 2, gx,     gy - 4, fg_w);
+      it.line(gx, gy + 2, gx + 4, gy + 4, fg_w);
+      it.filled_circle(gx, gy + 2, 2, fg_w);
     }
   }
 
   std::string fit_act = fit_text_to_width_font(cur_act.label, max_txt, font_small);
-  it.print(txt_x, gy, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
+  it.print(txt_x, gy, font_small, fg_w, TextAlign::CENTER_LEFT, fit_act.c_str());
 
   // Inline Action Button (Play / Pause / Disarm, r = btn_r at act_bx)
-  it.filled_circle(act_bx, gy, btn_r, Color(30, 37, 48));
-  it.circle(act_bx, gy, btn_r, theme_secondary);
+  it.filled_circle(act_bx, gy, btn_r, fg_btn);
+  it.circle(act_bx, gy, btn_r, fg_sec);
 
   int sym_s = is_list_row ? 5 : 6;
   if (cur_act.kind == 4) {
     for (int w = -1; w <= 0; w++) {
-      it.line(act_bx - sym_s + w, gy - sym_s, act_bx + sym_s + w, gy + sym_s, col_white);
-      it.line(act_bx - sym_s + w, gy + sym_s, act_bx + sym_s + w, gy - sym_s, col_white);
+      it.line(act_bx - sym_s + w, gy - sym_s, act_bx + sym_s + w, gy + sym_s, fg_w);
+      it.line(act_bx - sym_s + w, gy + sym_s, act_bx + sym_s + w, gy - sym_s, fg_w);
     }
   } else if (cur_act.is_active) {
-    it.filled_rectangle(act_bx - 5, gy - sym_s, 3, sym_s * 2 + 1, col_white);
-    it.filled_rectangle(act_bx + 3, gy - sym_s, 3, sym_s * 2 + 1, col_white);
+    it.filled_rectangle(act_bx - 5, gy - sym_s, 3, sym_s * 2 + 1, fg_w);
+    it.filled_rectangle(act_bx + 3, gy - sym_s, 3, sym_s * 2 + 1, fg_w);
   } else {
-    it.filled_triangle(act_bx - 4, gy - sym_s, act_bx - 4, gy + sym_s, act_bx + sym_s + 1, gy, col_white);
+    it.filled_triangle(act_bx - 4, gy - sym_s, act_bx - 4, gy + sym_s, act_bx + sym_s + 1, gy, fg_w);
   }
 }
 
@@ -2556,11 +2618,10 @@ inline void render_home_activity_card_row(
     DisplayT &it, int cx, int pill_y, const HomeActivityItem &cur_act,
     bool has_dropdown_ext, FontSmallT *font_small,
     esphome::Color theme_secondary, esphome::Color col_white,
-    bool is_list_row = false) {
-  using esphome::Color;
-  const Color card_bg(22, 27, 36);
-  const Color card_brd(52, 62, 78);
-
+    bool is_list_row = false,
+    esphome::Color card_bg = esphome::Color(22, 27, 36),
+    esphome::Color card_brd = esphome::Color(52, 62, 78),
+    esphome::Color btn_bg = esphome::Color(32, 39, 52)) {
   const int card_w  = is_list_row ? 276 : (has_dropdown_ext ? 340 : 296);
   const int card_h  = is_list_row ?  44 : 68;
   const int card_r  = is_list_row ?  12 : 16;
@@ -2573,7 +2634,8 @@ inline void render_home_activity_card_row(
                      nullptr, col_white, font_small);
 
   draw_home_activity_row_contents(
-      it, pill_y, cur_act, has_dropdown_ext, is_list_row, font_small, card_bg, theme_secondary, col_white);
+      it, pill_y, cur_act, has_dropdown_ext, is_list_row, font_small,
+      card_bg, btn_bg, theme_secondary, col_white, 1.0f);
 
   it.line(div1_x, pill_y - div_h, div1_x, pill_y + div_h, card_brd);
 
@@ -2863,9 +2925,9 @@ inline void render_home_page(
                                now.is_valid() && (greet_el < 10500U);
 
   // ZONE 4 (pill_y = 271, y = 237..305, h = 68px):
-  //   - Top edge at y = 237 preserves the exact 24px buffer below Weather (213)
-  //   - Bottom edge at y = 305 aligns with the Forecast bottom limit & leaves 18px above the y = 352 Dock
-  //   - Animates transitions with a 20 FPS vertical carousel reel slide (360ms cubic ease-out)!
+  //   - Adaptive sky-matched 3D card palette (resolve_home_card_palette)
+  //   - Deterministic 3-step UPWARD carousel reel transition (outgoing slides UP & fades out,
+  //     incoming rises UP from below & fades in, strictly inside the 68px card bounds!)
   if (!greeting_active && act_count > 0) {
     const int pill_y = 271;
     const bool has_drop = (act_count > 1);
@@ -2876,53 +2938,36 @@ inline void render_home_page(
     if (feat_idx != home_act_cur_idx()) {
       home_act_prev_idx() = home_act_cur_idx();
       home_act_cur_idx()  = feat_idx;
-      home_act_anim_start_ms() = now_ms;
+      home_act_anim_step() = 1; // Start 3-step upward reel transition!
     }
     home_activity_idx = feat_idx;
 
-    uint32_t anim_el = (home_act_anim_start_ms() > 0U && now_ms >= home_act_anim_start_ms())
-                           ? (now_ms - home_act_anim_start_ms())
-                           : 9999U;
+    Color card_bg, card_brd, btn_bg;
+    resolve_home_card_palette(show_weather_bg, is_night, cond, card_bg, card_brd, btn_bg);
 
-    if (has_drop && anim_el < 360U && home_act_prev_idx() != home_act_cur_idx()) {
-      float u = static_cast<float>(anim_el) * (1.0f / 360.0f);
-      float ease = 1.0f - (1.0f - u) * (1.0f - u) * (1.0f - u);
-      int shift = static_cast<int>(ease * 64.0f);
-      int y_out = pill_y - shift;
-      int y_in  = pill_y + (64 - shift);
+    int step = home_act_anim_step();
+    if (has_drop && step >= 1 && step <= 3 && home_act_prev_idx() != home_act_cur_idx()) {
+      // Deterministic 3-frame upward reel slide strictly inside the card (zero dip, zero pop!):
+      //   Step 1: Outgoing at pill_y - 9  (alpha 0.65), Incoming at pill_y + 15 (alpha 0.40)
+      //   Step 2: Outgoing at pill_y - 16 (alpha 0.28), Incoming at pill_y + 8  (alpha 0.75)
+      //   Step 3: Incoming at pill_y + 3  (alpha 0.92) -> then step resets to 0 (settled at pill_y)
+      static constexpr int8_t OUT_DY[4]    = {0,  -9, -16, -20};
+      static constexpr int8_t IN_DY[4]     = {0, +15,  +8,  +3};
+      static constexpr float  OUT_ALPHA[4] = {0.0f, 0.65f, 0.25f, 0.0f};
+      static constexpr float  IN_ALPHA[4]  = {1.0f, 0.42f, 0.76f, 0.94f};
 
-      const Color card_bg(22, 27, 36);
-      const Color card_brd(52, 62, 78);
-
-      // 1. Draw inner card fill first, then draw outgoing & incoming reel rows
       render_modern_card(it, cx, pill_y, 340, 68, 16, card_bg, card_brd, nullptr, col_white, font_small);
-      if (y_out >= pill_y - 46) {
-        draw_home_activity_row_contents(
-            it, y_out, act_items[home_act_prev_idx()], true, false, font_small, card_bg, theme_secondary, col_white);
-      }
-      if (y_in <= pill_y + 46) {
-        draw_home_activity_row_contents(
-            it, y_in, act_items[home_act_cur_idx()], true, false, font_small, card_bg, theme_secondary, col_white);
-      }
 
-      // 2. Mask sky bands immediately above (y = 216..236) & below (y = 306..322) the card
-      //    so sliding text/buttons clip cleanly at the top & bottom borders of the card!
-      Color mask_c(0, 0, 0);
-      if (show_weather_bg && !is_night) {
-        mask_c = Color(28, 54, 84);
-        if (cond.find("fog") != std::string::npos || cond.find("mist") != std::string::npos) {
-          mask_c = Color(32, 46, 60);
-        } else if (cond.find("cloud") != std::string::npos && cond.find("partly") == std::string::npos) {
-          mask_c = Color(22, 38, 56);
-        } else if (cond.find("rain") != std::string::npos || cond.find("thunder") != std::string::npos ||
-                   cond.find("lightning") != std::string::npos) {
-          mask_c = Color(18, 30, 46);
-        }
+      if (OUT_ALPHA[step] > 0.05f) {
+        draw_home_activity_row_contents(
+            it, pill_y + OUT_DY[step], act_items[home_act_prev_idx()], true, false, font_small,
+            card_bg, btn_bg, theme_secondary, col_white, OUT_ALPHA[step]);
       }
-      it.filled_rectangle(60, 215, 290, 22, mask_c);
-      it.filled_rectangle(60, 306, 290, 17, mask_c);
+      draw_home_activity_row_contents(
+          it, pill_y + IN_DY[step], act_items[home_act_cur_idx()], true, false, font_small,
+          card_bg, btn_bg, theme_secondary, col_white, IN_ALPHA[step]);
 
-      // 3. Re-stamp top & bottom card border lines, dividers, and stationary '▼' dropdown chevron
+      // Re-stamp top & bottom card border lines, dividers, and stationary '▼' dropdown chevron
       it.horizontal_line(63 + 16, 237, 340 - 32, card_brd);
       it.horizontal_line(63 + 16, 304, 340 - 32, card_brd);
       it.line(288, pill_y - 23, 288, pill_y + 23, card_brd);
@@ -2931,9 +2976,17 @@ inline void render_home_page(
         it.line(374 - 8, pill_y - 4 + w, 374, pill_y + 4 + w, col_white);
         it.line(374 + 8, pill_y - 4 + w, 374, pill_y + 4 + w, col_white);
       }
+
+      if (step < 3) {
+        home_act_anim_step() = step + 1;
+      } else {
+        home_act_anim_step() = 0;
+      }
     } else {
+      home_act_anim_step() = 0;
       render_home_activity_card_row(
-          it, cx, pill_y, act_items[feat_idx], has_drop, font_small, theme_secondary, col_white, false);
+          it, cx, pill_y, act_items[feat_idx], has_drop, font_small,
+          theme_secondary, col_white, false, card_bg, card_brd, btn_bg);
     }
   }
 
@@ -3166,8 +3219,12 @@ inline void render_home_page(
     }
   }
 
-  // ZONE 6 (y = 422): Clock-Sized Battery Readout (font_small 21pt + 12x18px Dual-Wall Battery) & Middle-Ground Gear (r = 12)
-  const int chin_y = 422;
+  // ZONE 6 (chin_y = 421): Unified Horizontal Plane for [Battery Icon + 6px gap + 21pt % + 24px gap + 8-Sprocket Gear]
+  // Uses the exact proven vertical geometry from render_battery_indicator on the Clock face:
+  //   - Font printed at chin_y (421) with TextAlign::CENTER_LEFT
+  //   - Battery total height = 18px (cap at chin_y - 9, body from chin_y - 7 to chin_y + 8 -> midpoint = chin_y!)
+  //   - Gear center bore at gear_y = chin_y (421) -> all 3 centers sit on y = 421!
+  const int chin_y = 421;
   int batt_val = std::isnan(batt) ? 100 : static_cast<int>(roundf(batt));
   char batt_str[16];
   snprintf(batt_str, sizeof(batt_str), "%d%%", batt_val);
@@ -3175,42 +3232,37 @@ inline void render_home_page(
   int w_batt = 0, x_off_b = 0, base_b = 0, th_b = 0;
   font_small->measure(batt_str, &w_batt, &x_off_b, &base_b, &th_b);
 
-  // Center [Battery Icon (13px) + 10px gap + 21pt Percentage Text] around x = cx - 22 (211)
-  const int icon_w = 13;
-  const int icon_gap = 10;
-  const int group_cx = cx - 22;
-  const int group_left = group_cx - (icon_w + icon_gap + w_batt) / 2;
-  const int b_icon_x = group_left + (icon_w / 2);
-  const int text_left_x = group_left + icon_w + icon_gap;
+  // Total width of [Battery (11px) + 6px gap + Text (w_batt) + 22px gap + Gear (22px)] centered at cx = 233
+  const int icon_w = 11;
+  const int icon_to_txt_gap = 6;
+  const int txt_to_gear_gap = 22;
+  const int gear_w = 22;
+  const int total_chin_w = icon_w + icon_to_txt_gap + w_batt + txt_to_gear_gap + gear_w;
+  const int chin_left = cx - (total_chin_w / 2);
 
-  // Optical cap-height center of '0' in 21pt font_small printed at chin_y (422) sits at chin_y - 2 (420)
-  // because font_small's bounding box includes 4px of bottom descender space below the baseline!
-  const int icon_cy = chin_y - 2;
+  const int b_icon_x    = chin_left + (icon_w / 2);
+  const int text_left_x = chin_left + icon_w + icon_to_txt_gap - x_off_b;
+  const int gear_x      = chin_left + icon_w + icon_to_txt_gap + w_batt + txt_to_gear_gap + (gear_w / 2);
+  const int gear_y      = chin_y;
 
   if (is_charging) {
-    // 20px-tall golden charging lightning bolt centered at icon_cy
-    it.filled_triangle(b_icon_x + 4, icon_cy - 9, b_icon_x - 3, icon_cy + 1, b_icon_x + 1, icon_cy + 1, col_black);
-    it.filled_triangle(b_icon_x - 1, icon_cy,     b_icon_x + 3, icon_cy,     b_icon_x - 2, icon_cy + 10, col_black);
-    it.filled_triangle(b_icon_x + 3, icon_cy - 10, b_icon_x - 4, icon_cy,    b_icon_x,     icon_cy,      col_gold);
-    it.filled_triangle(b_icon_x - 2, icon_cy - 1,  b_icon_x + 2, icon_cy - 1, b_icon_x - 3, icon_cy + 9, col_gold);
+    // 18px-tall golden charging lightning bolt centered at chin_y (y = chin_y - 9 .. chin_y + 9)
+    it.filled_triangle(b_icon_x + 4, chin_y - 8, b_icon_x - 3, chin_y + 1, b_icon_x + 1, chin_y + 1, col_black);
+    it.filled_triangle(b_icon_x - 1, chin_y,     b_icon_x + 3, chin_y,     b_icon_x - 2, chin_y + 9, col_black);
+    it.filled_triangle(b_icon_x + 3, chin_y - 9, b_icon_x - 4, chin_y,     b_icon_x,     chin_y,     col_gold);
+    it.filled_triangle(b_icon_x - 2, chin_y - 1, b_icon_x + 2, chin_y - 1, b_icon_x - 3, chin_y + 8, col_gold);
   } else {
-    // Crisp 13x17px 2px-walled battery icon + 5x2px top terminal cap centered at icon_cy
-    it.filled_rectangle(b_icon_x - 2, icon_cy - 10, 5, 2, col_green);
-    it.rectangle(b_icon_x - 6, icon_cy - 8, 13, 17, col_green);
-    it.rectangle(b_icon_x - 5, icon_cy - 7, 11, 15, col_green);
-    int fill_h = static_cast<int>(std::max(1.0f, std::min(11.0f, (static_cast<float>(batt_val) / 100.0f) * 11.0f)));
-    it.filled_rectangle(b_icon_x - 3, (icon_cy + 6) - fill_h, 7, fill_h, col_green);
+    // Exact Clock-face battery proportions (11x16px body at chin_y - 7..+8 + 5x2px top terminal cap at chin_y - 9)
+    it.filled_rectangle(b_icon_x - 2, chin_y - 9, 5, 2, col_green);
+    it.rectangle(b_icon_x - 5, chin_y - 7, 11, 16, col_green);
+    it.rectangle(b_icon_x - 4, chin_y - 6, 9,  14, col_green);
+    int fill_h = static_cast<int>(std::max(1.0f, std::min(12.0f, (static_cast<float>(batt_val) / 100.0f) * 12.0f)));
+    it.filled_rectangle(b_icon_x - 3, (chin_y + 7) - fill_h, 7, fill_h, col_green);
   }
 
-  // 1px horizontal bold double-pass in crisp silver-gray (no black shadow pinching the 21pt strokes!)
   const Color batt_txt_col(192, 198, 206);
   it.print(text_left_x,     chin_y, font_small, batt_txt_col, TextAlign::CENTER_LEFT, batt_str);
   it.print(text_left_x + 1, chin_y, font_small, batt_txt_col, TextAlign::CENTER_LEFT, batt_str);
-
-  // 2. Right Group: 8-Sprocket CSG Gear at x = cx + 48 (281), optically centered at icon_cy (420)
-  //    so the center bore of the gear aligns horizontally with the center of the '0' in 100%!
-  int gear_x = cx + 48;
-  int gear_y = icon_cy;
   auto is_gear_pixel = [](int dx, int dy) -> bool {
     int r2 = dx * dx + dy * dy;
     // 1. Transparent center hole (r <= 3.8px -> r2 <= 14) and outer bound (r > 11.2px -> r2 > 125)
