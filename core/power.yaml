@@ -413,11 +413,11 @@ interval:
           // any Home Assistant wake word selection changes to NVS flash.
           const bool ww_changed = esphome::voice_assistant::poll_and_persist_wake_words(id(va));
           static bool ww_model_initialized = false;
-          if (!ww_model_initialized && millis() > 10000U && id(wifi_ctrl).is_connected()) {
+          if (!ww_model_initialized && millis() > 14000U && id(wifi_ctrl).is_connected()) {
             ww_model_initialized = true;
             id(apply_wake_word_sensitivities).execute();
             id(sync_wake_word_state).execute();
-          } else if (millis() > 10500U && !id(va_active) && !id(va_tts_received)) {
+          } else if (millis() > 14500U && !id(va_active) && !id(va_tts_received)) {
             auto ww_mode = id(va_wake_word_mode).current_option();
             const bool ww_allowed = (ww_mode == "Always On") ||
                                     (ww_mode == "Docked Only" && id(usb_connected).state);
