@@ -1001,10 +1001,9 @@ inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t 
     it.print(cx, 244, font_small, theme_secondary,
              esphome::display::TextAlign::CENTER, "Acoustic Beacon Active");
 
+    (void)font_micro; (void)col_gray;
     render_modern_card(it, cx, 330, 240, 44, 12, esphome::Color(22, 27, 36), theme_primary,
                        "Tap to Dismiss", col_white, font_small);
-    it.print(cx, 372, font_micro, col_gray,
-             esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
   } else if (alarm_ringing) {
     it.print(cx, 75, font_small, pulse ? col_red : col_white,
              esphome::display::TextAlign::CENTER, "ALARM RINGING");
@@ -1027,10 +1026,8 @@ inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t 
 
     render_modern_card(it, cx, 295, 224, 44, 12, esphome::Color(22, 27, 36), theme_secondary,
                        "Snooze (+5m)", col_white, font_small);
-    it.print(cx, 328, font_micro, col_gray,
-             esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
 
-    render_modern_card(it, cx, 370, 204, 42, 12, esphome::Color(28, 18, 22), col_red,
+    render_modern_card(it, cx, 364, 204, 42, 12, esphome::Color(28, 18, 22), col_red,
                        "Dismiss", col_white, font_small);
   } else {
     it.print(cx, 75, font_small, pulse ? theme_secondary : col_white,
@@ -1042,8 +1039,6 @@ inline void render_alert_ringing_overlay(DisplayT &it, int cx, int cy, uint32_t 
 
     render_modern_card(it, cx, 330, 224, 44, 12, esphome::Color(22, 27, 36), theme_primary,
                        "Dismiss", col_white, font_small);
-    it.print(cx, 372, font_micro, col_gray,
-             esphome::display::TextAlign::CENTER, "(or press Top Crown button)");
   }
 }
 

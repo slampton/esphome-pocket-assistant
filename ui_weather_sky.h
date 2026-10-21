@@ -1185,27 +1185,29 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
     }
   }
 
-  // LAYER 1G_B: THUNDERSTORM LIGHTNING (DRAWN FIRST) & 3-CLOUD UPPER STORM CANOPY (DRAWN OVER ORIGIN)
+  // LAYER 1G_B: THUNDERSTORM — STAGGERED MULTI-DEPTH STORM CLOUDS, SCUD VEILS & FORKED LIGHTNING
   if (is_storm) {
-    float t_st = now_ms * 0.00045f;
-    int sc0_x = 126 + static_cast<int>(fast_sin(t_st * 0.95f) * 16.0f + par_x * 0.35f);
-    int sc1_x = 340 + static_cast<int>(fast_cos(t_st * 0.85f + 1.4f) * 18.0f + par_x * 0.42f);
-    int scm_x = 233 + static_cast<int>(fast_sin(t_st * 1.15f + 2.8f) * 20.0f + par_x * 0.52f);
+    float t_st = now_ms * 0.00048f;
+    bool dark_storm_clouds = is_night && !storm_sky_flash;
 
-    // 1. Draw Lightning Bolt FIRST (starting at y0 = 62 deep behind the cloud deck, with NO origin dot)
+    // 1. Deep Background Upper-Left Storm Anvil (drawn behind the lightning bolt!)
+    int bg_anvil_x = 152 + static_cast<int>(fast_sin(t_st * 0.75f) * 18.0f + par_x * 0.28f);
+    render_cumulus_cloud(it, bg_anvil_x, 76 + static_cast<int>(par_y * 0.28f), 1.16f, true, dark_storm_clouds);
+
+    // 2. Forked Lightning Bolt (originating between the deep anvil and foreground storm masses)
     if (storm_bolt_vis) {
       int b_seed = static_cast<int>(storm_cycle_idx * 43U + 19U);
-      int x0 = 135 + static_cast<int>(hash2d_01(b_seed, 11) * 196.0f);
-      int y0 = 62;
+      int x0 = 140 + static_cast<int>(hash2d_01(b_seed, 11) * 186.0f);
+      int y0 = 68;
 
       int x1 = x0 + static_cast<int>((hash2d_01(b_seed, 23) - 0.5f) * 44.0f);
-      int y1 = 108;
+      int y1 = 112;
       int x2 = x1 + static_cast<int>((hash2d_01(b_seed, 37) - 0.5f) * 48.0f);
-      int y2 = 154;
+      int y2 = 158;
       int x3 = x2 + static_cast<int>((hash2d_01(b_seed, 53) - 0.5f) * 52.0f);
-      int y3 = 206;
+      int y3 = 208;
       int x4 = x3 + static_cast<int>((hash2d_01(b_seed, 71) - 0.5f) * 46.0f);
-      int y4 = 264;
+      int y4 = 266;
 
       esphome::Color c_core(255, 255, 255);
       esphome::Color c_halo(110, 195, 255);
@@ -1229,11 +1231,26 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       it.line(gx1, gy1, gx2, gy2, c_halo);
     }
 
-    // 2. Draw 3 Overlapping Storm Clouds ON TOP of the upper bolt origin (Left, Right, and Center)
-    bool dark_storm_clouds = is_night && !storm_sky_flash;
-    render_cumulus_cloud(it, sc0_x, 78 + static_cast<int>(par_y * 0.35f), 1.04f, true, dark_storm_clouds);
-    render_cumulus_cloud(it, sc1_x, 84 + static_cast<int>(par_y * 0.42f), 1.02f, true, dark_storm_clouds);
-    render_cumulus_cloud(it, scm_x, 72 + static_cast<int>(par_y * 0.52f), 1.12f, true, dark_storm_clouds);
+    // 3. Interleaved Wind-Sheared Wispy Storm-Scud Veils (illuminate during lightning strikes!)
+    esphome::Color c_scud_crest = storm_sky_flash ? esphome::Color(150, 184, 224)
+                                : (is_night ? esphome::Color(58, 76, 98) : esphome::Color(102, 128, 158));
+    esphome::Color c_scud_body  = storm_sky_flash ? esphome::Color(100, 132, 172)
+                                : (is_night ? esphome::Color(36, 50, 68) : esphome::Color(68, 90, 116));
+    esphome::Color c_scud_base  = storm_sky_flash ? esphome::Color(62, 86, 120)
+                                : (is_night ? esphome::Color(20, 30, 44) : esphome::Color(42, 58, 78));
+
+    int w0_x = 248 + static_cast<int>(fast_cos(t_st * 1.15f + 0.6f) * 28.0f + par_x * 0.44f);
+    int w1_x = 188 + static_cast<int>(fast_sin(t_st * 1.35f + 2.2f) * 32.0f + par_x * 0.62f);
+    render_wispy_cloud_veil(it, w0_x,  96 + static_cast<int>(par_y * 0.42f), 165,  t_st * 1.3f,        21,
+                            c_scud_crest, c_scud_body, c_scud_base, cy);
+    render_wispy_cloud_veil(it, w1_x, 162 + static_cast<int>(par_y * 0.58f), 172, -t_st * 1.45f + 1.9f, 22,
+                            c_scud_crest, c_scud_body, c_scud_base, cy);
+
+    // 4. Staggered Mid-Altitude Right Storm Cloud (y = 118) & Lower-Left Foreground Squall Cloud (y = 188)
+    int mid_rt_x = 342 + static_cast<int>(fast_cos(t_st * 0.92f + 1.5f) * 22.0f + par_x * 0.52f);
+    int fg_lt_x  = 112 + static_cast<int>(fast_sin(t_st * 1.10f + 3.1f) * 20.0f + par_x * 0.72f);
+    render_cumulus_cloud(it, mid_rt_x, 118 + static_cast<int>(par_y * 0.52f), 0.98f, true, dark_storm_clouds);
+    render_cumulus_cloud(it, fg_lt_x,  188 + static_cast<int>(par_y * 0.72f), 0.88f, false, dark_storm_clouds);
   }
   // LAYER 1H: STUDIO GHIBLI / ANIME ATMOSPHERIC RAIN (Long 3-Stage Tapered Filaments + Upper-Canopy Density)
   if (cond.find("rain") != std::string::npos ||
