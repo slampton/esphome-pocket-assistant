@@ -1744,12 +1744,13 @@ inline void render_music_now_playing(
       auto draw_lib = [&](int ox, int oy, esphome::Color c) {
         int lx = left_flank_x + ox;
         int ly = 326 + oy;
-        // Enlarged 22x19px Bookshelf (two 5x19px vertical book spines + bold 5px-wide leaning book spine)
-        it.filled_rectangle(lx - 11, ly - 9, 5, 19, c);
-        it.filled_rectangle(lx - 4,  ly - 9, 5, 19, c);
-        for (int w = 0; w < 5; w++) {
-          it.line(lx + 3 + w, ly + 9, lx + 7 + w, ly - 8, c);
-        }
+        // Classic 4-Element Bookshelf (16px tall: two 3x16px upright spines + two 2px-thin leaning spines)
+        it.filled_rectangle(lx - 9, ly - 8, 3, 16, c);
+        it.filled_rectangle(lx - 4, ly - 8, 3, 16, c);
+        it.line(lx + 2, ly + 7, lx + 6, ly - 8, c);
+        it.line(lx + 3, ly + 7, lx + 7, ly - 8, c);
+        it.line(lx + 6, ly + 7, lx + 10, ly - 7, c);
+        it.line(lx + 7, ly + 7, lx + 11, ly - 7, c);
       };
       draw_lib(1, 1, col_black);
       draw_lib(0, 0, col_white);
@@ -2506,7 +2507,7 @@ inline void draw_home_activity_row_contents(
   const int txt_x   = is_list_row ? 128 : (has_dropdown_ext ? 108 : 130);
   const int max_txt = is_list_row ? 186 : (has_dropdown_ext ? 172 : 186);
   const int act_bx  = is_list_row ? 346 : (has_dropdown_ext ? 316 : 352);
-  const int btn_r   = is_list_row ?  13 : 19;
+  const int btn_r   = is_list_row ?  12 : 19;
 
   int gy = row_y;
   if (is_list_row) {
