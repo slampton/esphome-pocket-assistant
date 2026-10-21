@@ -3876,7 +3876,7 @@ touchscreen:
 
               }
 
-              pocket_ui::HomeActivityItem act_items[5];
+              pocket_ui::HomeActivityItem act_items[8];
               bool is_rem_h = (id(active_speaker_entity) != "${local_player_id}");
               bool loc_play_h = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
               bool mus_play_h = pocket_ui::is_music_playing_effective(is_rem_h, loc_play_h, id(ha_target_state).state, now_hm);
@@ -3941,7 +3941,7 @@ touchscreen:
                   }
                   // If we're in the ACTIVE NOW dropdown (home_subpage == 2) and fewer than 2 items remain, return to Home!
                   if (id(home_subpage) == 2) {
-                    pocket_ui::HomeActivityItem rem_items[5];
+                    pocket_ui::HomeActivityItem rem_items[8];
                     int rem_cnt = pocket_ui::collect_home_activities(
                         now_hm, id(is_24h_format),
                         id(stopwatch_running), id(stopwatch_start_time), id(stopwatch_elapsed_ms),
@@ -3984,20 +3984,48 @@ touchscreen:
                 id(disp1).update();
               };
 
-              // SUBPAGE 2: "ACTIVE NOW" MULTI-LINE DROPDOWN TOUCH ROUTING
+              // SUBPAGE 2: TRANSLUCENT AUTO-CENTERED LIVE ACTIVITY OVERLAY TOUCH ROUTING
               if (id(home_subpage) == 2) {
-                if (is_back_button(touch) || touch.y <= 72) {
+                if (is_back_button(touch)) {
                   if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_home_tap = now_hm;
                     id(home_subpage) = 0;
+                    pocket_ui::home_activity_overlay_page() = 0;
                     id(disp1).update();
                   }
                   return;
                 }
-                int slot_idx = get_5slot_index(touch, 90, 376);
-                if (slot_idx >= 0 && slot_idx < act_count && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                if (act_count > 5 && is_right_chevron_zone(touch)) {
+                  if (now_hm - last_home_tap > TOUCH_DEBOUNCE_SCROLL) {
+                    last_home_tap = now_hm;
+                    pocket_ui::home_activity_overlay_page() = (touch.y < 220) ? 0 : 1;
+                    id(disp1).update();
+                  }
+                  return;
+                }
+                int start_i = pocket_ui::home_activity_overlay_page() * 5;
+                int vis_cnt = std::min(5, act_count - start_i);
+                int hit_row = -1;
+                if (touch.x >= 70 && touch.x <= 396 && vis_cnt > 0) {
+                  for (int r = 0; r < vis_cnt; r++) {
+                    int cy_r = pocket_ui::get_activity_overlay_card_y(vis_cnt, r);
+                    if (touch.y >= cy_r - 32 && touch.y <= cy_r + 32) {
+                      hit_row = r;
+                      break;
+                    }
+                  }
+                }
+                if (hit_row >= 0 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   last_home_tap = now_hm;
-                  handle_activity_item_action(slot_idx, (touch.x >= 320));
+                  handle_activity_item_action(start_i + hit_row, (touch.x >= 332));
+                  return;
+                }
+                // Tapping outside the centered cards on the translucent scrim dismisses the overlay!
+                if (now_hm - last_home_tap > TOUCH_DEBOUNCE_DISMISS) {
+                  last_home_tap = now_hm;
+                  id(home_subpage) = 0;
+                  pocket_ui::home_activity_overlay_page() = 0;
+                  id(disp1).update();
                 }
                 return;
               }
@@ -4014,6 +4042,7 @@ touchscreen:
                   int feat_idx = pocket_ui::resolve_home_featured_activity_idx(act_items, act_count, now_hm);
                   if (act_count > 1) {
                     if (touch.x >= 360) {
+                      pocket_ui::home_activity_overlay_page() = 0;
                       id(home_subpage) = 2;
                       id(disp1).update();
                       return;
