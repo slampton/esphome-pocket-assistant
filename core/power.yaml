@@ -494,6 +494,7 @@ interval:
       - lambda: |-
           // High-refresh animation loop for active screensavers when docked:
           // Uses the universal audio-aware pacer (20 FPS when music idle, ~13.3 FPS during local Sendspin playback)
+          bool did_ss_draw = false;
           if (id(display_power_state) == 1 && !id(va_active) && id(va_status_text).empty() && !id(is_hibernating)) {
             auto s_style = id(screensaver_style_select).current_option();
             if (s_style != "Ambient Clock" && s_style != "Screen Off") {
@@ -504,16 +505,17 @@ interval:
                                                       id(alarm_ringing) || id(timer_ringing) || id(find_my_active))) {
                 id(disp1).update();
                 pocket_ui::record_ambient_frame_ms(millis());
+                did_ss_draw = true;
               }
             }
           }
 
           // ADR-001 Hardware-Gated 20 Hz Check for Top Crown Button (AXP2101 PEK Short/Long Press):
           // Only queries I2C register 0x49 when GPIO3 (PMU IRQ, active-low) is asserted or once per second
-          // as a safety fallback, eliminating >95% of idle 20 Hz I2C bus traffic.
+          // (on a non-draw tick so I2C and QSPI never stack in the same 50ms callback).
           static uint8_t fallback_div = 0;
           const bool irq_pin_low = (gpio_get_level(GPIO_NUM_3) == 0);
-          if (irq_pin_low || (++fallback_div >= 20U && !id(va_active) && !id(va_tts_received))) {
+          if (irq_pin_low || (!did_ss_draw && ++fallback_div >= 20U && !id(va_active) && !id(va_tts_received))) {
             if (!irq_pin_low) fallback_div = 0;
             uint8_t irq_reg = 0x49;
             uint8_t irq_val = 0;
