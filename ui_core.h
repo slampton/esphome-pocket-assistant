@@ -902,6 +902,22 @@ inline void schedule_disp_update(DispT *const *disp_ptr) {
   if (disp_ptr != nullptr) DisplayUpdateScheduler::request_ptr(*disp_ptr);
 }
 
+// Converts a linear media_player volume (0.0 .. 1.0) into the exact dB attenuation
+// used by ESPHome's SourceSpeaker::set_volume (-20 * log10(volume)) so un-ducking
+// media_mixing_input after an alert or Voice Assistant session restores the exact
+// pre-duck volume level.
+inline float volume_to_db_reduction(float vol) {
+  if (std::isnan(vol) || vol <= 0.05f) return 26.0f;
+  if (vol >= 1.0f) return 0.0f;
+  float db = -20.0f * std::log10(vol);
+  return (db < 0.0f) ? 0.0f : db;
+}
+
+inline uint32_t &last_local_vol_tap_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
 // ------------------------------------------------------------------------------
 
 }  // namespace pocket_ui

@@ -114,7 +114,6 @@ struct ComponentTimeoutAccessor : public esphome::Component {
   static void cancel_va_speaker_timeout(esphome::Component *comp) {
     if (comp != nullptr) {
       static_cast<ComponentTimeoutAccessor *>(comp)->cancel_timeout("speaker-timeout");
-      static_cast<ComponentTimeoutAccessor *>(comp)->cancel_timeout("playing");
     }
   }
 };

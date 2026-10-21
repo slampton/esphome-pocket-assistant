@@ -80,7 +80,7 @@ media_player:
     volume_initial: 60%
     volume_increment: 2%
     volume_min: 10%
-    volume_max: 90%
+    volume_max: 100%
     on_announcement:
       then:
         - script.stop: mp_idle_debounce
@@ -103,44 +103,32 @@ media_player:
               id(va_status_text) = "Responding...";
             }
         - script.execute: throttled_disp_update
-    on_state:
+    on_play:
       then:
         - if:
             condition:
-              lambda: |-
-                return !id(va_active) &&
-                       !id(va).is_running() &&
-                       (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_ANNOUNCING) &&
-                       !id(alarm_ringing) &&
-                       !id(timer_ringing) &&
-                       !id(find_my_active);
+              lambda: 'return !id(va_active) && !id(va_tts_received);'
             then:
+              - lambda: |-
+                  id(music_pos_sync_time) = millis();
+                  id(gui_page) = 2; // Auto-switch to Music Player screen on music playback start
+                  id(sleep_start_time) = 0;
+                  id(active_game) = 0;
+              - script.stop: mp_idle_debounce
+              - script.stop: screen_sleep_timer
               - mixer_speaker.apply_ducking:
                   id: media_mixing_input
-                  decibel_reduction: 10
-                  duration: 0.6s
-    on_play:
-      then:
-        - lambda: |-
-            id(music_pos_sync_time) = millis();
-            id(gui_page) = 2; // Auto-switch to Music Player screen on playback start
-            id(sleep_start_time) = 0;
-            id(active_game) = 0;
-        - script.stop: mp_idle_debounce
-        - script.stop: screen_sleep_timer
-        - mixer_speaker.apply_ducking:
-            id: media_mixing_input
-            decibel_reduction: 10
-            duration: 0.6s
-        - mixer_speaker.apply_ducking:
-            id: announcement_mixing_input
-            decibel_reduction: 50
-            duration: 0.1s
-        - script.execute: route_i2s_to_spk
-        - switch.turn_on: speaker_enable
-        - audio_dac.mute_off: es8311_dac
-        - light.turn_on: display_brightness
-        - script.execute: throttled_disp_update
+                  decibel_reduction: !lambda 'return pocket_ui::volume_to_db_reduction(id(pocket_music_player).volume);'
+                  duration: 0.4s
+              - mixer_speaker.apply_ducking:
+                  id: announcement_mixing_input
+                  decibel_reduction: 50
+                  duration: 0.1s
+              - script.execute: route_i2s_to_spk
+              - switch.turn_on: speaker_enable
+              - audio_dac.mute_off: es8311_dac
+              - light.turn_on: display_brightness
+              - script.execute: throttled_disp_update
     on_pause:
       then:
         - lambda: |-
@@ -152,7 +140,13 @@ media_player:
         - script.execute: mp_idle_debounce
     on_idle:
       then:
-        - script.execute: mp_idle_debounce
+        - if:
+            condition:
+              lambda: 'return id(va_active) && id(va_tts_received);'
+            then:
+              - script.execute: va_tts_drain_and_finish
+            else:
+              - script.execute: mp_idle_debounce
 
 micro_wake_word:
   id: mww
@@ -457,6 +451,7 @@ script:
       # 3. Exit the overlay and redraw return_page FIRST (before waking Sendspin FLAC streaming)
       #    so the QSPI display flush completes with zero audio/network contention
       - lambda: |-
+          esphome::voice_assistant::reset_va_session_state(id(va));
           id(va_vad_active) = false;
           id(va_status_text) = "";
           id(va_tts_received) = false;
@@ -680,8 +675,8 @@ script:
           then:
             - mixer_speaker.apply_ducking:
                 id: media_mixing_input
-                decibel_reduction: 10
-                duration: 0.5s
+                decibel_reduction: !lambda 'return pocket_ui::volume_to_db_reduction(id(pocket_music_player).volume);'
+                duration: 0.4s
           else:
             - if:
                 condition:

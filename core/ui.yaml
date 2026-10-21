@@ -1830,9 +1830,11 @@ sensor:
       then:
         - lambda: |-
             if (!std::isnan(x) && x >= 0.0f && x <= 1.0f) {
-              pocket_ui::remote_vol_pct() = (int)std::round(x * 100.0f);
-              if (id(active_speaker_entity) == "${local_player_id}") {
-                id(pocket_music_player).volume = x;
+              if (millis() - pocket_ui::last_local_vol_tap_ms() > 3000U) {
+                pocket_ui::remote_vol_pct() = (int)std::round(x * 100.0f);
+                if (id(active_speaker_entity) == "${local_player_id}") {
+                  id(pocket_music_player).volume = x;
+                }
               }
             }
 
@@ -2367,8 +2369,8 @@ script:
                   - switch.turn_on: speaker_enable
                   - mixer_speaker.apply_ducking:
                       id: media_mixing_input
-                      decibel_reduction: 10
-                      duration: 0.8s
+                      decibel_reduction: !lambda 'return pocket_ui::volume_to_db_reduction(id(pocket_music_player).volume);'
+                      duration: 0.5s
                   - mixer_speaker.apply_ducking:
                       id: announcement_mixing_input
                       decibel_reduction: 50
@@ -2533,10 +2535,10 @@ script:
             - lambda: |-
                 float step = id(volume_step_size).state / 100.0f;
                 if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                pocket_ui::last_local_vol_tap_ms() = millis();
                 float cur = id(pocket_music_player).volume;
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
                 float new_vol = std::min(1.00f, cur + step);
-                id(pocket_music_player).volume = new_vol;
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
             - if:
@@ -2571,10 +2573,10 @@ script:
             - lambda: |-
                 float step = id(volume_step_size).state / 100.0f;
                 if (std::isnan(step) || step <= 0.0f) step = 0.02f;
+                pocket_ui::last_local_vol_tap_ms() = millis();
                 float cur = id(pocket_music_player).volume;
                 if (std::isnan(cur) || cur <= 0.0f) cur = 0.70f;
-                float new_vol = std::max(0.00f, cur - step);
-                id(pocket_music_player).volume = new_vol;
+                float new_vol = std::max(0.10f, cur - step);
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
             - if:
