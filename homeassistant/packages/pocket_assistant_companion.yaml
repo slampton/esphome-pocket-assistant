@@ -206,6 +206,26 @@ template:
             Unavailable
           {% endif %}
         attributes:
+          condition: >-
+            {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}
+            {% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.forecast_home", true)) %}
+            {{ states(target_weather) | default("sunny", true) }}
+          temperature: >-
+            {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}
+            {% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.forecast_home", true)) %}
+            {{ state_attr(target_weather, "temperature") | default(70, true) }}
+          humidity: >-
+            {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}
+            {% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.forecast_home", true)) %}
+            {{ state_attr(target_weather, "humidity") | default(50, true) }}
+          wind_speed: >-
+            {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}
+            {% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.forecast_home", true)) %}
+            {{ state_attr(target_weather, "wind_speed") | default(0, true) }}
+          wind_bearing: >-
+            {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}
+            {% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.forecast_home", true)) %}
+            {{ state_attr(target_weather, "wind_bearing") | default(0, true) }}
           high: >-
             {% set w_cfg = states("input_text.pocket_assistant_weather_entity") %}
             {% set target_weather = w_cfg if (w_cfg and states(w_cfg) not in ["unknown", "unavailable"]) else (states.weather | map(attribute="entity_id") | first | default("weather.forecast_home", true)) %}

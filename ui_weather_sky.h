@@ -409,6 +409,11 @@ inline std::string format_iso_time(const std::string &iso_str, bool is_24h) {
 }
 
 
+inline bool &weather_sim_dirty() {
+  static bool dirty = true;
+  return dirty;
+}
+
 template<typename CurT>
 inline void apply_weather_sim_override(const CurT &sim_opt, std::string &cond, bool &is_night) {
   if (sim_opt.empty() || sim_opt == "Live (Home Assistant)") return;

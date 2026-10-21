@@ -986,9 +986,14 @@ select:
     set_action:
       - lambda: |-
           id(weather_sim_condition).publish_state(x);
+          if (x != "Live (Home Assistant)" && !id(home_weather_bg_switch).state) {
+            id(home_weather_bg_switch).turn_on();
+          }
           pocket_ui::clear_day_epoch_initialized() = false;
           pocket_ui::night_meteor_epoch_initialized() = false;
+          pocket_ui::weather_sim_dirty() = true;
           pocket_ui::record_ambient_frame_ms(0);
+          pocket_ui::schedule_disp_update(&id(disp1));
   - platform: template
     name: "Sleep & Wake: Screensaver Style"
     id: screensaver_style_select
@@ -1515,20 +1520,27 @@ interval:
           // - Unlocks full 20 FPS (50ms) when local music is idle for rain, snow, lightning, and night starfield
           // - Paces smoothly at ~13.3 FPS (75ms) when local Sendspin music is playing
           // - Static daytime weather conditions run on the default 1s display refresh with near-zero CPU load
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && (id(gui_page) == 1 && id(home_subpage) == 0 && (id(home_weather_bg_switch).state || pocket_ui::is_wake_greeting_fading(millis(), id(home_wake_greeting_switch).state) || pocket_ui::is_home_activity_carousel_animating(millis()))) && !id(va_active) && id(va_status_text).empty()) {
+          const bool weather_sim_active = (id(weather_sim_condition).current_option() != "Live (Home Assistant)");
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && (id(gui_page) == 1 && id(home_subpage) == 0 && (id(home_weather_bg_switch).state || weather_sim_active || pocket_ui::is_wake_greeting_fading(millis(), id(home_wake_greeting_switch).state) || pocket_ui::is_home_activity_carousel_animating(millis()))) && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
-            const bool sim_just_changed = (pocket_ui::last_ambient_anim_ms() == 0U) ||
+            const bool sim_just_changed = pocket_ui::weather_sim_dirty() ||
+                                          (pocket_ui::last_ambient_anim_ms() == 0U) ||
                                           pocket_ui::is_wake_greeting_fading(now_w_ms, id(home_wake_greeting_switch).state) ||
                                           pocket_ui::is_home_activity_carousel_animating(now_w_ms);
 
             if (sim_just_changed || (now_w_ms - last_cond_eval_time >= 250U)) {
+              pocket_ui::weather_sim_dirty() = false;
               last_cond_eval_time = now_w_ms;
               std::string c_cond = id(ha_weather_condition).state;
+              if ((c_cond.empty() || c_cond == "unknown" || c_cond == "unavailable") &&
+                  !id(ha_weather_condition_fallback).state.empty()) {
+                c_cond = id(ha_weather_condition_fallback).state;
+              }
               std::string s_sun = id(ha_sun_state).state;
               bool is_night_time = (s_sun == "below_horizon" || c_cond == "clear-night" || c_cond == "clearnight" || (c_cond.find("night") != std::string::npos));
-              apply_weather_sim_override(id(weather_sim_condition).current_option(), c_cond, is_night_time);
+              apply_weather_sim_override(std::string(id(weather_sim_condition).current_option()), c_cond, is_night_time);
               cached_has_motion = pocket_ui::has_weather_motion(c_cond, is_night_time, now_w_ms);
             }
 
@@ -1762,6 +1774,30 @@ sensor:
     attribute: low
     internal: true
 
+  - platform: homeassistant
+    id: ha_weather_temp_fallback
+    entity_id: ${weather_forecast_sensor}
+    attribute: temperature
+    internal: true
+
+  - platform: homeassistant
+    id: ha_weather_humidity_fallback
+    entity_id: ${weather_forecast_sensor}
+    attribute: humidity
+    internal: true
+
+  - platform: homeassistant
+    id: ha_weather_wind_speed_fallback
+    entity_id: ${weather_forecast_sensor}
+    attribute: wind_speed
+    internal: true
+
+  - platform: homeassistant
+    id: ha_weather_wind_bearing_fallback
+    entity_id: ${weather_forecast_sensor}
+    attribute: wind_bearing
+    internal: true
+
 
   - platform: homeassistant
     id: ha_media_duration
@@ -1982,6 +2018,19 @@ text_sensor:
     id: ha_weather_forecast_5d
     entity_id: ${weather_forecast_sensor}
     internal: true
+
+  - platform: homeassistant
+    id: ha_weather_condition_fallback
+    entity_id: ${weather_forecast_sensor}
+    attribute: condition
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && !id(is_hibernating)) {
+              pocket_ui::weather_sim_dirty() = true;
+              pocket_ui::schedule_disp_update(&id(disp1));
+            }
 
   - platform: homeassistant
     id: ha_sun_state
@@ -3315,14 +3364,24 @@ display:
                                     ? id(ha_track_title).state : id(track_title).state;
         std::string m_artist_h = (is_rem_h || id(track_artist).state.empty() || id(track_artist).state == "None")
                                      ? id(ha_track_artist).state : id(track_artist).state;
+        float eff_w_temp_h = !std::isnan(id(ha_weather_temperature).state)
+                                 ? id(ha_weather_temperature).state
+                                 : id(ha_weather_temp_fallback).state;
+        std::string eff_w_cond_h = (!id(ha_weather_condition).state.empty() &&
+                                    id(ha_weather_condition).state != "unknown" &&
+                                    id(ha_weather_condition).state != "unavailable")
+                                       ? id(ha_weather_condition).state
+                                       : id(ha_weather_condition_fallback).state;
+        bool eff_show_w_bg = id(home_weather_bg_switch).state ||
+                             (id(weather_sim_condition).current_option() != "Live (Home Assistant)");
         render_home_page(
             it, cx, cy, now_h_ms, id(home_subpage), id(home_activity_idx),
             now, id(is_24h_format), batt, id(batt_charging).state,
-            id(home_weather_bg_switch).state,
+            eff_show_w_bg,
             id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
             id(home_dock_tools_switch).state, id(home_dock_games_switch).state,
-            id(weather_sim_condition).current_option(), id(ha_weather_temperature).state,
-            id(ha_weather_condition).state, id(ha_sun_state).state, id(ha_moon_phase).state,
+            std::string(id(weather_sim_condition).current_option()), eff_w_temp_h,
+            eff_w_cond_h, id(ha_sun_state).state, id(ha_moon_phase).state,
             id(accel_x).state, id(accel_y).state,
             id(stopwatch_running), id(stopwatch_start_time), id(stopwatch_elapsed_ms),
             mus_play_h, m_title_h, m_artist_h,
@@ -3517,12 +3576,29 @@ display:
       // PAGE 5: SKY & WEATHER SUITE
       // ==========================================
       } else if (id(gui_page) == 5) {
+        float eff_w_temp = !std::isnan(id(ha_weather_temperature).state)
+                               ? id(ha_weather_temperature).state
+                               : id(ha_weather_temp_fallback).state;
+        float eff_w_hum  = !std::isnan(id(ha_weather_humidity).state)
+                               ? id(ha_weather_humidity).state
+                               : id(ha_weather_humidity_fallback).state;
+        float eff_w_spd  = !std::isnan(id(ha_weather_wind_speed).state)
+                               ? id(ha_weather_wind_speed).state
+                               : id(ha_weather_wind_speed_fallback).state;
+        float eff_w_brg  = !std::isnan(id(ha_weather_wind_bearing).state)
+                               ? id(ha_weather_wind_bearing).state
+                               : id(ha_weather_wind_bearing_fallback).state;
+        std::string eff_w_cond = (!id(ha_weather_condition).state.empty() &&
+                                  id(ha_weather_condition).state != "unknown" &&
+                                  id(ha_weather_condition).state != "unavailable")
+                                     ? id(ha_weather_condition).state
+                                     : id(ha_weather_condition_fallback).state;
         render_weather_page(
             it, cx, cy, millis(), id(sky_weather_subpage), now, id(is_24h_format),
-            id(weather_sim_condition).current_option(),
-            id(ha_weather_temperature).state, id(ha_weather_high).state, id(ha_weather_low).state,
-            id(ha_weather_humidity).state, id(ha_weather_wind_speed).state, id(ha_weather_wind_bearing).state,
-            id(ha_weather_condition).state, id(ha_weather_forecast_5d).state,
+            std::string(id(weather_sim_condition).current_option()),
+            eff_w_temp, id(ha_weather_high).state, id(ha_weather_low).state,
+            eff_w_hum, eff_w_spd, eff_w_brg,
+            eff_w_cond, id(ha_weather_forecast_5d).state,
             id(ha_sun_state).state, id(ha_sun_elevation).state, id(ha_sun_azimuth).state,
             id(ha_sun_next_rising).state, id(ha_sun_next_setting).state,
             id(ha_moon_phase).state,

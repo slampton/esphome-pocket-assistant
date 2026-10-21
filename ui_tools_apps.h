@@ -2950,12 +2950,17 @@ inline void render_home_page(
   }
   it.print(cx, 128, font_time, fg_home_white, TextAlign::CENTER, time_str);
 
-  // ZONE 3 (y = 200): Stepped-Up Weather Summary in font_date (27pt, blank until weather arrives!)
+  // ZONE 3 (y = 200): Stepped-Up Weather Summary in font_date (27pt, blank until weather or simulation arrives!)
   std::string cond_title = format_weather_title(cond);
-  const bool weather_ready = !std::isnan(weather_temp) && (cond_title != "Unavailable");
+  const bool sim_override_on = (!weather_sim_opt.empty() && weather_sim_opt != "Live (Home Assistant)");
+  const bool weather_ready = (!std::isnan(weather_temp) || sim_override_on) && (cond_title != "Unavailable");
   if (weather_ready) {
     char w_line[64];
-    snprintf(w_line, sizeof(w_line), "%.0f° • %s", weather_temp, cond_title.c_str());
+    if (!std::isnan(weather_temp)) {
+      snprintf(w_line, sizeof(w_line), "%.0f° • %s", weather_temp, cond_title.c_str());
+    } else {
+      snprintf(w_line, sizeof(w_line), "%s", cond_title.c_str());
+    }
     std::string fit_w = fit_text_to_width_font(std::string(w_line), 340, font_date);
     if (!is_dim_backdrop) {
       it.print(cx + 1, 201, font_date, col_black, TextAlign::CENTER, fit_w.c_str());
