@@ -681,7 +681,7 @@ image:
   - platform: online_image
     id: remote_album_art
     format: JPEG
-    buffer_size: 32768
+    buffer_size: 65536
     type: RGB565
     resize: 466x466
     url: "${initial_art_url}"
@@ -2350,11 +2350,13 @@ script:
   - id: fetch_remote_art_debounced
     mode: restart
     then:
-      - delay: 600ms
+      - delay: 350ms
       - if:
           condition:
             lambda: |-
-              return (id(active_speaker_entity) != "${local_player_id}") &&
+              return (id(gui_page) == 2) &&
+                     (id(display_power_state) == 0) &&
+                     (id(active_speaker_entity) != "${local_player_id}") &&
                      !id(ha_target_art_url).state.empty() &&
                      (id(ha_target_art_url).state != "none") &&
                      (id(ha_target_art_url).state != "unknown") &&
@@ -3980,6 +3982,10 @@ touchscreen:
                   id(music_overlay_mode) = 0;
                   id(music_hud_active) = true;
                   id(music_hud_timer) = now_hm;
+                  if (id(active_speaker_entity) != "${local_player_id}" &&
+                      id(ha_target_art_url).state != id(current_loaded_art_url)) {
+                    id(fetch_remote_art_debounced).execute();
+                  }
                 } else if (kind == 4) {
                   pocket_ui::tools_direct_home() = true;
                   id(gui_page) = 8;
@@ -4107,6 +4113,10 @@ touchscreen:
                     if (id(gui_page) == 2) {
                       id(music_hud_active) = true;
                       id(music_hud_timer) = now_hm;
+                      if (id(active_speaker_entity) != "${local_player_id}" &&
+                          id(ha_target_art_url).state != id(current_loaded_art_url)) {
+                        id(fetch_remote_art_debounced).execute();
+                      }
                     }
                     id(remote_subpage) = 0;
                     id(stuff_subpage) = 0;
