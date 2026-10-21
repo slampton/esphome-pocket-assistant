@@ -354,24 +354,29 @@ inline void render_modern_card(DisplayT &it, int cx_card, int cy_card, int w, in
                                const char *label, esphome::Color text_c, FontT *font) {
   int x0 = cx_card - w / 2;
   int y0 = cy_card - h / 2;
-
-  // 1. Outer rounded rectangle in border_c (connects all 4 corner arcs seamlessly!)
-  it.filled_rectangle(x0 + r, y0, w - 2 * r, h, border_c);
-  it.filled_rectangle(x0, y0 + r, w, h - 2 * r, border_c);
-  it.filled_circle(x0 + r, y0 + r, r, border_c);
-  it.filled_circle(x0 + w - 1 - r, y0 + r, r, border_c);
-  it.filled_circle(x0 + r, y0 + h - 1 - r, r, border_c);
-  it.filled_circle(x0 + w - 1 - r, y0 + h - 1 - r, r, border_c);
-
-  // 2. Inner rounded rectangle inset by 1px in bg_c
   int ri = (r > 1) ? (r - 1) : 1;
   int xi = x0 + 1, yi = y0 + 1, wi = w - 2, hi = h - 2;
-  it.filled_rectangle(xi + ri, yi, wi - 2 * ri, hi, bg_c);
-  it.filled_rectangle(xi, yi + ri, wi, hi - 2 * ri, bg_c);
-  it.filled_circle(xi + ri, yi + ri, ri, bg_c);
-  it.filled_circle(xi + wi - 1 - ri, yi + ri, ri, bg_c);
-  it.filled_circle(xi + ri, yi + hi - 1 - ri, ri, bg_c);
+
+  // 1. Draw the 4 corner border circles first (only 4 * pi * r^2 pixels total)
+  it.filled_circle(x0 + r,         y0 + r,         r, border_c);
+  it.filled_circle(x0 + w - 1 - r, y0 + r,         r, border_c);
+  it.filled_circle(x0 + r,         y0 + h - 1 - r, r, border_c);
+  it.filled_circle(x0 + w - 1 - r, y0 + h - 1 - r, r, border_c);
+
+  // 2. Single-pass interior fill in bg_c (3 non-overlapping horizontal bands + 4 inner corner circles: ZERO double-fill!)
+  it.filled_rectangle(xi + ri, yi,          wi - 2 * ri, ri,          bg_c);
+  it.filled_rectangle(xi,      yi + ri,     wi,          hi - 2 * ri, bg_c);
+  it.filled_rectangle(xi + ri, yi + hi - ri, wi - 2 * ri, ri,          bg_c);
+  it.filled_circle(xi + ri,         yi + ri,         ri, bg_c);
+  it.filled_circle(xi + wi - 1 - ri, yi + ri,         ri, bg_c);
+  it.filled_circle(xi + ri,         yi + hi - 1 - ri, ri, bg_c);
   it.filled_circle(xi + wi - 1 - ri, yi + hi - 1 - ri, ri, bg_c);
+
+  // 3. 1px straight outer border lines along top, bottom, left, right
+  it.horizontal_line(x0 + r, y0,         w - 2 * r, border_c);
+  it.horizontal_line(x0 + r, y0 + h - 1, w - 2 * r, border_c);
+  it.vertical_line(x0,         y0 + r, h - 2 * r, border_c);
+  it.vertical_line(x0 + w - 1, y0 + r, h - 2 * r, border_c);
 
   if (label != nullptr && label[0] != '\0' && font != nullptr) {
     it.print(cx_card, cy_card, font, text_c, esphome::display::TextAlign::CENTER, label);

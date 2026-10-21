@@ -230,9 +230,11 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
     draw_page_cards(stuff_menu_page, 0);
   }
 
-  // Viewport Masks, Header & Right-Flank Scroll Chevrons
-  it.filled_rectangle(0, 0, 466, 82, col_bg);
-  it.filled_rectangle(0, 388, 466, 78, col_bg);
+  // Viewport Masks (only needed during active 2-frame scroll transition!), Header & Right-Flank Scroll Chevrons
+  if (menu_scroll_active) {
+    it.filled_rectangle(0, 0, 466, 82, col_bg);
+    it.filled_rectangle(0, 388, 466, 78, col_bg);
+  }
   it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "TOOLS");
   it.filled_rectangle(395, 140, 71, 160, col_bg);
   int active_page = menu_scroll_active ? menu_scroll_target_page : stuff_menu_page;
@@ -1900,14 +1902,16 @@ inline void render_music_menus(
         "Favorites", "Playlists", "Artists", "Albums", "Podcasts", "Radio", "Audiobooks"};
     for (int i = 0; i < 7; i++) {
       int y = 110 + i * 63 - current_offset;
-      if (y >= 60 && y <= 395) {
+      if (menu_scroll_active ? (y >= 60 && y <= 395) : (y >= 100 && y <= 370)) {
         render_modern_card(it, cx, y, 276, 44, 12, card_bg, card_brd,
                            CAT_LABELS[i], col_white, font_small);
       }
     }
 
-    it.filled_rectangle(0, 0, 466, 82, col_bg);
-    it.filled_rectangle(0, 388, 466, 78, col_bg);
+    if (menu_scroll_active) {
+      it.filled_rectangle(0, 0, 466, 82, col_bg);
+      it.filled_rectangle(0, 388, 466, 78, col_bg);
+    }
     render_menu_header(it, cx, 48, "LIBRARY", font_small, theme_primary);
     int cur_dot_page = menu_scroll_active ? menu_scroll_target_page : music_category_page;
 
@@ -3783,13 +3787,15 @@ inline void render_system_page(
     };
     for (int i = 0; i < 8; i++) {
       int y = 110 + i * 63 - current_offset;
-      if (y >= 60 && y <= 395) {
+      if (menu_scroll_active ? (y >= 60 && y <= 395) : (y >= 100 && y <= 370)) {
         render_modern_card(it, cx, y, 276, 44, 12, card_bg_on, card_brd_on, kSysLabels[i], col_white, font_small);
       }
     }
 
-    it.filled_rectangle(0, 0, 466, 82, col_bg);
-    it.filled_rectangle(0, 388, 466, 78, col_bg);
+    if (menu_scroll_active) {
+      it.filled_rectangle(0, 0, 466, 82, col_bg);
+      it.filled_rectangle(0, 388, 466, 78, col_bg);
+    }
     it.print(cx, 48, font_small, theme_primary, esphome::display::TextAlign::CENTER, "SYSTEM");
 
     render_back_button(it, cx, font_small, 426, "Home");
@@ -3834,8 +3840,10 @@ inline void render_system_page(
       }
     }
 
-    it.filled_rectangle(0, 0, 466, 82, col_bg);
-    it.filled_rectangle(0, 388, 466, 78, col_bg);
+    if (menu_scroll_active) {
+      it.filled_rectangle(0, 0, 466, 82, col_bg);
+      it.filled_rectangle(0, 388, 466, 78, col_bg);
+    }
     render_menu_header(it, cx, 48, "SLEEP & WAKE", font_small, theme_primary);
     draw_back();
     int active_page = menu_scroll_active ? menu_scroll_target_page : sleep_menu_page;
@@ -3879,8 +3887,10 @@ inline void render_system_page(
       }
     }
 
-    it.filled_rectangle(0, 0, 466, 82, col_bg);
-    it.filled_rectangle(0, 388, 466, 78, col_bg);
+    if (menu_scroll_active) {
+      it.filled_rectangle(0, 0, 466, 82, col_bg);
+      it.filled_rectangle(0, 388, 466, 78, col_bg);
+    }
     render_menu_header(it, cx, 48, "DISPLAY", font_small, theme_primary);
     draw_back();
     int active_page = menu_scroll_active ? menu_scroll_target_page : display_menu_page;
