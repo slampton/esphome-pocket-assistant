@@ -3971,19 +3971,19 @@ touchscreen:
                                           pocket_ui::wake_greeting_latched() &&
                                           (now_hm >= pocket_ui::wake_greeting_start_ms()) &&
                                           (now_hm - pocket_ui::wake_greeting_start_ms() < 10500U);
-              if (!greet_blocking && act_count > 0 && touch.y >= 230 && touch.y <= 310 && touch.x >= 45 && touch.x <= 438) {
+              if (!greet_blocking && act_count > 0 && touch.y >= 230 && touch.y <= 310 && touch.x >= 35 && touch.x <= 440) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   int feat_idx = pocket_ui::resolve_home_featured_activity_idx(act_items, act_count, now_hm);
                   if (act_count > 1) {
-                    if (touch.x >= 346) {
+                    if (touch.x >= 360) {
                       id(home_subpage) = 2;
                       id(disp1).update();
                       return;
                     }
-                    handle_activity_item_action(feat_idx, (touch.x >= 288));
-                  } else if (touch.x >= 82 && touch.x <= 384) {
-                    handle_activity_item_action(0, (touch.x >= 324));
+                    handle_activity_item_action(feat_idx, (touch.x >= 296));
+                  } else {
+                    handle_activity_item_action(0, (touch.x >= 356));
                   }
                 }
                 return;

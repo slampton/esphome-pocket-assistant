@@ -2505,10 +2505,13 @@ inline void draw_home_activity_row_contents(
   const Color fg_sec = (alpha >= 0.99f) ? theme_secondary : lerp_color(card_bg, theme_secondary, alpha);
   const Color fg_btn = (alpha >= 0.99f) ? btn_bg          : lerp_color(card_bg, btn_bg, alpha);
 
-  const int gx      = is_list_row ? 113 : (has_dropdown_ext ?  88 : 110);
-  const int txt_x   = is_list_row ? 128 : (has_dropdown_ext ? 108 : 130);
-  const int max_txt = is_list_row ? 186 : (has_dropdown_ext ? 172 : 186);
-  const int act_bx  = is_list_row ? 346 : (has_dropdown_ext ? 316 : 352);
+  // On Home (is_list_row == false), the card spans w = 380px (x = 43..423, ~30px inside the bezel):
+  //   - When 2+ active (has_dropdown_ext): Left body x=43..295 (gx=72, txt_x=94, max_w=194), Play/Pause at 328, Dropdown '▼' at 391
+  //   - When 1 active (!has_dropdown_ext): Left body x=43..355 (gx=72, txt_x=94, max_w=252), Play/Pause at 389
+  const int gx      = is_list_row ? 113 : 72;
+  const int txt_x   = is_list_row ? 128 : 94;
+  const int max_txt = is_list_row ? 186 : (has_dropdown_ext ? 194 : 252);
+  const int act_bx  = is_list_row ? 346 : (has_dropdown_ext ? 328 : 389);
   const int btn_r   = is_list_row ?  12 : 19;
 
   int gy = row_y;
@@ -2625,13 +2628,13 @@ inline void render_home_activity_card_row(
     esphome::Color card_bg = esphome::Color(22, 27, 36),
     esphome::Color card_brd = esphome::Color(52, 62, 78),
     esphome::Color btn_bg = esphome::Color(32, 39, 52)) {
-  const int card_w  = is_list_row ? 276 : (has_dropdown_ext ? 340 : 296);
+  const int card_w  = is_list_row ? 276 : 380;
   const int card_h  = is_list_row ?  44 : 68;
   const int card_r  = is_list_row ?  12 : 16;
-  const int div1_x  = is_list_row ? 320 : (has_dropdown_ext ? 288 : 324);
+  const int div1_x  = is_list_row ? 320 : (has_dropdown_ext ? 296 : 356);
   const int div_h   = is_list_row ?  14 : 23;
-  const int div2_x  = 346;
-  const int drop_bx = 374;
+  const int div2_x  = 360;
+  const int drop_bx = 391;
 
   render_modern_card(it, cx, pill_y, card_w, card_h, card_r, card_bg, card_brd,
                      nullptr, col_white, font_small);
@@ -2959,7 +2962,7 @@ inline void render_home_page(
       static constexpr float  OUT_ALPHA[4] = {0.0f, 0.65f, 0.25f, 0.0f};
       static constexpr float  IN_ALPHA[4]  = {1.0f, 0.42f, 0.76f, 0.94f};
 
-      render_modern_card(it, cx, pill_y, 340, 68, 16, card_bg, card_brd, nullptr, col_white, font_small);
+      render_modern_card(it, cx, pill_y, 380, 68, 16, card_bg, card_brd, nullptr, col_white, font_small);
 
       if (OUT_ALPHA[step] > 0.05f) {
         draw_home_activity_row_contents(
@@ -2971,13 +2974,13 @@ inline void render_home_page(
           card_bg, btn_bg, theme_secondary, col_white, IN_ALPHA[step]);
 
       // Re-stamp top & bottom card border lines, dividers, and stationary '▼' dropdown chevron
-      it.horizontal_line(63 + 16, 237, 340 - 32, card_brd);
-      it.horizontal_line(63 + 16, 304, 340 - 32, card_brd);
-      it.line(288, pill_y - 23, 288, pill_y + 23, card_brd);
-      it.line(346, pill_y - 23, 346, pill_y + 23, card_brd);
+      it.horizontal_line(43 + 16, 237, 380 - 32, card_brd);
+      it.horizontal_line(43 + 16, 304, 380 - 32, card_brd);
+      it.line(296, pill_y - 23, 296, pill_y + 23, card_brd);
+      it.line(360, pill_y - 23, 360, pill_y + 23, card_brd);
       for (int w = -1; w <= 1; w++) {
-        it.line(374 - 8, pill_y - 4 + w, 374, pill_y + 4 + w, col_white);
-        it.line(374 + 8, pill_y - 4 + w, 374, pill_y + 4 + w, col_white);
+        it.line(391 - 8, pill_y - 4 + w, 391, pill_y + 4 + w, col_white);
+        it.line(391 + 8, pill_y - 4 + w, 391, pill_y + 4 + w, col_white);
       }
 
       if (step < 3) {
