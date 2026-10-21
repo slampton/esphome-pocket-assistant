@@ -490,12 +490,13 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
       int x = start_x;
       while (x <= end_x) {
         uint16_t p = src_row[is_half ? (x >> 1) : x];
-        if (p == 0) {
+        if ((p & 0xF7DE) == 0) {
           x++;
           continue;
         }
+        uint16_t p_masked = p & 0xF7DE;
         int run_start = x++;
-        while (x <= end_x && src_row[is_half ? (x >> 1) : x] == p) {
+        while (x <= end_x && ((src_row[is_half ? (x >> 1) : x] & 0xF7DE) == p_masked)) {
           x++;
         }
         esphome::Color col(
