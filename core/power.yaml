@@ -626,13 +626,7 @@ script:
                   id(display_brightness).turn_on().perform();
                 } else {
                   id(stopwatch_running) = false;
-                  uint32_t now_stop = millis();
-                  uint32_t press_dwell_compensation = 200; // ms
-                  if (now_stop - id(stopwatch_start_time) > press_dwell_compensation) {
-                    id(stopwatch_elapsed_ms) = (now_stop - id(stopwatch_start_time)) - press_dwell_compensation;
-                  } else {
-                    id(stopwatch_elapsed_ms) = now_stop - id(stopwatch_start_time);
-                  }
+                  id(stopwatch_elapsed_ms) = millis() - id(stopwatch_start_time);
                 }
                 pocket_ui::schedule_disp_update(&id(disp1));
                 return;

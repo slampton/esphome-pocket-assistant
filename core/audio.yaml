@@ -687,7 +687,8 @@ script:
                 condition:
                   lambda: |-
                     return !id(va_active) && !id(va_tts_received) &&
-                           !id(va).is_running() && !id(announcement_mixing_input).is_running();
+                           !id(va).is_running() && !id(announcement_mixing_input).is_running() &&
+                           (id(active_game) == 0);
                 then:
                   - audio_dac.mute_on: es8311_dac
                   - script.execute: route_i2s_to_mic

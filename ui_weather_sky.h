@@ -914,8 +914,7 @@ inline void render_weather_motion_wallpaper(DisplayT &it, int cx, int cy, uint32
       int sy = cy + static_cast<int>(sa * r_px + par_y * par_scale);
       if (!is_inside_bezel(sx, sy, cy, 6)) continue;
 
-      // Tight mask strictly around the digits of the hero temperature so top-center sky stays starry
-      if (mask_hero_temp && sx >= 188 && sx <= 278 && sy >= 96 && sy <= 136) continue;
+      (void)mask_hero_temp;
       if ((sx - cel_cx) * (sx - cel_cx) + (sy - cel_cy) * (sy - cel_cy) <= 784) continue;
 
       float twinkle = fast_sin(t_star + static_cast<float>(k) * 0.85f);

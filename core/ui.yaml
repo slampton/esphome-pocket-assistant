@@ -1508,8 +1508,7 @@ interval:
               return;
             }
 
-            const uint32_t cadence = id(va_tts_received) ? 75U : 42U;
-            if (now_va_ms - last_va_anim_time >= cadence) {
+            if (now_va_ms - last_va_anim_time >= 42U) {
               last_va_anim_time = now_va_ms;
               pocket_ui::schedule_disp_update(&id(disp1));
               pocket_ui::record_ambient_frame_ms(millis());
@@ -1591,6 +1590,9 @@ interval:
             if (any_expired) {
               if (id(va_active) || !id(va_status_text).empty()) {
                 id(cancel_voice_assistant).execute();
+              }
+              if (id(home_subpage) == 2) {
+                id(home_subpage) = 0;
               }
               id(va_timer_name) = exp_name;
               id(timer_ringing) = true;
@@ -3016,7 +3018,8 @@ script:
                      !id(announcement_mixing_input).is_running() &&
                      !id(alarm_ringing) &&
                      !id(timer_ringing) &&
-                     !id(find_my_active);
+                     !id(find_my_active) &&
+                     (id(active_game) == 0);
           then:
             - audio_dac.mute_on: es8311_dac
             - switch.turn_off: speaker_enable
@@ -4820,15 +4823,12 @@ touchscreen:
                     last_game_launch_tap = now_gl;
                     id(active_game) = id(game_carousel_idx) + 1;
                     if (id(active_game) > 0) {
+                      id(mp_idle_debounce).stop();
                       if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
                         auto call = id(pocket_music_player).make_call();
                         call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
                         call.perform();
-                        if (id(active_speaker_entity) == "${local_player_id}") {
-                          id(stop_ha_music).execute();
-                        }
-                        id(es8311_dac).set_mute_on();
-                        id(speaker_enable).turn_off();
+                        id(mp_idle_debounce).stop();
                       }
                     }
                     pocket_ui::schedule_disp_update(&id(disp1));
