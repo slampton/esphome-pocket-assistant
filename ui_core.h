@@ -863,13 +863,24 @@ inline const char *cycle_option(const CurT &cur, std::initializer_list<const cha
 // Schedules an immediate (0ms) display update on the Display component itself so that
 // touchscreen, interval, and api callbacks return in <1ms and the QSPI frame render is
 // attributed to Display (140ms budget) instead of a 50ms non-display component.
+inline uint32_t &last_disp_update_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
 struct DisplayUpdateScheduler : public esphome::Component {
   template<typename DispT>
   static void request_ptr(DispT *disp) {
     if (disp != nullptr) {
+      uint32_t now_m = esphome::millis();
+      uint32_t elapsed = now_m - last_disp_update_ms();
+      uint32_t delay_ms = (elapsed < 38U) ? (38U - elapsed) : 0U;
       auto *comp = static_cast<esphome::Component *>(disp);
       static_cast<DisplayUpdateScheduler *>(comp)->set_timeout(
-          "async_draw", 0, [disp]() { disp->update(); });
+          "async_draw", delay_ms, [disp]() {
+            if (esphome::millis() - last_disp_update_ms() < 35U) return;
+            disp->update();
+          });
     }
   }
 };

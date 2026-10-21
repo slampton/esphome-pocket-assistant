@@ -1471,7 +1471,9 @@ interval:
                 (id(stuff_subpage) == 8 && id(coin_anim_active))) {
               if (millis() - pocket_ui::last_ambient_anim_ms() >= 42U) {
                 pocket_ui::schedule_disp_update(&id(disp1));
-                pocket_ui::record_ambient_frame_ms(millis());
+                uint32_t end_draw_ms = millis();
+      pocket_ui::last_disp_update_ms() = end_draw_ms;
+      pocket_ui::record_ambient_frame_ms(end_draw_ms);
               }
             }
           }
@@ -1480,7 +1482,9 @@ interval:
           if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
             if (millis() - pocket_ui::last_ambient_anim_ms() >= 42U) {
               pocket_ui::schedule_disp_update(&id(disp1));
-              pocket_ui::record_ambient_frame_ms(millis());
+              uint32_t end_draw_ms = millis();
+      pocket_ui::last_disp_update_ms() = end_draw_ms;
+      pocket_ui::record_ambient_frame_ms(end_draw_ms);
             }
           }
 
@@ -1507,7 +1511,9 @@ interval:
             if (now_va_ms - last_va_anim_time >= cadence) {
               last_va_anim_time = now_va_ms;
               pocket_ui::schedule_disp_update(&id(disp1));
-              pocket_ui::record_ambient_frame_ms(millis());
+              uint32_t end_draw_ms = millis();
+      pocket_ui::last_disp_update_ms() = end_draw_ms;
+      pocket_ui::record_ambient_frame_ms(end_draw_ms);
             }
           }
 
@@ -1539,7 +1545,9 @@ interval:
                                                       id(va_active) || !id(va_status_text).empty(),
                                                       id(alarm_ringing) || id(timer_ringing))) {
                 pocket_ui::schedule_disp_update(&id(disp1));
-                pocket_ui::record_ambient_frame_ms(millis());
+                uint32_t end_draw_ms = millis();
+      pocket_ui::last_disp_update_ms() = end_draw_ms;
+      pocket_ui::record_ambient_frame_ms(end_draw_ms);
               }
             }
           }
@@ -3178,6 +3186,7 @@ script:
 display:
   - id: !extend disp1
     lambda: |-
+      pocket_ui::last_disp_update_ms() = millis();
       const int cx = pocket_ui::SCREEN_CX;
       const int cy = pocket_ui::SCREEN_CY;
       const Color C_WHITE = id(col_white);
@@ -3627,7 +3636,9 @@ display:
         render_back_button(it, cx, id(font_small), 426, "Home");
       }
 
-      pocket_ui::record_ambient_frame_ms(millis());
+      uint32_t end_draw_ms = millis();
+      pocket_ui::last_disp_update_ms() = end_draw_ms;
+      pocket_ui::record_ambient_frame_ms(end_draw_ms);
 
 
 touchscreen:
