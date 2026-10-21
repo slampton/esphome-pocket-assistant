@@ -294,8 +294,9 @@ inline void record_ambient_frame_ms(uint32_t now_ms) {
 
 inline bool should_step_ambient_anim(uint32_t now_ms, bool local_audio_busy,
                                      bool va_busy = false, bool alert_busy = false) {
+  (void)local_audio_busy;
   if (va_busy) return false;
-  const uint32_t min_gap = alert_busy ? 120U : (local_audio_busy ? 75U : 42U);
+  const uint32_t min_gap = alert_busy ? 120U : 42U;
   return (now_ms - last_ambient_anim_ms() >= min_gap);
 }
 
@@ -467,10 +468,10 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
           x += 2;
           continue;
         }
-        uint16_t p_masked = p & 0xC718;
+        uint16_t p_masked = p & 0xF7DE;
         int run_start = x;
         x += 2;
-        while (x <= end_x && ((src_row[x] & 0xC718) == p_masked)) {
+        while (x <= end_x && ((src_row[x] & 0xF7DE) == p_masked)) {
           x += 2;
         }
         if (x > end_x + 1) x = end_x + 1;

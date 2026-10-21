@@ -2424,14 +2424,14 @@ script:
   - id: throttled_disp_update
     mode: restart
     then:
-      - delay: 220ms
+      - delay: 120ms
       - if:
           condition:
             lambda: |-
               static uint32_t last_throttled_draw = 0;
               uint32_t now = millis();
-              if (now - last_throttled_draw < 350) return false;
-              if (now - pocket_ui::last_page2_draw_ms() < 950) return false;
+              if (now - last_throttled_draw < 200) return false;
+              if (now - pocket_ui::last_page2_draw_ms() < 250) return false;
               if (id(display_power_state) == 0 && id(gui_page) == 2 && !id(va_active)) {
                 last_throttled_draw = now;
                 return true;
