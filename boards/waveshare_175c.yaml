@@ -310,3 +310,19 @@ script:
           // QMI8658 CTRL7 (0x08): 0x03 = Active (Accel+Gyro), 0x01 = Accel-only Pickup Wake, 0x00 = Power-Down
           uint8_t qmi_ctrl7[2] = {0x08, static_cast<uint8_t>(ctrl7_val)};
           id(bus_internal).write(0x6B, qmi_ctrl7, 2);
+
+  - id: hal_set_audio_codecs_standby
+    mode: restart
+    parameters:
+      standby: bool
+    then:
+      - lambda: |-
+          if (standby) {
+            // Put ES8311 DAC (0x18) and ES7210 Mic ADC (0x40) into low-power standby when idle in Tier 2 Standby
+            uint8_t dac_lp[2] = {0x0D, 0xFC};
+            id(bus_internal).write(0x18, dac_lp, 2);
+          } else {
+            // Restore ES8311 DAC analog bias on wake
+            uint8_t dac_wake[2] = {0x0D, 0x01};
+            id(bus_internal).write(0x18, dac_wake, 2);
+          }

@@ -342,7 +342,11 @@ select:
       - "Disabled"
     set_action:
       - lambda: |-
-          id(disp1).update();
+          if (id(display_power_state) == 2) {
+            bool pw_act = (x == "Always On") || (x == "Docked Only" && id(usb_connected).state);
+            id(hal_set_imu_power_mode).execute(pw_act ? 0x01 : 0x00);
+          }
+          if (id(display_power_state) == 0) id(disp1).update();
 
   - platform: template
     name: "Sleep & Wake: Touch Tap Wake"
@@ -380,10 +384,13 @@ interval:
                 if (!vbus && id(display_power_state) == 1) {
                   id(turn_screen_off).execute();
                 } else if (id(display_power_state) == 2) {
-                  // If screen is currently off, sync QMI8658 IMU power state with new USB state
+                  // Reset hibernate inactivity timer when unplugged so it starts fresh from unplug time
+                  if (!vbus) id(sleep_start_time) = millis();
+                  // Sync QMI8658 IMU power state & micro_wake_word state with new USB state
                   auto pw_mode = id(pickup_wake_mode).current_option();
                   bool pw_active = (pw_mode == "Always On") || (pw_mode == "Docked Only" && vbus);
                   id(hal_set_imu_power_mode).execute(pw_active ? 0x01 : 0x00);
+                  id(sync_wake_word_state).execute();
                 }
               }
             }
@@ -654,15 +661,27 @@ script:
       - lambda: |-
           id(display_power_state) = 2; // SCREEN_OFF
           id(sleep_start_time) = millis();
+          id(disp1).update(); // Flush single all-black frame before cutting panel brightness
           id(display_brightness).turn_off().perform();
+
+          // Disable BLE advertising if it was left on so 2.4GHz BLE never drains battery in Standby
+          if (id(ble_ctrl).is_active() && id(wifi_ctrl).is_connected()) {
+            id(ble_ctrl).disable();
+          }
+
           const bool local_audio_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-          // Power down speaker amp only when local music is not playing
+          auto ww_mode = id(va_wake_word_mode).current_option();
+          const bool ww_active = (ww_mode == "Always On") || (ww_mode == "Docked Only" && id(usb_connected).state);
+
+          // Power down speaker amp & ES8311 DAC analog bias when local music is not playing
           if (!local_audio_playing) {
             id(speaker_enable).turn_off();
+            if (!ww_active) {
+              id(hal_set_audio_codecs_standby).execute(true);
+            }
           }
           // Power down QMI8658 Gyroscope; only keep Accelerometer active if Motion Pickup Wake
           // is enabled for the current power source ("Always On", or "Docked Only" while on USB).
-          // When unplugged on battery with "Docked Only" or "Disabled", power down BOTH (CTRL7 = 0x00)!
           auto pw_mode = id(pickup_wake_mode).current_option();
           const bool pickup_wake_active = (pw_mode == "Always On") ||
                                           (pw_mode == "Docked Only" && id(usb_connected).state);
@@ -703,6 +722,7 @@ script:
           pocket_ui::last_screen_wake_ms() = millis();
           id(sleep_start_time) = 0;
           id(display_power_state) = 0; // ACTIVE
+          id(hal_set_audio_codecs_standby).execute(false);
           if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING && !id(speaker_enable).state) {
             id(speaker_enable).turn_on();
           }

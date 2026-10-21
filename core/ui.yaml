@@ -3178,10 +3178,15 @@ display:
         return;
       }
 
+      static bool standby_black_flushed = false;
       if (!id(display_brightness).current_values.is_on() || id(display_power_state) == 2) {
-        it.fill(id(col_bg));
+        if (!standby_black_flushed) {
+          it.fill(id(col_bg));
+          standby_black_flushed = true;
+        }
         return;
       }
+      standby_black_flushed = false;
 
       // ==========================================
       // GLOBAL OVERLAY: VOICE ASSISTANT TAKEOVER
@@ -3971,8 +3976,8 @@ touchscreen:
                 return;
               }
 
-              // 8. Bottom 3-Icon Sliding Window Quick-Launch Dock Tap (y in [316..388] at y = 352)
-              if (touch.y >= 316 && touch.y <= 388) {
+              // 8. Bottom 3-Icon Sliding Window Quick-Launch Dock Tap (y in [316..394] at y = 352)
+              if (touch.y >= 316 && touch.y <= 394) {
                 int dock_apps[4] = {0, 0, 0, 0};
                 int dock_count = pocket_ui::collect_home_dock_apps(
                     id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
@@ -4033,7 +4038,7 @@ touchscreen:
                 {
                   std::string ov_m = id(music_overlay_style).current_option();
                   bool meta_vis = (ov_m == "Always Visible" || ov_m == "Art + Metadata" || id(music_hud_active));
-                  if (meta_vis && touch.x >= 90 && touch.x <= 376 && touch.y >= 340 && touch.y < 400) {
+                  if (meta_vis && touch.x >= 90 && touch.x <= 376 && touch.y >= 340 && touch.y < 412) {
                     static uint32_t last_meta_tap = 0;
                     uint32_t now_mt = millis();
                     if (now_mt - last_meta_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -4560,7 +4565,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 290 && touch.y <= 390 && touch.x >= 95 && touch.x <= 370) {
+                if (touch.y >= 292 && touch.y < 412 && touch.x >= 95 && touch.x <= 370) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_insp_tap = now_in;
                     bool is_queue = (touch.x >= 233);
@@ -4606,7 +4611,7 @@ touchscreen:
                   return;
                 }
                 if (touch.x < 75) return;
-                if (touch.x >= 108 && touch.x <= 180 && touch.y >= 316 && touch.y <= 388) {
+                if (touch.x >= 108 && touch.x <= 180 && touch.y >= 316 && touch.y < 412) {
                   static uint32_t last_g_mute_tap = 0;
                   uint32_t now_gm = millis();
                   if (now_gm - last_g_mute_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -4616,7 +4621,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.x >= 75 && touch.x < 375 && touch.y >= 140 && touch.y <= 390) {
+                if (touch.x >= 75 && touch.x < 375 && touch.y >= 140 && touch.y < 412) {
                   static uint32_t last_game_launch_tap = 0;
                   uint32_t now_gl = millis();
                   if (now_gl - last_game_launch_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -5136,7 +5141,7 @@ touchscreen:
               static uint32_t last_weather_touch = 0;
               uint32_t now_w_touch = millis();
 
-              if (touch.y >= 316 && touch.y <= 388) {
+              if (touch.y >= 316 && touch.y < 412) {
                 if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
                   last_weather_touch = now_w_touch;
                   int target = 0;
@@ -5320,7 +5325,7 @@ touchscreen:
                 int row = -1;
                 if (touch.y >= 84 && touch.y < 184) row = 0;
                 else if (touch.y >= 184 && touch.y < 289) row = 1;
-                else if (touch.y >= 289 && touch.y < 385) row = 2;
+                else if (touch.y >= 289 && touch.y < 412) row = 2;
 
                 int col = -1;
                 if (touch.x >= 95 && touch.x <= 230) col = 0;
@@ -5379,7 +5384,7 @@ touchscreen:
                   int card_i = -1;
                   if (touch.y >= 85 && touch.y <= 168) card_i = 0;
                   else if (touch.y >= 176 && touch.y <= 268) card_i = 1;
-                  else if (touch.y >= 276 && touch.y <= 368) card_i = 2;
+                  else if (touch.y >= 276 && touch.y <= 388) card_i = 2;
 
                   if (card_i >= 0 && touch.x >= 70 && touch.x <= 396) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -5498,7 +5503,7 @@ touchscreen:
                   int card_i = 0;
                   if (touch.y >= 85 && touch.y <= 168) card_i = 1;
                   else if (touch.y >= 176 && touch.y <= 268) card_i = 2;
-                  else if (touch.y >= 276 && touch.y <= 368) card_i = 3;
+                  else if (touch.y >= 276 && touch.y <= 388) card_i = 3;
 
                   if (card_i >= 1 && touch.x >= 70 && touch.x <= 396) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -5649,7 +5654,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.x >= 70 && touch.x <= 396 && touch.y >= 104 && touch.y <= 394) {
+                if (touch.x >= 70 && touch.x <= 396 && touch.y >= 104 && touch.y < 412) {
                   int c = (touch.x < 151) ? 0 : ((touch.x < 233) ? 1 : ((touch.x < 315) ? 2 : 3));
                   int r = (touch.y < 159) ? 0 : ((touch.y < 215) ? 1 : ((touch.y < 271) ? 2 : ((touch.y < 327) ? 3 : 4)));
 

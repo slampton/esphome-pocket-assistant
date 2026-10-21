@@ -808,24 +808,28 @@ inline uint32_t &last_screen_wake_ms() {
 
 template<typename TouchT>
 inline bool is_back_button(const TouchT &t) {
-  // Focused 156x63px hit-zone centered around "< Back" at (233, 426) so low taps on
-  // bottom-row buttons (e.g. Calculator '=', Tools Row 2, Slot 5) never false-trigger Back!
-  return (t.y >= 402 && t.y <= 465 && t.x >= 155 && t.x <= 311);
+  // Deliberate Chin Hit-Zone (y = 412..465, x = 160..306):
+  // "< Back" / "Home" is printed at y = 426 (top of text at y = 415). Starting at y = 412
+  // reserves the entire y = 384..411 buffer above it for slightly low thumb taps on bottom-row buttons!
+  return (t.y >= 412 && t.y <= 465 && t.x >= 160 && t.x <= 306);
 }
 
 template<typename TouchT>
 inline bool is_right_chevron_zone(const TouchT &t) {
-  return (t.x >= 372 && t.y >= 70 && t.y <= 375);
+  return (t.x >= 372 && t.y >= 70 && t.y <= 385);
 }
 
 template<typename TouchT>
 inline int get_5slot_index(const TouchT &t, int x_min, int x_max) {
   if (t.x < x_min || t.x > x_max) return -1;
-  if (t.y >= 80  && t.y < 141) return 0;
-  if (t.y >= 141 && t.y < 204) return 1;
-  if (t.y >= 204 && t.y < 267) return 2;
-  if (t.y >= 267 && t.y < 330) return 3;
-  if (t.y >= 330 && t.y < 385) return 4;
+  // Downward-biased 5-slot hit zones (cards at y_mid = 110, 173, 236, 299, 362; h = 44):
+  // Each slot extends +14px below its card bottom, and Slot 4 extends all the way to y = 411
+  // (meeting is_back_button at y = 412 with ZERO dead space in between!)
+  if (t.y >= 84  && t.y < 146) return 0;
+  if (t.y >= 146 && t.y < 209) return 1;
+  if (t.y >= 209 && t.y < 272) return 2;
+  if (t.y >= 272 && t.y < 335) return 3;
+  if (t.y >= 335 && t.y < 412) return 4;
   return -1;
 }
 
