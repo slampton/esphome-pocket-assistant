@@ -1511,12 +1511,13 @@ interval:
           // - Unlocks full 20 FPS (50ms) when local music is idle for rain, snow, lightning, and night starfield
           // - Paces smoothly at ~13.3 FPS (75ms) when local Sendspin music is playing
           // - Static daytime weather conditions run on the default 1s display refresh with near-zero CPU load
-          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && (id(gui_page) == 1 && id(home_subpage) == 0 && (id(home_weather_bg_switch).state || pocket_ui::is_wake_greeting_fading(millis(), id(home_wake_greeting_switch).state))) && !id(va_active) && id(va_status_text).empty()) {
+          if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && (id(gui_page) == 1 && id(home_subpage) == 0 && (id(home_weather_bg_switch).state || pocket_ui::is_wake_greeting_fading(millis(), id(home_wake_greeting_switch).state) || pocket_ui::is_home_activity_carousel_animating(millis()))) && !id(va_active) && id(va_status_text).empty()) {
             static uint32_t last_cond_eval_time = 0;
             static bool cached_has_motion = false;
             uint32_t now_w_ms = millis();
             const bool sim_just_changed = (pocket_ui::last_ambient_anim_ms() == 0U) ||
-                                          pocket_ui::is_wake_greeting_fading(now_w_ms, id(home_wake_greeting_switch).state);
+                                          pocket_ui::is_wake_greeting_fading(now_w_ms, id(home_wake_greeting_switch).state) ||
+                                          pocket_ui::is_home_activity_carousel_animating(now_w_ms);
 
             if (sim_just_changed || (now_w_ms - last_cond_eval_time >= 250U)) {
               last_cond_eval_time = now_w_ms;
@@ -3952,7 +3953,7 @@ touchscreen:
                                           pocket_ui::wake_greeting_latched() &&
                                           (now_hm >= pocket_ui::wake_greeting_start_ms()) &&
                                           (now_hm - pocket_ui::wake_greeting_start_ms() < 10500U);
-              if (!greet_blocking && act_count > 0 && touch.y >= 232 && touch.y <= 296 && touch.x >= 60 && touch.x <= 406) {
+              if (!greet_blocking && act_count > 0 && touch.y >= 234 && touch.y <= 308 && touch.x >= 60 && touch.x <= 406) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   int feat_idx = pocket_ui::resolve_home_featured_activity_idx(act_items, act_count, now_hm);

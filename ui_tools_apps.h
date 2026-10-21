@@ -2387,6 +2387,27 @@ inline int collect_home_activities(
   return count;
 }
 
+// Tracks the 360ms vertical carousel reel transition when the Home Live Activity Card rotates
+inline uint32_t &home_act_anim_start_ms() {
+  static uint32_t ts = 0;
+  return ts;
+}
+
+inline int &home_act_prev_idx() {
+  static int idx = 0;
+  return idx;
+}
+
+inline int &home_act_cur_idx() {
+  static int idx = 0;
+  return idx;
+}
+
+inline bool is_home_activity_carousel_animating(uint32_t now_ms) {
+  return (home_act_anim_start_ms() > 0U && now_ms >= home_act_anim_start_ms() &&
+          (now_ms - home_act_anim_start_ms() <= 400U));
+}
+
 // Selects which activity item is featured on the single Home Live Activity Card:
 //   1. Priority 1 (Urgent Stopwatch): Running Stopwatch pins to top & pauses rotation
 //   2. Priority 2 (Urgent Timer): Running Timer with <= 60s remaining pins to top & pauses rotation
@@ -2394,20 +2415,140 @@ inline int collect_home_activities(
 //   4. Otherwise: Smoothly auto-rotates across all active items every 4.0 seconds!
 inline int resolve_home_featured_activity_idx(const HomeActivityItem items[5], int count, uint32_t now_ms) {
   if (count <= 1) return 0;
-  // Check Priority 1: Running Stopwatch
   for (int i = 0; i < count; i++) {
     if (items[i].kind == 2 && items[i].urgent_pin) return i;
   }
-  // Check Priority 2: Timer <= 60s
   for (int i = 0; i < count; i++) {
     if (items[i].kind == 1 && items[i].urgent_pin) return i;
   }
-  // Check Priority 3: Imminent (<= 10m) or Snoozed Alarm
   for (int i = 0; i < count; i++) {
     if (items[i].kind == 4 && items[i].urgent_pin) return i;
   }
-  // Normal 4.0-second auto-rotation across all active items
   return static_cast<int>((now_ms / 4000U) % static_cast<uint32_t>(count));
+}
+
+template <typename DisplayT, typename FontSmallT>
+inline void draw_home_activity_row_contents(
+    DisplayT &it, int row_y, const HomeActivityItem &cur_act,
+    bool has_dropdown_ext, bool is_list_row, FontSmallT *font_small,
+    esphome::Color card_bg, esphome::Color theme_secondary, esphome::Color col_white) {
+  using esphome::Color;
+  using esphome::display::TextAlign;
+
+  const int gx      = is_list_row ? 113 : (has_dropdown_ext ?  88 : 110);
+  const int txt_x   = is_list_row ? 128 : (has_dropdown_ext ? 108 : 130);
+  const int max_txt = is_list_row ? 186 : (has_dropdown_ext ? 172 : 186);
+  const int act_bx  = is_list_row ? 346 : (has_dropdown_ext ? 316 : 352);
+  const int btn_r   = is_list_row ?  13 : 19;
+
+  int gy = row_y;
+  if (is_list_row) {
+    // Compact 44px row icons for ACTIVE NOW list
+    if (cur_act.kind == 1) {
+      it.filled_rectangle(gx - 6, gy - 9, 13, 2, col_white);
+      it.filled_rectangle(gx - 6, gy + 8, 13, 2, col_white);
+      it.line(gx - 5, gy - 7, gx - 1, gy, col_white);
+      it.line(gx + 5, gy - 7, gx + 1, gy, col_white);
+      it.line(gx - 1, gy, gx - 5, gy + 7, col_white);
+      it.line(gx + 1, gy, gx + 5, gy + 7, col_white);
+      it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, col_white);
+      it.filled_triangle(gx - 4, gy + 7, gx + 4, gy + 7, gx, gy + 2, col_white);
+    } else if (cur_act.kind == 2) {
+      it.filled_rectangle(gx - 2, gy - 10, 5, 2, col_white);
+      it.line(gx + 5, gy - 6, gx + 7, gy - 8, col_white);
+      it.circle(gx, gy + 1, 8, col_white);
+      it.circle(gx, gy + 1, 7, theme_secondary);
+      it.line(gx, gy + 1, gx + 4, gy - 3, col_white);
+      it.draw_pixel_at(gx, gy + 1, col_white);
+    } else if (cur_act.kind == 3) {
+      it.filled_circle(gx - 4, gy + 5, 3, col_white);
+      it.filled_circle(gx + 4, gy + 3, 3, col_white);
+      it.filled_rectangle(gx - 2, gy - 6, 2, 11, col_white);
+      it.filled_rectangle(gx + 5, gy - 8, 2, 11, col_white);
+      it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
+      it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
+    } else {
+      it.filled_circle(gx - 6, gy - 6, 2, col_white);
+      it.filled_circle(gx + 6, gy - 6, 2, col_white);
+      it.filled_circle(gx, gy + 1, 9, card_bg);
+      it.circle(gx, gy + 1, 8, col_white);
+      it.line(gx - 5, gy + 8, gx - 7, gy + 10, col_white);
+      it.line(gx + 5, gy + 8, gx + 7, gy + 10, col_white);
+      it.line(gx, gy + 1, gx,     gy - 4, col_white);
+      it.line(gx, gy + 1, gx + 4, gy + 3, col_white);
+    }
+  } else {
+    // Enlarged (+35%, ~22x24px) Monochromatic Tools-Style Icons for the 68px-tall Home Live Activity Card!
+    if (cur_act.kind == 1) {
+      // 1. Timer: Enlarged 2px-stroke Hourglass with solid filled sand bulbs
+      it.filled_rectangle(gx - 9, gy - 12, 19, 2, col_white);
+      it.filled_rectangle(gx - 9, gy + 11, 19, 2, col_white);
+      it.line(gx - 7, gy - 10, gx - 1, gy, col_white);
+      it.line(gx - 6, gy - 10, gx,     gy, col_white);
+      it.line(gx + 7, gy - 10, gx + 1, gy, col_white);
+      it.line(gx + 6, gy - 10, gx,     gy, col_white);
+      it.line(gx - 1, gy, gx - 7, gy + 10, col_white);
+      it.line(gx,     gy, gx - 6, gy + 10, col_white);
+      it.line(gx + 1, gy, gx + 7, gy + 10, col_white);
+      it.line(gx,     gy, gx + 6, gy + 10, col_white);
+      it.filled_triangle(gx - 4, gy - 6, gx + 4, gy - 6, gx, gy - 1, col_white);
+      it.filled_triangle(gx - 5, gy + 9, gx + 5, gy + 9, gx, gy + 3, col_white);
+    } else if (cur_act.kind == 2) {
+      // 2. Stopwatch: Enlarged 2px-bezel Chronometer (r = 10, top T-crown, angled pusher, 2px sweep hand)
+      it.filled_rectangle(gx - 3, gy - 13, 7, 2, col_white);
+      it.filled_rectangle(gx - 1, gy - 11, 3, 2, col_white);
+      it.line(gx + 7, gy - 7, gx + 10, gy - 10, col_white);
+      it.line(gx + 8, gy - 6, gx + 11, gy - 9,  col_white);
+      it.circle(gx, gy + 2, 10, col_white);
+      it.circle(gx, gy + 2, 9,  col_white);
+      it.line(gx,     gy + 2, gx + 5, gy - 3, col_white);
+      it.line(gx + 1, gy + 2, gx + 5, gy - 2, col_white);
+      it.filled_circle(gx, gy + 2, 2, col_white);
+    } else if (cur_act.kind == 3) {
+      // 3. Music: Enlarged Beamed Eighth Notes (22x24px)
+      it.filled_circle(gx - 6, gy + 6, 4, col_white);
+      it.filled_circle(gx + 5, gy + 4, 4, col_white);
+      it.filled_rectangle(gx - 3, gy - 9,  2, 15, col_white);
+      it.filled_rectangle(gx + 8, gy - 11, 2, 15, col_white);
+      it.line(gx - 3, gy - 9, gx + 9, gy - 11, col_white);
+      it.line(gx - 3, gy - 8, gx + 9, gy - 10, col_white);
+      it.line(gx - 3, gy - 7, gx + 9, gy - 9,  col_white);
+    } else {
+      // 4. Alarm: Enlarged Twin-Bell Alarm Clock (r = 10, 2px bezel, twin bells, legs & hands)
+      it.filled_circle(gx - 8, gy - 7, 3, col_white);
+      it.filled_circle(gx + 8, gy - 7, 3, col_white);
+      it.filled_circle(gx, gy + 2, 12, card_bg);
+      it.circle(gx, gy + 2, 10, col_white);
+      it.circle(gx, gy + 2, 9,  col_white);
+      it.line(gx - 6, gy + 10, gx - 9, gy + 13, col_white);
+      it.line(gx - 5, gy + 10, gx - 8, gy + 13, col_white);
+      it.line(gx + 6, gy + 10, gx + 9, gy + 13, col_white);
+      it.line(gx + 5, gy + 10, gx + 8, gy + 13, col_white);
+      it.line(gx, gy + 2, gx,     gy - 4, col_white);
+      it.line(gx, gy + 2, gx + 4, gy + 4, col_white);
+      it.filled_circle(gx, gy + 2, 2, col_white);
+    }
+  }
+
+  std::string fit_act = fit_text_to_width_font(cur_act.label, max_txt, font_small);
+  it.print(txt_x, gy, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
+
+  // Inline Action Button (Play / Pause / Disarm, r = btn_r at act_bx)
+  it.filled_circle(act_bx, gy, btn_r, Color(30, 37, 48));
+  it.circle(act_bx, gy, btn_r, theme_secondary);
+
+  int sym_s = is_list_row ? 5 : 6;
+  if (cur_act.kind == 4) {
+    for (int w = -1; w <= 0; w++) {
+      it.line(act_bx - sym_s + w, gy - sym_s, act_bx + sym_s + w, gy + sym_s, col_white);
+      it.line(act_bx - sym_s + w, gy + sym_s, act_bx + sym_s + w, gy - sym_s, col_white);
+    }
+  } else if (cur_act.is_active) {
+    it.filled_rectangle(act_bx - 5, gy - sym_s, 3, sym_s * 2 + 1, col_white);
+    it.filled_rectangle(act_bx + 3, gy - sym_s, 3, sym_s * 2 + 1, col_white);
+  } else {
+    it.filled_triangle(act_bx - 4, gy - sym_s, act_bx - 4, gy + sym_s, act_bx + sym_s + 1, gy, col_white);
+  }
 }
 
 template <typename DisplayT, typename FontSmallT>
@@ -2417,94 +2558,30 @@ inline void render_home_activity_card_row(
     esphome::Color theme_secondary, esphome::Color col_white,
     bool is_list_row = false) {
   using esphome::Color;
-  using esphome::display::TextAlign;
-
   const Color card_bg(22, 27, 36);
   const Color card_brd(52, 62, 78);
 
-  // - On ACTIVE NOW list (is_list_row == true): Standard 5-slot geometry (w = 276, h = 44, r = 12 -> 19px gap!)
-  // - On Home screen (is_list_row == false): Taller h = 54, r = 14 card (w = 340 when 2+ active, w = 296 when 1 active)
-  const int card_w   = is_list_row ? 276 : (has_dropdown_ext ? 340 : 296);
-  const int card_h   = is_list_row ?  44 : 54;
-  const int card_r   = is_list_row ?  12 : 14;
-  const int gx       = is_list_row ? 113 : (has_dropdown_ext ?  84 : 106);
-  const int txt_x    = is_list_row ? 128 : (has_dropdown_ext ? 101 : 123);
-  const int max_txt  = is_list_row ? 186 : (has_dropdown_ext ? 180 : 194);
-  const int div1_x   = is_list_row ? 320 : (has_dropdown_ext ? 288 : 324);
-  const int act_bx   = is_list_row ? 346 : (has_dropdown_ext ? 316 : 352);
-  const int btn_r    = is_list_row ?  13 : 16;
-  const int div_h    = is_list_row ?  14 : 18;
-  const int div2_x   = 346;
-  const int drop_bx  = 374;
+  const int card_w  = is_list_row ? 276 : (has_dropdown_ext ? 340 : 296);
+  const int card_h  = is_list_row ?  44 : 68;
+  const int card_r  = is_list_row ?  12 : 16;
+  const int div1_x  = is_list_row ? 320 : (has_dropdown_ext ? 288 : 324);
+  const int div_h   = is_list_row ?  14 : 23;
+  const int div2_x  = 346;
+  const int drop_bx = 374;
 
   render_modern_card(it, cx, pill_y, card_w, card_h, card_r, card_bg, card_brd,
                      nullptr, col_white, font_small);
 
-  int gy = pill_y;
-  if (cur_act.kind == 1) {
-    // 1. Timer: Monochromatic Tools Hourglass
-    it.filled_rectangle(gx - 6, gy - 9, 13, 2, col_white);
-    it.filled_rectangle(gx - 6, gy + 8, 13, 2, col_white);
-    it.line(gx - 5, gy - 7, gx - 1, gy, col_white);
-    it.line(gx + 5, gy - 7, gx + 1, gy, col_white);
-    it.line(gx - 1, gy, gx - 5, gy + 7, col_white);
-    it.line(gx + 1, gy, gx + 5, gy + 7, col_white);
-    it.filled_triangle(gx - 3, gy - 4, gx + 3, gy - 4, gx, gy - 1, col_white);
-    it.filled_triangle(gx - 4, gy + 7, gx + 4, gy + 7, gx, gy + 2, col_white);
-  } else if (cur_act.kind == 2) {
-    // 2. Stopwatch: Monochromatic Tools Chronometer
-    it.filled_rectangle(gx - 2, gy - 10, 5, 2, col_white);
-    it.line(gx + 5, gy - 6, gx + 7, gy - 8, col_white);
-    it.circle(gx, gy + 1, 8, col_white);
-    it.circle(gx, gy + 1, 7, theme_secondary);
-    it.line(gx, gy + 1, gx + 4, gy - 3, col_white);
-    it.draw_pixel_at(gx, gy + 1, col_white);
-  } else if (cur_act.kind == 3) {
-    // 3. Music: Monochromatic Filled White Beamed Eighth Notes
-    it.filled_circle(gx - 4, gy + 5, 3, col_white);
-    it.filled_circle(gx + 4, gy + 3, 3, col_white);
-    it.filled_rectangle(gx - 2, gy - 6, 2, 11, col_white);
-    it.filled_rectangle(gx + 5, gy - 8, 2, 11, col_white);
-    it.line(gx - 2, gy - 6, gx + 6, gy - 8, col_white);
-    it.line(gx - 2, gy - 5, gx + 6, gy - 7, col_white);
-  } else {
-    // 4. Alarm: Monochromatic Tools Twin-Bell Alarm Clock
-    it.filled_circle(gx - 6, gy - 6, 2, col_white);
-    it.filled_circle(gx + 6, gy - 6, 2, col_white);
-    it.filled_circle(gx, gy + 1, 9, card_bg);
-    it.circle(gx, gy + 1, 8, col_white);
-    it.line(gx - 5, gy + 8, gx - 7, gy + 10, col_white);
-    it.line(gx + 5, gy + 8, gx + 7, gy + 10, col_white);
-    it.line(gx, gy + 1, gx,     gy - 4, col_white);
-    it.line(gx, gy + 1, gx + 4, gy + 3, col_white);
-  }
+  draw_home_activity_row_contents(
+      it, pill_y, cur_act, has_dropdown_ext, is_list_row, font_small, card_bg, theme_secondary, col_white);
 
-  std::string fit_act = fit_text_to_width_font(cur_act.label, max_txt, font_small);
-  it.print(txt_x, pill_y, font_small, col_white, TextAlign::CENTER_LEFT, fit_act.c_str());
-
-  // Inline Action Button (Play / Pause / Disarm, r = btn_r at act_bx)
   it.line(div1_x, pill_y - div_h, div1_x, pill_y + div_h, card_brd);
-  it.filled_circle(act_bx, pill_y, btn_r, Color(30, 37, 48));
-  it.circle(act_bx, pill_y, btn_r, theme_secondary);
 
-  if (cur_act.kind == 4) {
-    for (int w = -1; w <= 0; w++) {
-      it.line(act_bx - 5 + w, pill_y - 5, act_bx + 5 + w, pill_y + 5, col_white);
-      it.line(act_bx - 5 + w, pill_y + 5, act_bx + 5 + w, pill_y - 5, col_white);
-    }
-  } else if (cur_act.is_active) {
-    it.filled_rectangle(act_bx - 5, pill_y - 6, 3, 13, col_white);
-    it.filled_rectangle(act_bx + 2, pill_y - 6, 3, 13, col_white);
-  } else {
-    it.filled_triangle(act_bx - 4, pill_y - 6, act_bx - 4, pill_y + 6, act_bx + 6, pill_y, col_white);
-  }
-
-  // Integrated Right-End Dropdown Compartment ('▼' centered at drop_bx = 374, 57px wide!)
   if (has_dropdown_ext) {
-    it.line(div2_x, pill_y - 18, div2_x, pill_y + 18, card_brd);
+    it.line(div2_x, pill_y - div_h, div2_x, pill_y + div_h, card_brd);
     for (int w = -1; w <= 1; w++) {
-      it.line(drop_bx - 7, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
-      it.line(drop_bx + 7, pill_y - 3 + w, drop_bx,     pill_y + 4 + w, col_white);
+      it.line(drop_bx - 8, pill_y - 4 + w, drop_bx,     pill_y + 4 + w, col_white);
+      it.line(drop_bx + 8, pill_y - 4 + w, drop_bx,     pill_y + 4 + w, col_white);
     }
   }
 }
@@ -2785,14 +2862,79 @@ inline void render_home_page(
   const bool greeting_active = show_wake_greeting && wake_greeting_latched() &&
                                now.is_valid() && (greet_el < 10500U);
 
-  // ZONE 4 (y = 264): Wake Greeting (first 10.5s after Cold Boot / Hibernate wake) OR Live Activity Card
-  // When 2+ activities are active, automatically rotates every 4.0s OR pins urgent items (running Stopwatch,
-  // Timer <= 60s, or Alarm <= 10m / Snoozed) to the top!
+  // ZONE 4 (pill_y = 271, y = 237..305, h = 68px):
+  //   - Top edge at y = 237 preserves the exact 24px buffer below Weather (213)
+  //   - Bottom edge at y = 305 aligns with the Forecast bottom limit & leaves 18px above the y = 352 Dock
+  //   - Animates transitions with a 20 FPS vertical carousel reel slide (360ms cubic ease-out)!
   if (!greeting_active && act_count > 0) {
+    const int pill_y = 271;
+    const bool has_drop = (act_count > 1);
     int feat_idx = resolve_home_featured_activity_idx(act_items, act_count, now_ms);
+    if (home_act_cur_idx() >= act_count) home_act_cur_idx() = 0;
+    if (home_act_prev_idx() >= act_count) home_act_prev_idx() = 0;
+
+    if (feat_idx != home_act_cur_idx()) {
+      home_act_prev_idx() = home_act_cur_idx();
+      home_act_cur_idx()  = feat_idx;
+      home_act_anim_start_ms() = now_ms;
+    }
     home_activity_idx = feat_idx;
-    render_home_activity_card_row(
-        it, cx, 264, act_items[feat_idx], (act_count > 1), font_small, theme_secondary, col_white, false);
+
+    uint32_t anim_el = (home_act_anim_start_ms() > 0U && now_ms >= home_act_anim_start_ms())
+                           ? (now_ms - home_act_anim_start_ms())
+                           : 9999U;
+
+    if (has_drop && anim_el < 360U && home_act_prev_idx() != home_act_cur_idx()) {
+      float u = static_cast<float>(anim_el) * (1.0f / 360.0f);
+      float ease = 1.0f - (1.0f - u) * (1.0f - u) * (1.0f - u);
+      int shift = static_cast<int>(ease * 64.0f);
+      int y_out = pill_y - shift;
+      int y_in  = pill_y + (64 - shift);
+
+      const Color card_bg(22, 27, 36);
+      const Color card_brd(52, 62, 78);
+
+      // 1. Draw inner card fill first, then draw outgoing & incoming reel rows
+      render_modern_card(it, cx, pill_y, 340, 68, 16, card_bg, card_brd, nullptr, col_white, font_small);
+      if (y_out >= pill_y - 46) {
+        draw_home_activity_row_contents(
+            it, y_out, act_items[home_act_prev_idx()], true, false, font_small, card_bg, theme_secondary, col_white);
+      }
+      if (y_in <= pill_y + 46) {
+        draw_home_activity_row_contents(
+            it, y_in, act_items[home_act_cur_idx()], true, false, font_small, card_bg, theme_secondary, col_white);
+      }
+
+      // 2. Mask sky bands immediately above (y = 216..236) & below (y = 306..322) the card
+      //    so sliding text/buttons clip cleanly at the top & bottom borders of the card!
+      Color mask_c(0, 0, 0);
+      if (show_weather_bg && !is_night) {
+        mask_c = Color(28, 54, 84);
+        if (cond.find("fog") != std::string::npos || cond.find("mist") != std::string::npos) {
+          mask_c = Color(32, 46, 60);
+        } else if (cond.find("cloud") != std::string::npos && cond.find("partly") == std::string::npos) {
+          mask_c = Color(22, 38, 56);
+        } else if (cond.find("rain") != std::string::npos || cond.find("thunder") != std::string::npos ||
+                   cond.find("lightning") != std::string::npos) {
+          mask_c = Color(18, 30, 46);
+        }
+      }
+      it.filled_rectangle(60, 215, 290, 22, mask_c);
+      it.filled_rectangle(60, 306, 290, 17, mask_c);
+
+      // 3. Re-stamp top & bottom card border lines, dividers, and stationary '▼' dropdown chevron
+      it.horizontal_line(63 + 16, 237, 340 - 32, card_brd);
+      it.horizontal_line(63 + 16, 304, 340 - 32, card_brd);
+      it.line(288, pill_y - 23, 288, pill_y + 23, card_brd);
+      it.line(346, pill_y - 23, 346, pill_y + 23, card_brd);
+      for (int w = -1; w <= 1; w++) {
+        it.line(374 - 8, pill_y - 4 + w, 374, pill_y + 4 + w, col_white);
+        it.line(374 + 8, pill_y - 4 + w, 374, pill_y + 4 + w, col_white);
+      }
+    } else {
+      render_home_activity_card_row(
+          it, cx, pill_y, act_items[feat_idx], has_drop, font_small, theme_secondary, col_white, false);
+    }
   }
 
   if (greeting_active) {
