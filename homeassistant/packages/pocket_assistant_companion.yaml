@@ -135,12 +135,13 @@ template:
             {% else %}
               {% set pic = state_attr(target, 'entity_picture') or state_attr(target, 'media_image_url') %}
               {% if pic and pic not in ['none', 'unknown', 'unavailable'] %}
-                {% if pic.startswith('http') %}
-                  {{ pic }}
-                {% elif pic.startswith('/') %}
+                {% set sized_pic = pic | replace('size=0', 'size=400') %}
+                {% if sized_pic.startswith('http') %}
+                  {{ sized_pic }}
+                {% elif sized_pic.startswith('/') %}
                   {% set custom_base = states('input_text.pocket_assistant_base_url') %}
                   {% set base = custom_base if custom_base and custom_base not in ['unknown', 'unavailable', ''] else 'http://homeassistant.local:8123' %}
-                  {{ base.rstrip('/') ~ pic }}
+                  {{ base.rstrip('/') ~ sized_pic }}
                 {% else %}
                   none
                 {% endif %}
