@@ -191,6 +191,7 @@ voice_assistant:
   auto_gain: 31dBFS
   on_client_connected:
     then:
+      - delay: 200ms
       - lambda: 'esphome::voice_assistant::ensure_wake_words_restored(id(va));'
       - script.execute: apply_wake_word_sensitivities
       - script.execute: sync_wake_word_state
