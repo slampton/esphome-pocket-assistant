@@ -360,3 +360,80 @@ inline void clean_disconnect_api_before_hibernate(VoiceAssistant *va) {
 
 }  // namespace voice_assistant
 }  // namespace esphome
+
+#ifdef USE_MEDIA_SOURCE
+struct MS_Listener_Tag {
+  typedef esphome::media_source::MediaSourceListener *esphome::media_source::MediaSource::*type;
+  friend type get(MS_Listener_Tag);
+};
+template struct Rob<MS_Listener_Tag, &esphome::media_source::MediaSource::listener_>;
+
+namespace esphome {
+namespace voice_assistant {
+
+class SendspinMonoDownmixListener final : public esphome::media_source::MediaSourceListener {
+ public:
+  void wrap(esphome::media_source::MediaSource *src) {
+    if (src == nullptr) return;
+    auto *cur = src->*get(MS_Listener_Tag());
+    if (cur != nullptr && cur != this) {
+      this->orig_ = cur;
+      src->set_listener(this);
+      ESP_LOGI("audio", "Installed L+R -> Mono downmixer on SendspinMediaSource");
+    }
+  }
+
+  size_t write_audio(const uint8_t *data, size_t length, uint32_t timeout_ms,
+                     const esphome::audio::AudioStreamInfo &stream_info) override {
+    if (this->orig_ == nullptr) return 0;
+    if (stream_info.get_channels() == 2 && stream_info.get_bits_per_sample() == 16) {
+      size_t total_frames = length / 4;
+      if (total_frames == 0) return 0;
+      static constexpr size_t MAX_CHUNK_FRAMES = 1024;
+      int16_t mono_buf[MAX_CHUNK_FRAMES];
+      size_t frames_to_process = (total_frames > MAX_CHUNK_FRAMES) ? MAX_CHUNK_FRAMES : total_frames;
+      const int16_t *stereo_in = reinterpret_cast<const int16_t *>(data);
+      for (size_t i = 0; i < frames_to_process; i++) {
+        int32_t l = stereo_in[i * 2];
+        int32_t r = stereo_in[i * 2 + 1];
+        mono_buf[i] = static_cast<int16_t>((l + r) >> 1);
+      }
+      esphome::audio::AudioStreamInfo mono_info(16, 1, stream_info.get_sample_rate());
+      size_t mono_written = this->orig_->write_audio(
+          reinterpret_cast<const uint8_t *>(mono_buf),
+          frames_to_process * sizeof(int16_t),
+          timeout_ms,
+          mono_info);
+      return mono_written * 2;
+    }
+    return this->orig_->write_audio(data, length, timeout_ms, stream_info);
+  }
+
+  void report_state(esphome::media_source::MediaSourceState state) override {
+    if (this->orig_ != nullptr) this->orig_->report_state(state);
+  }
+
+  void request_volume(float volume) override {
+    if (this->orig_ != nullptr) this->orig_->request_volume(volume);
+  }
+
+  void request_mute(bool is_muted) override {
+    if (this->orig_ != nullptr) this->orig_->request_mute(is_muted);
+  }
+
+  void request_play_uri(const std::string &uri) override {
+    if (this->orig_ != nullptr) this->orig_->request_play_uri(uri);
+  }
+
+ private:
+  esphome::media_source::MediaSourceListener *orig_{nullptr};
+};
+
+inline void install_sendspin_mono_downmixer(esphome::media_source::MediaSource *src) {
+  static SendspinMonoDownmixListener downmixer;
+  downmixer.wrap(src);
+}
+
+}  // namespace voice_assistant
+}  // namespace esphome
+#endif
