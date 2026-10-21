@@ -291,7 +291,7 @@ select:
     set_action:
       - lambda: |-
           id(screen_sleep_timer).execute();
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Sleep & Wake: Dock Inactivity Timeout"
@@ -310,7 +310,7 @@ select:
     set_action:
       - lambda: |-
           id(screen_sleep_timer).execute();
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Sleep & Wake: Auto-Hibernate Timeout"
@@ -327,7 +327,7 @@ select:
       - "Disabled"
     set_action:
       - lambda: |-
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Sleep & Wake: Motion Pickup Wake"
@@ -346,7 +346,7 @@ select:
             bool pw_act = (x == "Always On") || (x == "Docked Only" && id(usb_connected).state);
             id(hal_set_imu_power_mode).execute(pw_act ? 0x01 : 0x00);
           }
-          if (id(display_power_state) == 0) id(disp1).update();
+          if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Sleep & Wake: Touch Tap Wake"
@@ -361,7 +361,7 @@ select:
       - "Disabled"
     set_action:
       - lambda: |-
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
 interval:
   - interval: 1s
@@ -590,7 +590,7 @@ script:
                 }
                 id(alarm_ringing) = false;
                 id(stop_alarm_sound).execute();
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 id(screen_sleep_timer).execute();
                 return;
               }
@@ -600,7 +600,7 @@ script:
                 id(find_my_active) = false;
                 id(stop_alarm_sound).execute();
                 id(sync_display_brightness).execute();
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 id(screen_sleep_timer).execute();
                 return;
               }
@@ -634,7 +634,7 @@ script:
                     id(stopwatch_elapsed_ms) = now_stop - id(stopwatch_start_time);
                   }
                 }
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 return;
               }
 
@@ -656,7 +656,7 @@ script:
           id(display_power_state) = 1; // SCREENSAVER
           id(sleep_start_time) = 0; // Inhibit deep sleep countdown while screensaver active
           id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   - id: turn_screen_off
     mode: restart
@@ -709,7 +709,7 @@ script:
             pocket_ui::record_ambient_frame_ms(millis());
             id(display_brightness).turn_on().set_brightness(0.60f).perform(); // Screensaver locked at 60%
             if (s_style == "Ambient Clock") {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           } else {
             id(turn_screen_off).execute();
@@ -734,7 +734,7 @@ script:
           id(hal_set_imu_power_mode).execute(0x03);
       - script.execute: sync_display_brightness
       - script.execute: screen_sleep_timer
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: start_instant_hibernation
     mode: restart
@@ -786,7 +786,7 @@ script:
                   - lambda: |-
                       if (id(hibernate_countdown_val) > 1) {
                         id(hibernate_countdown_val)--;
-                        id(disp1).update();
+                        pocket_ui::schedule_disp_update(&id(disp1));
                       }
             - if:
                 condition:

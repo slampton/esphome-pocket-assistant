@@ -467,10 +467,10 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
           x += 2;
           continue;
         }
-        uint16_t p_masked = p & 0xE79C;
+        uint16_t p_masked = p & 0xC718;
         int run_start = x;
         x += 2;
-        while (x <= end_x && ((src_row[x] & 0xE79C) == p_masked)) {
+        while (x <= end_x && ((src_row[x] & 0xC718) == p_masked)) {
           x += 2;
         }
         if (x > end_x + 1) x = end_x + 1;
