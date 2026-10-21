@@ -1584,7 +1584,6 @@ interval:
               id(timer_ringing) = true;
               id(wake_to_active_state).execute();
               id(play_alarm_sound).execute();
-              id(disp1).update();
               ESP_LOGI("timer", "Countdown timer expired! Firing alert.");
             } else if (sec_changed) {
               if (!id(va_active) && id(va_status_text).empty()) {
@@ -3972,7 +3971,7 @@ touchscreen:
                                           pocket_ui::wake_greeting_latched() &&
                                           (now_hm >= pocket_ui::wake_greeting_start_ms()) &&
                                           (now_hm - pocket_ui::wake_greeting_start_ms() < 10500U);
-              if (!greet_blocking && act_count > 0 && touch.y >= 234 && touch.y <= 308 && touch.x >= 60 && touch.x <= 406) {
+              if (!greet_blocking && act_count > 0 && touch.y >= 230 && touch.y <= 310 && touch.x >= 45 && touch.x <= 438) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   int feat_idx = pocket_ui::resolve_home_featured_activity_idx(act_items, act_count, now_hm);
