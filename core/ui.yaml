@@ -2389,7 +2389,7 @@ script:
               }
               return false;
           then:
-            - component.update: disp1
+            - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: apply_theme_preset
     mode: restart
@@ -2596,7 +2596,7 @@ script:
           action: media_player.media_pause
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: clear_ha_music_queue
     mode: restart
@@ -2632,7 +2632,7 @@ script:
           action: media_player.media_stop
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: music_next_track
     mode: restart
@@ -2800,7 +2800,7 @@ script:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
           then:
             - script.execute: fetch_remote_art_debounced
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: speaker_transfer_to_target
     mode: restart
@@ -2859,7 +2859,7 @@ script:
           data:
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
             group_members: !lambda 'return id(target_speaker_id).c_str();'
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: speaker_unjoin_target
     mode: restart
@@ -2885,7 +2885,7 @@ script:
             entity_id: ${active_speaker_helper}
             value: !lambda 'return id(active_speaker_entity).c_str();'
       - online_image.release: remote_album_art
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: play_music_slot
     mode: restart
@@ -2950,7 +2950,7 @@ script:
             media_id: !lambda 'return id(selected_slot_id).c_str();'
             media_type: !lambda 'return id(selected_slot_type).c_str();'
             enqueue: "play"
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: mp_idle_debounce
     mode: restart
@@ -3031,7 +3031,7 @@ script:
             esp_wifi_set_ps(1);
           }
       - delay: 15ms
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
       - delay: 160ms
       - script.execute: resume_music_after_va
       - if:

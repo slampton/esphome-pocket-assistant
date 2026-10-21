@@ -232,7 +232,7 @@ voice_assistant:
           ESP_LOGI("va", "Status: Listening...");
           if (id(display_power_state) == 0 || id(va_wake_screen_switch).state) {
             id(display_brightness).turn_on().perform();
-            id(disp1).update();
+            pocket_ui::schedule_disp_update(&id(disp1));
           }
   on_stt_vad_start:
     then:
@@ -242,7 +242,7 @@ voice_assistant:
           id(va_status_text) = "Listening...";
           esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Listening (VAD active)...");
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_stt_vad_end:
     then:
       - script.stop: screen_sleep_timer
@@ -251,7 +251,7 @@ voice_assistant:
           id(va_status_text) = "Thinking...";
           esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Thinking...");
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_stt_end:
     then:
       - script.stop: screen_sleep_timer
@@ -291,7 +291,7 @@ voice_assistant:
                 id(va_tts_received) = true;
                 id(va_status_text) = "Responding...";
                 ESP_LOGI("va", "Status: Responding (Streaming TTS)...");
-            - component.update: disp1
+            - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_tts_start:
     then:
       - mixer_speaker.apply_ducking:
@@ -310,7 +310,7 @@ voice_assistant:
           id(va_tts_received) = true;
           id(va_status_text) = "Responding...";
           ESP_LOGI("va", "Status: Responding (TTS)...");
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_tts_end:
     then:
       - script.stop: screen_sleep_timer
@@ -321,7 +321,7 @@ voice_assistant:
           id(va_tts_received) = true;
           id(va_status_text) = "Responding...";
           ESP_LOGI("va", "TTS URL ready: %s", x.c_str());
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_error:
     then:
       - script.stop: va_tts_drain_and_finish
@@ -338,7 +338,7 @@ voice_assistant:
             esp_wifi_set_ps(1);
           }
           ESP_LOGE("va", "Error: %s - %s", code.c_str(), message.c_str());
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
       - if:
           condition:
             binary_sensor.is_off: pickup_detected
@@ -355,7 +355,7 @@ voice_assistant:
           id(timer_ringing) = false;
           if (!id(va_active) && id(va_status_text).empty()) {
             if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
   on_timer_updated:
@@ -367,7 +367,7 @@ voice_assistant:
           pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
           if (!id(va_active) && id(va_status_text).empty()) {
             if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
   on_timer_cancelled:
@@ -390,7 +390,7 @@ voice_assistant:
           }
           if (!id(va_active) && id(va_status_text).empty()) {
             if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
   on_timer_finished:
@@ -466,7 +466,7 @@ script:
             extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
             esp_wifi_set_ps(1);
           }
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
       - delay: 160ms
       # 4. Now smoothly restore music playback (with 600ms fade-in) or mute & route I2S back to mic
       - script.execute: resume_music_after_va
