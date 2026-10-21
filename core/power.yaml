@@ -504,7 +504,7 @@ interval:
               if (pocket_ui::should_step_ambient_anim(millis(), local_music_playing,
                                                       id(va_active) || !id(va_status_text).empty(),
                                                       id(alarm_ringing) || id(timer_ringing) || id(find_my_active))) {
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 pocket_ui::record_ambient_frame_ms(millis());
                 did_ss_draw = true;
               }

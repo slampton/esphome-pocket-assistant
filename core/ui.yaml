@@ -683,7 +683,7 @@ image:
     format: JPEG
     buffer_size: 16384
     type: RGB565
-    resize: 466x466
+    resize: 233x233
     url: "${initial_art_url}"
     on_download_finished:
       - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
@@ -740,7 +740,7 @@ select:
     set_action:
       - lambda: |-
           id(tv_remote_profile).publish_state(x);
-          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+          if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Remote: Slot 2 Profile"
@@ -762,7 +762,7 @@ select:
     set_action:
       - lambda: |-
           id(tv_remote_profile_2).publish_state(x);
-          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+          if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Remote: Slot 3 Profile"
@@ -784,7 +784,7 @@ select:
     set_action:
       - lambda: |-
           id(tv_remote_profile_3).publish_state(x);
-          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+          if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Remote: Slot 4 Profile"
@@ -806,7 +806,7 @@ select:
     set_action:
       - lambda: |-
           id(tv_remote_profile_4).publish_state(x);
-          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+          if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Voice: Wake Word Mode"
@@ -823,7 +823,7 @@ select:
     set_action:
       - lambda: |-
           id(va_wake_word_mode).publish_state(x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - script.execute: sync_wake_word_state
 
   - platform: template
@@ -844,7 +844,7 @@ select:
       - lambda: |-
           id(va_active_wake_word).publish_state(x);
           esphome::voice_assistant::set_primary_wake_word_by_label(id(va), x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - script.execute: apply_wake_word_sensitivities
       - script.execute: sync_wake_word_state
 
@@ -863,7 +863,7 @@ select:
     set_action:
       - lambda: |-
           id(ww_sens_okay_nabu).publish_state(x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - script.execute: apply_wake_word_sensitivities
 
   - platform: template
@@ -881,7 +881,7 @@ select:
     set_action:
       - lambda: |-
           id(ww_sens_hey_luna).publish_state(x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - script.execute: apply_wake_word_sensitivities
 
   - platform: template
@@ -899,7 +899,7 @@ select:
     set_action:
       - lambda: |-
           id(ww_sens_hey_jarvis).publish_state(x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - script.execute: apply_wake_word_sensitivities
 
   - platform: template
@@ -917,7 +917,7 @@ select:
     set_action:
       - lambda: |-
           id(ww_sens_hey_mycroft).publish_state(x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - script.execute: apply_wake_word_sensitivities
 
   - platform: template
@@ -935,7 +935,7 @@ select:
     set_action:
       - lambda: |-
           id(ww_sens_alexa).publish_state(x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - script.execute: apply_wake_word_sensitivities
 
   - platform: template
@@ -955,7 +955,7 @@ select:
     set_action:
       - lambda: |-
           id(va_visual_profile).publish_state(x);
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Weather: Condition Simulation"
@@ -1009,7 +1009,7 @@ select:
           if (id(display_power_state) == 1 && id(screensaver_style_select).current_option() == "Screen Off") {
             id(turn_screen_off).execute();
           } else if (id(display_power_state) == 1) {
-            id(disp1).update();
+            pocket_ui::schedule_disp_update(&id(disp1));
           }
 
   - platform: template
@@ -1026,7 +1026,7 @@ select:
       - "Standard"
     set_action:
       - lambda: |-
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Music: Album Sort Order"
@@ -1089,7 +1089,7 @@ select:
       - "Always Visible"
     set_action:
       - lambda: |-
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   
   - platform: template
@@ -1185,7 +1185,7 @@ select:
     set_action:
       - lambda: |-
           id(clock_face_digital) = (x == "Modern Digital (Bold)");
-          if (id(display_power_state) == 0) id(disp1).update();
+          if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Display: Time Format"
@@ -1200,7 +1200,7 @@ select:
     set_action:
       - lambda: |-
           id(is_24h_format) = (x == "24-Hour");
-          if (id(display_power_state) == 0) id(disp1).update();
+          if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Display: Start Screen"
@@ -1216,7 +1216,7 @@ select:
     set_action:
       - lambda: |-
           id(default_start_app).publish_state(x);
-          if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+          if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
 
 button:
   - platform: restart
@@ -1256,12 +1256,12 @@ button:
             id(find_my_start_ms) = millis();
             id(wake_to_active_state).execute();
             id(play_alarm_sound).execute();
-            id(disp1).update();
+            pocket_ui::schedule_disp_update(&id(disp1));
           } else {
             id(find_my_active) = false;
             id(stop_alarm_sound).execute();
             id(sync_display_brightness).execute();
-            id(disp1).update();
+            pocket_ui::schedule_disp_update(&id(disp1));
             id(screen_sleep_timer).execute();
           }
 
@@ -1281,10 +1281,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
     on_turn_off:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   - platform: template
     name: "Home: Wake Greeting"
@@ -1295,10 +1295,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
     on_turn_off:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   - platform: template
     name: "Home: Shortcut Music"
@@ -1309,10 +1309,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
     on_turn_off:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   - platform: template
     name: "Home: Shortcut Remote"
@@ -1323,10 +1323,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
     on_turn_off:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   - platform: template
     name: "Home: Shortcut Tools"
@@ -1337,10 +1337,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
     on_turn_off:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   - platform: template
     name: "Home: Shortcut Games"
@@ -1351,10 +1351,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
     on_turn_off:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   
 
@@ -1367,10 +1367,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
     on_turn_off:
       then:
-        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();'
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   - platform: template
     name: "Voice: Wake Screen on Assist"
@@ -1390,11 +1390,11 @@ switch:
     on_turn_on:
       then:
         - lambda: |-
-            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+            if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
     on_turn_off:
       then:
         - lambda: |-
-            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+            if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
     name: "Music: Show Library Shortcut"
@@ -1406,11 +1406,11 @@ switch:
     on_turn_on:
       then:
         - lambda: |-
-            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+            if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
     on_turn_off:
       then:
         - lambda: |-
-            if (id(display_power_state) == 0 && millis() > 3000) id(disp1).update();
+            if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
 
 
 number:
@@ -1470,7 +1470,7 @@ interval:
                 (id(stuff_subpage) == 7) ||
                 (id(stuff_subpage) == 8 && id(coin_anim_active))) {
               if (millis() - pocket_ui::last_ambient_anim_ms() >= 42U) {
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 pocket_ui::record_ambient_frame_ms(millis());
               }
             }
@@ -1479,7 +1479,7 @@ interval:
           // 20 FPS high-refresh physics loop exclusively for active games (coalesced against 1s timer)
           if (id(display_brightness).current_values.is_on() && id(display_power_state) == 0 && id(gui_page) == 3 && id(active_game) > 0 && !id(va_active) && id(va_status_text).empty()) {
             if (millis() - pocket_ui::last_ambient_anim_ms() >= 42U) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
               pocket_ui::record_ambient_frame_ms(millis());
             }
           }
@@ -1506,7 +1506,7 @@ interval:
             const uint32_t cadence = id(va_tts_received) ? 75U : 42U;
             if (now_va_ms - last_va_anim_time >= cadence) {
               last_va_anim_time = now_va_ms;
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
               pocket_ui::record_ambient_frame_ms(millis());
             }
           }
@@ -1538,7 +1538,7 @@ interval:
               if (sim_just_changed || pocket_ui::should_step_ambient_anim(now_w_ms, local_music_playing,
                                                       id(va_active) || !id(va_status_text).empty(),
                                                       id(alarm_ringing) || id(timer_ringing))) {
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 pocket_ui::record_ambient_frame_ms(millis());
               }
             }
@@ -1588,7 +1588,7 @@ interval:
             } else if (sec_changed) {
               if (!id(va_active) && id(va_status_text).empty()) {
                 if (((id(gui_page) == 8 && id(stuff_subpage) == 1) || (id(gui_page) == 1 && (id(home_subpage) == 0 || id(home_subpage) == 2))) && id(display_power_state) == 0) {
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
               }
             }
@@ -1599,14 +1599,14 @@ interval:
             id(find_my_active) = false;
             id(stop_alarm_sound).execute();
             id(sync_display_brightness).execute();
-            id(disp1).update();
+            pocket_ui::schedule_disp_update(&id(disp1));
             id(screen_sleep_timer).execute();
           }
 
           // Periodic display refresh during active alarm, timer, or Find My Device ringing
           if ((id(alarm_ringing) || id(timer_ringing) || id(find_my_active)) && id(display_power_state) == 0) {
             if (!id(va_active) && id(va_status_text).empty()) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
 
@@ -1614,7 +1614,7 @@ interval:
           if (id(gui_page) == 4 && id(system_menu_mode) == 5 && id(update_check_state) > 0 && !id(va_active) && id(va_status_text).empty()) {
             uint32_t dt_upd = millis() - id(update_check_timer);
             if ((id(update_check_state) == 1 && dt_upd > 1500U) || (id(update_check_state) == 2 && dt_upd > 3500U)) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
 
@@ -1622,7 +1622,7 @@ interval:
           if (id(gui_page) == 2 && id(music_overlay_mode) == 0 && id(music_hud_active)) {
             if (millis() - id(music_hud_timer) >= 5000U) {
               id(music_hud_active) = false;
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
 
@@ -1643,7 +1643,7 @@ interval:
               id(alarm_ringing) = true;
               id(wake_to_active_state).execute();
               id(play_alarm_sound).execute();
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
               ESP_LOGI("alarm", "Snoozed alarm firing now!");
               return;
             }
@@ -1688,7 +1688,7 @@ interval:
                 id(alarm_ringing_idx) = trig_idx;
                 id(wake_to_active_state).execute();
                 id(play_alarm_sound).execute();
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 ESP_LOGI("alarm", "Alarm %d triggered! Ringing started.", trig_idx);
               }
             }
@@ -1935,7 +1935,7 @@ binary_sensor:
                   id(alarm_ringing) = false;
                   id(stop_alarm_sound).execute();
                   id(sync_display_brightness).execute();
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   id(screen_sleep_timer).execute();
             else:
               - if:
@@ -2008,7 +2008,7 @@ text_sensor:
       then:
         - lambda: |-
             if (id(display_power_state) == 0 && id(gui_page) == 4 && id(system_menu_mode) == 5) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
   - platform: homeassistant
     id: ha_firmware_latest_version
@@ -2019,7 +2019,7 @@ text_sensor:
       then:
         - lambda: |-
             if (id(display_power_state) == 0 && id(gui_page) == 4 && id(system_menu_mode) == 5) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
   - platform: homeassistant
     id: ha_firmware_release_summary
@@ -2030,7 +2030,7 @@ text_sensor:
       then:
         - lambda: |-
             if (id(display_power_state) == 0 && id(gui_page) == 4 && id(system_menu_mode) == 5) {
-              id(disp1).update();
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
   # 📺 Universal Remote Control Target Friendly Names (Slots 1..4)
   - platform: homeassistant
@@ -2043,7 +2043,7 @@ text_sensor:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
               id(remote_slot_0_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
             }
   - platform: homeassistant
     id: ha_remote_friendly_name_2
@@ -2055,7 +2055,7 @@ text_sensor:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
               id(remote_slot_1_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
             }
   - platform: homeassistant
     id: ha_remote_friendly_name_3
@@ -2067,7 +2067,7 @@ text_sensor:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
               id(remote_slot_2_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
             }
   - platform: homeassistant
     id: ha_remote_friendly_name_4
@@ -2079,7 +2079,7 @@ text_sensor:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
               id(remote_slot_3_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) id(disp1).update();
+              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
             }
 
   - platform: homeassistant
@@ -2410,7 +2410,7 @@ script:
             id(theme_primary) = Color(107, 142, 158);  // Soft Steel Ice Blue #6B8E9E
             id(theme_secondary) = Color(192, 192, 192);// Brushed Silver #C0C0C0
           }
-          if (id(display_power_state) == 0) id(disp1).update();
+          if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
 
   - id: sync_display_brightness
     mode: restart
@@ -3046,7 +3046,7 @@ script:
           id: update_pocket_assistant
       - lambda: |-
           id(system_menu_mode) = 5;
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   - id: check_firmware_update
     mode: restart
@@ -3061,7 +3061,7 @@ script:
       - lambda: |-
           // Frame 1: Render 50% eased midpoint frame (SHARED_SCROLL_EASE_*[2])
           id(menu_scroll_step) = 2;
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
       - delay: 12ms
       - lambda: |-
           // Frame 2: Commit target page, release touch lock, and render final settled frame
@@ -3080,7 +3080,7 @@ script:
             id(stuff_menu_page) = id(menu_scroll_target_page);
           }
           id(menu_scroll_step) = 0;
-          id(disp1).update();
+          pocket_ui::schedule_disp_update(&id(disp1));
 
   # ==============================================================================
   # 📺 UNIVERSAL TV & MEDIA REMOTE COMMAND SCRIPTS (MULTI-DEVICE & MULTI-PROTOCOL)
@@ -3677,7 +3677,7 @@ touchscreen:
                 pocket_ui::last_screen_wake_ms() = now_touch;
                 id(stop_alarm_sound).execute();
                 id(sync_display_brightness).execute();
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 return;
               }
               if (id(alarm_ringing)) {
@@ -3691,14 +3691,14 @@ touchscreen:
                   id(alarm_ringing) = false;
                   pocket_ui::last_screen_wake_ms() = now_touch;
                   id(stop_alarm_sound).execute();
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
                 if (touch.y >= 342 && touch.y <= 398 && touch.x >= 110 && touch.x <= 356) {
                   id(alarm_ringing) = false;
                   pocket_ui::last_screen_wake_ms() = now_touch;
                   id(stop_alarm_sound).execute();
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
               } else if (id(timer_ringing)) {
@@ -3706,7 +3706,7 @@ touchscreen:
                   id(timer_ringing) = false;
                   pocket_ui::last_screen_wake_ms() = now_touch;
                   id(stop_alarm_sound).execute();
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
               }
@@ -3733,7 +3733,7 @@ touchscreen:
                 id(sleep_menu_page) = 1; id(display_menu_page) = 1; id(system_dashboard_page) = 1; id(menu_scroll_active) = false;
                 id(music_hud_active) = false; id(remote_subpage) = 0; id(stuff_subpage) = 0; id(stuff_menu_page) = 0;
                 id(sky_weather_subpage) = 0;
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
               }
               return;
             }
@@ -3780,7 +3780,7 @@ touchscreen:
                         last_browse_scroll = now_s;
                         id(music_browse_page) = next_pg;
                         id(fetch_music_browse).execute();
-                        id(disp1).update();
+                        pocket_ui::schedule_disp_update(&id(disp1));
                       }
                     }
                   }
@@ -3803,14 +3803,14 @@ touchscreen:
                   else if (slot_idx == 3) id(home_dock_games_switch).toggle();
                   else if (slot_idx == 4) id(home_dock_tools_switch).toggle();
                   pocket_ui::home_dock_page() = 0;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
                 if (is_back_button(touch) || touch.y <= 72) {
                   if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_home_tap = now_hm;
                     id(home_subpage) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -3823,7 +3823,7 @@ touchscreen:
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   id(home_subpage) = 1;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -3835,7 +3835,7 @@ touchscreen:
                   id(gui_page) = 4;
                   id(system_menu_mode) = 0;
                   id(system_dashboard_page) = 1;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -3850,7 +3850,7 @@ touchscreen:
                   apply_weather_sim_override(id(weather_sim_condition).current_option(), cond, is_night);
                   id(sky_weather_subpage) = is_night ? 3 : 2;
                   id(gui_page) = 5;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -3860,7 +3860,7 @@ touchscreen:
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   id(gui_page) = 0;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -3871,7 +3871,7 @@ touchscreen:
                   last_home_tap = now_hm;
                   id(sky_weather_subpage) = 0;
                   id(gui_page) = 5;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -3960,7 +3960,7 @@ touchscreen:
                       pocket_ui::home_activity_overlay_page() = 0;
                     }
                   }
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
 
@@ -3992,7 +3992,7 @@ touchscreen:
                   id(stuff_subpage) = 2;
                   id(alarm_edit_idx) = (s_idx >= 1 && s_idx <= 3) ? s_idx : 0;
                 }
-                id(disp1).update();
+                pocket_ui::schedule_disp_update(&id(disp1));
               };
 
               // SUBPAGE 2: TRANSLUCENT AUTO-CENTERED LIVE ACTIVITY OVERLAY TOUCH ROUTING
@@ -4002,7 +4002,7 @@ touchscreen:
                     last_home_tap = now_hm;
                     id(home_subpage) = 0;
                     pocket_ui::home_activity_overlay_page() = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4010,7 +4010,7 @@ touchscreen:
                   if (now_hm - last_home_tap > TOUCH_DEBOUNCE_SCROLL) {
                     last_home_tap = now_hm;
                     pocket_ui::home_activity_overlay_page() = (touch.y < 220) ? 0 : 1;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4036,7 +4036,7 @@ touchscreen:
                   last_home_tap = now_hm;
                   id(home_subpage) = 0;
                   pocket_ui::home_activity_overlay_page() = 0;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -4055,7 +4055,7 @@ touchscreen:
                     if (touch.x >= 360) {
                       pocket_ui::home_activity_overlay_page() = 0;
                       id(home_subpage) = 2;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                       return;
                     }
                     handle_activity_item_action(feat_idx, (touch.x >= 296));
@@ -4083,14 +4083,14 @@ touchscreen:
                   if (has_right_arr && touch.x >= 334) {
                     last_home_tap = now_hm;
                     pocket_ui::home_dock_page()++;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   }
                   // Check Left '<' Arrow tap (x <= 132 when has_left_arr)
                   if (has_left_arr && touch.x <= 132) {
                     last_home_tap = now_hm;
                     pocket_ui::home_dock_page()--;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   }
 
@@ -4121,7 +4121,7 @@ touchscreen:
                     id(remote_subpage) = 0;
                     id(stuff_subpage) = 0;
                     id(active_game) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                 }
                 return;
@@ -4138,7 +4138,7 @@ touchscreen:
                     if (now_mt - last_meta_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_meta_tap = now_mt;
                       id(music_overlay_mode) = 6;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   }
@@ -4151,7 +4151,7 @@ touchscreen:
                     last_hdr_tap = now_hdr;
                     id(music_direct_nav) = false;
                     id(music_overlay_mode) = 5;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4166,7 +4166,7 @@ touchscreen:
                   id(music_hud_timer) = millis();
                   hud_just_woken_time = millis();
                   id(hud_wake_finger_released) = false;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
 
@@ -4186,7 +4186,7 @@ touchscreen:
                     id(music_feedback_timer) = now_pp;
                     id(music_hud_timer) = now_pp;
                     id(toggle_ha_music).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4207,7 +4207,7 @@ touchscreen:
                     }
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4225,7 +4225,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_up).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4243,7 +4243,7 @@ touchscreen:
                     id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_down).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4261,7 +4261,7 @@ touchscreen:
                     id(music_direct_nav) = true;
                     id(music_overlay_mode) = 1;
                     id(fetch_music_browse).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4278,7 +4278,7 @@ touchscreen:
                     id(menu_scroll_step) = 0;
                     id(music_direct_nav) = true;
                     id(music_overlay_mode) = 2;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4302,7 +4302,7 @@ touchscreen:
                     }
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4315,7 +4315,7 @@ touchscreen:
                       if (now_dis - last_dismiss_tap > TOUCH_DEBOUNCE_DISMISS) {
                         last_dismiss_tap = now_dis;
                         id(music_hud_active) = false;
-                        id(disp1).update();
+                        pocket_ui::schedule_disp_update(&id(disp1));
                       }
                     }
                   }
@@ -4331,7 +4331,7 @@ touchscreen:
                     id(music_hud_active) = true;
                     id(music_hud_timer) = now_hub;
                     id(system_menu_mode) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4345,7 +4345,7 @@ touchscreen:
                     id(music_direct_nav) = false;
                     id(music_overlay_mode) = 1;
                     id(fetch_music_browse).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4358,7 +4358,7 @@ touchscreen:
                     id(menu_scroll_step) = 0;
                     id(music_direct_nav) = false;
                     id(music_overlay_mode) = 2;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4378,7 +4378,7 @@ touchscreen:
                     id(system_menu_mode) = 9;
                     id(audio_menu_parent_page) = 2;
                     id(menu_scroll_active) = false;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4401,7 +4401,7 @@ touchscreen:
                       id(target_speaker_id) = picked_id;
                       id(target_speaker_name) = picked_name;
                       id(music_overlay_mode) = 4;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                   }
                   return;
@@ -4413,7 +4413,7 @@ touchscreen:
                     else { id(music_overlay_mode) = 5; }
                     id(music_hud_active) = true;
                     id(music_hud_timer) = millis();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4436,7 +4436,7 @@ touchscreen:
                   id(music_browse_total_pages) = 1;
                   id(music_overlay_mode) = 3;
                   id(fetch_music_browse).execute();
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 };
                 static uint32_t last_cat_slot_tap = 0;
                 uint32_t now_cat = millis();
@@ -4459,7 +4459,7 @@ touchscreen:
                     id(menu_scroll_step) = 0;
                     id(music_hud_active) = true;
                     id(music_hud_timer) = millis();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4490,7 +4490,7 @@ touchscreen:
                         id(slot_5_name) = ""; id(slot_5_id) = "";
                         id(music_browse_page) = 1;
                         id(fetch_music_browse).execute();
-                        id(disp1).update();
+                        pocket_ui::schedule_disp_update(&id(disp1));
                       } else if (is_drill && touch.x <= 118) {
                         id(play_music_slot).execute(slot_num);
                       } else if (is_drill && touch.x > 118) {
@@ -4524,7 +4524,7 @@ touchscreen:
                         (id(selected_category_mode) == "artist_albums" && id(drilldown_parent_mode) == "track_inspector")) {
                       id(drilldown_parent_mode) = "";
                       id(music_overlay_mode) = 6;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                       return;
                     } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
                       id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
@@ -4543,7 +4543,7 @@ touchscreen:
                       id(menu_scroll_step) = 0;
                       id(music_overlay_mode) = 2;
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4600,7 +4600,7 @@ touchscreen:
                   if (now_sheet - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sheet;
                     id(music_overlay_mode) = 1;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4613,7 +4613,7 @@ touchscreen:
                     id(music_overlay_mode) = 0;
                     id(music_hud_active) = true;
                     id(music_hud_timer) = now_in;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4632,7 +4632,7 @@ touchscreen:
                     id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
                     id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4648,21 +4648,21 @@ touchscreen:
                       id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
                       id(music_pos_sync_time) = now_in;
                       id(music_seek_absolute).execute();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     } else if (touch.x > 382) {
                       float new_p = cur_pos + 15.0f;
                       if (!std::isnan(dur) && dur > 0.0f) new_p = std::min(dur, new_p);
                       id(music_pos_base) = new_p;
                       id(music_pos_sync_time) = now_in;
                       id(music_seek_absolute).execute();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     } else if (!std::isnan(dur) && dur > 0.0f) {
                       float frac = (static_cast<float>(touch.x) - 95.0f) / 276.0f;
                       frac = std::max(0.0f, std::min(1.0f, frac));
                       id(music_pos_base) = frac * dur;
                       id(music_pos_sync_time) = now_in;
                       id(music_seek_absolute).execute();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                   }
                   return;
@@ -4690,7 +4690,7 @@ touchscreen:
                     }
                     id(music_overlay_mode) = 3;
                     id(fetch_music_browse).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4719,7 +4719,7 @@ touchscreen:
                   if (now_gm - last_g_mute_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_g_mute_tap = now_gm;
                     id(game_sound_switch).toggle();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4741,7 +4741,7 @@ touchscreen:
                         id(speaker_enable).turn_off();
                       }
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4751,7 +4751,7 @@ touchscreen:
                     last_back_tap = now_touch;
                     id(active_game) = 0;
                     id(stop_alarm_sound).execute();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4808,7 +4808,7 @@ touchscreen:
                       } else if (item_idx == 7) {
                         id(system_menu_mode) = 8;
                       }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   }
                 }
@@ -4865,7 +4865,7 @@ touchscreen:
                     } else if (idx == 8) {
                       id(prevent_deep_sleep_switch).toggle();
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4876,7 +4876,7 @@ touchscreen:
                     id(sleep_menu_page) = 1;
                     id(menu_scroll_active) = false;
                     id(menu_scroll_step) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4968,7 +4968,7 @@ touchscreen:
                         id(sync_display_brightness).execute();
                       }
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4978,7 +4978,7 @@ touchscreen:
                     id(system_menu_mode) = 0;
                     id(display_menu_page) = 1;
                     id(menu_scroll_active) = false;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -4988,19 +4988,19 @@ touchscreen:
                   last_sys_action_tap = now_sys;
                   if (slot == 0) { id(trigger_screensaver_now).execute(); return; }
                   else if (slot == 1) { id(start_hibernation_countdown).execute(); return; }
-                  else if (slot == 2) { id(system_menu_mode) = 5; id(disp1).update(); return; }
+                  else if (slot == 2) { id(system_menu_mode) = 5; pocket_ui::schedule_disp_update(&id(disp1)); return; }
                   else if (slot == 3) {
                     if (id(ble_ctrl).is_active()) id(ble_ctrl).disable();
                     else id(ble_ctrl).enable();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
-                  } else if (slot == 4) { id(system_menu_mode) = 4; id(disp1).update(); return; }
+                  } else if (slot == 4) { id(system_menu_mode) = 4; pocket_ui::schedule_disp_update(&id(disp1)); return; }
                 }
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5009,7 +5009,7 @@ touchscreen:
                   if (touch.x >= 90 && touch.x <= 225) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 3;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   } else if (touch.x >= 240 && touch.x <= 375) {
                     last_sys_action_tap = now_sys;
@@ -5024,12 +5024,12 @@ touchscreen:
                     bool has_update = pocket_ui::is_newer_semver(id(ha_firmware_latest_version).state, "${version}");
                     if (has_update) {
                       id(system_menu_mode) = 6;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     } else if (id(update_check_state) == 0) {
                       id(update_check_state) = 1;
                       id(update_check_timer) = millis();
                       id(check_firmware_update).execute();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                   }
                   return;
@@ -5038,7 +5038,7 @@ touchscreen:
                     last_back_tap = now_sys;
                     id(update_check_state) = 0;
                     id(system_menu_mode) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5047,7 +5047,7 @@ touchscreen:
                   if (touch.x >= 90 && touch.x <= 225) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 5;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   } else if (touch.x >= 240 && touch.x <= 375) {
                     last_sys_action_tap = now_sys;
@@ -5065,7 +5065,7 @@ touchscreen:
                       float new_vol = step_wrap_range(id(pocket_music_player).volume, 0.10f, 0.10f, 0.90f);
                       id(pocket_music_player).volume = new_vol;
                       id(pocket_music_player).make_call().set_volume(new_vol).perform();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   } else if (slot_idx == 1) {
@@ -5076,7 +5076,7 @@ touchscreen:
                       int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 70 : (int)std::round(cur_a_f);
                       int nxt_a = (int)step_wrap_range((float)cur_a, 10.0f, 50.0f, 100.0f);
                       id(alert_volume).make_call().set_value((float)nxt_a).perform();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   } else if (slot_idx == 2) {
@@ -5085,14 +5085,14 @@ touchscreen:
                       int cur_sz = (int)std::round(id(volume_step_size).state);
                       int nxt_sz = (cur_sz < 5) ? 5 : ((cur_sz < 10) ? 10 : 2);
                       id(volume_step_size).make_call().set_value((float)nxt_sz).perform();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   } else if (slot_idx == 3) {
                     if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_sys_action_tap = now_sys;
                       id(game_sound_switch).toggle();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   }
@@ -5101,7 +5101,7 @@ touchscreen:
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5110,7 +5110,7 @@ touchscreen:
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5139,7 +5139,7 @@ touchscreen:
                     call.set_option(cycle_option(id(music_podcast_sort_order).current_option(), {"Newest on Top", "Oldest on Top"}));
                     call.perform();
                   }
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
                 if (is_back_button(touch)) {
@@ -5153,7 +5153,7 @@ touchscreen:
                     } else {
                       id(system_menu_mode) = 0;
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5165,31 +5165,31 @@ touchscreen:
                     auto call = id(va_wake_word_mode).make_call();
                     call.set_option(cycle_option(id(va_wake_word_mode).current_option(), {"Docked Only", "Always On", "Disabled"}));
                     call.perform();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   } else if (slot == 1) {
                     if (id(va_wake_word_mode).current_option() != "Disabled") {
                       auto call = id(va_active_wake_word).make_call();
                       call.set_option(cycle_option(id(va_active_wake_word).current_option(), {"Okay Nabu", "Hey Luna", "Hey Jarvis", "Hey Mycroft", "Alexa"}));
                       call.perform();
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   } else if (slot == 2) {
                     if (id(va_wake_word_mode).current_option() != "Disabled") {
                       id(system_menu_mode) = 12;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   } else if (slot == 3) {
                     auto call = id(va_visual_profile).make_call();
                     call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Jarvis", "Alexa", "Gemini"}));
                     call.perform();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   } else if (slot == 4) {
                     id(va_wake_screen_switch).toggle();
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   }
                 }
@@ -5197,7 +5197,7 @@ touchscreen:
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5226,14 +5226,14 @@ touchscreen:
                     call.set_option(cycle_option(id(ww_sens_alexa).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
                     call.perform();
                   }
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                   return;
                 }
                 if (is_back_button(touch)) {
                   if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_back_tap = now_sys;
                     id(system_menu_mode) = 11;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5255,7 +5255,7 @@ touchscreen:
                   if (id(sky_weather_subpage) != target) {
                     id(sky_weather_subpage) = target;
                     ESP_LOGI("touch", "Page 5 Icon Tap: x=%d target=%d", touch.x, target);
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                 }
                 return;
@@ -5277,7 +5277,7 @@ touchscreen:
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
                     id(remote_send_key).execute(9, -1);
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5295,7 +5295,7 @@ touchscreen:
                         id(active_remote_slot) = s_idx;
                         id(remote_action_feedback) = "";
                         id(remote_subpage) = 0;
-                        id(disp1).update();
+                        pocket_ui::schedule_disp_update(&id(disp1));
                       }
                       return;
                     }
@@ -5303,7 +5303,7 @@ touchscreen:
                       if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_remote_btn_tap = now_rem;
                         id(remote_send_key).execute(9, s_idx);
-                        id(disp1).update();
+                        pocket_ui::schedule_disp_update(&id(disp1));
                       }
                       return;
                     }
@@ -5315,7 +5315,7 @@ touchscreen:
                     last_remote_btn_tap = now_rem;
                     id(remote_action_feedback) = "";
                     id(remote_subpage) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5330,7 +5330,7 @@ touchscreen:
                   last_remote_btn_tap = now_rem;
                   id(remote_action_feedback) = "";
                   id(remote_subpage) = 1;
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -5344,7 +5344,7 @@ touchscreen:
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(4, act_slot);
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -5357,7 +5357,7 @@ touchscreen:
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(6, act_slot);
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -5367,7 +5367,7 @@ touchscreen:
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(7, act_slot);
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -5377,7 +5377,7 @@ touchscreen:
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(5, act_slot);
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -5387,7 +5387,7 @@ touchscreen:
                 if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_RAPID) {
                   last_remote_btn_tap = now_rem;
                   id(remote_send_key).execute(8, act_slot);
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -5398,7 +5398,7 @@ touchscreen:
                   last_remote_btn_tap = now_rem;
                   int k_dir = (abs(dy) >= abs(dx)) ? ((dy < 0) ? 0 : 1) : ((dx < 0) ? 2 : 3);
                   id(remote_send_key).execute(k_dir, act_slot);
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               }
@@ -5455,7 +5455,7 @@ touchscreen:
                       id(calc_op) = 0;
                       id(calc_new_entry) = true;
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5477,7 +5477,7 @@ touchscreen:
                     } else {
                       id(stuff_subpage) = 0;
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5511,7 +5511,7 @@ touchscreen:
                       } else {
                         view_idx = card_i + 1;
                       }
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   }
@@ -5539,7 +5539,7 @@ touchscreen:
                       s.target_ms = now_stuff + static_cast<uint32_t>(s.remaining_sec) * 1000U;
                     }
                     pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5554,14 +5554,14 @@ touchscreen:
                       else if (touch.x >= 329 && touch.x <= 421) s.duration_sec = clamp(s.duration_sec + 300, 60, 3600);
                       s.remaining_sec = s.duration_sec;
                       pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                       return;
                     } else if (touch.x >= 150 && touch.x <= 316) {
                       s.running = false;
                       s.paused = false;
                       s.remaining_sec = s.duration_sec;
                       pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                       return;
                     }
                   }
@@ -5576,7 +5576,7 @@ touchscreen:
                       s.duration_sec = (s_idx + 1) * 300;
                       s.remaining_sec = s.duration_sec;
                       pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                   }
                   return;
@@ -5596,7 +5596,7 @@ touchscreen:
                     } else {
                       id(stuff_subpage) = 0;
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5612,7 +5612,7 @@ touchscreen:
                       last_stuff_tap = now_stuff;
                       if (id(alarm_snooze_until) > 0 && (id(alarm_ringing_idx) == card_i || id(alarm_ringing_idx) == 0)) {
                         id(alarm_snooze_until) = 0;
-                        id(disp1).update();
+                        pocket_ui::schedule_disp_update(&id(disp1));
                         return;
                       }
                       if (touch.x >= 298) {
@@ -5629,7 +5629,7 @@ touchscreen:
                       } else {
                         id(alarm_edit_idx) = card_i;
                       }
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   }
@@ -5642,10 +5642,10 @@ touchscreen:
                   if (touch.y >= 204 && touch.y <= 268) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_stuff_tap = now_stuff;
-                      if (touch.x >= 45 && touch.x < 137) { cur_h = (cur_h - 1 + 24) % 24; id(disp1).update(); return; }
-                      else if (touch.x >= 137 && touch.x < 233) { cur_h = (cur_h + 1) % 24; id(disp1).update(); return; }
-                      else if (touch.x >= 233 && touch.x < 329) { cur_m = (cur_m - 5 + 60) % 60; id(disp1).update(); return; }
-                      else if (touch.x >= 329 && touch.x <= 421) { cur_m = (cur_m + 5 + 60) % 60; id(disp1).update(); return; }
+                      if (touch.x >= 45 && touch.x < 137) { cur_h = (cur_h - 1 + 24) % 24; pocket_ui::schedule_disp_update(&id(disp1)); return; }
+                      else if (touch.x >= 137 && touch.x < 233) { cur_h = (cur_h + 1) % 24; pocket_ui::schedule_disp_update(&id(disp1)); return; }
+                      else if (touch.x >= 233 && touch.x < 329) { cur_m = (cur_m - 5 + 60) % 60; pocket_ui::schedule_disp_update(&id(disp1)); return; }
+                      else if (touch.x >= 329 && touch.x <= 421) { cur_m = (cur_m + 5 + 60) % 60; pocket_ui::schedule_disp_update(&id(disp1)); return; }
                     }
                   }
 
@@ -5653,7 +5653,7 @@ touchscreen:
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       cur_rec = (cur_rec + 1) % 4;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   }
@@ -5670,7 +5670,7 @@ touchscreen:
                     } else {
                       id(stuff_subpage) = 0;
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5686,7 +5686,7 @@ touchscreen:
                       last_lap_tap = now_chrono_tap;
                       if (id(stopwatch_running)) id(stopwatch_lap_ms) = now_chrono_tap - id(stopwatch_start_time);
                       else if (id(stopwatch_elapsed_ms) > 0) id(stopwatch_lap_ms) = id(stopwatch_elapsed_ms);
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   } else {
@@ -5695,7 +5695,7 @@ touchscreen:
                       id(stopwatch_running) = false;
                       id(stopwatch_elapsed_ms) = 0;
                       id(stopwatch_lap_ms) = 0;
-                      id(disp1).update();
+                      pocket_ui::schedule_disp_update(&id(disp1));
                     }
                     return;
                   }
@@ -5710,7 +5710,7 @@ touchscreen:
                       id(stopwatch_running) = false;
                       id(stopwatch_elapsed_ms) = now_chrono_tap - id(stopwatch_start_time);
                     }
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5719,7 +5719,7 @@ touchscreen:
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(stuff_subpage) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5731,7 +5731,7 @@ touchscreen:
                     id(dice_anim_start_ms) = millis();
                     id(dice_val_d6) = (esp_random() % 6) + 1;
                     id(dice_val_d6_2) = (esp_random() % 6) + 1;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                 }
               } else if (id(stuff_subpage) == 5) {
@@ -5739,7 +5739,7 @@ touchscreen:
                   last_stuff_tap = now_stuff;
                   id(stuff_subpage) = 0;
                   id(sync_display_brightness).execute();
-                  id(disp1).update();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
                 return;
               } else if (id(stuff_subpage) == 6) {
@@ -5752,7 +5752,7 @@ touchscreen:
                     id(calc_prev_val) = 0.0f;
                     id(calc_op) = 0;
                     id(calc_new_entry) = true;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5881,7 +5881,7 @@ touchscreen:
                       }
                     }
 
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5890,7 +5890,7 @@ touchscreen:
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(stuff_subpage) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5899,7 +5899,7 @@ touchscreen:
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     id(stuff_subpage) = 0;
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
                 }
@@ -5910,7 +5910,7 @@ touchscreen:
                     id(coin_anim_active) = true;
                     id(coin_anim_start_ms) = millis();
                     id(coin_side) = (esp_random() % 2);
-                    id(disp1).update();
+                    pocket_ui::schedule_disp_update(&id(disp1));
                   }
                 }
               }

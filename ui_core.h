@@ -471,12 +471,13 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
   int end_y = is_letterbox ? 385 : 466;
   int scrim_end = is_letterbox ? 398 : 405;
 
-  // Direct Circular Row-Pointer Scanline Blitter for 466x466 Album Art:
+  // Direct Circular Row-Pointer Scanline Blitter for 466x466 (Sendspin) & 233x233 (Online Image) Art:
   //   - Eliminates it.image(0, 0, target_art)'s 217,156 virtual get_pixel() calls
   //   - Clips strictly to CIRCLE_HW[y] (skipping 46,500 out-of-bezel corner pixels)
   //   - When apply_scrim or metadata scrim is active, skips odd scanlines completely (0 reads, 0 writes,
   //     since mipi_spi pre-clears the framebuffer to black!) — cutting scrimmed HUD blit work by >60%!
-  if (src_w == 466 && src_h == 466) {
+  if ((src_w == 466 && src_h == 466) || (src_w == 233 && src_h == 233)) {
+    const bool is_half = (src_w == 233);
     for (int y = start_y; y < end_y; y++) {
       bool row_scrim = apply_scrim || (show_metadata && y >= 340 && y < scrim_end);
       if (row_scrim && ((y & 1) != 0)) {
@@ -485,16 +486,16 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
       int hw = CIRCLE_HW[y];
       int start_x = cx - hw;
       int end_x = cx + hw;
-      const uint16_t *src_row = src_data + y * 466;
+      const uint16_t *src_row = src_data + (is_half ? ((y >> 1) * 233) : (y * 466));
       int x = start_x;
       while (x <= end_x) {
-        uint16_t p = src_row[x];
+        uint16_t p = src_row[is_half ? (x >> 1) : x];
         if (p == 0) {
           x++;
           continue;
         }
         int run_start = x++;
-        while (x <= end_x && src_row[x] == p) {
+        while (x <= end_x && src_row[is_half ? (x >> 1) : x] == p) {
           x++;
         }
         esphome::Color col(
@@ -860,6 +861,24 @@ inline const char *cycle_option(const CurT &cur, std::initializer_list<const cha
   return (opts.size() > 0) ? *opts.begin() : "";
 }
 
+
+// Schedules an immediate (0ms) display update on the Display component itself so that
+// touchscreen, interval, and api callbacks return in <1ms and the QSPI frame render is
+// attributed to Display (140ms budget) instead of a 50ms non-display component.
+struct DisplayUpdateScheduler : public esphome::Component {
+  template<typename DispT>
+  static void request(DispT *disp) {
+    if (disp != nullptr) {
+      static_cast<DisplayUpdateScheduler *>(static_cast<esphome::Component *>(disp))
+          ->set_timeout(" async_draw", 0, [disp]() { disp->update(); });
+    }
+  }
+};
+
+template<typename DispT>
+inline void schedule_disp_update(DispT *disp) {
+  DisplayUpdateScheduler::request(disp);
+}
 
 // ------------------------------------------------------------------------------
 
