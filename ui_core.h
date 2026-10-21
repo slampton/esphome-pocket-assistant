@@ -867,17 +867,23 @@ inline const char *cycle_option(const CurT &cur, std::initializer_list<const cha
 // attributed to Display (140ms budget) instead of a 50ms non-display component.
 struct DisplayUpdateScheduler : public esphome::Component {
   template<typename DispT>
-  static void request(DispT *disp) {
+  static void request_ptr(DispT *disp) {
     if (disp != nullptr) {
-      static_cast<DisplayUpdateScheduler *>(static_cast<esphome::Component *>(disp))
-          ->set_timeout(" async_draw", 0, [disp]() { disp->update(); });
+      auto *comp = static_cast<esphome::Component *>(disp);
+      static_cast<DisplayUpdateScheduler *>(comp)->set_timeout(
+          "async_draw", 0, [disp]() { disp->update(); });
     }
   }
 };
 
 template<typename DispT>
 inline void schedule_disp_update(DispT *disp) {
-  DisplayUpdateScheduler::request(disp);
+  DisplayUpdateScheduler::request_ptr(disp);
+}
+
+template<typename DispT>
+inline void schedule_disp_update(DispT *const *disp_ptr) {
+  if (disp_ptr != nullptr) DisplayUpdateScheduler::request_ptr(*disp_ptr);
 }
 
 // ------------------------------------------------------------------------------
