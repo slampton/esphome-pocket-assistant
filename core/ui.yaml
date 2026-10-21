@@ -1008,7 +1008,7 @@ select:
       - lambda: |-
           if (id(display_power_state) == 1 && id(screensaver_style_select).current_option() == "Screen Off") {
             id(turn_screen_off).execute();
-          } else {
+          } else if (id(display_power_state) == 1) {
             id(disp1).update();
           }
 
@@ -2291,6 +2291,7 @@ script:
           condition:
             lambda: 'return id(va_resume_music_after);'
           then:
+            - script.execute: mp_idle_debounce
             - lambda: |-
                 id(va_resume_music_after) = false;
                 ESP_LOGI("audio", "resume_music_after_va: restoring playback for %s (cancelled=%d)", id(active_speaker_entity).c_str(), id(va_was_cancelled));
