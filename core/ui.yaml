@@ -4006,10 +4006,10 @@ touchscreen:
                 int start_i = pocket_ui::home_activity_overlay_page() * 5;
                 int vis_cnt = std::min(5, act_count - start_i);
                 int hit_row = -1;
-                if (touch.x >= 70 && touch.x <= 396 && vis_cnt > 0) {
+                if (touch.x >= 90 && touch.x <= 376 && vis_cnt > 0) {
                   for (int r = 0; r < vis_cnt; r++) {
                     int cy_r = pocket_ui::get_activity_overlay_card_y(vis_cnt, r);
-                    if (touch.y >= cy_r - 32 && touch.y <= cy_r + 32) {
+                    if (touch.y >= cy_r - 28 && touch.y <= cy_r + 32) {
                       hit_row = r;
                       break;
                     }
@@ -4017,7 +4017,7 @@ touchscreen:
                 }
                 if (hit_row >= 0 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   last_home_tap = now_hm;
-                  handle_activity_item_action(start_i + hit_row, (touch.x >= 332));
+                  handle_activity_item_action(start_i + hit_row, (touch.x >= 320));
                   return;
                 }
                 // Tapping outside the centered cards on the translucent scrim dismisses the overlay!

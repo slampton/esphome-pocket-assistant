@@ -2517,10 +2517,12 @@ inline int resolve_home_featured_activity_idx(const HomeActivityItem items[8], i
   return deck_indices[rot_slot];
 }
 
-// Helper to compute auto-centered y_mid coordinates for 1..5 overlay cards around cy_center = 216 (66px stride: h=54 + 12px gap)
+// Helper to compute auto-centered y_mid coordinates for 1..5 overlay cards using our exact
+// System Menu standard: h = 44px, r = 12, STRIDE = 63px (19px gap!), centered at CENTER_Y = 236
+// (so 5 items sit at {110, 173, 236, 299, 362} — 100% identical to System Menu!).
 inline int get_activity_overlay_card_y(int vis_count, int row_idx) {
-  static constexpr int STRIDE = 66;
-  static constexpr int CENTER_Y = 216;
+  static constexpr int STRIDE = 63;
+  static constexpr int CENTER_Y = 236;
   int total_span = (vis_count - 1) * STRIDE;
   int start_y = CENTER_Y - (total_span / 2);
   return start_y + row_idx * STRIDE;
@@ -2543,13 +2545,14 @@ inline void draw_home_activity_row_contents(
   // On Home (is_list_row == false), the card spans w = 380px (x = 43..423, ~30px inside the bezel):
   //   - When 2+ active (has_dropdown_ext): Left body x=43..295 (gx=72, txt_x=94, max_w=194), Play/Pause at 328, Dropdown '▼' at 391
   //   - When 1 active (!has_dropdown_ext): Left body x=43..355 (gx=72, txt_x=94, max_w=252), Play/Pause at 389
-  // On the translucent overlay (is_list_row == true), cards are w = 316, h = 54, r = 14 (x = 75..391):
-  //   - Icon at gx = 98, Text at txt_x = 116 (max_w = 204), Divider at 332, Action Circle at act_bx = 361 (r = 16)
-  const int gx      = is_list_row ?  98 : 72;
-  const int txt_x   = is_list_row ? 116 : 94;
-  const int max_txt = is_list_row ? 204 : (has_dropdown_ext ? 194 : 252);
-  const int act_bx  = is_list_row ? 361 : (has_dropdown_ext ? 328 : 389);
-  const int btn_r   = is_list_row ?  16 : 19;
+  // On the translucent overlay (is_list_row == true), cards use the exact System Menu standard:
+  //   - w = 276, h = 44, r = 12 (x = 95..371, 63px stride = 19px clear gap!)
+  //   - Icon at gx = 113, Text at txt_x = 128 (max_w = 186), Divider at 320, Action Circle at act_bx = 346 (r = 13)
+  const int gx      = is_list_row ? 113 : 72;
+  const int txt_x   = is_list_row ? 128 : 94;
+  const int max_txt = is_list_row ? 186 : (has_dropdown_ext ? 194 : 252);
+  const int act_bx  = is_list_row ? 346 : (has_dropdown_ext ? 328 : 389);
+  const int btn_r   = is_list_row ?  13 : 19;
 
   int gy = row_y;
   if (is_list_row) {
@@ -2665,11 +2668,11 @@ inline void render_home_activity_card_row(
     esphome::Color card_bg = esphome::Color(22, 27, 36),
     esphome::Color card_brd = esphome::Color(52, 62, 78),
     esphome::Color btn_bg = esphome::Color(32, 39, 52)) {
-  const int card_w  = is_list_row ? 316 : 380;
-  const int card_h  = is_list_row ?  54 : 68;
-  const int card_r  = is_list_row ?  14 : 16;
-  const int div1_x  = is_list_row ? 332 : (has_dropdown_ext ? 296 : 356);
-  const int div_h   = is_list_row ?  18 : 23;
+  const int card_w  = is_list_row ? 276 : 380;
+  const int card_h  = is_list_row ?  44 : 68;
+  const int card_r  = is_list_row ?  12 : 16;
+  const int div1_x  = is_list_row ? 320 : (has_dropdown_ext ? 296 : 356);
+  const int div_h   = is_list_row ?  14 : 23;
   const int div2_x  = 360;
   const int drop_bx = 391;
 
@@ -2891,31 +2894,50 @@ inline void render_home_page(
       now.is_valid() ? now.minute : -1);
 
   // ---------------------------------------------------------------------------
-  // SUBPAGE 0: MAIN INTERACTIVE HOME DASHBOARD
+  // SUBPAGE 0 (MAIN HOME) & SUBPAGE 2 (TRANSLUCENT ACTIVITY OVERLAY BACKDROP)
   // ---------------------------------------------------------------------------
   std::string cond = weather_cond_raw;
   bool is_night = (sun_state == "below_horizon" || cond == "clear-night" ||
                    cond == "clearnight" || (cond.find("night") != std::string::npos));
   apply_weather_sim_override(weather_sim_opt, cond, is_night);
 
+  const bool is_dim_backdrop = (home_subpage == 2);
+
   if (show_weather_bg) {
-    double moon_cycle = 0.5;
-    if (is_night) {
-      compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
-                                 moon_phase_raw, moon_cycle, nullptr, nullptr);
+    if (is_dim_backdrop) {
+      // Ultra-dim (~14% luminance) sky canvas when the Activity Overlay is open (zero interlace stripes!)
+      if (!is_night) {
+        it.filled_circle(cx, cy, 228, Color(4, 8, 13));
+      }
+      // Subtle 14%-bright sun/moon silhouette at (360, 86)
+      it.filled_circle(360, 86, 20, is_night ? Color(22, 24, 28) : Color(36, 30, 8));
+    } else {
+      double moon_cycle = 0.5;
+      if (is_night) {
+        compute_synodic_moon_phase(now.is_valid(), now.is_valid() ? static_cast<int64_t>(now.timestamp) : 0LL,
+                                   moon_phase_raw, moon_cycle, nullptr, nullptr);
+      }
+      // Sweet-spot celestial coordinates (360, 86): splits the gap between 4-digit time (10:15) and the right bezel
+      render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
+                                      moon_cycle, 360, 86, true, accel_x, accel_y);
     }
-    // Sweet-spot celestial coordinates (360, 86): splits the gap between 4-digit time (10:15) and the right bezel
-    render_weather_motion_wallpaper(it, cx, cy, now_ms, cond, is_night,
-                                    moon_cycle, 360, 86, true, accel_x, accel_y);
   }
+
+  // Smooth 14%-luminance ghost colors when home_subpage == 2 (zero scanline/interlace artifacts!)
+  const Color fg_home_white = is_dim_backdrop ? Color(34, 38, 44) : col_white;
+  const Color fg_home_cond  = is_dim_backdrop
+                                  ? Color(30, 34, 40)
+                                  : ((!show_weather_bg || is_night) ? theme_secondary : Color(255, 225, 110));
 
   // ZONE 1 (y = 52): Centered Date Header in font_date (27pt, blank until HA time syncs!)
   if (now.is_valid()) {
     char date_bar[32];
     TimeT now_copy = now;
     now_copy.strftime(date_bar, sizeof(date_bar), "%a, %b %d");
-    it.print(cx + 1, 53, font_date, col_black, TextAlign::CENTER, date_bar);
-    it.print(cx,     52, font_date, col_white, TextAlign::CENTER, date_bar);
+    if (!is_dim_backdrop) {
+      it.print(cx + 1, 53, font_date, col_black, TextAlign::CENTER, date_bar);
+    }
+    it.print(cx, 52, font_date, fg_home_white, TextAlign::CENTER, date_bar);
   }
 
   // ZONE 2 (y = 128): Hero Digital Clock (77pt Roboto, "--:--" until time syncs, Tap -> Clock)
@@ -2923,8 +2945,10 @@ inline void render_home_page(
   if (now.is_valid()) {
     format_time_hhmm(now.hour, now.minute, is_24h_format, time_str, sizeof(time_str));
   }
-  it.print(cx + 1, 129, font_time, col_black, TextAlign::CENTER, time_str);
-  it.print(cx,     128, font_time, col_white, TextAlign::CENTER, time_str);
+  if (!is_dim_backdrop) {
+    it.print(cx + 1, 129, font_time, col_black, TextAlign::CENTER, time_str);
+  }
+  it.print(cx, 128, font_time, fg_home_white, TextAlign::CENTER, time_str);
 
   // ZONE 3 (y = 200): Stepped-Up Weather Summary in font_date (27pt, blank until weather arrives!)
   std::string cond_title = format_weather_title(cond);
@@ -2933,9 +2957,10 @@ inline void render_home_page(
     char w_line[64];
     snprintf(w_line, sizeof(w_line), "%.0f° • %s", weather_temp, cond_title.c_str());
     std::string fit_w = fit_text_to_width_font(std::string(w_line), 340, font_date);
-    Color cond_col = (!show_weather_bg || is_night) ? theme_secondary : Color(255, 225, 110);
-    it.print(cx + 1, 201, font_date, col_black, TextAlign::CENTER, fit_w.c_str());
-    it.print(cx,     200, font_date, cond_col,  TextAlign::CENTER, fit_w.c_str());
+    if (!is_dim_backdrop) {
+      it.print(cx + 1, 201, font_date, col_black, TextAlign::CENTER, fit_w.c_str());
+    }
+    it.print(cx, 200, font_date, fg_home_cond, TextAlign::CENTER, fit_w.c_str());
   }
 
   // TRANSIENT WAKE GREETING LATCH (8.0s Full Brightness + 2.5s Smooth Fade-Out = 10.5s Total)
@@ -3211,27 +3236,33 @@ inline void render_home_page(
       }
     };
 
+    const Color dock_ring_c = is_dim_backdrop ? Color(18, 22, 28) : Color(95, 118, 148);
+    const Color dock_fg_c   = is_dim_backdrop ? Color(34, 38, 44) : col_white;
     for (int i = 0; i < vis_count; i++) {
       int bx = win_xs[i];
       int app_id = dock_apps[start_idx + i];
-      it.circle(bx + 1, dock_y + 1, dock_r, col_black);
-      it.circle(bx,     dock_y,     dock_r, Color(95, 118, 148));
-      draw_dock_glyph(app_id, bx + 1, dock_y + 1, col_black, true);
-      draw_dock_glyph(app_id, bx,     dock_y,     col_white, false);
+      if (!is_dim_backdrop) {
+        it.circle(bx + 1, dock_y + 1, dock_r, col_black);
+      }
+      it.circle(bx, dock_y, dock_r, dock_ring_c);
+      if (!is_dim_backdrop) {
+        draw_dock_glyph(app_id, bx + 1, dock_y + 1, col_black, true);
+      }
+      draw_dock_glyph(app_id, bx, dock_y, dock_fg_c, false);
     }
 
     // Pointier, Outward-Shifted Horizontal Dock Chevron ('>' at x = 370 on Page 0; '<' at x = 96 on Page 1)
     auto draw_horiz_dock_chevron = [&](int ax, int ay, bool point_right) {
       int x_tail = point_right ? (ax - 5) : (ax + 5);
       int x_tip  = point_right ? (ax + 6) : (ax - 6);
-      // 1px black drop shadow
-      for (int w = -1; w <= 1; w++) {
-        it.line(x_tail + w + 1, ay - 8 + 1, x_tip + w + 1, ay + 1, col_black);
-        it.line(x_tail + w + 1, ay + 8 + 1, x_tip + w + 1, ay + 1, col_black);
+      if (!is_dim_backdrop) {
+        for (int w = -1; w <= 1; w++) {
+          it.line(x_tail + w + 1, ay - 8 + 1, x_tip + w + 1, ay + 1, col_black);
+          it.line(x_tail + w + 1, ay + 8 + 1, x_tip + w + 1, ay + 1, col_black);
+        }
       }
-      // Bold, sharp white chevron with acute 11px-run x 8px-rise point
       for (int w = -1; w <= 1; w++) {
-        Color c = (w == 0) ? col_white : theme_secondary;
+        Color c = is_dim_backdrop ? dock_fg_c : ((w == 0) ? col_white : theme_secondary);
         it.line(x_tail + w, ay - 8, x_tip + w, ay, c);
         it.line(x_tail + w, ay + 8, x_tip + w, ay, c);
       }
@@ -3329,28 +3360,20 @@ inline void render_home_page(
 
   // ---------------------------------------------------------------------------
   // SUBPAGE 2: TRANSLUCENT AUTO-CENTERED LIVE ACTIVITY OVERLAY
-  //   - Darkens the live Home screen underneath by ~75% (fast scanline scrim)
-  //   - No title; auto-centers 1..5 cards (w = 316, h = 54, r = 14, 66px stride)
+  //   - Background Home elements are already rendered in smooth ~14% ghost tones (zero interlace stripes!)
+  //   - No title; auto-centers 1..5 standard System-sized cards (w = 276, h = 44, r = 12, 63px stride = 19px gap!)
   //   - Supports Page 1 / Page 2 via right-flank ▲ / ▼ chevron if >5 items are active!
   // ---------------------------------------------------------------------------
   if (home_subpage == 2) {
-    // 1. 75% Darkened Translucent Scrim (blackens 3 out of every 4 rows + even columns on the 4th row)
-    for (int y = 0; y < 466; y++) {
-      int hw = CIRCLE_HW[y];
-      if ((y & 3) != 0) {
-        it.horizontal_line(cx - hw, y, 2 * hw + 1, col_black);
-      } else {
-        for (int x = cx - hw; x <= cx + hw; x += 2) {
-          it.draw_pixel_at(x, y, col_black);
-        }
-      }
-    }
+    // Clear bottom chin behind "< Back" so it replaces the battery/gear cleanly
+    it.filled_rectangle(130, 404, 206, 44, show_weather_bg && !is_night ? Color(4, 8, 13) : col_black);
 
-    Color ov_bg, ov_brd, ov_btn;
-    resolve_home_card_palette(show_weather_bg, is_night, cond, ov_bg, ov_brd, ov_btn);
+    Color ov_bg(22, 27, 36);
+    Color ov_brd(52, 62, 78);
+    Color ov_btn(32, 39, 52);
 
     if (act_count <= 0) {
-      it.print(cx, 216, font_small, col_slate, TextAlign::CENTER, "No active activities");
+      it.print(cx, 236, font_small, col_slate, TextAlign::CENTER, "No active activities");
     } else {
       int total_pages = (act_count > 5) ? 2 : 1;
       if (home_activity_overlay_page() >= total_pages) home_activity_overlay_page() = 0;
@@ -3376,8 +3399,6 @@ inline void render_home_page(
       }
     }
 
-    // Clear bottom chin area behind "< Back" so it doesn't overlap the dimmed battery/gear
-    it.filled_rectangle(140, 404, 186, 42, col_black);
     render_back_button(it, cx, font_small, 426, "< Back");
   }
 }
