@@ -43,7 +43,7 @@
 ### 1.5 Audio Subsystem
 * **DAC**: Everest Semiconductor ES8311 (`Address: 0x18`, Mono Speaker DAC).
 * **ADC**: Everest Semiconductor ES7210 (`Address: 0x40`, Dual-channel Microphone ADC @ 16 kHz, 37.5 dB gain).
-* **Bus**: Dual I2S Audio Bus with shared clock lines (`LRCK: GPIO45`, `BCLK: GPIO9`, `MCLK: GPIO16`) dynamically switched at runtime via HAL scripts (`hal_route_i2s_to_spk` / `hal_route_i2s_to_mic`).
+* **Bus**: Half-Duplex Dual I2S Audio Bus with shared clock lines (`LRCK: GPIO45`, `BCLK: GPIO9`, `MCLK: GPIO16`) dynamically multiplexed at runtime via HAL scripts (`hal_route_i2s_to_spk` / `hal_route_i2s_to_mic`). On-board `micro_wake_word` is automatically armed when the local speaker is idle (including during remote speaker control) and paused while local audio or game SFX are playing out of the ES8311 DAC; pressing the side button (`GPIO0`) during local playback pauses music, routes I2S to the microphone for Assist, and auto-resumes playback after TTS completes.
 * **Speaker Output (DOUT)**: `GPIO8` (`physical_speaker`, driven via FreeRTOS `resampler` + `mixer` pipeline with PSRAM task stacks, 15s `announcement_mixing_input`, and `microFLAC v0.3.0` PSRAM decode buffers).
 * **Microphone Input (DIN)**: `GPIO10` (`pocket_mic`).
 * **Amp Enable (PA_EN)**: `GPIO46` (`speaker_enable`).
