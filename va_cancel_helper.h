@@ -18,9 +18,10 @@ static_assert(ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 10, 0),
 // micro_wake_word configuration + NVS flash persistence:
 //   1. disarm_va_speaker_timeout(va)
 //   2. reset_va_session_state(va)
-// //   4. abort_voice_assistant(va)
-//   5. ensure_wake_words_restored(va) & poll_and_persist_wake_words(va)
-//   6. on_api_client_authenticated(va, client_info, client_address)
+//   3. abort_voice_assistant(va)
+//   4. ensure_wake_words_restored(va) & poll_and_persist_wake_words(va)
+//   5. on_api_client_authenticated(va, client_info, client_address)
+//   6. clean_disconnect_api_before_hibernate(va)
 // ==============================================================================
 
 template<typename Tag, typename Tag::type M>

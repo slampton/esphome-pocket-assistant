@@ -27,7 +27,7 @@
 * **Controller**: Hynitron CST9220 (`id: touch_screen` in `boards/waveshare_175c.yaml`, extended via `!extend touch_screen` in `core/ui.yaml`).
 * **Bus**: I2C `bus_internal` (`SDA: GPIO15`, `SCL: GPIO14` @ 400 kHz).
 * **Interrupt & Reset**: `INT: GPIO11` (`INPUT_PULLUP`), `RST: GPIO2` (Active Low).
-* **Sampling Rate**: 30 Hz (33ms cycle) with standardized debounce constants (`TOUCH_DEBOUNCE_RAPID = 100ms`, `TOUCH_DEBOUNCE_BUTTON = 150ms`, `TOUCH_DEBOUNCE_SCROLL = 250ms` in `ui_core.h`) and focused chin `"Home"` / `"< Back"` hit zone (`y in [402..465]`, `x in [155..311]`).
+* **Sampling Rate**: 30 Hz (33ms cycle) with standardized debounce constants (`TOUCH_DEBOUNCE_RAPID = 100ms`, `TOUCH_DEBOUNCE_BUTTON = 150ms`, `TOUCH_DEBOUNCE_SCROLL = 250ms` in `ui_core.h`) and focused chin `"Home"` / `"< Back"` hit zone (`y in [405..465]`, `x in [140..326]`).
 
 ### 1.4 Power Management (PMIC) & Battery Fuel Gauge
 * **Controller**: X-Powers AXP2101 PMIC (`Address: 0x34` on `bus_internal`).
@@ -100,18 +100,18 @@ All Home Assistant backend entities are consolidated into a single drop-in packa
 
 ## 4. Hub-and-Spoke Application Architecture (8 Core Pages)
 
-Pocket Assistant v2.0 uses a hub-and-spoke navigation model anchored on the **Interactive Home Hub (`gui_page == 1`, default Start Screen)** with a universal low-profile **`< BACK`** chin target (`y = 426`):
+Pocket Assistant v2.0 uses a hub-and-spoke navigation model anchored on the **Interactive Home Hub (`gui_page == 1`, default Start Screen)** with a contextual low-profile **`Home`** / **`< Back`** chin target (`y = 426`):
 
 | Page (`gui_page`) | Application Name | Primary Function & Controls |
 | :--- | :--- | :--- |
-| **1** | **Home Hub (Default)** | 20 FPS live weather motion wallpaper (`Home: Weather Background`), date header (`y = 52` -> `HOME SETTINGS`), 77pt hero time (`y = 128` -> `Clock`), weather summary (`y = 200` -> `Sky & Weather`), Smart Live Activity Stack (`y = 264` for active Timer, Stopwatch, Music, Alarm), 4-icon Quick-Launch Dock (`y = 356`), and bottom chin Battery + Settings Gear (`y = 424` -> `System Hub`). |
-| **0** | **Clock** | Analog (`.rodata` LUT sword hands) and digital watch faces, 12h/24h time format, date, battery fuel gauge (`y = 348`), and `"HOME"` chin return (`y = 408`). |
+| **1** | **Home Hub (Default)** | 20 FPS live weather motion wallpaper (`Home: Weather Background`), date header (`y = 52` -> `HOME SETTINGS`), Sun/Moon shortcut (`360, 86`), 77pt hero time (`y = 128` -> `Clock`), weather summary (`y = 200` -> `Sky & Weather`), Wake Greeting & Smart Live Activity Card (`y = 271` with 8.0s upward carousel reel + translucent overlay `home_subpage == 2`), 3-Icon Sliding Window Dock (`y = 352`, `r = 29`), and unified bottom chin Battery + 8-sprocket Settings Gear (`y = 421` -> `System Hub`). |
+| **0** | **Clock** | Analog (`.rodata` LUT sword hands) and digital watch faces, 12h/24h time format, date, battery fuel gauge (`y = 348`), and `"Home"` chin return (`y = 408`). |
 | **2** | **Music Player** | Full-bleed AMOLED album art, 5.0s auto-fading HUD, Track & Album Inspector (`Mode 6` with equator scrubber, `-15s/+15s` seek, album tracks, artist discography, and queue), and 5-slot Music Assistant browser. |
-| **7** | **TV Remote** | Universal 4-device media remote (`tv_remote_entity`..`4`) with independent per-slot platform profiles (`Remote: Slot 1..4 Profile`, defaulting to `"Auto-Detect"`), Slot-1 Master Power, per-device power overrides, radial `r <= 146 px` D-pad, and 7 native protocol engines (Android TV/Shield, Denon/Marantz AVR, LG webOS, Apple TV, Roku, Samsung TV, Custom). |
-| **5** | **Sky & Weather** | 20 FPS meteorological & astronomical suite (`render_weather_page`) with live weather motion wallpaper, `-5px` optical hero temp + 3px degree ring, 5-day forecast, Sun arc, `.rodata` telescopic Lunar Albedo LUTs (`LUNAR_ALBEDO_139` & `LUNAR_ALBEDO_45`), and `r = 26` filled-core subpage buttons. |
+| **7** | **TV Remote** | Universal 4-device media remote (`tv_remote_entity`..`4`) with independent per-slot platform profiles (`Remote: Slot 1..4 Profile`, defaulting to `"Auto-Detect"`), Slot-1 Master Power (`CONTROL` Subpage 1), per-device power overrides, radial `r_out = 144 px` (`r <= 158 px` touch) D-pad, and 7 native protocol engines (Android TV/Shield, Denon/Marantz AVR, LG webOS, Apple TV, Roku, Samsung TV, Custom). |
+| **5** | **Sky & Weather** | 20 FPS meteorological & astronomical suite (`render_weather_page`) with `-5px` optical hero temp + 3px degree ring, 2px-stroke High/Low arrows, 5-day forecast, elliptical Solar arc, `.rodata` telescopic Lunar Albedo LUTs (`LUNAR_ALBEDO_139` & `LUNAR_ALBEDO_45`), and `r = 27` subpage buttons at `y = 352`. |
 | **3** | **Games Suite** | Vertical slot-machine reel launcher (`render_games_launcher`) with audio mute toggle and 4 continuous-wave 20 FPS arcade games: Marbles, Archery, Breakout, and Chomp for Kids. |
 | **8** | **Tools Suite** | 2-page $2 \times 3$ (6-per-page) micro-app launcher hosting 8 utilities with monochromatic filled-core iconography. |
-| **4** | **System Hub** | 2-page vertical menu (`render_system_page`): Page 1 (`Display`, `Sleep & Wake`, `Sound`, `Voice`) and Page 2 (`Music`, `Home`, `Info`, `Actions`), mirrored 1:1 with Home Assistant configuration categories. |
+| **4** | **System Hub** | 5-slot sliding-window vertical menu (`render_system_page`): Page 1 (`Display`, `Sleep & Wake`, `Sound`, `Voice`, `Music`) and Page 2 (`Voice`, `Music`, `Home`, `Actions`, `Info`), mirrored 1:1 with Home Assistant configuration categories. |
 
 ---
 

@@ -26,7 +26,7 @@ Pocket Assistant pairs a 466×466 circular AMOLED touchscreen, dual microphones,
 
 ## Highlights in v2.0
 
-* **Interactive Home Hub & Smart Live Activity Stack**: A single glanceable home screen with a live 20 FPS weather sky, tap-to-open hero clock and weather summary, an auto-prioritized **Smart Live Activity Stack** (active Timers, Stopwatch, Now Playing Music, and Alarms), and a customizable 4-icon **Quick-Launch Dock** (`Music`, `Remote`, `Tools`, `Games`).
+* **Interactive Home Hub & Smart Live Activity Card**: A single glanceable home screen with a live 20 FPS weather sky, tap-to-open hero clock and weather summary, a contextual **Wake Greeting**, an auto-prioritized **Live Activity Card** (with an 8.0s upward carousel reel, urgency pinning for running Stopwatch / Timers `<= 60s`, inline Play/Pause/Disarm, and a translucent multi-activity overlay), and a **3-Icon Sliding Window Dock** (`Music`, `Remote`, `Games` -> `Tools`).
 * **On-Board Wake Word + 5 Voice Assistant Visual Profiles**: Runs 5 selectable `micro_wake_word` models in Octal PSRAM (**Okay Nabu**, **Hey Luna**, **Hey Jarvis**, **Hey Mycroft**, **Alexa**) with per-model sensitivity tuning, NVS persistence, and 5 20 FPS visual profiles (**Nebula**, **Solaris**, **Jarvis**, **Alexa**, and **Gemini**). *(Note: Because the board shares I2S clock lines between the mic and speaker, hands-free wake word is active whenever the local speaker is idle—including while controlling external room speakers—and automatically pauses during local speaker playback. While local music is playing, press the **Side Button (`GPIO0`)** to automatically pause playback, speak to Assist, and auto-resume music afterward.)*
 * **Lossless Music Assistant Player & Track Inspector**: Stream FLAC audio locally via Sendspin or control household speakers (Sonos, AirPlay, Cast, Denon/Marantz). Transfer queues between rooms, group/ungroup speakers, browse your library on-device, or tap the metadata bar to open the **Track & Album Inspector** with a 276px position scrubber, `-15s`/`+15s` seek, album tracklist, artist discography, and Up Next queue.
 * **4-Device Universal TV & Media Remote**: Control up to 4 preconfigured TVs, streamers, or AVRs with automatic protocol detection (**Android TV / Shield / Fire TV / Bravia**, **Denon / Marantz AVR**, **LG webOS**, **Apple TV**, **Roku**, **Samsung TV**, and **Custom**), Slot-1 Master Power, and per-device power overrides.
@@ -57,6 +57,10 @@ substitutions:
   tv_remote_entity_2: "media_player.none"            # Slot 2: Optional 2nd device (remote.* or media_player.*)
   tv_remote_entity_3: "remote.none"                  # Slot 3: Optional 3rd device ("remote.none" hides slot)
   tv_remote_entity_4: "remote.none"                  # Slot 4: Optional 4th device ("remote.none" hides slot)
+  tv_remote_profile: "Auto-Detect"                   # Slot 1..4 Profile ("Auto-Detect", "Android TV / Fire TV / Bravia",
+  tv_remote_profile_2: "Auto-Detect"                 #   "Denon / Marantz AVR", "LG webOS", "Apple TV", "Roku",
+  tv_remote_profile_3: "Auto-Detect"                 #   "Samsung TV", or "Custom")
+  tv_remote_profile_4: "Auto-Detect"
   mass_queue_config_entry: ""                        # Optional: mass_queue Config Entry ID for Podcasts & Queue
 
 packages:
@@ -103,12 +107,12 @@ Then reload **Template Entities**, **Input Texts**, and **Scripts** under **Deve
 ### Hub-and-Spoke Touch Navigation
 Pocket Assistant v2.0 uses a fast hub-and-spoke layout centered on the **Home Hub (`Page 1`)**:
 * **Top Date Header (`y = 52`)**: Tap to open **Home Settings** (toggle live weather sky and individual dock icons).
-* **Sun / Moon Corner Icon (`351, 86`)**: Tap to jump directly to the **Sun** or **Moon** telemetry view.
+* **Sun / Moon Corner Icon (`360, 86`)**: Tap to jump directly to the **Sun** or **Moon** telemetry view.
 * **Hero Digital Clock (`y = 128`)**: Tap to open the full **Clock** watch face (`Analog` or `Digital`).
 * **Weather Summary Line (`y = 200`)**: Tap to open **Sky & Weather** (`Current Conditions`).
-* **Smart Live Activity Pill (`y = 264`)**: Appears automatically when a Timer, Stopwatch, Music track, or Alarm is active. Tap the pill to jump straight to that activity, or use the right-flank `▲` / `▼` chevrons when multiple activities are running.
-* **Quick-Launch Dock (`y = 356`)**: One-tap launch into **Music**, **TV Remote**, **Tools**, or **Games**.
-* **Bottom Chin (`y = 424` / `426`)**: Tap the **Battery & Settings Gear** on Home to open the **System Hub**; tap **`< BACK`** at the bottom chin of any app or submenu to return.
+* **Wake Greeting & Live Activity Card (`y = 271`)**: Shows a contextual **Wake Greeting** on cold boot / Hibernate wake, then transitions to the **Live Activity Card** whenever a Timer, Stopwatch, Music queue, or Alarm is active. Tap the card body to open that activity, tap the inline action circle to Play/Pause/Disarm in place, or tap the right `▼` chevron (when 2+ activities are active) to open the **Translucent Activity Overlay**.
+* **3-Icon Sliding Window Dock (`y = 352`)**: Shows **Music**, **TV Remote**, and **Games** on Page 0 with a right `>` chevron to slide **Tools** into view.
+* **Bottom Chin (`y = 421` / `426`)**: Tap the **Battery & Settings Gear** on Home (`y = 421`) to open the **System Hub**; tap **`Home`** (on top-level apps) or **`< Back`** (on nested submenus, tools, and active games) at `y = 426` to return.
 
 ### Physical Buttons
 | Control | Context | Action |

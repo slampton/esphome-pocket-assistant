@@ -3939,7 +3939,7 @@ touchscreen:
                       id(alarm3_enabled) = false;
                     }
                   }
-                  // If we're in the ACTIVE NOW dropdown (home_subpage == 2) and fewer than 2 items remain, return to Home!
+                  // If we're in the Translucent Activity Overlay (home_subpage == 2) and fewer than 2 items remain, return to Home!
                   if (id(home_subpage) == 2) {
                     pocket_ui::HomeActivityItem rem_items[8];
                     int rem_cnt = pocket_ui::collect_home_activities(
@@ -3950,8 +3950,13 @@ touchscreen:
                         id(alarm1_hour), id(alarm1_minute), id(alarm1_enabled),
                         id(alarm2_hour), id(alarm2_minute), id(alarm2_enabled),
                         id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
-                        rem_items);
-                    if (rem_cnt == 0) id(home_subpage) = 0;
+                        rem_items,
+                        now_t_hm.is_valid() ? now_t_hm.hour : -1,
+                        now_t_hm.is_valid() ? now_t_hm.minute : -1);
+                    if (rem_cnt < 2) {
+                      id(home_subpage) = 0;
+                      pocket_ui::home_activity_overlay_page() = 0;
+                    }
                   }
                   id(disp1).update();
                   return;

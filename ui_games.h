@@ -1,7 +1,7 @@
 #pragma once
 
 // ==============================================================================
-// Pocket Assistant 20 FPS 5-Game Arcade Suite & 360-Deg IMU Engine (ui_games.h)
+// Pocket Assistant 20 FPS 4-Game Arcade Suite & 360-Deg IMU Engine (ui_games.h)
 // ==============================================================================
 
 #include "ui_core.h"

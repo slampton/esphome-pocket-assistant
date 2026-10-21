@@ -19,9 +19,9 @@ On-device physical validation revealed three UX opportunities:
    * Standardize on canonical command substitutions (`remote_cmd_up`, `remote_cmd_down`, `remote_cmd_left`, `remote_cmd_right`, `remote_cmd_select`, `remote_cmd_back`, `remote_cmd_home`, `remote_cmd_vol_up`, `remote_cmd_vol_down`, `remote_cmd_power`).
 
 2. **4-Corner Radial Geometry & Equatorial Dead-Zone**:
-   * Lower the bottom flank buttons (**Back** and **Volume Down**) down to $y = 326$ so they symmetrically mirror the top flank buttons (**Home** and **Volume Up** at $y = 140$) across the circular display equator ($cy = 233$, $\Delta y = \pm 93\text{px}$, $x = 71$ and $x = 395$, $r \approx 187\text{px}$).
+   * Position the 4 corner flank buttons (**Home** and **Volume Up** at $y = 134$, **Back** and **Volume Down** at $y = 332$, $x = 64$ and $x = 402$, $r \approx 196\text{px}$) symmetrically across the circular display equator ($cy = 233$, $\Delta y = \pm 99\text{px}$).
    * Introduce an $85\text{px}$ vertical dead-zone ($y \in [191, 275]$) completely devoid of flank touch targets, protecting the horizontal D-pad axis against accidental volume adjustments during eyes-free operation.
-   * Expand the outer D-pad radius from $124\text{px}$ to $132\text{px}$ (directional touch zone: $52\text{px} < r \le 148\text{px}$, $2704 < d^2 \le 21904$).
+   * Expand the outer D-pad ring radius to $144\text{px}$ (directional touch zone: $52\text{px} < r \le 158\text{px}$, $2704 < d^2 \le 24964$, checked after corner flank priority).
 
 3. **Expanded OK Center Touch Target**:
    * Expand the center OK button touch radius from $44\text{px}$ to $52\text{px}$ ($d^2 \le 2704$, a +40% touch area increase to a full $104\text{px}$ diameter) while preserving a balanced $40\text{px}$ visual radius.
@@ -31,9 +31,8 @@ On-device physical validation revealed three UX opportunities:
    * **Main Page Title ($y = 50$)**: Replace the static "REMOTE" header and secondary subtitle line with the active device name (e.g. "Shield TV" or "TV") rendered in `font_date`, `theme_primary`, freeing vertical breathing room above the D-pad.
    * **Transient Action Feedback**: Action feedback toasts (`Toggle Power`, `Vol +`, `Up`, etc.) display in place of the title at $y = 50$ for 1.5 seconds after a button tap before returning to the device title.
    * **Device Settings Subpage**: Tapping the title header ($x \in [110, 356], y \in [25, 80]$) opens Subpage 1 (`remote_subpage = 1`).
-   * **System Dashboard Visual Hierarchy**: Header models the System Hub typography and spacing: Title `"DEVICE SETTINGS"` at $y = 46$ (`font_date`, `theme_primary`), active device name at $y = 78$ (`font_small`, `col_white`), providing an exact $32\text{px}$ vertical buffer.
-   * **Direct Power Toggle**: Rendered via standard `draw_pill_button` at $y = 200$ (h = 44px, r = 22px, red accent outline with zero internal graphical artifacts) for immediate power toggling without redundant confirmation prompts.
-   * **Navigation**: Returns to the main remote interface via bottom `[ Back ]` pill button ($y = 356$), top header tap, or hardware crown button press.
+   * **Control Subpage (`remote_subpage == 1`)**: Header `"CONTROL"` at $y = 48$ (`font_small`, `theme_primary`), Master Power `"Toggle Power"` modern card at $y = 110$, and up to 4 preconfigured device slots at $y \in \{173, 236, 299, 362\}$ with per-device power override buttons on secondary slots.
+   * **Navigation**: Returns to the main remote interface via the low-profile `"< Back"` chin target ($y = 426$) or top header tap.
 
 5. **Independent Per-Slot ESPHome Select Profiles & Multi-Protocol Routing**:
    * **Per-Slot Drop-Down Entities (`select.tv_remote_profile` .. `tv_remote_profile_4`)**: Exposes 4 independent configuration drop-downs to Home Assistant (`"Remote: Slot 1 Profile"` through `"Remote: Slot 4 Profile"`) with options `"Auto-Detect"` (default), `"Android TV / Fire TV / Bravia"`, `"Denon / Marantz AVR"`, `"LG webOS"`, `"Apple TV"`, `"Roku"`, `"Samsung TV"`, and `"Custom"` (`restore_value: true`).

@@ -827,8 +827,8 @@ template<typename TouchT>
 inline int get_5slot_index(const TouchT &t, int x_min, int x_max) {
   if (t.x < x_min || t.x > x_max) return -1;
   // Downward-biased 5-slot hit zones (cards at y_mid = 110, 173, 236, 299, 362; h = 44):
-  // Each slot extends +14px below its card bottom, and Slot 4 extends all the way to y = 411
-  // (meeting is_back_button at y = 412 with ZERO dead space in between!)
+  // Each slot extends +14px below its card bottom, and Slot 4 extends all the way to y = 404
+  // (meeting is_back_button at y = 405 with ZERO dead space in between!)
   if (t.y >= 84  && t.y < 146) return 0;
   if (t.y >= 146 && t.y < 209) return 1;
   if (t.y >= 209 && t.y < 272) return 2;
