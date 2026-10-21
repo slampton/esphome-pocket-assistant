@@ -489,26 +489,23 @@ inline bool render_album_art_canvas(DisplayT &it, ImageT *target_art, int cx,
       const uint16_t *src_row = src_data + (is_half ? ((y >> 1) * 233) : (y * 466));
       int x = start_x;
       while (x <= end_x) {
-        uint16_t p = src_row[is_half ? (x >> 1) : x];
+        uint16_t p = src_row[is_half ? (x >> 1) : (x & ~1)];
         if ((p & 0xF7DE) == 0) {
-          x++;
+          x += 2;
           continue;
         }
         uint16_t p_masked = p & 0xF7DE;
-        int run_start = x++;
-        while (x <= end_x && ((src_row[is_half ? (x >> 1) : x] & 0xF7DE) == p_masked)) {
-          x++;
+        int run_start = x;
+        x += 2;
+        while (x <= end_x && ((src_row[is_half ? (x >> 1) : (x & ~1)] & 0xF7DE) == p_masked)) {
+          x += 2;
         }
+        if (x > end_x + 1) x = end_x + 1;
         esphome::Color col(
             static_cast<uint8_t>((p & 0xF800) >> 8),
             static_cast<uint8_t>((p & 0x07E0) >> 3),
             static_cast<uint8_t>((p & 0x001F) << 3));
-        int run_len = x - run_start;
-        if (run_len == 1) {
-          it.draw_pixel_at(run_start, y, col);
-        } else {
-          it.horizontal_line(run_start, y, run_len, col);
-        }
+        it.horizontal_line(run_start, y, x - run_start, col);
       }
     }
     return true;
