@@ -1712,29 +1712,29 @@ inline void render_music_now_playing(
     it.filled_rectangle(right_flank_x - 6, 326, 15, 3, col_black);
     it.filled_rectangle(right_flank_x - 7, 325, 15, 3, col_white);
 
-    // Optional Left Flank Shortcuts (Enlarged 26x22px Speaker + 2px Sound Waves to match Library/Vol icons)
+    // Optional Left Flank Shortcuts (Matched 22x19px footprint for both Speaker at y=140 and Library at y=326!)
     if (show_spk_shortcut) {
       auto draw_spk = [&](int ox, int oy, esphome::Color c) {
         int sx = left_flank_x + ox;
         int sy = 140 + oy;
-        // Bold rear speaker box (6x10px) + flared cone (width 7px, height 22px)
-        it.filled_rectangle(sx - 11, sy - 5, 6, 11, c);
-        it.filled_triangle(sx - 5, sy - 5, sx - 5, sy + 5, sx + 2, sy + 11, c);
-        it.filled_triangle(sx - 5, sy - 5, sx + 2, sy + 11, sx + 2, sy - 11, c);
+        // Balanced rear speaker box (5x9px) + flared cone (width 6px, height 19px: sy - 9 .. sy + 9)
+        it.filled_rectangle(sx - 9, sy - 4, 5, 9, c);
+        it.filled_triangle(sx - 4, sy - 4, sx - 4, sy + 4, sx + 2, sy + 9, c);
+        it.filled_triangle(sx - 4, sy - 4, sx + 2, sy + 9, sx + 2, sy - 9, c);
         // Inner 2px-thick acoustic wave arc
-        it.line(sx + 5, sy - 5, sx + 8, sy - 2, c);
-        it.line(sx + 6, sy - 5, sx + 9, sy - 2, c);
+        it.line(sx + 5, sy - 4, sx + 7, sy - 2, c);
+        it.line(sx + 6, sy - 4, sx + 8, sy - 2, c);
+        it.line(sx + 7, sy - 2, sx + 7, sy + 2, c);
         it.line(sx + 8, sy - 2, sx + 8, sy + 2, c);
-        it.line(sx + 9, sy - 2, sx + 9, sy + 2, c);
-        it.line(sx + 8, sy + 2, sx + 5, sy + 5, c);
-        it.line(sx + 9, sy + 2, sx + 6, sy + 5, c);
+        it.line(sx + 7, sy + 2, sx + 5, sy + 4, c);
+        it.line(sx + 8, sy + 2, sx + 6, sy + 4, c);
         // Outer 2px-thick acoustic wave arc
-        it.line(sx + 9,  sy - 9, sx + 13, sy - 4, c);
-        it.line(sx + 10, sy - 9, sx + 14, sy - 4, c);
-        it.line(sx + 13, sy - 4, sx + 13, sy + 4, c);
-        it.line(sx + 14, sy - 4, sx + 14, sy + 4, c);
-        it.line(sx + 13, sy + 4, sx + 9,  sy + 9, c);
-        it.line(sx + 14, sy + 4, sx + 10, sy + 9, c);
+        it.line(sx + 8, sy - 7, sx + 11, sy - 3, c);
+        it.line(sx + 9, sy - 7, sx + 12, sy - 3, c);
+        it.line(sx + 11, sy - 3, sx + 11, sy + 3, c);
+        it.line(sx + 12, sy - 3, sx + 12, sy + 3, c);
+        it.line(sx + 11, sy + 3, sx + 8, sy + 7, c);
+        it.line(sx + 12, sy + 3, sx + 9, sy + 7, c);
       };
       draw_spk(1, 1, col_black);
       draw_spk(0, 0, col_white);
@@ -1744,12 +1744,12 @@ inline void render_music_now_playing(
       auto draw_lib = [&](int ox, int oy, esphome::Color c) {
         int lx = left_flank_x + ox;
         int ly = 326 + oy;
-        it.filled_rectangle(lx - 8, ly - 7, 4, 15, c);
-        it.filled_rectangle(lx - 2, ly - 7, 4, 15, c);
-        it.line(lx + 4, ly + 7, lx + 8, ly - 7, c);
-        it.line(lx + 5, ly + 7, lx + 9, ly - 7, c);
-        it.line(lx + 7, ly + 7, lx + 11, ly - 6, c);
-        it.line(lx + 8, ly + 7, lx + 12, ly - 6, c);
+        // Enlarged 22x19px Bookshelf (two 5x19px vertical book spines + bold 5px-wide leaning book spine)
+        it.filled_rectangle(lx - 11, ly - 9, 5, 19, c);
+        it.filled_rectangle(lx - 4,  ly - 9, 5, 19, c);
+        for (int w = 0; w < 5; w++) {
+          it.line(lx + 3 + w, ly + 9, lx + 7 + w, ly - 8, c);
+        }
       };
       draw_lib(1, 1, col_black);
       draw_lib(0, 0, col_white);
