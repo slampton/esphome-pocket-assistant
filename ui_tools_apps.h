@@ -1177,8 +1177,11 @@ inline int upsert_voice_timer_slot(const std::string &id_str, const std::string 
   }
 
   if (total_sec <= 0) total_sec = std::max(60, left_sec);
+  bool same_id = (!id_str.empty() && slots[target].id == id_str);
   slots[target].id = id_str;
-  if (!name_str.empty()) slots[target].name = name_str;
+  if (!name_str.empty() || !same_id) {
+    slots[target].name = name_str;
+  }
   slots[target].duration_sec  = total_sec;
   slots[target].remaining_sec = left_sec;
   slots[target].target_ms     = now_ms + static_cast<uint32_t>(left_sec) * 1000U;

@@ -410,7 +410,7 @@ globals:
     initial_value: '4'
   - id: timer_duration_sec
     type: int
-    restore_value: yes
+    restore_value: no
     initial_value: '300'
   - id: timer_remaining_sec
     type: int
@@ -688,6 +688,7 @@ image:
     on_download_finished:
       - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
       - script.execute: throttled_disp_update
+      - script.execute: sync_wake_word_state
 
 
 output:
@@ -1248,6 +1249,9 @@ button:
     on_press:
       - lambda: |-
           if (!id(find_my_active)) {
+            if (id(va_active) || !id(va_status_text).empty()) {
+              id(cancel_voice_assistant).execute();
+            }
             id(find_my_active) = true;
             id(find_my_start_ms) = millis();
             id(wake_to_active_state).execute();
@@ -1573,6 +1577,9 @@ interval:
             pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
 
             if (any_expired) {
+              if (id(va_active) || !id(va_status_text).empty()) {
+                id(cancel_voice_assistant).execute();
+              }
               id(va_timer_name) = exp_name;
               id(timer_ringing) = true;
               id(wake_to_active_state).execute();
@@ -1674,6 +1681,9 @@ interval:
               }
 
               if (triggered) {
+                if (id(va_active) || !id(va_status_text).empty()) {
+                  id(cancel_voice_assistant).execute();
+                }
                 id(alarm_last_fired_min) = now.minute;
                 id(alarm_ringing) = true;
                 id(alarm_ringing_idx) = trig_idx;
@@ -2345,6 +2355,11 @@ script:
                      (id(ha_target_art_url).state != "unavailable") &&
                      (id(ha_target_art_url).state != id(current_loaded_art_url));
           then:
+            - if:
+                condition:
+                  micro_wake_word.is_running:
+                then:
+                  - micro_wake_word.stop:
             - online_image.set_url:
                 id: remote_album_art
                 url: !lambda 'return id(ha_target_art_url).state;'

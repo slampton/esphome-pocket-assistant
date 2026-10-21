@@ -349,7 +349,7 @@ voice_assistant:
           ESP_LOGI("va_timer", "Timer started via Assist: %s (%lu sec)", timer.name.c_str(), (unsigned long)timer.total_seconds);
           uint32_t now_t = millis();
           pocket_ui::upsert_voice_timer_slot(timer.id, timer.name, timer.total_seconds, timer.seconds_left, timer.is_active, now_t);
-          if (!timer.name.empty()) id(va_timer_name) = timer.name;
+          id(va_timer_name) = timer.name;
           pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
           id(timer_ringing) = false;
           if (!id(va_active) && id(va_status_text).empty()) {

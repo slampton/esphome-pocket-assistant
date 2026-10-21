@@ -48,7 +48,7 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
   int p3_g = static_cast<int>(235.0f * b3);
   int p3_b = static_cast<int>(82.0f  * b3);
 
-  for (int x = 8; x <= 458; x += 2) {
+  for (int x = 8; x <= 458; x += 3) {
     int h_half = circle_half_span(x, 5);
     if (h_half <= 0) continue;
     int y_min = cy - h_half;
@@ -128,7 +128,7 @@ inline void render_screensaver_aurora(DisplayT &it, int cx, int cy, uint32_t now
         uint8_t cr = static_cast<uint8_t>(r > 255 ? 255 : r);
         uint8_t cg = static_cast<uint8_t>(g > 255 ? 255 : g);
         uint8_t cb = static_cast<uint8_t>(b > 255 ? 255 : b);
-        it.draw_pixel_at(x, py, esphome::Color(cr, cg, cb));
+        it.horizontal_line(x, py, 2, esphome::Color(cr, cg, cb));
         if (py - 1 >= y_min) {
           it.draw_pixel_at(x, py - 1, esphome::Color(
               static_cast<uint8_t>((cr * 96U) >> 8),
