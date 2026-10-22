@@ -1241,39 +1241,38 @@ inline void render_voice_assistant_overlay(
 
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
 
-    // 1. Fluid Color-Morphing Pink / Magenta / Orchid Nebula Core (Concentric, Zero "Ball" Shading!)
+    // 1. Fluid Color-Morphing Purple-Dominant / Magenta-Accented Nebula Core (Concentric, Zero "Ball" Highlight!)
     auto render_nebula_purple_orb = [&](int core_r, float energy_boost) {
-      // Palette anchors: Warm Rose Pink, Vibrant Neon Magenta, Luminous Orchid, and Deep Berry-Violet
-      const esphome::Color c_rose_pink(255, 108, 196);
-      const esphome::Color c_hot_magenta(255, 42, 154);
-      const esphome::Color c_orchid(196, 54, 236);
-      const esphome::Color c_berry_edge(118, 26, 148);
+      // Palette anchors (~65% cosmic purple/amethyst base, ~35% warm orchid/magenta-pink tide):
+      const esphome::Color c_violet_edge(68,  20, 130);  // Deep cosmic violet outer aura
+      const esphome::Color c_royal_purp(126, 36, 212);   // Rich royal purple body
+      const esphome::Color c_amethyst_mid(176, 52, 234); // Luminous amethyst-orchid
+      const esphome::Color c_magenta_rose(234, 58, 174); // Warm magenta-pink tide (never pastel/white)
 
-      // Continuous time + voice-energy color tide (0.0 .. 1.0) that shifts the entire core among pink/magenta/orchid shades
-      float tide = 0.50f + 0.50f * fast_sin(t_sec * 1.55f);
-      float shift = fminf(1.0f, tide * 0.72f + energy_boost * 0.45f);
+      // Continuous time + voice-energy tide (0.0 .. 1.0), biased toward purple/amethyst
+      float tide = 0.50f + 0.50f * fast_sin(t_sec * 1.50f);
+      float shift = fminf(1.0f, tide * 0.65f + energy_boost * 0.35f);
 
-      esphome::Color outer_col = lerp_color(c_berry_edge, c_hot_magenta, shift);
-      esphome::Color mid_col   = lerp_color(c_orchid,     c_hot_magenta, 0.45f + 0.55f * shift);
-      esphome::Color inner_col = lerp_color(c_hot_magenta, c_rose_pink,  0.35f + 0.65f * shift);
+      esphome::Color outer_col = lerp_color(c_violet_edge, c_royal_purp,   shift * 0.85f);
+      esphome::Color mid_col   = lerp_color(c_royal_purp,  c_amethyst_mid, 0.35f + 0.65f * shift);
+      esphome::Color inner_col = lerp_color(c_amethyst_mid, c_magenta_rose, 0.25f + 0.65f * shift);
 
       // Soft 6px feathered outer plasma aura (melts into background without a hard sphere border)
       for (int b = 6; b >= 1; b--) {
         float k = static_cast<float>(7 - b) * (1.0f / 7.0f);
-        it.circle(cx, cy, core_r + b, scale_color(outer_col, k * k * 0.78f));
+        it.circle(cx, cy, core_r + b, scale_color(outer_col, k * k * 0.76f));
       }
 
       // Concentric color-rippling heart from outer edge (r = core_r) to center (r = 1)
       float inv_r = 1.0f / static_cast<float>(core_r > 1 ? core_r : 1);
       for (int r = core_r; r >= 1; r--) {
         float u = 1.0f - static_cast<float>(r) * inv_r; // 0.0 at edge -> 1.0 at center
-        // Subtle traveling radial color ripple so shades flow organically through the core
-        float ripple = 0.14f * fast_sin(u * 4.2f - t_sec * 2.4f);
+        float ripple = 0.14f * fast_sin(u * 4.2f - t_sec * 2.3f);
         float s = fmaxf(0.0f, fminf(1.0f, u * u * (3.0f - 2.0f * u) + ripple));
 
-        esphome::Color ring_c = (s < 0.48f)
-            ? lerp_color(outer_col, mid_col,   s * (1.0f / 0.48f))
-            : lerp_color(mid_col,   inner_col, (s - 0.48f) * (1.0f / 0.52f));
+        esphome::Color ring_c = (s < 0.55f)
+            ? lerp_color(outer_col, mid_col,   s * (1.0f / 0.55f))
+            : lerp_color(mid_col,   inner_col, (s - 0.55f) * (1.0f / 0.45f));
         it.filled_circle(cx, cy, r, ring_c);
       }
     };
@@ -1311,7 +1310,6 @@ inline void render_voice_assistant_overlay(
           first_ix = pi.x; first_iy = pi.y;
           first_ox = po.x; first_oy = po.y;
         } else {
-          // Keep rear segments rich and vibrant (0.72 .. 1.0) so ribbons never look dull or skeletal
           float z_avg = 0.5f * (v_mid.z + prev_z);
           float depth_k = fmaxf(0.72f, fminf(1.0f, 0.92f - (z_avg / (base_r + 15.0f)) * 0.22f));
           esphome::Color c_main = scale_color(col_core, depth_k);
@@ -1336,67 +1334,59 @@ inline void render_voice_assistant_overlay(
     };
 
     // ------------------------------------------------------------------------
-    // 1. SPEAKING MODE: Hybrid of Original's 5 Full-Bodied Spectral Wave Bands
-    //    + Nebula's 3D Silk Voice Ribbons + 3D Purple/Pink Core Orb!
+    // 1. SPEAKING MODE: Confident Radiating & Diffusing Spectral Wave Bands +
+    //    Purple/Magenta Nebula Core (Zero inner silk ribbon clutter!)
     // ------------------------------------------------------------------------
     if (is_speaking) {
       float syl_env = (0.55f + 0.25f * fast_sin(t_sec * 11.5f) + 0.20f * fast_cos(t_sec * 19.3f)) * smooth_speak;
       if (syl_env < 0.18f) syl_env = 0.18f;
 
-      int tick = static_cast<int>(now_ms / 30U);
       uint32_t speak_elapsed = now_ms - speak_start_ms;
 
-      // A) Original's 5 Full-Bodied Multi-Pixel Spectral Radiation Wave Bands (r = 42 .. 224)
+      // 5 Expanding & Softly Diffusing Spectral Wave Bands (r = 38 .. 224):
+      //   - Starts compact near the core (~4px wide)
+      //   - Progressively widens as it radiates outward (up to ~18px wide near the edge)
+      //   - Soft bell-curve cross-section so outer waves disperse gently into space
       for (int w = 0; w < 5; w++) {
         uint32_t launch_offset = static_cast<uint32_t>(w) * 380U;
         if (speak_elapsed < launch_offset) continue;
         uint32_t wave_t = (speak_elapsed - launch_offset) % 1900U;
         float progress = static_cast<float>(wave_t) * (1.0f / 1900.0f);
-        int r_center = 42 + static_cast<int>(progress * 176.0f);
+        int r_center = 38 + static_cast<int>(progress * 180.0f);
 
-        float width_factor = fast_sin(progress * PI_F);
-        int base_w = (w % 2 == 0) ? 6 : 4;
-        int band_w = base_w + static_cast<int>(5.0f * width_factor * (0.7f + 0.3f * syl_env));
+        // Width grows from ~4px at launch (progress=0) up to ~17px near the outer rim (progress=0.85)
+        float spread = progress * (1.15f - 0.25f * progress);
+        int base_w = (w % 2 == 0) ? 4 : 3;
+        int band_w = base_w + static_cast<int>((13.0f * spread) * (0.80f + 0.20f * syl_env));
         if (band_w < 3) band_w = 3;
         int half_w = band_w >> 1;
 
-        float wave_color_phase = static_cast<float>(w) * 0.20f + progress * 0.32f +
+        float wave_color_phase = static_cast<float>(w) * 0.20f + progress * 0.34f +
                                  static_cast<float>(now_ms % 4000U) * 0.00025f;
-        float fade = (1.0f - (progress * 0.42f)) * smooth_speak;
+        // Peak brightness in mid-flight, gently diffusing as the wave widens toward the outer edge
+        float radial_env = (1.0f - progress * 0.62f) * smooth_speak;
         float inv_half = 1.0f / static_cast<float>(half_w + 1);
 
         for (int d = -half_w; d <= half_w; d++) {
           int r_curr = r_center + d;
-          if (r_curr < 38 || r_curr > 225) continue;
+          if (r_curr < 34 || r_curr > 226) continue;
 
-          float edge_dist = static_cast<float>(d < 0 ? -d : d) * inv_half;
-          esphome::Color base_col = get_va_radiation_color(false, wave_color_phase + static_cast<float>(d) * 0.02f);
+          // Smooth bell-curve cross-sectional diffusion from wave crest (edge_u=0) to feathered edges (edge_u=1)
+          float edge_u = static_cast<float>(d < 0 ? -d : d) * inv_half;
+          float bell = (1.0f - edge_u * edge_u);
+          // Outer waves have a softer, more diffused cross-section
+          float diff_profile = (progress > 0.35f) ? (bell * bell) : bell;
+          float pix_fade = radial_env * (0.22f + 0.78f * diff_profile);
 
-          // Pink-tinted inner crest highlight instead of flat white
-          esphome::Color stroke_col = (edge_dist < 0.36f)
-              ? lerp_color(scale_color(base_col, fade), scale_color(c_pink_hi, fade), 0.38f)
-              : scale_color(base_col, fade);
+          esphome::Color base_col = get_va_radiation_color(false, wave_color_phase + static_cast<float>(d) * 0.016f);
+          esphome::Color stroke_col = (edge_u < 0.28f)
+              ? lerp_color(scale_color(base_col, pix_fade), scale_color(c_pink_hi, pix_fade), 0.32f * (1.0f - progress * 0.5f))
+              : scale_color(base_col, pix_fade);
           it.circle(cx, cy, r_curr, stroke_col);
         }
       }
 
-      // B) 3 Inner Volumetric 3D Silk Ribbons Undulating Around the Core
-      float base_r = 50.0f + 14.0f * syl_env;
-      float a2 = 6.0f + 10.0f * syl_env;
-      float a3 = 4.5f + 7.5f * syl_env;
-      float a5 = 2.5f + 4.5f * syl_env;
-
-      draw_silk_ribbon_3d(base_r + 3.0f, a2, a3, a5, (tick) % 60, (tick * 2 + 15) % 60, (tick + 30) % 60,
-                          0.52f * fast_sin(t_sec * 0.9f), 0.48f * fast_cos(t_sec * 0.7f), t_sec * 0.4f,
-                          c_amethyst, c_royal_purple, true);
-      draw_silk_ribbon_3d(base_r, -a2 * 0.9f, a3 * 1.1f, -a5, (tick + 20) % 60, (tick + 40) % 60, (tick * 2) % 60,
-                          -0.55f * fast_cos(t_sec * 0.8f), 0.50f * fast_sin(t_sec * 1.1f), -t_sec * 0.35f,
-                          c_pink_hi, c_neon_magenta, true);
-      draw_silk_ribbon_3d(base_r - 3.0f, a2 * 0.8f, -a3, a5 * 1.2f, (tick * 2 + 7) % 60, (tick + 25) % 60, (tick + 12) % 60,
-                          0.42f * fast_cos(t_sec * 1.2f), -0.45f * fast_sin(t_sec * 0.85f), t_sec * 0.5f,
-                          c_elec_cyan, c_deep_azure, true);
-
-      int core_r = 24 + static_cast<int>(5.0f * syl_env);
+      int core_r = 25 + static_cast<int>(5.0f * syl_env);
       render_nebula_purple_orb(core_r, syl_env);
       return;
     }
