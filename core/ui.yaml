@@ -3710,7 +3710,7 @@ display:
 
       // UNIVERSAL GLOBAL BOTTOM "< BACK" BAR (Rendered at y = 426 for all top-level apps launched from Home)
       auto current_overlay_mode = id(music_overlay_style).current_option();
-      bool music_clean_art = (id(gui_page) == 2 && (current_overlay_mode.empty() || current_overlay_mode == "Art Only") && !id(music_hud_active));
+      bool music_clean_art = (id(gui_page) == 2 && current_overlay_mode != "Always Visible" && !id(music_hud_active));
 
       bool show_top_level_back = !id(is_hibernating) && !id(ota_in_progress) && !id(va_active) &&
                                  id(va_status_text).empty() && id(display_power_state) == 0 &&
@@ -3817,10 +3817,13 @@ touchscreen:
 
             static uint32_t last_back_tap = 0;
 
+            bool music_hud_hidden = (id(gui_page) == 2 && id(music_overlay_mode) == 0 &&
+                                     id(music_overlay_style).current_option() != "Always Visible" &&
+                                     !id(music_hud_active));
             bool is_top_level_app = (id(gui_page) != 1) &&
                                     !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                     !(id(gui_page) == 3 && id(active_game) > 0) &&
-                                    !(id(gui_page) == 2 && id(music_overlay_mode) > 0) &&
+                                    !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_hud_hidden)) &&
                                     !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                     !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
                                     !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
