@@ -3033,6 +3033,19 @@ script:
             - switch.turn_off: speaker_enable
             - script.execute: route_i2s_to_mic
             - script.execute: sync_wake_word_state
+            - lambda: |-
+                if (id(display_power_state) == 2) {
+                  auto ww_mode = id(va_wake_word_mode).current_option();
+                  bool ww_act = (ww_mode == "Always On") || (ww_mode == "Docked Only" && id(usb_connected).state);
+                  if (!ww_act) {
+                    id(hal_set_audio_codecs_standby).execute(true);
+                  }
+                  if (!id(usb_connected).state) {
+                    if (id(sleep_start_time) == 0) id(sleep_start_time) = millis();
+                    extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+                    esp_wifi_set_ps(1);
+                  }
+                }
 
   - id: toggle_voice_assistant
     mode: restart

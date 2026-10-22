@@ -872,16 +872,22 @@ inline uint32_t &last_disp_update_ms() {
   return ts;
 }
 
+inline bool &screen_is_off_standby() {
+  static bool off = false;
+  return off;
+}
+
 struct DisplayUpdateScheduler : public esphome::Component {
   template<typename DispT>
   static void request_ptr(DispT *disp) {
-    if (disp != nullptr) {
+    if (disp != nullptr && !screen_is_off_standby()) {
       uint32_t now_m = esphome::millis();
       uint32_t elapsed = now_m - last_disp_update_ms();
       uint32_t delay_ms = (elapsed < 38U) ? (38U - elapsed) : 0U;
       auto *comp = static_cast<esphome::Component *>(disp);
       static_cast<DisplayUpdateScheduler *>(comp)->set_timeout(
           "async_draw", delay_ms, [disp]() {
+            if (screen_is_off_standby()) return;
             uint32_t el = esphome::millis() - last_disp_update_ms();
             if (el < 35U) {
               request_ptr(disp);

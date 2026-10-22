@@ -133,6 +133,11 @@ media_player:
               - script.execute: route_i2s_to_spk
               - switch.turn_on: speaker_enable
               - audio_dac.mute_off: es8311_dac
+              - lambda: |-
+                  pocket_ui::screen_is_off_standby() = false;
+                  id(display_power_state) = 0;
+                  id(disp1).start_poller();
+                  id(imu).start_poller();
               - light.turn_on: display_brightness
               - script.execute: throttled_disp_update
     on_pause:
@@ -222,7 +227,10 @@ voice_assistant:
           duration: 0.1s
       - lambda: |-
           if (id(display_power_state) != 0 && id(va_wake_screen_switch).state) {
+            pocket_ui::screen_is_off_standby() = false;
             id(display_power_state) = 0;
+            id(disp1).start_poller();
+            id(imu).start_poller();
             id(sync_display_brightness).execute();
           }
           id(va_was_cancelled) = false;
