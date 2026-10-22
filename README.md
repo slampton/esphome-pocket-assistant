@@ -35,13 +35,6 @@ Pocket Assistant pairs a 466×466 circular AMOLED touchscreen, dual microphones,
 * **8-Tool Utility Suite & Find My Device**: Built-in **3-Slot Timers** (synced 2-way with Home Assistant Assist voice timers), **3-Slot Alarms**, **1970 Heuer Split-Lap Stopwatch** (with physical Crown pusher), **3D Dual D6 Dice Roll**, **Flashlight Torch**, **Calculator**, **20 FPS Bubble Level**, **3D Silver Home Assistant Coin Flip**, and an acoustic **Find My Device** radar beacon.
 * **5 Docked 20 FPS Screensavers & `<40 µA` Hibernate**: **Aurora Borealis**, **Starfield**, **Matrix Rain**, **Fireworks**, and **Ambient Clock** when docked to USB, plus `<5 ms` hardware IRQ standby wake and `<40 µA` AXP2101 rail-cut hibernate on battery.
 
-<img width="30%" alt="clock" src="https://github.com/user-attachments/assets/abdd0e28-8108-4c94-8e7a-bb57b551cb2b" />
-<img width="30%" alt="voice" src="https://github.com/user-attachments/assets/ea6c7aa3-625c-4e8e-b9ac-3aea752844f8" />
-<img width="30%" alt="music" src="https://github.com/user-attachments/assets/f65e9f1b-d211-4396-bcd0-2b36597e6f77" />
-<img width="30%" alt="weather" src="https://github.com/user-attachments/assets/03a5e563-834b-4627-8146-005888f30950" />
-<img width="30%" alt="games" src="https://github.com/user-attachments/assets/4deb32e4-7dae-4d46-b03a-886e50cb91d1" />
-<img width="30%" alt="timer" src="https://github.com/user-attachments/assets/0445a944-c109-455b-9d47-b5cad09d6276" />
-
 ---
 
 ## Quick Start & Installation
