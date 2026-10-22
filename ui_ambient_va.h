@@ -1241,36 +1241,40 @@ inline void render_voice_assistant_overlay(
 
     float t_sec = static_cast<float>(now_ms % 60000U) * 0.001f;
 
-    // 1. Continuous 3D Fluid Purple-to-Magenta Gradient Sphere (Zero Specular Spots!)
+    // 1. Fluid Color-Morphing Pink / Magenta / Orchid Nebula Core (Concentric, Zero "Ball" Shading!)
     auto render_nebula_purple_orb = [&](int core_r, float energy_boost) {
-      // Soft outer atmospheric bloom rings
-      it.filled_circle(cx, cy + 2, core_r + 5, scale_color(c_deep_violet, 0.50f));
-      it.circle(cx, cy, core_r + 4, scale_color(c_neon_magenta, 0.40f + 0.35f * energy_boost));
-      it.circle(cx, cy, core_r + 3, scale_color(c_royal_purple, 0.75f));
-      it.circle(cx, cy, core_r + 2, c_amethyst);
+      // Palette anchors: Warm Rose Pink, Vibrant Neon Magenta, Luminous Orchid, and Deep Berry-Violet
+      const esphome::Color c_rose_pink(255, 108, 196);
+      const esphome::Color c_hot_magenta(255, 42, 154);
+      const esphome::Color c_orchid(196, 54, 236);
+      const esphome::Color c_berry_edge(118, 26, 148);
 
-      // Slow revolving 3D light direction so the gradient gently flows inside the sphere
-      float lx = -0.22f * fast_cos(t_sec * 0.85f);
-      float ly = -0.22f * fast_sin(t_sec * 0.85f);
+      // Continuous time + voice-energy color tide (0.0 .. 1.0) that shifts the entire core among pink/magenta/orchid shades
+      float tide = 0.50f + 0.50f * fast_sin(t_sec * 1.55f);
+      float shift = fminf(1.0f, tide * 0.72f + energy_boost * 0.45f);
 
-      const esphome::Color c_grad_edge(52, 16, 98);     // Deep cosmic violet at outer limb
-      const esphome::Color c_grad_mid(124, 38, 206);    // Rich royal purple body
-      const esphome::Color c_grad_warm(214, 58, 172);   // Velvety magenta-rose inner warmth (no white/pastel spot)
+      esphome::Color outer_col = lerp_color(c_berry_edge, c_hot_magenta, shift);
+      esphome::Color mid_col   = lerp_color(c_orchid,     c_hot_magenta, 0.45f + 0.55f * shift);
+      esphome::Color inner_col = lerp_color(c_hot_magenta, c_rose_pink,  0.35f + 0.65f * shift);
 
-      // Concentric 1px-stepped spherical gradient from outer limb (r = core_r + 1) to center (r = 1)
-      int max_r = core_r + 1;
-      float inv_max_r = 1.0f / static_cast<float>(max_r);
-      for (int r = max_r; r >= 1; r--) {
-        float u = 1.0f - static_cast<float>(r) * inv_max_r; // 0.0 at outer edge -> 1.0 at center
-        // Smooth cubic Hermite curve so there is never a hard ring boundary or center dot
-        float s = u * u * (3.0f - 2.0f * u);
-        esphome::Color ring_c = (s < 0.55f)
-            ? lerp_color(c_grad_edge, c_grad_mid, s * (1.0f / 0.55f))
-            : lerp_color(c_grad_mid, c_grad_warm, (s - 0.55f) * (1.0f / 0.45f));
+      // Soft 6px feathered outer plasma aura (melts into background without a hard sphere border)
+      for (int b = 6; b >= 1; b--) {
+        float k = static_cast<float>(7 - b) * (1.0f / 7.0f);
+        it.circle(cx, cy, core_r + b, scale_color(outer_col, k * k * 0.78f));
+      }
 
-        int ox = cx + static_cast<int>(u * static_cast<float>(core_r) * lx);
-        int oy = cy + static_cast<int>(u * static_cast<float>(core_r) * ly);
-        it.filled_circle(ox, oy, r, ring_c);
+      // Concentric color-rippling heart from outer edge (r = core_r) to center (r = 1)
+      float inv_r = 1.0f / static_cast<float>(core_r > 1 ? core_r : 1);
+      for (int r = core_r; r >= 1; r--) {
+        float u = 1.0f - static_cast<float>(r) * inv_r; // 0.0 at edge -> 1.0 at center
+        // Subtle traveling radial color ripple so shades flow organically through the core
+        float ripple = 0.14f * fast_sin(u * 4.2f - t_sec * 2.4f);
+        float s = fmaxf(0.0f, fminf(1.0f, u * u * (3.0f - 2.0f * u) + ripple));
+
+        esphome::Color ring_c = (s < 0.48f)
+            ? lerp_color(outer_col, mid_col,   s * (1.0f / 0.48f))
+            : lerp_color(mid_col,   inner_col, (s - 0.48f) * (1.0f / 0.52f));
+        it.filled_circle(cx, cy, r, ring_c);
       }
     };
 
@@ -1482,11 +1486,7 @@ inline void render_voice_assistant_overlay(
     float breath = fast_sin(static_cast<float>(now_ms % 2000U) * (2.0f * PI_F / 2000.0f));
     int tick = static_cast<int>(now_ms / 38U);
 
-    // Outer breathing nebula halo ring (inspired by Original's presence, modernized in deep violet/magenta)
-    int outer_halo_r = 122 + static_cast<int>(7.0f * breath + 14.0f * smooth_vad);
-    it.circle(cx, cy, outer_halo_r + 1, scale_color(c_deep_violet, 0.65f));
-    it.circle(cx, cy, outer_halo_r, lerp_color(c_royal_purple, c_neon_magenta, 0.35f + 0.50f * smooth_vad));
-    it.circle(cx, cy, outer_halo_r - 1, scale_color(c_amethyst, 0.70f));
+    (void)c_deep_violet;
 
     // 4 Full-Bodied Volumetric 3D Silk Plasma Ribbons
     float base_r = 82.0f + 5.0f * breath + 18.0f * smooth_vad;
