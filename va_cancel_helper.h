@@ -114,28 +114,19 @@ struct ComponentTimeoutAccessor : public esphome::Component {
   static void cancel_va_speaker_timeout(esphome::Component *comp) {
     if (comp != nullptr) {
       static_cast<ComponentTimeoutAccessor *>(comp)->cancel_timeout("speaker-timeout");
-      static_cast<ComponentTimeoutAccessor *>(comp)->cancel_timeout("playing");
     }
   }
 };
 
-// Disarms VoiceAssistant's internal "speaker-timeout" and "playing" timers while
-// announcement_mixing_input's 15s PSRAM ring buffer is still actively playing TTS audio,
-// and prevents continue_conversation from prematurely re-opening the mic mid-sentence.
+// Disarms VoiceAssistant's 10s "speaker-timeout" watchdog and clears continue_conversation_
+// so LLM responses buffered in announcement_mixing_input's 15s PSRAM ring buffer never
+// re-open the microphone mid-sentence, while letting VoiceAssistant's native "playing"
+// completion timer transition cleanly to IDLE and fire on_end.
 inline void disarm_va_speaker_timeout(VoiceAssistant *va) {
   if (va != nullptr) {
     va->*get(VA_ContinueConversation_Tag()) = false;
   }
   ComponentTimeoutAccessor::cancel_va_speaker_timeout(va);
-}
-
-inline void finish_va_session_cleanly(VoiceAssistant *va) {
-  if (va != nullptr) {
-    va->*get(VA_Continuous_Tag()) = false;
-    va->*get(VA_ContinueConversation_Tag()) = false;
-    ComponentTimeoutAccessor::cancel_va_speaker_timeout(va);
-    (va->*get(VA_SetState_Tag()))(State::IDLE, State::IDLE);
-  }
 }
 
 // Resets per-utterance stream/buffer tracking flags and disarms any leftover speaker timeouts.

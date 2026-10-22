@@ -888,11 +888,7 @@ struct DisplayUpdateScheduler : public esphome::Component {
       static_cast<DisplayUpdateScheduler *>(comp)->set_timeout(
           "async_draw", delay_ms, [disp]() {
             if (screen_is_off_standby()) return;
-            uint32_t el = esphome::millis() - last_disp_update_ms();
-            if (el < 35U) {
-              request_ptr(disp);
-              return;
-            }
+            if (esphome::millis() - last_disp_update_ms() < 32U) return;
             disp->update();
           });
     }

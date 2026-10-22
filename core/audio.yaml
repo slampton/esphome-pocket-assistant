@@ -151,13 +151,7 @@ media_player:
         - script.execute: mp_idle_debounce
     on_idle:
       then:
-        - if:
-            condition:
-              lambda: 'return id(va_active) && id(va_tts_received);'
-            then:
-              - script.execute: va_tts_drain_and_finish
-            else:
-              - script.execute: mp_idle_debounce
+        - script.execute: mp_idle_debounce
 
 micro_wake_word:
   id: mww
@@ -466,7 +460,6 @@ script:
       #    so the QSPI display flush completes with zero audio/network contention
       - lambda: |-
           esphome::voice_assistant::reset_va_session_state(id(va));
-          esphome::voice_assistant::finish_va_session_cleanly(id(va));
           id(va_vad_active) = false;
           id(va_status_text) = "";
           id(va_tts_received) = false;
