@@ -5,13 +5,34 @@ esp32:
   flash_size: 32MB
   framework:
     type: esp-idf
+    sdkconfig_options:
+      # ESP-IDF 5.5 replacement for CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY
+      CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM: "y"
+      # ESPHome 2026.10 / ESP-IDF 5.5.6 PSRAM bus contention guardrails (prevents 512KB TCP / 512 RX buffer bloat)
+      CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM: "128"
+      CONFIG_LWIP_TCP_WND_DEFAULT: "65535"
+      CONFIG_LWIP_TCP_RECVMBOX_SIZE: "64"
+      # Maximize ESP32-S3 L1 Data & Instruction Caches (64KB D-Cache / 64B line, 32KB I-Cache)
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB: "y"
+      # Execute instructions and read-only data from 80MHz Octal PSRAM so micro_wake_word
+      # and audio pipelines never stall during NVS flash writes
+      CONFIG_SPIRAM_RODATA: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: "y"
+      # Allocate mbedTLS buffers in PSRAM to preserve internal DMA SRAM
+      CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: "y"
+      CONFIG_MBEDTLS_SSL_PROTO_TLS1_3: "y"
     advanced:
       enable_idf_experimental_features: true
+      nvs_cache_in_psram: true
+      flash_chip: gd
 
 
 psram:
   mode: octal
   speed: 80MHz
+  ignore_not_found: false
 
 
 i2c:
@@ -19,7 +40,7 @@ i2c:
     sda: GPIO15
     scl: GPIO14
     frequency: 400kHz
-    scan: true
+    scan: false
 
 
 spi:
@@ -32,7 +53,79 @@ spi:
       - GPIO6
       - GPIO7
 
-# Dual Master I2S Buses (Multiplexed via GPIO Matrix to Physical Pins)
+
+# Dual Master I2S Buses (Multiplexed via ESP32-S3 GPIO Matrix to Shared Clock Pins)
+i2s_audio:
+  - id: i2s_input_bus
+    i2s_lrclk_pin:
+      number: GPIO45
+      allow_other_uses: true
+      ignore_strapping_warning: true
+    i2s_bclk_pin:
+      number: GPIO9
+      allow_other_uses: true
+    i2s_mclk_pin:
+      number: GPIO16
+      allow_other_uses: true
+
+  - id: i2s_output_bus
+    i2s_lrclk_pin:
+      number: GPIO45
+      allow_other_uses: true
+      ignore_strapping_warning: true
+    i2s_bclk_pin:
+      number: GPIO9
+      allow_other_uses: true
+    i2s_mclk_pin:
+      number: GPIO16
+      allow_other_uses: true
+
+
+# Everest ES7210 Microphone ADC (I2C 0x40, DIN: GPIO10)
+audio_adc:
+  - platform: es7210
+    id: es7210_adc
+    i2c_id: bus_internal
+    address: 0x40
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    mic_gain: 37.5dB
+
+
+microphone:
+  - platform: i2s_audio
+    id: pocket_mic
+    adc_type: external
+    i2s_audio_id: i2s_input_bus
+    i2s_din_pin: GPIO10
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: left
+    pdm: false
+
+
+# Everest ES8311 Speaker DAC (I2C 0x18, DOUT: GPIO8)
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    i2c_id: bus_internal
+    address: 0x18
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    use_mclk: true
+
+
+speaker:
+  - platform: i2s_audio
+    id: physical_speaker
+    i2s_audio_id: i2s_output_bus
+    i2s_dout_pin: GPIO8
+    dac_type: external
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: left
+    buffer_duration: 1000ms
+    timeout: 10s
 
 
 motion:
@@ -41,4 +134,195 @@ motion:
     address: 0x6B
     accelerometer_range: 4G
     gyroscope_range: 2048DPS
+    update_interval: 100ms
 
+
+# On-Board Speaker Power Amplifier Enable (PA_EN: GPIO46)
+switch:
+  - platform: gpio
+    name: "Speaker Enable"
+    id: speaker_enable
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
+    restore_mode: ALWAYS_ON
+
+
+# Physical Side Push-to-Talk / Action Button (GPIO0)
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+      ignore_strapping_warning: true
+    name: "Boot Button"
+    id: boot_button
+
+
+# 1.75" 466x466 Circular AMOLED Display (CO5300 over 80MHz Quad-SPI)
+display:
+  - platform: mipi_spi
+    id: disp1
+    model: CO5300
+    spi_id: display_qspi
+    bus_mode: quad
+    data_rate: 80MHz
+    reset_pin: GPIO1
+    cs_pin: GPIO12
+    dimensions:
+      height: 466
+      width: 466
+      offset_width: 6
+      offset_height: 0
+    brightness: 200
+    update_interval: 1s
+
+
+# Capacitive Touch Controller (CST9220 @ 30Hz over I2C bus_internal)
+touchscreen:
+  - platform: cst9220
+    id: touch_screen
+    display: disp1
+    i2c_id: bus_internal
+    address: 0x5A
+    interrupt_pin:
+      number: GPIO11
+      mode: INPUT_PULLUP
+    reset_pin: GPIO2
+    touch_timeout: 50ms
+    update_interval: 33ms
+    transform:
+      mirror_x: true
+      mirror_y: true
+
+
+# Board-Level Hardware Abstraction Scripts (I2S Clock Mux, Pad Holds, PMU IRQ & Hibernate)
+script:
+  - id: hal_route_i2s_to_spk
+    mode: restart
+    then:
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
+          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
+          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+
+  - id: hal_route_i2s_to_mic
+    mode: restart
+    then:
+      - lambda: |-
+          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
+          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
+          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
+
+  - id: hal_release_deep_sleep_holds
+    mode: restart
+    then:
+      - lambda: |-
+          gpio_deep_sleep_hold_dis();
+          gpio_hold_dis(GPIO_NUM_1);
+          gpio_hold_dis(GPIO_NUM_2);
+          gpio_hold_dis(GPIO_NUM_46);
+          gpio_hold_dis(GPIO_NUM_12);
+
+  - id: hal_init_pmu_irq
+    mode: restart
+    then:
+      - lambda: |-
+          // Configure GPIO3 as AXP2101 active-LOW hardware IRQ input with pull-up (ADR-001)
+          gpio_config_t io_conf = {};
+          io_conf.pin_bit_mask = (1ULL << GPIO_NUM_3);
+          io_conf.mode = GPIO_MODE_INPUT;
+          io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+          io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+          io_conf.intr_type = GPIO_INTR_DISABLE;
+          gpio_config(&io_conf);
+
+          // Enable AXP2101 PEK short and long press IRQs (register 0x41 = 0x0C)
+          uint8_t irq_en[2] = {0x41, 0x0C};
+          id(bus_internal).write(0x34, irq_en, 2);
+
+          // Clear all pending AXP2101 IRQ flags (0x48, 0x49, 0x4A) so GPIO3 starts unasserted (HIGH)
+          uint8_t clr_all[2] = {0x48, 0xFF};
+          id(bus_internal).write(0x34, clr_all, 2);
+          clr_all[0] = 0x49;
+          id(bus_internal).write(0x34, clr_all, 2);
+          clr_all[0] = 0x4A;
+          id(bus_internal).write(0x34, clr_all, 2);
+
+  - id: hal_enter_hardware_hibernate
+    mode: restart
+    then:
+      - lambda: |-
+          // 1. Put QMI8658 6-Axis IMU into Power-Down Mode (CTRL7 = 0x00)
+          uint8_t qmi_pwr_down[2] = {0x08, 0x00};
+          id(bus_internal).write(0x6B, qmi_pwr_down, 2);
+
+          // 2. Put ES8311 Audio DAC into Standby/Power-Down Mode
+          uint8_t dac_sleep1[2] = {0x0D, 0xFF};
+          uint8_t dac_sleep2[2] = {0x00, 0x80};
+          id(bus_internal).write(0x18, dac_sleep1, 2);
+          id(bus_internal).write(0x18, dac_sleep2, 2);
+
+          // 3. Put ES7210 Audio ADC into Standby Mode
+          uint8_t es7210_pwr[2] = {0x00, 0xFF};
+          id(bus_internal).write(0x40, es7210_pwr, 2);
+
+          // 4. Force Speaker Power Amplifier Enable (GPIO46) firmly LOW and hold
+          gpio_set_direction(GPIO_NUM_46, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_46, 0);
+          gpio_hold_en(GPIO_NUM_46);
+
+          // 5. Force Display CS (GPIO12) firmly HIGH (deselected) and hold
+          gpio_set_direction(GPIO_NUM_12, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_12, 1);
+          gpio_hold_en(GPIO_NUM_12);
+
+          // 6. Put Display Controller (CO5300) into Hardware Reset (GPIO1 LOW) and hold
+          gpio_set_direction(GPIO_NUM_1, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_1, 0);
+          gpio_hold_en(GPIO_NUM_1);
+
+          // 7. Put Touch Controller (CST9220) into Hardware Reset (GPIO2 LOW) and hold
+          gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_2, 0);
+          gpio_hold_en(GPIO_NUM_2);
+
+          // Enable deep sleep pad holds across all held GPIOs
+          gpio_deep_sleep_hold_en();
+
+          // 8. Flush all dirty NVS preferences to flash BEFORE AXP2101 cuts 3.3V DCDC1 rail
+          global_preferences->sync();
+
+          // 9. Command AXP2101 PMIC to POWER OFF all system voltage rails (<40uA Hibernate)
+          uint8_t axp_pwr_off[2] = {0x10, 0x01};
+          id(bus_internal).write(0x34, axp_pwr_off, 2);
+
+          delay(100);
+          esp_deep_sleep_start();
+
+  - id: hal_set_imu_power_mode
+    mode: restart
+    parameters:
+      ctrl7_val: int
+    then:
+      - lambda: |-
+          // QMI8658 CTRL7 (0x08): 0x03 = Active (Accel+Gyro), 0x01 = Accel-only Pickup Wake, 0x00 = Power-Down
+          uint8_t qmi_ctrl7[2] = {0x08, static_cast<uint8_t>(ctrl7_val)};
+          id(bus_internal).write(0x6B, qmi_ctrl7, 2);
+
+  - id: hal_set_audio_codecs_standby
+    mode: restart
+    parameters:
+      standby: bool
+    then:
+      - lambda: |-
+          if (standby) {
+            // Put ES8311 DAC (0x18) and ES7210 Mic ADC (0x40) into low-power standby when idle in Tier 2 Standby
+            uint8_t dac_lp[2] = {0x0D, 0xFC};
+            id(bus_internal).write(0x18, dac_lp, 2);
+          } else {
+            // Restore ES8311 DAC analog bias on wake
+            uint8_t dac_wake[2] = {0x0D, 0x01};
+            id(bus_internal).write(0x18, dac_wake, 2);
+          }

@@ -1,14 +1,39 @@
 # Pocket Assistant
 
-A local-first handheld companion and media remote for Home Assistant and Music Assistant, built on the Waveshare 1.75" circular AMOLED ESP32-S3 development board.
+A local-first handheld companion, voice satellite, and universal media remote for Home Assistant and Music Assistant, built on the Waveshare 1.75" circular AMOLED ESP32-S3 development board.
 
-[![Version](https://img.shields.io/badge/Version-v1.2-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
-[![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.9.0%2B-blue.svg)](https://esphome.io)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-41BDF5.svg)](https://www.home-assistant.io)
-[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.0%2B-purple.svg)](https://music-assistant.io)
+[![Build & Release Firmware](https://github.com/slampton/esphome-pocket-assistant/actions/workflows/build.yml/badge.svg)](https://github.com/slampton/esphome-pocket-assistant/actions/workflows/build.yml)
+[![Version](https://img.shields.io/badge/Version-v2.0-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
+[![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.10.0%2B-blue.svg)](https://esphome.io)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.10.0%2B-41BDF5.svg)](https://www.home-assistant.io)
+[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10.7%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-Pocket Assistant started as a personal home lab project to explore what is possible when pairing modern ESP32-S3 hardware with Home Assistant, Music Assistant, and ESPHome. Rather than acting as a passive sensor display or an audio satellite alone, it combines local playback, multi-room queue transfer and group management, interactive 5-slot library browsing, Voice Assistant support, and power-efficient sleep states in a circular handheld form factor.
+Pocket Assistant pairs a 466×466 circular AMOLED touchscreen, dual microphones, a speaker, a 6-axis IMU, and an AXP2101 power management IC with ESPHome, Home Assistant, and Music Assistant. Instead of acting as a passive wall display or stationary voice puck, it works as an untethered handheld and docked desk companion—combining an interactive Home Hub with live 20 FPS weather, on-board wake word and push-to-talk Voice Assistant, local FLAC streaming and multi-room speaker control, a 4-device universal TV remote, motion-controlled arcade games, and a 3-tier power state machine (`<40 µA` hardware hibernate).
+
+<p align="center">
+  <img width="30%" alt="Clock & Watch Faces" src="https://github.com/user-attachments/assets/abdd0e28-8108-4c94-8e7a-bb57b551cb2b" />
+  <img width="30%" alt="Voice Assistant" src="https://github.com/user-attachments/assets/ea6c7aa3-625c-4e8e-b9ac-3aea752844f8" />
+  <img width="30%" alt="Music Player & Library" src="https://github.com/user-attachments/assets/f65e9f1b-d211-4396-bcd0-2b36597e6f77" />
+</p>
+<p align="center">
+  <img width="30%" alt="Sky & Weather Suite" src="https://github.com/user-attachments/assets/03a5e563-834b-4627-8146-005888f30950" />
+  <img width="30%" alt="Motion Physics Games" src="https://github.com/user-attachments/assets/4deb32e4-7dae-4d46-b03a-886e50cb91d1" />
+  <img width="30%" alt="Timers & Alarms" src="https://github.com/user-attachments/assets/0445a944-c109-455b-9d47-b5cad09d6276" />
+</p>
+
+---
+
+## Highlights in v2.0
+
+* **Interactive Home Hub & Smart Live Activity Card**: A single glanceable home screen with a live 20 FPS weather sky, tap-to-open hero clock and weather summary, a contextual **Wake Greeting**, an auto-prioritized **Live Activity Card** (with an 8.0s upward carousel reel, urgency pinning for running Stopwatch / Timers `<= 60s`, inline Play/Pause/Disarm, and a translucent multi-activity overlay), and a **3-Icon Sliding Window Dock** (`Music`, `Remote`, `Games` -> `Tools`).
+* **On-Board Wake Word + 5 Voice Assistant Visual Profiles**: Runs 5 selectable `micro_wake_word` models in Octal PSRAM (**Okay Nabu**, **Hey Luna**, **Hey Jarvis**, **Hey Mycroft**, **Alexa**) with per-model sensitivity tuning, NVS persistence, and 5 20 FPS visual profiles (**Nebula**, **Solaris**, **Jarvis**, **Alexa**, and **Gemini**). *(Note: Because the board shares I2S clock lines between the mic and speaker, hands-free wake word is active whenever the local speaker is idle—including while controlling external room speakers—and automatically pauses during local speaker playback. While local music is playing, press the **Side Button (`GPIO0`)** to automatically pause playback, speak to Assist, and auto-resume music at your exact pre-Assist volume afterward.)*
+* **Lossless Music Assistant Player & Track Inspector**: Stream FLAC audio locally via Sendspin (with automatic on-device `L+R -> Mono` stereo downmixing) or control household speakers (Sonos, AirPlay, Cast, Denon/Marantz). Transfer queues between rooms, group/ungroup speakers, browse your library on-device, or tap the metadata bar to open the **Track & Album Inspector** with a 276px position scrubber, `-15s`/`+15s` seek, album tracklist, artist discography, and Up Next queue.
+* **4-Device Universal TV & Media Remote**: Control up to 4 preconfigured TVs, streamers, or AVRs with automatic protocol detection (**Android TV / Shield / Fire TV / Bravia**, **Denon / Marantz AVR**, **LG webOS**, **Apple TV**, **Roku**, **Samsung TV**, and **Custom**), Slot-1 Master Power, and per-device power overrides.
+* **20 FPS 3D Weather & Telescopic Lunar Suite**: Procedural 3D cumulus and wispy cloud layers with IMU wrist-tilt parallax, Ghibli-style tapered rain filaments with horizon splashes, 3D helical snowfall, multi-pulse lightning, tumbling 3D leaves, migrating birds, a 5-day forecast, solar horizon arc, and a `.rodata` telescopic Lunar Albedo renderer.
+* **20 FPS 360° Motion Arcade**: Gimbal-lock-free 3D IMU calibration powers 4 arcade games—**Marbles**, **Archery**, **Breakout**, and **Chomp for Kids**—complete with RTTTL sound effects and persistent high scores.
+* **8-Tool Utility Suite & Find My Device**: Built-in **3-Slot Timers** (synced 2-way with Home Assistant Assist voice timers), **3-Slot Alarms**, **1970 Heuer Split-Lap Stopwatch** (with physical Crown pusher), **3D Dual D6 Dice Roll**, **Flashlight Torch**, **Calculator**, **20 FPS Bubble Level**, **3D Silver Home Assistant Coin Flip**, and an acoustic **Find My Device** radar beacon.
+* **5 Docked 20 FPS Screensavers & `<40 µA` Hibernate**: **Aurora Borealis**, **Starfield**, **Matrix Rain**, **Fireworks**, and **Ambient Clock** when docked to USB, plus `<5 ms` hardware IRQ standby wake and `<40 µA` AXP2101 rail-cut hibernate on battery.
 
 <img width="30%" alt="clock" src="https://github.com/user-attachments/assets/abdd0e28-8108-4c94-8e7a-bb57b551cb2b" />
 <img width="30%" alt="voice" src="https://github.com/user-attachments/assets/ea6c7aa3-625c-4e8e-b9ac-3aea752844f8" />
@@ -21,202 +46,134 @@ Pocket Assistant started as a personal home lab project to explore what is possi
 
 ## Quick Start & Installation
 
-### Supported Hardware
-* **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (1.75" 466×466 round AMOLED, CO5300 QSPI display, CST9220 capacitive touch, ES8311 DAC, ES7210 ADC, AXP2101 PMIC, QMI8658 6-axis IMU).
+### Requirements
+* **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (466×466 CO5300 QSPI AMOLED, CST9220 touch, ES8311 DAC, ES7210 dual-mic ADC, AXP2101 PMIC, QMI8658 6-axis IMU, 32MB Octal Flash, 8MB Octal PSRAM).
+* **Home Assistant Core `2026.10.0+`** & **ESPHome `2026.10.0+`**.
+* **Music Assistant `2.10.7+`** *(optional, for local Sendspin streaming and library browsing)*.
+* **[Actions for Music Assistant (`mass_queue`)](https://github.com/droans/mass_queue)** *(optional HACS integration, required for browsing individual podcast episodes and full Up Next play queues)*.
 
 ### 1. Flash the Firmware
-* **Web Installer (Recommended)**: Connect the device via USB-C in a WebSerial-supported browser (Chrome, Edge, Opera) and visit the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to install v1.2 with one click.
-* **ESPHome Dashboard**: Alternatively, adopt the device using a minimal remote package include in your ESPHome node configuration:
+* **Web Installer (Recommended)**: Connect your board via USB-C in Chrome or Edge and open the **[Pocket Assistant Web Installer](https://slampton.github.io/esphome-pocket-assistant/)** to flash v2.0 and connect to Wi-Fi via Improv BLE.
+* **ESPHome Device Builder (Take Control / Custom Substitutions)**: When adopting the device in ESPHome Device Builder, override any `substitutions:` you want at the top of your YAML:
 ```yaml
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "1.2"
   weather_entity: "weather.forecast_home"            # Primary Home Assistant weather entity
-  local_player_id: "media_player.pocket_assistant"   # Local media player entity ID
+  tv_remote_entity: "remote.none"                    # Slot 1: Primary TV/Device & Master Power target
+  tv_remote_entity_2: "media_player.none"            # Slot 2: Optional 2nd device (remote.* or media_player.*)
+  tv_remote_entity_3: "remote.none"                  # Slot 3: Optional 3rd device ("remote.none" hides slot)
+  tv_remote_entity_4: "remote.none"                  # Slot 4: Optional 4th device ("remote.none" hides slot)
+  tv_remote_profile: "Auto-Detect"                   # Slot 1..4 Profile ("Auto-Detect", "Android TV / Fire TV / Bravia",
+  tv_remote_profile_2: "Auto-Detect"                 #   "Denon / Marantz AVR", "LG webOS", "Apple TV", "Roku",
+  tv_remote_profile_3: "Auto-Detect"                 #   "Samsung TV", or "Custom")
+  tv_remote_profile_4: "Auto-Detect"
+  mass_queue_config_entry: ""                        # Optional: mass_queue Config Entry ID for Podcasts & Queue
 
 packages:
-  remote_pocket_assistant:
+  slampton.pocket-assistant-175c:
     url: https://github.com/slampton/esphome-pocket-assistant
     ref: main
-    files:
-      - pocket-assistant-1.75c.yaml
+    file: pocket-assistant-1.75c.yaml
+    refresh: 0s
+
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+
+api:
+  encryption:
+    key: "!secret api_encryption_key"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
 ```
 
-### 2. Home Assistant Companion Package Setup
-Pocket Assistant uses a single consolidated companion package (`homeassistant/packages/pocket_assistant_companion.yaml`) containing 3 persistent state helpers (`input_text`) and 2 high-efficiency template sensors (`sensor.pocket_assistant_active_media` and `sensor.pocket_assistant_weather_forecast`).
+### 2. Install the Home Assistant Companion Package (Single File, Zero Blueprints)
+Copy [`homeassistant/packages/pocket_assistant_companion.yaml`](homeassistant/packages/pocket_assistant_companion.yaml) into your Home Assistant `/config/packages/` folder. It sets up all **6 companion entities** in one place (no Blueprints required):
+1. `input_text.pocket_assistant_active_speaker` — Active media player target (defaults to `media_player.pocket_assistant`).
+2. `input_text.pocket_assistant_weather_entity` — Weather entity (defaults to `weather.forecast_home`, auto-falling back to your first `weather.*` entity).
+3. `input_text.pocket_assistant_base_url` — Optional base URL override for custom HA ports (defaults to `http://homeassistant.local:8123`).
+4. `sensor.pocket_assistant_active_media` — Idle-guarded media metadata mirror (`title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `supported_features`, `art_url`).
+5. `sensor.pocket_assistant_weather_forecast` — Auto-discovering 5-day forecast & live weather serializer (`DAY:HIGH:LOW:COND` + `condition`, `temperature`, `humidity`, `wind_speed`, `wind_bearing`, `high`, and `low`).
+6. `script.pocket_assistant_music_browse` — Paged 5-slot Music Assistant browser for speakers, favorites, playlists, artists, albums, radio, podcasts, audiobooks, album tracks, and active queues.
 
-Choose whichever deployment method matches your Home Assistant configuration:
-
-* **Option A: `packages/` Directory (Recommended)**:
-  1. Ensure your Home Assistant `configuration.yaml` enables packages:
-     ```yaml
-     homeassistant:
-       packages: !include_dir_named packages
-     ```
-  2. Copy `homeassistant/packages/pocket_assistant_companion.yaml` directly from this repository into your Home Assistant `/config/packages/` directory.
-
-* **Option B: Split `templates.yaml` & Helpers**:
-  If your Home Assistant environment does not use packages and organizes template sensors via `template: !include templates.yaml`:
-  1. Copy the contents of the `template:` block from `pocket_assistant_companion.yaml` directly into your `/config/templates.yaml`.
-  2. Create the 3 required `input_text` helpers either by copying the `input_text:` block into `/config/configuration.yaml` or creating them under **Settings -> Devices & Services -> Helpers**:
-     * `input_text.pocket_assistant_active_speaker` (Active target media player entity ID, e.g. `media_player.living_room`)
-     * `input_text.pocket_assistant_weather_entity` (Monitored weather entity ID, default `weather.forecast_home`)
-     * `input_text.pocket_assistant_base_url` (Optional base URL override, e.g. `http://homeassistant.local:8123`)
-
-After adding the configuration, reload Template Entities and Input Texts under **Developer Tools -> YAML** (or restart Home Assistant).
-
-### 3. Music Assistant Setup
-1. Adopt the discovered `pocket-assistant` device under **Settings -> Devices & Services**.
-2. **Library Browsing Blueprint**: Import `homeassistant/blueprints/script/music_assistant_browse.yaml` into Home Assistant (**Settings -> Automations & Scenes -> Blueprints**), create a script from it, and save it as `script.music_assistant_browse`.
+Ensure `configuration.yaml` includes packages under `homeassistant:`:
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+Then reload **Template Entities**, **Input Texts**, and **Scripts** under **Developer Tools -> YAML** (or restart Home Assistant).
 
 ---
 
-## Core Capabilities
+## Navigation & Hardware Controls
 
-### Audio Pipeline & Music Assistant
-* **Local & Remote Audio Control**: Functions as a standalone local media player via Sendspin FLAC streaming, or as a handheld remote managing external household speakers (Sonos, AirPlay, Chromecast, receivers).
-* **Multi-Room Queue Transfer & Group Management**: Direct 5-slot speaker browser with contextual action sheets: transfer active playback queues between rooms (`TRANSFER QUEUE`), control remote speaker volume and transport, join speakers into synchronized audio groups (`JOIN AUDIO`), or cleanly detach/unjoin groups (`UNJOIN AUDIO`).
-* **Universal Active Album Art**: Displays full-color edge-to-edge artwork (Full Screen default, Letterbox, or Compact) whether streaming locally or controlling remote speakers, with automatic fallback to a high-contrast vinyl disc when no art is available.
-* **YouTube-Style Auto-Fading HUD**: Full-bleed artwork breathes with zero on-screen clutter during playback; a single soft tap on the glass summons floating vector transport controls with 1px drop shadows, top-center speaker name overlay, and radial elapsed progress before smoothly auto-fading after 5 seconds of inactivity.
-* **5-Slot Library Browser**: Browse Music Assistant favorites, playlists, artists, albums, radio, podcasts, and audiobooks on-device with dual-action play (`▶`) and drill-down (`>`) touch cards with bidirectional continuous wrap-around scrolling.
+### Hub-and-Spoke Touch Navigation
+Pocket Assistant v2.0 uses a fast hub-and-spoke layout centered on the **Home Hub (`Page 1`)**:
+* **Top Date Header (`y = 52`)**: Tap to open **Home Settings** (toggle live weather sky and individual dock icons).
+* **Sun / Moon Corner Icon (`360, 86`)**: Tap to jump directly to the **Sun** or **Moon** telemetry view.
+* **Hero Digital Clock (`y = 128`)**: Tap to open the full **Clock** watch face (`Analog` or `Digital`).
+* **Weather Summary Line (`y = 200`)**: Tap to open **Sky & Weather** (`Current Conditions`).
+* **Wake Greeting & Live Activity Card (`y = 271`)**: Shows a contextual **Wake Greeting** on cold boot / Hibernate wake, then transitions to the **Live Activity Card** whenever a Timer, Stopwatch, Music queue, or Alarm is active. Tap the card body to open that activity, tap the inline action circle to Play/Pause/Disarm in place, or tap the right `▼` chevron (when 2+ activities are active) to open the **Translucent Activity Overlay**.
+* **3-Icon Sliding Window Dock (`y = 352`)**: Shows **Music**, **TV Remote**, and **Games** on Page 0 with a right `>` chevron to slide **Tools** into view.
+* **Bottom Chin (`y = 421` / `426`)**: Tap the **Battery & Settings Gear** on Home (`y = 421`) to open the **System Hub**; tap **`Home`** (on top-level apps) or **`< Back`** (on nested submenus, tools, and active games) at `y = 426` to return.
 
-### Voice Assistant Satellite
-* **Push-to-Talk Assist**: Side button instantly routes audio to the ES7210 microphone, pauses local music, and activates the Assist satellite pipeline.
-* **Dynamic Audio Ducking**: Software mixer ducks local playback by 20 dB during Voice Assistant speech synthesis.
-* **Hardware & Touch Dismissal**: Physical side button immediately halts and mutes an active voice session; full-screen touch modal interception allows tapping the glass to dismiss without triggering background app controls.
-
-### Multi-Tier Power Management
-* **Tier 1 (Active)**: High-performance 80MHz Quad-SPI AMOLED rendering, real-time sensor processing, and capacitive touch interaction.
-* **Tier 2 (Display Standby)**: Screen turns off after an inactivity timeout (default 15s on battery), powering down the speaker amplifier and gyroscope while keeping motion wake armed. Wakes rapidly upon crown button press, or upon physical pickup.
-* **Tier 3 (Deep Sleep Hibernation)**: Enters ultra-low-power sleep (<40µA) via deliberate crown long-press (>1.5s with a 5-second abortable visual countdown) or extended standby inactivity. The AXP2101 PMIC cuts all peripheral voltage rails, while the side button is completely decoupled to prevent accidental pocket waking. Wakes exclusively via the top crown hardware pin.
-* **Docked Screensaver Mode**: When connected to USB-C power, the device can optionally run an ambient screensaver (kinetic Aurora Borealis plasma ribbon, Ambient Clock, Starfield, Matrix Rain, or Solar Flare) without entering sleep.
-
-### Graphics & System Engine
-* **High-Throughput QSPI Bus**: 80MHz Quad-SPI display interface pushes full 466×466 frames in ~12ms, maintaining over 88% CPU idle headroom.
-* **30 Hz (33ms) Touch Response Architecture**: Standardized CST9220 polling cadence paired with hierarchical debouncing (100ms rapid steppers, 150ms buttons, 250ms scroll chevrons) delivers instant, lag-free touch acquisition with zero dropped taps while cutting I2C bus load by 45%.
-* **Zero-Overdraw Cloud Engine (`cloud_spans.h`)**: Pre-rasterized run-length encoded (RLE) horizontal span table renders 4 multi-tonal volumetric cumulus cloud canopies in under 15ms with zero inner circle overdraw.
-* **Radial OTA Progress Indicator**: Full-screen 360° circular progress arc with smooth 10 FPS interpolation and an orbiting pip during firmware updates.
-* **Precision 10 FPS Stopwatch (Page 1)**: Horological split-lap chronograph inspired by vintage Heuer and Speedmaster timepieces, featuring a high-contrast matte black AMOLED dial, faceted stainless steel pointer, machined piston pushers, Rattrapante split ghost hand, and a guaranteed 55ms CPU idle window per cycle for zero-latency touch responsiveness.
-* **Customizable App Deck & Hierarchical System Hub (Page 4)**: 8-button balanced 2x4 system dashboard with dedicated submenus for Display, Clock & Time, Sleep & Wake, Audio, Voice, App Deck, and System Diagnostics. The App Deck submenu allows toggling visibility and default start application for all apps on-device.
-* **Integrated Apps Suite**: Modern watch face with complication format toggling, Sky & Weather 4-view astronomical and atmospheric suite (Current conditions with realistic daylight sky and night starfield, 5-day aligned forecast, Sun arc, and lunar telemetry Moon view), 6-axis IMU motion physics games (Marble Maze, Archery Target, Breakout with paddle defense, and Treat Catcher), and Countdown Timer & Multi-Alarm Suite with local RTC countdown, continuous perimeter arc, and crown snooze.
-
----
-
-## Technical Approach & Engineering Solutions
-
-### Dynamic GPIO Matrix I2S Clock Multiplexing
-The Waveshare 1.75C board routes both the ES7210 ADC (microphone) and ES8311 DAC (speaker) to shared physical clock lines (BCLK GPIO9, WS GPIO45, MCLK GPIO16). Operating standard duplex I2S caused bus contention and peripheral locking.
-
-To resolve this, firmware configures two independent master I2S buses and dynamically reassigns the physical pins at runtime via ESP32-S3 ROM GPIO matrix calls:
-* `route_i2s_to_mic`: Connects clock lines to internal I2S0 peripheral signals during voice capture.
-* `route_i2s_to_spk`: Connects clock lines to internal I2S1 peripheral signals during playback.
-
-This enables collision-free operation between local playback and Voice Assistant without requiring hardware board modifications.
-
-### Server-Side Pagination for Music Assistant
-Microcontrollers have limited RAM and cannot parse massive multi-megabyte JSON payloads from large music libraries without stalling the main loop and causing audio glitches.
-
-The companion Home Assistant Script Blueprint solves this by offloading all query filtering, sorting, and pagination to Home Assistant. The ESP32 sends a compact RPC request with the target category, page number, and page size (5 items). Home Assistant queries Music Assistant, formats only the five requested items into primitive string parameters, and dispatches them back via native ESPHome API actions. The microcontroller updates its display buffer with zero client-side JSON overhead.
-
-### Single-Authority Volume Control & Boot Gain Lock
-To eliminate volume fighting between Home Assistant sliders and physical hardware:
-* A single master media player (`local_player_id`) owns the ES8311 DAC.
-* DAC gain initialization (`audio_dac.set_volume: 70%`) and initial muting are pinned to boot `priority: -100` (after hardware driver setup), preventing 0 dB (100% full-scale) power-on blasts.
-
----
-
-## Hardware Controls Reference
-
-| Control | State / Context | Function |
+### Physical Buttons
+| Control | Context | Action |
 | :--- | :--- | :--- |
-| **Top Crown (Short Click)** | Alarm Ringing | Snoozes alarm for 5 minutes. |
-| **Top Crown (Short Click)** | Timer Ringing | Dismisses timer alert. |
-| **Top Crown (Short Click)** | Standby (Screen Off) | Instant wake to active brightness. |
-| **Top Crown (Short Click)** | Stopwatch Page | Starts or stops the chronograph timer. |
-| **Top Crown (Short Click)** | Timer Page | Toggles Timer Start / Pause / Resume. |
-| **Top Crown (Short Click)** | Submenus / Overlays / Games | Back / Exit to parent application. |
-| **Top Crown (Short Click)** | Main App Pages | Enters screen standby immediately. |
-| **Top Crown (Long Press >1.5s)** | Any Screen | Starts 5-second abortable Hibernation Countdown (or instant hibernate if configured). |
-| **Side Button (Click)** | Normal / Standby | Activates Voice Assistant (listening mode), or fires in-game action. |
-| **Side Button (Click)** | Voice Assistant Active | Cancels Voice Assistant immediately and mutes audio. |
-| **Screen Tap (Upper 70%)** | Stopwatch Page | Start / Stop toggle with generous zero-deadzone touch envelope. |
-| **Screen Tap (Lower Quadrants)** | Stopwatch Page | Left quadrant: LAP (Rattrapante ghost hand); Right quadrant: RESET. |
-| **Screen Tap (Center)** | Music Player | Toggles Play / Pause. |
-| **Screen Tap (Right Flank)** | Music Player | Volume Up (+, top right), Volume Down (-, bottom right), Next Track / +30s (▶|, middle right). |
-| **Screen Tap (Left Flank)** | Music Player | Speaker Browser (🔊, top left), Previous Track / -10s (|◀, middle left), Library Menu (☰, bottom left). |
-| **Subpage 2x2 Grid / Screen Tap** | Sky & Weather Page | 4-View Navigation: Standardized 2x2 pill buttons ([ Current | Forecast ] / [ Sun | Moon ]), central screen tap cycles sequentially through all 4 views, and upper-right celestial shortcut. |
-| **Bottom Bar (< / >)** | Main App Pages | Navigates through active app deck (Clock $\leftrightarrow$ Stopwatch $\leftrightarrow$ Music $\leftrightarrow$ Games $\leftrightarrow$ System $\leftrightarrow$ Sky & Weather $\leftrightarrow$ Timer & Alarm). |
+| **Top Crown (Short Click)** | Standby (Screen Off / Screensaver) | Instant `<5 ms` wake via `GPIO3` hardware interrupt. |
+| **Top Crown (Short Click)** | Alarm / Timer / Find My Ringing | Snoozes alarm (+5 min) or dismisses Timer / Find My alert. |
+| **Top Crown (Short Click)** | Voice Assistant Active | Cancels Voice Assistant and mutes TTS audio. |
+| **Top Crown (Short Click)** | Stopwatch (`Tools -> Stopwatch`) | Tactile **Start / Stop** chronograph pusher. |
+| **Top Crown (Short Click)** | Any Screen (except Stopwatch) | Turns the screen off and enters **Tier 2 Standby**. |
+| **Top Crown (Long Press >1.5s)** | Any Screen | Initiates **Tier 3 Hardware Hibernate** (`<40 µA`, instant or 5s countdown). |
+| **Side Button (`GPIO0` Click)** | Normal / Local Music / Standby / Games | Triggers **Voice Assistant** (auto-pauses & resumes local music when hands-free wake word is paused by local speaker output), dismisses alerts, or fires in games. |
 
 ---
 
-## Home Assistant Backend Architecture
+## Power & Resource Profile
 
-Pocket Assistant uses a streamlined 2-sensor companion backend architecture designed to minimize database write volume, eliminate network polling overhead, and provide reliable local telemetry.
-
-### 1. Weather Telemetry & 5-Day Forecast Pipeline
-* **Dual Ingestion Architecture**:
-  * **Current Conditions**: The watch face and Sky & Weather app subscribe directly to your primary Home Assistant weather entity (`weather_entity`) for live temperature, humidity, pressure, and current condition state.
-  * **Daily & 5-Day Forecast**: Modern Home Assistant weather entities expose forecast arrays via the `weather.get_forecasts` action. The companion package fetches the daily forecast hourly (and on startup) and serializes it into `sensor.pocket_assistant_weather_forecast`:
-    * **State**: Semicolon-delimited 5-day forecast string (`DAY:HIGH:LOW:COND;...`).
-    * **Attributes**: Structured `high` and `low` floats for today's forecast.
-  * **Resilient On-Device Fallback**: If attribute updates are ever unavailable or reloading, Page 5 firmware automatically parses today's high and low directly from the forecast string, preventing display gaps.
-  * **Dynamic Entity Re-Targeting**: Change the monitored weather service on the fly without re-flashing firmware by updating `input_text.pocket_assistant_weather_entity`.
-
-### 2. Active Media Mirror & Music Assistant Integration
-* **Consolidated Media Mirroring**: Active playback metadata is unified into a single companion entity, `sensor.pocket_assistant_active_media`:
-  * **State**: Playback state (`playing`, `paused`, `idle`).
-  * **Attributes**: `title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `art_url`.
-  * **Database Optimization**: Consolidating 9 separate legacy helper sensors into 1 attribute-rich entity cuts Home Assistant state database writes during active playback by 89% while delivering synchronous metadata packets to the device over the ESPHome native API.
-  * **Active Speaker Routing**: Dynamically follow any external media player by setting `input_text.pocket_assistant_active_speaker`.
-* **Server-Side Pagination Blueprint**: `homeassistant/blueprints/script/music_assistant_browse.yaml` offloads multi-megabyte JSON library queries from device memory to Home Assistant, returning paginated 5-item batches directly to on-screen interactive cards.
+| Mode / Resource | Measured Budget | Implementation |
+| :--- | :--- | :--- |
+| **Tier 1: Active Mode** | `110 – 160 mA` | 80 MHz QSPI display @ 20 FPS (`42 ms` cadence), 30 Hz touch, 6-axis IMU active |
+| **Tier 2: Display Standby** | `15 – 25 mA` (`<5 ms` wake) | Display poller & PA amp off, IMU gyro/poller off (`0x01` pickup wake or `0x00` off), `GPIO3` PMU IRQ gating |
+| **Tier 3: Hardware Hibernate** | `< 40 µA` (`~400 ms` UI wake) | `global_preferences->sync()` + clean API disconnect + AXP2101 `0x10 = 0x01` rail cut |
+| **Memory Footprint** | `~155 KB` free internal SRAM | 8MB Octal PSRAM @ 80 MHz (`microFLAC`, `micro_wake_word`, NVS cache, FreeRTOS stacks) + `.rodata` LUTs |
 
 ---
 
-## Repository Structure
+## Repository Layout
 
 ```text
 esphome-pocket-assistant/
-├── .github/
-│   └── workflows/
-│       └── build.yml                      # CI build & compilation validation workflow
-├── boards/
-│   └── waveshare_175c.yaml                # Hardware Abstraction Layer (HAL) pinouts & buses
+├── .github/workflows/build.yml        # ESPHome 2026.10 CI build & GitHub Pages Web Installer workflow
+├── adrs/                              # Architectural Decision Records (ADR-001 through ADR-006)
+├── boards/waveshare_175c.yaml         # Board HAL (QSPI Display, CST9220 Touch, Dual I2S, IMU, PMU & PSRAM)
 ├── core/
-│   ├── audio.yaml                         # Dual I2S GPIO matrix, DAC gain lock, Voice Assistant
-│   ├── power.yaml                         # Multi-tier power management, AXP2101 PMU, deep sleep
-│   └── ui.yaml                            # UI engine, watch faces, chronograph, music, games, system
-├── homeassistant/
-│   ├── blueprints/
-│   │   └── script/
-│   │       └── music_assistant_browse.yaml    # Script Blueprint for MA library browsing
-│   └── packages/
-│       └── pocket_assistant_companion.yaml    # Single drop-in HA helper & template sensor package
-├── .gitignore                             # Git ignore rules
-├── .nojekyll                              # GitHub Pages static asset flag
-├── LICENSE                                # Apache 2.0 open-source license
-├── README.md                              # Project documentation & hardware reference
-├── cloud_spans.h                          # Pre-rasterized RLE cumulus cloud span tables
-├── index.html                             # GitHub Pages web installer interface
-├── manifest.json                          # Web installer firmware manifest
-├── pocket-assistant-1.75c.yaml            # Standalone 1.75C board entry configuration
-├── pocket-assistant.yaml                  # Master node configuration & substitutions
-└── va_cancel_helper.h                     # C++ Voice Assistant cancellation hook
+│   ├── audio.yaml                     # Mixer, resamplers, Sendspin, 5-model Micro Wake Word & Voice Assistant
+│   ├── power.yaml                     # 3-tier power state machine, GPIO3 IRQ gate & battery fuel gauge
+│   └── ui.yaml                        # 20 FPS display loop, Home Hub, apps, tools & 30 Hz touch router
+├── homeassistant/packages/
+│   └── pocket_assistant_companion.yaml # Single-file HA companion package (helpers, sensors & browse script)
+├── pocket-assistant-1.75c.yaml        # Remote package entry point for ESPHome adoption
+├── pocket-assistant.yaml              # Master node configuration, substitutions & API actions
+├── ui_core.h                          # Geometry, .rodata LUTs, 3D projection, blitter & touch helpers
+├── ui_ambient_va.h                    # 20 FPS Docked Screensavers & 5-Profile Voice Assistant engine
+├── ui_weather_sky.h                   # Telescopic Lunar Albedo LUTs & 20 FPS 3D Weather Motion engine
+├── ui_games.h                         # 360-Deg IMU tilt & 4-Game 20 FPS Arcade suite
+├── ui_tools_apps.h                    # Home Hub, 8-Tool Suite, Clock, Music, TV Remote & System Hub
+├── ui_toolkit.h                       # Umbrella C++20 UI toolkit header
+├── va_cancel_helper.h                 # Voice Assistant session lifecycle, mono downmixer, NVS wake-word sync & API disconnect
+└── SPECIFICATION.md                   # Complete hardware, pinout, memory & software architecture spec
 ```
 
 ---
 
-## Development & AI Transparency
+## Development & License
 
-AI tools were used during the development and documentation of this project.
+Every hardware route, register map, and UI flow is validated on physical Waveshare ESP32-S3-Touch-AMOLED-1.75C hardware. AI tools were used to assist with mathematical LUT generation, procedural 3D/weather shaders in `ui_toolkit.h`, and documentation.
 
-* **Human-Directed & Hardware-Verified**: Every schematic, bus architecture, GPIO matrix route, and register map is validated directly on physical Waveshare ESP32-S3-Touch-AMOLED-1.75C hardware. No unverified code is committed.
-* **How AI Was Utilized**: AI assistance was used for rapid prototyping, mathematical modeling (such as trigonometric vector math for the mechanical chronometer dial and UI layout geometry), automated AST schema validation, and technical documentation.
-* **Local-First & Open Standards**: All firmware architecture adheres strictly to native ESPHome standards, local-first principles, and official Home Assistant design patterns.
-
-Feedback, peer review, and pull requests from the community are always welcome.
-
----
-
-## License
 Distributed under the Apache 2.0 License. See [`LICENSE`](LICENSE) for details.

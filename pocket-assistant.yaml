@@ -1,22 +1,24 @@
+# Build-Stamp: 2026-10-21 22:10:00
 # ==============================================================================
-# 🧭 Pocket Assistant (v1.2 Modular Architecture)
+# 🧭 Pocket Assistant (v2.0 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
-# Framework: ESPHome 2026.9.0+ (ESP-IDF 5.5+)
+# Framework: ESPHome 2026.10.0+ (ESP-IDF 5.5+)
 # Repository: https://github.com/slampton/esphome-pocket-assistant
 # ==============================================================================
 
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "1.2"
-  default_start_app: "Clock"
+  version: "2.0"
+  default_start_app: "Home"
   default_art_mode: "Full Screen"
   default_screensaver_style: "Aurora Borealis"
   default_album_sort: "Alphabetical"
   default_artist_album_sort: "Oldest on Top"
   default_podcast_sort: "Newest on Top"
-  browse_script: "script.music_assistant_browse"
+  browse_script: "script.pocket_assistant_music_browse"
   active_speaker_helper: "input_text.pocket_assistant_active_speaker"
+  mass_queue_config_entry: ""                           # Optional: mass_queue Config Entry ID for Podcast Episodes & Up Next Queue
   # Unified Companion Package Entities
   active_media_sensor: "sensor.pocket_assistant_active_media"
   weather_forecast_sensor: "sensor.pocket_assistant_weather_forecast"
@@ -31,22 +33,47 @@ substitutions:
   weather_entity: "weather.forecast_home"
   sun_entity: "sun.sun"
   moon_entity: "sensor.moon_phase"
+  # Universal Media / TV Remote Entities (Up to 4 Preconfigured Devices; set unused slots to "remote.none")
+  # Note: Slot 1 (tv_remote_entity) is the Primary Device and Master Power target ("Toggle Power").
+  tv_remote_entity: "remote.none"                       # Slot 1 (Primary Device & Master Power Target, e.g. "remote.living_room_tv")
+  tv_remote_entity_2: "media_player.none"               # Slot 2 (Optional: remote.* or media_player.*)
+  tv_remote_entity_3: "remote.none"                     # Slot 3 (Optional: "remote.none" or "media_player.none" hides slot)
+  tv_remote_entity_4: "remote.none"                     # Slot 4 (Optional 4th Device)
+  tv_remote_profile: "Auto-Detect"                      # Slot 1 Profile ("Auto-Detect", "Android TV / Fire TV / Bravia", "Denon / Marantz AVR", "LG webOS", "Apple TV", "Roku", "Samsung TV", "Custom")
+  tv_remote_profile_2: "Auto-Detect"                    # Slot 2 Profile
+  tv_remote_profile_3: "Auto-Detect"                    # Slot 3 Profile
+  tv_remote_profile_4: "Auto-Detect"                    # Slot 4 Profile
+  remote_cmd_up: "DPAD_UP"
+  remote_cmd_down: "DPAD_DOWN"
+  remote_cmd_left: "DPAD_LEFT"
+  remote_cmd_right: "DPAD_RIGHT"
+  remote_cmd_select: "DPAD_CENTER"
+  remote_cmd_back: "BACK"
+  remote_cmd_home: "HOME"
+  remote_cmd_vol_up: "VOLUME_UP"
+  remote_cmd_vol_down: "VOLUME_DOWN"
+  remote_cmd_power: "POWER"
 
 
 dashboard_import:
-  package_import_url: github://slampton/esphome-pocket-assistant/pocket-assistant.yaml@main
+  package_import_url: github://slampton/esphome-pocket-assistant/pocket-assistant-1.75c.yaml@main
   import_full_config: false
 
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
-  min_version: 2026.9.0
+  min_version: 2026.10.0
   project:
     name: "slampton.pocket-assistant-175c"
     version: "${version}"
   includes:
     - va_cancel_helper.h
-    - cloud_spans.h
+    - ui_core.h
+    - ui_ambient_va.h
+    - ui_weather_sky.h
+    - ui_games.h
+    - ui_tools_apps.h
+    - ui_toolkit.h
   on_boot:
     - priority: 800
       then:
@@ -56,54 +83,71 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          id(abort_boot) = false;
-
-          // Release all deep sleep pad holds immediately so all peripherals initialize without delay
-          gpio_deep_sleep_hold_dis();
-          gpio_hold_dis(GPIO_NUM_1);
-          gpio_hold_dis(GPIO_NUM_2);
-          gpio_hold_dis(GPIO_NUM_46);
-          gpio_hold_dis(GPIO_NUM_12);
+          // Release all deep sleep pad holds immediately via board HAL (2026-10-21 22:10:00)
+          id(hal_release_deep_sleep_holds).execute();
 
           id(sleep_start_time) = millis();
-          id(is_locked) = false;
           id(is_hibernating) = false;
           id(display_power_state) = 0; // ACTIVE
+          esphome::voice_assistant::ensure_wake_words_restored(id(va));
 
     - priority: -100
       then:
         - safe_mode.mark_successful:
-        - lambda: |-
-            // Enable AXP2101 PEK short and long press IRQs (register 0x41 = 0x0C)
-            uint8_t irq_en[2] = {0x41, 0x0C};
-            id(bus_internal).write(0x34, irq_en, 2);
-
-            // Clear all pending AXP2101 IRQ flags (0x48, 0x49, 0x4A) so GPIO3 starts unasserted (HIGH)
-            uint8_t clr_all[2] = {0x48, 0xFF};
-            id(bus_internal).write(0x34, clr_all, 2);
-            clr_all[0] = 0x49;
-            id(bus_internal).write(0x34, clr_all, 2);
-            clr_all[0] = 0x4A;
-            id(bus_internal).write(0x34, clr_all, 2);
+        - script.execute: hal_init_pmu_irq
+        - lambda: 'esphome::voice_assistant::install_sendspin_mono_downmixer(id(sendspin_source));'
         - media_player.pause: pocket_music_player
         - online_image.release: remote_album_art
-        - lambda: |-
-            id(current_loaded_art_url) = "";
-            id(album_art_loaded) = false;
-        - script.execute: route_i2s_to_mic
-        - switch.turn_on: speaker_enable
+        - lambda: 'id(current_loaded_art_url) = "";'
         - audio_dac.set_volume:
             id: es8311_dac
             volume: 90%
         - audio_dac.mute_on: es8311_dac
+        - script.execute: route_i2s_to_mic
+        - switch.turn_off: speaker_enable
         - script.execute: apply_default_start_page
-        - script.execute: rebuild_active_deck
         - script.execute: apply_theme_preset
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
-        # 2-Second Post-Boot Blackout: masks background network/Music Assistant connection rush
-        - delay: 2s
+            // Seed preconfigured remote device names & active profile immediately on boot
+            const std::string rem_ents[4] = {
+              "${tv_remote_entity}", "${tv_remote_entity_2}",
+              "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+            };
+            if (id(remote_slot_0_name).empty()) id(remote_slot_0_name) = pocket_ui::format_remote_entity_fallback(rem_ents[0]);
+            if (id(remote_slot_1_name).empty()) id(remote_slot_1_name) = pocket_ui::format_remote_entity_fallback(rem_ents[1]);
+            if (id(remote_slot_2_name).empty()) id(remote_slot_2_name) = pocket_ui::format_remote_entity_fallback(rem_ents[2]);
+            if (id(remote_slot_3_name).empty()) id(remote_slot_3_name) = pocket_ui::format_remote_entity_fallback(rem_ents[3]);
+            int act_slot = pocket_ui::resolve_active_remote_slot(id(active_remote_slot), rem_ents);
+            id(active_remote_slot) = act_slot;
+            // Seed AXP2101 USB/charging status immediately at boot so Frame 1 shows live battery telemetry
+            uint8_t reg0 = 0x00, stat0 = 0, reg1 = 0x01, stat1 = 0;
+            bool vbus = false;
+            if (id(bus_internal).write_readv(0x34, &reg0, 1, &stat0, 1) == esphome::i2c::ERROR_OK) {
+              vbus = (stat0 & 0x20) != 0;
+              id(usb_connected).publish_state(vbus);
+            }
+            if (id(bus_internal).write_readv(0x34, &reg1, 1, &stat1, 1) == esphome::i2c::ERROR_OK) {
+              bool is_chg = vbus && (((stat1 >> 5) & 0x03) == 1) && ((stat1 & 0x07) < 4);
+              id(batt_charging).publish_state(is_chg);
+            }
+        - component.update: batt_level
+        - if:
+            condition:
+              lambda: 'return !id(wifi_ctrl).has_sta();'
+            then:
+              - logger.log: "No Wi-Fi credentials configured: enabling BLE for first-time Improv setup"
+              - ble.enable:
+        - lambda: |-
+            esphome::voice_assistant::ensure_wake_words_restored(id(va), true);
+            id(va_active_wake_word).publish_state(
+                esphome::voice_assistant::wake_word_id_to_label(esphome::voice_assistant::last_persisted_ww1()));
+            auto cur_vp = id(va_visual_profile).current_option();
+            if (cur_vp == "Google" || cur_vp == "Original") {
+              id(va_visual_profile).publish_state(cur_vp == "Google" ? "Gemini" : "Nebula");
+            }
+        - script.execute: apply_wake_word_sensitivities
         - script.execute: sync_display_brightness
         - script.execute: screen_sleep_timer
 
@@ -111,6 +155,12 @@ logger:
   level: INFO
 
 api:
+  encryption:
+  outgoing_connection:
+  on_client_connected:
+    then:
+      - lambda: |-
+          esphome::voice_assistant::on_api_client_authenticated(id(va), client_info, client_address);
   actions:
     - action: set_browse_slots
       variables:
@@ -143,8 +193,6 @@ api:
         - lambda: |-
             id(music_browse_page) = page;
             id(music_browse_total_pages) = total_pages;
-            id(music_browse_has_prev) = has_prev;
-            id(music_browse_has_next) = has_next;
             id(slot_1_name) = s1_name;
             id(slot_1_id) = s1_id;
             id(slot_1_type) = s1_type;
@@ -165,7 +213,7 @@ api:
             id(slot_5_id) = s5_id;
             id(slot_5_type) = s5_type;
             id(slot_5_active) = s5_active;
-            id(disp1).update();
+            pocket_ui::schedule_disp_update(&id(disp1));
 
     - action: set_timer
       variables:
@@ -173,29 +221,32 @@ api:
       then:
         - lambda: |-
             if (seconds > 0) {
-              id(timer_duration_sec) = seconds;
-              id(timer_remaining_sec) = seconds;
-              id(timer_target_ms) = millis() + (seconds * 1000);
-              id(timer_running) = true;
-              id(timer_paused) = false;
+              uint32_t now_t = millis();
+              int slot = pocket_ui::upsert_voice_timer_slot("ha_action", "", seconds, seconds, true, now_t);
+              pocket_ui::timer_view_slot() = slot + 1;
+              pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
               id(timer_ringing) = false;
-              id(gui_page) = 6;
-              id(timer_alarm_subpage) = 0;
+              id(gui_page) = 8;
+              id(stuff_subpage) = 1;
               id(wake_to_active_state).execute();
-              id(disp1).update();
-              ESP_LOGI("timer", "Voice/HA Timer started for %d seconds", (int)seconds);
+              pocket_ui::schedule_disp_update(&id(disp1));
+              ESP_LOGI("timer", "Voice/HA Timer started for %d seconds in slot %d", (int)seconds, slot + 1);
             }
 
     - action: cancel_timer
       then:
         - lambda: |-
-            id(timer_running) = false;
-            id(timer_paused) = false;
+            auto *slots = pocket_ui::timer_slots();
+            for (int i = 0; i < 3; i++) {
+              slots[i].running = false;
+              slots[i].paused = false;
+              slots[i].remaining_sec = slots[i].duration_sec;
+            }
+            pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
             id(timer_ringing) = false;
-            id(timer_remaining_sec) = id(timer_duration_sec);
             id(stop_alarm_sound).execute();
-            id(disp1).update();
-            ESP_LOGI("timer", "Voice/HA Timer cancelled");
+            pocket_ui::schedule_disp_update(&id(disp1));
+            ESP_LOGI("timer", "Voice/HA Timers cancelled");
 
 ota:
   - platform: esphome
@@ -205,14 +256,12 @@ ota:
         - lambda: |-
             id(ota_in_progress) = true;
             id(ota_progress_pct) = 0;
-            id(ota_display_pct) = 0.0f;
             id(sleep_start_time) = 0; // Inhibit auto-deep sleep during OTA!
             // Ensure hardware pads are unheld and display is awake for OTA progress
-            gpio_deep_sleep_hold_dis();
-            gpio_hold_dis(GPIO_NUM_1);
-            gpio_hold_dis(GPIO_NUM_2);
-            gpio_hold_dis(GPIO_NUM_46);
-            gpio_hold_dis(GPIO_NUM_12);
+            pocket_ui::screen_is_off_standby() = false;
+            id(display_power_state) = 0;
+            id(disp1).start_poller();
+            id(hal_release_deep_sleep_holds).execute();
             id(disp1).set_brightness(230);
         - light.turn_on:
             id: display_brightness
@@ -221,16 +270,50 @@ ota:
     on_progress:
       then:
         - lambda: |-
-            id(ota_progress_pct) = (uint8_t)x;
-            id(disp1).update();
+            int pct = static_cast<int>(x);
+            if (pct != id(ota_progress_pct) && (pct == 100 || pct - id(ota_progress_pct) >= 2 || pct < id(ota_progress_pct))) {
+              id(ota_progress_pct) = pct;
+              id(disp1).update();
+            }
     on_end:
       then:
         - lambda: |-
-            id(ota_in_progress) = false;
+            id(ota_progress_pct) = 100;
             id(disp1).update();
+            id(ota_in_progress) = false;
 
   - platform: http_request
     id: ota_http
+    on_begin:
+      then:
+        - script.stop: screen_sleep_timer
+        - lambda: |-
+            id(ota_in_progress) = true;
+            id(ota_progress_pct) = 0;
+            id(sleep_start_time) = 0;
+            pocket_ui::screen_is_off_standby() = false;
+            id(display_power_state) = 0;
+            id(disp1).start_poller();
+            id(hal_release_deep_sleep_holds).execute();
+            id(disp1).set_brightness(230);
+        - light.turn_on:
+            id: display_brightness
+            brightness: 90%
+        - component.update: disp1
+    on_progress:
+      then:
+        - lambda: |-
+            int pct = static_cast<int>(x);
+            if (pct != id(ota_progress_pct) && (pct == 100 || pct - id(ota_progress_pct) >= 2 || pct < id(ota_progress_pct))) {
+              id(ota_progress_pct) = pct;
+              id(disp1).update();
+            }
+    on_end:
+      then:
+        - lambda: |-
+            id(ota_progress_pct) = 100;
+            id(disp1).update();
+            id(ota_in_progress) = false;
 
 update:
   - platform: http_request
@@ -238,13 +321,30 @@ update:
     name: "Project Firmware"
     icon: "mdi:cellphone-arrow-down"
     source: "https://slampton.github.io/esphome-pocket-assistant/manifest.json"
-    update_interval: 6h
+    update_interval: never
 
 wifi:
+  id: wifi_ctrl
   fast_connect: true
   power_save_mode: NONE
-  ap:
-    ssid: "Pocket Assistant Fallback"
+  on_connect:
+    then:
+      - delay: 5s
+      - if:
+          condition: ble.enabled
+          then:
+            - logger.log: "Wi-Fi connected: disabling BLE radio to free 2.4GHz antenna and RAM"
+            - ble.disable:
+
+esp32_ble:
+  id: ble_ctrl
+  enable_on_boot: false
+  use_psram: true
+  max_connections: 1
+
+improv_ble:
+  authorizer: none
+  wifi_timeout: 5s
 
 safe_mode:
   boot_is_good_after: 5s
@@ -252,6 +352,12 @@ safe_mode:
 time:
   - platform: homeassistant
     id: ha_time
+    on_time_sync:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && !id(is_hibernating)) {
+              pocket_ui::record_ambient_frame_ms(0);
+            }
 
 # ==============================================================================
 # 🧩 MODULAR PACKAGES

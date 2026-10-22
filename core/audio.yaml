@@ -1,79 +1,13 @@
-# Core Subsystem: Audio & Voice Assistant
+# Core Subsystem: Audio & Voice Assistant (Hardware I2S & Codecs defined in boards/*.yaml HAL)
 
-i2s_audio:
-  - id: i2s_input_bus
-    i2s_lrclk_pin:
-      number: GPIO45
-      allow_other_uses: true
-    i2s_bclk_pin:
-      number: GPIO9
-      allow_other_uses: true
-    i2s_mclk_pin:
-      number: GPIO16
-      allow_other_uses: true
-
-  - id: i2s_output_bus
-    i2s_lrclk_pin:
-      number: GPIO45
-      allow_other_uses: true
-    i2s_bclk_pin:
-      number: GPIO9
-      allow_other_uses: true
-    i2s_mclk_pin:
-      number: GPIO16
-      allow_other_uses: true
-
-
-audio_adc:
-  - platform: es7210
-    id: es7210_adc
-    i2c_id: bus_internal
-    address: 0x40
-    bits_per_sample: 16bit
-    sample_rate: 16000
-    mic_gain: 37.5dB
-
-
-microphone:
-  - platform: i2s_audio
-    id: pocket_mic
-    adc_type: external
-    i2s_audio_id: i2s_input_bus
-    i2s_din_pin: GPIO10
-    sample_rate: 16000
-    bits_per_sample: 16bit
-    channel: left
-    pdm: false
-
-
+# ESPHome 2026.10.0+ microFLAC v0.3.0 decoder with 80MHz Octal PSRAM frame buffers
 audio:
   codecs:
     flac:
       buffer_memory: psram
 
 
-audio_dac:
-  - platform: es8311
-    id: es8311_dac
-    i2c_id: bus_internal
-    address: 0x18
-    bits_per_sample: 16bit
-    sample_rate: 16000
-    use_mclk: true
-
-
 speaker:
-  - platform: i2s_audio
-    id: physical_speaker
-    i2s_audio_id: i2s_output_bus
-    i2s_dout_pin: GPIO8
-    dac_type: external
-    sample_rate: 16000
-    bits_per_sample: 16bit
-    channel: left
-    buffer_duration: 1000ms
-    timeout: 10s
-
   - id: mixing_speaker
     platform: mixer
     output_speaker: physical_speaker
@@ -81,9 +15,17 @@ speaker:
     task_stack_in_psram: true
     source_speakers:
       - id: announcement_mixing_input
-        timeout: 250ms
+        buffer_duration: 15s
+        timeout: 500ms
       - id: media_mixing_input
         timeout: 1500ms
+
+  - platform: resampler
+    id: announcement_resampler
+    output_speaker: announcement_mixing_input
+    sample_rate: 16000
+    bits_per_sample: 16
+    task_stack_in_psram: true
 
   - platform: resampler
     id: music_resampler
@@ -103,6 +45,10 @@ sendspin:
 
 
 media_source:
+  - platform: audio_http
+    id: http_announcement_source
+    buffer_size: 250000
+
   - platform: sendspin
     id: sendspin_source
     task_stack_in_psram: true
@@ -117,9 +63,16 @@ media_player:
   - platform: speaker_source
     id: pocket_music_player
     name: "Music"
+    announcement_pipeline:
+      format: FLAC
+      num_channels: 1
+      sample_rate: 48000
+      speaker: announcement_resampler
+      sources:
+        - http_announcement_source
     media_pipeline:
       format: FLAC
-      num_channels: 2
+      num_channels: 1
       sample_rate: 48000
       speaker: music_resampler
       sources:
@@ -127,29 +80,66 @@ media_player:
     volume_initial: 60%
     volume_increment: 2%
     volume_min: 10%
-    volume_max: 90%
-    on_play:
+    volume_max: 100%
+    on_announcement:
       then:
-        - lambda: |-
-            id(music_pos_sync_time) = millis();
-            id(gui_page) = 2; // Auto-switch to Music Player screen on playback start
-            id(sleep_start_time) = 0;
-            id(active_game) = 0;
         - script.stop: mp_idle_debounce
         - script.stop: screen_sleep_timer
         - mixer_speaker.apply_ducking:
             id: media_mixing_input
-            decibel_reduction: 10
+            decibel_reduction: 50
             duration: 0.1s
         - mixer_speaker.apply_ducking:
             id: announcement_mixing_input
-            decibel_reduction: 50
+            decibel_reduction: 0
             duration: 0.1s
         - script.execute: route_i2s_to_spk
         - switch.turn_on: speaker_enable
         - audio_dac.mute_off: es8311_dac
-        - light.turn_on: display_brightness
+        - lambda: |-
+            if (id(va_active)) {
+              id(va_vad_active) = false;
+              id(va_tts_received) = true;
+              id(va_status_text) = "Responding...";
+            }
         - script.execute: throttled_disp_update
+    on_play:
+      then:
+        - if:
+            condition:
+              lambda: 'return !id(va_active) && !id(va_tts_received);'
+            then:
+              - lambda: |-
+                  id(music_pos_sync_time) = millis();
+                  if (!id(alarm_ringing) && !id(timer_ringing) && !id(find_my_active)) {
+                    id(gui_page) = 2; // Auto-switch to Music Player screen on music playback start
+                  }
+                  id(sleep_start_time) = 0;
+                  id(active_game) = 0;
+              - script.stop: mp_idle_debounce
+              - script.stop: screen_sleep_timer
+              - if:
+                  condition:
+                    lambda: 'return !id(alarm_ringing) && !id(timer_ringing) && !id(find_my_active);'
+                  then:
+                    - mixer_speaker.apply_ducking:
+                        id: media_mixing_input
+                        decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
+                        duration: 0.4s
+                    - mixer_speaker.apply_ducking:
+                        id: announcement_mixing_input
+                        decibel_reduction: 50
+                        duration: 0.1s
+              - script.execute: route_i2s_to_spk
+              - switch.turn_on: speaker_enable
+              - audio_dac.mute_off: es8311_dac
+              - lambda: |-
+                  pocket_ui::screen_is_off_standby() = false;
+                  id(display_power_state) = 0;
+                  id(disp1).start_poller();
+                  id(imu).start_poller();
+              - light.turn_on: display_brightness
+              - script.execute: throttled_disp_update
     on_pause:
       then:
         - lambda: |-
@@ -163,19 +153,62 @@ media_player:
       then:
         - script.execute: mp_idle_debounce
 
+micro_wake_word:
+  id: mww
+  microphone:
+    microphone: pocket_mic
+    channels: 0
+    gain_factor: 2
+  task_stack_in_psram: true
+  stop_after_detection: true
+  vad:
+  models:
+    - model: okay_nabu
+      id: okay_nabu
+    - model: https://raw.githubusercontent.com/dreimer1986/micro-wake-word-models/refs/heads/main/models/v2/hey_luna.json
+      id: hey_luna
+    - model: hey_jarvis
+      id: hey_jarvis
+    - model: hey_mycroft
+      id: hey_mycroft
+    - model: alexa
+      id: alexa
+  on_wake_word_detected:
+    then:
+      - lambda: |-
+          id(last_detected_wake_word) = wake_word;
+          ESP_LOGI("mww", "On-board wake word detected: %s", wake_word.c_str());
+      - script.execute: trigger_va_from_wake_word
+
 voice_assistant:
   id: va
   microphone: pocket_mic
-  speaker: announcement_mixing_input
+  micro_wake_word: mww
+  use_wake_word: false
+  media_player: pocket_music_player
   noise_suppression_level: 2
   auto_gain: 31dBFS
+  on_client_connected:
+    then:
+      - delay: 200ms
+      - lambda: 'esphome::voice_assistant::ensure_wake_words_restored(id(va));'
+      - script.execute: apply_wake_word_sensitivities
+      - script.execute: sync_wake_word_state
   on_listening:
     then:
+      - lambda: |-
+          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+          esp_wifi_set_ps(0); // Ensure full-performance Wi-Fi during voice streaming
+          if (!id(va_active)) {
+            id(return_page) = id(gui_page);
+            id(va_active) = true;
+          }
       - if:
           condition:
             lambda: |-
-              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                     (!id(active_speaker_entity).empty() && id(ha_target_state).state == "playing");
+              return !id(va_resume_music_after) &&
+                     ((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                      (!id(active_speaker_entity).empty() && id(ha_target_state).state == "playing"));
           then:
             - script.execute: pause_all_music
             - delay: 150ms
@@ -187,32 +220,41 @@ voice_assistant:
           decibel_reduction: 0
           duration: 0.1s
       - lambda: |-
-          if (!id(va_active)) {
-            id(return_page) = id(gui_page);
-            id(va_active) = true;
+          if (id(display_power_state) != 0 && id(va_wake_screen_switch).state) {
+            pocket_ui::screen_is_off_standby() = false;
+            id(display_power_state) = 0;
+            id(disp1).start_poller();
+            id(imu).start_poller();
+            id(sync_display_brightness).execute();
           }
+          id(va_was_cancelled) = false;
           id(va_vad_active) = false;
           id(va_tts_received) = false;
           id(va_status_text) = "Listening...";
+          esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Listening...");
-      - light.turn_on: display_brightness
-      - component.update: disp1
+          if (id(display_power_state) == 0 || id(va_wake_screen_switch).state) {
+            id(display_brightness).turn_on().perform();
+            pocket_ui::schedule_disp_update(&id(disp1));
+          }
   on_stt_vad_start:
     then:
       - script.stop: screen_sleep_timer
       - lambda: |-
           id(va_vad_active) = true;
           id(va_status_text) = "Listening...";
+          esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Listening (VAD active)...");
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_stt_vad_end:
     then:
       - script.stop: screen_sleep_timer
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
+          esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Thinking...");
-      - component.update: disp1
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_stt_end:
     then:
       - script.stop: screen_sleep_timer
@@ -220,7 +262,39 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
+          // If the user asked Assist to pause/stop/turn off media, do not auto-resume music after VA ends
+          std::string utt = x;
+          for (char &c : utt) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+          if (utt.find("pause") != std::string::npos ||
+              utt.find("stop") != std::string::npos ||
+              utt.find("turn off") != std::string::npos) {
+            id(va_resume_music_after) = false;
+            ESP_LOGI("va", "Stop/Pause voice intent detected: clearing va_resume_music_after");
+          }
           ESP_LOGI("va", "STT End (hidden): %s", x.c_str());
+  on_intent_progress:
+    then:
+      - if:
+          condition:
+            lambda: 'return !x.empty();'
+          then:
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: 50
+                duration: 0.1s
+            - mixer_speaker.apply_ducking:
+                id: announcement_mixing_input
+                decibel_reduction: 0
+                duration: 0.1s
+            - script.stop: screen_sleep_timer
+            - script.execute: route_i2s_to_spk
+            - audio_dac.mute_off: es8311_dac
+            - lambda: |-
+                id(va_vad_active) = false;
+                id(va_tts_received) = true;
+                id(va_status_text) = "Responding...";
+                ESP_LOGI("va", "Status: Responding (Streaming TTS)...");
+            - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_tts_start:
     then:
       - mixer_speaker.apply_ducking:
@@ -239,11 +313,18 @@ voice_assistant:
           id(va_tts_received) = true;
           id(va_status_text) = "Responding...";
           ESP_LOGI("va", "Status: Responding (TTS)...");
-  on_tts_stream_end:
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
+  on_tts_end:
     then:
+      - script.stop: screen_sleep_timer
+      - script.execute: route_i2s_to_spk
+      - audio_dac.mute_off: es8311_dac
       - lambda: |-
-          ESP_LOGI("va", "TTS stream received from server, waiting for audio hardware playback to complete");
-      - script.execute: va_tts_drain_and_finish
+          id(va_vad_active) = false;
+          id(va_tts_received) = true;
+          id(va_status_text) = "Responding...";
+          ESP_LOGI("va", "TTS URL ready: %s", x.c_str());
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_error:
     then:
       - script.stop: va_tts_drain_and_finish
@@ -252,14 +333,15 @@ voice_assistant:
           id(va_vad_active) = false;
           id(va_tts_received) = false;
           id(va_active) = false;
-          id(va_status_text) = code.substr(0, 24);
-          ESP_LOGE("va", "Error: %s - %s", code.c_str(), message.c_str());
-      - component.update: disp1
-      - delay: 2s
-      - lambda: |-
           id(va_status_text) = "";
           id(gui_page) = id(return_page);
-      - component.update: disp1
+          if (id(display_power_state) == 2 && !id(usb_connected).state &&
+              id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+            extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+            esp_wifi_set_ps(1);
+          }
+          ESP_LOGE("va", "Error: %s - %s", code.c_str(), message.c_str());
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
       - if:
           condition:
             binary_sensor.is_off: pickup_detected
@@ -269,64 +351,82 @@ voice_assistant:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer started via Assist: %s (%lu sec)", timer.name.c_str(), (unsigned long)timer.total_seconds);
-          id(timer_duration_sec) = timer.total_seconds;
-          id(timer_remaining_sec) = timer.seconds_left;
-          id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
-          id(timer_running) = timer.is_active;
-          id(timer_paused) = !timer.is_active;
+          uint32_t now_t = millis();
+          pocket_ui::upsert_voice_timer_slot(timer.id, timer.name, timer.total_seconds, timer.seconds_left, timer.is_active, now_t);
+          id(va_timer_name) = timer.name;
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
           id(timer_ringing) = false;
           if (!id(va_active) && id(va_status_text).empty()) {
-            if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
-              id(disp1).update();
+            if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
   on_timer_updated:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer updated via Assist: %s (left: %lu sec, active: %d)", timer.name.c_str(), (unsigned long)timer.seconds_left, timer.is_active);
-          id(timer_remaining_sec) = timer.seconds_left;
-          id(timer_target_ms) = millis() + (timer.seconds_left * 1000ULL);
-          id(timer_running) = timer.is_active;
-          id(timer_paused) = !timer.is_active;
+          uint32_t now_t = millis();
+          pocket_ui::upsert_voice_timer_slot(timer.id, timer.name, timer.total_seconds, timer.seconds_left, timer.is_active, now_t);
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
           if (!id(va_active) && id(va_status_text).empty()) {
-            if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
-              id(disp1).update();
+            if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
           }
   on_timer_cancelled:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer cancelled via Assist: %s", timer.name.c_str());
-          id(timer_running) = false;
-          id(timer_paused) = false;
-          id(timer_ringing) = false;
-          id(timer_remaining_sec) = id(timer_duration_sec);
-          if (!id(va_active) && id(va_status_text).empty()) {
-            if (id(gui_page) == 6 && id(timer_alarm_subpage) == 0 && id(display_power_state) == 0) {
-              id(disp1).update();
+          auto *slots = pocket_ui::timer_slots();
+          for (int i = 0; i < 3; i++) {
+            if ((!timer.id.empty() && slots[i].id == timer.id) || (!timer.name.empty() && slots[i].name == timer.name)) {
+              slots[i].running = false;
+              slots[i].paused = false;
+              slots[i].remaining_sec = slots[i].duration_sec;
             }
           }
-      - script.execute: stop_alarm_sound
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+          const bool was_ringing = id(timer_ringing);
+          id(timer_ringing) = false;
+          if (was_ringing) {
+            id(stop_alarm_sound).execute();
+          }
+          if (!id(va_active) && id(va_status_text).empty()) {
+            if (id(gui_page) == 8 && id(stuff_subpage) == 1 && id(display_power_state) == 0) {
+              pocket_ui::schedule_disp_update(&id(disp1));
+            }
+          }
   on_timer_finished:
     then:
       - lambda: |-
           ESP_LOGI("va_timer", "Timer finished via Assist: %s", timer.name.c_str());
-          if (id(timer_running) && !id(timer_paused) && !id(timer_ringing)) {
-            id(timer_running) = false;
-            id(timer_paused) = false;
-            id(timer_remaining_sec) = 0;
+          auto *slots = pocket_ui::timer_slots();
+          std::string fired_name = timer.name;
+          for (int i = 0; i < 3; i++) {
+            if ((!timer.id.empty() && slots[i].id == timer.id) || (!timer.name.empty() && slots[i].name == timer.name)) {
+              if (fired_name.empty()) fired_name = slots[i].name;
+              slots[i].running = false;
+              slots[i].paused = false;
+              slots[i].remaining_sec = slots[i].duration_sec; // Keep duration & name saved as a reusable preset!
+            }
+          }
+          pocket_ui::sync_multi_timer_globals(id(timer_running), id(timer_paused), id(timer_remaining_sec), id(timer_duration_sec), id(timer_target_ms));
+          if (!id(timer_ringing)) {
+            id(va_timer_name) = fired_name;
             id(timer_ringing) = true;
-            id(gui_page) = 6;
-            id(timer_alarm_subpage) = 0;
             id(wake_to_active_state).execute();
             id(play_alarm_sound).execute();
-            id(disp1).update();
           }
   on_end:
     then:
+      - wait_until:
+          condition:
+            not:
+              voice_assistant.is_running:
+          timeout: 25s
       - if:
           condition:
-            lambda: 'return !id(va_tts_received) && id(va_active);'
+            lambda: 'return id(va_active);'
           then:
             - script.execute: va_tts_drain_and_finish
 
@@ -335,24 +435,45 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
-      # Wait for any trailing mixer samples to drain before switching clocks/restoring UI
+      # 1. Wait for any ongoing media_player announcement and announcement_mixing_input buffer to finish
       - if:
           condition:
-            lambda: 'return id(announcement_mixing_input).is_running();'
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
+                     id(announcement_mixing_input).is_running();
           then:
             - wait_until:
                 condition:
-                  lambda: 'return !id(announcement_mixing_input).is_running();'
-                timeout: 3s
-            - delay: 100ms
-      - script.execute: resume_music_after_va
+                  lambda: |-
+                    return ((id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_ANNOUNCING) &&
+                            !id(announcement_mixing_input).is_running()) ||
+                           !id(va_active);
+                timeout: 15s
+      # 2. Let the remaining ~450ms of TTS audio inside physical_speaker's 1000ms hardware buffer
+      #    finish playing out of the ES8311 DAC before muting or resuming music
+      - if:
+          condition:
+            lambda: 'return id(va_tts_received) && id(va_active);'
+          then:
+            - delay: 450ms
+      # 3. Exit the overlay and redraw return_page FIRST (before waking Sendspin FLAC streaming)
+      #    so the QSPI display flush completes with zero audio/network contention
       - lambda: |-
+          esphome::voice_assistant::reset_va_session_state(id(va));
           id(va_vad_active) = false;
           id(va_status_text) = "";
           id(va_tts_received) = false;
           id(va_active) = false;
           id(gui_page) = id(return_page);
-      - component.update: disp1
+          if (id(display_power_state) == 2 && !id(usb_connected).state &&
+              id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) {
+            extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+            esp_wifi_set_ps(1);
+          }
+      - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
+      - delay: 160ms
+      # 4. Now smoothly restore music playback (with 600ms fade-in) or mute & route I2S back to mic
+      - script.execute: resume_music_after_va
       - if:
           condition:
             binary_sensor.is_off: pickup_detected
@@ -361,21 +482,104 @@ script:
   - id: route_i2s_to_spk
     mode: restart
     then:
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 28, false, false);   // GPIO9 -> I2S1 BCLK (signal 28)
-          esp_rom_gpio_connect_out_signal(45, 29, false, false);  // GPIO45 -> I2S1 WS (signal 29)
-          esp_rom_gpio_connect_out_signal(16, 21, false, false);  // GPIO16 -> I2S1 MCLK (signal 21)
+      - if:
+          condition:
+            micro_wake_word.is_running:
+          then:
+            - micro_wake_word.stop:
+            - delay: 20ms
+      - script.execute: hal_route_i2s_to_spk
       - switch.turn_on: speaker_enable
 
   - id: route_i2s_to_mic
     mode: restart
     then:
       - audio_dac.mute_on: es8311_dac
-      - lambda: |-
-          esp_rom_gpio_connect_out_signal(9, 26, false, false);   // GPIO9 -> I2S0 BCLK (signal 26)
-          esp_rom_gpio_connect_out_signal(45, 27, false, false);  // GPIO45 -> I2S0 WS (signal 27)
-          esp_rom_gpio_connect_out_signal(16, 23, false, false);  // GPIO16 -> I2S0 MCLK (signal 23)
+      - script.execute: hal_route_i2s_to_mic
       - switch.turn_off: speaker_enable
+
+  - id: apply_wake_word_sensitivities
+    mode: restart
+    then:
+      - lambda: |-
+          auto apply_cutoffs = [](const std::string &opt, uint8_t low_c, uint8_t med_c, uint8_t high_c) -> uint8_t {
+            if (opt == "Slightly sensitive") return low_c;
+            if (opt == "Very sensitive") return high_c;
+            return med_c;
+          };
+          // Calibrated for Waveshare 1.75C ES7210 MEMS mic (Low ~84%, Med ~72%, High ~60%)
+          id(okay_nabu).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_okay_nabu).current_option(), 215, 176, 143));
+          id(hey_luna).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_hey_luna).current_option(), 218, 188, 158));
+          id(hey_jarvis).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_hey_jarvis).current_option(), 215, 184, 153));
+          id(hey_mycroft).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_hey_mycroft).current_option(), 218, 188, 158));
+          id(alexa).set_probability_cutoff(
+              apply_cutoffs(id(ww_sens_alexa).current_option(), 215, 184, 153));
+
+  - id: sync_wake_word_state
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              auto ww_mode = id(va_wake_word_mode).current_option();
+              const bool mode_allowed = (ww_mode == "Always On") ||
+                                        (ww_mode == "Docked Only" && id(usb_connected).state);
+              const bool busy = id(va_active) || id(va).is_running() || !id(va_status_text).empty() ||
+                                id(va_tts_received) || id(announcement_mixing_input).is_running() ||
+                                id(mp_idle_debounce).is_running() || id(va_resume_music_after) ||
+                                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
+                                id(alarm_ringing) || id(timer_ringing) || id(find_my_active) ||
+                                (id(active_game) > 0) || id(is_hibernating) || id(ota_in_progress) ||
+                                !id(wifi_ctrl).is_connected() || (millis() < 12000U);
+              return mode_allowed && !busy;
+          then:
+            - if:
+                condition:
+                  not:
+                    micro_wake_word.is_running:
+                then:
+                  - script.execute: route_i2s_to_mic
+                  - delay: 25ms
+                  - script.execute: apply_wake_word_sensitivities
+                  - micro_wake_word.start:
+                  - lambda: |-
+                      ESP_LOGI("mww", "Wake word detection ARMED (ww1='%s', ww2='%s', mode='%s')",
+                               esphome::voice_assistant::last_persisted_ww1().c_str(),
+                               esphome::voice_assistant::last_persisted_ww2().c_str(),
+                               id(va_wake_word_mode).current_option().c_str());
+          else:
+            - if:
+                condition:
+                  micro_wake_word.is_running:
+                then:
+                  - micro_wake_word.stop:
+                  - lambda: |-
+                      ESP_LOGI("mww", "Wake word detection PAUSED (mode='%s', usb=%d)",
+                               id(va_wake_word_mode).current_option().c_str(),
+                               (int)id(usb_connected).state);
+
+  - id: trigger_va_from_wake_word
+    mode: restart
+    then:
+      - lambda: |-
+          extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
+          esp_wifi_set_ps(0);
+          if (id(display_power_state) != 0 || !id(display_brightness).current_values.is_on()) {
+            if (id(va_wake_screen_switch).state) {
+              id(wake_to_active_state).execute();
+            }
+          } else {
+            id(screen_sleep_timer).execute();
+          }
+          id(va_tts_received) = false;
+      - script.execute: route_i2s_to_mic
+      - voice_assistant.start:
+          wake_word: !lambda 'return id(last_detected_wake_word);'
 
   - id: play_alarm_sound
     mode: restart
@@ -386,6 +590,7 @@ script:
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: !lambda |-
+            if (id(find_my_active)) return 0.0f; // Find My Device always plays at 100% volume
             float v = id(alert_volume).state;
             if (std::isnan(v) || v <= 0.0f) v = 80.0f;
             if (v > 100.0f) v = 100.0f;
@@ -402,45 +607,110 @@ script:
                 duration: 0.1s
       - while:
           condition:
-            lambda: "return id(alarm_ringing) || id(timer_ringing);"
+            lambda: "return id(alarm_ringing) || id(timer_ringing) || id(find_my_active);"
           then:
-            - rtttl.play:
-                id: alarm_rtttl
-                rtttl: "alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7"
+            - if:
+                condition:
+                  not:
+                    rtttl.is_playing:
+                then:
+                  - rtttl.play:
+                      id: alarm_rtttl
+                      rtttl: !lambda |-
+                        if (id(find_my_active)) {
+                          return std::string("findmy:d=16,o=6,b=180:e,a,e7,a7,p,e,a,e7,a7,p,e,a,e7,a7");
+                        }
+                        return std::string("alarm:d=16,o=6,b=160:c,e,g,c7,p,c,e,g,c7,p,c,e,g,c7");
             - wait_until:
                 condition:
                   not:
                     rtttl.is_playing:
-                timeout: 5s
+                timeout: 8s
             - delay: 800ms
 
+  - id: play_game_sfx
+    mode: restart
+    parameters:
+      sfx_id: int
+    then:
+      - script.stop: mp_idle_debounce
+      - rtttl.stop:
+          id: alarm_rtttl
+      - if:
+          condition:
+            lambda: 'return !id(speaker_enable).state;'
+          then:
+            - script.execute: route_i2s_to_spk
+            - switch.turn_on: speaker_enable
+            - audio_dac.mute_off: es8311_dac
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: !lambda |-
+            float v = id(alert_volume).state;
+            if (std::isnan(v) || v <= 0.0f) v = 80.0f;
+            if (v > 100.0f) v = 100.0f;
+            if (v < 20.0f) v = 20.0f;
+            return (100.0f - v) * 0.18f;
+          duration: 0.01s
+      - rtttl.play:
+          id: alarm_rtttl
+          rtttl: !lambda |-
+            switch (sfx_id) {
+              case 1:  return std::string("c1:d=16,o=5,b=260:g,c6,p,a,d6");
+              case 2:  return std::string("c2:d=16,o=5,b=260:d6,g,p,c6,f");
+              case 3:  return std::string("c3:d=16,o=5,b=270:f,c6,p,d6,g");
+              case 4:  return std::string("c4:d=16,o=5,b=285:g,b,d6,p,a,c6");
+              case 5:  return std::string("win:d=16,o=6,b=220:c,e,g,c7,p,g,8c7");
+              case 6:  return std::string("sink:d=32,o=6,b=280:c,e,g,16c7");
+              case 7:  return std::string("peg:d=32,o=6,b=320:a,e7");
+              case 8:  return std::string("bow:d=32,o=5,b=320:g,d6");
+              case 9:  return std::string("bull:d=16,o=6,b=260:e,g,c7,8e7");
+              case 10: return std::string("hit:d=32,o=5,b=280:a,e6");
+              case 11: return std::string("pad:d=32,o=5,b=320:f,a");
+              case 12: return std::string("brk:d=32,o=6,b=300:c,g");
+              case 13: return std::string("arm:d=32,o=5,b=320:a,e");
+              case 14: return std::string("lose:d=16,o=5,b=180:g,e,8c");
+              default: return std::string("c1:d=16,o=5,b=260:g,c6,p,a,d6");
+            }
   - id: stop_alarm_sound
     mode: restart
     then:
       - rtttl.stop:
           id: alarm_rtttl
       - script.stop: play_alarm_sound
+      - mixer_speaker.apply_ducking:
+          id: announcement_mixing_input
+          decibel_reduction: 0
+          duration: 0.05s
       - if:
           condition:
             media_player.is_playing: pocket_music_player
           then:
             - mixer_speaker.apply_ducking:
                 id: media_mixing_input
-                decibel_reduction: 10
-                duration: 0.5s
+                decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
+                duration: 0.4s
           else:
-            - audio_dac.mute_on: es8311_dac
-            - script.execute: route_i2s_to_mic
+            - if:
+                condition:
+                  lambda: |-
+                    return !id(va_active) && !id(va_tts_received) &&
+                           !id(va).is_running() && !id(announcement_mixing_input).is_running() &&
+                           (id(active_game) == 0);
+                then:
+                  - audio_dac.mute_on: es8311_dac
+                  - script.execute: route_i2s_to_mic
+                  - script.execute: sync_wake_word_state
 
 number:
   - platform: template
-    name: "Audio: Volume Step Size"
+    name: "Sound: Volume Step Size"
     id: volume_step_size
     optimistic: true
     min_value: 1
     max_value: 10
     step: 1
-    initial_value: 2
+    initial_value: 5
     restore_value: true
     unit_of_measurement: "%"
     mode: slider
@@ -448,7 +718,7 @@ number:
     entity_category: config
 
   - platform: template
-    name: "Audio: Alert Volume"
+    name: "Sound: Alert Volume"
     id: alert_volume
     optimistic: true
     min_value: 20

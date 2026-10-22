@@ -1,0 +1,49 @@
+# ADR-004: Universal Television & Media Remote via remote.send_command
+
+## Status
+Accepted (v2.0)
+
+## Context
+Users require remote control capabilities for smart TVs, set-top boxes (Android TV, Apple TV, Roku, Fire TV), and AV receivers (Marantz, Denon) without needing custom, device-specific firmware builds, complex individual button entities, or extra state-tracking helpers.
+
+On-device physical validation revealed three UX opportunities:
+1. Blind thumb navigation across the center D-pad occasionally missed the OK button and triggered directional presses (specifically Right) due to a conservative center touch radius ($44\text{px}$).
+2. Stacking a static "REMOTE" title above a secondary entity subtitle crowded the upper hemisphere and departed from our standard single-header design.
+3. Prompting for confirmation on every power press felt redundant if the action could instead reside on an intentional, dedicated settings subpage modeled after our system dashboard ergonomics.
+4. Differing Home Assistant command string vocabularies across drivers (e.g. Android TV `DPAD_UP` vs. Apple TV `up` vs. webOS `UP`) previously required manually overriding up to 10 substitution strings.
+
+## Decision
+1. **Universal Protocol Dispatch**:
+   * Implement a universal Remote Control application on Page 7 using Home Assistant's standard `remote.send_command` service.
+   * Configure the target entity via a single user substitution: `tv_remote_entity: "remote.tv"`.
+   * Standardize on canonical command substitutions (`remote_cmd_up`, `remote_cmd_down`, `remote_cmd_left`, `remote_cmd_right`, `remote_cmd_select`, `remote_cmd_back`, `remote_cmd_home`, `remote_cmd_vol_up`, `remote_cmd_vol_down`, `remote_cmd_power`).
+
+2. **4-Corner Radial Geometry & Equatorial Dead-Zone**:
+   * Position the 4 corner flank buttons (**Home** and **Volume Up** at $y = 134$, **Back** and **Volume Down** at $y = 332$, $x = 64$ and $x = 402$, $r \approx 196\text{px}$) symmetrically across the circular display equator ($cy = 233$, $\Delta y = \pm 99\text{px}$).
+   * Introduce an $85\text{px}$ vertical dead-zone ($y \in [191, 275]$) completely devoid of flank touch targets, protecting the horizontal D-pad axis against accidental volume adjustments during eyes-free operation.
+   * Expand the outer D-pad ring radius to $144\text{px}$ (directional touch zone: $52\text{px} < r \le 158\text{px}$, $2704 < d^2 \le 24964$, checked after corner flank priority).
+
+3. **Expanded OK Center Touch Target**:
+   * Expand the center OK button touch radius from $44\text{px}$ to $52\text{px}$ ($d^2 \le 2704$, a +40% touch area increase to a full $104\text{px}$ diameter) while preserving a balanced $40\text{px}$ visual radius.
+   * Eliminates false directional triggering when pressing OK.
+
+4. **Unified Entity Header & Device Settings Subpage (Subpage 1)**:
+   * **Main Page Title ($y = 50$)**: Replace the static "REMOTE" header and secondary subtitle line with the active device name (e.g. "Shield TV" or "TV") rendered in `font_date`, `theme_primary`, freeing vertical breathing room above the D-pad.
+   * **Transient Action Feedback**: Action feedback toasts (`Toggle Power`, `Vol +`, `Up`, etc.) display in place of the title at $y = 50$ for 1.5 seconds after a button tap before returning to the device title.
+   * **Device Settings Subpage**: Tapping the title header ($x \in [110, 356], y \in [25, 80]$) opens Subpage 1 (`remote_subpage = 1`).
+   * **Control Subpage (`remote_subpage == 1`)**: Header `"CONTROL"` at $y = 48$ (`font_small`, `theme_primary`), Master Power `"Toggle Power"` modern card at $y = 110$, and up to 4 preconfigured device slots at $y \in \{173, 236, 299, 362\}$ with per-device power override buttons on secondary slots.
+   * **Navigation**: Returns to the main remote interface via the low-profile `"< Back"` chin target ($y = 426$) or top header tap.
+
+5. **Independent Per-Slot ESPHome Select Profiles & Multi-Protocol Routing**:
+   * **Per-Slot Drop-Down Entities (`select.tv_remote_profile` .. `tv_remote_profile_4`)**: Exposes 4 independent configuration drop-downs to Home Assistant (`"Remote: Slot 1 Profile"` through `"Remote: Slot 4 Profile"`) with options `"Auto-Detect"` (default), `"Android TV / Fire TV / Bravia"`, `"Denon / Marantz AVR"`, `"LG webOS"`, `"Apple TV"`, `"Roku"`, `"Samsung TV"`, and `"Custom"` (`restore_value: true`).
+   * **Non-Destructive Multi-Device Switching**: Each of the 4 configured device slots (`tv_remote_entity` .. `tv_remote_entity_4`) retains its own persistent platform profile in NVS; switching active devices on-device (`Subpage 1: SETTINGS`) never overwrites another slot's profile.
+   * **Dynamic Command & Protocol Router (`resolve_remote_dispatch`)**: Dynamically maps D-pad, navigation, volume, and power actions (including Slot-1 Master Power and Slots 2–4 per-device power overrides) to `remote.send_command`, `denonavr.get_command`, `webostv.button`, or `media_player.*` based on the target slot's resolved profile.
+
+## Consequences
+* Out-of-the-box compatibility with Android TV, Google TV, Apple TV, Roku, Fire TV, Samsung TV (Tizen), LG webOS (via native webostv.button routing), and CEC-enabled AV receivers.
+* Main title dynamically reflects the user's specific target device (e.g., "Shield TV").
+* Direct power toggling from the settings subpage eliminates modal interruptions.
+* Clean architectural foundation for interactive multi-device switching without breaking changes.
+* Complete elimination of false volume presses and missed center OK button taps.
+* One-click drop-down profile switching in Home Assistant with zero re-compilation.
+* Clean, uncluttered AMOLED aesthetics conforming to project design standards.
