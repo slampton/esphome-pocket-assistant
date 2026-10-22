@@ -1098,17 +1098,17 @@ select:
 
   
   - platform: template
-    name: "Display: Color Palette"
+    name: "Display: Color Profile"
     id: theme_palette_select
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Steel & Silver"
+    initial_option: "Steel Blue"
     options:
-      - "Steel & Silver"
-      - "Pink & Gray"
-      - "Blue & Gold"
-      - "Green & Gold"
+      - "Steel Blue"
+      - "Pink"
+      - "Blue"
+      - "Green"
     set_action:
       - lambda: |-
           id(theme_palette_select).publish_state(x);
@@ -2458,20 +2458,18 @@ script:
     mode: restart
     then:
       - lambda: |-
-          std::string p = id(theme_palette_select).current_option();
-          if (p == "Pink & Gray") {
-            id(theme_primary) = Color(168, 120, 132);  // Muted Ash Pink #A87884 (faint, gray undertones)
-            id(theme_secondary) = Color(192, 192, 192);// Brushed Silver / Gray #C0C0C0
-          } else if (p == "Green & Gold") {
+          std::string p = std::string(id(theme_palette_select).current_option());
+          // Permanent secondary color: Brushed Silver / Gray #C0C0C0 across all profiles
+          id(theme_secondary) = Color(192, 192, 192);
+          if (p == "Pink" || p == "Pink & Gray") {
+            id(theme_primary) = Color(168, 120, 132);  // Muted Ash Pink #A87884
+          } else if (p == "Green" || p == "Green & Gold") {
             id(theme_primary) = Color(66, 116, 83);    // Heritage Sage Green #427453
-            id(theme_secondary) = Color(197, 155, 39); // Chrono Mustard Gold #C59B27
-          } else if (p == "Blue & Gold" || p == "Default Classic") {
-            id(theme_primary) = Color(69, 110, 138);   // #456E8A Steel Cyan
-            id(theme_secondary) = Color(197, 155, 39); // #C59B27 Vintage Gold
+          } else if (p == "Blue" || p == "Blue & Gold" || p == "Default Classic") {
+            id(theme_primary) = Color(69, 110, 138);   // Deep Steel Blue #456E8A
           } else {
-            // Steel & Silver (Default for New Installs): Soft Steel Ice Blue + Brushed Silver
-            id(theme_primary) = Color(107, 142, 158);  // Soft Steel Ice Blue #6B8E9E
-            id(theme_secondary) = Color(192, 192, 192);// Brushed Silver #C0C0C0
+            // Steel Blue (Default): Soft Steel Ice Blue #6B8E9E
+            id(theme_primary) = Color(107, 142, 158);
           }
           if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
 
@@ -3725,7 +3723,8 @@ display:
                                  !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
 
       if (show_top_level_back) {
-        render_back_button(it, cx, id(font_small), 426, "Home");
+        render_back_button(it, cx, id(font_small), 426, "Home",
+                           (id(gui_page) == 2) ? id(col_white) : id(col_slate));
       }
 
       uint32_t end_draw_ms = millis();
@@ -5034,7 +5033,7 @@ touchscreen:
                       call.perform();
                     } else if (item_idx == 3) {
                       auto call = id(theme_palette_select).make_call();
-                      call.set_option(cycle_option(id(theme_palette_select).current_option(), {"Steel & Silver", "Pink & Gray", "Blue & Gold", "Green & Gold"}));
+                      call.set_option(cycle_option(id(theme_palette_select).current_option(), {"Steel Blue", "Pink", "Blue", "Green"}));
                       call.perform();
                     } else if (item_idx == 4) {
                       std::string next_m = cycle_option(ab, {"Disabled", "Sun Synchronized", "Time Schedule"});

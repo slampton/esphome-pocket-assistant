@@ -3959,8 +3959,12 @@ inline void render_system_page(
              (default_app_opt == "Clock") ? "Clock" : "Home");
     snprintf(disp_labels[1], sizeof(disp_labels[1]), "Clock Face: %s", clock_face_digital ? "Digital" : "Analog");
     snprintf(disp_labels[2], sizeof(disp_labels[2]), "Format: %s", is_24h_format ? "24-Hour" : "12-Hour");
-    const char *pal_s = (palette_opt == "Default Classic") ? "Blue & Gold" : palette_opt.c_str();
-    snprintf(disp_labels[3], sizeof(disp_labels[3]), "Palette: %s", pal_s);
+    const char *pal_s = (palette_opt == "Steel & Silver") ? "Steel Blue"
+                        : (palette_opt == "Pink & Gray") ? "Pink"
+                        : (palette_opt == "Blue & Gold" || palette_opt == "Default Classic") ? "Blue"
+                        : (palette_opt == "Green & Gold") ? "Green"
+                        : palette_opt.c_str();
+    snprintf(disp_labels[3], sizeof(disp_labels[3]), "Color: %s", pal_s);
     const char *ab_s = (auto_brightness_opt == "Sun Synchronized") ? "Sun"
                        : ((auto_brightness_opt == "Time Schedule") ? "Sched" : "Off");
     snprintf(disp_labels[4], sizeof(disp_labels[4]), "Auto Bright: %s", ab_s);
