@@ -3920,9 +3920,9 @@ touchscreen:
                 return;
               }
 
-              // 1. Top Centered Date Bar Tap (y <= 72, x in [100..366]) -> Open HOME SETTINGS
+              // 1. Top Centered Date Bar Tap (y <= 78, x in [95..311]) -> Open HOME SETTINGS
               if (id(home_subpage) == 0) {
-              if (touch.y <= 72 && touch.x >= 100 && touch.x <= 366) {
+              if (touch.y <= 78 && touch.x >= 95 && touch.x < 312) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   id(home_subpage) = 1;
@@ -3931,8 +3931,8 @@ touchscreen:
                 return;
               }
 
-              // 2. Bottom Chin Battery & Gear Tap (y >= 395, x in [120..346]) -> Open SYSTEM HUB (Page 4)
-              if (touch.y >= 395 && touch.x >= 120 && touch.x <= 346) {
+              // 2. Bottom Chin Battery & Gear Tap (y >= 397, x in [110..356]) -> Open SYSTEM HUB (Page 4)
+              if (touch.y >= 397 && touch.x >= 110 && touch.x <= 356) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   id(gui_page) = 4;
@@ -3943,8 +3943,8 @@ touchscreen:
                 return;
               }
 
-              // 3. Upper-Right Sun / Moon Celestial Shortcut at (362, 80) -> Open Sun (2) or Moon (3)
-              if (id(home_weather_bg_switch).state && touch.x >= 312 && touch.y <= 132) {
+              // 3. Upper-Right Sun / Moon Celestial Shortcut at (360, 86) -> Open Sun (2) or Moon (3)
+              if (id(home_weather_bg_switch).state && touch.x >= 312 && touch.y <= 124) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   std::string s_state = id(ha_sun_state).state;
@@ -3958,8 +3958,8 @@ touchscreen:
                 return;
               }
 
-              // 4. Hero Digital Clock Tap (y in [80..168], x in [115..314]) -> Open Full Clock Page (Page 0)
-              if (touch.y >= 80 && touch.y <= 168 && touch.x >= 115 && touch.x < 315) {
+              // 4. Hero Digital Clock Tap (y in [79..175], x in [95..355]) -> Open Full Clock Page (Page 0)
+              if (touch.y >= 79 && touch.y <= 175 && touch.x >= 95 && touch.x <= 355) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   id(gui_page) = 0;
@@ -3968,8 +3968,8 @@ touchscreen:
                 return;
               }
 
-              // 5. Weather Temperature & Condition Line Tap (y in [172..220], x in [85..380]) -> Open Sky & Weather (Current Conditions Subpage 0)
-              if (touch.y >= 176 && touch.y <= 228 && touch.x >= 75 && touch.x <= 390) {
+              // 5. Weather Temperature & Condition Line Tap (y in [176..229], x in [70..396]) -> Open Sky & Weather (Current Conditions Subpage 0)
+              if (touch.y >= 176 && touch.y <= 229 && touch.x >= 70 && touch.x <= 396) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   id(sky_weather_subpage) = 0;
@@ -4150,7 +4150,7 @@ touchscreen:
                                           pocket_ui::wake_greeting_latched() &&
                                           (now_hm >= pocket_ui::wake_greeting_start_ms()) &&
                                           (now_hm - pocket_ui::wake_greeting_start_ms() < 10500U);
-              if (!greet_blocking && act_count > 0 && touch.y >= 230 && touch.y <= 310 && touch.x >= 35 && touch.x <= 440) {
+              if (!greet_blocking && act_count > 0 && touch.y >= 230 && touch.y <= 318 && touch.x >= 35 && touch.x <= 440) {
                 if (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_home_tap = now_hm;
                   int feat_idx = pocket_ui::resolve_home_featured_activity_idx(act_items, act_count, now_hm);
@@ -4169,8 +4169,8 @@ touchscreen:
                 return;
               }
 
-              // 8. Bottom 3-Icon Sliding Window Quick-Launch Dock Tap (y in [316..394] at y = 352)
-              if (touch.y >= 316 && touch.y <= 394) {
+              // 8. Bottom 3-Icon Sliding Window Quick-Launch Dock Tap (y in [319..396] at y = 352)
+              if (touch.y >= 319 && touch.y <= 396) {
                 int dock_apps[4] = {0, 0, 0, 0};
                 int dock_count = pocket_ui::collect_home_dock_apps(
                     id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
@@ -4200,7 +4200,7 @@ touchscreen:
                   int vis_count = (dock_count > 3) ? 3 : dock_count;
                   int start_idx = (dock_count > 3) ? pocket_ui::home_dock_page() : 0;
                   int best_i = -1;
-                  int best_dist = 42;
+                  int best_dist = 46;
                   for (int i = 0; i < vis_count; i++) {
                     int d = std::abs(touch.x - win_xs[i]);
                     if (d < best_dist) {
@@ -4232,21 +4232,6 @@ touchscreen:
               return;
             } else if (id(gui_page) == 2) {
               if (id(music_overlay_mode) == 0) {
-                {
-                  std::string ov_m = id(music_overlay_style).current_option();
-                  bool meta_vis = (ov_m == "Always Visible" || ov_m == "Art + Metadata" || id(music_hud_active));
-                  if (meta_vis && touch.x >= 90 && touch.x <= 376 && touch.y >= 340 && touch.y < 412) {
-                    static uint32_t last_meta_tap = 0;
-                    uint32_t now_mt = millis();
-                    if (now_mt - last_meta_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_meta_tap = now_mt;
-                      id(music_overlay_mode) = 6;
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                    return;
-                  }
-                }
-
                 if (touch.x >= 100 && touch.x <= 366 && touch.y <= 85) {
                   static uint32_t last_hdr_tap = 0;
                   uint32_t now_hdr = millis();
@@ -4264,6 +4249,20 @@ touchscreen:
                 bool hud_enabled = (overlay_mode != "Always Visible");
                 static uint32_t hud_just_woken_time = 0;
 
+                // If in "Art + Metadata" mode (HUD controls hidden, metadata visible), tapping the
+                // central metadata column (x in [135..331], y in [340..404]) opens Track Inspector directly
+                if (!id(music_hud_active) && overlay_mode == "Art + Metadata" &&
+                    touch.x >= 135 && touch.x <= 331 && touch.y >= 340 && touch.y < 405) {
+                  static uint32_t last_meta_direct_tap = 0;
+                  uint32_t now_md = millis();
+                  if (now_md - last_meta_direct_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_meta_direct_tap = now_md;
+                    id(music_overlay_mode) = 6;
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+
                 if (hud_enabled && !id(music_hud_active)) {
                   id(music_hud_active) = true;
                   id(music_hud_timer) = millis();
@@ -4277,7 +4276,8 @@ touchscreen:
                   return;
                 }
 
-                if (touch.x >= 179 && touch.x <= 287 && touch.y >= 150 && touch.y <= 274) {
+                // 1. Center Play/Pause Capsule (r = 34 at (233, 233), downward-biased to y <= 280)
+                if (touch.x >= 182 && touch.x <= 284 && touch.y >= 180 && touch.y <= 280) {
                   static uint32_t last_pp_tap = 0;
                   uint32_t now_pp = millis();
                   if (now_pp - last_pp_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -4294,7 +4294,81 @@ touchscreen:
                   return;
                 }
 
-                if (touch.x >= 270 && touch.x <= 455 && touch.y >= 180 && touch.y <= 285) {
+                // 2. Priority Corner Flank Targets (Speaker at (71,140), Library at (71,326), Vol+ at (395,140), Vol- at (395,326))
+                //    Evaluated BEFORE Metadata Bar so slightly low/inward taps on Library or Vol- NEVER open Track Inspector!
+                if (id(music_show_speaker_shortcut).state &&
+                    ((touch.x <= 130 && touch.y >= 70 && touch.y < 192) ||
+                     (touch.x > 130 && touch.x <= 176 && touch.y >= 70 && touch.y < 178))) {
+                  static uint32_t last_sc_spk_tap = 0;
+                  uint32_t now_sc = millis();
+                  if (now_sc - last_sc_spk_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_sc_spk_tap = now_sc;
+                    id(selected_category_mode) = "speakers";
+                    id(selected_category_title) = "SPEAKERS";
+                    id(music_browse_page) = 1;
+                    id(music_direct_nav) = true;
+                    id(music_overlay_mode) = 1;
+                    id(fetch_music_browse).execute();
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+
+                if (id(music_show_library_shortcut).state &&
+                    ((touch.x <= 134 && touch.y >= 280 && touch.y < 405) ||
+                     (touch.x > 134 && touch.x <= 172 && touch.y >= 284 && touch.y < 360))) {
+                  static uint32_t last_sc_lib_tap = 0;
+                  uint32_t now_sc = millis();
+                  if (now_sc - last_sc_lib_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_sc_lib_tap = now_sc;
+                    id(music_category_page) = 1;
+                    id(menu_scroll_active) = false;
+                    id(menu_scroll_step) = 0;
+                    id(music_direct_nav) = true;
+                    id(music_overlay_mode) = 2;
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+
+                if (touch.x >= 332 && touch.y >= 70 && touch.y < 188) {
+                  static uint32_t last_vol_up_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_up_tap > TOUCH_DEBOUNCE_RAPID) {
+                    last_vol_up_tap = now_vol_tap;
+                    id(music_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
+                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(v_step)
+                                            : std::min(100, (int)std::round(id(pocket_music_player).volume * 100.0f) + v_step);
+                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    id(music_vol_up).execute();
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+
+                if (touch.x >= 332 && touch.y >= 282 && touch.y < 405) {
+                  static uint32_t last_vol_dn_tap = 0;
+                  uint32_t now_vol_tap = millis();
+                  if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
+                    last_vol_dn_tap = now_vol_tap;
+                    id(music_hud_timer) = now_vol_tap;
+                    int v_step = (int)id(volume_step_size).state;
+                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
+                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(-v_step)
+                                            : std::max(0, (int)std::round(id(pocket_music_player).volume * 100.0f) - v_step);
+                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
+                    id(music_feedback_timer) = now_vol_tap;
+                    id(music_vol_down).execute();
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+
+                // 3. Equatorial Next Track / +30s (342, 233) & Prev Track / -10s (124, 233)
+                if (touch.x >= 285 && touch.x <= 455 && touch.y >= 188 && touch.y < 282) {
                   static uint32_t last_next_tap = 0;
                   uint32_t now_tap = millis();
                   if (now_tap - last_next_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -4315,80 +4389,9 @@ touchscreen:
                   return;
                 }
 
-                if (touch.x >= 270 && touch.y >= 70 && touch.y < 180) {
-                  static uint32_t last_vol_up_tap = 0;
-                  uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_up_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_vol_up_tap = now_vol_tap;
-                    id(music_hud_timer) = now_vol_tap;
-                    int v_step = (int)id(volume_step_size).state;
-                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
-                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(v_step)
-                                            : std::min(100, (int)std::round(id(pocket_music_player).volume * 100.0f) + v_step);
-                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
-                    id(music_feedback_timer) = now_vol_tap;
-                    id(music_vol_up).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (touch.x >= 270 && touch.y > 285 && touch.y < 415) {
-                  static uint32_t last_vol_dn_tap = 0;
-                  uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_vol_dn_tap = now_vol_tap;
-                    id(music_hud_timer) = now_vol_tap;
-                    int v_step = (int)id(volume_step_size).state;
-                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
-                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(-v_step)
-                                            : std::max(0, (int)std::round(id(pocket_music_player).volume * 100.0f) - v_step);
-                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
-                    id(music_feedback_timer) = now_vol_tap;
-                    id(music_vol_down).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (id(music_show_speaker_shortcut).state &&
-                    ((touch.x <= 95 && touch.y < 233 && touch.y >= 70) ||
-                     (touch.x > 95 && touch.x <= 180 && touch.y < 190 && touch.y >= 70))) {
-                  static uint32_t last_sc_spk_tap = 0;
-                  uint32_t now_sc = millis();
-                  if (now_sc - last_sc_spk_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_sc_spk_tap = now_sc;
-                    id(selected_category_mode) = "speakers";
-                    id(selected_category_title) = "SPEAKERS";
-                    id(music_browse_page) = 1;
-                    id(music_direct_nav) = true;
-                    id(music_overlay_mode) = 1;
-                    id(fetch_music_browse).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (id(music_show_library_shortcut).state &&
-                    ((touch.x <= 95 && touch.y >= 233 && touch.y < 415) ||
-                     (touch.x > 95 && touch.x <= 180 && touch.y > 275 && touch.y < 415))) {
-                  static uint32_t last_sc_lib_tap = 0;
-                  uint32_t now_sc = millis();
-                  if (now_sc - last_sc_lib_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_sc_lib_tap = now_sc;
-                    id(music_category_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(menu_scroll_step) = 0;
-                    id(music_direct_nav) = true;
-                    id(music_overlay_mode) = 2;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
                 bool prev_hit = (id(music_show_speaker_shortcut).state || id(music_show_library_shortcut).state) ?
-                                (touch.x > 95 && touch.x <= 180 && touch.y >= 190 && touch.y <= 275) :
-                                (touch.x <= 180 && touch.y >= 150 && touch.y <= 316);
+                                (touch.x >= 75 && touch.x <= 181 && touch.y >= 188 && touch.y < 282) :
+                                (touch.x <= 181 && touch.y >= 150 && touch.y <= 316);
                 if (prev_hit) {
                   static uint32_t last_prev_tap = 0;
                   uint32_t now_tap = millis();
@@ -4405,6 +4408,18 @@ touchscreen:
                     }
                     id(music_feedback_timer) = now_tap;
                     id(music_hud_timer) = now_tap;
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+
+                // 4. Central Metadata Block (Title/Artist/Album at y = 352..394, x in [135..331]) -> Open Track Inspector (Mode 6)
+                if (touch.x >= 135 && touch.x <= 331 && touch.y >= 338 && touch.y < 405) {
+                  static uint32_t last_meta_tap = 0;
+                  uint32_t now_mt = millis();
+                  if (now_mt - last_meta_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_meta_tap = now_mt;
+                    id(music_overlay_mode) = 6;
                     pocket_ui::schedule_disp_update(&id(disp1));
                   }
                   return;
@@ -4438,7 +4453,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 96 && touch.y < 153 && touch.x >= 90 && touch.x <= 376) {
+                if (touch.y >= 96 && touch.y < 160 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_spk = 0;
                   if (now_hub - last_hub_spk > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_spk = now_hub;
@@ -4452,7 +4467,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 153 && touch.y < 216 && touch.x >= 90 && touch.x <= 376) {
+                if (touch.y >= 160 && touch.y < 223 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_lib = 0;
                   if (now_hub - last_hub_lib > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_lib = now_hub;
@@ -4465,7 +4480,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 216 && touch.y < 279 && touch.x >= 90 && touch.x <= 376) {
+                if (touch.y >= 223 && touch.y < 286 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_clr = 0;
                   if (now_hub - last_hub_clr > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_clr = now_hub;
@@ -4473,7 +4488,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 279 && touch.y <= 345 && touch.x >= 90 && touch.x <= 376) {
+                if (touch.y >= 286 && touch.y <= 368 && touch.x >= 90 && touch.x <= 376) {
                   static uint32_t last_hub_set = 0;
                   if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
                     last_hub_set = now_hub;
@@ -4655,25 +4670,25 @@ touchscreen:
                 uint32_t now_sheet = millis();
                 bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
                 if (!is_current) {
-                  // 4 cards at y = 130, 190, 250, 310 (h = 44)
-                  if (touch.y >= 104 && touch.y < 160 && touch.x >= 90 && touch.x <= 376) {
+                  // 4 cards at y = 130, 190, 250, 310 (h = 44, downward-biased)
+                  if (touch.y >= 104 && touch.y < 166 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_transfer_to_target).execute(); }
                     return;
-                  } else if (touch.y >= 160 && touch.y < 220 && touch.x >= 90 && touch.x <= 376) {
+                  } else if (touch.y >= 166 && touch.y < 226 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_control_target).execute(); }
                     return;
-                  } else if (touch.y >= 220 && touch.y < 280 && touch.x >= 90 && touch.x <= 376) {
+                  } else if (touch.y >= 226 && touch.y < 286 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_join_target).execute(); }
                     return;
-                  } else if (touch.y >= 280 && touch.y <= 345 && touch.x >= 90 && touch.x <= 376) {
+                  } else if (touch.y >= 286 && touch.y <= 365 && touch.x >= 90 && touch.x <= 376) {
                     if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
                     return;
                   }
                 } else {
                   bool is_remote = (id(target_speaker_id) != "${local_player_id}");
                   if (is_remote) {
-                    // 3 cards at y = 142, 205, 268 (h = 44)
-                    if (touch.y >= 114 && touch.y < 174 && touch.x >= 90 && touch.x <= 376) {
+                    // 3 cards at y = 142, 205, 268 (h = 44, downward-biased)
+                    if (touch.y >= 114 && touch.y < 180 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) {
                         last_sheet_tap = now_sheet;
                         id(target_speaker_id) = "${local_player_id}";
@@ -4681,19 +4696,19 @@ touchscreen:
                         id(speaker_transfer_to_target).execute();
                       }
                       return;
-                    } else if (touch.y >= 174 && touch.y < 236 && touch.x >= 90 && touch.x <= 376) {
+                    } else if (touch.y >= 180 && touch.y < 242 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
                       return;
-                    } else if (touch.y >= 236 && touch.y <= 300 && touch.x >= 90 && touch.x <= 376) {
+                    } else if (touch.y >= 242 && touch.y <= 322 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(stop_ha_music).execute(); }
                       return;
                     }
                   } else {
-                    // 2 cards at y = 160, 230 (h = 44)
-                    if (touch.y >= 130 && touch.y < 195 && touch.x >= 90 && touch.x <= 376) {
+                    // 2 cards at y = 160, 230 (h = 44, downward-biased)
+                    if (touch.y >= 130 && touch.y < 200 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
                       return;
-                    } else if (touch.y >= 195 && touch.y <= 265 && touch.x >= 90 && touch.x <= 376) {
+                    } else if (touch.y >= 200 && touch.y <= 285 && touch.x >= 90 && touch.x <= 376) {
                       if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(stop_ha_music).execute(); }
                       return;
                     }
@@ -4720,7 +4735,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 104 && touch.y <= 160 && touch.x >= 95 && touch.x <= 371) {
+                if (touch.y >= 104 && touch.y <= 178 && touch.x >= 85 && touch.x <= 381) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_insp_tap = now_in;
                     bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
@@ -4739,7 +4754,7 @@ touchscreen:
                   }
                   return;
                 }
-                if (touch.y >= 210 && touch.y <= 274) {
+                if (touch.y >= 210 && touch.y <= 284) {
                   if (now_in - last_insp_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_insp_tap = now_in;
                     float dur = id(ha_media_duration).state;
@@ -4747,7 +4762,7 @@ touchscreen:
                     if (id(music_pos_sync_time) > 0) {
                       cur_pos += static_cast<float>(now_in - id(music_pos_sync_time)) * 0.001f;
                     }
-                    if (touch.x < 84) {
+                    if (touch.x <= 88) {
                       id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
                       id(music_pos_sync_time) = now_in;
                       id(music_seek_absolute).execute();
@@ -5105,20 +5120,20 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 4) {
-                if (touch.y >= 195 && touch.y <= 265 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  if (touch.x >= 90 && touch.x <= 225) {
+                if (touch.y >= 195 && touch.y <= 285 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  if (touch.x >= 90 && touch.x <= 228) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 3;
                     pocket_ui::schedule_disp_update(&id(disp1));
                     return;
-                  } else if (touch.x >= 240 && touch.x <= 375) {
+                  } else if (touch.x >= 238 && touch.x <= 376) {
                     last_sys_action_tap = now_sys;
                     id(restart_button).press();
                     return;
                   }
                 }
               } else if (id(system_menu_mode) == 5) {
-                if (touch.y >= 190 && touch.y <= 240 && touch.x >= 100 && touch.x <= 366) {
+                if (touch.y >= 188 && touch.y <= 264 && touch.x >= 90 && touch.x <= 376) {
                   if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_sys_action_tap = now_sys;
                     bool has_update = pocket_ui::is_newer_semver(id(ha_firmware_latest_version).state, "${version}");
@@ -5143,7 +5158,7 @@ touchscreen:
                   return;
                 }
               } else if (id(system_menu_mode) == 6) {
-                if (touch.y >= 210 && touch.y <= 270 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
+                if (touch.y >= 210 && touch.y <= 290 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
                   if (touch.x >= 90 && touch.x <= 225) {
                     last_sys_action_tap = now_sys;
                     id(system_menu_mode) = 5;
@@ -5373,7 +5388,7 @@ touchscreen:
               };
 
               if (id(remote_subpage) == 1) {
-                if (touch.x >= 95 && touch.x <= 371 && touch.y >= 84 && touch.y < 141) {
+                if (touch.x >= 90 && touch.x <= 376 && touch.y >= 84 && touch.y < 146) {
                   if (now_rem - last_remote_btn_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_remote_btn_tap = now_rem;
                     id(remote_send_key).execute(9, -1);
@@ -5386,7 +5401,7 @@ touchscreen:
                 int valid_count = pocket_ui::collect_configured_remote_slots(rem_ents, valid_slots);
                 for (int row = 0; row < valid_count; row++) {
                   int y_mid = 173 + row * 63;
-                  if (touch.y >= y_mid - 28 && touch.y <= y_mid + 28) {
+                  if (touch.y >= y_mid - 26 && touch.y <= y_mid + 36) {
                     int s_idx = valid_slots[row];
                     int max_sel_x = (row == 0) ? 376 : 326;
                     if (touch.x >= 90 && touch.x <= max_sel_x) {
@@ -5584,9 +5599,9 @@ touchscreen:
 
                 if (view_idx == 0) {
                   int card_i = -1;
-                  if (touch.y >= 85 && touch.y <= 168) card_i = 0;
-                  else if (touch.y >= 176 && touch.y <= 268) card_i = 1;
-                  else if (touch.y >= 276 && touch.y <= 388) card_i = 2;
+                  if (touch.y >= 84 && touch.y < 175) card_i = 0;
+                  else if (touch.y >= 175 && touch.y < 275) card_i = 1;
+                  else if (touch.y >= 275 && touch.y <= 395) card_i = 2;
 
                   if (card_i >= 0 && touch.x >= 70 && touch.x <= 396) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -5621,7 +5636,7 @@ touchscreen:
                 int s_idx = (view_idx >= 1 && view_idx <= 3) ? (view_idx - 1) : 0;
                 auto &s = slots[s_idx];
 
-                if (touch.y >= 218 && touch.y <= 278 && touch.x >= 135 && touch.x <= 331) {
+                if (touch.y >= 218 && touch.y <= 286 && touch.x >= 130 && touch.x <= 336) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                     last_stuff_tap = now_stuff;
                     if (!s.running && !s.paused) {
@@ -5644,7 +5659,7 @@ touchscreen:
                   return;
                 }
 
-                if (touch.y >= 292 && touch.y <= 358) {
+                if (touch.y >= 290 && touch.y <= 376) {
                   if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                     last_stuff_tap = now_stuff;
                     if (!s.running && !s.paused) {
@@ -5703,9 +5718,9 @@ touchscreen:
 
                 if (id(alarm_edit_idx) == 0) {
                   int card_i = 0;
-                  if (touch.y >= 85 && touch.y <= 168) card_i = 1;
-                  else if (touch.y >= 176 && touch.y <= 268) card_i = 2;
-                  else if (touch.y >= 276 && touch.y <= 388) card_i = 3;
+                  if (touch.y >= 84 && touch.y < 175) card_i = 1;
+                  else if (touch.y >= 175 && touch.y < 275) card_i = 2;
+                  else if (touch.y >= 275 && touch.y <= 395) card_i = 3;
 
                   if (card_i >= 1 && touch.x >= 70 && touch.x <= 396) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
@@ -5739,7 +5754,7 @@ touchscreen:
                   int& cur_m = (edit_idx == 3) ? id(alarm3_minute) : ((edit_idx == 2) ? id(alarm2_minute) : id(alarm1_minute));
                   int& cur_rec = (edit_idx == 3) ? id(alarm3_recurrence) : ((edit_idx == 2) ? id(alarm2_recurrence) : id(alarm1_recurrence));
 
-                  if (touch.y >= 204 && touch.y <= 268) {
+                  if (touch.y >= 204 && touch.y <= 276) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_RAPID) {
                       last_stuff_tap = now_stuff;
                       if (touch.x >= 45 && touch.x < 137) { cur_h = (cur_h - 1 + 24) % 24; pocket_ui::schedule_disp_update(&id(disp1)); return; }
@@ -5749,7 +5764,7 @@ touchscreen:
                     }
                   }
 
-                  if (touch.y >= 284 && touch.y <= 350 && touch.x >= 95 && touch.x <= 371) {
+                  if (touch.y >= 280 && touch.y <= 372 && touch.x >= 90 && touch.x <= 376) {
                     if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_stuff_tap = now_stuff;
                       cur_rec = (cur_rec + 1) % 4;
@@ -5780,7 +5795,7 @@ touchscreen:
                 static uint32_t last_rst_tap = 0;
                 uint32_t now_chrono_tap = millis();
 
-                if (touch.y >= 280 && touch.y < 385) {
+                if (touch.y >= 280 && touch.y < 396) {
                   if (touch.x < 233) {
                     if (now_chrono_tap - last_lap_tap > TOUCH_DEBOUNCE_BUTTON) {
                       last_lap_tap = now_chrono_tap;
