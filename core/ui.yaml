@@ -1008,12 +1008,9 @@ select:
       - "Starfield"
       - "Matrix Rain"
       - "Fireworks"
-      - "Screen Off"
     set_action:
       - lambda: |-
-          if (id(display_power_state) == 1 && id(screensaver_style_select).current_option() == "Screen Off") {
-            id(turn_screen_off).execute();
-          } else if (id(display_power_state) == 1) {
+          if (id(display_power_state) == 1) {
             pocket_ui::schedule_disp_update(&id(disp1));
           }
 
@@ -1087,7 +1084,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Art Only"
+    initial_option: "Art + Metadata"
     options:
       - "Art Only"
       - "Art + Metadata"
@@ -1119,7 +1116,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Disabled"
+    initial_option: "Sun Synchronized"
     options:
       - "Disabled"
       - "Sun Synchronized"
@@ -4979,12 +4976,14 @@ touchscreen:
                     } else if (idx == 3) {
                       id(docked_screensaver_switch).toggle();
                     } else if (idx == 4) {
-                      auto call = id(screensaver_style_select).make_call();
-                      call.set_option(cycle_option(id(screensaver_style_select).current_option(), {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Fireworks", "Screen Off"}));
-                      call.perform();
+                      if (id(docked_screensaver_switch).state) {
+                        auto call = id(screensaver_style_select).make_call();
+                        call.set_option(cycle_option(id(screensaver_style_select).current_option(), {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Fireworks"}));
+                        call.perform();
+                      }
                     } else if (idx == 5) {
                       auto call = id(screensaver_docked_timeout).make_call();
-                      call.set_option(cycle_option(id(screensaver_docked_timeout).current_option(), {"10s", "15s", "30s", "1 min", "5 min", "Never"}));
+                      call.set_option(cycle_option(id(screensaver_docked_timeout).current_option(), {"10s", "15s", "30s", "1 min", "2 min", "5 min", "Never"}));
                       call.perform();
                     } else if (idx == 6) {
                       auto call = id(hibernate_timeout_mode).make_call();

@@ -3908,15 +3908,15 @@ inline void render_system_page(
     // -------------------------------------------------------------------------
     int current_offset = compute_scroll_offset(sleep_menu_page, SHARED_SCROLL_EASE_252, 252);
     char sleep_labels[9][36];
-    snprintf(sleep_labels[0], sizeof(sleep_labels[0]), "Motion: %s", pickup_wake_opt.c_str());
-    snprintf(sleep_labels[1], sizeof(sleep_labels[1]), "Tap: %s", tap_wake_opt.c_str());
-    snprintf(sleep_labels[2], sizeof(sleep_labels[2]), "Screen Off: %s", screen_off_opt.c_str());
-    snprintf(sleep_labels[3], sizeof(sleep_labels[3]), "Screensaver: %s", docked_ss_on ? "On" : "Off");
+    snprintf(sleep_labels[0], sizeof(sleep_labels[0]), "Pickup Wake: %s", pickup_wake_opt.c_str());
+    snprintf(sleep_labels[1], sizeof(sleep_labels[1]), "Tap Wake: %s", tap_wake_opt.c_str());
+    snprintf(sleep_labels[2], sizeof(sleep_labels[2]), "Battery Timeout: %s", screen_off_opt.c_str());
+    snprintf(sleep_labels[3], sizeof(sleep_labels[3]), "Docked Saver: %s", docked_ss_on ? "On" : "Off");
     const char *short_s = (ss_style_opt == "Aurora Borealis") ? "Aurora"
                           : ((ss_style_opt == "Matrix Rain") ? "Matrix" : ss_style_opt.c_str());
-    snprintf(sleep_labels[4], sizeof(sleep_labels[4]), "Style: %s", short_s);
-    snprintf(sleep_labels[5], sizeof(sleep_labels[5]), "Dock Inact: %s", dock_inact_opt.c_str());
-    snprintf(sleep_labels[6], sizeof(sleep_labels[6]), "Auto-Hibernate: %s", hibernate_to_opt.c_str());
+    snprintf(sleep_labels[4], sizeof(sleep_labels[4]), "Saver Style: %s", short_s);
+    snprintf(sleep_labels[5], sizeof(sleep_labels[5]), "Docked Timeout: %s", dock_inact_opt.c_str());
+    snprintf(sleep_labels[6], sizeof(sleep_labels[6]), "Hibernate: %s", hibernate_to_opt.c_str());
     snprintf(sleep_labels[7], sizeof(sleep_labels[7]), "Hold Crown: %s", instant_crown_hib ? "Instant" : "5s Delay");
     snprintf(sleep_labels[8], sizeof(sleep_labels[8]), "Stay Awake: %s", stay_awake_on ? "On" : "Off");
 
@@ -3932,7 +3932,9 @@ inline void render_system_page(
         } else {
           bool en = (i == 0) ? (pickup_wake_opt != "Disabled")
                   : (i == 1) ? (tap_wake_opt != "Disabled")
-                  : (i == 4) ? (ss_style_opt != "Screen Off")
+                  : (i == 2) ? (screen_off_opt != "Never")
+                  : (i == 4) ? docked_ss_on
+                  : (i == 5) ? (dock_inact_opt != "Never")
                   : (i == 6) ? (hibernate_to_opt != "Disabled")
                   : true;
           draw_cycle_card_y(y, sleep_labels[i], en);

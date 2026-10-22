@@ -234,12 +234,12 @@ button:
 
 switch:
   - platform: template
-    name: "Sleep & Wake: Hold Crown Hibernate"
+    name: "Sleep & Wake: Hold Crown Power Off"
     id: instant_crown_hibernate_switch
     entity_category: config
     icon: "mdi:lightning-bolt"
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
+    restore_mode: RESTORE_DEFAULT_OFF
     turn_on_action:
       - lambda: 'id(instant_crown_hibernate_switch).publish_state(true);'
     turn_off_action:
@@ -275,12 +275,12 @@ switch:
 
 select:
   - platform: template
-    name: "Sleep & Wake: Screen Off Timeout"
+    name: "Sleep & Wake: Battery Screen Timeout"
     id: display_off_timeout
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "15s"
+    initial_option: "30s"
     options:
       - "10s"
       - "15s"
@@ -294,17 +294,18 @@ select:
           pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
-    name: "Sleep & Wake: Dock Inactivity Timeout"
+    name: "Sleep & Wake: Docked Idle Timeout"
     id: screensaver_docked_timeout
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "15s"
+    initial_option: "1 min"
     options:
       - "10s"
       - "15s"
       - "30s"
       - "1 min"
+      - "2 min"
       - "5 min"
       - "Never"
     set_action:
@@ -313,12 +314,12 @@ select:
           pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
-    name: "Sleep & Wake: Auto-Hibernate Timeout"
+    name: "Sleep & Wake: Battery Hibernate Timeout"
     id: hibernate_timeout_mode
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "10 min"
+    initial_option: "15 min"
     options:
       - "5 min"
       - "10 min"
@@ -330,12 +331,12 @@ select:
           pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
-    name: "Sleep & Wake: Motion Pickup Wake"
+    name: "Sleep & Wake: Pickup to Wake"
     id: pickup_wake_mode
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: "Docked Only"
+    initial_option: "Always On"
     options:
       - "Always On"
       - "Docked Only"
@@ -351,7 +352,7 @@ select:
           if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
 
   - platform: template
-    name: "Sleep & Wake: Touch Tap Wake"
+    name: "Sleep & Wake: Tap to Wake"
     id: tap_wake_mode
     entity_category: config
     optimistic: true
@@ -462,7 +463,7 @@ interval:
           }
 
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
-          uint32_t hibernate_timeout_ms = 600000; // default 10 min
+          uint32_t hibernate_timeout_ms = 900000; // default 15 min
           auto st_opt = id(hibernate_timeout_mode).current_option();
           bool auto_sleep_enabled = true;
           if (st_opt == "5 min") hibernate_timeout_ms = 300000;
@@ -870,18 +871,19 @@ script:
     mode: restart
     then:
       - delay: !lambda |-
-          // When docked to USB power: use docked screensaver inactivity timeout
+          // When docked to USB power: use Docked Idle Timeout
           if (id(usb_connected).state) {
             auto ss_to = id(screensaver_docked_timeout).current_option();
             if (ss_to == "10s") return 10000;
             if (ss_to == "15s") return 15000;
             if (ss_to == "30s") return 30000;
             if (ss_to == "1 min") return 60000;
+            if (ss_to == "2 min") return 120000;
             if (ss_to == "5 min") return 300000;
             if (ss_to == "Never") return 86400000; // 24 hours
-            return 15000; // default 15s
+            return 60000; // default 1 min
           }
-          // When on battery: use screen_off_timeout
+          // When on battery: use Battery Screen Timeout
           auto opt = id(display_off_timeout).current_option();
           if (opt == "10s") return 10000;
           if (opt == "15s") return 15000;
@@ -889,7 +891,7 @@ script:
           if (opt == "1 min") return 60000;
           if (opt == "2 min") return 120000;
           if (opt == "Never") return 86400000;
-          return 15000; // default 15s
+          return 30000; // default 30s
       - if:
           condition:
             lambda: |-
