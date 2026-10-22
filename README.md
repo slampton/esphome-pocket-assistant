@@ -27,8 +27,8 @@ Pocket Assistant pairs a 466×466 circular AMOLED touchscreen, dual microphones,
 ## Highlights in v2.0
 
 * **Interactive Home Hub & Smart Live Activity Card**: A single glanceable home screen with a live 20 FPS weather sky, tap-to-open hero clock and weather summary, a contextual **Wake Greeting**, an auto-prioritized **Live Activity Card** (with an 8.0s upward carousel reel, urgency pinning for running Stopwatch / Timers `<= 60s`, inline Play/Pause/Disarm, and a translucent multi-activity overlay), and a **3-Icon Sliding Window Dock** (`Music`, `Remote`, `Games` -> `Tools`).
-* **On-Board Wake Word + 5 Voice Assistant Visual Profiles**: Runs 5 selectable `micro_wake_word` models in Octal PSRAM (**Okay Nabu**, **Hey Luna**, **Hey Jarvis**, **Hey Mycroft**, **Alexa**) with per-model sensitivity tuning, NVS persistence, and 5 20 FPS visual profiles (**Nebula**, **Solaris**, **Jarvis**, **Alexa**, and **Gemini**). *(Note: Because the board shares I2S clock lines between the mic and speaker, hands-free wake word is active whenever the local speaker is idle—including while controlling external room speakers—and automatically pauses during local speaker playback. While local music is playing, press the **Side Button (`GPIO0`)** to automatically pause playback, speak to Assist, and auto-resume music afterward.)*
-* **Lossless Music Assistant Player & Track Inspector**: Stream FLAC audio locally via Sendspin or control household speakers (Sonos, AirPlay, Cast, Denon/Marantz). Transfer queues between rooms, group/ungroup speakers, browse your library on-device, or tap the metadata bar to open the **Track & Album Inspector** with a 276px position scrubber, `-15s`/`+15s` seek, album tracklist, artist discography, and Up Next queue.
+* **On-Board Wake Word + 5 Voice Assistant Visual Profiles**: Runs 5 selectable `micro_wake_word` models in Octal PSRAM (**Okay Nabu**, **Hey Luna**, **Hey Jarvis**, **Hey Mycroft**, **Alexa**) with per-model sensitivity tuning, NVS persistence, and 5 20 FPS visual profiles (**Nebula**, **Solaris**, **Jarvis**, **Alexa**, and **Gemini**). *(Note: Because the board shares I2S clock lines between the mic and speaker, hands-free wake word is active whenever the local speaker is idle—including while controlling external room speakers—and automatically pauses during local speaker playback. While local music is playing, press the **Side Button (`GPIO0`)** to automatically pause playback, speak to Assist, and auto-resume music at your exact pre-Assist volume afterward.)*
+* **Lossless Music Assistant Player & Track Inspector**: Stream FLAC audio locally via Sendspin (with automatic on-device `L+R -> Mono` stereo downmixing) or control household speakers (Sonos, AirPlay, Cast, Denon/Marantz). Transfer queues between rooms, group/ungroup speakers, browse your library on-device, or tap the metadata bar to open the **Track & Album Inspector** with a 276px position scrubber, `-15s`/`+15s` seek, album tracklist, artist discography, and Up Next queue.
 * **4-Device Universal TV & Media Remote**: Control up to 4 preconfigured TVs, streamers, or AVRs with automatic protocol detection (**Android TV / Shield / Fire TV / Bravia**, **Denon / Marantz AVR**, **LG webOS**, **Apple TV**, **Roku**, **Samsung TV**, and **Custom**), Slot-1 Master Power, and per-device power overrides.
 * **20 FPS 3D Weather & Telescopic Lunar Suite**: Procedural 3D cumulus and wispy cloud layers with IMU wrist-tilt parallax, Ghibli-style tapered rain filaments with horizon splashes, 3D helical snowfall, multi-pulse lightning, tumbling 3D leaves, migrating birds, a 5-day forecast, solar horizon arc, and a `.rodata` telescopic Lunar Albedo renderer.
 * **20 FPS 360° Motion Arcade**: Gimbal-lock-free 3D IMU calibration powers 4 arcade games—**Marbles**, **Archery**, **Breakout**, and **Chomp for Kids**—complete with RTTTL sound effects and persistent high scores.
@@ -90,7 +90,7 @@ Copy [`homeassistant/packages/pocket_assistant_companion.yaml`](homeassistant/pa
 2. `input_text.pocket_assistant_weather_entity` — Weather entity (defaults to `weather.forecast_home`, auto-falling back to your first `weather.*` entity).
 3. `input_text.pocket_assistant_base_url` — Optional base URL override for custom HA ports (defaults to `http://homeassistant.local:8123`).
 4. `sensor.pocket_assistant_active_media` — Idle-guarded media metadata mirror (`title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `supported_features`, `art_url`).
-5. `sensor.pocket_assistant_weather_forecast` — Hourly 5-day forecast serializer (`DAY:HIGH:LOW:COND` + `high`/`low`).
+5. `sensor.pocket_assistant_weather_forecast` — Auto-discovering 5-day forecast & live weather serializer (`DAY:HIGH:LOW:COND` + `condition`, `temperature`, `humidity`, `wind_speed`, `wind_bearing`, `high`, and `low`).
 6. `script.pocket_assistant_music_browse` — Paged 5-slot Music Assistant browser for speakers, favorites, playlists, artists, albums, radio, podcasts, audiobooks, album tracks, and active queues.
 
 Ensure `configuration.yaml` includes packages under `homeassistant:`:
@@ -120,7 +120,7 @@ Pocket Assistant v2.0 uses a fast hub-and-spoke layout centered on the **Home Hu
 | **Top Crown (Short Click)** | Standby (Screen Off / Screensaver) | Instant `<5 ms` wake via `GPIO3` hardware interrupt. |
 | **Top Crown (Short Click)** | Alarm / Timer / Find My Ringing | Snoozes alarm (+5 min) or dismisses Timer / Find My alert. |
 | **Top Crown (Short Click)** | Voice Assistant Active | Cancels Voice Assistant and mutes TTS audio. |
-| **Top Crown (Short Click)** | Stopwatch (`Tools -> Stopwatch`) | Tactile **Start / Stop** chronograph pusher (with 200ms dwell compensation). |
+| **Top Crown (Short Click)** | Stopwatch (`Tools -> Stopwatch`) | Tactile **Start / Stop** chronograph pusher. |
 | **Top Crown (Short Click)** | Any Screen (except Stopwatch) | Turns the screen off and enters **Tier 2 Standby**. |
 | **Top Crown (Long Press >1.5s)** | Any Screen | Initiates **Tier 3 Hardware Hibernate** (`<40 µA`, instant or 5s countdown). |
 | **Side Button (`GPIO0` Click)** | Normal / Local Music / Standby / Games | Triggers **Voice Assistant** (auto-pauses & resumes local music when hands-free wake word is paused by local speaker output), dismisses alerts, or fires in games. |
@@ -131,8 +131,8 @@ Pocket Assistant v2.0 uses a fast hub-and-spoke layout centered on the **Home Hu
 
 | Mode / Resource | Measured Budget | Implementation |
 | :--- | :--- | :--- |
-| **Tier 1: Active Mode** | `110 – 160 mA` | 80 MHz QSPI display @ 20 FPS (`42 ms` idle / `75 ms` audio), 30 Hz touch, 6-axis IMU active |
-| **Tier 2: Display Standby** | `15 – 25 mA` (`<5 ms` wake) | Display & PA amp off, IMU gyro off (`0x01` pickup wake or `0x00` off), `GPIO3` PMU IRQ gating |
+| **Tier 1: Active Mode** | `110 – 160 mA` | 80 MHz QSPI display @ 20 FPS (`42 ms` cadence), 30 Hz touch, 6-axis IMU active |
+| **Tier 2: Display Standby** | `15 – 25 mA` (`<5 ms` wake) | Display poller & PA amp off, IMU gyro/poller off (`0x01` pickup wake or `0x00` off), `GPIO3` PMU IRQ gating |
 | **Tier 3: Hardware Hibernate** | `< 40 µA` (`~400 ms` UI wake) | `global_preferences->sync()` + clean API disconnect + AXP2101 `0x10 = 0x01` rail cut |
 | **Memory Footprint** | `~155 KB` free internal SRAM | 8MB Octal PSRAM @ 80 MHz (`microFLAC`, `micro_wake_word`, NVS cache, FreeRTOS stacks) + `.rodata` LUTs |
 
@@ -159,7 +159,7 @@ esphome-pocket-assistant/
 ├── ui_games.h                         # 360-Deg IMU tilt & 4-Game 20 FPS Arcade suite
 ├── ui_tools_apps.h                    # Home Hub, 8-Tool Suite, Clock, Music, TV Remote & System Hub
 ├── ui_toolkit.h                       # Umbrella C++20 UI toolkit header
-├── va_cancel_helper.h                 # Voice Assistant session lifecycle, NVS wake-word sync & API disconnect
+├── va_cancel_helper.h                 # Voice Assistant session lifecycle, mono downmixer, NVS wake-word sync & API disconnect
 └── SPECIFICATION.md                   # Complete hardware, pinout, memory & software architecture spec
 ```
 

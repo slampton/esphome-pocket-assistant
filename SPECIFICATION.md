@@ -91,7 +91,7 @@ All Home Assistant backend entities are consolidated into a single drop-in packa
 
 ### 3.2 Template Sensors (`sensor`)
 4. `sensor.pocket_assistant_active_media`: Idle-guarded playback state and metadata mirror (`title`, `artist`, `album`, `duration`, `position`, `volume`, `media_type`, `supported_features`, `art_url`). Evaluates on the 2-second tick only while the target speaker is `playing`/`buffering` or when state/title/volume changes.
-5. `sensor.pocket_assistant_weather_forecast`: Hourly 5-day formatted forecast serializer (`DAY:HIGH:LOW:COND;...` state + `high` and `low` attributes).
+5. `sensor.pocket_assistant_weather_forecast`: Hourly 5-day formatted forecast & live weather serializer (`DAY:HIGH:LOW:COND;...` state + `condition`, `temperature`, `humidity`, `wind_speed`, `wind_bearing`, `high`, and `low` attributes).
 
 ### 3.3 Embedded Music Assistant Browse Script (`script`)
 6. `script.pocket_assistant_music_browse`: Server-side pagination engine for Music Assistant speakers, favorites, playlists, artists, albums, radio, podcasts (with `mass_queue.get_podcast_episodes` support), audiobooks, album tracks, and active queues. Automatically receives `target_device: "${name}"` from the device and pushes 5-slot pages back via `esphome.<target_device>_set_browse_slots`.
@@ -121,7 +121,7 @@ Pocket Assistant v2.0 uses a hub-and-spoke navigation model anchored on the **In
 | :--- | :--- | :--- |
 | **1** | **Timers** | 3-slot multi-timer manager (`MultiTimerSlot[3]`) with 1-tap play/pause cards, detail editor, perimeter progress arc, and Home Assistant Assist voice timer synchronization (`on_timer_started` / `updated` / `cancelled` / `finished`). |
 | **2** | **Alarms** | 3-slot multi-alarm manager (Daily, Weekdays, Weekends, Once) with toggle switches, dedicated edit views, and Crown snooze/dismiss. |
-| **3** | **Stopwatch** | Vintage 1970 Heuer Swiss chronometer with physical Crown tactile Start/Stop pusher (200ms dwell compensation), LAP/RESET buttons, racing red split readout, and Rattrapante ghost hand. |
+| **3** | **Stopwatch** | Vintage 1970 Heuer Swiss chronometer with physical Crown tactile Start/Stop pusher, LAP/RESET buttons, racing red split readout, and Rattrapante ghost hand. |
 | **4** | **Dice Roll** | Dual simultaneous D6 dice rolling with back-face culled 3D tumbling cubes, hardware TRNG entropy, and omnidirectional shake/tap triggers. |
 | **5** | **Flashlight** | 100% full-screen AMOLED pure white illumination torch with sleep inhibition and full-screen tap-to-exit. |
 | **6** | **Calculator** | Keypad calculator with active operator highlight, tip/discount percentages, non-throwing `sscanf` parsing, and auto-reset lifecycle. |
