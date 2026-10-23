@@ -6,7 +6,7 @@ A local-first handheld companion, voice satellite, and universal media remote fo
 [![Version](https://img.shields.io/badge/Version-v2.0-blue.svg)](https://github.com/slampton/esphome-pocket-assistant/releases)
 [![ESPHome Version](https://img.shields.io/badge/ESPHome-2026.10.0%2B-blue.svg)](https://esphome.io)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.10.0%2B-41BDF5.svg)](https://www.home-assistant.io)
-[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10.7%2B-purple.svg)](https://music-assistant.io)
+[![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10.8%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/slampton)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/slampton)
@@ -44,7 +44,7 @@ Pocket Assistant pairs a 466×466 circular AMOLED touchscreen, dual microphones,
 ### Requirements
 * **Board**: Waveshare ESP32-S3-Touch-AMOLED-1.75C (466×466 CO5300 QSPI AMOLED, CST9220 touch, ES8311 DAC, ES7210 dual-mic ADC, AXP2101 PMIC, QMI8658 6-axis IMU, 32MB Octal Flash, 8MB Octal PSRAM).
 * **Home Assistant Core `2026.10.0+`** & **ESPHome `2026.10.0+`**.
-* **Music Assistant `2.10.7+`** *(optional, for local Sendspin streaming and library browsing)*.
+* **Music Assistant `2.10.8+`** *(optional, for local Sendspin streaming and library browsing)*.
 * **[Actions for Music Assistant (`mass_queue`)](https://github.com/droans/mass_queue)** *(optional HACS integration, required for browsing individual podcast episodes and full Up Next play queues)*.
 
 ### 1. Flash the Firmware

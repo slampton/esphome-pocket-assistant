@@ -3229,13 +3229,6 @@ script:
       - lambda: |-
           id(music_action_feedback) = "Transferring -> " + id(target_speaker_name);
           id(music_feedback_timer) = millis();
-          if (id(active_speaker_entity) == "${local_player_id}" && id(target_speaker_id) != "${local_player_id}") {
-            if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-              auto call = id(pocket_music_player).make_call();
-              call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-              call.perform();
-            }
-          }
       - homeassistant.action:
           action: music_assistant.transfer_queue
           data:
@@ -3246,6 +3239,14 @@ script:
                                         ? (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING)
                                         : (id(ha_target_state).state == "playing");
               return source_playing ? "true" : "false";
+      - lambda: |-
+          if (id(active_speaker_entity) == "${local_player_id}" && id(target_speaker_id) != "${local_player_id}") {
+            if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
+              auto call = id(pocket_music_player).make_call();
+              call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
+              call.perform();
+            }
+          }
       - script.execute:
           id: activate_selected_speaker
           prefix: "Active: "
