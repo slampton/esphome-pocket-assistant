@@ -885,6 +885,9 @@ image:
       - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
       - script.execute: throttled_disp_update
       - script.execute: sync_wake_word_state
+    on_error:
+      - lambda: 'id(current_loaded_art_url) = "";'
+      - script.execute: sync_wake_word_state
 
 
 output:
@@ -2737,7 +2740,18 @@ script:
   - id: fetch_remote_art_debounced
     mode: restart
     then:
-      - delay: 350ms
+      - delay: 650ms
+      - if:
+          condition:
+            lambda: |-
+              return (id(active_speaker_entity) != "${local_player_id}") &&
+                     (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
+          then:
+            - wait_until:
+                condition:
+                  lambda: 'return id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING;'
+                timeout: 2500ms
+            - delay: 250ms
       - if:
           condition:
             lambda: |-
@@ -2756,6 +2770,8 @@ script:
                   micro_wake_word.is_running:
                 then:
                   - micro_wake_word.stop:
+                  - delay: 20ms
+            - lambda: 'id(current_loaded_art_url) = id(ha_target_art_url).state;'
             - online_image.set_url:
                 id: remote_album_art
                 url: !lambda 'return id(ha_target_art_url).state;'
@@ -3216,12 +3232,15 @@ script:
             target_device: "${name}"
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
             transfer_queue: !lambda 'return transfer_queue;'
-      - online_image.release: remote_album_art
       - if:
           condition:
             lambda: 'return (id(active_speaker_entity) != "${local_player_id}");'
           then:
+            - audio_dac.mute_on: es8311_dac
+            - switch.turn_off: speaker_enable
             - script.execute: fetch_remote_art_debounced
+          else:
+            - online_image.release: remote_album_art
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: speaker_transfer_to_target
