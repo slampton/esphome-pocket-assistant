@@ -440,6 +440,23 @@ interval:
             }
           }
 
+          // Local Speaker Hardware Hardware-Mute Guard:
+          // If Sendspin is actively streaming (MEDIA_PLAYER_STATE_PLAYING) to the local player
+          // but speaker_enable is OFF (e.g. first stream after boot or pre-warmed Sendspin stream
+          // where on_play did not re-fire), immediately route I2S to speaker and unmute ES8311 DAC.
+          if ((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) &&
+              !id(speaker_enable).state && !id(va_active) && !id(va_tts_received) &&
+              !id(is_hibernating) && (millis() > 5000U)) {
+            ESP_LOGI("audio", "Local player is PLAYING with speaker_enable OFF -> routing I2S to speaker & unmuting DAC");
+            id(mp_idle_debounce).stop();
+            id(route_i2s_to_spk).execute();
+            id(speaker_enable).turn_on();
+            id(es8311_dac).set_mute_off();
+            float v = id(pocket_music_player).volume;
+            float db = (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));
+            id(media_mixing_input).apply_ducking(db, 100);
+          }
+
           // Smart On-Demand BLE Fallback:
           // If the device is awake and configured Wi-Fi is unreachable after 15 seconds,
           // automatically enable BLE so Improv BLE can provision a new Wi-Fi SSID/AP.

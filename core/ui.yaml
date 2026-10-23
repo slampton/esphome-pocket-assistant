@@ -2970,15 +2970,23 @@ script:
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
           else:
             - lambda: 'pocket_ui::set_remote_play_override(true, millis());'
-            - homeassistant.action:
-                action: media_player.media_play
-                data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
             - if:
                 condition:
                   lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
                 then:
+                  - script.stop: mp_idle_debounce
+                  - script.execute: route_i2s_to_spk
+                  - switch.turn_on: speaker_enable
+                  - audio_dac.mute_off: es8311_dac
+                  - mixer_speaker.apply_ducking:
+                      id: media_mixing_input
+                      decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
+                      duration: 0.2s
                   - media_player.play: pocket_music_player
+            - homeassistant.action:
+                action: media_player.media_play
+                data:
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
 
   - id: stop_ha_music
     mode: restart
@@ -3365,9 +3373,16 @@ script:
           id(music_hud_timer) = millis();
       - if:
           condition:
-            lambda: 'return (id(active_speaker_entity) == "${local_player_id}") && id(mww).is_running();'
+            lambda: 'return (id(active_speaker_entity) == "${local_player_id}");'
           then:
-            - micro_wake_word.stop:
+            - script.stop: mp_idle_debounce
+            - script.execute: route_i2s_to_spk
+            - switch.turn_on: speaker_enable
+            - audio_dac.mute_off: es8311_dac
+            - mixer_speaker.apply_ducking:
+                id: media_mixing_input
+                decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
+                duration: 0.2s
       - homeassistant.action:
           action: music_assistant.play_media
           data:
