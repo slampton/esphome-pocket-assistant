@@ -8,6 +8,8 @@ A local-first handheld companion, voice satellite, and universal media remote fo
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.10.0%2B-41BDF5.svg)](https://www.home-assistant.io)
 [![Music Assistant](https://img.shields.io/badge/Music%20Assistant-2.10.7%2B-purple.svg)](https://music-assistant.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/slampton)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/slampton)
 
 Pocket Assistant pairs a 466×466 circular AMOLED touchscreen, dual microphones, a speaker, a 6-axis IMU, and an AXP2101 power management IC with ESPHome, Home Assistant, and Music Assistant. Instead of acting as a passive wall display or stationary voice puck, it works as an untethered handheld and docked desk companion—combining an interactive Home Hub with live 20 FPS weather, on-board wake word and push-to-talk Voice Assistant, local FLAC streaming and multi-room speaker control, a 4-device universal TV remote, motion-controlled arcade games, and a 3-tier power state machine (`<40 µA` hardware hibernate).
 
@@ -162,6 +164,15 @@ esphome-pocket-assistant/
 ├── va_cancel_helper.h                 # Voice Assistant session lifecycle, mono downmixer, NVS wake-word sync & API disconnect
 └── SPECIFICATION.md                   # Complete hardware, pinout, memory & software architecture spec
 ```
+
+---
+
+## Support the Project
+
+Pocket Assistant and Latter for Home Assistant are built and maintained by Sean Lampton (**Lampton Labs**). If this project is useful in your home and you'd like to support ongoing development and test hardware:
+
+* ☕ **[Buy Me a Coffee](https://www.buymeacoffee.com/slampton)**
+* ❤️ **[Sponsor on GitHub](https://github.com/sponsors/slampton)**
 
 ---
 
