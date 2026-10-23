@@ -737,6 +737,9 @@ script:
           id(display_power_state) = 0; // ACTIVE
           id(disp1).start_poller();
           id(imu).start_poller();
+          if (id(ble_room_beacon_switch).state && !id(ble_ctrl).is_active()) {
+            id(ble_ctrl).enable();
+          }
           id(hal_set_audio_codecs_standby).execute(false);
           if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING && !id(speaker_enable).state) {
             id(speaker_enable).turn_on();
