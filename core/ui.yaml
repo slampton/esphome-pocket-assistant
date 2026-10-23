@@ -2339,7 +2339,8 @@ text_sensor:
 
   - platform: homeassistant
     id: ha_active_speaker_sync
-    entity_id: ${active_speaker_helper}
+    entity_id: ${active_media_sensor}
+    attribute: active_speaker
     on_value:
       then:
         - lambda: |-
@@ -2994,7 +2995,7 @@ script:
     mode: restart
     then:
       - homeassistant.action:
-          action: ${browse_script}
+          action: latter.music_browse
           data:
             target_device: "${name}"
             mode: !lambda 'return id(selected_category_mode).c_str();'
@@ -3023,7 +3024,6 @@ script:
               auto sort = id(music_podcast_sort_order).current_option();
               if (sort == "Oldest on Top") return "oldest";
               return "newest";
-            mass_queue_entry: "${mass_queue_config_entry}"
 
   - id: fetch_room_browse
     mode: restart
@@ -3075,10 +3075,10 @@ script:
           id(music_hud_active) = true;
           id(music_hud_timer) = millis();
       - homeassistant.action:
-          action: input_text.set_value
+          action: latter.set_active_speaker
           data:
-            entity_id: ${active_speaker_helper}
-            value: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
       - online_image.release: remote_album_art
       - if:
           condition:
@@ -3165,10 +3165,10 @@ script:
           }
           id(music_overlay_mode) = 0;
       - homeassistant.action:
-          action: input_text.set_value
+          action: latter.set_active_speaker
           data:
-            entity_id: ${active_speaker_helper}
-            value: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
       - online_image.release: remote_album_art
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
