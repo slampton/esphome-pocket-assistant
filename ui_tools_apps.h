@@ -4511,7 +4511,7 @@ inline void render_system_page(
     draw_action_card_y(110, "Screensaver Now",   card_brd_on, col_white, card_bg_on);
     draw_action_card_y(173, "Hibernate Now",     card_brd_on, col_white, card_bg_on);
     draw_action_card_y(236, "Software Update >", card_brd_on, col_white, card_bg_on);
-    snprintf(buf, sizeof(buf), "BLE Beacon: %s", ble_active ? "On" : "Off");
+    snprintf(buf, sizeof(buf), "BLE Setup: %s", ble_active ? "On" : "Off");
     draw_toggle_card_y(299, buf, ble_active);
     draw_action_card_y(362, "Restart Device",    col_red,     col_white, esphome::Color(28, 18, 22));
     draw_back();
