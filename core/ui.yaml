@@ -3190,6 +3190,7 @@ script:
     mode: restart
     parameters:
       prefix: string
+      transfer_queue: string
     then:
       - lambda: |-
           if (id(target_speaker_id).rfind("media_player.", 0) == 0) {
@@ -3214,6 +3215,7 @@ script:
           data:
             target_device: "${name}"
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            transfer_queue: !lambda 'return transfer_queue;'
       - online_image.release: remote_album_art
       - if:
           condition:
@@ -3226,44 +3228,19 @@ script:
     mode: restart
     then:
       - delay: 0ms
-      - lambda: |-
-          id(music_action_feedback) = "Transferring -> " + id(target_speaker_name);
-          id(music_feedback_timer) = millis();
-      - homeassistant.action:
-          action: music_assistant.transfer_queue
-          data:
-            entity_id: !lambda 'return id(target_speaker_id).c_str();'
-            source_player: !lambda 'return id(active_speaker_entity).c_str();'
-            auto_play: !lambda |-
-              bool source_playing = (id(active_speaker_entity) == "${local_player_id}")
-                                        ? (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING)
-                                        : (id(ha_target_state).state == "playing");
-              return source_playing ? "true" : "false";
-      - lambda: |-
-          if (id(active_speaker_entity) == "${local_player_id}" && id(target_speaker_id) != "${local_player_id}") {
-            if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-              auto call = id(pocket_music_player).make_call();
-              call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-              call.perform();
-            }
-          }
       - script.execute:
           id: activate_selected_speaker
-          prefix: "Active: "
+          prefix: "Transferring -> "
+          transfer_queue: "true"
 
   - id: speaker_control_target
     mode: restart
     then:
       - delay: 0ms
-      - lambda: |-
-          if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-            auto call = id(pocket_music_player).make_call();
-            call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-            call.perform();
-          }
       - script.execute:
           id: activate_selected_speaker
           prefix: "Controlling: "
+          transfer_queue: "false"
 
   - id: speaker_join_target
     mode: restart
@@ -3305,9 +3282,9 @@ script:
           data:
             target_device: "${name}"
             entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            transfer_queue: "false"
       - online_image.release: remote_album_art
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
-
   - id: play_music_slot
     mode: restart
     parameters:
