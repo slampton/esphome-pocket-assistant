@@ -3665,7 +3665,7 @@ inline void render_room_control_page(
         it.circle(gx, gy - 3, 7, bulb_c);
       }
       it.filled_rectangle(gx - 4, gy + 6, 9, 4, fg_c);
-      it.line(gx - 3, gy + 11, bx_clamp: gx + 3, gy + 11, fg_c);
+      it.line(gx - 3, gy + 11, gx + 3, gy + 11, fg_c);
     } else if (dtype == "cover") {
       bool is_curt = is_curtain_entity(name, id_str);
       Color cov_c = is_on ? theme_primary : fg_c;
