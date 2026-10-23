@@ -1523,6 +1523,28 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  - platform: template
+    name: "Room: BLE Presence Beacon"
+    id: ble_room_beacon_switch
+    icon: "mdi:bluetooth-audio"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: |-
+          id(ble_room_beacon_switch).publish_state(true);
+          if (id(display_power_state) == 0 && !id(ble_ctrl).is_active()) {
+            id(ble_ctrl).enable();
+          }
+          if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
+    turn_off_action:
+      - lambda: |-
+          id(ble_room_beacon_switch).publish_state(false);
+          if (id(ble_ctrl).is_active() && id(wifi_ctrl).is_connected()) {
+            id(ble_ctrl).disable();
+          }
+          if (id(display_power_state) == 0) pocket_ui::schedule_disp_update(&id(disp1));
+
 
   - platform: template
     name: "Home: Shortcut Music"

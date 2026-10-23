@@ -1,4 +1,4 @@
-# Build-Stamp: 2026-10-23 16:20:00
+# Build-Stamp: 2026-10-23 16:36:00
 # ==============================================================================
 # Pocket Assistant (v2.1 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
@@ -63,7 +63,7 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          // Release all deep sleep pad holds immediately via board HAL (2026-10-23 16:20:00)
+          // Release all deep sleep pad holds immediately via board HAL (2026-10-23 16:36:00)
           id(hal_release_deep_sleep_holds).execute();
 
           id(sleep_start_time) = millis();
@@ -106,9 +106,9 @@ esphome:
         - component.update: batt_level
         - if:
             condition:
-              lambda: 'return !id(wifi_ctrl).has_sta();'
+              lambda: 'return !id(wifi_ctrl).has_sta() || id(ble_room_beacon_switch).state;'
             then:
-              - logger.log: "No Wi-Fi credentials configured: enabling BLE for Improv setup"
+              - logger.log: "Enabling BLE radio (Improv setup or BLE Room Presence Beacon active)"
               - ble.enable:
         - lambda: |-
             esphome::voice_assistant::ensure_wake_words_restored(id(va), true);
@@ -358,9 +358,9 @@ wifi:
       - delay: 5s
       - if:
           condition:
-            lambda: 'return id(ble_ctrl).is_active();'
+            lambda: 'return id(ble_ctrl).is_active() && !id(ble_room_beacon_switch).state;'
           then:
-            - logger.log: "Wi-Fi connected: disabling BLE radio to free SRAM and 2.4GHz airtime"
+            - logger.log: "Wi-Fi connected & BLE Room Beacon off: disabling BLE radio"
             - ble.disable:
 
 esp32_ble:
@@ -369,6 +369,15 @@ esp32_ble:
   use_psram: true
   max_connections: 1
 
+esp32_ble_beacon:
+  type: iBeacon
+  uuid: "504F434B-4554-4153-5354-000000000210"
+  major: 1
+  minor: 1
+  measured_power: -59
+  tx_power: 3dBm
+  min_interval: 500ms
+  max_interval: 1000ms
 
 improv_ble:
   authorizer: none
