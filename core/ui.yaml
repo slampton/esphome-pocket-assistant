@@ -191,10 +191,30 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: room_subpage
+    type: int
+    restore_value: no
+    initial_value: '0' # 0 = Room Entities (3-Card Sliders), 1 = Room Switcher, 2 = Security Alarm Panel
   - id: room_browse_mode
     type: std::string
     restore_value: no
     initial_value: '"entities"'
+  - id: room_domain_filter
+    type: std::string
+    restore_value: no
+    initial_value: '"all"'
+  - id: room_alarm_entity
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_alarm_state
+    type: std::string
+    restore_value: no
+    initial_value: '"disarmed"'
+  - id: room_alarm_service
+    type: std::string
+    restore_value: no
+    initial_value: '"alarm_control_panel.alarm_disarm"'
   - id: room_browse_page
     type: int
     restore_value: no
@@ -1948,6 +1968,30 @@ sensor:
     internal: true
 
   - platform: homeassistant
+    id: ha_room_temperature
+    entity_id: ${room_context_sensor}
+    attribute: room_temp
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && id(gui_page) == 6) {
+              pocket_ui::schedule_disp_update(&id(disp1));
+            }
+
+  - platform: homeassistant
+    id: ha_room_humidity
+    entity_id: ${room_context_sensor}
+    attribute: room_humidity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && id(gui_page) == 6) {
+              pocket_ui::schedule_disp_update(&id(disp1));
+            }
+
+  - platform: homeassistant
     id: ha_weather_temp_fallback
     entity_id: ${weather_forecast_sensor}
     attribute: temperature
@@ -2213,6 +2257,33 @@ text_sensor:
         - lambda: |-
             if (!x.empty() && x != "unknown" && x != "unavailable") {
               id(active_room_area_id) = x;
+            }
+
+  - platform: homeassistant
+    id: ha_room_alarm_entity
+    entity_id: ${room_context_sensor}
+    attribute: alarm_entity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable" && x != "none") {
+              id(room_alarm_entity) = x;
+            }
+
+  - platform: homeassistant
+    id: ha_room_alarm_state
+    entity_id: ${room_context_sensor}
+    attribute: alarm_state
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(room_alarm_state) = x;
+              if (id(display_power_state) == 0 && id(gui_page) == 6) {
+                pocket_ui::schedule_disp_update(&id(disp1));
+              }
             }
 
   - platform: homeassistant
@@ -3034,10 +3105,22 @@ script:
             target_device: "${name}"
             mode: !lambda 'return id(room_browse_mode).c_str();'
             area_id: !lambda 'return id(active_room_area_id).c_str();'
-            domain_filter: "all"
+            domain_filter: !lambda 'return id(room_domain_filter).c_str();'
             page: !lambda 'return to_string(id(room_browse_page));'
-            page_size: "5"
+            page_size: !lambda 'return (id(room_browse_mode) == "areas") ? "5" : "3";'
             handoff_media: !lambda 'return id(room_handoff_media_switch).state ? "true" : "false";'
+
+  - id: execute_alarm_action
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(room_alarm_entity).empty() && id(room_alarm_entity) != "none";'
+          then:
+            - homeassistant.action:
+                action: !lambda 'return id(room_alarm_service).c_str();'
+                data:
+                  entity_id: !lambda 'return id(room_alarm_entity).c_str();'
 
   - id: execute_room_action
     mode: restart
@@ -3871,17 +3954,22 @@ display:
       // ==========================================
       } else if (id(gui_page) == 6) {
         render_room_control_page(
-            it, cx, millis(), id(room_browse_mode), id(active_room_area_name),
+            it, cx, millis(), id(room_subpage), id(room_browse_mode), id(room_domain_filter),
+            id(active_room_area_name), id(ha_room_temperature).state, id(ha_room_humidity).state,
+            id(room_alarm_entity), id(room_alarm_state),
             id(room_browse_page), id(room_browse_total_pages),
             id(room_action_feedback), id(room_feedback_timer),
-            id(room_lights_on_count), id(room_covers_open_count),
             id(room_slot_1_name), id(room_slot_1_id), id(room_slot_1_type), id(room_slot_1_active), id(room_slot_1_level),
             id(room_slot_2_name), id(room_slot_2_id), id(room_slot_2_type), id(room_slot_2_active), id(room_slot_2_level),
             id(room_slot_3_name), id(room_slot_3_id), id(room_slot_3_type), id(room_slot_3_active), id(room_slot_3_level),
             id(room_slot_4_name), id(room_slot_4_id), id(room_slot_4_type), id(room_slot_4_active), id(room_slot_4_level),
             id(room_slot_5_name), id(room_slot_5_id), id(room_slot_5_type), id(room_slot_5_active), id(room_slot_5_level),
-            id(font_small), id(theme_primary), id(theme_secondary),
-            id(col_bg), id(col_black), id(col_white), id(col_slate), id(col_dark_gray), id(col_gold));
+            id(font_date), id(font_small), id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate), id(col_dark_gray),
+            id(col_gold), id(col_green), id(col_red));
+        if (id(room_subpage) > 0 || id(room_browse_mode) == "areas") {
+          render_back_button(it, cx, id(font_small), 426, "< Back");
+        }
 
       // ==========================================
       // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL
@@ -3972,6 +4060,7 @@ display:
                                  !(id(gui_page) == 4) &&
                                  !(id(gui_page) == 3 && id(active_game) > 0) &&
                                  !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_clean_art)) &&
+                                 !(id(gui_page) == 6 && (id(room_subpage) > 0 || id(room_browse_mode) == "areas")) &&
                                  !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                  !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
                                  !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
@@ -4078,7 +4167,8 @@ touchscreen:
                                     !(id(gui_page) == 4 && id(system_menu_mode) > 0) &&
                                     !(id(gui_page) == 3 && id(active_game) > 0) &&
                                     !(id(gui_page) == 2 && (id(music_overlay_mode) > 0 || music_hud_hidden)) &&
-                                    !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
+                                    !(id(gui_page) == 6 && (id(room_subpage) > 0 || id(room_browse_mode) == "areas")) &&
+                                 !(id(gui_page) == 7 && id(remote_subpage) > 0) &&
                                     !(id(gui_page) == 8 && id(stuff_subpage) > 0) &&
                                     !(id(alarm_ringing) || id(timer_ringing) || id(find_my_active));
 
@@ -4477,1174 +4567,75 @@ touchscreen:
                         id(fetch_remote_art_debounced).execute();
                       }
                     } else if (id(gui_page) == 6) {
-                      id(room_browse_mode) = id(active_room_area_id).empty() ? "areas" : "entities";
-                      id(room_browse_page) = 1;
-                      id(fetch_room_browse).execute();
-                    }
-                    id(remote_subpage) = 0;
-                    id(stuff_subpage) = 0;
-                    id(active_game) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                }
-                return;
-              }
-              return;
-            } else if (id(gui_page) == 2) {
-              if (id(music_overlay_mode) == 0) {
-                if (touch.x >= 100 && touch.x <= 366 && touch.y <= 85) {
-                  static uint32_t last_hdr_tap = 0;
-                  uint32_t now_hdr = millis();
-                  if (now_hdr - last_hdr_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_hdr_tap = now_hdr;
-                    id(music_direct_nav) = false;
-                    id(music_overlay_mode) = 5;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                std::string overlay_mode = id(music_overlay_style).current_option();
-                if (overlay_mode.empty()) overlay_mode = "Art Only";
-                bool hud_enabled = (overlay_mode != "Always Visible");
-                static uint32_t hud_just_woken_time = 0;
-
-                // If in "Art + Metadata" mode (HUD controls hidden, metadata visible), tapping the
-                // central metadata column (x in [135..331], y in [340..404]) opens Track Inspector directly
-                if (!id(music_hud_active) && overlay_mode == "Art + Metadata" &&
-                    touch.x >= 135 && touch.x <= 331 && touch.y >= 340 && touch.y < 405) {
-                  static uint32_t last_meta_direct_tap = 0;
-                  uint32_t now_md = millis();
-                  if (now_md - last_meta_direct_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_meta_direct_tap = now_md;
-                    id(music_overlay_mode) = 6;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (hud_enabled && !id(music_hud_active)) {
-                  id(music_hud_active) = true;
-                  id(music_hud_timer) = millis();
-                  hud_just_woken_time = millis();
-                  id(hud_wake_finger_released) = false;
-                  pocket_ui::schedule_disp_update(&id(disp1));
-                  return;
-                }
-
-                if (hud_enabled && (!id(hud_wake_finger_released) || (millis() - hud_just_woken_time < 50))) {
-                  return;
-                }
-
-                // 1. Center Play/Pause Capsule (r = 34 at (233, 233), downward-biased to y <= 280)
-                if (touch.x >= 182 && touch.x <= 284 && touch.y >= 180 && touch.y <= 280) {
-                  static uint32_t last_pp_tap = 0;
-                  uint32_t now_pp = millis();
-                  if (now_pp - last_pp_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_pp_tap = now_pp;
-                    bool is_remote = (id(active_speaker_entity) != "${local_player_id}");
-                    bool local_playing = (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
-                    bool is_playing = pocket_ui::is_music_playing_effective(is_remote, local_playing, id(ha_target_state).state, now_pp);
-                    id(music_action_feedback) = is_playing ? "Pausing..." : "Playing...";
-                    id(music_feedback_timer) = now_pp;
-                    id(music_hud_timer) = now_pp;
-                    id(toggle_ha_music).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                // 2. Priority Corner Flank Targets (Speaker at (71,140), Library at (71,326), Vol+ at (395,140), Vol- at (395,326))
-                //    Evaluated BEFORE Metadata Bar so slightly low/inward taps on Library or Vol- NEVER open Track Inspector!
-                if (id(music_show_speaker_shortcut).state &&
-                    ((touch.x <= 130 && touch.y >= 70 && touch.y < 192) ||
-                     (touch.x > 130 && touch.x <= 176 && touch.y >= 70 && touch.y < 178))) {
-                  static uint32_t last_sc_spk_tap = 0;
-                  uint32_t now_sc = millis();
-                  if (now_sc - last_sc_spk_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_sc_spk_tap = now_sc;
-                    id(selected_category_mode) = "speakers";
-                    id(selected_category_title) = "SPEAKERS";
-                    id(music_browse_page) = 1;
-                    id(music_direct_nav) = true;
-                    id(music_overlay_mode) = 1;
-                    id(fetch_music_browse).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (id(music_show_library_shortcut).state &&
-                    ((touch.x <= 134 && touch.y >= 280 && touch.y < 405) ||
-                     (touch.x > 134 && touch.x <= 172 && touch.y >= 284 && touch.y < 360))) {
-                  static uint32_t last_sc_lib_tap = 0;
-                  uint32_t now_sc = millis();
-                  if (now_sc - last_sc_lib_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_sc_lib_tap = now_sc;
-                    id(music_category_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(menu_scroll_step) = 0;
-                    id(music_direct_nav) = true;
-                    id(music_overlay_mode) = 2;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (touch.x >= 332 && touch.y >= 70 && touch.y < 188) {
-                  static uint32_t last_vol_up_tap = 0;
-                  uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_up_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_vol_up_tap = now_vol_tap;
-                    id(music_hud_timer) = now_vol_tap;
-                    int v_step = (int)id(volume_step_size).state;
-                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
-                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(v_step)
-                                            : std::min(100, (int)std::round(id(pocket_music_player).volume * 100.0f) + v_step);
-                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
-                    id(music_feedback_timer) = now_vol_tap;
-                    id(music_vol_up).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (touch.x >= 332 && touch.y >= 282 && touch.y < 405) {
-                  static uint32_t last_vol_dn_tap = 0;
-                  uint32_t now_vol_tap = millis();
-                  if (now_vol_tap - last_vol_dn_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_vol_dn_tap = now_vol_tap;
-                    id(music_hud_timer) = now_vol_tap;
-                    int v_step = (int)id(volume_step_size).state;
-                    bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
-                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(-v_step)
-                                            : std::max(0, (int)std::round(id(pocket_music_player).volume * 100.0f) - v_step);
-                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
-                    id(music_feedback_timer) = now_vol_tap;
-                    id(music_vol_down).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                // 3. Equatorial Next Track / +30s (342, 233) & Prev Track / -10s (124, 233)
-                if (touch.x >= 285 && touch.x <= 455 && touch.y >= 188 && touch.y < 282) {
-                  static uint32_t last_next_tap = 0;
-                  uint32_t now_tap = millis();
-                  if (now_tap - last_next_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_next_tap = now_tap;
-                    bool is_speech_media = (id(active_playback_media_type) == "podcast" ||
-                                            id(active_playback_media_type) == "podcast_episode" ||
-                                            id(active_playback_media_type) == "audiobook");
-                    if (is_speech_media) {
-                      id(music_seek_relative).execute(1);
-                    } else {
-                      id(music_action_feedback) = "Next Track >>";
-                      id(music_next_track).execute();
-                    }
-                    id(music_feedback_timer) = now_tap;
-                    id(music_hud_timer) = now_tap;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                bool prev_hit = (id(music_show_speaker_shortcut).state || id(music_show_library_shortcut).state) ?
-                                (touch.x >= 75 && touch.x <= 181 && touch.y >= 188 && touch.y < 282) :
-                                (touch.x <= 181 && touch.y >= 150 && touch.y <= 316);
-                if (prev_hit) {
-                  static uint32_t last_prev_tap = 0;
-                  uint32_t now_tap = millis();
-                  if (now_tap - last_prev_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_prev_tap = now_tap;
-                    bool is_speech_media = (id(active_playback_media_type) == "podcast" ||
-                                            id(active_playback_media_type) == "podcast_episode" ||
-                                            id(active_playback_media_type) == "audiobook");
-                    if (is_speech_media) {
-                      id(music_seek_relative).execute(-1);
-                    } else {
-                      id(music_action_feedback) = "<< Prev Track";
-                      id(music_prev_track).execute();
-                    }
-                    id(music_feedback_timer) = now_tap;
-                    id(music_hud_timer) = now_tap;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                // 4. Central Metadata Block (Title/Artist/Album at y = 352..394, x in [135..331]) -> Open Track Inspector (Mode 6)
-                if (touch.x >= 135 && touch.x <= 331 && touch.y >= 338 && touch.y < 405) {
-                  static uint32_t last_meta_tap = 0;
-                  uint32_t now_mt = millis();
-                  if (now_mt - last_meta_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_meta_tap = now_mt;
-                    id(music_overlay_mode) = 6;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-
-                if (hud_enabled && id(music_hud_active)) {
-                  if (touch.x >= 160 && touch.x <= 306 && (touch.y < 150 || (touch.y > 274 && touch.y < 400))) {
-                    if (millis() - id(music_hud_timer) >= TOUCH_GUARD_DISMISS) {
-                      static uint32_t last_dismiss_tap = 0;
-                      uint32_t now_dis = millis();
-                      if (now_dis - last_dismiss_tap > TOUCH_DEBOUNCE_DISMISS) {
-                        last_dismiss_tap = now_dis;
-                        id(music_hud_active) = false;
-                        pocket_ui::schedule_disp_update(&id(disp1));
-                      }
-                    }
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 5) {
-                uint32_t now_hub = millis();
-                if (is_back_button(touch)) {
-                  static uint32_t last_hub_back = 0;
-                  if (now_hub - last_hub_back > TOUCH_DEBOUNCE_BUTTON) {
-                    last_hub_back = now_hub;
-                    id(music_overlay_mode) = 0;
-                    id(music_hud_active) = true;
-                    id(music_hud_timer) = now_hub;
-                    id(system_menu_mode) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (touch.y >= 96 && touch.y < 160 && touch.x >= 90 && touch.x <= 376) {
-                  static uint32_t last_hub_spk = 0;
-                  if (now_hub - last_hub_spk > TOUCH_DEBOUNCE_BUTTON) {
-                    last_hub_spk = now_hub;
-                    id(selected_category_mode) = "speakers";
-                    id(selected_category_title) = "SPEAKERS";
-                    id(music_browse_page) = 1;
-                    id(music_direct_nav) = false;
-                    id(music_overlay_mode) = 1;
-                    id(fetch_music_browse).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (touch.y >= 160 && touch.y < 223 && touch.x >= 90 && touch.x <= 376) {
-                  static uint32_t last_hub_lib = 0;
-                  if (now_hub - last_hub_lib > TOUCH_DEBOUNCE_BUTTON) {
-                    last_hub_lib = now_hub;
-                    id(music_category_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(menu_scroll_step) = 0;
-                    id(music_direct_nav) = false;
-                    id(music_overlay_mode) = 2;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (touch.y >= 223 && touch.y < 286 && touch.x >= 90 && touch.x <= 376) {
-                  static uint32_t last_hub_clr = 0;
-                  if (now_hub - last_hub_clr > TOUCH_DEBOUNCE_BUTTON) {
-                    last_hub_clr = now_hub;
-                    id(clear_ha_music_queue).execute();
-                  }
-                  return;
-                }
-                if (touch.y >= 286 && touch.y <= 368 && touch.x >= 90 && touch.x <= 376) {
-                  static uint32_t last_hub_set = 0;
-                  if (now_hub - last_hub_set > TOUCH_DEBOUNCE_BUTTON) {
-                    last_hub_set = now_hub;
-                    id(gui_page) = 4;
-                    id(system_menu_mode) = 9;
-                    id(audio_menu_parent_page) = 2;
-                    id(menu_scroll_active) = false;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                return;
-              } else if (id(music_overlay_mode) == 1) {
-                static uint32_t last_spk_slot_tap = 0;
-                uint32_t now_spk = millis();
-                int slot_idx = get_5slot_index(touch, 88, 371);
-                if (slot_idx >= 0) {
-                  if (now_spk - last_spk_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_spk_slot_tap = now_spk;
-                    std::string picked_id = "";
-                    std::string picked_name = "";
-                    if (slot_idx == 0 && !id(slot_1_name).empty()) { picked_id = id(slot_1_id); picked_name = id(slot_1_name); }
-                    else if (slot_idx == 1 && !id(slot_2_name).empty()) { picked_id = id(slot_2_id); picked_name = id(slot_2_name); }
-                    else if (slot_idx == 2 && !id(slot_3_name).empty()) { picked_id = id(slot_3_id); picked_name = id(slot_3_name); }
-                    else if (slot_idx == 3 && !id(slot_4_name).empty()) { picked_id = id(slot_4_id); picked_name = id(slot_4_name); }
-                    else if (slot_idx == 4 && !id(slot_5_name).empty()) { picked_id = id(slot_5_id); picked_name = id(slot_5_name); }
-                    if (!picked_id.empty()) {
-                      id(target_speaker_id) = picked_id;
-                      id(target_speaker_name) = picked_name;
-                      id(music_overlay_mode) = 4;
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                  }
-                  return;
-                }
-                if (is_back_button(touch)) {
-                  if (now_spk - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_spk;
-                    if (id(music_direct_nav)) { id(music_overlay_mode) = 0; id(music_direct_nav) = false; }
-                    else { id(music_overlay_mode) = 5; }
-                    id(music_hud_active) = true;
-                    id(music_hud_timer) = millis();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 2) {
-                if (id(menu_scroll_active)) return;
-                auto trigger_library_item = [&](int idx) {
-                  if (idx == 0) { id(selected_category_mode) = "favorites"; id(selected_category_title) = "FAVORITES"; }
-                  else if (idx == 1) { id(selected_category_mode) = "playlist"; id(selected_category_title) = "PLAYLISTS"; }
-                  else if (idx == 2) { id(selected_category_mode) = "artist"; id(selected_category_title) = "ARTISTS"; id(drilldown_artist_page) = 1; }
-                  else if (idx == 3) { id(selected_category_mode) = "album"; id(selected_category_title) = "ALBUMS"; id(drilldown_album_page) = 1; }
-                  else if (idx == 4) { id(selected_category_mode) = "podcast"; id(selected_category_title) = "PODCASTS"; }
-                  else if (idx == 5) { id(selected_category_mode) = "radio"; id(selected_category_title) = "RADIO"; }
-                  else if (idx == 6) { id(selected_category_mode) = "audiobook"; id(selected_category_title) = "AUDIOBOOKS"; }
-                  id(slot_1_name) = "Loading...";
-                  id(slot_1_id) = ""; id(slot_1_type) = "text";
-                  id(slot_2_name) = ""; id(slot_2_id) = "";
-                  id(slot_3_name) = ""; id(slot_3_id) = ""; id(slot_4_name) = ""; id(slot_4_id) = "";
-                  id(slot_5_name) = ""; id(slot_5_id) = "";
-                  id(music_browse_page) = 1;
-                  id(music_browse_total_pages) = 1;
-                  id(music_overlay_mode) = 3;
-                  id(fetch_music_browse).execute();
-                  pocket_ui::schedule_disp_update(&id(disp1));
-                };
-                static uint32_t last_cat_slot_tap = 0;
-                uint32_t now_cat = millis();
-                int slot_idx = get_5slot_index(touch, 88, 371);
-                if (slot_idx >= 0) {
-                  if (now_cat - last_cat_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_cat_slot_tap = now_cat;
-                    int item_idx = (id(music_category_page) == 1) ? slot_idx : (slot_idx + 2);
-                    trigger_library_item(item_idx);
-                  }
-                  return;
-                }
-                if (is_back_button(touch)) {
-                  if (now_cat - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_cat;
-                    if (id(music_direct_nav)) { id(music_overlay_mode) = 0; id(music_direct_nav) = false; }
-                    else { id(music_overlay_mode) = 5; }
-                    id(music_category_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(menu_scroll_step) = 0;
-                    id(music_hud_active) = true;
-                    id(music_hud_timer) = millis();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 3) {
-                bool is_drill = (id(selected_category_mode) == "artist" || id(selected_category_mode) == "album" || id(selected_category_mode) == "artist_albums");
-                bool is_podcast_list = (id(selected_category_mode) == "podcast");
-                static uint32_t last_item_slot_tap = 0;
-                uint32_t now_item = millis();
-                int slot_idx = get_5slot_index(touch, 42, 376);
-                if (slot_idx >= 0) {
-                  if (now_item - last_item_slot_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_item_slot_tap = now_item;
-                    int slot_num = slot_idx + 1;
-                    std::string s_id = (slot_num == 1) ? id(slot_1_id) : (slot_num == 2) ? id(slot_2_id) : (slot_num == 3) ? id(slot_3_id) : (slot_num == 4) ? id(slot_4_id) : id(slot_5_id);
-                    std::string s_name = (slot_num == 1) ? id(slot_1_name) : (slot_num == 2) ? id(slot_2_name) : (slot_num == 3) ? id(slot_3_name) : (slot_num == 4) ? id(slot_4_name) : id(slot_5_name);
-                    if (!s_id.empty()) {
-                      if (is_podcast_list) {
-                        id(drilldown_album_id) = s_id;
-                        id(drilldown_album_page) = id(music_browse_page);
-                        id(drilldown_parent_mode) = "podcast";
-                        id(selected_category_mode) = "podcast_episodes";
-                        id(selected_category_title) = s_name;
-                        id(slot_1_name) = "Loading episodes...";
-                        id(slot_1_id) = ""; id(slot_1_type) = "text";
-                        id(slot_2_name) = ""; id(slot_2_id) = "";
-                        id(slot_3_name) = ""; id(slot_3_id) = "";
-                        id(slot_4_name) = ""; id(slot_4_id) = "";
-                        id(slot_5_name) = ""; id(slot_5_id) = "";
-                        id(music_browse_page) = 1;
-                        id(fetch_music_browse).execute();
-                        pocket_ui::schedule_disp_update(&id(disp1));
-                      } else if (is_drill && touch.x <= 118) {
-                        id(play_music_slot).execute(slot_num);
-                      } else if (is_drill && touch.x > 118) {
-                        if (id(selected_category_mode) == "artist") {
-                          id(drilldown_artist_name) = s_name;
-                          id(drilldown_artist_page) = id(music_browse_page);
-                          id(selected_category_mode) = "artist_albums";
-                          id(selected_category_title) = s_name;
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        } else {
-                          id(drilldown_album_id) = s_id;
-                          id(drilldown_album_page) = id(music_browse_page);
-                          id(drilldown_parent_mode) = id(selected_category_mode);
-                          id(selected_category_mode) = "album_tracks";
-                          id(selected_category_title) = s_name;
-                          id(music_browse_page) = 1;
-                          id(fetch_music_browse).execute();
-                        }
-                      } else {
-                        id(play_music_slot).execute(slot_num);
-                      }
-                    }
-                  }
-                  return;
-                }
-                if (is_back_button(touch)) {
-                  if (now_item - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_item;
-                    if (id(selected_category_mode) == "current_album_tracks" || id(selected_category_mode) == "active_queue" ||
-                        (id(selected_category_mode) == "artist_albums" && id(drilldown_parent_mode) == "track_inspector")) {
-                      id(drilldown_parent_mode) = "";
-                      id(music_overlay_mode) = 6;
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                      return;
-                    } else if (id(selected_category_mode) == "album_tracks" || id(selected_category_mode) == "podcast_episodes") {
-                      id(selected_category_mode) = id(drilldown_parent_mode).empty() ? "album" : id(drilldown_parent_mode);
-                      id(selected_category_title) = (id(selected_category_mode) == "podcast") ? "PODCASTS" : ((id(selected_category_mode) == "artist_albums") ? id(drilldown_artist_name) : "ALBUMS");
-                      id(music_browse_page) = std::max(1, id(drilldown_album_page));
-                      id(fetch_music_browse).execute();
-                    } else if (id(selected_category_mode) == "artist_albums") {
-                      id(selected_category_mode) = "artist";
-                      id(selected_category_title) = "ARTISTS";
-                      id(music_browse_page) = std::max(1, id(drilldown_artist_page));
-                      id(fetch_music_browse).execute();
-                    } else {
-                      id(drilldown_artist_page) = 1;
-                      id(drilldown_album_page) = 1;
-                      id(menu_scroll_active) = false;
-                      id(menu_scroll_step) = 0;
-                      id(music_overlay_mode) = 2;
-                    }
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 4) {
-                static uint32_t last_sheet_tap = 0;
-                uint32_t now_sheet = millis();
-                bool is_current = (id(target_speaker_id) == id(active_speaker_entity));
-                if (!is_current) {
-                  // 4 cards at y = 130, 190, 250, 310 (h = 44, downward-biased)
-                  if (touch.y >= 104 && touch.y < 166 && touch.x >= 90 && touch.x <= 376) {
-                    if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_transfer_to_target).execute(); }
-                    return;
-                  } else if (touch.y >= 166 && touch.y < 226 && touch.x >= 90 && touch.x <= 376) {
-                    if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_control_target).execute(); }
-                    return;
-                  } else if (touch.y >= 226 && touch.y < 286 && touch.x >= 90 && touch.x <= 376) {
-                    if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_join_target).execute(); }
-                    return;
-                  } else if (touch.y >= 286 && touch.y <= 365 && touch.x >= 90 && touch.x <= 376) {
-                    if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
-                    return;
-                  }
-                } else {
-                  bool is_remote = (id(target_speaker_id) != "${local_player_id}");
-                  if (is_remote) {
-                    // 3 cards at y = 142, 205, 268 (h = 44, downward-biased)
-                    if (touch.y >= 114 && touch.y < 180 && touch.x >= 90 && touch.x <= 376) {
-                      if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) {
-                        last_sheet_tap = now_sheet;
-                        id(target_speaker_id) = "${local_player_id}";
-                        id(target_speaker_name) = "${friendly_name}";
-                        id(speaker_transfer_to_target).execute();
-                      }
-                      return;
-                    } else if (touch.y >= 180 && touch.y < 242 && touch.x >= 90 && touch.x <= 376) {
-                      if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
-                      return;
-                    } else if (touch.y >= 242 && touch.y <= 322 && touch.x >= 90 && touch.x <= 376) {
-                      if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(stop_ha_music).execute(); }
-                      return;
-                    }
-                  } else {
-                    // 2 cards at y = 160, 230 (h = 44, downward-biased)
-                    if (touch.y >= 130 && touch.y < 200 && touch.x >= 90 && touch.x <= 376) {
-                      if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(speaker_unjoin_target).execute(); }
-                      return;
-                    } else if (touch.y >= 200 && touch.y <= 285 && touch.x >= 90 && touch.x <= 376) {
-                      if (now_sheet - last_sheet_tap > TOUCH_DEBOUNCE_BUTTON) { last_sheet_tap = now_sheet; id(stop_ha_music).execute(); }
-                      return;
-                    }
-                  }
-                }
-                if (is_back_button(touch)) {
-                  if (now_sheet - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sheet;
-                    id(music_overlay_mode) = 1;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(music_overlay_mode) == 6) {
-                static uint32_t last_insp_tap = 0;
-                uint32_t now_in = millis();
-                if (is_back_button(touch)) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_insp_tap = now_in;
-                    id(music_overlay_mode) = 0;
-                    id(music_hud_active) = true;
-                    id(music_hud_timer) = now_in;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (touch.y >= 104 && touch.y <= 178 && touch.x >= 85 && touch.x <= 381) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_insp_tap = now_in;
-                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
-                    std::string alb = (is_rem || id(track_album).state.empty() || id(track_album).state == "None")
-                                          ? id(ha_track_album).state : id(track_album).state;
-                    id(selected_category_mode) = "current_album_tracks";
-                    id(selected_category_title) = (alb.empty() || alb == "None") ? "ALBUM TRACKS" : alb;
-                    id(drilldown_album_id) = alb;
-                    id(music_browse_page) = 1;
-                    id(music_browse_total_pages) = 1;
-                    id(slot_1_name) = "Loading album tracks...";
-                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
-                    id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (touch.y >= 210 && touch.y <= 284) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_RAPID) {
-                    last_insp_tap = now_in;
-                    float dur = id(ha_media_duration).state;
-                    float cur_pos = id(music_pos_base);
-                    if (id(music_pos_sync_time) > 0) {
-                      cur_pos += static_cast<float>(now_in - id(music_pos_sync_time)) * 0.001f;
-                    }
-                    if (touch.x <= 88) {
-                      id(music_pos_base) = std::max(0.0f, cur_pos - 15.0f);
-                      id(music_pos_sync_time) = now_in;
-                      id(music_seek_absolute).execute();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    } else if (touch.x > 382) {
-                      float new_p = cur_pos + 15.0f;
-                      if (!std::isnan(dur) && dur > 0.0f) new_p = std::min(dur, new_p);
-                      id(music_pos_base) = new_p;
-                      id(music_pos_sync_time) = now_in;
-                      id(music_seek_absolute).execute();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    } else if (!std::isnan(dur) && dur > 0.0f) {
-                      float frac = (static_cast<float>(touch.x) - 95.0f) / 276.0f;
-                      frac = std::max(0.0f, std::min(1.0f, frac));
-                      id(music_pos_base) = frac * dur;
-                      id(music_pos_sync_time) = now_in;
-                      id(music_seek_absolute).execute();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                  }
-                  return;
-                }
-                if (touch.y >= 292 && touch.y < 412 && touch.x >= 95 && touch.x <= 370) {
-                  if (now_in - last_insp_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_insp_tap = now_in;
-                    bool is_queue = (touch.x >= 233);
-                    bool is_rem = (id(active_speaker_entity) != "${local_player_id}");
-                    std::string art_name = (is_rem || id(track_artist).state.empty() || id(track_artist).state == "None")
-                                               ? id(ha_track_artist).state : id(track_artist).state;
-                    id(drilldown_parent_mode) = "track_inspector";
-                    id(music_browse_page) = 1;
-                    id(music_browse_total_pages) = 1;
-                    id(slot_1_id) = ""; id(slot_2_name) = ""; id(slot_3_name) = ""; id(slot_4_name) = ""; id(slot_5_name) = "";
-                    if (!is_queue) {
-                      id(selected_category_mode) = "artist_albums";
-                      id(selected_category_title) = (art_name.empty() || art_name == "None") ? "ARTIST" : art_name;
-                      id(drilldown_artist_name) = art_name;
-                      id(slot_1_name) = "Loading artist albums...";
-                    } else {
-                      id(selected_category_mode) = "active_queue";
-                      id(selected_category_title) = "UP NEXT";
-                      id(slot_1_name) = "Loading queue...";
-                    }
-                    id(music_overlay_mode) = 3;
-                    id(fetch_music_browse).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              }
-            } else if (id(gui_page) == 3) {
-              if (id(active_game) == 0) {
-                if (id(menu_scroll_active)) return;
-                if (is_right_chevron_zone(touch)) {
-                  static uint32_t last_game_scroll = 0;
-                  uint32_t now_gs = millis();
-                  if (now_gs - last_game_scroll > TOUCH_DEBOUNCE_SCROLL) {
-                    last_game_scroll = now_gs;
-                    int dir = (touch.y < 220) ? -1 : 1;
-                    id(menu_scroll_active) = true;
-                    id(menu_scroll_dir) = dir;
-                    id(menu_scroll_target_page) = step_wrap(id(game_carousel_idx), dir, 4);
-                    id(menu_scroll_step) = 0;
-                    id(menu_scroll_transition).execute();
-                  }
-                  return;
-                }
-                if (touch.x < 75) return;
-                if (touch.x >= 108 && touch.x <= 180 && touch.y >= 316 && touch.y < 412) {
-                  static uint32_t last_g_mute_tap = 0;
-                  uint32_t now_gm = millis();
-                  if (now_gm - last_g_mute_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_g_mute_tap = now_gm;
-                    id(game_sound_switch).toggle();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (touch.x >= 75 && touch.x < 375 && touch.y >= 140 && touch.y < 412) {
-                  static uint32_t last_game_launch_tap = 0;
-                  uint32_t now_gl = millis();
-                  if (now_gl - last_game_launch_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_game_launch_tap = now_gl;
-                    id(active_game) = id(game_carousel_idx) + 1;
-                    if (id(active_game) > 0) {
-                      id(mp_idle_debounce).stop();
-                      if (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) {
-                        auto call = id(pocket_music_player).make_call();
-                        call.set_command(esphome::media_player::MEDIA_PLAYER_COMMAND_PAUSE);
-                        call.perform();
-                        id(mp_idle_debounce).stop();
-                      }
-                    }
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else {
-                if (is_back_button(touch)) {
-                  if (now_touch - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_touch;
-                    id(active_game) = 0;
-                    id(stop_alarm_sound).execute();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (touch.y >= 376) return;
-                id(marble_touch_x) = touch.x;
-                id(marble_touch_y) = touch.y;
-                id(game_btn_pressed) = true;
-              }
-            } else if (id(gui_page) == 4) {
-              static uint32_t last_sys_action_tap = 0;
-              uint32_t now_sys = millis();
-
-              if (id(system_menu_mode) == 0) {
-                if (id(menu_scroll_active)) return;
-                if (is_right_chevron_zone(touch)) {
-                  static uint32_t last_dash_scroll_tap = 0;
-                  uint32_t now_s = millis();
-                  if (now_s - last_dash_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
-                    last_dash_scroll_tap = now_s;
-                    id(menu_scroll_active) = true;
-                    id(menu_scroll_dir) = (id(system_dashboard_page) == 1) ? 1 : -1;
-                    id(menu_scroll_target_page) = (id(system_dashboard_page) == 1) ? 2 : 1;
-                    id(menu_scroll_step) = 0;
-                    id(menu_scroll_transition).execute();
-                  }
-                  return;
-                }
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 365) return;
-
-                if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  int slot = get_5slot_index(touch, 100, 366);
-                  if (slot >= 0) {
-                    last_sys_action_tap = now_sys;
-                    int item_idx = (id(system_dashboard_page) == 1) ? slot : (slot + 3);
-                    id(menu_scroll_active) = false;
-                      if (item_idx == 0) {
-                        id(system_menu_mode) = 2;
-                        id(display_menu_page) = 1;
-                      } else if (item_idx == 1) {
-                        id(system_menu_mode) = 1;
-                        id(sleep_menu_page) = 1;
-                      } else if (item_idx == 2) {
-                        id(system_menu_mode) = 7;
-                      } else if (item_idx == 3) {
-                        id(system_menu_mode) = 11;
-                      } else if (item_idx == 4) {
-                        id(system_menu_mode) = 9;
-                        id(audio_menu_parent_page) = 4;
-                      } else if (item_idx == 5) {
-                        id(gui_page) = 1;
-                        id(home_subpage) = 1;
-                      } else if (item_idx == 6) {
-                        id(system_menu_mode) = 3;
-                      } else if (item_idx == 7) {
-                        id(system_menu_mode) = 8;
-                      }
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                    return;
-                  }
-                }
-              } else if (id(system_menu_mode) == 1) {
-                if (id(menu_scroll_active)) return;
-                if (is_right_chevron_zone(touch)) {
-                  static uint32_t last_scroll_tap = 0;
-                  uint32_t now_s = millis();
-                  if (now_s - last_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
-                    last_scroll_tap = now_s;
-                    id(menu_scroll_active) = true;
-                    id(menu_scroll_dir) = (id(sleep_menu_page) == 1) ? 1 : -1;
-                    id(menu_scroll_target_page) = (id(sleep_menu_page) == 1) ? 2 : 1;
-                    id(menu_scroll_step) = 0;
-                    id(menu_scroll_transition).execute();
-                  }
-                  return;
-                }
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
-
-                int slot_idx = get_5slot_index(touch, 88, 371);
-                if (slot_idx >= 0) {
-                  if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_sys_action_tap = now_sys;
-                    int idx = (id(sleep_menu_page) == 1) ? slot_idx : (slot_idx + 4);
-                    if (idx == 0) {
-                      auto call = id(pickup_wake_mode).make_call();
-                      call.set_option(cycle_option(id(pickup_wake_mode).current_option(), {"Always On", "Docked Only", "Disabled"}));
-                      call.perform();
-                    } else if (idx == 1) {
-                      auto call = id(tap_wake_mode).make_call();
-                      call.set_option(cycle_option(id(tap_wake_mode).current_option(), {"Always On", "Docked Only", "Disabled"}));
-                      call.perform();
-                    } else if (idx == 2) {
-                      auto call = id(display_off_timeout).make_call();
-                      call.set_option(cycle_option(id(display_off_timeout).current_option(), {"10s", "15s", "30s", "1 min", "2 min", "Never"}));
-                      call.perform();
-                    } else if (idx == 3) {
-                      id(docked_screensaver_switch).toggle();
-                    } else if (idx == 4) {
-                      if (id(docked_screensaver_switch).state) {
-                        auto call = id(screensaver_style_select).make_call();
-                        call.set_option(cycle_option(id(screensaver_style_select).current_option(), {"Ambient Clock", "Aurora Borealis", "Starfield", "Matrix Rain", "Fireworks"}));
-                        call.perform();
-                      }
-                    } else if (idx == 5) {
-                      auto call = id(screensaver_docked_timeout).make_call();
-                      call.set_option(cycle_option(id(screensaver_docked_timeout).current_option(), {"10s", "15s", "30s", "1 min", "2 min", "5 min", "Never"}));
-                      call.perform();
-                    } else if (idx == 6) {
-                      auto call = id(hibernate_timeout_mode).make_call();
-                      call.set_option(cycle_option(id(hibernate_timeout_mode).current_option(), {"5 min", "10 min", "15 min", "30 min", "Disabled"}));
-                      call.perform();
-                    } else if (idx == 7) {
-                      id(instant_crown_hibernate_switch).toggle();
-                    } else if (idx == 8) {
-                      id(prevent_deep_sleep_switch).toggle();
-                    }
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(system_menu_mode) = 0;
-                    id(sleep_menu_page) = 1;
-                    id(menu_scroll_active) = false;
-                    id(menu_scroll_step) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 2) {
-                if (id(menu_scroll_active)) return;
-                if (is_right_chevron_zone(touch)) {
-                  static uint32_t last_disp_scroll_tap = 0;
-                  uint32_t now_s = millis();
-                  if (now_s - last_disp_scroll_tap > TOUCH_DEBOUNCE_SCROLL) {
-                    last_disp_scroll_tap = now_s;
-                    id(menu_scroll_active) = true;
-                    id(menu_scroll_dir) = (id(display_menu_page) == 1) ? 1 : -1;
-                    id(menu_scroll_target_page) = (id(display_menu_page) == 1) ? 2 : 1;
-                    id(menu_scroll_step) = 0;
-                    id(menu_scroll_transition).execute();
-                  }
-                  return;
-                }
-                if (touch.x < 75 && touch.y >= 70 && touch.y <= 375) return;
-
-                int slot_idx = get_5slot_index(touch, 88, 371);
-                if (slot_idx >= 0) {
-                  if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_sys_action_tap = now_sys;
-                    int item_idx = (id(display_menu_page) == 1) ? slot_idx : (slot_idx + 4);
-                    std::string ab = id(auto_brightness_mode).current_option();
-                    if (item_idx == 0) {
-                      auto call = id(default_start_app).make_call();
-                      call.set_option(cycle_option(id(default_start_app).current_option(), {"Home", "Clock"}));
-                      call.perform();
-                    } else if (item_idx == 1) {
-                      id(clock_face_digital) = !id(clock_face_digital);
-                      auto call = id(clock_face_style).make_call();
-                      call.set_option(id(clock_face_digital) ? "Modern Digital (Bold)" : "Modern Roman (Analog)");
-                      call.perform();
-                    } else if (item_idx == 2) {
-                      id(is_24h_format) = !id(is_24h_format);
-                      auto call = id(time_format_select).make_call();
-                      call.set_option(id(is_24h_format) ? "24-Hour" : "12-Hour (AM/PM)");
-                      call.perform();
-                    } else if (item_idx == 3) {
-                      auto call = id(theme_palette_select).make_call();
-                      call.set_option(cycle_option(id(theme_palette_select).current_option(), {"Steel Blue", "Pink", "Blue", "Green"}));
-                      call.perform();
-                    } else if (item_idx == 4) {
-                      std::string next_m = cycle_option(ab, {"Disabled", "Sun Synchronized", "Time Schedule"});
-                      auto call = id(auto_brightness_mode).make_call();
-                      call.set_option(next_m);
-                      call.perform();
-                      id(auto_brightness_mode).publish_state(next_m);
-                      id(sync_display_brightness).execute();
-                    } else if (item_idx == 5) {
-                      if (ab == "Disabled") {
-                        std::string next_b = cycle_option(id(display_brightness_preset).current_option(), {"60%", "70%", "80%", "90%", "100%"});
-                        auto call = id(display_brightness_preset).make_call();
-                        call.set_option(next_b);
-                        call.perform();
-                        id(display_brightness_preset).publish_state(next_b);
-                        id(sync_display_brightness).execute();
-                      }
-                    } else if (item_idx == 6) {
-                      if (ab == "Time Schedule") {
-                        int dh = (int)id(day_start_hour).state;
-                        int nh = (int)id(night_start_hour).state;
-                        int nxt_dh = 7, nxt_nh = 22;
-                        if (dh == 7 && nh == 22) { nxt_dh = 6; nxt_nh = 23; }
-                        else if (dh == 6 && nh == 23) { nxt_dh = 8; nxt_nh = 22; }
-                        else if (dh == 8 && nh == 22) { nxt_dh = 7; nxt_nh = 21; }
-                        id(day_start_hour).make_call().set_value((float)nxt_dh).perform();
-                        id(night_start_hour).make_call().set_value((float)nxt_nh).perform();
-                        id(sync_display_brightness).execute();
-                      }
-                    } else if (item_idx == 7) {
-                      if (ab != "Disabled") {
-                        std::string next_db = cycle_option(id(day_brightness_preset).current_option(), {"60%", "70%", "80%", "90%", "100%"});
-                        auto call = id(day_brightness_preset).make_call();
-                        call.set_option(next_db);
-                        call.perform();
-                        id(day_brightness_preset).publish_state(next_db);
-                        id(sync_display_brightness).execute();
-                      }
-                    } else if (item_idx == 8) {
-                      if (ab != "Disabled") {
-                        std::string next_nb = cycle_option(id(night_brightness_preset).current_option(), {"60%", "70%", "80%", "90%", "100%"});
-                        auto call = id(night_brightness_preset).make_call();
-                        call.set_option(next_nb);
-                        call.perform();
-                        id(night_brightness_preset).publish_state(next_nb);
-                        id(sync_display_brightness).execute();
-                      }
-                    }
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(system_menu_mode) = 0;
-                    id(display_menu_page) = 1;
-                    id(menu_scroll_active) = false;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 3) {
-                int slot = get_5slot_index(touch, 88, 371);
-                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_sys_action_tap = now_sys;
-                  if (slot == 0) { id(trigger_screensaver_now).execute(); return; }
-                  else if (slot == 1) { id(start_hibernation_countdown).execute(); return; }
-                  else if (slot == 2) { id(system_menu_mode) = 5; pocket_ui::schedule_disp_update(&id(disp1)); return; }
-                  else if (slot == 3) {
-                    if (id(ble_ctrl).is_active()) id(ble_ctrl).disable();
-                    else id(ble_ctrl).enable();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                    return;
-                  } else if (slot == 4) { id(system_menu_mode) = 4; pocket_ui::schedule_disp_update(&id(disp1)); return; }
-                }
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(system_menu_mode) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 4) {
-                if (touch.y >= 195 && touch.y <= 285 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  if (touch.x >= 90 && touch.x <= 228) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 3;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                    return;
-                  } else if (touch.x >= 238 && touch.x <= 376) {
-                    last_sys_action_tap = now_sys;
-                    id(restart_button).press();
-                    return;
-                  }
-                }
-              } else if (id(system_menu_mode) == 5) {
-                if (touch.y >= 188 && touch.y <= 264 && touch.x >= 90 && touch.x <= 376) {
-                  if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_sys_action_tap = now_sys;
-                    bool has_update = pocket_ui::is_newer_semver(id(ha_firmware_latest_version).state, "${version}");
-                    if (has_update) {
-                      id(system_menu_mode) = 6;
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    } else if (id(update_check_state) == 0) {
-                      id(update_check_state) = 1;
-                      id(update_check_timer) = millis();
-                      id(check_firmware_update).execute();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                  }
-                  return;
-                } else if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(update_check_state) = 0;
-                    id(system_menu_mode) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 6) {
-                if (touch.y >= 210 && touch.y <= 290 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  if (touch.x >= 90 && touch.x <= 225) {
-                    last_sys_action_tap = now_sys;
-                    id(system_menu_mode) = 5;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                    return;
-                  } else if (touch.x >= 240 && touch.x <= 375) {
-                    last_sys_action_tap = now_sys;
-                    id(trigger_firmware_update).execute();
-                    return;
-                  }
-                }
-              } else if (id(system_menu_mode) == 7) {
-                int slot_idx = get_5slot_index(touch, 88, 371);
-                if (slot_idx >= 0 && slot_idx <= 3) {
-                  if (slot_idx == 0) {
-                    static uint32_t last_audio_vol_tap = 0;
-                    if (now_sys - last_audio_vol_tap > TOUCH_DEBOUNCE_RAPID) {
-                      last_audio_vol_tap = now_sys;
-                      float new_vol = step_wrap_range(id(pocket_music_player).volume, 0.10f, 0.10f, 0.90f);
-                      id(pocket_music_player).volume = new_vol;
-                      id(pocket_music_player).make_call().set_volume(new_vol).perform();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                    return;
-                  } else if (slot_idx == 1) {
-                    static uint32_t last_alert_vol_tap = 0;
-                    if (now_sys - last_alert_vol_tap > TOUCH_DEBOUNCE_RAPID) {
-                      last_alert_vol_tap = now_sys;
-                      float cur_a_f = id(alert_volume).state;
-                      int cur_a = (std::isnan(cur_a_f) || cur_a_f < 20.0f) ? 70 : (int)std::round(cur_a_f);
-                      int nxt_a = (int)step_wrap_range((float)cur_a, 10.0f, 50.0f, 100.0f);
-                      id(alert_volume).make_call().set_value((float)nxt_a).perform();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                    return;
-                  } else if (slot_idx == 2) {
-                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_sys_action_tap = now_sys;
-                      int cur_sz = (int)std::round(id(volume_step_size).state);
-                      int nxt_sz = (cur_sz < 5) ? 5 : ((cur_sz < 10) ? 10 : 2);
-                      id(volume_step_size).make_call().set_value((float)nxt_sz).perform();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                    return;
-                  } else if (slot_idx == 3) {
-                    if (now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                      last_sys_action_tap = now_sys;
-                      id(game_sound_switch).toggle();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                    return;
-                  }
-                }
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(system_menu_mode) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 8) {
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(system_menu_mode) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 9) {
-                int slot_idx = get_5slot_index(touch, 88, 371);
-                if (slot_idx >= 0 && slot_idx <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_sys_action_tap = now_sys;
-                  if (slot_idx == 0) {
-                    auto call = id(music_fullscreen_art_mode).make_call();
-                    call.set_option(cycle_option(id(music_fullscreen_art_mode).current_option(), {"Full Screen", "Letterbox", "Standard"}));
-                    call.perform();
-                  } else if (slot_idx == 1) {
-                    auto call = id(music_overlay_style).make_call();
-                    call.set_option(cycle_option(id(music_overlay_style).current_option(), {"Art Only", "Art + Metadata", "Always Visible"}));
-                    call.perform();
-                  } else if (slot_idx == 2) {
-                    auto call = id(music_album_sort_order).make_call();
-                    call.set_option(cycle_option(id(music_album_sort_order).current_option(), {"Alphabetical", "Newest on Top", "Oldest on Top"}));
-                    call.perform();
-                  } else if (slot_idx == 3) {
-                    auto call = id(music_artist_album_sort_order).make_call();
-                    call.set_option(cycle_option(id(music_artist_album_sort_order).current_option(), {"Oldest on Top", "Newest on Top", "Alphabetical"}));
-                    call.perform();
-                  } else if (slot_idx == 4) {
-                    auto call = id(music_podcast_sort_order).make_call();
-                    call.set_option(cycle_option(id(music_podcast_sort_order).current_option(), {"Newest on Top", "Oldest on Top"}));
-                    call.perform();
-                  }
-                  pocket_ui::schedule_disp_update(&id(disp1));
-                  return;
-                }
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    if (id(audio_menu_parent_page) == 2) {
-                      id(gui_page) = 2;
-                      id(music_overlay_mode) = 5;
-                      id(audio_menu_parent_page) = 4;
-                      id(system_menu_mode) = 0;
-                    } else {
-                      id(system_menu_mode) = 0;
-                    }
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 11) {
-                int slot = get_5slot_index(touch, 88, 371);
-                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_sys_action_tap = now_sys;
-                  if (slot == 0) {
-                    auto call = id(va_wake_word_mode).make_call();
-                    call.set_option(cycle_option(id(va_wake_word_mode).current_option(), {"Docked Only", "Always On", "Disabled"}));
-                    call.perform();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                    return;
-                  } else if (slot == 1) {
-                    if (id(va_wake_word_mode).current_option() != "Disabled") {
-                      auto call = id(va_active_wake_word).make_call();
-                      call.set_option(cycle_option(id(va_active_wake_word).current_option(), {"Okay Nabu", "Hey Luna", "Hey Jarvis", "Hey Mycroft", "Alexa"}));
-                      call.perform();
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                    return;
-                  } else if (slot == 2) {
-                    if (id(va_wake_word_mode).current_option() != "Disabled") {
-                      id(system_menu_mode) = 12;
-                      pocket_ui::schedule_disp_update(&id(disp1));
-                    }
-                    return;
-                  } else if (slot == 3) {
-                    auto call = id(va_visual_profile).make_call();
-                    call.set_option(cycle_option(id(va_visual_profile).current_option(), {"Nebula", "Solaris", "Jarvis", "Alexa", "Gemini"}));
-                    call.perform();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                    return;
-                  } else if (slot == 4) {
-                    id(va_wake_screen_switch).toggle();
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                    return;
-                  }
-                }
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(system_menu_mode) = 0;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              } else if (id(system_menu_mode) == 12) {
-                int slot = get_5slot_index(touch, 88, 371);
-                if (slot >= 0 && slot <= 4 && now_sys - last_sys_action_tap > TOUCH_DEBOUNCE_BUTTON) {
-                  last_sys_action_tap = now_sys;
-                  if (slot == 0) {
-                    auto call = id(ww_sens_okay_nabu).make_call();
-                    call.set_option(cycle_option(id(ww_sens_okay_nabu).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
-                    call.perform();
-                  } else if (slot == 1) {
-                    auto call = id(ww_sens_hey_luna).make_call();
-                    call.set_option(cycle_option(id(ww_sens_hey_luna).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
-                    call.perform();
-                  } else if (slot == 2) {
-                    auto call = id(ww_sens_hey_jarvis).make_call();
-                    call.set_option(cycle_option(id(ww_sens_hey_jarvis).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
-                    call.perform();
-                  } else if (slot == 3) {
-                    auto call = id(ww_sens_hey_mycroft).make_call();
-                    call.set_option(cycle_option(id(ww_sens_hey_mycroft).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
-                    call.perform();
-                  } else if (slot == 4) {
-                    auto call = id(ww_sens_alexa).make_call();
-                    call.set_option(cycle_option(id(ww_sens_alexa).current_option(), {"Slightly sensitive", "Moderately sensitive", "Very sensitive"}));
-                    call.perform();
-                  }
-                  pocket_ui::schedule_disp_update(&id(disp1));
-                  return;
-                }
-                if (is_back_button(touch)) {
-                  if (now_sys - last_back_tap > TOUCH_DEBOUNCE_BUTTON) {
-                    last_back_tap = now_sys;
-                    id(system_menu_mode) = 11;
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                  return;
-                }
-              }
-            } else if (id(gui_page) == 5) {
-              // Page 5: Sky & Weather 4-View Suite Touch Routing (4 Buttons at x={112, 193, 274, 355}, y=352)
-              static uint32_t last_weather_touch = 0;
-              uint32_t now_w_touch = millis();
-
-              if (touch.y >= 316 && touch.y < 412) {
-                if (now_w_touch - last_weather_touch > TOUCH_DEBOUNCE_BUTTON) {
-                  last_weather_touch = now_w_touch;
-                  int target = 0;
-                  if (touch.x < 152) target = 0;
-                  else if (touch.x < 233) target = 1;
-                  else if (touch.x < 314) target = 2;
-                  else target = 3;
-
-                  if (id(sky_weather_subpage) != target) {
-                    id(sky_weather_subpage) = target;
-                    ESP_LOGI("touch", "Page 5 Icon Tap: x=%d target=%d", touch.x, target);
-                    pocket_ui::schedule_disp_update(&id(disp1));
-                  }
-                }
-                return;
-              }
-            } else if (id(gui_page) == 6) {
               static uint32_t last_room_tap = 0;
               uint32_t now_rm = millis();
 
-              // 1. Right-Flank Pagination Chevrons (when room_browse_total_pages > 1)
+              // 0. Chin "< Back" when in Room Switcher ("areas") or Security Alarm Subpage (room_subpage == 2)
+              if ((id(room_subpage) > 0 || id(room_browse_mode) == "areas") && is_back_button(touch)) {
+                if (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_room_tap = now_rm;
+                  if (id(room_subpage) > 0) {
+                    id(room_subpage) = 0;
+                  } else {
+                    id(room_browse_mode) = "entities";
+                    id(room_browse_page) = 1;
+                    id(fetch_room_browse).execute();
+                  }
+                  pocket_ui::schedule_disp_update(&id(disp1));
+                }
+                return;
+              }
+
+              // 1. Bottom 4-Icon Quick-Access Dock (y in [324..398]: 0=All, 1=Lights, 2=Shades, 3=Security Alarm)
+              if (id(room_browse_mode) != "areas" && touch.y >= 324 && touch.y <= 398 && touch.x >= 70 && touch.x <= 396) {
+                if (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_room_tap = now_rm;
+                  int tab = (touch.x < 152) ? 0 : ((touch.x < 233) ? 1 : ((touch.x < 314) ? 2 : 3));
+                  if (tab == 3) {
+                    id(room_subpage) = (id(room_subpage) == 2) ? 0 : 2;
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                    return;
+                  }
+                  id(room_subpage) = 0;
+                  id(room_domain_filter) = (tab == 1) ? "light" : ((tab == 2) ? "cover" : "all");
+                  id(room_browse_mode) = "entities";
+                  id(room_browse_page) = 1;
+                  id(fetch_room_browse).execute();
+                  pocket_ui::schedule_disp_update(&id(disp1));
+                }
+                return;
+              }
+
+              // 2. SUBPAGE 2: GLOBAL SECURITY ALARM CONTROL PANEL (3 Cards at y = 132, 208, 284)
+              if (id(room_subpage) == 2) {
+                int a_card = -1;
+                if (touch.y >= 98 && touch.y < 170) a_card = 0;
+                else if (touch.y >= 170 && touch.y < 246) a_card = 1;
+                else if (touch.y >= 246 && touch.y < 322) a_card = 2;
+
+                if (a_card >= 0 && touch.x >= 80 && touch.x <= 386 && (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                  last_room_tap = now_rm;
+                  if (a_card == 0) {
+                    id(room_alarm_service) = "alarm_control_panel.alarm_disarm";
+                    id(room_action_feedback) = "Disarming Alarm...";
+                  } else if (a_card == 1) {
+                    id(room_alarm_service) = "alarm_control_panel.alarm_arm_home";
+                    id(room_action_feedback) = "Arming Home...";
+                  } else {
+                    id(room_alarm_service) = "alarm_control_panel.alarm_arm_away";
+                    id(room_action_feedback) = "Arming Away...";
+                  }
+                  id(room_feedback_timer) = now_rm;
+                  id(execute_alarm_action).execute();
+                  pocket_ui::schedule_disp_update(&id(disp1));
+                }
+                return;
+              }
+
+              // 3. Right-Flank Pagination Chevrons (when room_browse_total_pages > 1)
               if (id(room_browse_total_pages) > 1 && is_right_chevron_zone(touch)) {
                 if (now_rm - last_room_tap > TOUCH_DEBOUNCE_SCROLL) {
-                  int delta = (touch.y < 220) ? -1 : 1;
+                  int delta = (touch.y < 215) ? -1 : 1;
                   int next_pg = std::max(1, std::min(id(room_browse_total_pages), id(room_browse_page) + delta));
                   if (next_pg != id(room_browse_page)) {
                     last_room_tap = now_rm;
@@ -5656,10 +4647,11 @@ touchscreen:
                 return;
               }
 
-              // 2. Top Header Tap (y <= 84, x in [90..376]) -> Toggle between Room Selector ("areas") & Device View ("entities")
-              if (touch.y <= 84 && touch.x >= 90 && touch.x <= 376) {
+              // 4. Top Header Tap (y <= 88, x in [90..376]) -> Toggle between Room Switcher ("areas") & Device View ("entities")
+              if (touch.y <= 88 && touch.x >= 90 && touch.x <= 376) {
                 if (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON) {
                   last_room_tap = now_rm;
+                  id(room_subpage) = 0;
                   id(room_browse_mode) = (id(room_browse_mode) == "areas") ? "entities" : "areas";
                   id(room_browse_page) = 1;
                   id(fetch_room_browse).execute();
@@ -5668,14 +4660,39 @@ touchscreen:
                 return;
               }
 
-              // 3. 5-Slot Room / Entity Cards (y_mid = 110, 173, 236, 299, 362)
-              int slot_idx = get_5slot_index(touch, 88, 376);
-              if (slot_idx >= 0 && (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON)) {
-                std::string s_name = (slot_idx == 0) ? id(room_slot_1_name) : (slot_idx == 1) ? id(room_slot_2_name) : (slot_idx == 2) ? id(room_slot_3_name) : (slot_idx == 3) ? id(room_slot_4_name) : id(room_slot_5_name);
-                std::string s_id   = (slot_idx == 0) ? id(room_slot_1_id)   : (slot_idx == 1) ? id(room_slot_2_id)   : (slot_idx == 2) ? id(room_slot_3_id)   : (slot_idx == 3) ? id(room_slot_4_id)   : id(room_slot_5_id);
-                std::string s_type = (slot_idx == 0) ? id(room_slot_1_type) : (slot_idx == 1) ? id(room_slot_2_type) : (slot_idx == 2) ? id(room_slot_3_type) : (slot_idx == 3) ? id(room_slot_4_type) : id(room_slot_5_type);
-                bool &s_act        = (slot_idx == 0) ? id(room_slot_1_active) : (slot_idx == 1) ? id(room_slot_2_active) : (slot_idx == 2) ? id(room_slot_3_active) : (slot_idx == 3) ? id(room_slot_4_active) : id(room_slot_5_active);
-                int &s_lvl         = (slot_idx == 0) ? id(room_slot_1_level)  : (slot_idx == 1) ? id(room_slot_2_level)  : (slot_idx == 2) ? id(room_slot_3_level)  : (slot_idx == 3) ? id(room_slot_4_level)  : id(room_slot_5_level);
+              // 5A. Room Switcher ("areas"): 5-Slot List (y = 110, 173, 236, 299, 362)
+              if (id(room_browse_mode) == "areas") {
+                int slot_idx = get_5slot_index(touch, 88, 376);
+                if (slot_idx >= 0 && (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                  std::string s_name = (slot_idx == 0) ? id(room_slot_1_name) : (slot_idx == 1) ? id(room_slot_2_name) : (slot_idx == 2) ? id(room_slot_3_name) : (slot_idx == 3) ? id(room_slot_4_name) : id(room_slot_5_name);
+                  std::string s_id   = (slot_idx == 0) ? id(room_slot_1_id)   : (slot_idx == 1) ? id(room_slot_2_id)   : (slot_idx == 2) ? id(room_slot_3_id)   : (slot_idx == 3) ? id(room_slot_4_id)   : id(room_slot_5_id);
+                  if (!s_id.empty()) {
+                    last_room_tap = now_rm;
+                    id(active_room_area_id) = s_id;
+                    id(active_room_area_name) = pocket_ui::strip_trailing_paren_state(s_name);
+                    id(room_browse_mode) = "entities";
+                    id(room_browse_page) = 1;
+                    id(room_action_feedback) = "Room: " + id(active_room_area_name);
+                    id(room_feedback_timer) = now_rm;
+                    id(fetch_room_browse).execute();
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                }
+                return;
+              }
+
+              // 5B. Main Room Entities View ("entities"): 3 Tall Sculpted Slider Cards (y_mid = 132, 208, 284; h = 64)
+              int card_idx = -1;
+              if (touch.y >= 96 && touch.y < 172) card_idx = 0;
+              else if (touch.y >= 172 && touch.y < 248) card_idx = 1;
+              else if (touch.y >= 248 && touch.y < 323) card_idx = 2;
+
+              if (card_idx >= 0 && touch.x >= 72 && touch.x <= 394 && (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                std::string s_name = (card_idx == 0) ? id(room_slot_1_name) : (card_idx == 1) ? id(room_slot_2_name) : id(room_slot_3_name);
+                std::string s_id   = (card_idx == 0) ? id(room_slot_1_id)   : (card_idx == 1) ? id(room_slot_2_id)   : id(room_slot_3_id);
+                std::string s_type = (card_idx == 0) ? id(room_slot_1_type) : (card_idx == 1) ? id(room_slot_2_type) : id(room_slot_3_type);
+                bool &s_act        = (card_idx == 0) ? id(room_slot_1_active) : (card_idx == 1) ? id(room_slot_2_active) : id(room_slot_3_active);
+                int &s_lvl         = (card_idx == 0) ? id(room_slot_1_level)  : (card_idx == 1) ? id(room_slot_2_level)  : id(room_slot_3_level);
 
                 if (s_id.empty() || s_type == "text") {
                   last_room_tap = now_rm;
@@ -5687,49 +4704,41 @@ touchscreen:
                 }
 
                 last_room_tap = now_rm;
-                if (id(room_browse_mode) == "areas" || s_type == "area") {
-                  id(active_room_area_id) = s_id;
-                  id(active_room_area_name) = s_name;
-                  id(room_browse_mode) = "entities";
-                  id(room_browse_page) = 1;
-                  id(room_action_feedback) = "Room: " + s_name;
-                  id(room_feedback_timer) = now_rm;
-                  id(fetch_room_browse).execute();
-                  pocket_ui::schedule_disp_update(&id(disp1));
+                std::string clean_lbl = pocket_ui::strip_trailing_paren_state(s_name);
+
+                // If the user tapped a Room Media Player card -> Handoff speaker & jump to Music Player (Page 2)!
+                if (s_type == "media_player") {
+                  id(target_speaker_id) = s_id;
+                  id(target_speaker_name) = clean_lbl;
+                  id(gui_page) = 2;
+                  id(speaker_control_target).execute();
                   return;
                 }
 
-                // Entity Card Interaction:
-                //   - For slider entities (light/cover/fan with level >= 0):
-                //       * Left icon zone (x <= 144): Toggle ON/OFF
-                //       * Right slider bar (x > 144): Proportional 0..100% set_level!
-                //   - For climate: left half steps down (-1), right half steps up (+1)
-                //   - For switch/scene/script: Toggle
                 id(room_target_entity_id) = s_id;
                 bool has_slider = ((s_type == "light" || s_type == "cover" || s_type == "fan") && s_lvl >= 0);
                 if (has_slider && touch.x > 144) {
-                  int pct = ((touch.x - 144) * 100) / (366 - 144);
+                  int pct = ((touch.x - 144) * 100) / (384 - 144);
                   pct = std::max(5, std::min(100, ((pct + 2) / 5) * 5));
                   s_act = true;
                   s_lvl = pct;
                   id(room_target_action) = "set_level";
                   id(room_target_level) = pct;
-                  id(room_action_feedback) = s_name + ": " + to_string(pct) + "%";
-                } else if (s_type == "climate") {
-                  if (touch.x < 233) {
-                    id(room_target_action) = "step_down";
-                    if (s_lvl > 0) s_lvl--;
-                    id(room_action_feedback) = s_name + ": " + to_string(s_lvl) + "°";
-                  } else {
-                    id(room_target_action) = "step_up";
-                    if (s_lvl > 0) s_lvl++;
-                    id(room_action_feedback) = s_name + ": " + to_string(s_lvl) + "°";
-                  }
+                  id(room_action_feedback) = clean_lbl + ": " + to_string(pct) + "%";
                 } else {
                   s_act = !s_act;
                   id(room_target_action) = "toggle";
                   id(room_target_level) = s_act ? 100 : 0;
-                  id(room_action_feedback) = s_name + (s_act ? ": On" : ": Off");
+                  if (s_type == "scene" || s_type == "script") {
+                    s_act = true;
+                    id(room_action_feedback) = "Activated: " + clean_lbl;
+                  } else if (s_type == "cover") {
+                    s_lvl = s_act ? 100 : 0;
+                    id(room_action_feedback) = clean_lbl + (s_act ? ": Open" : ": Closed");
+                  } else {
+                    if (s_act && s_lvl <= 0) s_lvl = 100;
+                    id(room_action_feedback) = clean_lbl + (s_act ? ": On" : ": Off");
+                  }
                 }
                 id(room_feedback_timer) = now_rm;
                 id(execute_room_action).execute();
