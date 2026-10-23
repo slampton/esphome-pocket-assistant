@@ -3819,7 +3819,7 @@ inline void render_room_control_page(
   render_room_bottom_dock(active_tab);
 }
 // =============================================================================
-// SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (MULTI-DEVICE & MULTI-PROTOCOL)
+// SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (LATTER v1.0.3 ZERO-YAML SYNC)
 // =============================================================================
 
 inline bool is_configured_remote_slot(const std::string &ent) {
@@ -3890,6 +3890,58 @@ inline const char *detect_remote_profile(const std::string &ent, const std::stri
     return "Denon / Marantz AVR";
   }
   return default_profile;
+}
+
+// Parses Latter v1.0.3's `slots_summary` attribute ("1:Name:remote_ent:mp_ent:state;2:...")
+// into the 4 slot entity and friendly-name globals.
+inline void parse_latter_remote_slots_summary(
+    const std::string &summary,
+    std::string &s0_ent, std::string &s0_name,
+    std::string &s1_ent, std::string &s1_name,
+    std::string &s2_ent, std::string &s2_name,
+    std::string &s3_ent, std::string &s3_name) {
+  std::string *ents[4]  = {&s0_ent,  &s1_ent,  &s2_ent,  &s3_ent};
+  std::string *names[4] = {&s0_name, &s1_name, &s2_name, &s3_name};
+  for (int i = 0; i < 4; i++) {
+    *ents[i] = "remote.none";
+    names[i]->clear();
+  }
+  if (summary.empty() || summary == "unknown" || summary == "unavailable" || summary == "none") {
+    return;
+  }
+  size_t pos = 0;
+  while (pos < summary.size()) {
+    size_t semi = summary.find(';', pos);
+    std::string entry = (semi == std::string::npos) ? summary.substr(pos) : summary.substr(pos, semi - pos);
+    pos = (semi == std::string::npos) ? summary.size() : (semi + 1);
+    if (entry.empty()) continue;
+
+    // Format: slot_num:Name:remote_ent:mp_ent:state
+    size_t c1 = entry.find(':');
+    if (c1 == std::string::npos) continue;
+    int slot_num = std::atoi(entry.substr(0, c1).c_str());
+    if (slot_num < 1 || slot_num > 4) continue;
+    int idx = slot_num - 1;
+
+    size_t c2 = entry.find(':', c1 + 1);
+    if (c2 == std::string::npos) continue;
+    std::string name = entry.substr(c1 + 1, c2 - (c1 + 1));
+
+    size_t c3 = entry.find(':', c2 + 1);
+    std::string rem_e = (c3 == std::string::npos) ? entry.substr(c2 + 1) : entry.substr(c2 + 1, c3 - (c2 + 1));
+    std::string mp_e = "";
+    if (c3 != std::string::npos) {
+      size_t c4 = entry.find(':', c3 + 1);
+      mp_e = (c4 == std::string::npos) ? entry.substr(c3 + 1) : entry.substr(c3 + 1, c4 - (c3 + 1));
+    }
+
+    // Prefer remote.* entity if present; otherwise media_player.* entity
+    std::string best_ent = (!rem_e.empty() && rem_e != "none" && rem_e != "None") ? rem_e : mp_e;
+    if (!best_ent.empty() && best_ent != "none" && best_ent != "None") {
+      *ents[idx] = best_ent;
+      *names[idx] = name.empty() ? format_remote_entity_fallback(best_ent) : name;
+    }
+  }
 }
 
 inline int collect_configured_remote_slots(const std::string ents[4], int out_slots[4]) {

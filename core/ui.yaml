@@ -540,6 +540,34 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
+  - id: remote_slot_0_ent
+    type: std::string
+    restore_value: no
+    initial_value: '"remote.none"'
+  - id: remote_slot_1_ent
+    type: std::string
+    restore_value: no
+    initial_value: '"remote.none"'
+  - id: remote_slot_2_ent
+    type: std::string
+    restore_value: no
+    initial_value: '"remote.none"'
+  - id: remote_slot_3_ent
+    type: std::string
+    restore_value: no
+    initial_value: '"remote.none"'
+  - id: remote_latter_cmd
+    type: std::string
+    restore_value: no
+    initial_value: '"select"'
+  - id: remote_latter_act
+    type: std::string
+    restore_value: no
+    initial_value: '"command"'
+  - id: remote_latter_slot_num
+    type: int
+    restore_value: no
+    initial_value: '1'
   - id: remote_slot_0_name
     type: std::string
     restore_value: no
@@ -895,7 +923,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: ${tv_remote_profile}
+    initial_option: "Auto-Detect"
     options:
       - "Auto-Detect"
       - "Android TV / Fire TV / Bravia"
@@ -917,7 +945,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: ${tv_remote_profile_2}
+    initial_option: "Auto-Detect"
     options:
       - "Auto-Detect"
       - "Android TV / Fire TV / Bravia"
@@ -939,7 +967,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: ${tv_remote_profile_3}
+    initial_option: "Auto-Detect"
     options:
       - "Auto-Detect"
       - "Android TV / Fire TV / Bravia"
@@ -961,7 +989,7 @@ select:
     entity_category: config
     optimistic: true
     restore_value: true
-    initial_option: ${tv_remote_profile_4}
+    initial_option: "Auto-Detect"
     options:
       - "Auto-Detect"
       - "Android TV / Fire TV / Bravia"
@@ -1992,6 +2020,21 @@ sensor:
             }
 
   - platform: homeassistant
+    id: ha_latter_active_remote_slot
+    entity_id: ${remote_config_sensor}
+    attribute: active_slot
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!std::isnan(x) && x >= 1.0f && x <= 4.0f) {
+              id(active_remote_slot) = static_cast<int>(x) - 1;
+              if (id(display_power_state) == 0 && id(gui_page) == 7) {
+                pocket_ui::schedule_disp_update(&id(disp1));
+              }
+            }
+
+  - platform: homeassistant
     id: ha_weather_temp_fallback
     entity_id: ${weather_forecast_sensor}
     attribute: temperature
@@ -2358,54 +2401,28 @@ text_sensor:
             if (id(display_power_state) == 0 && id(gui_page) == 4 && id(system_menu_mode) == 5) {
               pocket_ui::schedule_disp_update(&id(disp1));
             }
-  # 📺 Universal Remote Control Target Friendly Names (Slots 1..4)
+  # 📺 Universal Remote Control Slots Summary (Dynamic from Latter v1.0.3+)
   - platform: homeassistant
-    id: ha_remote_friendly_name
-    entity_id: "${tv_remote_entity}"
-    attribute: friendly_name
+    id: ha_latter_remote_slots_summary
+    entity_id: ${remote_config_sensor}
+    attribute: slots_summary
     internal: true
     on_value:
       then:
         - lambda: |-
-            if (!x.empty() && x != "unknown" && x != "unavailable") {
-              id(remote_slot_0_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
-            }
-  - platform: homeassistant
-    id: ha_remote_friendly_name_2
-    entity_id: "${tv_remote_entity_2}"
-    attribute: friendly_name
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            if (!x.empty() && x != "unknown" && x != "unavailable") {
-              id(remote_slot_1_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
-            }
-  - platform: homeassistant
-    id: ha_remote_friendly_name_3
-    entity_id: "${tv_remote_entity_3}"
-    attribute: friendly_name
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            if (!x.empty() && x != "unknown" && x != "unavailable") {
-              id(remote_slot_2_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
-            }
-  - platform: homeassistant
-    id: ha_remote_friendly_name_4
-    entity_id: "${tv_remote_entity_4}"
-    attribute: friendly_name
-    internal: true
-    on_value:
-      then:
-        - lambda: |-
-            if (!x.empty() && x != "unknown" && x != "unavailable") {
-              id(remote_slot_3_name) = x;
-              if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));
+            pocket_ui::parse_latter_remote_slots_summary(
+                x,
+                id(remote_slot_0_ent), id(remote_slot_0_name),
+                id(remote_slot_1_ent), id(remote_slot_1_name),
+                id(remote_slot_2_ent), id(remote_slot_2_name),
+                id(remote_slot_3_ent), id(remote_slot_3_name));
+            const std::string rem_ents[4] = {
+              id(remote_slot_0_ent), id(remote_slot_1_ent),
+              id(remote_slot_2_ent), id(remote_slot_3_ent)
+            };
+            id(active_remote_slot) = pocket_ui::resolve_active_remote_slot(id(active_remote_slot), rem_ents);
+            if (id(display_power_state) == 0 && id(gui_page) == 7 && millis() > 3000) {
+              pocket_ui::schedule_disp_update(&id(disp1));
             }
 
   - platform: homeassistant
@@ -3113,14 +3130,11 @@ script:
   - id: execute_alarm_action
     mode: restart
     then:
-      - if:
-          condition:
-            lambda: 'return !id(room_alarm_entity).empty() && id(room_alarm_entity) != "none";'
-          then:
-            - homeassistant.action:
-                action: !lambda 'return id(room_alarm_service).c_str();'
-                data:
-                  entity_id: !lambda 'return id(room_alarm_entity).c_str();'
+      - homeassistant.action:
+          action: latter.room_action
+          data:
+            target_device: "${name}"
+            action: !lambda 'return id(room_alarm_service).c_str();'
 
   - id: execute_room_action
     mode: restart
@@ -3476,6 +3490,18 @@ script:
   # ==============================================================================
   # 📺 UNIVERSAL TV & MEDIA REMOTE COMMAND SCRIPTS (MULTI-DEVICE & MULTI-PROTOCOL)
   # ==============================================================================
+  - id: remote_select_slot_latter
+    mode: restart
+    parameters:
+      slot_num: int
+    then:
+      - homeassistant.action:
+          action: latter.remote_action
+          data:
+            target_device: "${name}"
+            slot: !lambda 'return to_string(slot_num);'
+            action: "select_slot"
+
   - id: remote_send_key
     mode: restart
     parameters:
@@ -3485,17 +3511,17 @@ script:
       - delay: 0ms
       - lambda: |-
           const std::string ents[4] = {
-            "${tv_remote_entity}", "${tv_remote_entity_2}",
-            "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+            id(remote_slot_0_ent), id(remote_slot_1_ent),
+            id(remote_slot_2_ent), id(remote_slot_3_ent)
           };
           const std::string names[4] = {
             id(remote_slot_0_name), id(remote_slot_1_name),
             id(remote_slot_2_name), id(remote_slot_3_name)
           };
           const pocket_ui::RemoteCustomCmds custom_cmds = {
-            "${remote_cmd_up}", "${remote_cmd_down}", "${remote_cmd_left}", "${remote_cmd_right}",
-            "${remote_cmd_select}", "${remote_cmd_back}", "${remote_cmd_home}",
-            "${remote_cmd_vol_up}", "${remote_cmd_vol_down}", "${remote_cmd_power}"
+            "DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
+            "DPAD_CENTER", "BACK", "HOME",
+            "VOLUME_UP", "VOLUME_DOWN", "POWER"
           };
           const std::string profs[4] = {
             std::string(id(tv_remote_profile).current_option()),
@@ -3503,8 +3529,20 @@ script:
             std::string(id(tv_remote_profile_3).current_option()),
             std::string(id(tv_remote_profile_4).current_option())
           };
+          int res_slot = (target_slot == -1) ? pocket_ui::resolve_active_remote_slot(0, ents)
+                                             : pocket_ui::resolve_active_remote_slot(target_slot, ents);
+          id(remote_latter_slot_num) = res_slot + 1;
+
+          static constexpr const char *kLatterCmds[10] = {
+            "up", "down", "left", "right", "select",
+            "back", "home", "volume_up", "volume_down", "toggle"
+          };
+          int k = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
+          id(remote_latter_cmd) = kLatterCmds[k];
+          id(remote_latter_act) = (k == 7) ? "volume_up" : ((k == 8) ? "volume_down" : ((k == 9) ? "toggle" : "command"));
+
           pocket_ui::resolve_remote_dispatch(
-              key_idx, target_slot, profs,
+              k, target_slot, profs,
               ents, names, custom_cmds,
               id(remote_target_ent), id(remote_target_prof),
               id(remote_target_cmd), id(remote_action_feedback));
@@ -3512,59 +3550,45 @@ script:
       - if:
           condition:
             lambda: |-
-              bool is_mp = (id(remote_target_ent).rfind("media_player.", 0) == 0) ||
-                           (id(remote_target_prof) == "Denon / Marantz AVR") ||
-                           (id(remote_target_prof) == "LG webOS");
-              return is_mp && (key_idx >= 7 && key_idx <= 9);
+              // When the slot profile is "Auto-Detect" (default) and not a Denon/LG special HTTP/button override,
+              // route directly through Latter v1.0.3's unified latter.remote_action service!
+              return (id(remote_target_prof) != "Denon / Marantz AVR") &&
+                     (id(remote_target_prof) != "LG webOS");
           then:
-            - if:
-                condition:
-                  lambda: 'return key_idx == 7;'
-                then:
-                  - homeassistant.action:
-                      action: media_player.volume_up
-                      data:
-                        entity_id: !lambda 'return id(remote_target_ent);'
-                else:
-                  - if:
-                      condition:
-                        lambda: 'return key_idx == 8;'
-                      then:
-                        - homeassistant.action:
-                            action: media_player.volume_down
-                            data:
-                              entity_id: !lambda 'return id(remote_target_ent);'
-                      else:
-                        - homeassistant.action:
-                            action: media_player.toggle
-                            data:
-                              entity_id: !lambda 'return id(remote_target_ent);'
+            - homeassistant.action:
+                action: latter.remote_action
+                data:
+                  target_device: "${name}"
+                  slot: !lambda 'return to_string(id(remote_latter_slot_num));'
+                  action: !lambda 'return id(remote_latter_act);'
+                  command: !lambda 'return id(remote_latter_cmd);'
           else:
             - if:
                 condition:
-                  lambda: 'return id(remote_target_prof) == "Denon / Marantz AVR";'
+                  lambda: 'return key_idx >= 7 && key_idx <= 9;'
                 then:
                   - homeassistant.action:
-                      action: denonavr.get_command
+                      action: latter.remote_action
                       data:
-                        entity_id: !lambda 'return id(remote_target_ent);'
-                        command: !lambda 'return id(remote_target_cmd);'
+                        target_device: "${name}"
+                        slot: !lambda 'return to_string(id(remote_latter_slot_num));'
+                        action: !lambda 'return id(remote_latter_act);'
                 else:
                   - if:
                       condition:
-                        lambda: 'return id(remote_target_prof) == "LG webOS";'
+                        lambda: 'return id(remote_target_prof) == "Denon / Marantz AVR";'
                       then:
+                        - homeassistant.action:
+                            action: denonavr.get_command
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                              command: !lambda 'return id(remote_target_cmd);'
+                      else:
                         - homeassistant.action:
                             action: webostv.button
                             data:
                               entity_id: !lambda 'return id(remote_target_ent);'
                               button: !lambda 'return id(remote_target_cmd);'
-                      else:
-                        - homeassistant.action:
-                            action: remote.send_command
-                            data:
-                              entity_id: !lambda 'return id(remote_target_ent);'
-                              command: !lambda 'return id(remote_target_cmd);'
 
 display:
   - id: !extend disp1
@@ -3976,8 +4000,8 @@ display:
       // ==========================================
       } else if (id(gui_page) == 7) {
         const std::string rem_ents[4] = {
-          "${tv_remote_entity}", "${tv_remote_entity_2}",
-          "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+          id(remote_slot_0_ent), id(remote_slot_1_ent),
+          id(remote_slot_2_ent), id(remote_slot_3_ent)
         };
         const std::string rem_names[4] = {
           id(remote_slot_0_name), id(remote_slot_1_name),
@@ -5771,13 +5795,13 @@ touchscreen:
                 if (a_card >= 0 && touch.x >= 80 && touch.x <= 386 && (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   last_room_tap = now_rm;
                   if (a_card == 0) {
-                    id(room_alarm_service) = "alarm_control_panel.alarm_disarm";
+                    id(room_alarm_service) = "disarm";
                     id(room_action_feedback) = "Disarming Alarm...";
                   } else if (a_card == 1) {
-                    id(room_alarm_service) = "alarm_control_panel.alarm_arm_home";
+                    id(room_alarm_service) = "arm_home";
                     id(room_action_feedback) = "Arming Home...";
                   } else {
-                    id(room_alarm_service) = "alarm_control_panel.alarm_arm_away";
+                    id(room_alarm_service) = "arm_away";
                     id(room_action_feedback) = "Arming Away...";
                   }
                   id(room_feedback_timer) = now_rm;
@@ -5899,8 +5923,8 @@ touchscreen:
               static uint32_t last_remote_btn_tap = 0;
               uint32_t now_rem = millis();
               const std::string rem_ents[4] = {
-                "${tv_remote_entity}", "${tv_remote_entity_2}",
-                "${tv_remote_entity_3}", "${tv_remote_entity_4}"
+                id(remote_slot_0_ent), id(remote_slot_1_ent),
+                id(remote_slot_2_ent), id(remote_slot_3_ent)
               };
               const std::string rem_names[4] = {
                 id(remote_slot_0_name), id(remote_slot_1_name),
@@ -5930,6 +5954,7 @@ touchscreen:
                         id(active_remote_slot) = s_idx;
                         id(remote_action_feedback) = "";
                         id(remote_subpage) = 0;
+                        id(remote_select_slot_latter).execute(s_idx + 1);
                         pocket_ui::schedule_disp_update(&id(disp1));
                       }
                       return;

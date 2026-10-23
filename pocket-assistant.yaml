@@ -1,4 +1,4 @@
-# Build-Stamp: 2026-10-23 00:02:00
+# Build-Stamp: 2026-10-23 00:35:00
 # ==============================================================================
 # 🧭 Pocket Assistant (v2.0 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
@@ -16,11 +16,12 @@ substitutions:
   default_album_sort: "Alphabetical"
   default_artist_album_sort: "Oldest on Top"
   default_podcast_sort: "Newest on Top"
-  # Latter Companion Integration Entities
+  # Latter Companion Integration Entities (Zero-YAML Auto-Discovered)
   active_media_sensor: "sensor.pocket_assistant_active_media"
   weather_forecast_sensor: "sensor.pocket_assistant_weather_forecast"
   room_context_sensor: "sensor.pocket_assistant_room_context"
   calendar_agenda_sensor: "sensor.pocket_assistant_calendar_agenda"
+  remote_config_sensor: "sensor.pocket_assistant_remote_config"
 
   # Initial Boot Placeholder Art (Overridden dynamically on track playback)
   initial_art_url: "http://homeassistant.local:8123/static/icons/favicon-192x192.png"
@@ -28,30 +29,10 @@ substitutions:
   # Local Media Player Identity
   local_player_id: "media_player.pocket_assistant"
 
-  # Sky & Weather Entities
+  # Sky & Weather Entities (Auto-falls back to Latter weather_forecast_sensor)
   weather_entity: "weather.forecast_home"
   sun_entity: "sun.sun"
   moon_entity: "sensor.moon_phase"
-  # Universal Media / TV Remote Entities (Up to 4 Preconfigured Devices; set unused slots to "remote.none")
-  # Note: Slot 1 (tv_remote_entity) is the Primary Device and Master Power target ("Toggle Power").
-  tv_remote_entity: "remote.none"                       # Slot 1 (Primary Device & Master Power Target, e.g. "remote.living_room_tv")
-  tv_remote_entity_2: "media_player.none"               # Slot 2 (Optional: remote.* or media_player.*)
-  tv_remote_entity_3: "remote.none"                     # Slot 3 (Optional: "remote.none" or "media_player.none" hides slot)
-  tv_remote_entity_4: "remote.none"                     # Slot 4 (Optional 4th Device)
-  tv_remote_profile: "Auto-Detect"                      # Slot 1 Profile ("Auto-Detect", "Android TV / Fire TV / Bravia", "Denon / Marantz AVR", "LG webOS", "Apple TV", "Roku", "Samsung TV", "Custom")
-  tv_remote_profile_2: "Auto-Detect"                    # Slot 2 Profile
-  tv_remote_profile_3: "Auto-Detect"                    # Slot 3 Profile
-  tv_remote_profile_4: "Auto-Detect"                    # Slot 4 Profile
-  remote_cmd_up: "DPAD_UP"
-  remote_cmd_down: "DPAD_DOWN"
-  remote_cmd_left: "DPAD_LEFT"
-  remote_cmd_right: "DPAD_RIGHT"
-  remote_cmd_select: "DPAD_CENTER"
-  remote_cmd_back: "BACK"
-  remote_cmd_home: "HOME"
-  remote_cmd_vol_up: "VOLUME_UP"
-  remote_cmd_vol_down: "VOLUME_DOWN"
-  remote_cmd_power: "POWER"
 
 
 dashboard_import:
@@ -82,7 +63,7 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          // Release all deep sleep pad holds immediately via board HAL (2026-10-23 00:02:00)
+          // Release all deep sleep pad holds immediately via board HAL (2026-10-23 00:35:00)
           id(hal_release_deep_sleep_holds).execute();
 
           id(sleep_start_time) = millis();
@@ -109,17 +90,8 @@ esphome:
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
-            // Seed preconfigured remote device names & active profile immediately on boot
-            const std::string rem_ents[4] = {
-              "${tv_remote_entity}", "${tv_remote_entity_2}",
-              "${tv_remote_entity_3}", "${tv_remote_entity_4}"
-            };
-            if (id(remote_slot_0_name).empty()) id(remote_slot_0_name) = pocket_ui::format_remote_entity_fallback(rem_ents[0]);
-            if (id(remote_slot_1_name).empty()) id(remote_slot_1_name) = pocket_ui::format_remote_entity_fallback(rem_ents[1]);
-            if (id(remote_slot_2_name).empty()) id(remote_slot_2_name) = pocket_ui::format_remote_entity_fallback(rem_ents[2]);
-            if (id(remote_slot_3_name).empty()) id(remote_slot_3_name) = pocket_ui::format_remote_entity_fallback(rem_ents[3]);
-            int act_slot = pocket_ui::resolve_active_remote_slot(id(active_remote_slot), rem_ents);
-            id(active_remote_slot) = act_slot;
+            // Remote slots are populated dynamically from sensor.pocket_assistant_remote_config (Latter v1.0.3+)
+            if (id(remote_slot_0_name).empty()) id(remote_slot_0_name) = "TV Remote";
             // Seed AXP2101 USB/charging status immediately at boot so Frame 1 shows live battery telemetry
             uint8_t reg0 = 0x00, stat0 = 0, reg1 = 0x01, stat1 = 0;
             bool vbus = false;
