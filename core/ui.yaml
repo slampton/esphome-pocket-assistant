@@ -3341,6 +3341,11 @@ script:
           id(music_overlay_mode) = 0;
           id(music_hud_active) = true;
           id(music_hud_timer) = millis();
+      - if:
+          condition:
+            lambda: 'return (id(active_speaker_entity) == "${local_player_id}") && id(mww).is_running();'
+          then:
+            - micro_wake_word.stop:
       - homeassistant.action:
           action: music_assistant.play_media
           data:
