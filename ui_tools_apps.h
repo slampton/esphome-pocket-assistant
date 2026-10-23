@@ -2765,11 +2765,12 @@ inline const char *resolve_wake_greeting(int hour, int minute, int day_of_year,
   return "Sleep well";
 }
 
-// Canonical Dock Order: Music (2), Remote (7), Games (3) visible on Page 0; Tools (8) off-screen on Page 1
+// Canonical Dock Order: Music (2), Room Control (6), Remote (7) on Page 0; Games (3), Tools (8) on Page 1..2
 inline int collect_home_dock_apps(bool show_music, bool show_remote, bool show_tools, bool show_games,
-                                  int out_apps[4]) {
+                                  int out_apps[5], bool show_room = true) {
   int n = 0;
   if (show_music)  out_apps[n++] = 2; // Music
+  if (show_room)   out_apps[n++] = 6; // Room Control
   if (show_remote) out_apps[n++] = 7; // Remote
   if (show_games)  out_apps[n++] = 3; // Games
   if (show_tools)  out_apps[n++] = 8; // Tools
@@ -2835,7 +2836,7 @@ inline void render_home_page(
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
     esphome::Color col_slate, esphome::Color col_dark_gray,
     esphome::Color col_gold, esphome::Color col_green,
-    bool show_wake_greeting = true) {
+    bool show_wake_greeting = true, bool dock_room = true) {
   using esphome::Color;
   using esphome::display::TextAlign;
 
@@ -3082,8 +3083,8 @@ inline void render_home_page(
   }
 
   // ZONE 5 (y = 352): 3-Icon Sliding Window Quick-Launch Dock (r = 29 / 58px diameter + '>' / '<' chevron)
-  int dock_apps[4] = {0, 0, 0, 0};
-  int dock_count = collect_home_dock_apps(dock_music, dock_remote, dock_tools, dock_games, dock_apps);
+  int dock_apps[5] = {0, 0, 0, 0, 0};
+  int dock_count = collect_home_dock_apps(dock_music, dock_remote, dock_tools, dock_games, dock_apps, dock_room);
   if (dock_count > 0) {
     int max_dock_pg = (dock_count > 3) ? (dock_count - 3) : 0;
     if (home_dock_page() < 0 || home_dock_page() > max_dock_pg) {
@@ -3098,7 +3099,18 @@ inline void render_home_page(
     const int dock_r = 29;
 
     auto draw_dock_glyph = [&](int app_id, int bx, int by, Color c, bool is_shadow) {
-      if (app_id == 2) {
+      if (app_id == 6) {
+        // Room Control: Solid Filled Smart-Home House Silhouette + Negative-Space Slider/Light Window
+        // Pitched roof (width 30px, height 13px) + house body (width 22px, height 14px)
+        it.filled_triangle(bx, by - 15, bx - 15, by - 2, bx + 15, by - 2, c);
+        it.filled_rectangle(bx - 11, by - 2, 23, 15, c);
+        if (!is_shadow) {
+          Color cut_c = (show_weather_bg && !is_night) ? Color(28, 54, 84) : col_black;
+          // Negative-space glowing lightbulb / slider aperture inside house
+          it.filled_circle(bx, by + 3, 4, cut_c);
+          it.filled_rectangle(bx - 2, by + 7, 5, 3, cut_c);
+        }
+      } else if (app_id == 2) {
         // Music: Enlarged Beamed Eighth Notes (scaled for r = 29)
         it.filled_circle(bx - 9, by + 9, 5, c);
         it.filled_circle(bx + 8, by + 6, 5, c);
@@ -3407,6 +3419,161 @@ inline void render_home_page(
     render_back_button(it, cx, font_small, 426, "< Back");
   }
 }
+// =============================================================================
+// SECTION 16C: AREA-AWARE ROOM CONTROL ENGINE (PAGE 6 — HORIZONTAL FILL-SLIDERS)
+// =============================================================================
+
+template <typename DisplayT, typename FontSmallT>
+inline void render_room_control_page(
+    DisplayT &it, int cx, uint32_t now_ms,
+    const std::string &room_browse_mode,
+    const std::string &active_area_name,
+    int room_browse_page, int room_browse_total_pages,
+    const std::string &room_action_feedback, uint32_t room_feedback_timer,
+    int lights_on_count, int covers_open_count,
+    const std::string &s1_name, const std::string &s1_id, const std::string &s1_type, bool s1_act, int s1_lvl,
+    const std::string &s2_name, const std::string &s2_id, const std::string &s2_type, bool s2_act, int s2_lvl,
+    const std::string &s3_name, const std::string &s3_id, const std::string &s3_type, bool s3_act, int s3_lvl,
+    const std::string &s4_name, const std::string &s4_id, const std::string &s4_type, bool s4_act, int s4_lvl,
+    const std::string &s5_name, const std::string &s5_id, const std::string &s5_type, bool s5_act, int s5_lvl,
+    FontSmallT *font_small,
+    esphome::Color theme_primary, esphome::Color theme_secondary,
+    esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
+    esphome::Color col_slate, esphome::Color col_dark_gray, esphome::Color col_gold) {
+  using esphome::Color;
+  using esphome::display::TextAlign;
+  (void)lights_on_count; (void)covers_open_count; (void)col_dark_gray;
+
+  const bool is_areas_mode = (room_browse_mode == "areas");
+  const bool is_fb = (now_ms - room_feedback_timer < 1500U && !room_action_feedback.empty());
+
+  // 1. Top Header (y = 48): Room Name (with subtle dropdown chevron) or "SELECT ROOM" or Action Feedback
+  if (is_fb) {
+    std::string fit_fb = fit_text_to_width_font(room_action_feedback, 280, font_small);
+    it.print(cx, 48, font_small, theme_secondary, TextAlign::CENTER, fit_fb.c_str());
+  } else if (is_areas_mode) {
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "SELECT ROOM");
+  } else {
+    std::string hdr = active_area_name.empty() ? "ROOM CONTROL" : active_area_name;
+    for (char &c : hdr) c = static_cast<char>(::toupper(static_cast<unsigned char>(c)));
+    std::string fit_hdr = fit_text_to_width_font(hdr + " v", 280, font_small);
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, fit_hdr.c_str());
+  }
+
+  const Color card_bg_off(16, 20, 27);
+  const Color card_bg_on(22, 28, 38);
+  const Color card_brd_off(42, 50, 64);
+  const Color fill_col = scale_color(theme_primary, 0.52f);
+
+  auto draw_domain_glyph = [&](int gx, int gy, const std::string &dtype, bool is_on, Color c) {
+    if (dtype == "area") {
+      if (is_on) it.filled_circle(gx, gy, 6, theme_primary);
+      else it.circle(gx, gy, 5, col_slate);
+    } else if (dtype == "light") {
+      // Lightbulb icon
+      if (is_on) {
+        it.filled_circle(gx, gy - 2, 6, col_gold);
+        it.line(gx, gy - 11, gx, gy - 9, col_gold);
+        it.line(gx - 8, gy - 7, gx - 6, gy - 5, col_gold);
+        it.line(gx + 8, gy - 7, gx + 6, gy - 5, col_gold);
+      } else {
+        it.circle(gx, gy - 2, 6, c);
+      }
+      it.filled_rectangle(gx - 3, gy + 5, 7, 3, c);
+    } else if (dtype == "cover") {
+      // Window blinds / shade slats
+      it.rectangle(gx - 7, gy - 7, 15, 15, c);
+      it.horizontal_line(gx - 5, gy - 3, 11, is_on ? theme_primary : c);
+      it.horizontal_line(gx - 5, gy + 1, 11, is_on ? theme_primary : c);
+    } else if (dtype == "climate") {
+      // Thermostat dial
+      it.circle(gx, gy, 7, is_on ? theme_primary : c);
+      it.filled_circle(gx, gy, 3, is_on ? col_gold : c);
+    } else if (dtype == "fan") {
+      // 4-blade fan
+      it.filled_circle(gx, gy, 2, c);
+      it.filled_circle(gx, gy - 5, 2, is_on ? theme_primary : c);
+      it.filled_circle(gx, gy + 5, 2, is_on ? theme_primary : c);
+      it.filled_circle(gx - 5, gy, 2, is_on ? theme_primary : c);
+      it.filled_circle(gx + 5, gy, 2, is_on ? theme_primary : c);
+    } else if (dtype == "scene" || dtype == "script") {
+      // Play / Scene star
+      it.filled_triangle(gx - 4, gy - 6, gx - 4, gy + 6, gx + 6, gy, theme_primary);
+    } else {
+      // Switch / Outlet toggle
+      it.circle(gx, gy, 6, is_on ? theme_primary : c);
+      if (is_on) it.filled_circle(gx, gy, 3, col_white);
+    }
+  };
+
+  auto draw_room_slot = [&](int y_mid, const std::string &name, const std::string &id_str,
+                            const std::string &dtype, bool is_act, int level) {
+    if (name.empty() && id_str.empty()) return;
+
+    if (dtype == "text" || id_str.empty()) {
+      std::string fit_msg = fit_text_to_width_font(name, 248, font_small);
+      render_modern_card(it, cx, y_mid, 276, 44, 12, card_bg_off, card_brd_off,
+                         fit_msg.c_str(), col_slate, font_small);
+      return;
+    }
+
+    const bool has_slider = (!is_areas_mode && (dtype == "light" || dtype == "cover" || dtype == "fan") && level >= 0);
+    Color brd_c = is_act ? theme_primary : card_brd_off;
+    Color bg_c  = is_act ? card_bg_on    : card_bg_off;
+    Color txt_c = is_act ? col_white     : col_slate;
+
+    // 1. Base Modern Card (w = 276, h = 44, r = 12 -> x = 95..371)
+    render_modern_card(it, cx, y_mid, 276, 44, 12, bg_c, brd_c, nullptr, txt_c, font_small);
+
+    // 2. Proportional Horizontal Fill-Slider Bar inside the card for Lights / Blinds / Fans
+    if (has_slider && is_act && level > 0) {
+      int clamped_lvl = std::max(0, std::min(100, level));
+      int fill_w = (252 * clamped_lvl) / 100;
+      if (fill_w > 4) {
+        it.filled_rectangle(107, y_mid - 19, fill_w, 38, fill_col);
+      }
+    }
+
+    // 3. Left Power/Domain Icon Zone (gx = 116) + Subtle Divider at x = 138 for slider cards
+    draw_domain_glyph(116, y_mid, is_areas_mode ? "area" : dtype, is_act, txt_c);
+    if (has_slider) {
+      it.line(138, y_mid - 14, 138, y_mid + 14, brd_c);
+    }
+
+    // 4. Label & Level Percentage Readout
+    int text_x = has_slider ? 148 : 134;
+    int max_w  = (has_slider && is_act && level > 0) ? 168 : 218;
+    std::string fit_name = fit_text_to_width_font(name, max_w, font_small);
+    it.print(text_x, y_mid, font_small, is_act ? col_white : txt_c, TextAlign::CENTER_LEFT, fit_name.c_str());
+
+    if (has_slider && is_act && level > 0) {
+      char lvl_buf[12];
+      snprintf(lvl_buf, sizeof(lvl_buf), "%d%%", std::max(0, std::min(100, level)));
+      it.print(358, y_mid, font_small, theme_secondary, TextAlign::CENTER_RIGHT, lvl_buf);
+    } else if (dtype == "climate" && level > 0) {
+      char deg_buf[12];
+      snprintf(deg_buf, sizeof(deg_buf), "%d°", level);
+      it.print(358, y_mid, font_small, theme_secondary, TextAlign::CENTER_RIGHT, deg_buf);
+    }
+  };
+
+  draw_room_slot(110, s1_name, s1_id, s1_type, s1_act, s1_lvl);
+  draw_room_slot(173, s2_name, s2_id, s2_type, s2_act, s2_lvl);
+  draw_room_slot(236, s3_name, s3_id, s3_type, s3_act, s3_lvl);
+  draw_room_slot(299, s4_name, s4_id, s4_type, s4_act, s4_lvl);
+  draw_room_slot(362, s5_name, s5_id, s5_type, s5_act, s5_lvl);
+
+  if (room_browse_total_pages > 1) {
+    it.filled_rectangle(395, 140, 71, 160, col_bg);
+    if (room_browse_page > 1) {
+      render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, false);
+    }
+    if (room_browse_page < room_browse_total_pages) {
+      render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, false);
+    }
+  }
+}
+
 // =============================================================================
 // SECTION 17: UNIVERSAL TV & MEDIA REMOTE ENGINE (MULTI-DEVICE & MULTI-PROTOCOL)
 // =============================================================================

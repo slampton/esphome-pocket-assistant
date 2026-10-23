@@ -1,4 +1,4 @@
-# Build-Stamp: 2026-10-21 22:10:00
+# Build-Stamp: 2026-10-22 22:05:00
 # ==============================================================================
 # 🧭 Pocket Assistant (v2.0 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
@@ -9,19 +9,21 @@
 substitutions:
   name: "pocket-assistant"
   friendly_name: "Pocket Assistant"
-  version: "2.0"
+  version: "2.1.0"
   default_start_app: "Home"
   default_art_mode: "Full Screen"
   default_screensaver_style: "Aurora Borealis"
   default_album_sort: "Alphabetical"
   default_artist_album_sort: "Oldest on Top"
   default_podcast_sort: "Newest on Top"
-  browse_script: "script.pocket_assistant_music_browse"
+  browse_script: "latter.music_browse"
   active_speaker_helper: "input_text.pocket_assistant_active_speaker"
-  mass_queue_config_entry: ""                           # Optional: mass_queue Config Entry ID for Podcast Episodes & Up Next Queue
-  # Unified Companion Package Entities
+  mass_queue_config_entry: ""                           # Optional legacy fallback if not using Latter integration
+  # Latter Companion Integration Entities
   active_media_sensor: "sensor.pocket_assistant_active_media"
   weather_forecast_sensor: "sensor.pocket_assistant_weather_forecast"
+  room_context_sensor: "sensor.pocket_assistant_room_context"
+  calendar_agenda_sensor: "sensor.pocket_assistant_calendar_agenda"
 
   # Initial Boot Placeholder Art (Overridden dynamically on track playback)
   initial_art_url: "http://homeassistant.local:8123/static/icons/favicon-192x192.png"
@@ -83,7 +85,7 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          // Release all deep sleep pad holds immediately via board HAL (2026-10-21 22:10:00)
+          // Release all deep sleep pad holds immediately via board HAL (2026-10-22 22:05:00)
           id(hal_release_deep_sleep_holds).execute();
 
           id(sleep_start_time) = millis();
@@ -213,6 +215,61 @@ api:
             id(slot_5_id) = s5_id;
             id(slot_5_type) = s5_type;
             id(slot_5_active) = s5_active;
+            if (mode == "areas" || mode == "entities") {
+              id(room_browse_mode) = mode;
+              id(room_browse_page) = page;
+              id(room_browse_total_pages) = total_pages;
+              id(room_slot_1_name) = s1_name; id(room_slot_1_id) = s1_id; id(room_slot_1_type) = s1_type; id(room_slot_1_active) = s1_active;
+              id(room_slot_2_name) = s2_name; id(room_slot_2_id) = s2_id; id(room_slot_2_type) = s2_type; id(room_slot_2_active) = s2_active;
+              id(room_slot_3_name) = s3_name; id(room_slot_3_id) = s3_id; id(room_slot_3_type) = s3_type; id(room_slot_3_active) = s3_active;
+              id(room_slot_4_name) = s4_name; id(room_slot_4_id) = s4_id; id(room_slot_4_type) = s4_type; id(room_slot_4_active) = s4_active;
+              id(room_slot_5_name) = s5_name; id(room_slot_5_id) = s5_id; id(room_slot_5_type) = s5_type; id(room_slot_5_active) = s5_active;
+            }
+            pocket_ui::schedule_disp_update(&id(disp1));
+
+    - action: set_room_slots
+      variables:
+        mode: string
+        page: int
+        total_pages: int
+        has_prev: bool
+        has_next: bool
+        s1_name: string
+        s1_id: string
+        s1_type: string
+        s1_active: bool
+        s1_level: int
+        s2_name: string
+        s2_id: string
+        s2_type: string
+        s2_active: bool
+        s2_level: int
+        s3_name: string
+        s3_id: string
+        s3_type: string
+        s3_active: bool
+        s3_level: int
+        s4_name: string
+        s4_id: string
+        s4_type: string
+        s4_active: bool
+        s4_level: int
+        s5_name: string
+        s5_id: string
+        s5_type: string
+        s5_active: bool
+        s5_level: int
+      then:
+        - lambda: |-
+            (void)has_prev; (void)has_next;
+            id(room_browse_mode) = mode;
+            id(room_browse_page) = page;
+            id(room_browse_total_pages) = total_pages;
+            id(room_slot_1_name) = s1_name; id(room_slot_1_id) = s1_id; id(room_slot_1_type) = s1_type; id(room_slot_1_active) = s1_active; id(room_slot_1_level) = s1_level;
+            id(room_slot_2_name) = s2_name; id(room_slot_2_id) = s2_id; id(room_slot_2_type) = s2_type; id(room_slot_2_active) = s2_active; id(room_slot_2_level) = s2_level;
+            id(room_slot_3_name) = s3_name; id(room_slot_3_id) = s3_id; id(room_slot_3_type) = s3_type; id(room_slot_3_active) = s3_active; id(room_slot_3_level) = s3_level;
+            id(room_slot_4_name) = s4_name; id(room_slot_4_id) = s4_id; id(room_slot_4_type) = s4_type; id(room_slot_4_active) = s4_active; id(room_slot_4_level) = s4_level;
+            id(room_slot_5_name) = s5_name; id(room_slot_5_id) = s5_id; id(room_slot_5_type) = s5_type; id(room_slot_5_active) = s5_active; id(room_slot_5_level) = s5_level;
             pocket_ui::schedule_disp_update(&id(disp1));
 
     - action: set_timer

@@ -191,6 +191,154 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: room_browse_mode
+    type: std::string
+    restore_value: no
+    initial_value: '"entities"'
+  - id: room_browse_page
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: room_browse_total_pages
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: active_room_area_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: active_room_area_name
+    type: std::string
+    restore_value: no
+    initial_value: '"Room Control"'
+  - id: room_action_feedback
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_feedback_timer
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: room_target_entity_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_target_action
+    type: std::string
+    restore_value: no
+    initial_value: '"toggle"'
+  - id: room_target_level
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: room_lights_on_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: room_covers_open_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: room_slot_1_name
+    type: std::string
+    restore_value: no
+    initial_value: '"Tap Header for Rooms"'
+  - id: room_slot_1_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_1_type
+    type: std::string
+    restore_value: no
+    initial_value: '"text"'
+  - id: room_slot_1_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: room_slot_1_level
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: room_slot_2_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_2_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_2_type
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_2_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: room_slot_2_level
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: room_slot_3_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_3_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_3_type
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_3_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: room_slot_3_level
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: room_slot_4_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_4_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_4_type
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_4_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: room_slot_4_level
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: room_slot_5_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_5_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_5_type
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: room_slot_5_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: room_slot_5_level
+    type: int
+    restore_value: no
+    initial_value: '-1'
   - id: current_loaded_art_url
     type: std::string
     restore_value: no
@@ -1303,6 +1451,28 @@ switch:
         - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
 
   - platform: template
+    name: "Home: Shortcut Room"
+    id: home_dock_room_switch
+    icon: "mdi:home-lightning-bolt-outline"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
+    on_turn_off:
+      then:
+        - lambda: 'if (id(display_power_state) == 0 && millis() > 3000) pocket_ui::schedule_disp_update(&id(disp1));'
+
+  - platform: template
+    name: "Room: Area Media Handoff"
+    id: room_handoff_media_switch
+    icon: "mdi:cast-audio"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
     name: "Home: Shortcut Music"
     id: home_dock_music_switch
     icon: "mdi:music"
@@ -2018,6 +2188,37 @@ text_sensor:
             if (id(display_power_state) == 0 && !id(is_hibernating)) {
               pocket_ui::record_ambient_frame_ms(0);
             }
+
+  - platform: homeassistant
+    id: ha_room_context_name
+    entity_id: ${room_context_sensor}
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(active_room_area_name) = x;
+              if (id(display_power_state) == 0 && id(gui_page) == 6) {
+                pocket_ui::schedule_disp_update(&id(disp1));
+              }
+            }
+
+  - platform: homeassistant
+    id: ha_room_context_area_id
+    entity_id: ${room_context_sensor}
+    attribute: area_id
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (!x.empty() && x != "unknown" && x != "unavailable") {
+              id(active_room_area_id) = x;
+            }
+
+  - platform: homeassistant
+    id: ha_calendar_agenda_raw
+    entity_id: ${calendar_agenda_sensor}
+    internal: true
 
   - platform: homeassistant
     id: ha_weather_forecast_5d
@@ -2824,6 +3025,32 @@ script:
               return "newest";
             mass_queue_entry: "${mass_queue_config_entry}"
 
+  - id: fetch_room_browse
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: latter.room_browse
+          data:
+            target_device: "${name}"
+            mode: !lambda 'return id(room_browse_mode).c_str();'
+            area_id: !lambda 'return id(active_room_area_id).c_str();'
+            domain_filter: "all"
+            page: !lambda 'return to_string(id(room_browse_page));'
+            page_size: "5"
+            handoff_media: !lambda 'return id(room_handoff_media_switch).state ? "true" : "false";'
+
+  - id: execute_room_action
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: latter.room_action
+          data:
+            target_device: "${name}"
+            entity_id: !lambda 'return id(room_target_entity_id).c_str();'
+            action: !lambda 'return id(room_target_action).c_str();'
+            level: !lambda 'return to_string(id(room_target_level));'
+            area_id: !lambda 'return id(active_room_area_id).c_str();'
+
   - id: activate_selected_speaker
     mode: restart
     parameters:
@@ -3425,7 +3652,7 @@ display:
             id(theme_primary), id(theme_secondary),
             id(col_bg), id(col_black), id(col_white), id(col_slate),
             id(col_dark_gray), id(col_gold), id(col_green),
-            id(home_wake_greeting_switch).state);
+            id(home_wake_greeting_switch).state, id(home_dock_room_switch).state);
 
       // ==========================================
       // PAGE 2: MUSIC PLAYER & LIBRARY BROWSER
@@ -3638,6 +3865,23 @@ display:
             id(theme_primary), id(theme_secondary),
             id(col_bg), id(col_black), id(col_white), id(col_slate),
             id(col_gray), id(col_dark_gray), id(col_warm_gold), id(accel_x).state, id(accel_y).state);
+
+      // ==========================================
+      // PAGE 6: AREA-AWARE ROOM CONTROL (LATTER)
+      // ==========================================
+      } else if (id(gui_page) == 6) {
+        render_room_control_page(
+            it, cx, millis(), id(room_browse_mode), id(active_room_area_name),
+            id(room_browse_page), id(room_browse_total_pages),
+            id(room_action_feedback), id(room_feedback_timer),
+            id(room_lights_on_count), id(room_covers_open_count),
+            id(room_slot_1_name), id(room_slot_1_id), id(room_slot_1_type), id(room_slot_1_active), id(room_slot_1_level),
+            id(room_slot_2_name), id(room_slot_2_id), id(room_slot_2_type), id(room_slot_2_active), id(room_slot_2_level),
+            id(room_slot_3_name), id(room_slot_3_id), id(room_slot_3_type), id(room_slot_3_active), id(room_slot_3_level),
+            id(room_slot_4_name), id(room_slot_4_id), id(room_slot_4_type), id(room_slot_4_active), id(room_slot_4_level),
+            id(room_slot_5_name), id(room_slot_5_id), id(room_slot_5_type), id(room_slot_5_active), id(room_slot_5_level),
+            id(font_small), id(theme_primary), id(theme_secondary),
+            id(col_bg), id(col_black), id(col_white), id(col_slate), id(col_dark_gray), id(col_gold));
 
       // ==========================================
       // PAGE 7: UNIVERSAL TV & MEDIA REMOTE CONTROL
@@ -4183,11 +4427,11 @@ touchscreen:
 
               // 8. Bottom 3-Icon Sliding Window Quick-Launch Dock Tap (y in [319..396] at y = 352)
               if (touch.y >= 319 && touch.y <= 396) {
-                int dock_apps[4] = {0, 0, 0, 0};
+                int dock_apps[5] = {0, 0, 0, 0, 0};
                 int dock_count = pocket_ui::collect_home_dock_apps(
                     id(home_dock_music_switch).state, id(home_dock_remote_switch).state,
                     id(home_dock_tools_switch).state, id(home_dock_games_switch).state,
-                    dock_apps);
+                    dock_apps, id(home_dock_room_switch).state);
                 if (dock_count > 0 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   int win_xs[3] = {0, 0, 0};
                   bool has_left_arr = false, has_right_arr = false;
@@ -4232,6 +4476,10 @@ touchscreen:
                           id(ha_target_art_url).state != id(current_loaded_art_url)) {
                         id(fetch_remote_art_debounced).execute();
                       }
+                    } else if (id(gui_page) == 6) {
+                      id(room_browse_mode) = id(active_room_area_id).empty() ? "areas" : "entities";
+                      id(room_browse_page) = 1;
+                      id(fetch_room_browse).execute();
                     }
                     id(remote_subpage) = 0;
                     id(stuff_subpage) = 0;
@@ -5387,6 +5635,105 @@ touchscreen:
                     pocket_ui::schedule_disp_update(&id(disp1));
                   }
                 }
+                return;
+              }
+            } else if (id(gui_page) == 6) {
+              static uint32_t last_room_tap = 0;
+              uint32_t now_rm = millis();
+
+              // 1. Right-Flank Pagination Chevrons (when room_browse_total_pages > 1)
+              if (id(room_browse_total_pages) > 1 && is_right_chevron_zone(touch)) {
+                if (now_rm - last_room_tap > TOUCH_DEBOUNCE_SCROLL) {
+                  int delta = (touch.y < 220) ? -1 : 1;
+                  int next_pg = std::max(1, std::min(id(room_browse_total_pages), id(room_browse_page) + delta));
+                  if (next_pg != id(room_browse_page)) {
+                    last_room_tap = now_rm;
+                    id(room_browse_page) = next_pg;
+                    id(fetch_room_browse).execute();
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                }
+                return;
+              }
+
+              // 2. Top Header Tap (y <= 84, x in [90..376]) -> Toggle between Room Selector ("areas") & Device View ("entities")
+              if (touch.y <= 84 && touch.x >= 90 && touch.x <= 376) {
+                if (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON) {
+                  last_room_tap = now_rm;
+                  id(room_browse_mode) = (id(room_browse_mode) == "areas") ? "entities" : "areas";
+                  id(room_browse_page) = 1;
+                  id(fetch_room_browse).execute();
+                  pocket_ui::schedule_disp_update(&id(disp1));
+                }
+                return;
+              }
+
+              // 3. 5-Slot Room / Entity Cards (y_mid = 110, 173, 236, 299, 362)
+              int slot_idx = get_5slot_index(touch, 88, 376);
+              if (slot_idx >= 0 && (now_rm - last_room_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                std::string s_name = (slot_idx == 0) ? id(room_slot_1_name) : (slot_idx == 1) ? id(room_slot_2_name) : (slot_idx == 2) ? id(room_slot_3_name) : (slot_idx == 3) ? id(room_slot_4_name) : id(room_slot_5_name);
+                std::string s_id   = (slot_idx == 0) ? id(room_slot_1_id)   : (slot_idx == 1) ? id(room_slot_2_id)   : (slot_idx == 2) ? id(room_slot_3_id)   : (slot_idx == 3) ? id(room_slot_4_id)   : id(room_slot_5_id);
+                std::string s_type = (slot_idx == 0) ? id(room_slot_1_type) : (slot_idx == 1) ? id(room_slot_2_type) : (slot_idx == 2) ? id(room_slot_3_type) : (slot_idx == 3) ? id(room_slot_4_type) : id(room_slot_5_type);
+                bool &s_act        = (slot_idx == 0) ? id(room_slot_1_active) : (slot_idx == 1) ? id(room_slot_2_active) : (slot_idx == 2) ? id(room_slot_3_active) : (slot_idx == 3) ? id(room_slot_4_active) : id(room_slot_5_active);
+                int &s_lvl         = (slot_idx == 0) ? id(room_slot_1_level)  : (slot_idx == 1) ? id(room_slot_2_level)  : (slot_idx == 2) ? id(room_slot_3_level)  : (slot_idx == 3) ? id(room_slot_4_level)  : id(room_slot_5_level);
+
+                if (s_id.empty() || s_type == "text") {
+                  last_room_tap = now_rm;
+                  id(room_browse_mode) = "areas";
+                  id(room_browse_page) = 1;
+                  id(fetch_room_browse).execute();
+                  pocket_ui::schedule_disp_update(&id(disp1));
+                  return;
+                }
+
+                last_room_tap = now_rm;
+                if (id(room_browse_mode) == "areas" || s_type == "area") {
+                  id(active_room_area_id) = s_id;
+                  id(active_room_area_name) = s_name;
+                  id(room_browse_mode) = "entities";
+                  id(room_browse_page) = 1;
+                  id(room_action_feedback) = "Room: " + s_name;
+                  id(room_feedback_timer) = now_rm;
+                  id(fetch_room_browse).execute();
+                  pocket_ui::schedule_disp_update(&id(disp1));
+                  return;
+                }
+
+                // Entity Card Interaction:
+                //   - For slider entities (light/cover/fan with level >= 0):
+                //       * Left icon zone (x <= 144): Toggle ON/OFF
+                //       * Right slider bar (x > 144): Proportional 0..100% set_level!
+                //   - For climate: left half steps down (-1), right half steps up (+1)
+                //   - For switch/scene/script: Toggle
+                id(room_target_entity_id) = s_id;
+                bool has_slider = ((s_type == "light" || s_type == "cover" || s_type == "fan") && s_lvl >= 0);
+                if (has_slider && touch.x > 144) {
+                  int pct = ((touch.x - 144) * 100) / (366 - 144);
+                  pct = std::max(5, std::min(100, ((pct + 2) / 5) * 5));
+                  s_act = true;
+                  s_lvl = pct;
+                  id(room_target_action) = "set_level";
+                  id(room_target_level) = pct;
+                  id(room_action_feedback) = s_name + ": " + to_string(pct) + "%";
+                } else if (s_type == "climate") {
+                  if (touch.x < 233) {
+                    id(room_target_action) = "step_down";
+                    if (s_lvl > 0) s_lvl--;
+                    id(room_action_feedback) = s_name + ": " + to_string(s_lvl) + "°";
+                  } else {
+                    id(room_target_action) = "step_up";
+                    if (s_lvl > 0) s_lvl++;
+                    id(room_action_feedback) = s_name + ": " + to_string(s_lvl) + "°";
+                  }
+                } else {
+                  s_act = !s_act;
+                  id(room_target_action) = "toggle";
+                  id(room_target_level) = s_act ? 100 : 0;
+                  id(room_action_feedback) = s_name + (s_act ? ": On" : ": Off");
+                }
+                id(room_feedback_timer) = now_rm;
+                id(execute_room_action).execute();
+                pocket_ui::schedule_disp_update(&id(disp1));
                 return;
               }
             } else if (id(gui_page) == 7) {
