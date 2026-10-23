@@ -2765,15 +2765,53 @@ inline const char *resolve_wake_greeting(int hour, int minute, int day_of_year,
   return "Sleep well";
 }
 
-// Canonical Dock Order: Music (2), Room Control (6), Remote (7) on Page 0; Games (3), Tools (8) on Page 1..2
+inline std::string &latter_dock_order_csv() {
+  static std::string csv = "";
+  return csv;
+}
+
+// Canonical Dock Order (customizable via Latter v1.2.1 `dock_apps` CSV attribute):
+// Defaults to Music (2), Room Control (6), Remote (7) on Page 0; Games (3), Tools (8) on Page 1..2
 inline int collect_home_dock_apps(bool show_music, bool show_remote, bool show_tools, bool show_games,
                                   int out_apps[5], bool show_room = true) {
   int n = 0;
-  if (show_music)  out_apps[n++] = 2; // Music
-  if (show_room)   out_apps[n++] = 6; // Room Control
-  if (show_remote) out_apps[n++] = 7; // Remote
-  if (show_games)  out_apps[n++] = 3; // Games
-  if (show_tools)  out_apps[n++] = 8; // Tools
+  bool added[9] = {false};
+  auto try_add = [&](int app_id) {
+    if (n >= 5 || app_id < 0 || app_id > 8 || added[app_id]) return;
+    bool en = (app_id == 2 && show_music) ||
+              (app_id == 6 && show_room) ||
+              (app_id == 7 && show_remote) ||
+              (app_id == 3 && show_games) ||
+              (app_id == 8 && show_tools);
+    if (en) {
+      added[app_id] = true;
+      out_apps[n++] = app_id;
+    }
+  };
+
+  const std::string &csv = latter_dock_order_csv();
+  if (!csv.empty() && csv != "unknown" && csv != "unavailable") {
+    size_t pos = 0;
+    while (pos < csv.size()) {
+      size_t comma = csv.find_first_of(",;| ", pos);
+      std::string tok = (comma == std::string::npos) ? csv.substr(pos) : csv.substr(pos, comma - pos);
+      pos = (comma == std::string::npos) ? csv.size() : (comma + 1);
+      if (tok.empty()) continue;
+      for (char &c : tok) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+      if (tok.find("music") != std::string::npos || tok == "2") try_add(2);
+      else if (tok.find("room") != std::string::npos || tok.find("home") != std::string::npos || tok == "6") try_add(6);
+      else if (tok.find("remote") != std::string::npos || tok.find("tv") != std::string::npos || tok == "7") try_add(7);
+      else if (tok.find("game") != std::string::npos || tok == "3") try_add(3);
+      else if (tok.find("tool") != std::string::npos || tok == "8") try_add(8);
+    }
+  }
+
+  // Append any remaining enabled dock icons in canonical order
+  try_add(2); // Music
+  try_add(6); // Room Control
+  try_add(7); // Remote
+  try_add(3); // Games
+  try_add(8); // Tools
   return n;
 }
 
@@ -2862,11 +2900,11 @@ inline void render_home_page(
     };
 
     char buf[48];
-    snprintf(buf, sizeof(buf), "Weather Sky: %s", show_weather_bg ? "On" : "Off");
-    draw_setting_card(110, buf, show_weather_bg);
-
     snprintf(buf, sizeof(buf), "Music Icon: %s", dock_music ? "Shown" : "Hidden");
-    draw_setting_card(173, buf, dock_music);
+    draw_setting_card(110, buf, dock_music);
+
+    snprintf(buf, sizeof(buf), "Room Icon: %s", dock_room ? "Shown" : "Hidden");
+    draw_setting_card(173, buf, dock_room);
 
     snprintf(buf, sizeof(buf), "Remote Icon: %s", dock_remote ? "Shown" : "Hidden");
     draw_setting_card(236, buf, dock_remote);

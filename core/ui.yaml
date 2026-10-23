@@ -2325,6 +2325,22 @@ text_sensor:
             }
 
   - platform: homeassistant
+    id: ha_latter_dock_apps
+    entity_id: ${room_context_sensor}
+    attribute: dock_apps
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (x != "unknown" && x != "unavailable") {
+              pocket_ui::latter_dock_order_csv() = x;
+              pocket_ui::home_dock_page() = 0;
+              if (id(display_power_state) == 0 && id(gui_page) == 1) {
+                pocket_ui::schedule_disp_update(&id(disp1));
+              }
+            }
+
+  - platform: homeassistant
     id: ha_room_alarm_entity
     entity_id: ${room_context_sensor}
     attribute: alarm_entity
@@ -4292,8 +4308,8 @@ touchscreen:
                 int slot_idx = get_5slot_index(touch, 90, 376);
                 if (slot_idx >= 0 && slot_idx <= 4 && (now_hm - last_home_tap > TOUCH_DEBOUNCE_BUTTON)) {
                   last_home_tap = now_hm;
-                  if (slot_idx == 0) id(home_weather_bg_switch).toggle();
-                  else if (slot_idx == 1) id(home_dock_music_switch).toggle();
+                  if (slot_idx == 0) id(home_dock_music_switch).toggle();
+                  else if (slot_idx == 1) id(home_dock_room_switch).toggle();
                   else if (slot_idx == 2) id(home_dock_remote_switch).toggle();
                   else if (slot_idx == 3) id(home_dock_games_switch).toggle();
                   else if (slot_idx == 4) id(home_dock_tools_switch).toggle();
