@@ -456,6 +456,7 @@ interval:
           static uint32_t last_fw_check_ms = 0;
           if (now_1s_ms > 90000U && id(wifi_ctrl).is_connected() &&
               !id(va_active) && !id(va_tts_received) && !id(ota_in_progress) &&
+              (id(gui_page) != 2) &&
               (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
               (last_fw_check_ms == 0 || (now_1s_ms - last_fw_check_ms >= 21600000U))) {
             last_fw_check_ms = now_1s_ms;

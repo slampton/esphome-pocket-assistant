@@ -3222,7 +3222,9 @@ script:
             id(music_action_feedback) = "Invalid Speaker";
           }
           id(music_feedback_timer) = millis();
-          id(current_loaded_art_url) = "";
+          if (id(active_speaker_entity) == "${local_player_id}") {
+            id(current_loaded_art_url) = "";
+          }
           id(music_overlay_mode) = 0;
           id(music_direct_nav) = false;
           id(music_hud_active) = true;
