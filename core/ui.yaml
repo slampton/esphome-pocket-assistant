@@ -1521,7 +1521,7 @@ switch:
     icon: "mdi:cast-audio"
     entity_category: config
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_ON
+    restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: template
     name: "Room: BLE Presence Beacon"
@@ -3173,7 +3173,7 @@ script:
             domain_filter: !lambda 'return id(room_domain_filter).c_str();'
             page: !lambda 'return to_string(id(room_browse_page));'
             page_size: !lambda 'return (id(room_browse_mode) == "areas") ? "5" : "3";'
-            handoff_media: !lambda 'return id(room_handoff_media_switch).state ? "true" : "false";'
+            handoff_media: "false"
 
   - id: execute_alarm_action
     mode: restart
@@ -3581,12 +3581,7 @@ script:
                                              : pocket_ui::resolve_active_remote_slot(target_slot, ents);
           id(remote_latter_slot_num) = res_slot + 1;
 
-          static constexpr const char *kLatterCmds[10] = {
-            "up", "down", "left", "right", "select",
-            "back", "home", "volume_up", "volume_down", "toggle"
-          };
           int k = (key_idx >= 0 && key_idx < 10) ? key_idx : 0;
-          id(remote_latter_cmd) = kLatterCmds[k];
           id(remote_latter_act) = (k == 7) ? "volume_up" : ((k == 8) ? "volume_down" : ((k == 9) ? "toggle" : "command"));
 
           pocket_ui::resolve_remote_dispatch(
@@ -3594,6 +3589,8 @@ script:
               ents, names, custom_cmds,
               id(remote_target_ent), id(remote_target_prof),
               id(remote_target_cmd), id(remote_action_feedback));
+          // Pass the exact platform-resolved command (e.g. DPAD_UP, DPAD_CENTER, BACK, HOME for Android TV / Shield)
+          id(remote_latter_cmd) = (k == 7) ? "volume_up" : ((k == 8) ? "volume_down" : ((k == 9) ? "toggle" : id(remote_target_cmd)));
           id(remote_feedback_timer) = millis();
       - homeassistant.action:
           action: latter.remote_action
