@@ -120,12 +120,11 @@ esphome:
               id(batt_charging).publish_state(is_chg);
             }
         - component.update: batt_level
-        - if:
-            condition:
-              lambda: 'return !id(wifi_ctrl).has_sta() || id(ble_room_beacon_switch).state;'
-            then:
-              - logger.log: "Enabling BLE radio (Improv setup or BLE Room Presence Beacon active)"
-              - ble.enable:
+        - lambda: |-
+            if (!id(ble_room_beacon_switch).state) {
+              // Ensure BLE Presence Beacon defaults ON if NVS held an old OFF state from earlier testing
+              id(ble_room_beacon_switch).publish_state(true);
+            }
         - lambda: |-
             esphome::voice_assistant::ensure_wake_words_restored(id(va), true);
             id(va_active_wake_word).publish_state(
@@ -368,7 +367,7 @@ wifi:
 
 esp32_ble:
   id: ble_ctrl
-  enable_on_boot: false
+  enable_on_boot: true
   use_psram: true
   max_connections: 1
 
