@@ -218,8 +218,8 @@ voice_assistant:
           condition:
             lambda: 'return id(announcement_mixing_input).is_running() || id(physical_speaker).is_running();'
           then:
+            - speaker.stop: announcement_resampler
             - speaker.stop: announcement_mixing_input
-            - speaker.stop: mixing_speaker
             - speaker.stop: physical_speaker
             - delay: 30ms
       - script.execute: route_i2s_to_mic
