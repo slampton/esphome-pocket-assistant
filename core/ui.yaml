@@ -2889,26 +2889,17 @@ script:
                 float new_vol = std::min(1.00f, cur + step);
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
-            - if:
-                condition:
-                  lambda: |-
-                    float sf = id(ha_target_supported_features).state;
-                    return !std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0);
-                then:
-                  - lambda: |-
-                      char b[16];
-                      snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
-                      id(remote_vol_level_str) = b;
-                  - homeassistant.action:
-                      action: media_player.volume_set
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                        volume_level: !lambda 'return id(remote_vol_level_str);'
-                else:
-                  - homeassistant.action:
-                      action: media_player.volume_up
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - lambda: |-
+                char b[16];
+                snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
+                id(remote_vol_level_str) = b;
+            - homeassistant.action:
+                action: latter.media_volume
+                data:
+                  target_device: "${name}"
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  action: "set"
+                  volume_level: !lambda 'return id(remote_vol_level_str);'
 
   - id: music_vol_down
     mode: restart
@@ -2927,26 +2918,17 @@ script:
                 float new_vol = std::max(0.10f, cur - step);
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
-            - if:
-                condition:
-                  lambda: |-
-                    float sf = id(ha_target_supported_features).state;
-                    return !std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0);
-                then:
-                  - lambda: |-
-                      char b[16];
-                      snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
-                      id(remote_vol_level_str) = b;
-                  - homeassistant.action:
-                      action: media_player.volume_set
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                        volume_level: !lambda 'return id(remote_vol_level_str);'
-                else:
-                  - homeassistant.action:
-                      action: media_player.volume_down
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - lambda: |-
+                char b[16];
+                snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
+                id(remote_vol_level_str) = b;
+            - homeassistant.action:
+                action: latter.media_volume
+                data:
+                  target_device: "${name}"
+                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  action: "set"
+                  volume_level: !lambda 'return id(remote_vol_level_str);'
 
   - id: toggle_ha_music
     mode: restart
@@ -3608,48 +3590,13 @@ script:
               id(remote_target_ent), id(remote_target_prof),
               id(remote_target_cmd), id(remote_action_feedback));
           id(remote_feedback_timer) = millis();
-      - if:
-          condition:
-            lambda: |-
-              // When the slot profile is "Auto-Detect" (default) and not a Denon/LG special HTTP/button override,
-              // route directly through Latter v1.0.3's unified latter.remote_action service!
-              return (id(remote_target_prof) != "Denon / Marantz AVR") &&
-                     (id(remote_target_prof) != "LG webOS");
-          then:
-            - homeassistant.action:
-                action: latter.remote_action
-                data:
-                  target_device: "${name}"
-                  slot: !lambda 'return to_string(id(remote_latter_slot_num));'
-                  action: !lambda 'return id(remote_latter_act);'
-                  command: !lambda 'return id(remote_latter_cmd);'
-          else:
-            - if:
-                condition:
-                  lambda: 'return key_idx >= 7 && key_idx <= 9;'
-                then:
-                  - homeassistant.action:
-                      action: latter.remote_action
-                      data:
-                        target_device: "${name}"
-                        slot: !lambda 'return to_string(id(remote_latter_slot_num));'
-                        action: !lambda 'return id(remote_latter_act);'
-                else:
-                  - if:
-                      condition:
-                        lambda: 'return id(remote_target_prof) == "Denon / Marantz AVR";'
-                      then:
-                        - homeassistant.action:
-                            action: denonavr.get_command
-                            data:
-                              entity_id: !lambda 'return id(remote_target_ent);'
-                              command: !lambda 'return id(remote_target_cmd);'
-                      else:
-                        - homeassistant.action:
-                            action: webostv.button
-                            data:
-                              entity_id: !lambda 'return id(remote_target_ent);'
-                              button: !lambda 'return id(remote_target_cmd);'
+      - homeassistant.action:
+          action: latter.remote_action
+          data:
+            target_device: "${name}"
+            slot: !lambda 'return to_string(id(remote_latter_slot_num));'
+            action: !lambda 'return id(remote_latter_act);'
+            command: !lambda 'return id(remote_latter_cmd);'
 
 display:
   - id: !extend disp1
