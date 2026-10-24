@@ -2965,9 +2965,10 @@ script:
                 then:
                   - media_player.pause: pocket_music_player
             - homeassistant.action:
-                action: media_player.media_pause
+                action: latter.media_command
                 data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  target_device: "${name}"
+                  command: "pause"
           else:
             - lambda: 'pocket_ui::set_remote_play_override(true, millis());'
             - if:
@@ -2984,9 +2985,10 @@ script:
                       duration: 0.2s
                   - media_player.play: pocket_music_player
             - homeassistant.action:
-                action: media_player.media_play
+                action: latter.media_command
                 data:
-                  entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                  target_device: "${name}"
+                  command: "play"
 
   - id: stop_ha_music
     mode: restart
@@ -3004,9 +3006,10 @@ script:
           then:
             - media_player.pause: pocket_music_player
       - homeassistant.action:
-          action: media_player.media_pause
+          action: latter.media_command
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            command: "pause"
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: clear_ha_music_queue
@@ -3036,13 +3039,10 @@ script:
             - media_player.stop: pocket_music_player
       - online_image.release: remote_album_art
       - homeassistant.action:
-          action: media_player.clear_playlist
+          action: latter.media_command
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-      - homeassistant.action:
-          action: media_player.media_stop
-          data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            command: "clear_queue"
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: music_next_track
@@ -3053,9 +3053,10 @@ script:
           id(music_action_feedback) = "Next Track >>";
           id(music_feedback_timer) = millis();
       - homeassistant.action:
-          action: media_player.media_next_track
+          action: latter.media_command
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            command: "next"
 
   - id: music_prev_track
     mode: restart
@@ -3067,9 +3068,10 @@ script:
           id(music_pos_base) = 0.0f;
           id(music_pos_sync_time) = millis();
       - homeassistant.action:
-          action: media_player.media_previous_track
+          action: latter.media_command
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            command: "previous"
 
   - id: music_seek_relative
     mode: restart
@@ -3123,9 +3125,10 @@ script:
           id(music_pos_base) = new_pos;
           id(music_pos_sync_time) = now_ms;
       - homeassistant.action:
-          action: media_player.media_seek
+          action: latter.media_command
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            command: "seek"
             seek_position: !lambda |-
               float cur_pos = id(music_pos_base);
               return to_string((int)std::max(0.0f, cur_pos));
@@ -3135,13 +3138,13 @@ script:
     then:
       - delay: 0ms
       - homeassistant.action:
-          action: media_player.media_seek
+          action: latter.media_command
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            command: "seek"
             seek_position: !lambda |-
               float cur_pos = id(music_pos_base);
               return to_string((int)std::max(0.0f, cur_pos));
-
   - id: fetch_music_browse
     mode: restart
     then:
@@ -3384,12 +3387,12 @@ script:
                 decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
                 duration: 0.2s
       - homeassistant.action:
-          action: music_assistant.play_media
+          action: latter.media_command
           data:
-            entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            target_device: "${name}"
+            command: "play_media"
             media_id: !lambda 'return id(selected_slot_id).c_str();'
             media_type: !lambda 'return id(selected_slot_type).c_str();'
-            enqueue: "play"
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
 
   - id: mp_idle_debounce
