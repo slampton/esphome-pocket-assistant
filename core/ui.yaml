@@ -3362,11 +3362,6 @@ script:
             - script.stop: mp_idle_debounce
             - if:
                 condition:
-                  lambda: 'return id(ble_ctrl).is_active();'
-                then:
-                  - ble.disable:
-            - if:
-                condition:
                   lambda: 'return id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING;'
                 then:
                   - media_player.stop: pocket_music_player

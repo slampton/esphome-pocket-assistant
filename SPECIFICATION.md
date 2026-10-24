@@ -57,6 +57,13 @@
 
 ## 2. Power Architecture, Outgoing API & Performance Budgets
 
+### Canonical Operating Modes (User Experience & Hardware Resource Profiles)
+| Operating Mode | Physical Context | Wake & Touch Behavior | Voice & Audio Profile | BLE Room Presence |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Docked Mode** | Connected to USB-C power (desk, nightstand, or couch cable) | Pickup to Wake `ON`, Tap to Wake `ON`, 20 FPS Docked Screensaver after idle timeout | Hands-free `micro_wake_word` `ON` (when local speaker is idle); Side Button (`GPIO0`) push-to-talk always active | Optional (device is tethered to a known room/dock); coexists in PSRAM when enabled |
+| **2. Roaming Handheld Mode** | Unplugged on battery, actively carried between rooms | Pickup to Wake `ON`, Tap to Wake configurable (`Docked Only` or `Always On`), Screen Off after battery timeout | Side Button (`GPIO0`) push-to-talk default (`Wake Word Mode: Always On` optional); remote speaker control & library browsing | `esp32_ble_beacon` `ON` while awake for sub-second `ha-latter` walk-between-rooms tracking |
+| **3. Pocket / Standby Mode** | Unplugged on battery with screen off (in pocket or set down on table) | `Tap to Wake: Docked Only` prevents accidental pocket touches; wakes via Top Crown (`GPIO3` `<5ms` IRQ) or deliberate pickup (`>0.15g`) | Display poller (`disp1`), PA amp (`GPIO46`), and BLE advertising paused; descends to `<40 µA` Hardware Hibernate after timeout | BLE paused during Screen-Off Standby to eliminate 2.4 GHz battery drain; fast-relocks (`<1s`) on wake |
+
 ### Power State Hierarchy
 | State | Current Draw | Entry Condition | Wake Mechanism | Wake Latency |
 | :--- | :--- | :--- | :--- | :--- |

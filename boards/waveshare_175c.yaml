@@ -8,23 +8,24 @@ esp32:
     sdkconfig_options:
       # ESP-IDF 5.5 replacement for CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY
       CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM: "y"
-      # ESPHome 2026.10 / ESP-IDF 5.5.6 PSRAM bus contention guardrails (prevents 512KB TCP / 512 RX buffer bloat)
-      CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM: "128"
+      # ESPHome 2026.10 / ESP-IDF 5.5.6 PSRAM bus contention guardrails
+      CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM: "64"
       CONFIG_LWIP_TCP_WND_DEFAULT: "65535"
       CONFIG_LWIP_TCP_RECVMBOX_SIZE: "64"
       # Maximize ESP32-S3 L1 Data & Instruction Caches (64KB D-Cache / 64B line, 32KB I-Cache)
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
       CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB: "y"
-      # Execute instructions and read-only data from 80MHz Octal PSRAM so micro_wake_word
-      # and audio pipelines never stall during NVS flash writes
+      # Execute instructions and read-only data from 80MHz Octal PSRAM
       CONFIG_SPIRAM_RODATA: "y"
       CONFIG_SPIRAM_FETCH_INSTRUCTIONS: "y"
-      # Route >4KB C++ operator new / malloc (16.4KB JpegDecoder, BLE, mbedTLS) to 8MB Octal PSRAM
-      # while keeping RESERVE_INTERNAL at 8KB so spi_master / i2s_alloc_dma_desc have full DMA SRAM access
+      # Offload Wi-Fi/LwIP, BLE, .bss, mbedTLS, and >2KB heap allocations to 8MB Octal PSRAM
+      # so internal DMA SRAM stays unfragmented for QSPI 466x466 display + I2S audio + micro_wake_word
       CONFIG_SPIRAM_USE_MALLOC: "y"
-      CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL: "4096"
-      CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL: "8192"
+      CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL: "2048"
+      CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL: "0"
+      CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP: "y"
+      CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY: "y"
       CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST: "y"
       CONFIG_BT_BLE_DYNAMIC_ENV_MEMORY: "y"
       CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: "y"
@@ -130,7 +131,7 @@ speaker:
     sample_rate: 16000
     bits_per_sample: 16bit
     channel: left
-    buffer_duration: 500ms
+    buffer_duration: 100ms
     timeout: 10s
 
 

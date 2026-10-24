@@ -120,12 +120,6 @@ media_player:
               - script.stop: screen_sleep_timer
               - if:
                   condition:
-                    lambda: 'return id(ble_ctrl).is_active();'
-                  then:
-                    - logger.log: "Local audio playback active: pausing BLE beacon to free DMA SRAM"
-                    - ble.disable:
-              - if:
-                  condition:
                     lambda: 'return !id(alarm_ringing) && !id(timer_ringing) && !id(find_my_active);'
                   then:
                     - mixer_speaker.apply_ducking:
@@ -218,11 +212,6 @@ voice_assistant:
           then:
             - script.execute: pause_all_music
             - delay: 150ms
-      - if:
-          condition:
-            lambda: 'return id(ble_ctrl).is_active();'
-          then:
-            - ble.disable:
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_mic
