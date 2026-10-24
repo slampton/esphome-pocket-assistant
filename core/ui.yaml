@@ -3158,12 +3158,23 @@ script:
           action: latter.room_browse
           data:
             target_device: "${name}"
-            mode: !lambda 'return id(room_browse_mode).c_str();'
+            mode: !lambda 'return (id(room_browse_mode) == "areas" || id(room_browse_mode) == "room_areas") ? "areas" : id(room_browse_mode).c_str();'
             area_id: !lambda 'return id(active_room_area_id).c_str();'
             domain_filter: !lambda 'return id(room_domain_filter).c_str();'
             page: !lambda 'return to_string(id(room_browse_page));'
-            page_size: !lambda 'return (id(room_browse_mode) == "areas") ? "5" : "3";'
+            page_size: !lambda 'return (id(room_browse_mode) == "areas" || id(room_browse_mode) == "room_areas") ? "5" : "3";'
             handoff_media: !lambda 'return id(room_handoff_media_switch).state ? "true" : "false";'
+
+  - id: select_active_room_latter
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: latter.set_active_area
+          data:
+            target_device: "${name}"
+            area: !lambda 'return id(active_room_area_id).c_str();'
+            handoff_media: !lambda 'return id(room_handoff_media_switch).state ? "true" : "false";'
+      - script.execute: fetch_room_browse
 
   - id: execute_alarm_action
     mode: restart
@@ -5958,7 +5969,7 @@ touchscreen:
                     id(room_browse_page) = 1;
                     id(room_action_feedback) = "Room: " + id(active_room_area_name);
                     id(room_feedback_timer) = now_rm;
-                    id(fetch_room_browse).execute();
+                    id(select_active_room_latter).execute();
                     pocket_ui::schedule_disp_update(&id(disp1));
                   }
                 }
