@@ -3556,12 +3556,16 @@ script:
     parameters:
       slot_num: int
     then:
-      - homeassistant.action:
-          action: latter.remote_action
-          data:
-            target_device: "${name}"
-            slot: !lambda 'return to_string(slot_num);'
-            action: "select_slot"
+      - if:
+          condition:
+            lambda: 'return !id(ha_latter_remote_slots_summary).state.empty();'
+          then:
+            - homeassistant.action:
+                action: latter.remote_action
+                data:
+                  target_device: "${name}"
+                  slot: !lambda 'return to_string(slot_num);'
+                  action: "select_slot"
 
   - id: remote_send_key
     mode: restart
@@ -3602,26 +3606,44 @@ script:
               ents, names, custom_cmds,
               id(remote_target_ent), id(remote_target_prof),
               id(remote_target_cmd), id(remote_action_feedback));
-          // Pass the exact platform-resolved command (e.g. DPAD_UP, DPAD_CENTER, BACK, HOME for Android TV / Shield)
           id(remote_latter_cmd) = (k == 7) ? "volume_up" : ((k == 8) ? "volume_down" : ((k == 9) ? "toggle" : id(remote_target_cmd)));
           id(remote_feedback_timer) = millis();
       - if:
           condition:
-            lambda: |-
-              return (id(remote_target_prof) != "Denon / Marantz AVR") &&
-                     (id(remote_target_prof) != "LG webOS");
+            lambda: 'return key_idx >= 0 && key_idx <= 6;'
           then:
-            - homeassistant.action:
-                action: latter.remote_action
-                data:
-                  target_device: "${name}"
-                  slot: !lambda 'return to_string(id(remote_latter_slot_num));'
-                  action: !lambda 'return id(remote_latter_act);'
-                  command: !lambda 'return id(remote_latter_cmd);'
-          else:
+            # Direct On-Device C++ Protocol Dispatch for D-Pad, OK, Back & Home (0ms hop, 100% v2.0 compatibility)
             - if:
                 condition:
-                  lambda: 'return key_idx >= 7 && key_idx <= 9;'
+                  lambda: 'return id(remote_target_prof) == "Denon / Marantz AVR";'
+                then:
+                  - homeassistant.action:
+                      action: denonavr.get_command
+                      data:
+                        entity_id: !lambda 'return id(remote_target_ent);'
+                        command: !lambda 'return id(remote_target_cmd);'
+                else:
+                  - if:
+                      condition:
+                        lambda: 'return id(remote_target_prof) == "LG webOS";'
+                      then:
+                        - homeassistant.action:
+                            action: webostv.button
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                              button: !lambda 'return id(remote_target_cmd);'
+                      else:
+                        - homeassistant.action:
+                            action: remote.send_command
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                              command: !lambda 'return id(remote_target_cmd);'
+          else:
+            # Keys 7..9 (Vol+, Vol-, Power): Use Latter when configured (supports paired AVR volume override),
+            # otherwise fall back to direct native media_player / remote services when standalone!
+            - if:
+                condition:
+                  lambda: 'return !id(ha_latter_remote_slots_summary).state.empty();'
                 then:
                   - homeassistant.action:
                       action: latter.remote_action
@@ -3633,20 +3655,47 @@ script:
                 else:
                   - if:
                       condition:
-                        lambda: 'return id(remote_target_prof) == "Denon / Marantz AVR";'
+                        lambda: 'return id(remote_target_ent).rfind("media_player.", 0) == 0;'
                       then:
-                        - homeassistant.action:
-                            action: denonavr.get_command
-                            data:
-                              entity_id: !lambda 'return id(remote_target_ent);'
-                              command: !lambda 'return id(remote_target_cmd);'
+                        - if:
+                            condition:
+                              lambda: 'return key_idx == 7;'
+                            then:
+                              - homeassistant.action:
+                                  action: media_player.volume_up
+                                  data:
+                                    entity_id: !lambda 'return id(remote_target_ent);'
+                        - if:
+                            condition:
+                              lambda: 'return key_idx == 8;'
+                            then:
+                              - homeassistant.action:
+                                  action: media_player.volume_down
+                                  data:
+                                    entity_id: !lambda 'return id(remote_target_ent);'
+                        - if:
+                            condition:
+                              lambda: 'return key_idx == 9;'
+                            then:
+                              - homeassistant.action:
+                                  action: media_player.toggle
+                                  data:
+                                    entity_id: !lambda 'return id(remote_target_ent);'
                       else:
-                        - homeassistant.action:
-                            action: webostv.button
-                            data:
-                              entity_id: !lambda 'return id(remote_target_ent);'
-                              button: !lambda 'return id(remote_target_cmd);'
-
+                        - if:
+                            condition:
+                              lambda: 'return key_idx == 9 && id(remote_target_prof) != "Custom";'
+                            then:
+                              - homeassistant.action:
+                                  action: remote.toggle
+                                  data:
+                                    entity_id: !lambda 'return id(remote_target_ent);'
+                            else:
+                              - homeassistant.action:
+                                  action: remote.send_command
+                                  data:
+                                    entity_id: !lambda 'return id(remote_target_ent);'
+                                    command: !lambda 'return id(remote_target_cmd);'
 display:
   - id: !extend disp1
     lambda: |-

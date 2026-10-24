@@ -1,4 +1,4 @@
-# Build-Stamp: 2026-10-23 20:50:00
+# Build-Stamp: 2026-10-23 20:58:00
 # ==============================================================================
 # Pocket Assistant (v2.1 Modular Architecture)
 # Target: Waveshare ESP32-S3-Touch-AMOLED-1.75C
@@ -34,6 +34,12 @@ substitutions:
   sun_entity: "sun.sun"
   moon_entity: "sensor.moon_phase"
 
+  # Optional Standalone TV Remote Fallback Substitutions (Auto-overridden by Latter remote_config_sensor)
+  tv_remote_entity: "remote.none"
+  tv_remote_entity_2: "remote.none"
+  tv_remote_entity_3: "remote.none"
+  tv_remote_entity_4: "remote.none"
+
 
 dashboard_import:
   package_import_url: github://slampton/esphome-pocket-assistant/pocket-assistant-1.75c.yaml@main
@@ -63,7 +69,7 @@ esphome:
           uint32_t cal_val = rtc_clk_cal(0, 1024);
           ESP_LOGI("rtc_cal", "ESP32-S3 Hardware RTC slow clock calibrated: %lu (Q19.12)", (unsigned long)cal_val);
 
-          // Release all deep sleep pad holds immediately via board HAL (2026-10-23 20:50:00)
+          // Release all deep sleep pad holds immediately via board HAL (2026-10-23 20:58:00)
           id(hal_release_deep_sleep_holds).execute();
 
           id(sleep_start_time) = millis();
@@ -90,7 +96,17 @@ esphome:
         - lambda: |-
             id(clock_face_digital) = (id(clock_face_style).current_option() == "Modern Digital (Bold)");
             id(is_24h_format) = (id(time_format_select).current_option() == "24-Hour");
-            // Remote slots are populated dynamically from sensor.pocket_assistant_remote_config (Latter v1.0.3+)
+            // Seed standalone YAML remote slots at boot; dynamically overridden when Latter remote_config_sensor connects
+            if (id(ha_latter_remote_slots_summary).state.empty()) {
+              id(remote_slot_0_ent) = "${tv_remote_entity}";
+              id(remote_slot_1_ent) = "${tv_remote_entity_2}";
+              id(remote_slot_2_ent) = "${tv_remote_entity_3}";
+              id(remote_slot_3_ent) = "${tv_remote_entity_4}";
+              id(remote_slot_0_name) = pocket_ui::format_remote_entity_fallback(id(remote_slot_0_ent));
+              id(remote_slot_1_name) = pocket_ui::format_remote_entity_fallback(id(remote_slot_1_ent));
+              id(remote_slot_2_name) = pocket_ui::format_remote_entity_fallback(id(remote_slot_2_ent));
+              id(remote_slot_3_name) = pocket_ui::format_remote_entity_fallback(id(remote_slot_3_ent));
+            }
             if (id(remote_slot_0_name).empty()) id(remote_slot_0_name) = "TV Remote";
             // Seed AXP2101 USB/charging status immediately at boot so Frame 1 shows live battery telemetry
             uint8_t reg0 = 0x00, stat0 = 0, reg1 = 0x01, stat1 = 0;
