@@ -1740,8 +1740,7 @@ interval:
 
             const bool tts_audio_active =
                 (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
-                id(announcement_mixing_input).is_running();
+                (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING);
             if (id(va_active) && id(va_tts_received) && tts_audio_active) {
               esphome::voice_assistant::disarm_va_speaker_timeout(id(va));
             }
@@ -3439,7 +3438,20 @@ script:
                 } else {
                   id(screen_sleep_timer).execute();
                 }
+                if (!id(va_active)) {
+                  id(return_page) = id(gui_page);
+                  id(va_active) = true;
+                }
                 id(va_tts_received) = false;
+            - if:
+                condition:
+                  lambda: |-
+                    return !id(va_resume_music_after) &&
+                           ((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                            (!id(active_speaker_entity).empty() && id(ha_target_state).state == "playing"));
+                then:
+                  - script.execute: pause_all_music
+                  - delay: 180ms
             - if:
                 condition:
                   micro_wake_word.is_running:

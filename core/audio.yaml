@@ -449,29 +449,28 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
-      # 1. Wait for any ongoing media_player announcement and announcement_mixing_input buffer to finish
+      # 1. Wait for pocket_music_player to finish streaming/decoding the TTS FLAC response
       - if:
           condition:
             lambda: |-
-              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
-                     id(announcement_mixing_input).is_running();
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
+                     (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING);
           then:
             - wait_until:
                 condition:
                   lambda: |-
-                    return ((id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_ANNOUNCING) &&
-                            !id(announcement_mixing_input).is_running()) ||
+                    return ((id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
+                            (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_ANNOUNCING)) ||
                            !id(va_active);
                 timeout: 15s
-      # 2. Let the remaining ~450ms of TTS audio inside physical_speaker's 1000ms hardware buffer
+      # 2. Let the remaining ~250ms of TTS audio inside physical_speaker's 250ms hardware buffer
       #    finish playing out of the ES8311 DAC before muting or resuming music
       - if:
           condition:
             lambda: 'return id(va_tts_received) && id(va_active);'
           then:
-            - delay: 450ms
+            - delay: 350ms
       # 3. Exit the overlay and redraw return_page FIRST (before waking Sendspin FLAC streaming)
-      #    so the QSPI display flush completes with zero audio/network contention
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
           id(va_vad_active) = false;
@@ -486,7 +485,7 @@ script:
           }
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
       - delay: 160ms
-      # 4. Now smoothly restore music playback (with 600ms fade-in) or mute & route I2S back to mic
+      # 4. Now smoothly restore music playback or mute & route I2S back to mic
       - script.execute: resume_music_after_va
       - if:
           condition:
