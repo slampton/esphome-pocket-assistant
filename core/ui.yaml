@@ -2666,14 +2666,11 @@ script:
                 id: media_mixing_input
                 decibel_reduction: 50
                 duration: 0.1s
-            - if:
-                condition:
-                  lambda: 'return !id(active_speaker_entity).empty();'
-                then:
-                  - homeassistant.action:
-                      action: media_player.media_pause
-                      data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+            - homeassistant.action:
+                action: latter.media_command
+                data:
+                  target_device: "${name}"
+                  command: "pause"
 
   - id: resume_music_after_va
     mode: restart
@@ -2718,17 +2715,12 @@ script:
                             id: announcement_mixing_input
                             decibel_reduction: 50
                             duration: 0.1s
-                  # Dispatch media_play immediately so Home Assistant / Sendspin reconnects in parallel
-                  - if:
-                      condition:
-                        lambda: 'return !id(active_speaker_entity).empty();'
-                      then:
-                        - homeassistant.action:
-                            action: media_player.media_play
-                            data:
-                              entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                      else:
-                        - media_player.play: pocket_music_player
+                  # Dispatch play via latter.media_command so it never double-triggers with the media_play interceptor
+                  - homeassistant.action:
+                      action: latter.media_command
+                      data:
+                        target_device: "${name}"
+                        command: "play"
                   # If VA was terminated early, keep es8311_dac muted for 700ms while Sendspin
                   # handshakes so any residual TTS audio inside physical_speaker's 1000ms buffer
                   # drains completely silently instead of playing a 0.4s burst before music starts
