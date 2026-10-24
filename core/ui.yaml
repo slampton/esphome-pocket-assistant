@@ -3454,11 +3454,12 @@ script:
     mode: restart
     then:
       - script.stop: va_tts_drain_and_finish
+      - script.stop: mp_idle_debounce
       - audio_dac.mute_on: es8311_dac
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
           decibel_reduction: 50
-          duration: 0.1s
+          duration: 0.05s
       - if:
           condition:
             media_player.is_announcing: pocket_music_player
@@ -3466,7 +3467,15 @@ script:
             - media_player.stop:
                 id: pocket_music_player
                 announcement: true
+      - speaker.stop: announcement_resampler
       - speaker.stop: announcement_mixing_input
+      - if:
+          condition:
+            lambda: 'return !id(va_resume_music_after);'
+          then:
+            - speaker.stop: mixing_speaker
+            - speaker.stop: physical_speaker
+      - script.stop: mp_idle_debounce
       - voice_assistant.stop:
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));

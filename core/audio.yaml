@@ -214,6 +214,14 @@ voice_assistant:
             - delay: 150ms
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
+      - if:
+          condition:
+            lambda: 'return id(announcement_mixing_input).is_running() || id(physical_speaker).is_running();'
+          then:
+            - speaker.stop: announcement_mixing_input
+            - speaker.stop: mixing_speaker
+            - speaker.stop: physical_speaker
+            - delay: 30ms
       - script.execute: route_i2s_to_mic
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
