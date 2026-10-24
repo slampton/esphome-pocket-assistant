@@ -431,6 +431,70 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: current_loaded_wallpaper_url
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: cal_browse_page
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: cal_browse_total_pages
+    type: int
+    restore_value: no
+    initial_value: '1'
+  - id: cal_slot_1_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: cal_slot_1_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: cal_slot_2_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: cal_slot_2_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: cal_slot_3_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: cal_slot_3_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: cal_slot_4_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: cal_slot_4_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: cal_slot_5_name
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: cal_slot_5_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: intercom_message_str
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: intercom_feedback_str
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: intercom_feedback_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: music_action_feedback
     type: std::string
     restore_value: no
@@ -955,6 +1019,24 @@ image:
       - script.execute: sync_wake_word_state
     on_error:
       - lambda: 'id(current_loaded_art_url) = "";'
+      - script.execute: sync_wake_word_state
+
+  - platform: online_image
+    id: home_wallpaper_art
+    format: JPEG
+    buffer_size: 16384
+    type: RGB565
+    resize: 466x466
+    url: "${initial_art_url}"
+    on_download_finished:
+      - lambda: |-
+          id(current_loaded_wallpaper_url) = id(ha_latter_wallpaper_url).state;
+          if (id(display_power_state) == 0 && id(gui_page) == 1) {
+            pocket_ui::schedule_disp_update(&id(disp1));
+          }
+      - script.execute: sync_wake_word_state
+    on_error:
+      - lambda: 'id(current_loaded_wallpaper_url) = "";'
       - script.execute: sync_wake_word_state
 
 
@@ -2444,9 +2526,40 @@ text_sensor:
             }
 
   - platform: homeassistant
+    id: ha_latter_wallpaper_url
+    entity_id: ${room_context_sensor}
+    attribute: wallpaper_url
+    internal: true
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return (x.empty() || x == "none" || x == "unknown" || x == "unavailable");'
+            then:
+              - script.stop: fetch_wallpaper_debounced
+              - lambda: 'id(current_loaded_wallpaper_url) = "";'
+              - online_image.release: home_wallpaper_art
+              - lambda: |-
+                  if (id(display_power_state) == 0 && id(gui_page) == 1) {
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+            else:
+              - if:
+                  condition:
+                    lambda: 'return x != id(current_loaded_wallpaper_url);'
+                  then:
+                    - script.execute: fetch_wallpaper_debounced
+
+  - platform: homeassistant
     id: ha_calendar_agenda_raw
     entity_id: ${calendar_agenda_sensor}
     internal: true
+    on_value:
+      then:
+        - lambda: |-
+            if (id(display_power_state) == 0 && (id(gui_page) == 1 || (id(gui_page) == 8 && id(stuff_subpage) == 9))) {
+              pocket_ui::schedule_disp_update(&id(disp1));
+            }
 
   - platform: homeassistant
     id: ha_weather_forecast_5d
@@ -2850,6 +2963,53 @@ script:
             - online_image.set_url:
                 id: remote_album_art
                 url: !lambda 'return id(ha_target_art_url).state;'
+
+  - id: fetch_wallpaper_debounced
+    mode: restart
+    then:
+      - delay: 500ms
+      - if:
+          condition:
+            lambda: |-
+              return (id(display_power_state) == 0) &&
+                     !id(va_active) && id(va_status_text).empty() &&
+                     (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
+                     !id(ha_latter_wallpaper_url).state.empty() &&
+                     (id(ha_latter_wallpaper_url).state != "none") &&
+                     (id(ha_latter_wallpaper_url).state != "unknown") &&
+                     (id(ha_latter_wallpaper_url).state != "unavailable") &&
+                     (id(ha_latter_wallpaper_url).state != id(current_loaded_wallpaper_url));
+          then:
+            - if:
+                condition:
+                  micro_wake_word.is_running:
+                then:
+                  - micro_wake_word.stop:
+                  - delay: 20ms
+            - lambda: 'id(current_loaded_wallpaper_url) = id(ha_latter_wallpaper_url).state;'
+            - online_image.set_url:
+                id: home_wallpaper_art
+                url: !lambda 'return id(ha_latter_wallpaper_url).state;'
+
+  - id: fetch_calendar_browse
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: latter.calendar_fetch
+          data:
+            target_device: "${name}"
+            days: "7"
+            page: !lambda 'return to_string(id(cal_browse_page));'
+            page_size: "5"
+
+  - id: send_intercom_broadcast
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: latter.intercom_broadcast
+          data:
+            target_device: "${name}"
+            message: !lambda 'return id(intercom_message_str).c_str();'
 
   - id: throttled_disp_update
     mode: restart
@@ -3958,7 +4118,9 @@ display:
             id(theme_primary), id(theme_secondary),
             id(col_bg), id(col_black), id(col_white), id(col_slate),
             id(col_dark_gray), id(col_gold), id(col_green),
-            id(home_wake_greeting_switch).state, id(home_dock_room_switch).state);
+            id(home_wake_greeting_switch).state, id(home_dock_room_switch).state,
+            id(home_wallpaper_art), id(ha_latter_wallpaper_url).state,
+            id(current_loaded_wallpaper_url), id(ha_calendar_agenda_raw).state);
 
       // ==========================================
       // PAGE 2: MUSIC PLAYER & LIBRARY BROWSER
@@ -4287,6 +4449,22 @@ display:
               it, cx, millis(), id(coin_anim_active), id(coin_anim_start_ms),
               id(coin_side), id(font_date), id(font_small),
               id(theme_primary), id(theme_secondary), id(col_white), id(col_dark_gray));
+        } else if (id(stuff_subpage) == 9) {
+          render_tool_calendar(
+              it, cx, id(ha_calendar_agenda_raw).state,
+              id(cal_browse_page), id(cal_browse_total_pages),
+              id(cal_slot_1_name), id(cal_slot_1_active),
+              id(cal_slot_2_name), id(cal_slot_2_active),
+              id(cal_slot_3_name), id(cal_slot_3_active),
+              id(cal_slot_4_name), id(cal_slot_4_active),
+              id(cal_slot_5_name), id(cal_slot_5_active),
+              id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_bg), id(col_black), id(col_white), id(col_slate));
+        } else if (id(stuff_subpage) == 10) {
+          render_tool_intercom(
+              it, cx, millis(), id(intercom_feedback_str), id(intercom_feedback_ms),
+              id(font_small), id(theme_primary), id(theme_secondary),
+              id(col_white), id(col_slate));
         }
       }
 
@@ -4586,7 +4764,8 @@ touchscreen:
                   id(alarm3_hour), id(alarm3_minute), id(alarm3_enabled),
                   act_items,
                   now_t_hm.is_valid() ? now_t_hm.hour : -1,
-                  now_t_hm.is_valid() ? now_t_hm.minute : -1);
+                  now_t_hm.is_valid() ? now_t_hm.minute : -1,
+                  id(ha_calendar_agenda_raw).state);
 
               auto handle_activity_item_action = [&](int item_i, bool is_inline_btn) {
                 int kind = act_items[item_i].kind;
@@ -4680,6 +4859,12 @@ touchscreen:
                   id(gui_page) = 8;
                   id(stuff_subpage) = 2;
                   id(alarm_edit_idx) = (s_idx >= 1 && s_idx <= 3) ? s_idx : 0;
+                } else if (kind == 5) {
+                  pocket_ui::tools_direct_home() = true;
+                  id(gui_page) = 8;
+                  id(stuff_subpage) = 9;
+                  id(cal_browse_page) = 1;
+                  id(fetch_calendar_browse).execute();
                 }
                 pocket_ui::schedule_disp_update(&id(disp1));
               };
@@ -6342,6 +6527,8 @@ touchscreen:
                     target_subpage = P0_MAP[row][col];
                   } else if (row == 0) {
                     target_subpage = (col == 0) ? 4 : 8;
+                  } else if (row == 1) {
+                    target_subpage = (col == 0) ? 9 : 10;
                   }
                 }
 
@@ -6357,6 +6544,9 @@ touchscreen:
                       id(calc_prev_val) = 0.0f;
                       id(calc_op) = 0;
                       id(calc_new_entry) = true;
+                    } else if (id(stuff_subpage) == 9) {
+                      id(cal_browse_page) = 1;
+                      id(fetch_calendar_browse).execute();
                     }
                     pocket_ui::schedule_disp_update(&id(disp1));
                   }
@@ -6815,6 +7005,68 @@ touchscreen:
                     id(coin_side) = (esp_random() % 2);
                     pocket_ui::schedule_disp_update(&id(disp1));
                   }
+                }
+              } else if (id(stuff_subpage) == 9) {
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    if (pocket_ui::tools_direct_home()) {
+                      pocket_ui::tools_direct_home() = false;
+                      id(stuff_subpage) = 0;
+                      id(gui_page) = 1;
+                      id(home_subpage) = 0;
+                    } else {
+                      id(stuff_subpage) = 0;
+                    }
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+                if (id(cal_browse_total_pages) > 1 && is_right_chevron_zone(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_SCROLL) {
+                    int delta = (touch.y < 220) ? -1 : 1;
+                    int next_pg = std::max(1, std::min(id(cal_browse_total_pages), id(cal_browse_page) + delta));
+                    if (next_pg != id(cal_browse_page)) {
+                      last_stuff_tap = now_stuff;
+                      id(cal_browse_page) = next_pg;
+                      id(fetch_calendar_browse).execute();
+                      pocket_ui::schedule_disp_update(&id(disp1));
+                    }
+                  }
+                  return;
+                }
+                if (touch.y <= 78 && touch.x >= 110 && touch.x <= 356) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(fetch_calendar_browse).execute();
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+              } else if (id(stuff_subpage) == 10) {
+                if (is_back_button(touch)) {
+                  if (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON) {
+                    last_stuff_tap = now_stuff;
+                    id(stuff_subpage) = 0;
+                    pocket_ui::schedule_disp_update(&id(disp1));
+                  }
+                  return;
+                }
+                int slot_idx = get_5slot_index(touch, 88, 378);
+                if (slot_idx >= 0 && slot_idx <= 4 && (now_stuff - last_stuff_tap > TOUCH_DEBOUNCE_BUTTON)) {
+                  last_stuff_tap = now_stuff;
+                  static constexpr const char *kIntercomPresets[5] = {
+                    "Dinner is ready!",
+                    "Time to head out!",
+                    "Kids, please come downstairs!",
+                    "Could use a hand in here!",
+                    "Movie time in the Living Room!"
+                  };
+                  id(intercom_message_str) = kIntercomPresets[slot_idx];
+                  id(intercom_feedback_str) = std::string("Sent: ") + kIntercomPresets[slot_idx];
+                  id(intercom_feedback_ms) = now_stuff;
+                  id(send_intercom_broadcast).execute();
+                  pocket_ui::schedule_disp_update(&id(disp1));
                 }
               }
             }

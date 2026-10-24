@@ -171,6 +171,28 @@ inline void render_tool_launcher_card(DisplayT &it, int cx_card, int cy_card,
     it.filled_rectangle(ix - 5, iy, 11, 7, col_white);
     it.filled_circle(ix, iy + 1, 2, card_bg);
     it.line(ix, iy + 3, ix, iy + 6, card_bg);
+  } else if (app_id == 9) {
+    // 9. Calendar: 2px rounded page frame, solid header band, twin binder rings & 3x2 date pips
+    it.rectangle(ix - 13, iy - 12, 27, 26, col_white);
+    it.rectangle(ix - 12, iy - 11, 25, 24, col_white);
+    it.filled_rectangle(ix - 12, iy - 11, 25, 6, col_white);
+    it.filled_rectangle(ix - 7, iy - 15, 3, 5, col_white);
+    it.filled_rectangle(ix + 5, iy - 15, 3, 5, col_white);
+    for (int r = 0; r < 2; r++) {
+      for (int c = 0; c < 3; c++) {
+        it.filled_rectangle(ix - 8 + c * 7, iy - 1 + r * 6, 3, 3, (r == 0 && c == 1) ? theme_secondary : col_white);
+      }
+    }
+  } else if (app_id == 10) {
+    // 10. Intercom: Solid filled megaphone horn + handle & 2 radiating acoustic wave arcs
+    it.filled_rectangle(ix - 12, iy - 3, 5, 7, col_white);
+    it.filled_triangle(ix - 7, iy - 3, ix - 7, iy + 3, ix + 4, iy + 10, col_white);
+    it.filled_triangle(ix - 7, iy - 3, ix + 4, iy + 10, ix + 4, iy - 10, col_white);
+    it.filled_rectangle(ix - 8, iy + 4, 3, 6, theme_secondary);
+    it.line(ix + 8, iy - 5, ix + 10, iy, col_white);
+    it.line(ix + 10, iy, ix + 8, iy + 5, col_white);
+    it.line(ix + 11, iy - 8, ix + 14, iy, theme_secondary);
+    it.line(ix + 14, iy, ix + 11, iy + 8, theme_secondary);
   }
 
   it.print(cx_card, cy_card + 22, font_small, col_white,
@@ -215,8 +237,12 @@ inline void render_tools_launcher(DisplayT &it, int cx, int stuff_menu_page,
       }
     } else {
       if (y0 >= 75 && y0 <= 390) {
-        render_tool_launcher_card(it, col_left_x,  y0, 4, "Dice Roll",  font_small, theme_secondary, col_white);
-        render_tool_launcher_card(it, col_right_x, y0, 8, "Coin Flip",  font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_left_x,  y0, 4,  "Dice Roll", font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y0, 8,  "Coin Flip", font_small, theme_secondary, col_white);
+      }
+      if (y1 >= 75 && y1 <= 390) {
+        render_tool_launcher_card(it, col_left_x,  y1, 9,  "Calendar",  font_small, theme_secondary, col_white);
+        render_tool_launcher_card(it, col_right_x, y1, 10, "Intercom",  font_small, theme_secondary, col_white);
       }
     }
   };
@@ -1520,6 +1546,121 @@ inline void render_tool_calculator(DisplayT &it, int cx, const std::string &calc
   render_back_button(it, cx, font_small, 426, "< BACK");
 }
 
+template<typename DisplayT, typename FontSmallT>
+inline void render_tool_calendar(
+    DisplayT &it, int cx, const std::string &raw_agenda,
+    int cal_page, int cal_total_pages,
+    const std::string &s1_name, bool s1_act,
+    const std::string &s2_name, bool s2_act,
+    const std::string &s3_name, bool s3_act,
+    const std::string &s4_name, bool s4_act,
+    const std::string &s5_name, bool s5_act,
+    FontSmallT *font_small,
+    esphome::Color theme_primary, esphome::Color theme_secondary,
+    esphome::Color col_bg, esphome::Color col_black,
+    esphome::Color col_white, esphome::Color col_slate) {
+  using esphome::Color;
+  using esphome::display::TextAlign;
+
+  it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "CALENDAR");
+
+  const Color card_bg(22, 27, 36);
+  const Color card_brd(52, 62, 78);
+
+  std::string names[5] = {s1_name, s2_name, s3_name, s4_name, s5_name};
+  bool acts[5] = {s1_act, s2_act, s3_act, s4_act, s5_act};
+
+  // Fallback to parsing sensor.pocket_assistant_calendar_agenda ("TODAY 14:30|Dentist;...") if browse slots haven't arrived yet
+  if (names[0].empty() && !raw_agenda.empty() && raw_agenda != "NONE" &&
+      raw_agenda != "unknown" && raw_agenda != "unavailable") {
+    size_t pos = 0;
+    int idx = 0;
+    while (pos < raw_agenda.size() && idx < 5) {
+      size_t semi = raw_agenda.find(';', pos);
+      std::string tok = (semi == std::string::npos) ? raw_agenda.substr(pos) : raw_agenda.substr(pos, semi - pos);
+      pos = (semi == std::string::npos) ? raw_agenda.size() : (semi + 1);
+      if (tok.empty()) continue;
+      size_t bar = tok.find('|');
+      if (bar != std::string::npos) {
+        tok = tok.substr(0, bar) + ": " + tok.substr(bar + 1);
+      }
+      names[idx] = tok;
+      acts[idx] = (idx == 0);
+      idx++;
+    }
+  }
+
+  if (names[0].empty()) {
+    render_modern_card(it, cx, 222, 296, 54, 14, Color(16, 20, 27), Color(38, 46, 58),
+                       "No upcoming events", col_slate, font_small);
+  } else {
+    static constexpr int ROW_YS[5] = {110, 173, 236, 299, 362};
+    for (int i = 0; i < 5; i++) {
+      if (names[i].empty()) continue;
+      int y_mid = ROW_YS[i];
+      Color brd_c = acts[i] ? theme_primary : card_brd;
+      Color txt_c = acts[i] ? col_white : col_slate;
+      render_modern_card(it, cx, y_mid, 296, 44, 12, card_bg, brd_c, nullptr, txt_c, font_small);
+      if (acts[i]) {
+        it.filled_rectangle(94, y_mid - 12, 3, 24, theme_primary);
+      }
+      std::string fit_ev = fit_text_to_width_font(names[i], 256, font_small);
+      it.print(106, y_mid, font_small, txt_c, TextAlign::CENTER_LEFT, fit_ev.c_str());
+    }
+  }
+
+  if (cal_total_pages > 1) {
+    it.filled_rectangle(395, 140, 71, 160, col_bg);
+    if (cal_page > 1) render_scroll_chevron(it, 415, 162, true, theme_secondary, col_black, false);
+    if (cal_page < cal_total_pages) render_scroll_chevron(it, 415, 278, false, theme_secondary, col_black, false);
+  }
+
+  render_back_button(it, cx, font_small, 426, tools_direct_home() ? "Home" : "< Back");
+}
+
+template<typename DisplayT, typename FontSmallT>
+inline void render_tool_intercom(
+    DisplayT &it, int cx, uint32_t now_ms,
+    const std::string &feedback_str, uint32_t feedback_ms,
+    FontSmallT *font_small,
+    esphome::Color theme_primary, esphome::Color theme_secondary,
+    esphome::Color col_white, esphome::Color col_slate) {
+  using esphome::Color;
+  using esphome::display::TextAlign;
+  (void)col_slate;
+
+  const bool show_fb = (!feedback_str.empty() && (now_ms - feedback_ms < 2200U));
+  if (show_fb) {
+    std::string fit_fb = fit_text_to_width_font(feedback_str, 280, font_small);
+    it.print(cx, 48, font_small, theme_secondary, TextAlign::CENTER, fit_fb.c_str());
+  } else {
+    it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "INTERCOM");
+  }
+
+  const Color card_bg(22, 27, 36);
+  const Color card_brd(52, 62, 78);
+  static constexpr int ROW_YS[5] = {110, 173, 236, 299, 362};
+  static constexpr const char *kPresets[5] = {
+    "Dinner is ready!",
+    "Time to head out!",
+    "Kids, come downstairs!",
+    "Need a hand in here!",
+    "Movie time in Living Room!"
+  };
+
+  for (int i = 0; i < 5; i++) {
+    int y_mid = ROW_YS[i];
+    render_modern_card(it, cx, y_mid, 290, 44, 12, card_bg, card_brd, nullptr, col_white, font_small);
+    // Broadcast wave icon on left
+    it.filled_triangle(104, y_mid - 4, 104, y_mid + 4, 111, y_mid, theme_primary);
+    it.line(114, y_mid - 5, 116, y_mid, theme_secondary);
+    it.line(116, y_mid, 114, y_mid + 5, theme_secondary);
+    it.print(124, y_mid, font_small, col_white, TextAlign::CENTER_LEFT, kPresets[i]);
+  }
+
+  render_back_button(it, cx, font_small, 426, "< Back");
+}
+
 
 // ============================================================================
 // SECTION 15: MUSIC PLAYER ENGINE — NOW PLAYING, TRANSPORT HUD & LIBRARY MENUS
@@ -2319,7 +2460,8 @@ inline int collect_home_activities(
     int alarm2_h, int alarm2_m, bool alarm2_en,
     int alarm3_h, int alarm3_m, bool alarm3_en,
     HomeActivityItem out_items[8],
-    int cur_hour = -1, int cur_min = -1) {
+    int cur_hour = -1, int cur_min = -1,
+    const std::string &calendar_agenda_raw = "") {
   int count = 0;
 
   // 1. Active or Paused Countdown Timers (locks top slot ONLY if running with <= 60 seconds left!)
@@ -2398,6 +2540,19 @@ inline int collect_home_activities(
       }
       out_items[count++] = {4, i + 1, false, false, within_4h, std::string(buf)};
     }
+  }
+
+  // 5. Upcoming Calendar Event (from sensor.pocket_assistant_calendar_agenda "TODAY 14:30|Dentist;...")
+  if (!calendar_agenda_raw.empty() && calendar_agenda_raw != "NONE" &&
+      calendar_agenda_raw != "unknown" && calendar_agenda_raw != "unavailable" && count < 8) {
+    size_t semi = calendar_agenda_raw.find(';');
+    std::string first_ev = (semi == std::string::npos) ? calendar_agenda_raw : calendar_agenda_raw.substr(0, semi);
+    size_t bar = first_ev.find('|');
+    if (bar != std::string::npos) {
+      first_ev = first_ev.substr(0, bar) + " • " + first_ev.substr(bar + 1);
+    }
+    bool is_today = (first_ev.rfind("TODAY", 0) == 0 || first_ev.rfind("NOW", 0) == 0);
+    out_items[count++] = {5, 0, false, false, is_today, first_ev};
   }
 
   return count;
@@ -2852,7 +3007,7 @@ inline void get_home_dock_window_xs(int total_count, int page, int cx, int out_x
   }
 }
 
-template <typename DisplayT, typename TimeT, typename StrT, typename FontTimeT, typename FontDateT, typename FontSmallT>
+template <typename DisplayT, typename TimeT, typename StrT, typename FontTimeT, typename FontDateT, typename FontSmallT, typename WallImgT = void>
 inline void render_home_page(
     DisplayT &it, int cx, int cy, uint32_t now_ms, int home_subpage,
     int &home_activity_idx,
@@ -2874,7 +3029,11 @@ inline void render_home_page(
     esphome::Color col_bg, esphome::Color col_black, esphome::Color col_white,
     esphome::Color col_slate, esphome::Color col_dark_gray,
     esphome::Color col_gold, esphome::Color col_green,
-    bool show_wake_greeting = true, bool dock_room = true) {
+    bool show_wake_greeting = true, bool dock_room = true,
+    WallImgT *wallpaper_art = nullptr,
+    const std::string &wallpaper_url = "",
+    const std::string &loaded_wallpaper_url = "",
+    const std::string &calendar_agenda_raw = "") {
   using esphome::Color;
   using esphome::display::TextAlign;
 
@@ -2930,7 +3089,8 @@ inline void render_home_page(
       alarm3_h, alarm3_m, alarm3_en,
       act_items,
       now.is_valid() ? now.hour : -1,
-      now.is_valid() ? now.minute : -1);
+      now.is_valid() ? now.minute : -1,
+      calendar_agenda_raw);
 
   // ---------------------------------------------------------------------------
   // SUBPAGE 0 (MAIN HOME) & SUBPAGE 2 (TRANSLUCENT ACTIVITY OVERLAY BACKDROP)
@@ -2941,8 +3101,13 @@ inline void render_home_page(
   apply_weather_sim_override(weather_sim_opt, cond, is_night);
 
   const bool is_dim_backdrop = (home_subpage == 2);
+  const bool has_custom_wallpaper = (!wallpaper_url.empty() && wallpaper_url != "none" &&
+                                     wallpaper_url == loaded_wallpaper_url &&
+                                     wallpaper_art != nullptr && wallpaper_art->get_width() > 0);
 
-  if (show_weather_bg) {
+  if (has_custom_wallpaper && (!show_weather_bg || weather_sim_opt == "Live (Home Assistant)")) {
+    render_album_art_canvas(it, wallpaper_art, cx, false, false, true, false);
+  } else if (show_weather_bg) {
     if (is_dim_backdrop) {
       // Ultra-dim (~14% luminance) sky canvas when the Activity Overlay is open (zero interlace stripes!)
       if (!is_night) {

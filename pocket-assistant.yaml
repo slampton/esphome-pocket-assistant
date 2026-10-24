@@ -84,7 +84,10 @@ esphome:
         - lambda: 'esphome::voice_assistant::install_sendspin_mono_downmixer(id(sendspin_source));'
         - media_player.pause: pocket_music_player
         - online_image.release: remote_album_art
-        - lambda: 'id(current_loaded_art_url) = "";'
+        - online_image.release: home_wallpaper_art
+        - lambda: |-
+            id(current_loaded_art_url) = "";
+            id(current_loaded_wallpaper_url) = "";
         - audio_dac.set_volume:
             id: es8311_dac
             volume: 90%
@@ -186,6 +189,14 @@ api:
               id(room_area_3_name) = s3_name; id(room_area_3_id) = s3_id; id(room_area_3_active) = s3_active;
               id(room_area_4_name) = s4_name; id(room_area_4_id) = s4_id; id(room_area_4_active) = s4_active;
               id(room_area_5_name) = s5_name; id(room_area_5_id) = s5_id; id(room_area_5_active) = s5_active;
+            } else if (mode == "calendar_agenda") {
+              id(cal_browse_page) = page;
+              id(cal_browse_total_pages) = total_pages;
+              id(cal_slot_1_name) = s1_name; id(cal_slot_1_active) = s1_active;
+              id(cal_slot_2_name) = s2_name; id(cal_slot_2_active) = s2_active;
+              id(cal_slot_3_name) = s3_name; id(cal_slot_3_active) = s3_active;
+              id(cal_slot_4_name) = s4_name; id(cal_slot_4_active) = s4_active;
+              id(cal_slot_5_name) = s5_name; id(cal_slot_5_active) = s5_active;
             } else if (mode == "entities" || mode == "home") {
               id(room_browse_mode) = "entities";
               id(room_browse_page) = page;
