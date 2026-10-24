@@ -2964,7 +2964,6 @@ script:
                       id: media_mixing_input
                       decibel_reduction: !lambda 'float v = id(pocket_music_player).volume; return (std::isnan(v) || v <= 0.05f) ? 26.0f : (v >= 1.0f ? 0.0f : -20.0f * std::log10(v));'
                       duration: 0.2s
-                  - media_player.play: pocket_music_player
             - homeassistant.action:
                 action: latter.media_command
                 data:

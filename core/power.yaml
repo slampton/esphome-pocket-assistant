@@ -446,6 +446,7 @@ interval:
           // where on_play did not re-fire), immediately route I2S to speaker and unmute ES8311 DAC.
           if ((id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) &&
               !id(speaker_enable).state && !id(va_active) && !id(va_tts_received) &&
+              !id(va_resume_music_after) && !id(boot_button).state &&
               !id(is_hibernating) && (millis() > 5000U)) {
             ESP_LOGI("audio", "Local player is PLAYING with speaker_enable OFF -> routing I2S to speaker & unmuting DAC");
             id(mp_idle_debounce).stop();
