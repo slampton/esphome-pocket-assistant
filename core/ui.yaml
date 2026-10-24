@@ -2690,13 +2690,19 @@ script:
                 condition:
                   lambda: 'return !id(active_speaker_entity).empty() && (id(active_speaker_entity) != "${local_player_id}");'
                 then:
-                  - lambda: 'id(va_was_cancelled) = false;'
+                  - lambda: |-
+                      id(va_was_cancelled) = false;
+                      if (id(display_power_state) == 0 && id(ble_room_beacon_switch).state && !id(ble_ctrl).is_active()) {
+                        id(ble_ctrl).enable();
+                      }
                   - homeassistant.action:
-                      action: media_player.media_play
+                      action: latter.media_command
                       data:
-                        entity_id: !lambda 'return id(active_speaker_entity).c_str();'
+                        target_device: "${name}"
+                        command: "play"
                   - audio_dac.mute_on: es8311_dac
                   - script.execute: route_i2s_to_mic
+                  - script.execute: sync_wake_word_state
                 else:
                   - script.execute: route_i2s_to_spk
                   - switch.turn_on: speaker_enable
@@ -2923,7 +2929,6 @@ script:
                   target_device: "${name}"
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
                   action: "down"
-
   - id: toggle_ha_music
     mode: restart
     then:
@@ -5581,8 +5586,7 @@ touchscreen:
                   else if (slot == 1) { id(start_hibernation_countdown).execute(); return; }
                   else if (slot == 2) { id(system_menu_mode) = 5; pocket_ui::schedule_disp_update(&id(disp1)); return; }
                   else if (slot == 3) {
-                    if (id(ble_ctrl).is_active()) id(ble_ctrl).disable();
-                    else id(ble_ctrl).enable();
+                    id(ble_room_beacon_switch).toggle();
                     pocket_ui::schedule_disp_update(&id(disp1));
                     return;
                   } else if (slot == 4) { id(system_menu_mode) = 4; pocket_ui::schedule_disp_update(&id(disp1)); return; }
