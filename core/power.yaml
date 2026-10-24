@@ -467,7 +467,16 @@ interval:
             id(ble_ctrl).enable();
           }
 
-          // Firmware update checks run on-demand via System -> Actions -> Software Update (zero background TLS/AES DMA spikes)
+          // Safe Docked-Idle Background Firmware Update Check (after 3 min uptime, every 6h while on USB & idle)
+          static uint32_t last_fw_check_ms = 0;
+          if (now_1s_ms > 180000U && id(usb_connected).state && id(wifi_ctrl).is_connected() &&
+              (id(display_power_state) != 0) &&
+              !id(va_active) && !id(va_tts_received) && !id(ota_in_progress) &&
+              (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
+              (last_fw_check_ms == 0 || (now_1s_ms - last_fw_check_ms >= 21600000U))) {
+            last_fw_check_ms = now_1s_ms;
+            id(check_firmware_update).execute();
+          }
 
           // Priority 4: Configurable Inactivity Auto-Descent to Deep Sleep
           uint32_t hibernate_timeout_ms = 900000; // default 15 min

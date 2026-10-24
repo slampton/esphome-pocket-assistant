@@ -1529,7 +1529,7 @@ switch:
     icon: "mdi:bluetooth-audio"
     entity_category: config
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
     turn_on_action:
       - lambda: |-
           id(ble_room_beacon_switch).publish_state(true);
@@ -2898,7 +2898,9 @@ script:
                 data:
                   target_device: "${name}"
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                  action: "set"
+                  action: !lambda |-
+                    float sf = id(ha_target_supported_features).state;
+                    return (!std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0)) ? "set" : "up";
                   volume_level: !lambda 'return id(remote_vol_level_str);'
 
   - id: music_vol_down
@@ -2927,7 +2929,9 @@ script:
                 data:
                   target_device: "${name}"
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                  action: "set"
+                  action: !lambda |-
+                    float sf = id(ha_target_supported_features).state;
+                    return (!std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0)) ? "set" : "down";
                   volume_level: !lambda 'return id(remote_vol_level_str);'
 
   - id: toggle_ha_music
@@ -3173,7 +3177,7 @@ script:
             domain_filter: !lambda 'return id(room_domain_filter).c_str();'
             page: !lambda 'return to_string(id(room_browse_page));'
             page_size: !lambda 'return (id(room_browse_mode) == "areas") ? "5" : "3";'
-            handoff_media: "false"
+            handoff_media: !lambda 'return id(room_handoff_media_switch).state ? "true" : "false";'
 
   - id: execute_alarm_action
     mode: restart
@@ -3363,6 +3367,11 @@ script:
             - script.stop: mp_idle_debounce
             - if:
                 condition:
+                  lambda: 'return id(ble_ctrl).is_active();'
+                then:
+                  - ble.disable:
+            - if:
+                condition:
                   lambda: 'return id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING;'
                 then:
                   - media_player.stop: pocket_music_player
@@ -3403,6 +3412,10 @@ script:
             - script.execute: route_i2s_to_mic
             - script.execute: sync_wake_word_state
             - lambda: |-
+                if (id(display_power_state) == 0 && id(ble_room_beacon_switch).state && !id(ble_ctrl).is_active()) {
+                  ESP_LOGI("ble", "Local audio idle: re-enabling BLE Presence Beacon");
+                  id(ble_ctrl).enable();
+                }
                 if (id(display_power_state) == 2) {
                   auto ww_mode = id(va_wake_word_mode).current_option();
                   bool ww_act = (ww_mode == "Always On") || (ww_mode == "Docked Only" && id(usb_connected).state);
@@ -3592,13 +3605,47 @@ script:
           // Pass the exact platform-resolved command (e.g. DPAD_UP, DPAD_CENTER, BACK, HOME for Android TV / Shield)
           id(remote_latter_cmd) = (k == 7) ? "volume_up" : ((k == 8) ? "volume_down" : ((k == 9) ? "toggle" : id(remote_target_cmd)));
           id(remote_feedback_timer) = millis();
-      - homeassistant.action:
-          action: latter.remote_action
-          data:
-            target_device: "${name}"
-            slot: !lambda 'return to_string(id(remote_latter_slot_num));'
-            action: !lambda 'return id(remote_latter_act);'
-            command: !lambda 'return id(remote_latter_cmd);'
+      - if:
+          condition:
+            lambda: |-
+              return (id(remote_target_prof) != "Denon / Marantz AVR") &&
+                     (id(remote_target_prof) != "LG webOS");
+          then:
+            - homeassistant.action:
+                action: latter.remote_action
+                data:
+                  target_device: "${name}"
+                  slot: !lambda 'return to_string(id(remote_latter_slot_num));'
+                  action: !lambda 'return id(remote_latter_act);'
+                  command: !lambda 'return id(remote_latter_cmd);'
+          else:
+            - if:
+                condition:
+                  lambda: 'return key_idx >= 7 && key_idx <= 9;'
+                then:
+                  - homeassistant.action:
+                      action: latter.remote_action
+                      data:
+                        target_device: "${name}"
+                        slot: !lambda 'return to_string(id(remote_latter_slot_num));'
+                        action: !lambda 'return id(remote_latter_act);'
+                        command: !lambda 'return id(remote_latter_cmd);'
+                else:
+                  - if:
+                      condition:
+                        lambda: 'return id(remote_target_prof) == "Denon / Marantz AVR";'
+                      then:
+                        - homeassistant.action:
+                            action: denonavr.get_command
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                              command: !lambda 'return id(remote_target_cmd);'
+                      else:
+                        - homeassistant.action:
+                            action: webostv.button
+                            data:
+                              entity_id: !lambda 'return id(remote_target_ent);'
+                              button: !lambda 'return id(remote_target_cmd);'
 
 display:
   - id: !extend disp1
