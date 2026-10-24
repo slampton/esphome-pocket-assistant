@@ -178,8 +178,16 @@ api:
       then:
         - lambda: |-
             (void)has_prev; (void)has_next;
-            if (mode == "room_areas" || mode == "areas" || mode == "entities") {
-              id(room_browse_mode) = (mode == "room_areas") ? std::string("areas") : std::string(mode);
+            if (mode == "room_areas" || mode == "areas") {
+              id(room_area_page) = page;
+              id(room_area_total_pages) = total_pages;
+              id(room_area_1_name) = s1_name; id(room_area_1_id) = s1_id; id(room_area_1_active) = s1_active;
+              id(room_area_2_name) = s2_name; id(room_area_2_id) = s2_id; id(room_area_2_active) = s2_active;
+              id(room_area_3_name) = s3_name; id(room_area_3_id) = s3_id; id(room_area_3_active) = s3_active;
+              id(room_area_4_name) = s4_name; id(room_area_4_id) = s4_id; id(room_area_4_active) = s4_active;
+              id(room_area_5_name) = s5_name; id(room_area_5_id) = s5_id; id(room_area_5_active) = s5_active;
+            } else if (mode == "entities" || mode == "home") {
+              id(room_browse_mode) = "entities";
               id(room_browse_page) = page;
               id(room_browse_total_pages) = total_pages;
               id(room_slot_1_name) = s1_name; id(room_slot_1_id) = s1_id; id(room_slot_1_type) = s1_type; id(room_slot_1_active) = s1_active; id(room_slot_1_level) = -1;

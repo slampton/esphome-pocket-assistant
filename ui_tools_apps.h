@@ -3627,7 +3627,7 @@ inline void render_room_control_page(
   // ===========================================================================
   // SUBPAGE 1 / AREAS MODE: 5-SLOT ROOM SWITCHER
   // ===========================================================================
-  if (room_browse_mode == "areas" || room_browse_mode == "room_areas") {
+  if (room_subpage == 1 || room_browse_mode == "areas" || room_browse_mode == "room_areas") {
     it.print(cx, 48, font_small, theme_primary, TextAlign::CENTER, "SELECT ROOM");
 
     auto draw_area_row = [&](int y_mid, const std::string &name, const std::string &id_str, bool is_act) {
