@@ -151,13 +151,7 @@ media_player:
         - script.execute: mp_idle_debounce
     on_idle:
       then:
-        - if:
-            condition:
-              lambda: 'return id(va_active) && id(va_tts_received);'
-            then:
-              - script.execute: va_tts_drain_and_finish
-            else:
-              - script.execute: mp_idle_debounce
+        - script.execute: mp_idle_debounce
 
 micro_wake_word:
   id: mww
@@ -220,14 +214,6 @@ voice_assistant:
             - delay: 150ms
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
-      - if:
-          condition:
-            lambda: 'return id(announcement_mixing_input).is_running() || id(physical_speaker).is_running();'
-          then:
-            - speaker.stop: announcement_resampler
-            - speaker.stop: announcement_mixing_input
-            - speaker.stop: physical_speaker
-            - delay: 30ms
       - script.execute: route_i2s_to_mic
       - mixer_speaker.apply_ducking:
           id: announcement_mixing_input
@@ -257,7 +243,6 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = true;
           id(va_status_text) = "Listening...";
-          esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Listening (VAD active)...");
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_stt_vad_end:
@@ -266,7 +251,6 @@ voice_assistant:
       - lambda: |-
           id(va_vad_active) = false;
           id(va_status_text) = "Thinking...";
-          esphome::voice_assistant::reset_va_session_state(id(va));
           ESP_LOGI("va", "Status: Thinking...");
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
   on_stt_end:
@@ -449,32 +433,30 @@ script:
   - id: va_tts_drain_and_finish
     mode: restart
     then:
-      # 1. Wait for both pocket_music_player decoding AND announcement_mixing_input's 15s PSRAM ring buffer to finish playing
+      # 1. Wait for any ongoing media_player announcement and announcement_mixing_input buffer to finish
       - if:
           condition:
             lambda: |-
-              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING) ||
-                     (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
                      id(announcement_mixing_input).is_running();
           then:
             - wait_until:
                 condition:
                   lambda: |-
-                    return ((id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_PLAYING) &&
-                            (id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_ANNOUNCING) &&
+                    return ((id(pocket_music_player).state != media_player::MEDIA_PLAYER_STATE_ANNOUNCING) &&
                             !id(announcement_mixing_input).is_running()) ||
                            !id(va_active);
-                timeout: 20s
+                timeout: 15s
       # 2. Let the remaining ~250ms of TTS audio inside physical_speaker's 250ms hardware buffer
       #    finish playing out of the ES8311 DAC before muting or resuming music
       - if:
           condition:
             lambda: 'return id(va_tts_received) && id(va_active);'
           then:
-            - delay: 250ms
+            - delay: 300ms
       # 3. Exit the overlay and redraw return_page FIRST (before waking Sendspin FLAC streaming)
       - lambda: |-
-          esphome::voice_assistant::abort_voice_assistant(id(va));
+          esphome::voice_assistant::reset_va_session_state(id(va));
           id(va_vad_active) = false;
           id(va_status_text) = "";
           id(va_tts_received) = false;

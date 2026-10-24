@@ -3474,20 +3474,20 @@ script:
           duration: 0.05s
       - if:
           condition:
-            media_player.is_announcing: pocket_music_player
+            lambda: |-
+              return (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_ANNOUNCING) ||
+                     (id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_PLAYING);
           then:
             - media_player.stop:
                 id: pocket_music_player
                 announcement: true
-      - speaker.stop: announcement_resampler
       - speaker.stop: announcement_mixing_input
-      - if:
-          condition:
-            lambda: 'return !id(va_resume_music_after);'
-          then:
-            - speaker.stop: physical_speaker
-      - script.stop: mp_idle_debounce
       - voice_assistant.stop:
+      - wait_until:
+          condition:
+            lambda: 'return id(pocket_music_player).state == media_player::MEDIA_PLAYER_STATE_IDLE;'
+          timeout: 450ms
+      - script.stop: mp_idle_debounce
       - lambda: |-
           esphome::voice_assistant::abort_voice_assistant(id(va));
           id(va_was_cancelled) = true;
@@ -3501,7 +3501,7 @@ script:
             extern int esp_wifi_set_ps(int type) __asm__("esp_wifi_set_ps");
             esp_wifi_set_ps(1);
           }
-      - delay: 15ms
+      - delay: 25ms
       - lambda: 'pocket_ui::schedule_disp_update(&id(disp1));'
       - delay: 160ms
       - script.execute: resume_music_after_va
