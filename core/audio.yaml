@@ -47,7 +47,7 @@ sendspin:
 media_source:
   - platform: audio_http
     id: http_announcement_source
-    buffer_size: 250000
+    buffer_size: 65536
 
   - platform: sendspin
     id: sendspin_source
@@ -218,6 +218,11 @@ voice_assistant:
           then:
             - script.execute: pause_all_music
             - delay: 150ms
+      - if:
+          condition:
+            lambda: 'return id(ble_ctrl).is_active();'
+          then:
+            - ble.disable:
       - script.stop: mp_idle_debounce
       - script.stop: screen_sleep_timer
       - script.execute: route_i2s_to_mic

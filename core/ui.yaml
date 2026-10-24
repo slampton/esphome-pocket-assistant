@@ -2734,7 +2734,11 @@ script:
                         - delay: 700ms
                   - audio_dac.mute_off: es8311_dac
           else:
-            - lambda: 'id(va_was_cancelled) = false;'
+            - lambda: |-
+                id(va_was_cancelled) = false;
+                if (id(display_power_state) == 0 && id(ble_room_beacon_switch).state && !id(ble_ctrl).is_active()) {
+                  id(ble_ctrl).enable();
+                }
             - audio_dac.mute_on: es8311_dac
             - script.execute: route_i2s_to_mic
             - script.execute: sync_wake_word_state
@@ -2889,19 +2893,12 @@ script:
                 float new_vol = std::min(1.00f, cur + step);
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
-            - lambda: |-
-                char b[16];
-                snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
-                id(remote_vol_level_str) = b;
             - homeassistant.action:
                 action: latter.media_volume
                 data:
                   target_device: "${name}"
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                  action: !lambda |-
-                    float sf = id(ha_target_supported_features).state;
-                    return (!std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0)) ? "set" : "up";
-                  volume_level: !lambda 'return id(remote_vol_level_str);'
+                  action: "up"
 
   - id: music_vol_down
     mode: restart
@@ -2920,19 +2917,12 @@ script:
                 float new_vol = std::max(0.10f, cur - step);
                 id(pocket_music_player).make_call().set_volume(new_vol).perform();
           else:
-            - lambda: |-
-                char b[16];
-                snprintf(b, sizeof(b), "%.2f", pocket_ui::remote_vol_pct() / 100.0f);
-                id(remote_vol_level_str) = b;
             - homeassistant.action:
                 action: latter.media_volume
                 data:
                   target_device: "${name}"
                   entity_id: !lambda 'return id(active_speaker_entity).c_str();'
-                  action: !lambda |-
-                    float sf = id(ha_target_supported_features).state;
-                    return (!std::isnan(sf) && ((static_cast<int>(sf) & 4) != 0)) ? "set" : "down";
-                  volume_level: !lambda 'return id(remote_vol_level_str);'
+                  action: "down"
 
   - id: toggle_ha_music
     mode: restart
@@ -4820,9 +4810,12 @@ touchscreen:
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
                     bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
-                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(v_step)
-                                            : std::min(100, (int)std::round(id(pocket_music_player).volume * 100.0f) + v_step);
-                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
+                    if (is_rem_vol) {
+                      id(music_action_feedback) = "Volume +";
+                    } else {
+                      int v_next = std::min(100, (int)std::round(id(pocket_music_player).volume * 100.0f) + v_step);
+                      id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
+                    }
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_up).execute();
                     pocket_ui::schedule_disp_update(&id(disp1));
@@ -4838,9 +4831,12 @@ touchscreen:
                     id(music_hud_timer) = now_vol_tap;
                     int v_step = (int)id(volume_step_size).state;
                     bool is_rem_vol = (id(active_speaker_entity) != "${local_player_id}");
-                    int v_next = is_rem_vol ? pocket_ui::step_remote_vol_pct(-v_step)
-                                            : std::max(0, (int)std::round(id(pocket_music_player).volume * 100.0f) - v_step);
-                    id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
+                    if (is_rem_vol) {
+                      id(music_action_feedback) = "Volume -";
+                    } else {
+                      int v_next = std::max(0, (int)std::round(id(pocket_music_player).volume * 100.0f) - v_step);
+                      id(music_action_feedback) = "Volume: " + to_string(v_next) + "%";
+                    }
                     id(music_feedback_timer) = now_vol_tap;
                     id(music_vol_down).execute();
                     pocket_ui::schedule_disp_update(&id(disp1));
